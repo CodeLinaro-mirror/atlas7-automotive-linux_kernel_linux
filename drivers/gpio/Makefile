@@ -42,6 +42,7 @@ obj-$(CONFIG_GPIO_S5PC100)	+= gpio-s5pc100.o
 obj-$(CONFIG_GPIO_S5PV210)	+= gpio-s5pv210.o
 
 obj-$(CONFIG_GPIO_SCH)		+= gpio-sch.o
+obj-$(CONFIG_GPIO_SIRF)		+= gpio-sirf.o
 obj-$(CONFIG_GPIO_STMPE)	+= gpio-stmpe.o
 obj-$(CONFIG_GPIO_SX150X)	+= gpio-sx150x.o
 obj-$(CONFIG_GPIO_TC3589X)	+= gpio-tc3589x.o

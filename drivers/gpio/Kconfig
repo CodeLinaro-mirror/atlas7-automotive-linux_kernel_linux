@@ -162,6 +162,12 @@ config GPIO_SCH
 	  The Intel Tunnel Creek processor has 5 GPIOs powered by the
 	  core power rail and 9 from suspend power supply.
 
+config GPIO_SIRF
+	bool "CSR SiRFprimaII GPIO"
+	default y
+	help
+	  Say yes here to support GPIO interface on CSR SiRFprimaII.
+
 config GPIO_VX855
 	tristate "VIA VX855/VX875 GPIO"
 	depends on MFD_SUPPORT && PCI
