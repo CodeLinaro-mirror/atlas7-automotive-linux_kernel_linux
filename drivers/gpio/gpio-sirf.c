@@ -454,7 +454,7 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	writel(status, sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
 }
 
-static int sirfsoc_gpio_probe(struct platform_device *pdev)
+static int __devinit sirfsoc_gpio_probe(struct platform_device *pdev)
 {
 	int i;
 
@@ -492,7 +492,7 @@ static int sirfsoc_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int sirfsoc_gpio_remove(struct platform_device *dev)
+static int __devexit sirfsoc_gpio_remove(struct platform_device *dev)
 {
 	return 0;
 }
@@ -509,7 +509,7 @@ static struct platform_driver sirfsoc_gpio_driver = {
 		.of_match_table = sirf_gpio_of_match,
 	},
 	.probe		= sirfsoc_gpio_probe,
-	.remove		= sirfsoc_gpio_remove,
+	.remove		= __devexit_p(sirfsoc_gpio_remove),
 };
 
 static int __init sirfsoc_gpio_init(void)
