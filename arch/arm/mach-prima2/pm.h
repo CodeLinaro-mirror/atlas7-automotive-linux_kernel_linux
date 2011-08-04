@@ -1,0 +1,32 @@
+/*
+ * arch/arm/plat-sirfsoc/pm.h
+ *
+ * Copyright (C) 2011 CSR
+ *
+ * This file is licensed under the terms of the GNU General Public
+ * License version 2. This program is licensed "as is" without any
+ * warranty of any kind, whether express or implied.
+ */
+
+#ifndef _MACH_PRIMA2_PM_H_
+#define _MACH_PRIMA2_PM_H_
+
+#define SIRFSOC_PWR_SLEEPFORCE		0x01
+
+#define SIRFSOC_SLEEP_MODE_MASK         0x3
+#define SIRFSOC_DEEP_SLEEP_MODE         0x1
+
+#define SIRFSOC_PWRC_PDN_CTRL           0x0
+#define SIRFSOC_PWRC_PON_OFF            0x4
+#define SIRFSOC_PWRC_TRIGGER_EN         0x8
+#define SIRFSOC_PWRC_PIN_STATUS         0x14
+#define SIRFSOC_PWRC_SCRATCH_PAD1       0x18
+#define SIRFSOC_PWRC_SCRATCH_PAD2       0x1C
+
+#ifndef __ASSEMBLY__
+extern void sirfsoc_sleep(void);
+extern u32 *sirfsoc_get_wakeup_pointer(void);
+#endif
+
+#endif
+

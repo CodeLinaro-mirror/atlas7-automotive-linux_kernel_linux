@@ -18,25 +18,14 @@
 #define L2X0_ADDR_FILTERING_START       0xC00
 #define L2X0_ADDR_FILTERING_END         0xC04
 
+void __iomem *sirfsoc_l2x_base;
+
 static struct of_device_id l2x_ids[]  = {
 	{ .compatible = "arm,pl310-cache" },
 };
 
-static int __init sirfsoc_of_l2x_init(void)
+void sirfsoc_l2x_init(void)
 {
-	struct device_node *np;
-	void __iomem *sirfsoc_l2x_base;
-
-	np = of_find_matching_node(NULL, l2x_ids);
-	if (!np)
-		panic("unable to find compatible l2x node in dtb\n");
-
-	sirfsoc_l2x_base = of_iomap(np, 0);
-	if (!sirfsoc_l2x_base)
-		panic("unable to map l2x cpu registers\n");
-
-	of_node_put(np);
-
 	if (!(readl_relaxed(sirfsoc_l2x_base + L2X0_CTRL) & 1)) {
 		/*
 		 * set the physical memory windows L2 cache will cover
@@ -53,6 +42,23 @@ static int __init sirfsoc_of_l2x_init(void)
 	}
 	l2x0_init((void __iomem *)sirfsoc_l2x_base, 0x00040000,
 		0x00000000);
+}
+
+static int __init sirfsoc_of_l2x_init(void)
+{
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, l2x_ids);
+	if (!np)
+		panic("unable to find compatible l2x node in dtb\n");
+
+	sirfsoc_l2x_base = of_iomap(np, 0);
+	if (!sirfsoc_l2x_base)
+		panic("unable to map l2x cpu registers\n");
+
+	of_node_put(np);
+
+	sirfsoc_l2x_init();
 
 	return 0;
 }
