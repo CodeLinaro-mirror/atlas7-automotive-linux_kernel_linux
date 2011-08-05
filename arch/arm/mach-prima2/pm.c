@@ -87,22 +87,9 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 	return 0;
 }
 
-static int sirfsoc_pm_valid(suspend_state_t state)
-{
-	switch (state) {
-	case PM_SUSPEND_ON:
-	case PM_SUSPEND_MEM:
-		return 1;
-
-	default:
-		return 0;
-	}
-
-}
-
 static const struct platform_suspend_ops sirfsoc_pm_ops = {
 	.enter = sirfsoc_pm_enter,
-	.valid = sirfsoc_pm_valid,
+	.valid = suspend_valid_only_mem,
 };
 
 static struct of_device_id pwrc_ids[] = {
