@@ -80,6 +80,9 @@ sirfsoc_sleep:
 	@ r5: 	mem controller
 	ldr     r0, =sirfsoc_memc_base
 	ldr	r5, [r0]
+	@ r7: 	rtc iobrg controller
+	ldr     r0, =sirfsoc_rtciobrg_base
+	ldr	r7, [r0]
 
 	@ Clean and invalidate all caches
 	bl v7_flush_kern_cache_all
@@ -111,6 +114,7 @@ sirfsoc_sleep:
 	orr r0,r0,#SIRFSOC_PWR_SLEEPFORCE
 	ldr r1, =SIRFSOC_PWRC_PDN_CTRL
 	bl sirfsoc_rtc_iobrg_pre_writel
+	mov r1, #0x1
 
 	@ The following code is arranged in such a way
 	@ that the code to be run after memory is put
@@ -134,8 +138,15 @@ sirfsoc_sleep:
 	tst	r4, #0x1
 	bne	1b
 
-	bl sirfsoc_rtc_iobrg_do_writel
-	bl sirfsoc_rtc_iobrg_wait_sync
+	@ write SLEEPFORCE through rtc iobridge
+
+	str r1,[r7]
+	@ wait rtc io bridge sync
+1:
+	ldr r3, [r7]
+	tst r3, #0x01
+	bne 1b
+	b .
 
 	@ bootloader will jump here on wakeup
 
