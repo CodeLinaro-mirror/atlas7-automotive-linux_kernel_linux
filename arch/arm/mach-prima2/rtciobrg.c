@@ -80,13 +80,6 @@ void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 	writel(val, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
 }
 
-void sirfsoc_rtc_iobrg_do_writel(void)
-{
-	writel(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
-
-	sirfsoc_rtc_iobrg_wait_sync();
-}
-
 void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 {
 	unsigned long flags = 0;
@@ -94,7 +87,10 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 	spin_lock_irqsave(&rtciobrg_lock, flags);
 
 	sirfsoc_rtc_iobrg_pre_writel(val, addr);
-	sirfsoc_rtc_iobrg_do_writel();
+
+	writel(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
+
+	sirfsoc_rtc_iobrg_wait_sync();
 
 	spin_unlock_irqrestore(&rtciobrg_lock, flags);
 }

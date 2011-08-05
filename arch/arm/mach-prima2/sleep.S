@@ -109,12 +109,12 @@ sirfsoc_sleep:
 
 	@ Read the power control register and set the
 	@ sleep force bit.
-	ldr r0, =SIRFSOC_PWRC_PDN_CTRL
-	bl __sirfsoc_rtc_iobrg_readl
-	orr r0,r0,#SIRFSOC_PWR_SLEEPFORCE
-	ldr r1, =SIRFSOC_PWRC_PDN_CTRL
-	bl sirfsoc_rtc_iobrg_pre_writel
-	mov r1, #0x1
+	ldr	r0, =SIRFSOC_PWRC_PDN_CTRL
+	bl	__sirfsoc_rtc_iobrg_readl
+	orr	r0,r0,#SIRFSOC_PWR_SLEEPFORCE
+	ldr	r1, =SIRFSOC_PWRC_PDN_CTRL
+	bl	sirfsoc_rtc_iobrg_pre_writel
+	mov	r1, #0x1
 
 	@ The following code is arranged in such a way
 	@ that the code to be run after memory is put
@@ -140,12 +140,12 @@ sirfsoc_sleep:
 
 	@ write SLEEPFORCE through rtc iobridge
 
-	str r1,[r7]
+	str	r1, [r7]
 	@ wait rtc io bridge sync
 1:
-	ldr r3, [r7]
-	tst r3, #0x01
-	bne 1b
+	ldr	r3, [r7]
+	tst	r3, #0x01
+	bne	1b
 	b .
 
 	@ bootloader will jump here on wakeup
@@ -166,11 +166,11 @@ sirfsoc_wakeup:
 	msr	cpsr, r0			@ set SVC, irqs off
 
 	@ Get save_context phys address
-	ldr r1, =save_context
-	ldr r3,=(.+12)
-	sub r3, r3, pc
-	sub r1,r1,r3
-        ldr r0,[r1]
+	ldr	r1, =save_context
+	ldr	r3, =(.+12)
+	sub	r3, r3, pc
+	sub	r1, r1, r3
+	ldr	r0, [r1]
 
 	add	r0, r0, r1
 
