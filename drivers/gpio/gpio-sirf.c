@@ -13,11 +13,11 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <linux/gpio.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/regs-gpio.h>
-#include <mach/gpio.h>
 #include <mach/pinmux.h>
 
 #define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP0         43

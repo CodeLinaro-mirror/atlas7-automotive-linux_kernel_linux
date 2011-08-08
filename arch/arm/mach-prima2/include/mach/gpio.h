@@ -19,7 +19,6 @@
 	SIRFSOC_GPIO_HS_CPLD_SIZE)
 #endif
 
-#include <linux/errno.h>
 #include <asm-generic/gpio.h>
 
 #define gpio_get_value	__gpio_get_value
