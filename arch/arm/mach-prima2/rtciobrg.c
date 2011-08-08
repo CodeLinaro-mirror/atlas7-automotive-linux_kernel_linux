@@ -82,7 +82,7 @@ void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 
 void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 {
-	unsigned long flags = 0;
+	unsigned long flags;
 
 	spin_lock_irqsave(&rtciobrg_lock, flags);
 
@@ -98,6 +98,7 @@ EXPORT_SYMBOL(sirfsoc_rtc_iobrg_writel);
 
 static struct of_device_id rtciobrg_ids[] = {
 	{ .compatible = "sirf,prima2-rtciobg" },
+	{}
 };
 
 static int __init sirfsoc_of_rtciobrg_map(void)
