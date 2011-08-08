@@ -1620,6 +1620,23 @@ int __gpio_to_irq(unsigned gpio)
 }
 EXPORT_SYMBOL_GPL(__gpio_to_irq);
 
+/**
+ * __gpio_set_pull() - set pull up, pull down or no pull for a gpio
+ * @gpio: gpio which will be configurated
+ * @mode: one of GPIO_PULL_NONE, GPIO_PULL_UP and GPIO_PULL_DOWN
+ * Context: any
+ *
+ * This is used directly or indirectly to implement gpio_set_pull().
+ */
+void __gpio_set_pull(unsigned gpio, unsigned mode)
+{
+	struct gpio_chip	*chip;
+
+	chip = gpio_to_chip(gpio);
+
+	chip->pull(chip, gpio, mode);
+}
+EXPORT_SYMBOL_GPL(__gpio_set_pull);
 
 
 /* There's no value in making it easy to inline GPIO calls that may sleep.
