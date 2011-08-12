@@ -19,12 +19,8 @@
 	SIRFSOC_GPIO_HS_CPLD_SIZE)
 #endif
 
-#include <asm-generic/gpio.h>
-
-#define gpio_get_value	__gpio_get_value
-#define gpio_set_value	__gpio_set_value
-#define gpio_cansleep	__gpio_cansleep
-#define gpio_to_irq	__gpio_to_irq
+/* new generic GPIO API - see Documentation/gpio.txt */
+#define __ARM_GPIOLIB_TRIVIAL
 
 void gpio_set_pull(unsigned gpio, int enable);
 void gpio_pull_down(unsigned gpio);
