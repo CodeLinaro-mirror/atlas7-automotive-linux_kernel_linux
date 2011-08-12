@@ -310,6 +310,8 @@ static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 		sirfsoc_get_gpio(bank->group, offset);
 	else
 		sirfsoc_put_gpio(bank->group, offset);
+
+	spin_unlock_irqrestore(&bank->lock, flags);
 }
 
 static int sirfsoc_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
