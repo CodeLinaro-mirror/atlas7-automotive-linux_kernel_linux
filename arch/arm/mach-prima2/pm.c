@@ -12,6 +12,7 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
+#include <asm/suspend.h>
 
 #include "common.h"
 #include "pm.h"
@@ -41,7 +42,7 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 
 int sirfsoc_pre_suspend_power_off(void)
 {
-	u32 wakeup_entry = virt_to_phys(sirfsoc_get_wakeup_pointer());
+	u32 wakeup_entry = virt_to_phys(cpu_resume);
 
 	sirfsoc_rtc_iobrg_writel(wakeup_entry,
 		SIRFSOC_PWRC_SCRATCH_PAD1);
@@ -74,7 +75,9 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 			return -ENOMEM;
 
 		sirfsoc_save_register(saved_regs);
-		sirfsoc_sleep();
+		cpu_suspend(0, sirfsoc_finish_suspend);
+		cpu_init();
+
 #ifdef CONFIG_CACHE_L2X0
 		sirfsoc_l2x_init();
 #endif

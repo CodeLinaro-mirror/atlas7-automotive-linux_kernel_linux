@@ -24,8 +24,7 @@
 #define SIRFSOC_PWRC_SCRATCH_PAD2       0x1C
 
 #ifndef __ASSEMBLY__
-extern void sirfsoc_sleep(void);
-extern u32 *sirfsoc_get_wakeup_pointer(void);
+extern int sirfsoc_finish_suspend(unsigned long);
 #endif
 
 #endif
