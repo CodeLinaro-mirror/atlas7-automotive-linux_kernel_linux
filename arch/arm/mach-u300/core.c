@@ -25,6 +25,7 @@
 #include <linux/err.h>
 #include <linux/mtd/nand.h>
 #include <linux/mtd/fsmc.h>
+#include <linux/pinctrl/machine.h>
 
 #include <asm/types.h>
 #include <asm/setup.h>
@@ -1630,6 +1631,20 @@ static struct platform_device dma_device = {
 	},
 };
 
+static struct platform_device pinmux_device = {
+	.name = "pinmux-u300",
+	.id = -1,
+	.num_resources = ARRAY_SIZE(pinmux_resources),
+	.resource = pinmux_resources,
+};
+
+/* Padmux settings */
+static struct pinmux_map u300_padmux_map[] = {
+	PINMUX_MAP_PRIMARY("mmc0", "mmci"),
+	PINMUX_MAP_PRIMARY("spi0", "pl022"),
+	PINMUX_MAP_PRIMARY("uart0", "uart0"),
+};
+
 /*
  * Notice that AMBA devices are initialized before platform devices.
  *
@@ -1827,6 +1842,10 @@ void __init u300_init_devices(void)
 	}
 
 	u300_assign_physmem();
+
+	/* Initialize pinmuxing */
+	pinmux_register_mappings(u300_padmux_map,
+				 ARRAY_SIZE(u300_padmux_map));
 
 	/* Register subdevices on the I2C buses */
 	u300_i2c_register_board_devices();
