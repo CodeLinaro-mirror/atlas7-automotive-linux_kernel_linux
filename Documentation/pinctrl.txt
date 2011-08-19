@@ -1,0 +1,512 @@
+PINCTRL (PIN CONTROL) subsystem
+This document outlines the pin control subsystem in Linux
+
+This subsystem deals with:
+
+- Enumerating and naming controllable pins
+
+- Multiplexing of pins, pads, fingers (etc) see below for details
+
+The intention is to also deal with:
+
+- Software-controlled biasing and driving mode specific pins, such as
+  pull-up/down, open drain etc, load capacitance configuration when controlled
+  by software, etc.
+
+
+Top-level interface
+===================
+
+Definition of PIN CONTROLLER:
+
+- A pin controller is a piece of hardware, usually a set of registers, that
+  can control PINs. It may be able to multiplex, bias, set load capacitance,
+  set drive strength etc for individual pins or groups of pins.
+
+Definition of PIN:
+
+- PINS are equal to pads, fingers, balls or whatever packaging input or
+  output line you want to control and these are denoted by unsigned integers
+  in the range 0..maxpin. This numberspace is local to each PIN CONTROLLER, so
+  there may be several such number spaces in a system. This pin space may
+  be sparse - i.e. there may be gaps in the space with numbers where no
+  pin exists.
+
+When a PIN CONTROLLER is instatiated, it will register a descriptor to the
+pin control framework, and this descriptor contains an array of pin descriptors
+describing the pins handled by this specific pin controller.
+
+Here is an example of a PGA (Pin Grid Array) chip seen from underneath:
+
+        A   B   C   D   E   F   G   H
+
+   8    o   o   o   o   o   o   o   o
+
+   7    o   o   o   o   o   o   o   o
+
+   6    o   o   o   o   o   o   o   o
+
+   5    o   o   o   o   o   o   o   o
+
+   4    o   o   o   o   o   o   o   o
+
+   3    o   o   o   o   o   o   o   o
+
+   2    o   o   o   o   o   o   o   o
+
+   1    o   o   o   o   o   o   o   o
+
+To register a pin controller and name all the pins on this package we can do
+this in our driver:
+
+#include <linux/pinctrl/pinctrl.h>
+
+const struct pinctrl_pin_desc __refdata foo_pins[] = {
+      PINCTRL_PIN(0, "A1"),
+      PINCTRL_PIN(1, "A2"),
+      PINCTRL_PIN(2, "A3"),
+      ...
+      PINCTRL_PIN(61, "H6"),
+      PINCTRL_PIN(62, "H7"),
+      PINCTRL_PIN(63, "H8"),
+};
+
+static struct pinctrl_desc foo_desc = {
+	.name = "foo",
+	.pins = foo_pins,
+	.npins = ARRAY_SIZE(foo_pins),
+	.maxpin = 63,
+	.owner = THIS_MODULE,
+};
+
+int __init foo_probe(void)
+{
+	struct pinctrl_dev *pctl;
+
+	pctl = pinctrl_register(&foo_desc, <PARENT>, NULL);
+	if (IS_ERR(pctl))
+		pr_err("could not register foo pin driver\n");
+}
+
+Pins usually have fancier names than this. You can find these in the dataheet
+for your chip. Notice that the core pinctrl.h file provides a fancy macro
+called PINCTRL_PIN() to create the struct entries. As you can see I enumerated
+the pins from 0 in the upper left corner to 63 in the lower right corner,
+this enumeration was arbitrarily chosen.
+
+For a padring with 467 pads, as opposed to actual pins, I used an enumeration
+like this, walking around the edge of the chip, which seems to be industry
+standard too (all these pads had names, too):
+
+
+     0 ..... 104
+   466        105
+     .        .
+     .        .
+   358        224
+    357 .... 225
+
+
+Interaction with the GPIO subsystem
+===================================
+
+The GPIO drivers may want to perform operations of various types on the same
+physical pins that are also registered as GPIO pins.
+
+Since the pin controller subsystem have its pinspace local to the pin
+controller we need a mapping so that the pin control subsystem can figure out
+which pin controller handles control of a certain GPIO pin. This member
+in the pin controller descriptor handles this mapping:
+
+static struct pinctrl_desc foo_desc = {
+	...
+	.gpio_base = FIRST_PIN,
+};
+
+When GPIO-specific functions in the pin control subsystem are called, these
+mappings will be used to look up the apropriate pin controller by inspecting
+and matching the pin to this pin range.
+
+The correspondence for the range from the GPIO subsystem to the pin controller
+subsystem must be one-to-one. Thus the GPIO pins are in the pin controller
+range [0 .. maxpin] where maxpin is the specified end of the pin range.
+
+For all functionalities dealing with pin biasing, pin muxing etc, the pin
+controller subsystem will subtract the .gpio_base offset from the passed
+in gpio pin number, and pass that on to the pin control driver, so the driver
+will get an offset into its handled number range.
+
+(If the GPIO subsystem is ever refactored to use a local per-GPIO controller
+pin space, this mapping will need to be augmented accordingly.)
+
+
+PINMUX interfaces
+=================
+
+These calls use the pinmux_* naming prefix.  No other calls should use that
+prefix.
+
+
+What is pinmuxing?
+==================
+
+PINMUX, also known as padmux, ballmux, alternate functions or mission modes
+is a way for chip vendors producing some kind of electrical packages to use
+a certain physical pin (ball, pad, finger, etc) for multiple mutually exclusive
+functions, depending on the application. By "application" in this context
+we usually mean a way of soldering or wiring the package into an electronic
+system, even though the framework makes it possible to also change the function
+at runtime.
+
+Here is an example of a PGA (Pin Grid Array) chip seen from underneath:
+
+        A   B   C   D   E   F   G   H
+      +---+
+   8  | o | o   o   o   o   o   o   o
+      |   |
+   7  | o | o   o   o   o   o   o   o
+      |   |
+   6  | o | o   o   o   o   o   o   o
+      +---+---+
+   5  | o | o | o   o   o   o   o   o
+      +---+---+               +---+
+   4    o   o   o   o   o   o | o | o
+                              |   |
+   3    o   o   o   o   o   o | o | o
+                              |   |
+   2    o   o   o   o   o   o | o | o
+      +-------+-------+-------+---+---+
+   1  | o   o | o   o | o   o | o | o |
+      +-------+-------+-------+---+---+
+
+This is not tetris. The game to think of is chess. Not all PGA/BGA packages
+are chessboard-like, big ones have "holes" in some arrangement according to
+different design patterns, but we're using this as a simple example. Of the
+pins you see some will be taken by things like a few VCC and GND to feed power
+to the chip, and quite a few will be taken by large ports like an external
+memory interface. The remaining pins will often be subject to pin multiplexing.
+
+The example 8x8 PGA package above will have pin numbers 0 thru 63 assigned to
+its physical pins. It will name the pins { A1, A2, A3 ... H6, H7, H8 } using
+pinctrl_register_pins_[sparse|dense]() and a suitable data set as shown
+earlier.
+
+In this 8x8 BGA package the pins { A8, A7, A6, A5 } can be used as an SPI port
+(these are four pins: CLK, RXD, TXD, FRM). In that case, pin B5 can be used as
+some general-purpose GPIO pin. However, in another setting, pins { A5, B5 } can
+be used as an I2C port (these are just two pins: SCL, SDA). Needless to say,
+we cannot use the SPI port and I2C port at the same time. However in the inside
+of the package the silicon performing the SPI logic can alternatively be routed
+out on pins { G4, G3, G2, G1 }.
+
+On the botton row at { A1, B1, C1, D1, E1, F1, G1, H1 } we have something
+special - it's an external MMC bus that can be 2, 4 or 8 bits wide, and it will
+consume 2, 4 or 8 pins respectively, so either { A1, B1 } are taken or
+{ A1, B1, C1, D1 } or all of them. If we use all 8 bits, we cannot use the SPI
+port on pins { G4, G3, G2, G1 } of course.
+
+This way the silicon blocks present inside the chip can be multiplexed "muxed"
+out on different pin ranges. Often contemporary SoC (systems on chip) will
+contain several I2C, SPI, SDIO/MMC, etc silicon blocks that can be routed to
+different pins by pinmux settings.
+
+Since general-purpose I/O pins (GPIO) are typically always in shortage, it is
+common to be able to use almost any pin as a GPIO pin if it is not currently
+in use by some other I/O port.
+
+
+Pinmux conventions
+==================
+
+The purpose of the pinmux subsystem is to abstract and provide pinmux settings
+to the devices you choose to instantiate in your machine configuration. It is
+inspired by the clk, GPIO and regulator subsystems, so devices will request
+their mux setting, but it's also possible to request a single pin for e.g.
+GPIO.
+
+Definitions:
+
+- FUNCTIONS can be switched in and out by a driver residing with the pinmux
+  subsystem in the drivers/pinmux/* directory of the kernel. The pinmux driver
+  knows the possible functions. In the example above you can identify three
+  pinmux functions, two for spi and one for i2c.
+
+- FUNCTIONS are assumed to be enumerable from zero in a one-dimensional array.
+  In this case the array could be something like: { spi0-0, spi0-1, i2c0-0 }
+  for the three available settings. The knowledge of this one-dimensional array
+  and it's machine-specific particulars is kept inside the pinmux driver,
+  from the outside only these enumerators are known, and the driver core
+  can request the name or the list of pins belonging to a certain enumerator.
+
+- FUNCTIONS are MAPPED to a certain device by the board file, device tree or
+  similar machine setup configuration mechanism, similar to how regulators are
+  connected to devices, usually by name. In the example case we can define
+  that this particular machine shall use device spi0 with pinmux setting
+  spi0-1 and i2c0 on i2c0-1, something like the two-tuple:
+  { {spi0, spi0-1}, {i2c0, i2c0-1} }
+
+- FUNCTIONS are provided on a first-come first-serve basis, so if some other
+  device mux setting or GPIO pin request has already taken your physical pin,
+  you will be denied the use of it. To get (activate) a new setting, the old
+  one has to be put (deactivated) first.
+
+Sometimes the documentation and hardware registers will be oriented around
+pads (or "fingers") rather than pins - these are the soldering surfaces on the
+silicon inside the package, and may or may not match the actual number of
+pins/balls underneath the capsule. Pick some enumeration that makes sense to
+you. Define enumerators only for the pins you can control if that makes sense.
+
+
+Pinmux drivers
+==============
+
+It is the responsibility of the pinmux driver to determine whether or not
+the requested function can actually be enabled, and in that case poke the
+hardware so that this happens.
+
+The driver will for all calls be provided an offset pin number into its own
+pin range. If you have 2 chips with 8x8 pins, the first chips pins will have
+numbers 0 thru 63 and the second one pins 64 thru 127, but the driver for the
+second chip will be passed numbers in the range 0 thru 63 anyway, base offset
+subtracted.
+
+Pinmux drivers are required to supply a few callback functions, some are
+optional. Usually the enable() and disable() functions are implemented,
+writing values into some certain registers to activate a certain mux setting
+for a certain pin.
+
+A simple driver for the above example will work by setting bits 0, 1, 2, 3,
+4 or 5 into some register named MUX, so it enumerates its available settings
+and their pin assignments, and expose them like this:
+
+#include <linux/pinctrl/pinmux.h>
+
+struct foo_pmx_func {
+	char *name;
+	const unsigned int *pins;
+	const unsigned num_pins;
+};
+
+static unsigned int spi0_0_pins[] = { 0, 8, 16, 24 };
+static unsigned int i2c0_pins[] = { 24, 25 };
+static unsigned int spi0_1_pins[] = { 38, 46, 54, 62 };
+static unsigned int mmc0_1_pins[] = { 56, 57 };
+static unsigned int mmc0_2_pins[] = { 56, 57, 58, 59 };
+static unsigned int mmc0_3_pins[] = { 56, 57, 58, 59, 60, 61, 62, 63 };
+
+static struct foo_pmx_func myfuncs[] = {
+	{
+		.name = "spi0-0",
+		.pins = spi0_0_pins,
+		.num_pins = ARRAY_SIZE(spi0_1_pins),
+	},
+	{
+		.name = "i2c0",
+		.pins = i2c0_pins,
+		.num_pins = ARRAY_SIZE(i2c0_pins),
+	},
+	{
+		.name = "spi0-1",
+		.pins = spi0_1_pins,
+		.num_pins = ARRAY_SIZE(spi0_1_pins),
+	},
+	{
+		.name = "mmc0-2bit",
+		.pins = mmc0_1_pins,
+		.num_pins = ARRAY_SIZE(mmc0_1_pins),
+	},
+	{
+		.name = "mmc0-4bit",
+		.pins = mmc0_2_pins,
+		.num_pins = ARRAY_SIZE(mmc0_2_pins),
+	},
+	{
+		.name = "mmc0-8bit",
+		.pins = mmc0_3_pins,
+		.num_pins = ARRAY_SIZE(mmc0_3_pins),
+	},
+};
+
+int foo_list(struct pinmux_dev *pmxdev, unsigned selector)
+{
+	if (selector >= ARRAY_SIZE(myfuncs))
+		return -EINVAL;
+	return 0;
+}
+
+const char *foo_get_fname(struct pinmux_dev *pmxdev, unsigned selector)
+{
+	if (selector >= ARRAY_SIZE(myfuncs))
+		return NULL;
+	return myfuncs[selector].name;
+}
+
+static int foo_get_pins(struct pinmux_dev *pmxdev, unsigned selector,
+	   		unsigned ** const pins, unsigned * const num_pins)
+{
+	if (selector >= ARRAY_SIZE(myfuncs))
+		return -EINVAL;
+	*pins = myfuncs[selector].pins;
+	*num_pins = myfuncs[selector].num_pins;
+	return 0;
+}
+
+int foo_enable(struct pinmux_dev *pmxdev, unsigned selector)
+{
+	if (selector < ARRAY_SIZE(myfuncs))
+		write((read(MUX)|(1<<selector)), MUX)
+		return 0;
+	}
+	return -EINVAL;
+}
+
+int foo_disable(struct pinmux_dev *pmxdev, unsigned selector)
+{
+	if (selector < ARRAY_SIZE(myfuncs))
+		write((read(MUX) & ~(1<<selector)), MUX)
+		return 0;
+	}
+	return -EINVAL;
+}
+
+struct pinmux_ops pmxops = {
+	.list_functions = foo_list,
+	.get_function_name = foo_get_fname,
+	.get_function_pins = foo_get_pins,
+	.enable = foo_enable,
+	.disable = foo_disable,
+};
+
+/* Pinmux operations are handled by some pin controller */
+static struct pinctrl_desc foo_desc = {
+	...
+	.pmxops = pmxops,
+};
+
+Now the able reader will say: "wait - the driver needs to make sure it
+can set this and that bit at the same time, because else it will collide
+and wreak havoc in my electronics, and make sure noone else is using the
+other setting that it's incompatible with".
+
+In the example activating muxing 0 and 1 at the same time setting bits
+0 and 1, uses one pin in common so they would collide.
+
+The beauty of the pinmux subsystem is that since it keeps track of all
+pins and who is using them, it will already have denied an impossible
+request like that, so the driver does not need to worry about such
+things - when it gets a selector passed in, the pinmux subsystem makes
+sure no other device or GPIO assignment is already using the selected
+pins.
+
+The above functions are mandatory to implement for a pinmux driver.
+
+
+Pinmux interaction with the GPIO subsystem
+==========================================
+
+The function list could become long, especially if you can convert every
+individual pin into a GPIO pin independent of any other pins, then your
+function array can become 64 entries for each GPIO setting and then the
+device functions. For this reason there is an additional function you
+can implement to enable only GPIO on an individual pin: pinmux_request_gpio()
+and pinmux_free_gpio().
+
+These functions use the .gpio_base and .gpio_pins members of the pin
+controller as described above for the pin controller, to look up the target
+pin controller.
+
+
+
+Pinmux board/machine configuration
+==================================
+
+Boards and machines define how a certain complete running system is put
+together, including how GPIOs and devices are muxed, how regulators are
+constrained and how the clock tree looks. Of course pinmux settings are also
+part of this.
+
+A pinmux config for a machine looks pretty much like a simple regulator
+configuration, so for the example array above we want to enable i2c and
+spi on the second function mapping:
+
+#include <linux/pinctrl/machine.h>
+
+static struct pinmux_map pmx_mapping[] = {
+	{
+		.function = "spi0-1",
+		.dev_name = "foo-spi.0",
+		.ctrl_dev_name = "pinctrl.0",
+	},
+	{
+		.function = "i2c0",
+		.dev_name = "foo-i2c.0",
+		.ctrl_dev_name = "pinctrl.0",
+	},
+	{
+		.function = "mmc0-4bit",
+		.dev_name = "foo-mmc.0",
+		.ctrl_dev_name = "pinctrl.0",
+	},
+};
+
+As you can see we may have several pin controllers on the system and thus
+we need to specify which one of them that contain the functions we wish
+to map. The map can also use struct device * directly, so there is no
+inherent need to use strings to specify .dev_name or .ctrl_dev_name, these
+are for the situation where you do not have a handle to the struct device *,
+for example if they are not yet instantiated or cumbersome to obtain.
+
+Since the above construct is pretty common there is a helper macro to make
+it even more compact which assumes you want to use pinctrl.0 for mapping:
+
+static struct pinmux_map pmx_mapping[] = {
+       PINMUX_MAP_PRIMARY("spi0-1", "foo-spi.0"),
+       PINMUX_MAP_PRIMARY("i2c0", "foo-i2c.0"),
+       PINMUX_MAP_PRIMARY("mmc0-1", "foo-mmc.0"),
+};
+
+The dev_name here matches to the unique device name that can be used to look
+up the device struct (just like with clockdev or regulators). The function name
+must match a function provided by the pinmux driver handling this pin range.
+You register this pinmux mapping to the pinmux subsystem by simply:
+
+       ret = pinmux_register_mappings(&pmx_mapping, ARRAY_SIZE(pmx_mapping));
+
+
+Pinmux requests from drivers
+============================
+
+A driver may request a certain mux to be activated, usually just the default
+mux like this:
+
+#include <linux/pinctrl/pinmux.h>
+
+foo_probe()
+{
+	/* Allocate a state holder named "state" etc */
+	struct pinmux pmx;
+
+	pmx = pinmux_get(&device, NULL);
+	if IS_ERR(pmx)
+		return PTR_ERR(pmx);
+	pinmux_enable(pmx);
+
+	state->pmx = pmx;
+}
+
+foo_remove()
+{
+	pinmux_disable(state->pmx);
+	pinmux_put(state->pmx);
+}
+
+If you want a specific mux setting and not just the first one found for this
+device you can specify a specific mux setting, for example in the above example
+the second i2c0 setting: pinmux_get(&device, "spi0-2");
+
+This get/enable/disable/put sequence can just as well be handled by bus drivers
+if you don't want each and every driver to handle it and you know the
+arrangement on your bus.
+
+The pins are allocated for your device when you issue the pinmux_get() call,
+after this you should be able to see this in the debugfs listing of all pins.
