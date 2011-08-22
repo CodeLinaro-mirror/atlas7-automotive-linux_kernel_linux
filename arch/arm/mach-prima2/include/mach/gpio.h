@@ -25,5 +25,6 @@
 void gpio_set_pull(unsigned gpio, int enable);
 void gpio_pull_down(unsigned gpio);
 void gpio_pull_up(unsigned gpio);
+#define gpio_to_irq    __gpio_to_irq
 
 #endif
