@@ -78,10 +78,10 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 			return -ENOMEM;
 
 		sirfsoc_save_register(saved_regs);
+
+		/* go zzz */
 		cpu_suspend(0, sirfsoc_finish_suspend);
-#ifdef CONFIG_CACHE_L2X0
-		sirfsoc_l2x_init();
-#endif
+
 		sirfsoc_restore_regs(saved_regs);
 		kfree(saved_regs);
 		break;

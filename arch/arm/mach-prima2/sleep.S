@@ -9,7 +9,6 @@
 #include <linux/linkage.h>
 #include <asm/ptrace.h>
 #include <asm/assembler.h>
-#include <asm/hardware/cache-l2x0.h>
 
 #include "pm.h"
 
@@ -25,26 +24,6 @@ ENTRY(sirfsoc_finish_suspend)
 	@ r7: 	rtc iobrg controller
 	ldr     r0, =sirfsoc_rtciobrg_base
 	ldr	r7, [r0]
-
-#ifdef CONFIG_CACHE_L2X0
-	ldr	r1, =sirfsoc_l2x_base
-	ldr     r0, [r1]
-	ldr	r1, =L2X0_CLEAN_INV_WAY
-	mov	r2, #0xff
-	str	r2, [r0,r1]
-	mov	r2, #0
-1:
-	ldr	r3, [r0,r1]
-	cmp	r2,r3
-	bne	1b
-	ldr	r1, =L2X0_CACHE_SYNC
-	mov	r2, #0
-	str	r2, [r0,r1]
-
-	ldr	r1, =L2X0_CTRL
-	mov	r2, #0
-	str	r2, [r0,r1]
-#endif
 
 	@ Read the power control register and set the
 	@ sleep force bit.
