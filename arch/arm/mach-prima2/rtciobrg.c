@@ -25,8 +25,8 @@ static DEFINE_SPINLOCK(rtciobrg_lock);
 
 void sirfsoc_rtc_iobrg_wait_sync(void)
 {
-	while (readl(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL))
-		cpu_relax();
+	while (readl_relaxed(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL))
+		continue;
 }
 
 void sirfsoc_rtc_iobrg_besyncing(void)
@@ -47,13 +47,13 @@ u32 __sirfsoc_rtc_iobrg_readl(u32 addr)
 
 	sirfsoc_rtc_iobrg_wait_sync();
 
-	writel(0x00, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_WRBE);
-	writel(addr, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_ADDR);
-	writel(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
+	writel_relaxed(0x00, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_WRBE);
+	writel_relaxed(addr, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_ADDR);
+	writel_relaxed(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
 
 	sirfsoc_rtc_iobrg_wait_sync();
 
-	val = readl(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
+	val = readl_relaxed(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
 
 	return val;
 }
@@ -76,10 +76,10 @@ void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 {
 	sirfsoc_rtc_iobrg_wait_sync();
 
-	writel(0xf1, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_WRBE);
-	writel(addr, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_ADDR);
+	writel_relaxed(0xf1, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_WRBE);
+	writel_relaxed(addr, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_ADDR);
 
-	writel(val, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
+	writel_relaxed(val, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
 }
 
 void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
@@ -90,7 +90,7 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 
 	sirfsoc_rtc_iobrg_pre_writel(val, addr);
 
-	writel(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
+	writel_relaxed(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
 
 	sirfsoc_rtc_iobrg_wait_sync();
 
