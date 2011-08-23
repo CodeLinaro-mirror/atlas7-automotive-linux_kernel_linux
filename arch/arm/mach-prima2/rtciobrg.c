@@ -12,6 +12,8 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
 
 #define SIRFSOC_CPUIOBRG_CTRL           0x00
 #define SIRFSOC_CPUIOBRG_WRBE           0x04
@@ -37,7 +39,7 @@ void sirfsoc_rtc_iobrg_besyncing(void)
 
 	spin_unlock_irqrestore(&rtciobrg_lock, flags);
 }
-EXPORT_SYMBOL(sirfsoc_rtc_iobrg_besyncing);
+EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_besyncing);
 
 u32 __sirfsoc_rtc_iobrg_readl(u32 addr)
 {
@@ -68,7 +70,7 @@ u32 sirfsoc_rtc_iobrg_readl(u32 addr)
 
 	return val;
 }
-EXPORT_SYMBOL(sirfsoc_rtc_iobrg_readl);
+EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_readl);
 
 void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 {
@@ -94,26 +96,41 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 
 	spin_unlock_irqrestore(&rtciobrg_lock, flags);
 }
-EXPORT_SYMBOL(sirfsoc_rtc_iobrg_writel);
+EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_writel);
 
 static struct of_device_id rtciobrg_ids[] = {
 	{ .compatible = "sirf,prima2-rtciobg" },
 	{}
 };
 
-static int __init sirfsoc_of_rtciobrg_map(void)
+static int __devinit sirfsoc_rtciobrg_probe(struct platform_device *op)
 {
-	struct device_node *np;
+	struct device_node *np = op->dev.of_node;
 
-	np = of_find_matching_node(NULL, rtciobrg_ids);
-	if (!np)
-		panic("unable to find compatible rtc iobrg node in dtb\n");
 	sirfsoc_rtciobrg_base = of_iomap(np, 0);
 	if (!sirfsoc_rtciobrg_base)
 		panic("unable to map rtc iobrg registers\n");
 
-	of_node_put(np);
-
 	return 0;
 }
-early_initcall(sirfsoc_of_rtciobrg_map);
+
+static struct platform_driver sirfsoc_rtciobrg_driver = {
+	.probe		= sirfsoc_rtciobrg_probe,
+	.driver = {
+		.name = "sirfsoc-rtciobrg",
+		.owner = THIS_MODULE,
+		.of_match_table	= rtciobrg_ids,
+	},
+};
+
+static int __init sirfsoc_rtciobrg_init(void)
+{
+	return platform_driver_register(&sirfsoc_rtciobrg_driver);
+}
+postcore_initcall(sirfsoc_rtciobrg_init);
+
+MODULE_AUTHOR("Zhiwu Song <zhiwu.song@csr.com>, "
+		"Barry Song <baohua.song@csr.com>");
+MODULE_DESCRIPTION("CSR SiRFprimaII rtc io bridge");
+MODULE_LICENSE("GPL");
+
