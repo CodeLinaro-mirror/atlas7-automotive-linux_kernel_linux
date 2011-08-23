@@ -247,6 +247,7 @@ struct fsg_lun {
 	u32		sense_data_info;
 	u32		unit_attention_data;
 
+	unsigned int	l_blkbits;	/* Bits of logical block size of bound block device */
 	struct device	dev;
 };
 
@@ -580,7 +581,9 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 		rc = (int) size;
 		goto out;
 	}
-	num_sectors = size >> 9;	/* File size in 512-byte blocks */
+	curlun->l_blkbits = blksize_bits(
+			bdev_logical_block_size(inode->i_bdev));
+	num_sectors = size >> curlun->l_blkbits; /* File size in logic-block-size blocks */
 	min_sectors = 1;
 	if (curlun->cdrom) {
 		num_sectors &= ~3;	/* Reduce to a multiple of 2048 */

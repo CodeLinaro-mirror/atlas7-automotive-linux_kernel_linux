@@ -112,6 +112,9 @@ struct gpio_chip {
 	int			(*to_irq)(struct gpio_chip *chip,
 						unsigned offset);
 
+	void			(*pull)(struct gpio_chip *chip,
+						unsigned offset, unsigned mode);
+
 	void			(*dbg_show)(struct seq_file *s,
 						struct gpio_chip *chip);
 	int			base;
