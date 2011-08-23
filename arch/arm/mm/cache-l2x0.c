@@ -280,7 +280,7 @@ static void l2x0_disable(void)
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
-void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
+void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 {
 	__u32 aux;
 	__u32 cache_id;
@@ -431,7 +431,7 @@ static const struct of_device_id l2x0_ids[] __initconst = {
 	{}
 };
 
-int __init l2x0_of_init(__u32 aux_val, __u32 aux_mask)
+int l2x0_of_init(__u32 aux_val, __u32 aux_mask)
 {
 	struct device_node *np;
 	void (*l2_setup)(const struct device_node *np,
