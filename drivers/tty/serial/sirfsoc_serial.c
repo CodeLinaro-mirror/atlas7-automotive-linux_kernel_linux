@@ -1292,6 +1292,9 @@ static int sirfsoc_serial_probe(struct platform_device *pdev)
 		port->irq = IRQ_UART1;
 	else if (pdev->id == 0)
 		port->irq = IRQ_UART0;
+	else
+		port->irq = IRQ_UART2;
+
 	/*	port->irq = platform_get_irq(pdev, 0); */
 
 	if (port->irq == 0) {

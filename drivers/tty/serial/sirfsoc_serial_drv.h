@@ -208,7 +208,7 @@
 #define SIRFSOC_UART1_SIZE              SZ_4K
 #define IRQ_UART0 17
 #define IRQ_UART1 18
-#define IRQ_UART1 19
+#define IRQ_UART2 19
 
 struct sirfsoc_uart_pdata {
 	int rts_gpio;
