@@ -6,10 +6,13 @@
  * Licensed under GPLv2 or later.
  */
 
+#include <linux/kernel.h>
 #include <linux/suspend.h>
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <asm/suspend.h>
@@ -76,8 +79,6 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 
 		sirfsoc_save_register(saved_regs);
 		cpu_suspend(0, sirfsoc_finish_suspend);
-		cpu_init();
-
 #ifdef CONFIG_CACHE_L2X0
 		sirfsoc_l2x_init();
 #endif
@@ -95,11 +96,18 @@ static const struct platform_suspend_ops sirfsoc_pm_ops = {
 	.valid = suspend_valid_only_mem,
 };
 
+static int __init sirfsoc_pm_init(void)
+{
+	suspend_set_ops(&sirfsoc_pm_ops);
+	return 0;
+}
+late_initcall(sirfsoc_pm_init);
+
 static struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc" },
 };
 
-static void __init sirfsoc_of_pwrc_init(void)
+static int __init sirfsoc_of_pwrc_init(void)
 {
 	struct device_node *np;
 	const __be32    *addrp;
@@ -115,33 +123,37 @@ static void __init sirfsoc_of_pwrc_init(void)
 	sirfsoc_pwrc_base = be32_to_cpup(addrp);
 
 	of_node_put(np);
+
+	return 0;
 }
+postcore_initcall(sirfsoc_of_pwrc_init);
 
 static struct of_device_id memc_ids[] = {
 	{ .compatible = "sirf,prima2-memc" },
 };
 
-static void __init sirfsoc_of_memc_map(void)
+static int __devinit sirfsoc_memc_probe(struct platform_device *op)
 {
-	struct device_node *np;
-
-	np = of_find_matching_node(NULL, memc_ids);
-	if (!np)
-		panic("unable to find compatible memc node in dtb\n");
+	struct device_node *np = op->dev.of_node;
 
 	sirfsoc_memc_base = of_iomap(np, 0);
-	if (!np)
-		panic("unable to map compatible memc node in dtb\n");
+	if (!sirfsoc_memc_base)
+		panic("unable to map memc registers\n");
 
-	of_node_put(np);
-}
-
-static int __init sirfsoc_pm_init(void)
-{
-	sirfsoc_of_memc_map();
-	sirfsoc_of_pwrc_init();
-	suspend_set_ops(&sirfsoc_pm_ops);
 	return 0;
 }
-late_initcall(sirfsoc_pm_init);
 
+static struct platform_driver sirfsoc_memc_driver = {
+	.probe		= sirfsoc_memc_probe,
+	.driver = {
+		.name = "sirfsoc-memc",
+		.owner = THIS_MODULE,
+		.of_match_table	= memc_ids,
+	},
+};
+
+static int __init sirfsoc_memc_init(void)
+{
+	return platform_driver_register(&sirfsoc_memc_driver);
+}
+postcore_initcall(sirfsoc_memc_init);
