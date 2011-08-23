@@ -1,0 +1,20 @@
+Temp utilities to test the whold Linux 3.0, including:
+
+1. uboot image supporting device tree
+
+Note uboot setting:
+baudrate=115200
+bootargs=mem=512M console=ttyS1 retain_initrd earlyprintk
+bootcmd=mmc read 0 0x3608000 0x3780 0x80;mmc read 0 0x02008000 0x1800 0x1800;fdt addr 0x3608000; fdt resize; bootm 0x02008000 - 0x3608000
+
+2. flash.sh for flashing SD card
+ example:
+ sudo ./flash.sh sdc images
+
+3. initramfs image
+ 3.1 basic busybox commands
+ 3.2 reboot, free, rx and other useful commands
+ 3.3 tmpfs mounted to /tmp
+
+We don't free initramfs and use it as the real rootfs directly.
+
