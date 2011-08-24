@@ -59,4 +59,3 @@ ENTRY(sirfsoc_finish_suspend)
 	tst	r3, #0x01
 	bne	1b
 	b .
-

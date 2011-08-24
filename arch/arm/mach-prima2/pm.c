@@ -105,6 +105,7 @@ late_initcall(sirfsoc_pm_init);
 
 static struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc" },
+	{}
 };
 
 static int __init sirfsoc_of_pwrc_init(void)
@@ -130,6 +131,7 @@ postcore_initcall(sirfsoc_of_pwrc_init);
 
 static struct of_device_id memc_ids[] = {
 	{ .compatible = "sirf,prima2-memc" },
+	{}
 };
 
 static int __devinit sirfsoc_memc_probe(struct platform_device *op)

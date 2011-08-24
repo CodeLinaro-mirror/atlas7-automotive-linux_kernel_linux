@@ -20,13 +20,21 @@
 #define SIRFSOC_CPUIOBRG_ADDR           0x08
 #define SIRFSOC_CPUIOBRG_DATA           0x0c
 
+/*
+ * suspend asm codes will access this address to make system deepsleep
+ * after DRAM becomes self-refresh
+ */
 void __iomem *sirfsoc_rtciobrg_base;
 static DEFINE_SPINLOCK(rtciobrg_lock);
 
+/*
+ * symbols without lock are only used by suspend asm codes
+ * and these symbols are not exported too
+ */
 void sirfsoc_rtc_iobrg_wait_sync(void)
 {
 	while (readl_relaxed(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL))
-		continue;
+		cpu_relax();
 }
 
 void sirfsoc_rtc_iobrg_besyncing(void)
@@ -43,8 +51,6 @@ EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_besyncing);
 
 u32 __sirfsoc_rtc_iobrg_readl(u32 addr)
 {
-	unsigned long val;
-
 	sirfsoc_rtc_iobrg_wait_sync();
 
 	writel_relaxed(0x00, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_WRBE);
@@ -53,9 +59,7 @@ u32 __sirfsoc_rtc_iobrg_readl(u32 addr)
 
 	sirfsoc_rtc_iobrg_wait_sync();
 
-	val = readl_relaxed(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
-
-	return val;
+	return readl_relaxed(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
 }
 
 u32 sirfsoc_rtc_iobrg_readl(u32 addr)
@@ -133,4 +137,3 @@ MODULE_AUTHOR("Zhiwu Song <zhiwu.song@csr.com>, "
 		"Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("CSR SiRFprimaII rtc io bridge");
 MODULE_LICENSE("GPL");
-
