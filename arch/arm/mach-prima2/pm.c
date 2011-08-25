@@ -43,7 +43,7 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 		SIRFSOC_PWRC_PDN_CTRL);
 }
 
-int sirfsoc_pre_suspend_power_off(void)
+static int sirfsoc_pre_suspend_power_off(void)
 {
 	u32 wakeup_entry = virt_to_phys(cpu_resume);
 
@@ -79,6 +79,8 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 
 		sirfsoc_save_register(saved_regs);
 
+		sirfsoc_pre_suspend_power_off();
+
 		/* go zzz */
 		cpu_suspend(0, sirfsoc_finish_suspend);
 
@@ -111,17 +113,13 @@ static struct of_device_id pwrc_ids[] = {
 static int __init sirfsoc_of_pwrc_init(void)
 {
 	struct device_node *np;
-	const __be32    *addrp;
 
 	np = of_find_matching_node(NULL, pwrc_ids);
 	if (!np)
 		panic("unable to find compatible pwrc node in dtb\n");
 
-	addrp = of_get_property(np, "reg", NULL);
-	if (!addrp)
+	if (of_property_read_u32(np, "reg", &sirfsoc_pwrc_base))
 		panic("unable to find base address of pwrc node in dtb\n");
-
-	sirfsoc_pwrc_base = be32_to_cpup(addrp);
 
 	of_node_put(np);
 
