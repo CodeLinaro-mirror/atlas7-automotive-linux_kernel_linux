@@ -11,14 +11,15 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/of.h>
-#include <linux/of_platform.h>
+#include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/gpio.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/regs-gpio.h>
-#include <mach/pinmux.h>
 
 #define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP0         43
 #define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP1         44
@@ -44,6 +45,7 @@ static struct gpio_bank sirfsoc_gpio_bank[SIRFSOC_GPIO_NO_OF_BANKS] = {
 	{.group = 4, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP4,}
 };
 
+static void __iomem *sirfsoc_gpio_pinmux_base;
 static DEFINE_SPINLOCK(gpio_lock);
 
 static struct gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
@@ -282,12 +284,14 @@ static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
 	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
 	unsigned long flags;
 
+	if (pinmux_request_gpio(offset))
+		return -ENODEV;
+
 	spin_lock_irqsave(&bank->lock, flags);
 
 	/*set direction as input and disable/mask irq */
 	sirfsoc_gpio_set_input(bank, SIRFSOC_GPIO_CTRL(bank->group, offset));
 	_sirfsoc_gpio_irq_mask(sirfsoc_gpio_to_irq(chip, offset));
-	sirfsoc_get_gpio(bank->group, offset);
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 	return 0;
@@ -306,10 +310,7 @@ static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 	/*set gpio to input */
 	sirfsoc_gpio_set_input(bank, SIRFSOC_GPIO_CTRL(bank->group, offset));
 
-	if (bank->paden_bk_map & (1 << offset))
-		sirfsoc_get_gpio(bank->group, offset);
-	else
-		sirfsoc_put_gpio(bank->group, offset);
+	pinmux_free_gpio(offset);
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
@@ -456,7 +457,7 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	writel(status, sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
 }
 
-static int __devinit sirfsoc_gpio_probe(struct platform_device *pdev)
+static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 {
 	int i;
 
@@ -494,37 +495,25 @@ static int __devinit sirfsoc_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit sirfsoc_gpio_remove(struct platform_device *dev)
-{
-	return 0;
-}
-
-static const struct of_device_id sirf_gpio_of_match[] = {
+static const struct of_device_id gpio_ids[] = {
 	{.compatible = "sirf,prima2-gpio", },
 	{},
-};
-MODULE_DEVICE_TABLE(of, sirf_gpio_of_match);
-
-static struct platform_driver sirfsoc_gpio_driver = {
-	.driver		= {
-		.name	= "sirfsoc_gpio",
-		.of_match_table = sirf_gpio_of_match,
-	},
-	.probe		= sirfsoc_gpio_probe,
-	.remove		= __devexit_p(sirfsoc_gpio_remove),
 };
 
 static int __init sirfsoc_gpio_init(void)
 {
-	return platform_driver_register(&sirfsoc_gpio_driver);
-}
-core_initcall(sirfsoc_gpio_init);
+	struct device_node *np;
+	np = of_find_matching_node(NULL, gpio_ids);
+	if (!np)
+		panic("unable to find compatible gpio node in dtb\n");
 
-static void __exit sirfsoc_gpio_exit(void)
-{
-	platform_driver_unregister(&sirfsoc_gpio_driver);
+	sirfsoc_gpio_pinmux_base = of_iomap(np, 0);
+	if (!sirfsoc_gpio_pinmux_base)
+		panic("unable to map gpio registers\n");
+
+	return sirfsoc_gpio_probe(np);
 }
-module_exit(sirfsoc_gpio_exit);
+subsys_initcall(sirfsoc_gpio_init);
 
 MODULE_DESCRIPTION("SiRFSoC gpio driver");
 MODULE_AUTHOR("Yuping Luo <yuping.luo@csr.com>, Barry Song <baohua.song@csr.com>");
