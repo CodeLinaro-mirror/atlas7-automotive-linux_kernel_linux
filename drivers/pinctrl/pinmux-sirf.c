@@ -20,12 +20,9 @@
 #include <linux/of_platform.h>
 #include <mach/regs-gpio.h>
 
-#include "pinmux-sirf.h"
-
 #define DRIVER_NAME "pinmux-sirf"
 
 #define SIRFSOC_NUM_PADS    622
-
 #define SIRFSOC_RSC_PIN_MUX 0x4
 
 /*
@@ -33,27 +30,110 @@
  * refer to CS-131858-DC-6A.xls
  */
 const struct pinctrl_pin_desc __refdata sirfsoc_pads[] = {
-	PINCTRL_PIN(242, "LDD[23], lcdrom_frdy"),
-	PINCTRL_PIN(245, "L_PCLK"),
-	PINCTRL_PIN(248, "L_LCK"),
-	PINCTRL_PIN(249, "L_FCK"),
-	PINCTRL_PIN(250, "L_DE"),
-	PINCTRL_PIN(251, "LDD[0]"),
-	PINCTRL_PIN(252, "LDD[1]"),
-	PINCTRL_PIN(255, "LDD[2]"),
-	PINCTRL_PIN(256, "LDD[3]"),
-	PINCTRL_PIN(257, "LDD[4]"),
-	PINCTRL_PIN(258, "LDD[5]"),
-	PINCTRL_PIN(261, "LDD[6]"),
-	PINCTRL_PIN(262, "LDD[7]"),
-	PINCTRL_PIN(263, "LDD[8]"),
-	PINCTRL_PIN(266, "LDD[9]"),
-	PINCTRL_PIN(267, "LDD[10]"),
-	PINCTRL_PIN(270, "LDD[11]"),
-	PINCTRL_PIN(273, "LDD[12]"),
-	PINCTRL_PIN(274, "LDD[13]"),
-	PINCTRL_PIN(277, "LDD[14]"),
-	PINCTRL_PIN(278, "LDD[15]"),
+	PINCTRL_PIN(4, "pwm0"),
+	PINCTRL_PIN(5, "pwm1"),
+	PINCTRL_PIN(6, "pwm2"),
+	PINCTRL_PIN(7, "pwm3"),
+	PINCTRL_PIN(8, "warm_rst_b"),
+	PINCTRL_PIN(9, "odo_0"),
+	PINCTRL_PIN(10, "odo_1"),
+	PINCTRL_PIN(11, "dr_dir"),
+	PINCTRL_PIN(13, "scl_1"),
+	PINCTRL_PIN(15, "sda_1"),
+	PINCTRL_PIN(16, "x_ldd[16]"),
+	PINCTRL_PIN(17, "x_ldd[17]"),
+	PINCTRL_PIN(18, "x_ldd[18]"),
+	PINCTRL_PIN(19, "x_ldd[19]"),
+	PINCTRL_PIN(20, "x_ldd[20]"),
+	PINCTRL_PIN(21, "x_ldd[21]"),
+	PINCTRL_PIN(22, "x_ldd[22]"),
+	PINCTRL_PIN(23, "x_ldd[23], lcdrom_frdy"),
+	PINCTRL_PIN(24, "gps_sgn"),
+	PINCTRL_PIN(25, "gps_mag"),
+	PINCTRL_PIN(26, "gps_clk"),
+	PINCTRL_PIN(27,	"sd_cd_b_1"),
+	PINCTRL_PIN(28, "sd_vcc_on_1"),
+	PINCTRL_PIN(29, "sd_wp_b_1"),
+	PINCTRL_PIN(30, "sd_clk_3"),
+	PINCTRL_PIN(31, "sd_cmd_3"),
+
+	PINCTRL_PIN(32, "x_sd_dat_3[0]"),
+	PINCTRL_PIN(33, "x_sd_dat_3[1]"),
+	PINCTRL_PIN(34, "x_sd_dat_3[2]"),
+	PINCTRL_PIN(35, "x_sd_dat_3[3]"),
+	PINCTRL_PIN(36, "x_sd_clk_4"),
+	PINCTRL_PIN(37, "x_sd_cmd_4"),
+	PINCTRL_PIN(38, "x_sd_dat_4[0]"),
+	PINCTRL_PIN(39, "x_sd_dat_4[1]"),
+	PINCTRL_PIN(40, "x_sd_dat_4[2]"),
+	PINCTRL_PIN(41, "x_sd_dat_4[3]"),
+	PINCTRL_PIN(42, "x_cko_1"),
+	PINCTRL_PIN(43, "x_ac97_bit_clk"),
+	PINCTRL_PIN(44, "x_ac97_dout"),
+	PINCTRL_PIN(45, "x_ac97_din"),
+	PINCTRL_PIN(46, "x_ac97_sync"),
+	PINCTRL_PIN(47, "x_txd_1"),
+	PINCTRL_PIN(48, "x_txd_2"),
+	PINCTRL_PIN(49, "x_rxd_1"),
+	PINCTRL_PIN(50, "x_rxd_2"),
+	PINCTRL_PIN(51, "x_usclk_0"),
+	PINCTRL_PIN(52, "x_utxd_0"),
+	PINCTRL_PIN(53, "x_urxd_0"),
+	PINCTRL_PIN(54, "x_utfs_0"),
+	PINCTRL_PIN(55, "x_urfs_0"),
+	PINCTRL_PIN(56, "x_usclk_1"),
+	PINCTRL_PIN(57, "x_utxd_1"),
+	PINCTRL_PIN(58, "x_urxd_1"),
+	PINCTRL_PIN(59, "x_utfs_1"),
+	PINCTRL_PIN(60, "x_urfs_1"),
+	PINCTRL_PIN(61, "x_usclk_2"),
+	PINCTRL_PIN(62, "x_utxd_2"),
+	PINCTRL_PIN(63, "x_urxd_2"),
+
+	PINCTRL_PIN(64, "x_utfs_2"),
+	PINCTRL_PIN(65, "x_urfs_2"),
+	PINCTRL_PIN(66, "x_df_we_b"),
+	PINCTRL_PIN(67, "x_df_re_b"),
+	PINCTRL_PIN(68, "x_txd_0"),
+	PINCTRL_PIN(69, "x_rxd_0"),
+	PINCTRL_PIN(78, "x_cko_0"),
+	PINCTRL_PIN(79, "x_vip_pxd[7]"),
+	PINCTRL_PIN(80, "x_vip_pxd[6]"),
+	PINCTRL_PIN(81, "x_vip_pxd[5]"),
+	PINCTRL_PIN(82, "x_vip_pxd[4]"),
+	PINCTRL_PIN(83, "x_vip_pxd[3]"),
+	PINCTRL_PIN(84, "x_vip_pxd[2]"),
+	PINCTRL_PIN(85, "x_vip_pxd[1]"),
+	PINCTRL_PIN(86, "x_vip_pxd[0]"),
+	PINCTRL_PIN(87, "x_vip_vsync"),
+	PINCTRL_PIN(88, "x_vip_hsync"),
+	PINCTRL_PIN(89, "x_vip_pxclk"),
+	PINCTRL_PIN(90, "x_sda_0"),
+	PINCTRL_PIN(91, "x_scl_0"),
+	PINCTRL_PIN(92, "x_df_ry_by"),
+	PINCTRL_PIN(93, "x_df_cs_b[1]"),
+	PINCTRL_PIN(94, "x_df_cs_b[0]"),
+	PINCTRL_PIN(95, "x_l_pclk"),
+
+	PINCTRL_PIN(96, "x_l_lck"),
+	PINCTRL_PIN(97, "x_l_fck"),
+	PINCTRL_PIN(98, "x_l_de"),
+	PINCTRL_PIN(99, "x_ldd[0]"),
+	PINCTRL_PIN(100, "x_ldd[1]"),
+	PINCTRL_PIN(101, "x_ldd[2]"),
+	PINCTRL_PIN(102, "x_ldd[3]"),
+	PINCTRL_PIN(103, "x_ldd[4]"),
+	PINCTRL_PIN(104, "x_ldd[5]"),
+	PINCTRL_PIN(105, "x_ldd[6]"),
+	PINCTRL_PIN(106, "x_ldd[7]"),
+	PINCTRL_PIN(107, "x_ldd[8]"),
+	PINCTRL_PIN(108, "x_ldd[9]"),
+	PINCTRL_PIN(109, "x_ldd[10]"),
+	PINCTRL_PIN(110, "x_ldd[11]"),
+	PINCTRL_PIN(111, "x_ldd[12]"),
+	PINCTRL_PIN(112, "x_ldd[13]"),
+	PINCTRL_PIN(113, "x_ldd[14]"),
+	PINCTRL_PIN(114, "x_ldd[15]"),
 };
 
 /**
@@ -63,9 +143,11 @@ const struct pinctrl_pin_desc __refdata sirfsoc_pads[] = {
 struct sirfsoc_pmx {
 	struct device *dev;
 	struct pinctrl_dev *pmx;
-	void __iomem *virtbase;
+	void __iomem *gpio_virtbase;
+	void __iomem *rsc_virtbase;
 };
 
+/* SIRFSOC_GPIO_PAD_EN set */
 struct sirfsoc_muxmask {
 	unsigned long group;
 	unsigned long mask;
@@ -74,6 +156,7 @@ struct sirfsoc_muxmask {
 struct sirfsoc_padmux {
 	unsigned long muxmask_counts;
 	struct sirfsoc_muxmask *muxmask;
+	/* RSC_PIN_MUX set */
 	unsigned long funcmask;
 	unsigned long funcval;
 };
@@ -97,55 +180,91 @@ struct sirfsoc_pinmux_func {
 static struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 	{
 		.group = 3,
-		.mask =
-			~((1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) |
-				(1 << 6) | (1 << 7)
-				| (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13)
-				| (1 << 14) | (1 << 15)
-				| (1 << 16) | (1 << 17) | (1 << 18)),
+		.mask = 0x7FFFF,
 	}, {
 		.group = 2,
-		.mask = ~(1 << 31),
+		.mask = 1 << 31,
 	},
 };
 
 static struct sirfsoc_padmux lcd_16bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_16bits_sirfsoc_muxmask),
 	.muxmask = lcd_16bits_sirfsoc_muxmask,
-	.funcmask = (1 << 4),
-	.funcval = (0 << 4),
+	.funcmask = 1 << 4,
+	.funcval = 0 << 4,
 };
 
-static const unsigned lcd_16bits_pins[] = { 245, 248, 249, 250, 251, 252, 255,
-	256, 257, 258, 261, 262, 263, 266, 267, 270, 273, 274, 277, 278 };
+static const unsigned lcd_16bits_pins[] = { 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
+	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
+
+static struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
+	{
+		.group = 3,
+		.mask = 0x7FFFF,
+	}, {
+		.group = 2,
+		.mask = 1 << 31,
+	}, {
+		.group = 0,
+		.mask = (1 << 16) | (1 << 17),
+	},
+};
+
+static struct sirfsoc_padmux lcd_18bits_padmux = {
+	.muxmask_counts = ARRAY_SIZE(lcd_18bits_muxmask),
+	.muxmask = lcd_18bits_muxmask,
+	.funcmask = 1 << 4,
+	.funcval = 0 << 4,
+};
+
+static const unsigned lcd_18bits_pins[] = { 16, 17, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
+	105, 106, 107, 108, 109, 110, 111, 112, 113, 114};
+
+static struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
+	{
+		.group = 3,
+		.mask = 0x7FFFF,
+	}, {
+		.group = 2,
+		.mask = 1 << 31,
+	}, {
+		.group = 0,
+		.mask = 0xFF0000,
+	},
+};
+
+static struct sirfsoc_padmux lcd_24bits_padmux = {
+	.muxmask_counts = ARRAY_SIZE(lcd_24bits_muxmask),
+	.muxmask = lcd_24bits_muxmask,
+	.funcmask = 1 << 4,
+	.funcval = 0 << 4,
+};
+
+static const unsigned lcd_24bits_pins[] = { 16, 17, 18, 19, 20, 21, 22, 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
+	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
 
 static struct sirfsoc_muxmask lcdrom_muxmask[] = {
 	{
 		.group = 3,
-		.mask =
-			~((1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) |
-				(1 << 6) | (1 << 7)
-				| (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13)
-				| (1 << 14) | (1 << 15)
-				| (1 << 16) | (1 << 17) | (1 << 18)),
+		.mask = 0x7FFFF,
 	}, {
 		.group = 2,
-		.mask = ~(1 << 31),
+		.mask = 1 << 31,
 	}, {
 		.group = 0,
-		.mask = ~((1 << 23)),
+		.mask = 1 << 23,
 	},
 };
 
 static struct sirfsoc_padmux lcdrom_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcdrom_muxmask),
 	.muxmask = lcdrom_muxmask,
-	.funcmask = (1 << 4),
-	.funcval = (1 << 4),
+	.funcmask = 1 << 4,
+	.funcval = 1 << 4,
 };
 
-static const unsigned lcdrom_pins[] = { 242, 245, 248, 249, 250, 251, 252, 255,
-	256, 257, 258, 261, 262, 263, 266, 267, 270, 273, 274, 277, 278 };
+static const unsigned lcdrom_pins[] = { 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
+	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
 
 static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 	{
@@ -153,6 +272,16 @@ static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 		.pins = lcd_16bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_16bits_pins),
 		.padmux = &lcd_16bits_padmux,
+	}, {
+		.name = "lcd_18bits_pins",
+		.pins = lcd_18bits_pins,
+		.num_pins = ARRAY_SIZE(lcd_18bits_pins),
+		.padmux = &lcd_18bits_padmux,
+	}, {
+		.name = "lcd_24bits_pins",
+		.pins = lcd_24bits_pins,
+		.num_pins = ARRAY_SIZE(lcd_24bits_pins),
+		.padmux = &lcd_24bits_padmux,
 	}, {
 		.name = "lcdrom_pins",
 		.pins = lcdrom_pins,
@@ -170,22 +299,22 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *upmx, unsigned selector
 
 	for (i = 0; i < mux->muxmask_counts; i++) {
 		u32 muxval;
-		muxval = readl(upmx->virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+		muxval = readl(upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
 		if (enable)
-			muxval = muxval & mask[i].mask;
+			muxval = muxval & ~mask[i].mask;
 		else
-			muxval = muxval | ~mask[i].mask;
-		writel(muxval, upmx->virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+			muxval = muxval | mask[i].mask;
+		writel(muxval, upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
 	}
 
 	if (mux->funcmask && enable) {
 		u32 func_en_val;
 		func_en_val =
-			readl(upmx->virtbase + SIRFSOC_RSC_PIN_MUX);
+			readl(upmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
 		func_en_val =
 			(func_en_val & (~(mux->funcmask))) | (mux->
 				funcval);
-		writel(func_en_val, upmx->virtbase + SIRFSOC_RSC_PIN_MUX);
+		writel(func_en_val, upmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
 	}
 }
 
@@ -242,6 +371,23 @@ static void sirfsoc_dbg_show(struct pinctrl_dev *pmxdev, struct seq_file *s,
 	seq_printf(s, " " DRIVER_NAME);
 }
 
+static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev, unsigned offset)
+{
+	struct sirfsoc_pmx *upmx;
+
+	int group = offset / 32;
+
+	u32 muxval;
+
+	upmx = pctldev_get_drvdata(pmxdev);
+
+	muxval = readl(upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+	muxval = muxval | (1 << (offset % 32));
+	writel(muxval, upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+
+	return 0;
+}
+
 static struct pinmux_ops sirfsoc_pinmux_ops = {
 	.list_functions = sirfsoc_pinmux_list,
 	.get_function_name = sirfsoc_pinmux_get_fname,
@@ -249,6 +395,7 @@ static struct pinmux_ops sirfsoc_pinmux_ops = {
 	.enable = sirfsoc_pinmux_enable,
 	.disable = sirfsoc_pinmux_disable,
 	.dbg_show = sirfsoc_dbg_show,
+	.gpio_request_enable = sirfsoc_pinmux_request_gpio,
 };
 
 static struct pinctrl_desc sirfsoc_pinmux_desc = {
@@ -259,6 +406,21 @@ static struct pinctrl_desc sirfsoc_pinmux_desc = {
 	.pmxops = &sirfsoc_pinmux_ops,
 	.owner = THIS_MODULE,
 };
+
+static void __iomem *sirfsoc_rsc_of_iomap(void)
+{
+	const struct of_device_id rsc_ids[]  = {
+		{ .compatible = "sirf,prima2-rsc" },
+		{}
+	};
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, rsc_ids);
+	if (!np)
+		panic("unable to find compatible rsc node in dtb\n");
+
+	return of_iomap(np, 0);
+}
 
 static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 {
@@ -275,10 +437,18 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, upmx);
 
-	upmx->virtbase = of_iomap(np, 0);
-	if (!upmx->virtbase) {
+	upmx->gpio_virtbase = of_iomap(np, 0);
+	if (!upmx->gpio_virtbase) {
 		ret = -ENOMEM;
-		goto out_no_remap;
+		dev_err(&pdev->dev, "can't map gpio registers\n");
+		goto out_no_gpio_remap;
+	}
+
+	upmx->rsc_virtbase = sirfsoc_rsc_of_iomap();
+	if (!upmx->rsc_virtbase) {
+		ret = -ENOMEM;
+		dev_err(&pdev->dev, "can't map rsc registers\n");
+		goto out_no_rsc_remap;
 	}
 
 	/* Now register the pin controller and all pins it handles */
@@ -294,27 +464,17 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 	return 0;
 
 out_no_pmx:
-	iounmap(upmx->virtbase);
-out_no_remap:
+	iounmap(upmx->rsc_virtbase);
+out_no_rsc_remap:
+	iounmap(upmx->gpio_virtbase);
+out_no_gpio_remap:
 	platform_set_drvdata(pdev, NULL);
 	kfree(upmx);
 	return ret;
 }
 
-static int __devexit sirfsoc_pinmux_remove(struct platform_device *pdev)
-{
-	struct sirfsoc_pmx *upmx = platform_get_drvdata(pdev);
-
-	pinctrl_unregister(upmx->pmx);
-	iounmap(upmx->virtbase);
-	platform_set_drvdata(pdev, NULL);
-	kfree(upmx);
-
-	return 0;
-}
-
 static const struct of_device_id pinmux_ids[]  = {
-	{ .compatible = "sirf,prima2-pinmux" },
+	{ .compatible = "sirf,prima2-gpio-pinmux" },
 	{}
 };
 
@@ -324,20 +484,14 @@ static struct platform_driver sirfsoc_pinmux_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = pinmux_ids,
 	},
-	.remove = __devexit_p(sirfsoc_pinmux_remove),
+	.probe = sirfsoc_pinmux_probe,
 };
 
 static int __init sirfsoc_pinmux_init(void)
 {
-	return platform_driver_probe(&sirfsoc_pinmux_driver, sirfsoc_pinmux_probe);
+	return platform_driver_register(&sirfsoc_pinmux_driver);
 }
 arch_initcall(sirfsoc_pinmux_init);
-
-static void __exit sirfsoc_pinmux_exit(void)
-{
-	platform_driver_unregister(&sirfsoc_pinmux_driver);
-}
-module_exit(sirfsoc_pinmux_exit);
 
 MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>, "
 	"Barry Song <baohua.song@csr.com>");
