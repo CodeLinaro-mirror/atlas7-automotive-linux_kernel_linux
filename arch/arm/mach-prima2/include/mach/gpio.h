@@ -22,9 +22,10 @@
 /* new generic GPIO API - see Documentation/gpio.txt */
 #define __ARM_GPIOLIB_TRIVIAL
 
-void gpio_set_pull(unsigned gpio, int enable);
-void gpio_pull_down(unsigned gpio);
-void gpio_pull_up(unsigned gpio);
+#define GPIO_PULL_NONE 0
+#define GPIO_PULL_UP   1
+#define GPIO_PULL_DOWN 2
+void gpio_set_pull(unsigned gpio, unsigned mode);
 #define gpio_to_irq    __gpio_to_irq
 
 #endif
