@@ -260,7 +260,7 @@ static struct pinctrl_desc sirfsoc_pinmux_desc = {
 	.owner = THIS_MODULE,
 };
 
-static int __init sirfsoc_pinmux_probe(struct platform_device *pdev)
+static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct sirfsoc_pmx *upmx;
@@ -301,7 +301,7 @@ out_no_remap:
 	return ret;
 }
 
-static int __exit sirfsoc_pinmux_remove(struct platform_device *pdev)
+static int __devexit sirfsoc_pinmux_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_pmx *upmx = platform_get_drvdata(pdev);
 
@@ -313,7 +313,7 @@ static int __exit sirfsoc_pinmux_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id pinmux_ids[]  = {
+static const struct of_device_id pinmux_ids[]  = {
 	{ .compatible = "sirf,prima2-pinmux" },
 	{}
 };
@@ -324,12 +324,12 @@ static struct platform_driver sirfsoc_pinmux_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = pinmux_ids,
 	},
-	.remove = __exit_p(sirfsoc_pinmux_remove),
+	.remove = __devexit_p(sirfsoc_pinmux_remove),
 };
 
 static int __init sirfsoc_pinmux_init(void)
 {
-	return platform_driver_register(&sirfsoc_pinmux_driver);
+	return platform_driver_probe(&sirfsoc_pinmux_driver, sirfsoc_pinmux_probe);
 }
 arch_initcall(sirfsoc_pinmux_init);
 
