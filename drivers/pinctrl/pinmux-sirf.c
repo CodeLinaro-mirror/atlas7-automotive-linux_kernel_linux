@@ -18,11 +18,11 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
-#include <mach/regs-gpio.h>
 
 #define DRIVER_NAME "pinmux-sirf"
 
 #define SIRFSOC_NUM_PADS    622
+#define SIRFSOC_GPIO_PAD_EN(g) ((g)*0x100 + 0x84)
 #define SIRFSOC_RSC_PIN_MUX 0x4
 
 /*
@@ -155,7 +155,7 @@ struct sirfsoc_muxmask {
 
 struct sirfsoc_padmux {
 	unsigned long muxmask_counts;
-	struct sirfsoc_muxmask *muxmask;
+	const struct sirfsoc_muxmask *muxmask;
 	/* RSC_PIN_MUX set */
 	unsigned long funcmask;
 	unsigned long funcval;
@@ -177,7 +177,7 @@ struct sirfsoc_pinmux_func {
 	const struct sirfsoc_padmux *padmux;
 };
 
-static struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
+static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 	{
 		.group = 3,
 		.mask = 0x7FFFF,
@@ -187,7 +187,7 @@ static struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 	},
 };
 
-static struct sirfsoc_padmux lcd_16bits_padmux = {
+static const struct sirfsoc_padmux lcd_16bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_16bits_sirfsoc_muxmask),
 	.muxmask = lcd_16bits_sirfsoc_muxmask,
 	.funcmask = 1 << 4,
@@ -197,7 +197,7 @@ static struct sirfsoc_padmux lcd_16bits_padmux = {
 static const unsigned lcd_16bits_pins[] = { 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
 	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
 
-static struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
+static const struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 	{
 		.group = 3,
 		.mask = 0x7FFFF,
@@ -210,7 +210,7 @@ static struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 	},
 };
 
-static struct sirfsoc_padmux lcd_18bits_padmux = {
+static const struct sirfsoc_padmux lcd_18bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_18bits_muxmask),
 	.muxmask = lcd_18bits_muxmask,
 	.funcmask = 1 << 4,
@@ -220,7 +220,7 @@ static struct sirfsoc_padmux lcd_18bits_padmux = {
 static const unsigned lcd_18bits_pins[] = { 16, 17, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
 	105, 106, 107, 108, 109, 110, 111, 112, 113, 114};
 
-static struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
+static const struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 	{
 		.group = 3,
 		.mask = 0x7FFFF,
@@ -233,7 +233,7 @@ static struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 	},
 };
 
-static struct sirfsoc_padmux lcd_24bits_padmux = {
+static const struct sirfsoc_padmux lcd_24bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_24bits_muxmask),
 	.muxmask = lcd_24bits_muxmask,
 	.funcmask = 1 << 4,
@@ -243,7 +243,7 @@ static struct sirfsoc_padmux lcd_24bits_padmux = {
 static const unsigned lcd_24bits_pins[] = { 16, 17, 18, 19, 20, 21, 22, 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
 	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
 
-static struct sirfsoc_muxmask lcdrom_muxmask[] = {
+static const struct sirfsoc_muxmask lcdrom_muxmask[] = {
 	{
 		.group = 3,
 		.mask = 0x7FFFF,
@@ -256,7 +256,7 @@ static struct sirfsoc_muxmask lcdrom_muxmask[] = {
 	},
 };
 
-static struct sirfsoc_padmux lcdrom_padmux = {
+static const struct sirfsoc_padmux lcdrom_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcdrom_muxmask),
 	.muxmask = lcdrom_muxmask,
 	.funcmask = 1 << 4,
@@ -266,27 +266,86 @@ static struct sirfsoc_padmux lcdrom_padmux = {
 static const unsigned lcdrom_pins[] = { 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
 	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
 
+static const struct sirfsoc_muxmask uart1_muxmask[] = {
+	{
+		.group = 1,
+		.mask = (1 << 15) | (1 << 17),
+	},
+};
+
+static const struct sirfsoc_padmux uart1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(uart1_muxmask),
+	.muxmask = uart1_muxmask,
+};
+
+static const unsigned uart1_pins[] = { 47, 49 };
+
+static const struct sirfsoc_muxmask uart2_muxmask[] = {
+	{
+		.group = 1,
+		.mask = (1 << 16) | (1 << 18) | (1 << 24) | (1 << 27),
+	},
+};
+
+static const struct sirfsoc_padmux uart2_padmux = {
+	.muxmask_counts = ARRAY_SIZE(uart2_muxmask),
+	.muxmask = uart2_muxmask,
+	.funcmask = 1 << 10,
+	.funcval = 1 << 10,
+};
+
+static const unsigned uart2_pins[] = { 48, 50, 56, 59 };
+
+static const struct sirfsoc_muxmask uart2_nostreamctrl_muxmask[] = {
+	{
+		.group = 1,
+		.mask = (1 << 16) | (1 << 18),
+	},
+};
+
+static const struct sirfsoc_padmux uart2_nostreamctrl_padmux = {
+	.muxmask_counts = ARRAY_SIZE(uart2_nostreamctrl_muxmask),
+	.muxmask = uart2_nostreamctrl_muxmask,
+};
+
+static const unsigned uart2_nostreamctrl_pins[] = { 48, 50 };
+
 static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 	{
-		.name = "lcd_16bits_pins",
+		.name = "lcd_16bits",
 		.pins = lcd_16bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_16bits_pins),
 		.padmux = &lcd_16bits_padmux,
 	}, {
-		.name = "lcd_18bits_pins",
+		.name = "lcd_18bits",
 		.pins = lcd_18bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_18bits_pins),
 		.padmux = &lcd_18bits_padmux,
 	}, {
-		.name = "lcd_24bits_pins",
+		.name = "lcd_24bits",
 		.pins = lcd_24bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_24bits_pins),
 		.padmux = &lcd_24bits_padmux,
 	}, {
-		.name = "lcdrom_pins",
+		.name = "lcdrom",
 		.pins = lcdrom_pins,
 		.num_pins = ARRAY_SIZE(lcdrom_pins),
 		.padmux = &lcdrom_padmux,
+	}, {
+		.name = "uart1",
+			.pins = uart1_pins,
+			.num_pins = ARRAY_SIZE(uart1_pins),
+			.padmux = &lcdrom_padmux,
+	}, {
+		.name = "uart2",
+			.pins = uart2_pins,
+			.num_pins = ARRAY_SIZE(uart2_pins),
+			.padmux = &uart2_padmux,
+	}, {
+		.name = "uart2_nostreamctrl",
+			.pins = uart2_nostreamctrl_pins,
+			.num_pins = ARRAY_SIZE(uart2_nostreamctrl_pins),
+			.padmux = &uart2_nostreamctrl_padmux,
 	},
 };
 
