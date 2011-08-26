@@ -26,6 +26,8 @@
 #include <asm/dma.h>
 #include <mach/hardware.h>
 #include <asm/gpio.h>
+#include <linux/pinctrl/pinmux.h>
+
 #include "sirfsoc_serial_drv.h"
 
 #define DEBUG_LOG		printk
@@ -1288,8 +1290,11 @@ static int sirfsoc_serial_probe(struct platform_device *pdev)
 	}
 
 	/* fixme: platform_get_irq fail to get irq */
-	if (pdev->id == 1)
+	if (pdev->id == 1) {
 		port->irq = IRQ_UART1;
+		struct pinmux *pmx = pinmux_get(&pdev->dev, NULL);
+		pinmux_enable(pmx);
+	}
 	else if (pdev->id == 0)
 		port->irq = IRQ_UART0;
 	else

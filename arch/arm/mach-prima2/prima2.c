@@ -1,5 +1,5 @@
 /*
- * Defines machines for CSR SiRFprimaII 
+ * Defines machines for CSR SiRFprimaII
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -12,7 +12,13 @@
 #include <asm/mach/arch.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/pinctrl/machine.h>
 #include "common.h"
+
+/* Padmux settings */
+static struct pinmux_map prima2_padmux_map[] = {
+	PINMUX_MAP_PRIMARY("uart1", "b0060000.uart"),
+};
 
 static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 	{ .compatible = "simple-bus", },
@@ -22,6 +28,7 @@ static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 void __init sirfsoc_mach_init(void)
 {
 	of_platform_bus_probe(NULL, sirfsoc_of_bus_ids, NULL);
+	pinmux_register_mappings(prima2_padmux_map, ARRAY_SIZE(prima2_padmux_map));
 }
 
 static const char *prima2cb_dt_match[] __initdata = {
