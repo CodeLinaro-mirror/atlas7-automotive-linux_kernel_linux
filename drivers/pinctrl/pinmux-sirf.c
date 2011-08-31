@@ -1025,7 +1025,8 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx, unsigned selector
 	}
 }
 
-static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector)
+static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector,
+	unsigned position)
 {
 	struct sirfsoc_pmx *spmx;
 
@@ -1037,7 +1038,8 @@ static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector)
 	return 0;
 }
 
-static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector)
+static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector,
+	unsigned position)
 {
 	struct sirfsoc_pmx *spmx;
 
@@ -1047,9 +1049,19 @@ static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector
 	sirfsoc_pinmux_endisable(spmx, selector, false);
 }
 
-static int sirfsoc_pinmux_list(struct pinctrl_dev *pmxdev, unsigned selector)
+static int sirfsoc_pinmux_list_funcs(struct pinctrl_dev *pmxdev, unsigned selector)
 {
 	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
+		return -EINVAL;
+	return 0;
+}
+
+static int sirfsoc_pmx_list_positions(struct pinctrl_dev *pctldev,
+	unsigned selector,
+	unsigned position)
+{
+	/* Only one selectable position per selector in this driver */
+	if (position != 0)
 		return -EINVAL;
 	return 0;
 }
@@ -1063,10 +1075,14 @@ static const char *sirfsoc_pinmux_get_fname(struct pinctrl_dev *pmxdev,
 }
 
 static int sirfsoc_pinmux_get_pins(struct pinctrl_dev *pmxdev, unsigned selector,
-	unsigned ** const pins, unsigned * const num_pins)
+	unsigned position, unsigned ** const pins, unsigned * const num_pins)
 {
+	if (position != 0)
+		return -EINVAL;
+
 	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
 		return -EINVAL;
+
 	*pins = (unsigned *) sirfsoc_pinmux_funcs[selector].pins;
 	*num_pins = sirfsoc_pinmux_funcs[selector].num_pins;
 	return 0;
@@ -1078,25 +1094,27 @@ static void sirfsoc_dbg_show(struct pinctrl_dev *pmxdev, struct seq_file *s,
 	seq_printf(s, " " DRIVER_NAME);
 }
 
-static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev, unsigned offset)
+static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
+	struct pinctrl_gpio_range *range, unsigned offset)
 {
 	struct sirfsoc_pmx *spmx;
 
-	int group = offset / 32;
+	int group = range->id;
 
 	u32 muxval;
 
 	spmx = pctldev_get_drvdata(pmxdev);
 
 	muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
-	muxval = muxval | (1 << (offset % 32));
+	muxval = muxval | (1 << offset);
 	writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
 
 	return 0;
 }
 
 static struct pinmux_ops sirfsoc_pinmux_ops = {
-	.list_functions = sirfsoc_pinmux_list,
+	.list_functions = sirfsoc_pinmux_list_funcs,
+	.list_positions = sirfsoc_pmx_list_positions,
 	.get_function_name = sirfsoc_pinmux_get_fname,
 	.get_function_pins = sirfsoc_pinmux_get_pins,
 	.enable = sirfsoc_pinmux_enable,
@@ -1112,6 +1130,33 @@ static struct pinctrl_desc sirfsoc_pinmux_desc = {
 	.maxpin = SIRFSOC_NUM_PADS - 1,
 	.pmxops = &sirfsoc_pinmux_ops,
 	.owner = THIS_MODULE,
+};
+
+/*
+ * Todo: bind irq_chip to every pinctrl_gpio_range
+ */
+static struct pinctrl_gpio_range sirfsoc_gpio_ranges[] = {
+	{
+		.name = "sirfsoc-gpio0",
+		.id = 0,
+		.base = 0,
+		.npins = 32,
+	}, {
+		.name = "sirfsoc-gpio1",
+		.id = 1,
+		.base = 32,
+		.npins = 32,
+	}, {
+		.name = "sirfsoc-gpio2",
+		.id = 2,
+		.base = 64,
+		.npins = 32,
+	}, {
+		.name = "sirfsoc-gpio2",
+		.id = 3,
+		.base = 96,
+		.npins = 19,
+	},
 };
 
 static void __iomem *sirfsoc_rsc_of_iomap(void)
@@ -1134,6 +1179,7 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 	int ret;
 	struct sirfsoc_pmx *spmx;
 	struct device_node *np = pdev->dev.of_node;
+	int i;
 
 	/* Create state holders etc for this driver */
 	spmx = kzalloc(sizeof(struct sirfsoc_pmx), GFP_KERNEL);
@@ -1165,6 +1211,9 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 		ret = PTR_ERR(spmx->pmx);
 		goto out_no_pmx;
 	}
+
+	for (i = 0; i < ARRAY_SIZE(sirfsoc_gpio_ranges); i++)
+		pinctrl_add_gpio_range(spmx->pmx, &sirfsoc_gpio_ranges[i]);
 
 	dev_info(&pdev->dev, "initialized SIRFSOC pinmux driver\n");
 
