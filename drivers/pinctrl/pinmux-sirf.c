@@ -181,7 +181,9 @@ struct sirfsoc_pinmux_func {
 static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 	{
 		.group = 3,
-		.mask = 0x7FFFF,
+		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
 		.mask = BIT(31),
@@ -201,7 +203,9 @@ static const unsigned lcd_16bits_pins[] = { 95, 96, 97, 98, 99, 100, 101, 102, 1
 static const struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 	{
 		.group = 3,
-		.mask = 0x7FFFF,
+		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
 		.mask = BIT(31),
@@ -224,13 +228,15 @@ static const unsigned lcd_18bits_pins[] = { 16, 17, 95, 96, 97, 98, 99, 100, 101
 static const struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 	{
 		.group = 3,
-		.mask = 0x7FFFF,
+		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
 		.mask = BIT(31),
 	}, {
 		.group = 0,
-		.mask = 0xFF0000,
+		.mask = BIT(16) | BIT(17) | BIT(18) | BIT(19) | BIT(20) | BIT(21) | BIT(22) | BIT(23),
 	},
 };
 
@@ -247,7 +253,9 @@ static const unsigned lcd_24bits_pins[] = { 16, 17, 18, 19, 20, 21, 22, 23, 95, 
 static const struct sirfsoc_muxmask lcdrom_muxmask[] = {
 	{
 		.group = 3,
-		.mask = 0x7FFFF,
+		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
 		.mask = BIT(31),
