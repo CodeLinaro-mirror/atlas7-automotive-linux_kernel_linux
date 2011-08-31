@@ -1,5 +1,5 @@
 /*
- * arch/arm/plat-sirfsoc/pm.h
+ * arch/arm/mach-prima2/pm.h
  *
  * Copyright (C) 2011 CSR
  *

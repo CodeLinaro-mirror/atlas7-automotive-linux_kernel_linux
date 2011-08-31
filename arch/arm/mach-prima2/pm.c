@@ -17,10 +17,12 @@
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <asm/suspend.h>
 
-#include "common.h"
 #include "pm.h"
 
 static u32 sirfsoc_pwrc_base;
+/*
+ * suspend asm codes will access this address to make DRAM become self-refresh
+ */
 void __iomem *sirfsoc_memc_base;
 
 static void sirfsoc_set_wakeup_source(void)
@@ -35,11 +37,11 @@ static void sirfsoc_set_wakeup_source(void)
 
 static void sirfsoc_set_sleep_mode(u32 mode)
 {
-        u32 sleep_mode = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
+	u32 sleep_mode = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
 		SIRFSOC_PWRC_PDN_CTRL);
-        sleep_mode &= ~(SIRFSOC_SLEEP_MODE_MASK << 1);
-        sleep_mode |= ((mode << 1));
-        sirfsoc_rtc_iobrg_writel(sleep_mode, sirfsoc_pwrc_base +
+	sleep_mode &= ~(SIRFSOC_SLEEP_MODE_MASK << 1);
+	sleep_mode |= mode << 1;
+	sirfsoc_rtc_iobrg_writel(sleep_mode, sirfsoc_pwrc_base +
 		SIRFSOC_PWRC_PDN_CTRL);
 }
 
@@ -105,7 +107,7 @@ static int __init sirfsoc_pm_init(void)
 }
 late_initcall(sirfsoc_pm_init);
 
-static struct of_device_id pwrc_ids[] = {
+static const struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc" },
 	{}
 };
@@ -118,6 +120,11 @@ static int __init sirfsoc_of_pwrc_init(void)
 	if (!np)
 		panic("unable to find compatible pwrc node in dtb\n");
 
+	/*
+	 * pwrc behind rtciobrg is not located in memory space
+	 * though the property is named reg. reg only means base
+	 * offset for pwrc. then of_iomap is not suitable here.
+	 */
 	if (of_property_read_u32(np, "reg", &sirfsoc_pwrc_base))
 		panic("unable to find base address of pwrc node in dtb\n");
 
@@ -127,7 +134,7 @@ static int __init sirfsoc_of_pwrc_init(void)
 }
 postcore_initcall(sirfsoc_of_pwrc_init);
 
-static struct of_device_id memc_ids[] = {
+static const struct of_device_id memc_ids[] = {
 	{ .compatible = "sirf,prima2-memc" },
 	{}
 };
