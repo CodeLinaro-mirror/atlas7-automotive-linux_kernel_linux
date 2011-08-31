@@ -997,7 +997,7 @@ static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 	},
 };
 
-static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *upmx, unsigned selector,
+static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx, unsigned selector,
 	bool enable)
 {
 	int i;
@@ -1006,45 +1006,45 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *upmx, unsigned selector
 
 	for (i = 0; i < mux->muxmask_counts; i++) {
 		u32 muxval;
-		muxval = readl(upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+		muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
 		if (enable)
 			muxval = muxval & ~mask[i].mask;
 		else
 			muxval = muxval | mask[i].mask;
-		writel(muxval, upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+		writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
 	}
 
 	if (mux->funcmask && enable) {
 		u32 func_en_val;
 		func_en_val =
-			readl(upmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
+			readl(spmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
 		func_en_val =
 			(func_en_val & ~mux->funcmask) | (mux->
 				funcval);
-		writel(func_en_val, upmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
+		writel(func_en_val, spmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
 	}
 }
 
 static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector)
 {
-	struct sirfsoc_pmx *upmx;
+	struct sirfsoc_pmx *spmx;
 
 	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
 		return -EINVAL;
-	upmx = pctldev_get_drvdata(pmxdev);
-	sirfsoc_pinmux_endisable(upmx, selector, true);
+	spmx = pctldev_get_drvdata(pmxdev);
+	sirfsoc_pinmux_endisable(spmx, selector, true);
 
 	return 0;
 }
 
 static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector)
 {
-	struct sirfsoc_pmx *upmx;
+	struct sirfsoc_pmx *spmx;
 
 	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
 		return;
-	upmx = pctldev_get_drvdata(pmxdev);
-	sirfsoc_pinmux_endisable(upmx, selector, false);
+	spmx = pctldev_get_drvdata(pmxdev);
+	sirfsoc_pinmux_endisable(spmx, selector, false);
 }
 
 static int sirfsoc_pinmux_list(struct pinctrl_dev *pmxdev, unsigned selector)
@@ -1080,17 +1080,17 @@ static void sirfsoc_dbg_show(struct pinctrl_dev *pmxdev, struct seq_file *s,
 
 static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev, unsigned offset)
 {
-	struct sirfsoc_pmx *upmx;
+	struct sirfsoc_pmx *spmx;
 
 	int group = offset / 32;
 
 	u32 muxval;
 
-	upmx = pctldev_get_drvdata(pmxdev);
+	spmx = pctldev_get_drvdata(pmxdev);
 
-	muxval = readl(upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+	muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
 	muxval = muxval | (1 << (offset % 32));
-	writel(muxval, upmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+	writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
 
 	return 0;
 }
@@ -1132,37 +1132,37 @@ static void __iomem *sirfsoc_rsc_of_iomap(void)
 static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct sirfsoc_pmx *upmx;
+	struct sirfsoc_pmx *spmx;
 	struct device_node *np = pdev->dev.of_node;
 
 	/* Create state holders etc for this driver */
-	upmx = kzalloc(sizeof(struct sirfsoc_pmx), GFP_KERNEL);
-	if (!upmx)
+	spmx = kzalloc(sizeof(struct sirfsoc_pmx), GFP_KERNEL);
+	if (!spmx)
 		return -ENOMEM;
 
-	upmx->dev = &pdev->dev;
+	spmx->dev = &pdev->dev;
 
-	platform_set_drvdata(pdev, upmx);
+	platform_set_drvdata(pdev, spmx);
 
-	upmx->gpio_virtbase = of_iomap(np, 0);
-	if (!upmx->gpio_virtbase) {
+	spmx->gpio_virtbase = of_iomap(np, 0);
+	if (!spmx->gpio_virtbase) {
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "can't map gpio registers\n");
 		goto out_no_gpio_remap;
 	}
 
-	upmx->rsc_virtbase = sirfsoc_rsc_of_iomap();
-	if (!upmx->rsc_virtbase) {
+	spmx->rsc_virtbase = sirfsoc_rsc_of_iomap();
+	if (!spmx->rsc_virtbase) {
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "can't map rsc registers\n");
 		goto out_no_rsc_remap;
 	}
 
 	/* Now register the pin controller and all pins it handles */
-	upmx->pmx = pinctrl_register(&sirfsoc_pinmux_desc, &pdev->dev, upmx);
-	if (IS_ERR(upmx->pmx)) {
+	spmx->pmx = pinctrl_register(&sirfsoc_pinmux_desc, &pdev->dev, spmx);
+	if (IS_ERR(spmx->pmx)) {
 		dev_err(&pdev->dev, "could not register SIRFSOC pinmux driver\n");
-		ret = PTR_ERR(upmx->pmx);
+		ret = PTR_ERR(spmx->pmx);
 		goto out_no_pmx;
 	}
 
@@ -1171,12 +1171,12 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 	return 0;
 
 out_no_pmx:
-	iounmap(upmx->rsc_virtbase);
+	iounmap(spmx->rsc_virtbase);
 out_no_rsc_remap:
-	iounmap(upmx->gpio_virtbase);
+	iounmap(spmx->gpio_virtbase);
 out_no_gpio_remap:
 	platform_set_drvdata(pdev, NULL);
-	kfree(upmx);
+	kfree(spmx);
 	return ret;
 }
 
