@@ -19,4 +19,6 @@ struct pin_desc {
 
 struct pin_desc *pin_desc_get(struct pinctrl_dev *pctldev, int pin);
 struct pinctrl_dev *get_pctrldev_for_pinmux_map(struct pinmux_map const *map);
-struct pinctrl_dev *pinctrl_get_device_for_gpio(unsigned gpio);
+int pinctrl_get_device_gpio_range(unsigned gpio,
+				  struct pinctrl_dev **outdev,
+				  struct pinctrl_gpio_range **outrange);

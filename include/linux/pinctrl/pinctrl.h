@@ -16,8 +16,10 @@
 
 #include <linux/radix-tree.h>
 #include <linux/spinlock.h>
+#include <linux/list.h>
 
 struct pinmux_ops;
+struct gpio_chip;
 
 /**
  * struct pinctrl_pin_desc - boards/machines provide information on their
@@ -35,6 +37,25 @@ struct pinctrl_pin_desc {
 #define PINCTRL_PIN_ANON(a) { .number = a }
 
 /**
+ * struct pinctrl_gpio_range - each pin controller can provide subranges of
+ * the GPIO number space to be handled by the controller
+ * @name: a name for the chip in this range
+ * @id: an ID number for the chip in this range
+ * @base: base offset of the GPIO range
+ * @npins: number of pins in the GPIO range, including the base number
+ * @gc: an optional pointer to a gpio_chip
+ * @node: list node for internal use
+ */
+struct pinctrl_gpio_range {
+	const char name[16];
+	unsigned int id;
+	unsigned int base;
+	unsigned int npins;
+	struct gpio_chip *gc;
+	struct list_head node;
+};
+
+/**
  * struct pinctrl_desc - pin controller descriptor, register this to pin
  * control subsystem
  * @name: name for the pin controller
@@ -47,11 +68,6 @@ struct pinctrl_pin_desc {
  *	total range. This should not be lower than npins for example,
  *	but may be equal to npins if you have no holes in the pin range.
  * @pmxops: pinmux operation vtable, if you support pinmuxing in your driver
- * @gpio_base: the base offset of the pin range in the GPIO subsystem that
- *	is handled by this controller, if applicable. This member is only
- *	relevant if you want to e.g. control pins from the GPIO subsystem.
- * @gpio_pins: the number of pins from (and including) the gpio_base offset
- *	handled by this pin controller.
  * @owner: module providing the pin controller, used for refcounting
  */
 struct pinctrl_desc {
@@ -60,8 +76,6 @@ struct pinctrl_desc {
 	unsigned int npins;
 	unsigned int maxpin;
 	struct pinmux_ops *pmxops;
-	unsigned int gpio_base;
-	unsigned int gpio_pins;
 	struct module *owner;
 };
 
@@ -69,11 +83,17 @@ struct pinctrl_desc {
  * struct pinctrl_dev - pin control class device
  * @desc: the pin controller descriptor supplied when initializing this pin
  *	controller
- * @node: node to include this pin controller in the global pin controller list
+ * @pin_desc_tree: each pin descriptor for this pin controller is stored in
+ *	this radix tree
+ * @pin_desc_tree_lock: lock for the descriptor tree
+ * @gpio_ranges: a list of GPIO ranges that is handled by this pin controller,
+ *	ranges are added to this list at runtime
+ * @gpio_ranges_lock: lock for the GPIO ranges list
  * @dev: the device entry for this pin controller
  * @owner: module providing the pin controller, used for refcounting
  * @driver_data: driver data for drivers registering to the pin controller
  *	subsystem
+ * @node: node to include this pin controller in the global pin controller list
  *
  * This should be dereferenced and used by the pin controller core ONLY
  */
@@ -81,13 +101,15 @@ struct pinctrl_dev {
 	struct pinctrl_desc *desc;
 	struct radix_tree_root pin_desc_tree;
 	spinlock_t pin_desc_tree_lock;
-	struct list_head node;
+	struct list_head gpio_ranges;
+	spinlock_t gpio_ranges_lock;
 	struct device dev;
 	struct module *owner;
 	void *driver_data;
+	struct list_head node;
 };
 
-/* These should only be used from drives */
+/* These should only be used from drivers */
 static inline const char *pctldev_get_name(struct pinctrl_dev *pctldev)
 {
 	/* We're not allowed to register devices without name */
@@ -104,7 +126,8 @@ extern struct pinctrl_dev *pinctrl_register(struct pinctrl_desc *pctldesc,
 				struct device *dev, void *driver_data);
 extern void pinctrl_unregister(struct pinctrl_dev *pctldev);
 extern bool pin_is_valid(struct pinctrl_dev *pctldev, int pin);
-
+extern void pinctrl_add_gpio_range(struct pinctrl_dev *pctldev,
+				   struct pinctrl_gpio_range *range);
 #else
 
 struct pinctrl_dev;

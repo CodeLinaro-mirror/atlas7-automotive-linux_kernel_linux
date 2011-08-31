@@ -32,6 +32,7 @@
 static DEFINE_MUTEX(pinctrldev_list_mutex);
 static LIST_HEAD(pinctrldev_list);
 
+/* sysfs interaction */
 static ssize_t pinctrl_name_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -40,21 +41,35 @@ static ssize_t pinctrl_name_show(struct device *dev,
 	return sprintf(buf, "%s\n", pctldev_get_name(pctldev));
 }
 
-static struct device_attribute pinctrl_dev_attrs[] = {
-	__ATTR(name, 0444, pinctrl_name_show, NULL),
-	__ATTR_NULL,
-};
-
 static void pinctrl_dev_release(struct device *dev)
 {
 	struct pinctrl_dev *pctldev = dev_get_drvdata(dev);
 	kfree(pctldev);
 }
 
-static struct class pinctrl_class = {
+static DEVICE_ATTR(name, S_IRUGO, pinctrl_name_show, NULL);
+
+static struct attribute *pinctrl_dev_attrs[] = {
+	&dev_attr_name.attr,
+	NULL
+};
+
+static struct attribute_group pinctrl_dev_attr_group = {
+	.attrs = pinctrl_dev_attrs,
+};
+
+static const struct attribute_group *pinctrl_dev_attr_groups[] = {
+	&pinctrl_dev_attr_group,
+	NULL
+};
+
+static struct bus_type pinctrl_bus = {
 	.name = "pinctrl",
-	.dev_release = pinctrl_dev_release,
-	.dev_attrs = pinctrl_dev_attrs,
+};
+
+static struct device_type pinctrl_type = {
+	.groups = pinctrl_dev_attr_groups,
+	.release = pinctrl_dev_release,
 };
 
 /**
@@ -65,6 +80,7 @@ struct pinctrl_dev *get_pctrldev_for_pinmux_map(struct pinmux_map const *map)
 	struct pinctrl_dev *pctldev = NULL;
 	bool found = false;
 
+	mutex_lock(&pinctrldev_list_mutex);
 	list_for_each_entry(pctldev, &pinctrldev_list, node) {
 		if (map->ctrl_dev &&  &pctldev->dev == map->ctrl_dev) {
 			/* Matched on device */
@@ -79,6 +95,7 @@ struct pinctrl_dev *get_pctrldev_for_pinmux_map(struct pinmux_map const *map)
 			break;
 		}
 	}
+	mutex_unlock(&pinctrldev_list_mutex);
 
 	if (found)
 		return pctldev;
@@ -190,29 +207,74 @@ static int pinctrl_register_pins(struct pinctrl_dev *pctldev,
 }
 
 /**
- * pinctrl_get_device_for_gpio() - find the pin controller handling a certain
- * pin from the pinspace in the GPIO subsystem
- * @gpio: the pin to locate the pin controller for
+ * pinctrl_match_gpio_range() - check if a certain GPIO pin is in the range of
+ * a certain pin controller, return the range or NULL
  */
-struct pinctrl_dev *pinctrl_get_device_for_gpio(unsigned gpio)
+static struct pinctrl_gpio_range *
+pinctrl_match_gpio_range(struct pinctrl_dev *pctldev, unsigned gpio)
 {
-	struct pinctrl_dev *pctldev = NULL;
-	bool found;
+	struct pinctrl_gpio_range *range = NULL;
 
-	list_for_each_entry(pctldev, &pinctrldev_list, node) {
-		struct pinctrl_desc *desc = pctldev->desc;
-
+	/* Loop over the ranges */
+	spin_lock(&pctldev->gpio_ranges_lock);
+	list_for_each_entry(range, &pctldev->gpio_ranges, node) {
 		/* Check if we're in the valid range */
-		if (gpio >= desc->gpio_base &&
-		    gpio <= desc->gpio_base + desc->maxpin) {
-			found = true;
-			break;
+		if (gpio >= range->base &&
+		    gpio < range->base + range->npins) {
+			spin_unlock(&pctldev->gpio_ranges_lock);
+			return range;
 		}
 	}
+	spin_unlock(&pctldev->gpio_ranges_lock);
 
-	if (found)
-		return pctldev;
 	return NULL;
+}
+
+/**
+ * pinctrl_get_device_gpio_range() - find the pin controller handling a certain
+ * pin from the pinspace in the GPIO subsystem, return the device and the
+ * matching GPIO range. Returns negative if the GPIO range could not be found
+ * in any device
+ * @gpio: the pin to locate the pin controller for
+ * @outdev: the pin control device if found
+ * @outrange: the GPIO range if found
+ */
+int pinctrl_get_device_gpio_range(unsigned gpio,
+				struct pinctrl_dev **outdev,
+				struct pinctrl_gpio_range **outrange)
+{
+	struct pinctrl_dev *pctldev = NULL;
+
+	/* Loop over the pin controllers */
+	mutex_lock(&pinctrldev_list_mutex);
+	list_for_each_entry(pctldev, &pinctrldev_list, node) {
+		struct pinctrl_gpio_range *range;
+
+		range = pinctrl_match_gpio_range(pctldev, gpio);
+		if (range != NULL) {
+			*outdev = pctldev;
+			*outrange = range;
+			return 0;
+		}
+	}
+	mutex_unlock(&pinctrldev_list_mutex);
+
+	return -EINVAL;
+}
+
+/**
+ * pinctrl_add_gpio_range() - this adds a range of GPIOs to be handled
+ * by a certain pin controller. Call this to register handled ranges after
+ * registering your pin controller.
+ * @pctldev: pin controller device to add the range to
+ * @range: the GPIO range to add
+ */
+void pinctrl_add_gpio_range(struct pinctrl_dev *pctldev,
+			    struct pinctrl_gpio_range *range)
+{
+	spin_lock(&pctldev->gpio_ranges_lock);
+	list_add(&range->node, &pctldev->gpio_ranges);
+	spin_unlock(&pctldev->gpio_ranges_lock);
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -241,11 +303,30 @@ static int pinctrl_pins_show(struct seq_file *s, void *what)
 	return 0;
 }
 
+static int pinctrl_gpioranges_show(struct seq_file *s, void *what)
+{
+	struct pinctrl_dev *pctldev = s->private;
+	struct pinctrl_gpio_range *range = NULL;
+
+	seq_puts(s, "GPIO ranges handled:\n");
+
+	/* Loop over the ranges */
+	spin_lock(&pctldev->gpio_ranges_lock);
+	list_for_each_entry(range, &pctldev->gpio_ranges, node) {
+		seq_printf(s, "%u: %s [%u - %u]\n", range->id, range->name,
+			   range->base, (range->base + range->npins - 1));
+	}
+	spin_unlock(&pctldev->gpio_ranges_lock);
+
+	return 0;
+}
+
 static int pinctrl_devices_show(struct seq_file *s, void *what)
 {
 	struct pinctrl_dev *pctldev;
 
 	seq_puts(s, "name [pinmux]\n");
+	mutex_lock(&pinctrldev_list_mutex);
 	list_for_each_entry(pctldev, &pinctrldev_list, node) {
 		seq_printf(s, "%s ", pctldev->desc->name);
 		if (pctldev->desc->pmxops)
@@ -254,6 +335,7 @@ static int pinctrl_devices_show(struct seq_file *s, void *what)
 			seq_puts(s, "no");
 		seq_puts(s, "\n");
 	}
+	mutex_unlock(&pinctrldev_list_mutex);
 
 	return 0;
 }
@@ -263,6 +345,11 @@ static int pinctrl_pins_open(struct inode *inode, struct file *file)
 	return single_open(file, pinctrl_pins_show, inode->i_private);
 }
 
+static int pinctrl_gpioranges_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, pinctrl_gpioranges_show, inode->i_private);
+}
+
 static int pinctrl_devices_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, pinctrl_devices_show, NULL);
@@ -270,6 +357,13 @@ static int pinctrl_devices_open(struct inode *inode, struct file *file)
 
 static const struct file_operations pinctrl_pins_ops = {
 	.open		= pinctrl_pins_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+static const struct file_operations pinctrl_gpioranges_ops = {
+	.open		= pinctrl_gpioranges_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -297,6 +391,8 @@ static void pinctrl_init_device_debugfs(struct pinctrl_dev *pctldev)
 	}
 	debugfs_create_file("pins", S_IFREG | S_IRUGO,
 			    device_root, pctldev, &pinctrl_pins_ops);
+	debugfs_create_file("gpio-ranges", S_IFREG | S_IRUGO,
+			    device_root, pctldev, &pinctrl_gpioranges_ops);
 	pinmux_init_device_debugfs(device_root, pctldev);
 }
 
@@ -361,10 +457,13 @@ struct pinctrl_dev *pinctrl_register(struct pinctrl_desc *pctldesc,
 	pctldev->driver_data = driver_data;
 	INIT_RADIX_TREE(&pctldev->pin_desc_tree, GFP_KERNEL);
 	spin_lock_init(&pctldev->pin_desc_tree_lock);
+	INIT_LIST_HEAD(&pctldev->gpio_ranges);
+	spin_lock_init(&pctldev->gpio_ranges_lock);
 
 	/* Register device with sysfs */
-	pctldev->dev.class = &pinctrl_class;
 	pctldev->dev.parent = dev;
+	pctldev->dev.bus = &pinctrl_bus;
+	pctldev->dev.type = &pinctrl_type;
 	dev_set_name(&pctldev->dev, "pinctrl.%d",
 		     atomic_inc_return(&pinmux_no) - 1);
 	ret = device_register(&pctldev->dev);
@@ -394,7 +493,6 @@ struct pinctrl_dev *pinctrl_register(struct pinctrl_desc *pctldesc,
 	return pctldev;
 
 out_err:
-	mutex_unlock(&pinctrldev_list_mutex);
 	put_device(&pctldev->dev);
 	kfree(pctldev);
 	return ERR_PTR(ret);
@@ -426,11 +524,15 @@ static int __init pinctrl_init(void)
 {
 	int ret;
 
-	ret = class_register(&pinctrl_class);
-	pr_info("initialized pinctrl subsystem\n");
+	ret = bus_register(&pinctrl_bus);
+	if (ret) {
+		pr_crit("could not register pinctrl bus\n");
+		return ret;
+	}
 
+	pr_info("initialized pinctrl subsystem\n");
 	pinctrl_init_debugfs();
-	return ret;
+	return 0;
 }
 
 /* init early since many drivers really need to initialized pinmux early */

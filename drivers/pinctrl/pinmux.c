@@ -44,7 +44,10 @@ static LIST_HEAD(pinmux_list);
  *	elements in .pins so we can iterate over that array (copied from
  *	pinmux map)
  * @pctldev: pin control device handling this pinmux
- * @pmxdev_selector: the selector for the pinmux device handling this pinmux
+ * @pmxdev_selector: the function selector for the pinmux device handling
+ *	this pinmux
+ * @pmxdev_position: the function position for the pinmux device and
+ *	selector handling this pinmux
  * @mutex: a lock for the pinmux state holder
  */
 struct pinmux {
@@ -54,6 +57,7 @@ struct pinmux {
 	unsigned usecount;
 	struct pinctrl_dev *pctldev;
 	unsigned pmxdev_selector;
+	unsigned pmxdev_position;
 	struct mutex mutex;
 };
 
@@ -64,9 +68,12 @@ struct pinmux {
  *	so it knows what function to mux in, e.g. the string "gpioNN"
  *	means that you want to mux in the pin for use as GPIO number NN
  * @gpio: if this request concerns a single GPIO pin
+ * @gpio_range: the range matching the GPIO pin if this is a request for a
+ *	single GPIO pin
  */
 static int pin_request(struct pinctrl_dev *pctldev,
-		       int pin, const char *function, bool gpio)
+		       int pin, const char *function, bool gpio,
+		       struct pinctrl_gpio_range *gpio_range)
 {
 	struct pin_desc *desc;
 	const struct pinmux_ops *ops;
@@ -108,7 +115,7 @@ static int pin_request(struct pinctrl_dev *pctldev,
 	 */
 	if (gpio && ops->gpio_request_enable)
 		/* This requests and enables a single GPIO pin */
-		status = ops->gpio_request_enable(pctldev, pin);
+		status = ops->gpio_request_enable(pctldev, gpio_range, pin);
 	else if (ops->request)
 		status = ops->request(pctldev, pin);
 	else
@@ -165,17 +172,21 @@ int pinmux_request_gpio(unsigned gpio)
 {
 	char gpiostr[16];
 	struct pinctrl_dev *pctldev;
+	struct pinctrl_gpio_range *range;
+	int ret;
 	int pin;
 
-	pctldev = pinctrl_get_device_for_gpio(gpio);
-	if (!pctldev)
+	ret = pinctrl_get_device_gpio_range(gpio, &pctldev, &range);
+	if (ret)
 		return -EINVAL;
 
 	/* Convert to the pin controllers number space */
-	pin = gpio - pctldev->desc->gpio_base;
+	pin = gpio - range->base;
 
-	snprintf(gpiostr, 15, "gpio%d", gpio);
-	return pin_request(pctldev, pin, gpiostr, true);
+	/* Conjure some name stating what chip and pin this is taken by */
+	snprintf(gpiostr, 15, "%s:%d", range->name, gpio);
+
+	return pin_request(pctldev, pin, gpiostr, true, range);
 }
 EXPORT_SYMBOL_GPL(pinmux_request_gpio);
 
@@ -187,14 +198,16 @@ EXPORT_SYMBOL_GPL(pinmux_request_gpio);
 void pinmux_free_gpio(unsigned gpio)
 {
 	struct pinctrl_dev *pctldev;
+	struct pinctrl_gpio_range *range;
+	int ret;
 	int pin;
 
-	pctldev = pinctrl_get_device_for_gpio(gpio);
-	if (!pctldev)
+	ret = pinctrl_get_device_gpio_range(gpio, &pctldev, &range);
+	if (ret)
 		return;
 
 	/* Convert to the pin controllers number space */
-	pin = gpio - pctldev->desc->gpio_base;
+	pin = gpio - range->base;
 
 	pin_free(pctldev, pin);
 }
@@ -215,11 +228,10 @@ int pinmux_register_mappings(struct pinmux_map const *maps, unsigned num_maps)
 			ret = -EINVAL;
 			goto out;
 		}
-		if (!maps[i].dev && !maps[i].dev_name) {
-			pr_err("failed to register map %d - no device or device name given\n", i);
-			ret = -EINVAL;
-			goto out;
-		}
+
+		if (!maps[i].dev && !maps[i].dev_name)
+			pr_debug("add anonymous function %s with no device\n",
+				 maps[i].function);
 
 		/*
 		 * create the state cookie holder struct pinmux for each
@@ -249,9 +261,11 @@ out:
  * acquire_pins() - acquire all the pins for a certain funcion on a certain
  *	pinmux device
  * @pctldev: the device to take the pins on
- * @selector: the selector to acquire the pins for
+ * @selector: the function selector to acquire the pins for
+ * @position: the function position to acquire the pins for
  */
-static int acquire_pins(struct pinctrl_dev *pctldev, unsigned selector)
+static int acquire_pins(struct pinctrl_dev *pctldev, unsigned selector,
+			unsigned position)
 {
 	const struct pinmux_ops *ops = pctldev->desc->pmxops;
 	unsigned *pins;
@@ -260,13 +274,14 @@ static int acquire_pins(struct pinctrl_dev *pctldev, unsigned selector)
 	int ret;
 	int i;
 
-	ret = ops->get_function_pins(pctldev, selector, &pins, &num_pins);
+	ret = ops->get_function_pins(pctldev, selector, position,
+				     &pins, &num_pins);
 	if (ret)
 		return ret;
 
 	/* Try to allocate all pins in this pinmux map, one by one */
 	for (i = 0; i < num_pins; i++) {
-		ret = pin_request(pctldev, pins[i], func, false);
+		ret = pin_request(pctldev, pins[i], func, false, NULL);
 		if (ret) {
 			pr_err("could not get pin %d for function %s "
 			       "on device %s - conflicting mux mappings?\n",
@@ -285,9 +300,11 @@ static int acquire_pins(struct pinctrl_dev *pctldev, unsigned selector)
 /**
  * release_pins() - release pins taken by earlier acquirement
  * @pctldev: the device to free the pinx on
- * @selector: the selector to free the pins for
+ * @selector: the function selector to free the pins for
+ * @position: the function position to release the pins for
  */
-static void release_pins(struct pinctrl_dev *pctldev, unsigned selector)
+static void release_pins(struct pinctrl_dev *pctldev, unsigned selector,
+			 unsigned position)
 {
 	const struct pinmux_ops *ops = pctldev->desc->pmxops;
 	unsigned *pins;
@@ -295,10 +312,12 @@ static void release_pins(struct pinctrl_dev *pctldev, unsigned selector)
 	int ret;
 	int i;
 
-	ret = ops->get_function_pins(pctldev, selector, &pins, &num_pins);
+	ret = ops->get_function_pins(pctldev, selector, position,
+				     &pins, &num_pins);
 	if (ret) {
-		dev_err(&pctldev->dev, "could not get pins for selector %d\n",
-			selector);
+		dev_err(&pctldev->dev, "could not get pins to release for "
+			"selector %d, position %d\n",
+			selector, position);
 		return;
 	}
 	for (i = 0; i < num_pins; i++)
@@ -306,15 +325,87 @@ static void release_pins(struct pinctrl_dev *pctldev, unsigned selector)
 }
 
 /**
+ * pinmux_check_position() - check that the pinmux driver can supply the
+ * function in a certain position
+ * @pctldev: device to check the position for
+ * @selector: the selector to check the position for
+ * @position: the position to check
+ */
+static int pinmux_check_position(struct pinctrl_dev *pctldev,
+				 unsigned selector, unsigned position)
+{
+	const struct pinmux_ops *ops = pctldev->desc->pmxops;
+	unsigned posit = 0;
+
+	/*
+	 * If the driver does not support different positions for the
+	 * functions, we only support position 0.
+	 */
+	if (!ops->list_positions) {
+		if (position != 0)
+			return -EINVAL;
+		return 0;
+	}
+
+	/* Else check that we support this position */
+	while (ops->list_positions(pctldev, selector, posit) >= 0) {
+		if (posit == position)
+			return 0;
+		posit++;
+	}
+
+	pr_err("%s does not support pinmux position %d for function %s\n",
+	       pctldev_get_name(pctldev), position,
+	       ops->get_function_name(pctldev, selector));
+	return -EINVAL;
+}
+
+/**
+ * pinmux_search_function() - search the pinmux driver for an applicable
+ * function in a specific position, returns the applicable selector if
+ * found
+ * @pctldev: device to check for function and position
+ * @map: function map containing the function and position to look for
+ */
+static int pinmux_search_function(struct pinctrl_dev *pctldev,
+				  struct pinmux_map const *map)
+{
+	const struct pinmux_ops *ops = pctldev->desc->pmxops;
+	unsigned selector = 0;
+
+	/* See if this pctldev has this function */
+	while (ops->list_functions(pctldev, selector) >= 0) {
+		const char *fname = ops->get_function_name(pctldev,
+							   selector);
+		int ret;
+
+		if (!strcmp(map->function, fname)) {
+			/* Found the function, check position */
+			ret = pinmux_check_position(pctldev, selector,
+						    map->position);
+			if (ret < 0)
+				return ret;
+			return selector;
+		}
+		selector++;
+	}
+
+	pr_err("%s does not support function %s\n",
+	       pctldev_get_name(pctldev), map->function);
+	return -EINVAL;
+}
+
+
+/**
  * pinmux_get() - retrieves the pinmux for a certain device
  * @dev: the device to get the pinmux for
- * @func: an optional mux name or NULL, the name is only needed
- *	if a single device has multiple pinmux settings (i.e. if the
- *	same device can be muxed out on different sets of pins) or if
- *	you need an anonymous pinmux (not tied to any specific device)
+ * @name: an optional specific mux mapping name or NULL, the name is only
+ *	needed if you want to have more than one mapping per device, or if you
+ *	need an anonymous pinmux (not tied to any specific device)
  */
-struct pinmux *pinmux_get(struct device *dev, const char *func)
+struct pinmux *pinmux_get(struct device *dev, const char *name)
 {
+
 	struct pinmux_map const *map = NULL;
 	struct pinctrl_dev *pctldev = NULL;
 	const char *devname = NULL;
@@ -323,7 +414,7 @@ struct pinmux *pinmux_get(struct device *dev, const char *func)
 	int ret = -ENODEV;
 
 	/* We must have dev or ID or both */
-	if (!dev && !func)
+	if (!dev && !name)
 		return ERR_PTR(-EINVAL);
 
 	mutex_lock(&pinmux_list_mutex);
@@ -360,16 +451,24 @@ struct pinmux *pinmux_get(struct device *dev, const char *func)
 		pr_debug("found pctldev %s to handle function %s",
 			 dev_name(&pctldev->dev), map->function);
 
-		/* If an function is given, it MUST match */
-		if ((func != NULL) && strcmp(map->function, func))
-			continue;
+
+		/*
+		 * If we're looking for a specific named map, this must match,
+		 * else we loop and look for the next.
+		 */
+		if (name != NULL) {
+			if (map->name == NULL)
+				continue;
+			if (strcmp(map->name, name))
+				continue;
+		}
 
 		/*
 		 * This is for the case where no device name is given, we
 		 * already know that the function name matches from above
 		 * code.
 		 */
-		if (!map->dev_name && (func != NULL)) {
+		if (!map->dev_name && (name != NULL)) {
 			found_map = true;
 			break;
 		}
@@ -387,17 +486,19 @@ struct pinmux *pinmux_get(struct device *dev, const char *func)
 
 	if (!found_map) {
 		pr_err("could not find mux map for device %s, ID %s\n",
-		       devname ? : "(anonymous)", func ? : "(undefined)");
+		       devname ? devname : "(anonymous)",
+		       name ? name : "(undefined)");
 		goto out;
 	}
 
-	/* Make sure that noone else is using this function mapping */
+	/* Make sure that noone else is using this pinmux */
 	mutex_lock(&pmx->mutex);
 	if (pmx->dev) {
 		if (pmx->dev != dev) {
 			mutex_unlock(&pmx->mutex);
 			pr_err("mapping already in use device %s, ID %s\n",
-			       devname ? : "(anonymous)", func ? : "(undefined)");
+			       devname ? devname : "(anonymous)",
+			       name ? name : "(undefined)");
 			goto out;
 		} else {
 			/* We already fetched this and requested pins */
@@ -408,30 +509,26 @@ struct pinmux *pinmux_get(struct device *dev, const char *func)
 	}
 	mutex_unlock(&pmx->mutex);
 
-	{
-		const struct pinmux_ops *ops = pctldev->desc->pmxops;
-		unsigned selector = 0;
+	/* Now go into the driver and try to locate function @position */
+	ret = pinmux_search_function(pctldev, map);
+	if (ret < 0)
+		goto out;
+	else {
+		/* Found function @position */
+		unsigned selector = ret;
 
-		/* See if this pctldev has this function */
-		while (ops->list_functions(pctldev, selector) >= 0) {
-			const char *fname = ops->get_function_name(pctldev,
-								   selector);
-
-			if (!strcmp(map->function, fname)) {
-				ret = acquire_pins(pctldev, selector);
-				if (ret)
-					goto out;
-				/* Found it! */
-				mutex_lock(&pmx->mutex);
-				pmx->dev = dev;
-				pmx->pctldev = pctldev;
-				pmx->pmxdev_selector = selector;
-				mutex_unlock(&pmx->mutex);
-				ret = 0;
-				goto out;
-			}
-			selector++;
-		}
+		ret = acquire_pins(pctldev, selector, map->position);
+		if (ret)
+			goto out;
+		/* Found it! */
+		mutex_lock(&pmx->mutex);
+		pmx->dev = dev;
+		pmx->pctldev = pctldev;
+		pmx->pmxdev_selector = selector;
+		pmx->pmxdev_position = map->position;
+		mutex_unlock(&pmx->mutex);
+		ret = 0;
+		goto out;
 	}
 
 	/* We couldn't find the driver for this pinmux */
@@ -457,7 +554,7 @@ void pinmux_put(struct pinmux *pmx)
 	if (pmx->usecount)
 		pr_warn("releasing pinmux with active users!\n");
 	/* Release all pins taken on pinmux_get() */
-	release_pins(pmx->pctldev, pmx->pmxdev_selector);
+	release_pins(pmx->pctldev, pmx->pmxdev_selector, pmx->pmxdev_position);
 	pmx->dev = NULL;
 	pmx->pctldev = NULL;
 	pmx->pmxdev_selector = 0;
@@ -480,7 +577,8 @@ int pinmux_enable(struct pinmux *pmx)
 		struct pinctrl_dev *pctldev = pmx->pctldev;
 		const struct pinmux_ops *ops = pctldev->desc->pmxops;
 
-		ret = ops->enable(pctldev, pmx->pmxdev_selector);
+		ret = ops->enable(pctldev, pmx->pmxdev_selector,
+				  pmx->pmxdev_position);
 		if (ret)
 			pmx->usecount--;
 	}
@@ -503,7 +601,8 @@ void pinmux_disable(struct pinmux *pmx)
 		struct pinctrl_dev *pctldev = pmx->pctldev;
 		const struct pinmux_ops *ops = pctldev->desc->pmxops;
 
-		ops->disable(pctldev, pmx->pmxdev_selector);
+		ops->disable(pctldev, pmx->pmxdev_selector,
+			     pmx->pmxdev_position);
 	}
 	mutex_unlock(&pmx->mutex);
 }
@@ -564,21 +663,27 @@ static int pinmux_functions_show(struct seq_file *s, void *what)
 		unsigned *pins;
 		unsigned num_pins;
 		const char *func = ops->get_function_name(pctldev, selector);
+		unsigned position = 0;
 		int ret;
 		int i;
 
-		ret = ops->get_function_pins(pctldev, selector,
-					     &pins, &num_pins);
+		while (ops->list_positions(pctldev, selector, position) >= 0) {
+			ret = ops->get_function_pins(pctldev, selector,
+						     position,
+						     &pins, &num_pins);
 
-		if (ret)
-			seq_printf(s, "%s [ERROR GETTING PINS]\n",
-				   func);
+			if (ret)
+				seq_printf(s, "%s [ERROR GETTING PINS]\n",
+					   func);
 
-		else {
-			seq_printf(s, "function: %s, pins = [ ", func);
-			for (i = 0; i < num_pins; i++)
-				seq_printf(s, "%d ", pins[i]);
-			seq_puts(s, "]\n");
+			else {
+				seq_printf(s, "function: %s, position: %d pins = [ ",
+					   func, position);
+				for (i = 0; i < num_pins; i++)
+					seq_printf(s, "%d ", pins[i]);
+				seq_puts(s, "]\n");
+			}
+			position++;
 		}
 
 		selector++;
@@ -588,17 +693,23 @@ static int pinmux_functions_show(struct seq_file *s, void *what)
 	return 0;
 }
 
-static int pinmux_maps_show(struct seq_file *s, void *what)
+static int pinmux_show(struct seq_file *s, void *what)
 {
 	struct pinmux *pmx;
 	const struct pinmux_map *map;
 
-	seq_puts(s, "Pinmux maps:\n");
+	seq_puts(s, "System pinmuxes and their maps:\n");
 	list_for_each_entry(pmx, &pinmux_list, node) {
 		map = pmx->map;
 
-		seq_printf(s, "map: %s -> %s\n", map->function,
-			   pmx->dev ? dev_name(pmx->dev) : "(unassigned)");
+		seq_printf(s, "device: %s function: %s (%u), "
+			   "pos %u users: %u map-> %s\n",
+			   pmx->pctldev ? pctldev_get_name(pmx->pctldev) : "(no controller)",
+			   map->function,
+			   pmx->pmxdev_selector,
+			   map->position,
+			   pmx->usecount,
+			   pmx->dev ? dev_name(pmx->dev) : "(no device)");
 	}
 
 	return 0;
@@ -635,7 +746,7 @@ static int pinmux_pins_show(struct seq_file *s, void *what)
 		else {
 			seq_printf(s, "pin %d (%s): %s", pin,
 				   desc->name ? desc->name : "unnamed",
-				   desc->mux_requested ? desc->mux_function : "(unclaimed)");
+				   desc->mux_requested ? desc->mux_function : "UNCLAIMED");
 
 			if (pctldev->desc->pmxops->dbg_show)
 				pctldev->desc->pmxops->dbg_show(pctldev, s, pin);
@@ -651,9 +762,9 @@ static int pinmux_functions_open(struct inode *inode, struct file *file)
 	return single_open(file, pinmux_functions_show, inode->i_private);
 }
 
-static int pinmux_maps_open(struct inode *inode, struct file *file)
+static int pinmux_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, pinmux_maps_show, NULL);
+	return single_open(file, pinmux_show, NULL);
 }
 
 static int pinmux_pins_open(struct inode *inode, struct file *file)
@@ -668,8 +779,8 @@ static const struct file_operations pinmux_functions_ops = {
 	.release	= single_release,
 };
 
-static const struct file_operations pinmux_maps_ops = {
-	.open		= pinmux_maps_open,
+static const struct file_operations pinmux_ops = {
+	.open		= pinmux_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -693,8 +804,8 @@ void pinmux_init_device_debugfs(struct dentry *devroot,
 
 void pinmux_init_debugfs(struct dentry *subsys_root)
 {
-	debugfs_create_file("pinmux-maps", S_IFREG | S_IRUGO,
-			    subsys_root, NULL, &pinmux_maps_ops);
+	debugfs_create_file("pinmuxes", S_IFREG | S_IRUGO,
+			    subsys_root, NULL, &pinmux_ops);
 }
 
 #endif /* CONFIG_DEBUG_FS */
