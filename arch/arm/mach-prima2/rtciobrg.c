@@ -102,7 +102,7 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 }
 EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_writel);
 
-static struct of_device_id rtciobrg_ids[] = {
+static const struct of_device_id rtciobrg_ids[] = {
 	{ .compatible = "sirf,prima2-rtciobg" },
 	{}
 };
