@@ -18,6 +18,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
+#include <linux/bitops.h>
 
 #define DRIVER_NAME "pinmux-sirf"
 
@@ -183,15 +184,15 @@ static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 		.mask = 0x7FFFF,
 	}, {
 		.group = 2,
-		.mask = 1 << 31,
+		.mask = BIT(31),
 	},
 };
 
 static const struct sirfsoc_padmux lcd_16bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_16bits_sirfsoc_muxmask),
 	.muxmask = lcd_16bits_sirfsoc_muxmask,
-	.funcmask = 1 << 4,
-	.funcval = 0 << 4,
+	.funcmask = BIT(4),
+	.funcval = 0,
 };
 
 static const unsigned lcd_16bits_pins[] = { 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
@@ -203,10 +204,10 @@ static const struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 		.mask = 0x7FFFF,
 	}, {
 		.group = 2,
-		.mask = 1 << 31,
+		.mask = BIT(31),
 	}, {
 		.group = 0,
-		.mask = (1 << 16) | (1 << 17),
+		.mask = BIT(16) | BIT(17),
 	},
 };
 
@@ -226,7 +227,7 @@ static const struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 		.mask = 0x7FFFF,
 	}, {
 		.group = 2,
-		.mask = 1 << 31,
+		.mask = BIT(31),
 	}, {
 		.group = 0,
 		.mask = 0xFF0000,
@@ -249,18 +250,18 @@ static const struct sirfsoc_muxmask lcdrom_muxmask[] = {
 		.mask = 0x7FFFF,
 	}, {
 		.group = 2,
-		.mask = 1 << 31,
+		.mask = BIT(31),
 	}, {
 		.group = 0,
-		.mask = 1 << 23,
+		.mask = BIT(23),
 	},
 };
 
 static const struct sirfsoc_padmux lcdrom_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcdrom_muxmask),
 	.muxmask = lcdrom_muxmask,
-	.funcmask = 1 << 4,
-	.funcval = 1 << 4,
+	.funcmask = BIT(4),
+	.funcval = BIT(4),
 };
 
 static const unsigned lcdrom_pins[] = { 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
@@ -269,7 +270,7 @@ static const unsigned lcdrom_pins[] = { 23, 95, 96, 97, 98, 99, 100, 101, 102, 1
 static const struct sirfsoc_muxmask uart1_muxmask[] = {
 	{
 		.group = 1,
-		.mask = (1 << 15) | (1 << 17),
+		.mask = BIT(15) | BIT(17),
 	},
 };
 
@@ -283,15 +284,15 @@ static const unsigned uart1_pins[] = { 47, 49 };
 static const struct sirfsoc_muxmask uart2_muxmask[] = {
 	{
 		.group = 1,
-		.mask = (1 << 16) | (1 << 18) | (1 << 24) | (1 << 27),
+		.mask = BIT(16) | BIT(18) | BIT(24) | BIT(27),
 	},
 };
 
 static const struct sirfsoc_padmux uart2_padmux = {
 	.muxmask_counts = ARRAY_SIZE(uart2_muxmask),
 	.muxmask = uart2_muxmask,
-	.funcmask = 1 << 10,
-	.funcval = 1 << 10,
+	.funcmask = BIT(10),
+	.funcval = BIT(10),
 };
 
 static const unsigned uart2_pins[] = { 48, 50, 56, 59 };
@@ -299,7 +300,7 @@ static const unsigned uart2_pins[] = { 48, 50, 56, 59 };
 static const struct sirfsoc_muxmask uart2_nostreamctrl_muxmask[] = {
 	{
 		.group = 1,
-		.mask = (1 << 16) | (1 << 18),
+		.mask = BIT(16) | BIT(18),
 	},
 };
 
