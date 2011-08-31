@@ -214,8 +214,8 @@ static const struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 static const struct sirfsoc_padmux lcd_18bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_18bits_muxmask),
 	.muxmask = lcd_18bits_muxmask,
-	.funcmask = 1 << 4,
-	.funcval = 0 << 4,
+	.funcmask = BIT(4),
+	.funcval = 0,
 };
 
 static const unsigned lcd_18bits_pins[] = { 16, 17, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
@@ -237,8 +237,8 @@ static const struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 static const struct sirfsoc_padmux lcd_24bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_24bits_muxmask),
 	.muxmask = lcd_24bits_muxmask,
-	.funcmask = 1 << 4,
-	.funcval = 0 << 4,
+	.funcmask = BIT(4),
+	.funcval = 0,
 };
 
 static const unsigned lcd_24bits_pins[] = { 16, 17, 18, 19, 20, 21, 22, 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
@@ -266,6 +266,39 @@ static const struct sirfsoc_padmux lcdrom_padmux = {
 
 static const unsigned lcdrom_pins[] = { 23, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
 	105, 106, 107, 108, 109, 110, 111, 112, 113, 114 };
+
+static const struct sirfsoc_muxmask uart0_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(4) | BIT(5),
+	}, {
+		.group = 1,
+		.mask = BIT(23) | BIT(28),
+	},
+};
+
+static const struct sirfsoc_padmux uart0_padmux = {
+	.muxmask_counts = ARRAY_SIZE(uart0_muxmask),
+	.muxmask = uart0_muxmask,
+	.funcmask = BIT(9),
+	.funcval = BIT(9),
+};
+
+static const unsigned uart0_pins[] = { 55, 60, 68, 69 };
+
+static const struct sirfsoc_muxmask uart0_nostreamctrl_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(4) | BIT(5),
+	},
+};
+
+static const struct sirfsoc_padmux uart0_nostreamctrl_padmux = {
+	.muxmask_counts = ARRAY_SIZE(uart0_nostreamctrl_muxmask),
+	.muxmask = uart0_nostreamctrl_muxmask,
+};
+
+static const unsigned uart0_nostreamctrl_pins[] = { 68, 39 };
 
 static const struct sirfsoc_muxmask uart1_muxmask[] = {
 	{
@@ -311,6 +344,462 @@ static const struct sirfsoc_padmux uart2_nostreamctrl_padmux = {
 
 static const unsigned uart2_nostreamctrl_pins[] = { 48, 50 };
 
+static const struct sirfsoc_muxmask sdmmc3_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(30) | BIT(31),
+	}, {
+		.group = 1,
+		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3),
+	},
+};
+
+static const struct sirfsoc_padmux sdmmc3_padmux = {
+	.muxmask_counts = ARRAY_SIZE(sdmmc3_muxmask),
+	.muxmask = sdmmc3_muxmask,
+	.funcmask = BIT(7),
+	.funcval = 0,
+};
+
+static const unsigned sdmmc3_pins[] = { 30, 31, 32, 33, 34, 45, 36 };
+
+static const struct sirfsoc_muxmask spi0_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3),
+	},
+};
+
+static const struct sirfsoc_padmux spi0_padmux = {
+	.muxmask_counts = ARRAY_SIZE(spi0_muxmask),
+	.muxmask = spi0_muxmask,
+	.funcmask = BIT(7),
+	.funcval = BIT(7),
+};
+
+static const unsigned spi0_pins[] = { 32, 33, 34, 35 };
+
+static const struct sirfsoc_muxmask sdmmc4_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) | BIT(9),
+	},
+};
+
+static const struct sirfsoc_padmux sdmmc4_padmux = {
+	.muxmask_counts = ARRAY_SIZE(sdmmc4_muxmask),
+	.muxmask = sdmmc4_muxmask,
+};
+
+static const unsigned sdmmc4_pins[] = { 36, 37, 38, 39, 40, 41 };
+
+static const struct sirfsoc_muxmask cko1_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(10),
+	},
+};
+
+static const struct sirfsoc_padmux cko1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(cko1_muxmask),
+	.muxmask = cko1_muxmask,
+	.funcmask = BIT(3),
+	.funcval = 0,
+};
+
+static const unsigned cko1_pins[] = { 42 };
+
+static const struct sirfsoc_muxmask i2s_muxmask[] = {
+	{
+		.group = 1,
+		.mask =
+			BIT(10) | BIT(11) | BIT(12) | BIT(13) | BIT(14) | BIT(19)
+				| BIT(23) | BIT(28),
+	},
+};
+
+static const struct sirfsoc_padmux i2s_padmux = {
+	.muxmask_counts = ARRAY_SIZE(i2s_muxmask),
+	.muxmask = i2s_muxmask,
+	.funcmask = BIT(3) | BIT(9),
+	.funcval = BIT(3),
+};
+
+static const unsigned i2s_pins[] = { 42, 43, 44, 45, 46, 51, 55, 60 };
+
+static const struct sirfsoc_muxmask ac97_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(11) | BIT(12) | BIT(13) | BIT(14),
+	},
+};
+
+static const struct sirfsoc_padmux ac97_padmux = {
+	.muxmask_counts = ARRAY_SIZE(ac97_muxmask),
+	.muxmask = ac97_muxmask,
+	.funcmask = BIT(8),
+	.funcval = 0,
+};
+
+static const unsigned ac97_pins[] = { 33, 34, 35, 36 };
+
+static const struct sirfsoc_muxmask spi1_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(11) | BIT(12) | BIT(13) | BIT(14),
+	},
+};
+
+static const struct sirfsoc_padmux spi1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(spi1_muxmask),
+	.muxmask = spi1_muxmask,
+	.funcmask = BIT(8),
+	.funcval = BIT(8),
+};
+
+static const unsigned spi1_pins[] = { 33, 34, 35, 36 };
+
+static const struct sirfsoc_muxmask sdmmc1_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(27) | BIT(28) | BIT(29),
+	},
+};
+
+static const struct sirfsoc_padmux sdmmc1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(sdmmc1_muxmask),
+	.muxmask = sdmmc1_muxmask,
+};
+
+static const unsigned sdmmc1_pins[] = { 27, 28, 29 };
+
+static const struct sirfsoc_muxmask gps_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(24) | BIT(25) | BIT(26),
+	},
+};
+
+static const struct sirfsoc_padmux gps_padmux = {
+	.muxmask_counts = ARRAY_SIZE(gps_muxmask),
+	.muxmask = gps_muxmask,
+	.funcmask = BIT(12) | BIT(13) | BIT(14),
+	.funcval = BIT(12),
+};
+
+static const unsigned gps_pins[] = { 24, 25, 26 };
+
+static const struct sirfsoc_muxmask sdmmc5_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(24) | BIT(25) | BIT(26),
+	}, {
+		.group = 1,
+		.mask = BIT(29),
+	}, {
+		.group = 2,
+		.mask = BIT(0) | BIT(1),
+	},
+};
+
+static const struct sirfsoc_padmux sdmmc5_padmux = {
+	.muxmask_counts = ARRAY_SIZE(sdmmc5_muxmask),
+	.muxmask = sdmmc5_muxmask,
+	.funcmask = BIT(13) | BIT(14),
+	.funcval = BIT(13) | BIT(14),
+};
+
+static const unsigned sdmmc5_pins[] = { 24, 25, 26, 61, 64, 65 };
+
+static const struct sirfsoc_muxmask usp0_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(19) | BIT(20) | BIT(21) | BIT(22) | BIT(23),
+	},
+};
+
+static const struct sirfsoc_padmux usp0_padmux = {
+	.muxmask_counts = ARRAY_SIZE(usp0_muxmask),
+	.muxmask = usp0_muxmask,
+	.funcmask = BIT(1) | BIT(2) | BIT(6) | BIT(9),
+	.funcval = 0,
+};
+
+static const unsigned usp0_pins[] = { 51, 52, 53, 54, 55 };
+
+static const struct sirfsoc_muxmask usp1_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(24) | BIT(25) | BIT(26) | BIT(27) | BIT(28),
+	},
+};
+
+static const struct sirfsoc_padmux usp1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(usp1_muxmask),
+	.muxmask = usp1_muxmask,
+	.funcmask = BIT(1) | BIT(9) | BIT(10) | BIT(11),
+	.funcval = 0,
+};
+
+static const unsigned usp1_pins[] = { 56, 57, 58, 59, 60 };
+
+static const struct sirfsoc_muxmask usp2_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(29) | BIT(30) | BIT(31),
+	}, {
+		.group = 2,
+		.mask = BIT(0) | BIT(1),
+	},
+};
+
+static const struct sirfsoc_padmux usp2_padmux = {
+	.muxmask_counts = ARRAY_SIZE(usp2_muxmask),
+	.muxmask = usp2_muxmask,
+	.funcmask = BIT(13) | BIT(14),
+	.funcval = 0,
+};
+
+static const unsigned usp2_pins[] = { 61, 62, 63, 64, 65 };
+
+static const struct sirfsoc_muxmask nand_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(2) | BIT(3) | BIT(28) | BIT(29) | BIT(30),
+	},
+};
+
+static const struct sirfsoc_padmux nand_padmux = {
+	.muxmask_counts = ARRAY_SIZE(nand_muxmask),
+	.muxmask = nand_muxmask,
+	.funcmask = BIT(5),
+	.funcval = 0,
+};
+
+static const unsigned nand_pins[] = { 64, 65, 92, 93, 94 };
+
+static const struct sirfsoc_padmux sdmmc0_padmux = {
+	.muxmask_counts = 0,
+	.funcmask = BIT(5),
+	.funcval = 0,
+};
+
+static const unsigned sdmmc0_pins[] = { };
+
+static const struct sirfsoc_muxmask sdmmc2_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(2) | BIT(3),
+	},
+};
+
+static const struct sirfsoc_padmux sdmmc2_padmux = {
+	.muxmask_counts = ARRAY_SIZE(sdmmc2_muxmask),
+	.muxmask = nand_muxmask,
+	.funcmask = BIT(5),
+	.funcval = BIT(5),
+};
+
+static const unsigned sdmmc2_pins[] = { 66, 67 };
+
+static const struct sirfsoc_muxmask cko0_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(14),
+	},
+};
+
+static const struct sirfsoc_padmux cko0_padmux = {
+	.muxmask_counts = ARRAY_SIZE(cko0_muxmask),
+	.muxmask = cko0_muxmask,
+};
+
+static const unsigned cko0_pins[] = { 78 };
+
+static const struct sirfsoc_muxmask vip_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(15) | BIT(16) | BIT(17) | BIT(18) | BIT(19)
+			| BIT(20) | BIT(21) | BIT(22) | BIT(23) | BIT(24) |
+			BIT(25),
+	},
+};
+
+static const struct sirfsoc_padmux vip_padmux = {
+	.muxmask_counts = ARRAY_SIZE(vip_muxmask),
+	.muxmask = vip_muxmask,
+	.funcmask = BIT(0),
+	.funcval = 0,
+};
+
+static const unsigned vip_pins[] = { 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89 };
+
+static const struct sirfsoc_muxmask i2c0_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(26) | BIT(27),
+	},
+};
+
+static const struct sirfsoc_padmux i2c0_padmux = {
+	.muxmask_counts = ARRAY_SIZE(i2c0_muxmask),
+	.muxmask = i2c0_muxmask,
+};
+
+static const unsigned i2c0_pins[] = { 90, 91 };
+
+static const struct sirfsoc_muxmask i2c1_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(13) | BIT(15),
+	},
+};
+
+static const struct sirfsoc_padmux i2c1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(i2c1_muxmask),
+	.muxmask = i2c1_muxmask,
+};
+
+static const unsigned i2c1_pins[] = { 13, 15 };
+
+static const struct sirfsoc_muxmask viprom_muxmask[] = {
+	{
+		.group = 2,
+		.mask = BIT(15) | BIT(16) | BIT(17) | BIT(18) | BIT(19)
+			| BIT(20) | BIT(21) | BIT(22) | BIT(23) | BIT(24) |
+			BIT(25),
+	}, {
+		.group = 0,
+		.mask = BIT(12),
+	},
+};
+
+static const struct sirfsoc_padmux viprom_padmux = {
+	.muxmask_counts = ARRAY_SIZE(viprom_muxmask),
+	.muxmask = viprom_muxmask,
+	.funcmask = BIT(0),
+	.funcval = BIT(0),
+};
+
+static const unsigned viprom_pins[] = { 12, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89 };
+
+static const struct sirfsoc_muxmask pwm0_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(4),
+	},
+};
+
+static const struct sirfsoc_padmux pwm0_padmux = {
+	.muxmask_counts = ARRAY_SIZE(pwm0_muxmask),
+	.muxmask = pwm0_muxmask,
+	.funcmask = BIT(12),
+	.funcval = 0,
+};
+
+static const unsigned pwm0_pins[] = { 4 };
+
+static const struct sirfsoc_muxmask pwm1_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(5),
+	},
+};
+
+static const struct sirfsoc_padmux pwm1_padmux = {
+	.muxmask_counts = ARRAY_SIZE(pwm1_muxmask),
+	.muxmask = pwm1_muxmask,
+};
+
+static const unsigned pwm1_pins[] = { 5 };
+
+static const struct sirfsoc_muxmask pwm2_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(6),
+	},
+};
+
+static const struct sirfsoc_padmux pwm2_padmux = {
+	.muxmask_counts = ARRAY_SIZE(pwm2_muxmask),
+	.muxmask = pwm2_muxmask,
+};
+
+static const unsigned pwm2_pins[] = { 6 };
+
+static const struct sirfsoc_muxmask pwm3_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(7),
+	},
+};
+
+static const struct sirfsoc_padmux pwm3_padmux = {
+	.muxmask_counts = ARRAY_SIZE(pwm3_muxmask),
+	.muxmask = pwm3_muxmask,
+};
+
+static const unsigned pwm3_pins[] = { 7 };
+
+static const struct sirfsoc_muxmask warm_rst_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(8),
+	},
+};
+
+static const struct sirfsoc_padmux warm_rst_padmux = {
+	.muxmask_counts = ARRAY_SIZE(warm_rst_muxmask),
+	.muxmask = warm_rst_muxmask,
+};
+
+static const unsigned warm_rst_pins[] = { 8 };
+
+static const struct sirfsoc_muxmask usb0_utmi_drvbus_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(22),
+	},
+};
+static const struct sirfsoc_padmux usb0_utmi_drvbus_padmux = {
+	.muxmask_counts = ARRAY_SIZE(usb0_utmi_drvbus_muxmask),
+	.muxmask = usb0_utmi_drvbus_muxmask,
+	.funcmask = BIT(6),
+	.funcval = BIT(6), /* refer to PAD_UTMI_DRVVBUS0_ENABLE */
+};
+
+static const unsigned usb0_utmi_drvbus_pins[] = { 54 };
+
+static const struct sirfsoc_muxmask usb1_utmi_drvbus_muxmask[] = {
+	{
+		.group = 1,
+		.mask = BIT(27),
+	},
+};
+
+static const struct sirfsoc_padmux usb1_utmi_drvbus_padmux = {
+	.muxmask_counts = ARRAY_SIZE(usb1_utmi_drvbus_muxmask),
+	.muxmask = usb1_utmi_drvbus_muxmask,
+	.funcmask = BIT(11),
+	.funcval = BIT(11), /* refer to PAD_UTMI_DRVVBUS1_ENABLE */
+};
+
+static const unsigned usb1_utmi_drvbus_pins[] = { 59 };
+
+static const struct sirfsoc_muxmask pulse_count_muxmask[] = {
+	{
+		.group = 0,
+		.mask = BIT(9) | BIT(10) | BIT(11),
+	},
+};
+
+static const struct sirfsoc_padmux pulse_count_padmux = {
+	.muxmask_counts = ARRAY_SIZE(pulse_count_muxmask),
+	.muxmask = pulse_count_muxmask,
+};
+
+static const unsigned pulse_count_pins[] = { 9, 10, 11 };
+
 static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 	{
 		.name = "lcd_16bits",
@@ -333,20 +822,170 @@ static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 		.num_pins = ARRAY_SIZE(lcdrom_pins),
 		.padmux = &lcdrom_padmux,
 	}, {
+		.name = "uart0",
+		.pins = uart0_pins,
+		.num_pins = ARRAY_SIZE(uart1_pins),
+		.padmux = &lcdrom_padmux,
+	}, {
 		.name = "uart1",
-			.pins = uart1_pins,
-			.num_pins = ARRAY_SIZE(uart1_pins),
-			.padmux = &lcdrom_padmux,
+		.pins = uart1_pins,
+		.num_pins = ARRAY_SIZE(uart1_pins),
+		.padmux = &lcdrom_padmux,
 	}, {
 		.name = "uart2",
-			.pins = uart2_pins,
-			.num_pins = ARRAY_SIZE(uart2_pins),
-			.padmux = &uart2_padmux,
+		.pins = uart2_pins,
+		.num_pins = ARRAY_SIZE(uart2_pins),
+		.padmux = &uart2_padmux,
 	}, {
 		.name = "uart2_nostreamctrl",
-			.pins = uart2_nostreamctrl_pins,
-			.num_pins = ARRAY_SIZE(uart2_nostreamctrl_pins),
-			.padmux = &uart2_nostreamctrl_padmux,
+		.pins = uart2_nostreamctrl_pins,
+		.num_pins = ARRAY_SIZE(uart2_nostreamctrl_pins),
+		.padmux = &uart2_nostreamctrl_padmux,
+	}, {
+		.name = "usp0",
+		.pins = usp0_pins,
+		.num_pins = ARRAY_SIZE(usp0_pins),
+		.padmux = &usp0_padmux,
+	}, {
+		.name = "usp1",
+		.pins = usp1_pins,
+		.num_pins = ARRAY_SIZE(usp1_pins),
+		.padmux = &usp1_padmux,
+	}, {
+		.name = "usp2",
+		.pins = usp2_pins,
+		.num_pins = ARRAY_SIZE(usp2_pins),
+		.padmux = &usp2_padmux,
+	}, {
+		.name = "i2c0",
+		.pins = i2c0_pins,
+		.num_pins = ARRAY_SIZE(i2c0_pins),
+		.padmux = &i2c0_padmux,
+	}, {
+		.name = "i2c1",
+		.pins = i2c1_pins,
+		.num_pins = ARRAY_SIZE(i2c1_pins),
+		.padmux = &i2c1_padmux,
+	}, {
+		.name = "pwm0",
+		.pins = pwm0_pins,
+		.num_pins = ARRAY_SIZE(pwm0_pins),
+		.padmux = &pwm0_padmux,
+	}, {
+		.name = "pwm1",
+		.pins = pwm1_pins,
+		.num_pins = ARRAY_SIZE(pwm1_pins),
+		.padmux = &pwm1_padmux,
+	}, {
+		.name = "pwm2",
+		.pins = pwm2_pins,
+		.num_pins = ARRAY_SIZE(pwm2_pins),
+		.padmux = &pwm2_padmux,
+	}, {
+		.name = "pwm3",
+		.pins = pwm3_pins,
+		.num_pins = ARRAY_SIZE(pwm3_pins),
+		.padmux = &pwm3_padmux,
+	}, {
+		.name = "vip",
+		.pins = vip_pins,
+		.num_pins = ARRAY_SIZE(vip_pins),
+		.padmux = &vip_padmux,
+	}, {
+		.name = "viprom",
+		.pins = viprom_pins,
+		.num_pins = ARRAY_SIZE(viprom_pins),
+		.padmux = &viprom_padmux,
+	}, {
+		.name = "warm_rst",
+		.pins = warm_rst_pins,
+		.num_pins = ARRAY_SIZE(warm_rst_pins),
+		.padmux = &warm_rst_padmux,
+	}, {
+		.name = "cko0",
+		.pins = cko0_pins,
+		.num_pins = ARRAY_SIZE(cko0_pins),
+		.padmux = &cko0_padmux,
+	}, {
+		.name = "cko1",
+		.pins = cko1_pins,
+		.num_pins = ARRAY_SIZE(cko1_pins),
+		.padmux = &cko1_padmux,
+	}, {
+		.name = "sdmmc0",
+		.pins = sdmmc0_pins,
+		.num_pins = ARRAY_SIZE(sdmmc0_pins),
+		.padmux = &sdmmc0_padmux,
+	}, {
+		.name = "sdmmc1",
+		.pins = sdmmc1_pins,
+		.num_pins = ARRAY_SIZE(sdmmc1_pins),
+		.padmux = &sdmmc1_padmux,
+	}, {
+		.name = "sdmmc2",
+		.pins = sdmmc2_pins,
+		.num_pins = ARRAY_SIZE(sdmmc2_pins),
+		.padmux = &sdmmc2_padmux,
+	}, {
+		.name = "sdmmc3",
+		.pins = sdmmc3_pins,
+		.num_pins = ARRAY_SIZE(sdmmc3_pins),
+		.padmux = &sdmmc3_padmux,
+	}, {
+		.name = "sdmmc4",
+		.pins = sdmmc4_pins,
+		.num_pins = ARRAY_SIZE(sdmmc4_pins),
+		.padmux = &sdmmc4_padmux,
+	}, {
+		.name = "sdmmc5",
+		.pins = sdmmc5_pins,
+		.num_pins = ARRAY_SIZE(sdmmc5_pins),
+		.padmux = &sdmmc5_padmux,
+	}, {
+		.name = "usb0_utmi_drvbus",
+		.pins = usb0_utmi_drvbus_pins,
+		.num_pins = ARRAY_SIZE(usb0_utmi_drvbus_pins),
+		.padmux = &usb0_utmi_drvbus_padmux,
+	}, {
+		.name = "usb1_utmi_drvbus",
+		.pins = usb1_utmi_drvbus_pins,
+		.num_pins = ARRAY_SIZE(usb1_utmi_drvbus_pins),
+		.padmux = &usb1_utmi_drvbus_padmux,
+	}, {
+		.name = "pulse_count",
+		.pins = pulse_count_pins,
+		.num_pins = ARRAY_SIZE(pulse_count_pins),
+		.padmux = &pulse_count_padmux,
+	}, {
+		.name = "i2s",
+		.pins = i2s_pins,
+		.num_pins = ARRAY_SIZE(i2s_pins),
+		.padmux = &i2s_padmux,
+	}, {
+		.name = "ac97",
+		.pins = ac97_pins,
+		.num_pins = ARRAY_SIZE(ac97_pins),
+		.padmux = &ac97_padmux,
+	}, {
+		.name = "nand",
+		.pins = nand_pins,
+		.num_pins = ARRAY_SIZE(nand_pins),
+		.padmux = &nand_padmux,
+	}, {
+		.name = "spi0",
+		.pins = spi0_pins,
+		.num_pins = ARRAY_SIZE(spi0_pins),
+		.padmux = &spi0_padmux,
+	}, {
+		.name = "spi1",
+		.pins = spi1_pins,
+		.num_pins = ARRAY_SIZE(spi1_pins),
+		.padmux = &spi1_padmux,
+	}, {
+		.name = "gps",
+		.pins = gps_pins,
+		.num_pins = ARRAY_SIZE(gps_pins),
+		.padmux = &gps_padmux,
 	},
 };
 
@@ -372,7 +1011,7 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *upmx, unsigned selector
 		func_en_val =
 			readl(upmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
 		func_en_val =
-			(func_en_val & (~(mux->funcmask))) | (mux->
+			(func_en_val & ~mux->funcmask) | (mux->
 				funcval);
 		writel(func_en_val, upmx->rsc_virtbase + SIRFSOC_RSC_PIN_MUX);
 	}
