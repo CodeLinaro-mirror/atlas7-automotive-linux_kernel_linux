@@ -182,7 +182,7 @@ static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 	{
 		.group = 3,
 		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
-			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(12) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
 			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
@@ -204,7 +204,7 @@ static const struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 	{
 		.group = 3,
 		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
-			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(12) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
 			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
@@ -229,7 +229,7 @@ static const struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 	{
 		.group = 3,
 		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
-			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(12) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
 			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
@@ -254,7 +254,7 @@ static const struct sirfsoc_muxmask lcdrom_muxmask[] = {
 	{
 		.group = 3,
 		.mask = BIT(0) | BIT(1) | BIT(2) | BIT(3) | BIT(4) | BIT(5) | BIT(6) | BIT(7) | BIT(8) |
-			BIT(9) | BIT(10) | BIT(11) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
+			BIT(9) | BIT(10) | BIT(11) | BIT(12) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
 			BIT(17) | BIT(18),
 	}, {
 		.group = 2,
@@ -369,7 +369,7 @@ static const struct sirfsoc_padmux sdmmc3_padmux = {
 	.funcval = 0,
 };
 
-static const unsigned sdmmc3_pins[] = { 30, 31, 32, 33, 34, 45, 36 };
+static const unsigned sdmmc3_pins[] = { 30, 31, 32, 33, 34, 35 };
 
 static const struct sirfsoc_muxmask spi0_muxmask[] = {
 	{
@@ -603,7 +603,7 @@ static const struct sirfsoc_muxmask sdmmc2_muxmask[] = {
 
 static const struct sirfsoc_padmux sdmmc2_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc2_muxmask),
-	.muxmask = nand_muxmask,
+	.muxmask = sdmmc2_muxmask,
 	.funcmask = BIT(5),
 	.funcval = BIT(5),
 };
@@ -832,13 +832,13 @@ static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
 	}, {
 		.name = "uart0",
 		.pins = uart0_pins,
-		.num_pins = ARRAY_SIZE(uart1_pins),
-		.padmux = &lcdrom_padmux,
+		.num_pins = ARRAY_SIZE(uart0_pins),
+		.padmux = &uart0_padmux,
 	}, {
 		.name = "uart1",
 		.pins = uart1_pins,
 		.num_pins = ARRAY_SIZE(uart1_pins),
-		.padmux = &lcdrom_padmux,
+		.padmux = &uart1_padmux,
 	}, {
 		.name = "uart2",
 		.pins = uart2_pins,
@@ -1137,22 +1137,22 @@ static struct pinctrl_desc sirfsoc_pinmux_desc = {
  */
 static struct pinctrl_gpio_range sirfsoc_gpio_ranges[] = {
 	{
-		.name = "sirfsoc-gpio0",
+		.name = "sirfsoc-gpio*",
 		.id = 0,
 		.base = 0,
 		.npins = 32,
 	}, {
-		.name = "sirfsoc-gpio1",
+		.name = "sirfsoc-gpio*",
 		.id = 1,
 		.base = 32,
 		.npins = 32,
 	}, {
-		.name = "sirfsoc-gpio2",
+		.name = "sirfsoc-gpio*",
 		.id = 2,
 		.base = 64,
 		.npins = 32,
 	}, {
-		.name = "sirfsoc-gpio2",
+		.name = "sirfsoc-gpio*",
 		.id = 3,
 		.base = 96,
 		.npins = 19,
