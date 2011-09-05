@@ -277,6 +277,15 @@ struct dma_slave_config {
 	u32 dst_maxburst;
 };
 
+struct sirfsoc_dma_slave_config {
+	struct dma_slave_config generic_config;
+
+	/* CSR SiRFprimaII 2D-DMA config */
+	int             xlen;           /* DMA xlen */
+	int             ylen;           /* DMA ylen */
+	int             width;          /* DMA width */
+};
+
 static inline const char *dma_chan_name(struct dma_chan *chan)
 {
 	return dev_name(&chan->dev->device);
