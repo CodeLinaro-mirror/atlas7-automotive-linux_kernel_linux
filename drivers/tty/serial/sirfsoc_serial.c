@@ -1289,18 +1289,16 @@ static int sirfsoc_serial_probe(struct platform_device *pdev)
 		goto out2;
 	}
 
-	/* fixme: platform_get_irq fail to get irq */
 	if (pdev->id == 1) {
-		port->irq = IRQ_UART1;
+		/*
+		 * fixme: for the moment it is only for testing pinmux API
+		 * refine it later
+		 */
 		struct pinmux *pmx = pinmux_get(&pdev->dev, NULL);
 		pinmux_enable(pmx);
 	}
-	else if (pdev->id == 0)
-		port->irq = IRQ_UART0;
-	else
-		port->irq = IRQ_UART2;
 
-	/*	port->irq = platform_get_irq(pdev, 0); */
+	port->irq = platform_get_irq(pdev, 0);
 
 	if (port->irq == 0) {
 		printk("SiRFSOC UART: Insufficient resources\n");
