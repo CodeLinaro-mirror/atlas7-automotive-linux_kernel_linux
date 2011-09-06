@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
+#include <linux/sirfsoc_dma.h>
 
 #define SIRFSOC_DMA_DESCRIPTORS                 16
 #define SIRFSOC_DMA_CHANNELS                    16
@@ -113,8 +114,8 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(&schan->chan);
 	int cid = schan->chan.chan_id;
 
-	/* Move all queued descriptors to active list */
-	list_splice_tail_init(&schan->queued, &schan->active);
+	/* Move the first queued descriptor to active list */
+	list_move_tail(&schan->queued, &schan->active);
 
 	writel_relaxed(schan->width, sdma->regs + SIRFSOC_DMA_WIDTH_0 + cid * 4);
 	writel_relaxed(cid | (schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
@@ -280,6 +281,24 @@ static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
 	return 0;
 }
 
+static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
+{
+	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(&schan->chan);
+	int cid = schan->chan.chan_id;
+	unsigned long flags;
+
+	writel_relaxed(readl_relaxed(sdma->regs + SIRFSOC_DMA_INT_EN) & ~(1 << cid),
+		sdma->regs + SIRFSOC_DMA_INT_EN);
+	writel_relaxed(1 << cid, sdma->regs + SIRFSOC_DMA_CH_VALID);
+
+	spin_lock_irqsave(&schan->lock, flags);
+
+	list_splice_tail_init(&schan->queued, &schan->free);
+	spin_unlock_irqrestore(&schan->lock, flags);
+
+	return 0;
+}
+
 static int sirfsoc_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	unsigned long arg)
 {
@@ -287,6 +306,8 @@ static int sirfsoc_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 
 	switch (cmd) {
+	case DMA_TERMINATE_ALL:
+		return sirfsoc_dma_terminate_all(schan);
 	case DMA_SLAVE_CONFIG:
 		config = (struct sirfsoc_dma_slave_config *)arg;
 		return sirfsoc_dma_slave_config(schan, config);
@@ -422,6 +443,17 @@ sirfsoc_dma_prep_memcpy(struct dma_chan *chan, dma_addr_t dst, dma_addr_t src,
 
 	return &mdesc->desc;
 }
+
+bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
+{
+	unsigned int ch_nr = (unsigned int) chan_id;
+
+	if (ch_nr == chan.chan_id)
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL(sirfsoc_dma_filter_id);
 
 static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 {
