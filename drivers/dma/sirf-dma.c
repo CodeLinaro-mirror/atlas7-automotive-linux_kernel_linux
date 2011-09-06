@@ -383,13 +383,18 @@ static void sirfsoc_dma_free_chan_resources(struct dma_chan *chan)
 		kfree(mdesc);
 }
 
-/* Send all pending descriptor to hardware */
+/* Send pending descriptor to hardware */
 static void sirfsoc_dma_issue_pending(struct dma_chan *chan)
 {
-	/*
-	 * We are posting descriptors to the hardware as soon as
-	 * they are ready, so this function does nothing.
-	 */
+	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+	unsigned long flags;
+
+	spin_lock_irqsave(&schan->lock, flags);
+
+	if (list_empty(&schan->active) && !list_empty(&schan->queued))
+		sirfsoc_dma_execute(schan);
+
+	spin_unlock_irqrestore(&schan->lock, flags);
 }
 
 /* Check request completion status */
@@ -448,7 +453,7 @@ bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 {
 	unsigned int ch_nr = (unsigned int) chan_id;
 
-	if (ch_nr == chan.chan_id)
+	if (ch_nr == chan->chan_id)
 		return true;
 
 	return false;
