@@ -586,5 +586,5 @@ module_exit(sirfsoc_dma_exit);
 
 MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>, "
 	"Barry Song <baohua.song@csr.com>");
-MODULE_DESCRIPTION("SIRFSOC pin control driver");
+MODULE_DESCRIPTION("SIRFSOC DMA control driver");
 MODULE_LICENSE("GPL");
