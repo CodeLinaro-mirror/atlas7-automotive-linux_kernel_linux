@@ -449,6 +449,10 @@ sirfsoc_dma_prep_memcpy(struct dma_chan *chan, dma_addr_t dst, dma_addr_t src,
 	return &mdesc->desc;
 }
 
+/*
+ * The DMA controller consists of 16 independent DMA channels.
+ * Each channel is allocated to a different function
+ */
 bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 {
 	unsigned int ch_nr = (unsigned int) chan_id;
@@ -469,12 +473,18 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 	struct sirfsoc_dma_chan *schan;
 	struct resource res;
 	ulong regs_start, regs_size;
+	u32 id;
 	int retval, i;
 
 	sdma = devm_kzalloc(dev, sizeof(struct sirfsoc_dma), GFP_KERNEL);
 	if (!sdma) {
 		dev_err(dev, "Memory exhausted!\n");
 		return -ENOMEM;
+	}
+
+	if (of_property_read_u32(dn, "cell-index", &id)) {
+		dev_err(dev, "Fail to get DMAC index\n");
+		return -ENODEV;
 	}
 
 	sdma->irq = irq_of_parse_and_map(dn, 0);
@@ -528,7 +538,7 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 		schan = &sdma->channels[i];
 
 		schan->chan.device = dma;
-		schan->chan.chan_id = i;
+		schan->chan.chan_id = dma->chancnt * id + i;
 		schan->chan.cookie = 1;
 		schan->completed_cookie = schan->chan.cookie;
 
