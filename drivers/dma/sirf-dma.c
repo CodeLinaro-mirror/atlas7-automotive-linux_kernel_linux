@@ -27,22 +27,6 @@
 #define SIRFSOC_DMA_CH_CTRL                     0x0C
 
 #define SIRFSOC_DMA_WIDTH_0                     0x100
-#define SIRFSOC_DMA_WIDTH_1                     0x104
-#define SIRFSOC_DMA_WIDTH_2                     0x108
-#define SIRFSOC_DMA_WIDTH_3                     0x10C
-#define SIRFSOC_DMA_WIDTH_4                     0x110
-#define SIRFSOC_DMA_WIDTH_5                     0x114
-#define SIRFSOC_DMA_WIDTH_6                     0x118
-#define SIRFSOC_DMA_WIDTH_7                     0x11C
-#define SIRFSOC_DMA_WIDTH_8                     0x120
-#define SIRFSOC_DMA_WIDTH_9                     0x124
-#define SIRFSOC_DMA_WIDTH_10                    0x128
-#define SIRFSOC_DMA_WIDTH_11                    0x12C
-#define SIRFSOC_DMA_WIDTH_12                    0x130
-#define SIRFSOC_DMA_WIDTH_13                    0x134
-#define SIRFSOC_DMA_WIDTH_14                    0x138
-#define SIRFSOC_DMA_WIDTH_15                    0x13C
-
 #define SIRFSOC_DMA_CH_VALID                    0x140
 #define SIRFSOC_DMA_CH_INT                      0x144
 #define SIRFSOC_DMA_INT_EN                      0x148
@@ -128,14 +112,18 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(schan->addr >> 2, sdma->regs + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 }
 
-static void sirfsoc_dma_irq_process(struct sirfsoc_dma *sdma, u32 is)
+/* Interrupt handler */
+static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 {
+	struct sirfsoc_dma *sdma = data;
 	struct sirfsoc_dma_chan *schan;
-	u32 status = is;
+	u32 is;
 	int ch;
 
-	while ((ch = fls(status) - 1) >= 0) {
-		status &= ~(1 << ch);
+	is = readl_relaxed(sdma->regs + SIRFSOC_DMA_CH_INT);
+	while ((ch = fls(is) - 1) >= 0) {
+		is &= ~(1 << ch);
+		writel_relaxed(1 << ch, sdma->regs + SIRFSOC_DMA_CH_INT);
 		schan = &sdma->channels[ch];
 
 		spin_lock(&schan->lock);
@@ -147,14 +135,6 @@ static void sirfsoc_dma_irq_process(struct sirfsoc_dma *sdma, u32 is)
 
 		spin_unlock(&schan->lock);
 	}
-}
-
-/* Interrupt handler */
-static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
-{
-	struct sirfsoc_dma *sdma = data;
-
-	sirfsoc_dma_irq_process(sdma, readl_relaxed(sdma->regs + SIRFSOC_DMA_CH_INT));
 
 	/* Schedule tasklet */
 	tasklet_schedule(&sdma->tasklet);
