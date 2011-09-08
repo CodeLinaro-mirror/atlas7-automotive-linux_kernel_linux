@@ -19,10 +19,11 @@
 
 #include "pm.h"
 
-static u32 sirfsoc_pwrc_base;
 /*
- * suspend asm codes will access this address to make DRAM become self-refresh
+ * suspend asm codes will access these to make DRAM become self-refresh and
+ * system sleep
  */
+u32 sirfsoc_pwrc_base;
 void __iomem *sirfsoc_memc_base;
 
 static void sirfsoc_set_wakeup_source(void)
