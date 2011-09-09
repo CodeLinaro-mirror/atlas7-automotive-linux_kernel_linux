@@ -50,7 +50,7 @@ static int sirfsoc_pre_suspend_power_off(void)
 {
 	u32 wakeup_entry = virt_to_phys(cpu_resume);
 
-	sirfsoc_rtc_iobrg_writel(wakeup_entry,
+	sirfsoc_rtc_iobrg_writel(wakeup_entry, sirfsoc_pwrc_base +
 		SIRFSOC_PWRC_SCRATCH_PAD1);
 
 	sirfsoc_set_wakeup_source();
@@ -60,35 +60,15 @@ static int sirfsoc_pre_suspend_power_off(void)
 	return 0;
 }
 
-static void sirfsoc_save_register(u32 *ptr)
-{
-	/* todo: save necessary system registers here */
-}
-
-static void sirfsoc_restore_regs(u32 *ptr)
-{
-	/* todo: restore saved system registers here */
-}
-
 static int sirfsoc_pm_enter(suspend_state_t state)
 {
-	u32 *saved_regs;
-
 	switch (state) {
 	case PM_SUSPEND_MEM:
-		saved_regs = kmalloc(1024, GFP_ATOMIC);
-		if (!saved_regs)
-			return -ENOMEM;
-
-		sirfsoc_save_register(saved_regs);
-
 		sirfsoc_pre_suspend_power_off();
 
 		/* go zzz */
 		cpu_suspend(0, sirfsoc_finish_suspend);
 
-		sirfsoc_restore_regs(saved_regs);
-		kfree(saved_regs);
 		break;
 	default:
 		return -EINVAL;
