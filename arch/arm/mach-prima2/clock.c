@@ -16,6 +16,7 @@
 #include <linux/spinlock.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/syscore_ops.h>
 #include <asm/mach/map.h>
 #include <mach/map.h>
 
@@ -506,4 +507,35 @@ void __init sirfsoc_of_clk_init(void)
 	iotable_init(&sirfsoc_clkc_iodesc, 1);
 
 	sirfsoc_clk_init();
+
+	/* enable all clocks for testing */
+	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
+	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
 }
+
+/*
+ * clk disable/enable should be doned by every device
+ * here we just give a workaround to enable all clk
+ */
+static int sirfsoc_clk_suspend(void)
+{
+	return 0;
+}
+
+static void sirfsoc_clk_resume(void)
+{
+	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
+	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
+}
+
+static struct syscore_ops sirfsoc_clk_syscore_ops = {
+	.suspend	= sirfsoc_clk_suspend,
+	.resume		= sirfsoc_clk_resume,
+};
+
+static int __init sirfsoc_clk_pm_init(void)
+{
+	register_syscore_ops(&sirfsoc_clk_syscore_ops);
+	return 0;
+}
+device_initcall(sirfsoc_clk_pm_init);
