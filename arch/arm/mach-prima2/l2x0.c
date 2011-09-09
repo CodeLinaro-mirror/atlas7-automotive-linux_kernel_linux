@@ -69,11 +69,6 @@ early_initcall(sirfsoc_of_l2x0_init);
 
 static int sirfsoc_l2x0_pm_suspend(void)
 {
-	writel_relaxed(0xFF, sirfsoc_l2x0_base + L2X0_CLEAN_INV_WAY);
-	while (readl_relaxed(sirfsoc_l2x0_base + L2X0_CLEAN_INV_WAY))
-		continue;
-	writel_relaxed(0x0, sirfsoc_l2x0_base + L2X0_CACHE_SYNC);
-	writel_relaxed(0x0, sirfsoc_l2x0_base + L2X0_CTRL);
 	return 0;
 }
 
