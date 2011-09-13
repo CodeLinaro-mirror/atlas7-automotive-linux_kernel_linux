@@ -425,6 +425,14 @@ sirfsoc_dma_prep_memcpy(struct dma_chan *chan, dma_addr_t dst, dma_addr_t src,
 	return &mdesc->desc;
 }
 
+static struct dma_async_tx_descriptor *sirfsoc_dma_prep_slave_sg(
+	struct dma_chan *chan, struct scatterlist *sgl,
+	unsigned int sg_len, enum dma_data_direction direction,
+	unsigned long flags)
+{
+	struct scatterlist *sg;
+}
+
 /*
  * The DMA controller consists of 16 independent DMA channels.
  * Each channel is allocated to a different function
@@ -506,6 +514,7 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 	dma->device_control = sirfsoc_dma_control;
 	dma->device_tx_status = sirfsoc_dma_tx_status;
 	dma->device_prep_dma_memcpy = sirfsoc_dma_prep_memcpy;
+	dma->device_prep_slave_sg = sirfsoc_dma_prep_slave_sg;
 
 	INIT_LIST_HEAD(&dma->channels);
 	dma_cap_set(DMA_MEMCPY, dma->cap_mask);
