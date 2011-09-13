@@ -207,10 +207,6 @@ static dma_cookie_t sirfsoc_dma_tx_submit(struct dma_async_tx_descriptor *txd)
 	/* Move descriptor to queue */
 	list_move_tail(&mdesc->node, &schan->queued);
 
-	/* If channel is idle, execute all queued descriptors */
-	if (list_empty(&schan->active))
-		sirfsoc_dma_execute(schan);
-
 	/* Update cookie */
 	cookie = schan->chan.cookie + 1;
 	if (cookie <= 0)
@@ -272,7 +268,7 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(1 << cid, sdma->regs + SIRFSOC_DMA_CH_VALID);
 
 	spin_lock_irqsave(&schan->lock, flags);
-
+	list_splice_tail_init(&schan->active, &schan->free);
 	list_splice_tail_init(&schan->queued, &schan->free);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
@@ -513,6 +509,7 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 
 	INIT_LIST_HEAD(&dma->channels);
 	dma_cap_set(DMA_MEMCPY, dma->cap_mask);
+	dma_cap_set(DMA_SLAVE, dma->cap_mask);
 
 	for (i = 0; i < dma->chancnt; i++) {
 		schan = &sdma->channels[i];
