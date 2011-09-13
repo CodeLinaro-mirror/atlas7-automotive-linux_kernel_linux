@@ -10,35 +10,8 @@
 #include <linux/kernel.h>
 #include <asm/hardware/cache-l2x0.h>
 
-int sirfsoc_l2x0_init(void)
+static int __init sirfsoc_l2x0_init(void)
 {
 	return l2x0_of_init(0x40000, 0);
 }
 early_initcall(sirfsoc_l2x0_init);
-
-#ifdef CONFIG_PM
-#include <linux/syscore_ops.h>
-
-static int sirfsoc_l2x0_pm_suspend(void)
-{
-	return 0;
-}
-
-static void sirfsoc_l2x0_pm_resume(void)
-{
-	sirfsoc_l2x0_init();
-}
-
-static struct syscore_ops sirfsoc_l2x0_pm_syscore_ops = {
-	.suspend	= sirfsoc_l2x0_pm_suspend,
-	.resume		= sirfsoc_l2x0_pm_resume,
-};
-
-static int sirfsoc_l2x0_pm_init(void)
-{
-	register_syscore_ops(&sirfsoc_l2x0_pm_syscore_ops);
-	return 0;
-}
-late_initcall(sirfsoc_l2x0_pm_init);
-
-#endif
