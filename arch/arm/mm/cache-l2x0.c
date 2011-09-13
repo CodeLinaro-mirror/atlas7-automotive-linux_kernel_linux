@@ -377,7 +377,7 @@ void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 }
 
 #ifdef CONFIG_OF
-static void __init l2x0_of_setup(const struct device_node *np,
+static void l2x0_of_setup(const struct device_node *np,
 				 __u32 *aux_val, __u32 *aux_mask)
 {
 	u32 data[2] = { 0, 0 };
@@ -411,7 +411,7 @@ static void __init l2x0_of_setup(const struct device_node *np,
 	*aux_mask &= ~mask;
 }
 
-static void __init pl310_of_setup(const struct device_node *np,
+static void pl310_of_setup(const struct device_node *np,
 				  __u32 *aux_val, __u32 *aux_mask)
 {
 	u32 data[3] = { 0, 0, 0 };
@@ -445,7 +445,7 @@ static void __init pl310_of_setup(const struct device_node *np,
 	}
 }
 
-static const struct of_device_id l2x0_ids[] __initconst = {
+static const struct of_device_id l2x0_ids[] = {
 	{ .compatible = "arm,pl310-cache", .data = pl310_of_setup },
 	{ .compatible = "arm,l220-cache", .data = l2x0_of_setup },
 	{ .compatible = "arm,l210-cache", .data = l2x0_of_setup },
