@@ -12,8 +12,7 @@
 
 int sirfsoc_l2x0_init(void)
 {
-	l2x0_of_init(0x40000, 0);
-	return 0;
+	return l2x0_of_init(0x40000, 0);
 }
 early_initcall(sirfsoc_l2x0_init);
 
