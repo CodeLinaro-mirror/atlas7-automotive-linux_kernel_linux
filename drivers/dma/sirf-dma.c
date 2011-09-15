@@ -225,34 +225,34 @@ static dma_cookie_t sirfsoc_dma_tx_submit(struct dma_async_tx_descriptor *txd)
 }
 
 static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
-	struct sirfsoc_dma_slave_config *config)
+	struct dma_slave_config *config)
 {
 	u32 addr, direction;
 	unsigned long flags;
 
-	switch (config->generic_config.direction) {
+	switch (config->direction) {
 	case DMA_FROM_DEVICE:
 		direction = 0;
-		addr = config->generic_config.dst_addr;
+		addr = config->dst_addr;
 		break;
 
 	case DMA_TO_DEVICE:
 		direction = 1;
-		addr = config->generic_config.src_addr;
+		addr = config->src_addr;
 		break;
 
 	default:
 		return -EINVAL;
 	}
 
-	if ((config->generic_config.src_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES) ||
-		(config->generic_config.dst_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES))
+	if ((config->src_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES) ||
+		(config->dst_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES))
 		return -EINVAL;
 
 	spin_lock_irqsave(&schan->lock, flags);
 	schan->addr = addr;
 	schan->direction = direction;
-	schan->mode = (config->generic_config.src_maxburst == 4 ? 1 : 0);
+	schan->mode = (config->src_maxburst == 4 ? 1 : 0);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	return 0;
@@ -279,14 +279,14 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 static int sirfsoc_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	unsigned long arg)
 {
-	struct sirfsoc_dma_slave_config *config;
+	struct dma_slave_config *config;
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 
 	switch (cmd) {
 	case DMA_TERMINATE_ALL:
 		return sirfsoc_dma_terminate_all(schan);
 	case DMA_SLAVE_CONFIG:
-		config = (struct sirfsoc_dma_slave_config *)arg;
+		config = (struct dma_slave_config *)arg;
 		return sirfsoc_dma_slave_config(schan, config);
 
 	default:
@@ -408,6 +408,7 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_genxfer(
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
 	unsigned long iflags;
+	int ret;
 
 	/* Get free descriptor */
 	spin_lock_irqsave(&schan->lock, iflags);
@@ -421,15 +422,29 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_genxfer(
 	if (!sdesc) {
 		/* try to free completed descriptors */
 		sirfsoc_dma_process_completed(sdma);
-		return NULL;
+		ret = 0;
+		goto no_desc;
 	}
 
 	/* Place descriptor in prepared list */
 	spin_lock_irqsave(&schan->lock, iflags);
-	list_add_tail(&sdesc->node, &schan->prepared);
+	if ((xt->frame_size == 1) && (xt->numf > 0)) {
+		sdesc->xlen = xt->sgl[0].size;
+		sdesc->width = xt->sgl[0].size + xt->sgl[0].icg;
+		sdesc->ylen = xt->numf - 1;
+		list_add_tail(&sdesc->node, &schan->prepared);
+	} else {
+		pr_err("sirfsoc DMA Invalid xfer\n");
+		ret = -EINVAL;
+		goto err_xfer;
+	}
 	spin_unlock_irqrestore(&schan->lock, iflags);
 
 	return &sdesc->desc;
+err_xfer:
+	spin_unlock_irqrestore(&schan->lock, iflags);
+no_desc:
+	return ERR_PTR(ret);
 }
 
 /*
