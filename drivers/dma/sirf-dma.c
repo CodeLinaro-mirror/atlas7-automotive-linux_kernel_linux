@@ -66,7 +66,7 @@ struct sirfsoc_dma {
 	struct dma_device		dma;
 	struct tasklet_struct		tasklet;
 	struct sirfsoc_dma_chan		channels[SIRFSOC_DMA_CHANNELS];
-	void __iomem			*regs;
+	void __iomem			*base;
 	int				irq;
 };
 
@@ -98,15 +98,15 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	list_move_tail(&schan->queued, &schan->active);
 
 	/* Start the DMA transfer */
-	writel_relaxed(sdesc->width, sdma->regs + SIRFSOC_DMA_WIDTH_0 + cid * 4);
+	writel_relaxed(sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_0 + cid * 4);
 	writel_relaxed(cid | (schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
 		(schan->direction << SIRFSOC_DMA_DIR_CTRL_BIT),
-		sdma->regs + cid * 0x10 + SIRFSOC_DMA_CH_CTRL);
-	writel_relaxed(sdesc->xlen, sdma->regs + cid * 0x10 + SIRFSOC_DMA_CH_XLEN);
-	writel_relaxed(sdesc->ylen, sdma->regs + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
-	writel_relaxed(readl_relaxed(sdma->regs + SIRFSOC_DMA_INT_EN) | (1 << cid),
-		sdma->regs + SIRFSOC_DMA_INT_EN);
-	writel_relaxed(schan->addr >> 2, sdma->regs + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
+		sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_CTRL);
+	writel_relaxed(sdesc->xlen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_XLEN);
+	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
+	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) | (1 << cid),
+		sdma->base + SIRFSOC_DMA_INT_EN);
+	writel_relaxed(schan->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 }
 
 /* Interrupt handler */
@@ -117,10 +117,10 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	u32 is;
 	int ch;
 
-	is = readl_relaxed(sdma->regs + SIRFSOC_DMA_CH_INT);
+	is = readl_relaxed(sdma->base + SIRFSOC_DMA_CH_INT);
 	while ((ch = fls(is) - 1) >= 0) {
 		is &= ~(1 << ch);
-		writel_relaxed(1 << ch, sdma->regs + SIRFSOC_DMA_CH_INT);
+		writel_relaxed(1 << ch, sdma->base + SIRFSOC_DMA_CH_INT);
 		schan = &sdma->channels[ch];
 
 		spin_lock(&schan->lock);
@@ -257,9 +257,9 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 	int cid = schan->chan.chan_id;
 	unsigned long flags;
 
-	writel_relaxed(readl_relaxed(sdma->regs + SIRFSOC_DMA_INT_EN) & ~(1 << cid),
-		sdma->regs + SIRFSOC_DMA_INT_EN);
-	writel_relaxed(1 << cid, sdma->regs + SIRFSOC_DMA_CH_VALID);
+	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) & ~(1 << cid),
+		sdma->base + SIRFSOC_DMA_INT_EN);
+	writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_CH_VALID);
 
 	spin_lock_irqsave(&schan->lock, flags);
 	list_splice_tail_init(&schan->active, &schan->free);
@@ -499,8 +499,8 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 		return -EBUSY;
 	}
 
-	sdma->regs = devm_ioremap(dev, regs_start, regs_size);
-	if (!sdma->regs) {
+	sdma->base = devm_ioremap(dev, regs_start, regs_size);
+	if (!sdma->base) {
 		dev_err(dev, "Error mapping memory region!\n");
 		return -ENOMEM;
 	}
