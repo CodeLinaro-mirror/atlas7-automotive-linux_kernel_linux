@@ -91,10 +91,8 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(&schan->chan);
 	int cid = schan->chan.chan_id;
 	struct sirfsoc_dma_desc *sdesc = NULL;
-	unsigned long iflags;
 
 	/* Get free descriptor */
-	spin_lock_irqsave(&schan->lock, iflags);
 
 	if (!list_empty(&schan->queued)) {
 		sdesc = list_first_entry(&schan->queued, struct sirfsoc_dma_desc,
@@ -102,8 +100,6 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	}
 	/* Move the first queued descriptor to active list */
 	list_move_tail(&schan->queued, &schan->active);
-
-	spin_unlock_irqrestore(&schan->lock, iflags);
 
 	writel_relaxed(sdesc->width, sdma->regs + SIRFSOC_DMA_WIDTH_0 + cid * 4);
 	writel_relaxed(cid | (schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
@@ -455,7 +451,8 @@ bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 {
 	unsigned int ch_nr = (unsigned int) chan_id;
 
-	if (ch_nr == chan->chan_id)
+	if (ch_nr == chan->chan_id +
+		chan->device->dev_id * SIRFSOC_DMA_CHANNELS)
 		return true;
 
 	return false;
