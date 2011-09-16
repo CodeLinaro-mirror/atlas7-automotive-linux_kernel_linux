@@ -532,7 +532,6 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 		schan = &sdma->channels[i];
 
 		schan->chan.device = dma;
-		schan->chan.chan_id = dma->chancnt * id + i;
 		schan->chan.cookie = 1;
 		schan->completed_cookie = schan->chan.cookie;
 
