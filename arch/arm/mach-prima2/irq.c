@@ -97,7 +97,7 @@ static int sirfsoc_irq_suspend(void)
 	return 0;
 }
 
-static void sirfsoc_irq_resume(struct sys_device *dev)
+static void sirfsoc_irq_resume(void)
 {
 	writel_relaxed(sirfsoc_irq_st.mask0, sirfsoc_intc_base + SIRFSOC_INT_RISC_MASK0);
 	writel_relaxed(sirfsoc_irq_st.mask1, sirfsoc_intc_base + SIRFSOC_INT_RISC_MASK1);
