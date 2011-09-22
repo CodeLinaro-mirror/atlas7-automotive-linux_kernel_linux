@@ -71,7 +71,6 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 		outer_disable();
 		/* go zzz */
 		cpu_suspend(0, sirfsoc_finish_suspend);
-		outer_resume();
 		break;
 	default:
 		return -EINVAL;
