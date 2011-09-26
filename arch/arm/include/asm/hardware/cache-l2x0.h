@@ -96,6 +96,19 @@
 #ifndef __ASSEMBLY__
 extern void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask);
 extern int l2x0_of_init(__u32 aux_val, __u32 aux_mask);
+
+struct l2x0_regs {
+	unsigned long aux_ctrl;
+	/*
+	 * Whether the following registers need to be saved/restored
+	 * depends on platform
+	 */
+	unsigned long tag_latency;
+	unsigned long data_latency;
+	unsigned long filter_start;
+	unsigned long filter_end;
+};
+
 #endif
 
 #endif

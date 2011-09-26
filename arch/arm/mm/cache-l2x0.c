@@ -32,8 +32,8 @@ static void __iomem *l2x0_base;
 static DEFINE_SPINLOCK(l2x0_lock);
 static uint32_t l2x0_way_mask;	/* Bitmask of active ways */
 static uint32_t l2x0_size;
-static u32 l2x0_aux_ctrl;
-static u32 l2x0_tag_latency, l2x0_data_latency, l2x0_filter_start, l2x0_filter_end;
+
+struct l2x0_regs l2x0_saved_regs;
 
 struct l2x0_of_data {
 	void (*setup)(const struct device_node *, __u32 *, __u32 *);
@@ -364,7 +364,7 @@ void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 		/* l2x0 controller is disabled */
 		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
 
-		l2x0_aux_ctrl = aux;
+		l2x0_saved_regs.aux_ctrl = aux;
 
 		l2x0_inv_all();
 
@@ -457,10 +457,10 @@ static void pl310_of_setup(const struct device_node *np,
 
 static void __init pl310_save(void)
 {
-	l2x0_tag_latency = readl_relaxed(l2x0_base + L2X0_TAG_LATENCY_CTRL);
-	l2x0_data_latency = readl_relaxed(l2x0_base + L2X0_DATA_LATENCY_CTRL);
-	l2x0_filter_end = readl_relaxed(l2x0_base + L2X0_ADDR_FILTER_END);
-	l2x0_filter_start = readl_relaxed(l2x0_base + L2X0_ADDR_FILTER_START);
+	l2x0_saved_regs.tag_latency = readl_relaxed(l2x0_base + L2X0_TAG_LATENCY_CTRL);
+	l2x0_saved_regs.data_latency = readl_relaxed(l2x0_base + L2X0_DATA_LATENCY_CTRL);
+	l2x0_saved_regs.filter_end = readl_relaxed(l2x0_base + L2X0_ADDR_FILTER_END);
+	l2x0_saved_regs.filter_start = readl_relaxed(l2x0_base + L2X0_ADDR_FILTER_START);
 }
 
 static void l2x0_resume(void)
@@ -469,7 +469,7 @@ static void l2x0_resume(void)
 		/* restore aux ctrl and enable l2 */
 		l2x0_unlock(readl_relaxed(l2x0_base + L2X0_CACHE_ID));
 
-		writel_relaxed(l2x0_aux_ctrl, l2x0_base + L2X0_AUX_CTRL);
+		writel_relaxed(l2x0_saved_regs.aux_ctrl, l2x0_base + L2X0_AUX_CTRL);
 
 		l2x0_inv_all();
 
@@ -481,10 +481,10 @@ static void pl310_resume(void)
 {
 	if (!(readl_relaxed(l2x0_base + L2X0_CTRL) & 1)) {
 		/* restore pl310 setup */
-		writel_relaxed(l2x0_tag_latency, l2x0_base + L2X0_TAG_LATENCY_CTRL);
-		writel_relaxed(l2x0_data_latency, l2x0_base + L2X0_DATA_LATENCY_CTRL);
-		writel_relaxed(l2x0_filter_end, l2x0_base + L2X0_ADDR_FILTER_END);
-		writel_relaxed(l2x0_filter_start, l2x0_base + L2X0_ADDR_FILTER_START);
+		writel_relaxed(l2x0_saved_regs.tag_latency, l2x0_base + L2X0_TAG_LATENCY_CTRL);
+		writel_relaxed(l2x0_saved_regs.data_latency, l2x0_base + L2X0_DATA_LATENCY_CTRL);
+		writel_relaxed(l2x0_saved_regs.filter_end, l2x0_base + L2X0_ADDR_FILTER_END);
+		writel_relaxed(l2x0_saved_regs.filter_start, l2x0_base + L2X0_ADDR_FILTER_START);
 	}
 
 	l2x0_resume();
