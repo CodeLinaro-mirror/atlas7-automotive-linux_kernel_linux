@@ -518,8 +518,8 @@ static void pl310_resume(void)
 			L2X0_CACHE_ID_RTL_MASK;
 
 		if (l2x0_revision >= L2X0_CACHE_ID_RTL_R2P0) {
-			writel_relaxed(l2x0_saved_regs.prefetch_ctrl, l2x0_base +
-				L2X0_PREFETCH_CTRL);
+			writel_relaxed(l2x0_saved_regs.prefetch_ctrl,
+				l2x0_base + L2X0_PREFETCH_CTRL);
 			if (l2x0_revision >= L2X0_CACHE_ID_RTL_R3P0)
 				writel_relaxed(l2x0_saved_regs.pwr_ctrl,
 					l2x0_base + L2X0_POWER_CTRL);
@@ -565,7 +565,7 @@ int l2x0_of_init(__u32 aux_val, __u32 aux_mask)
 	if (!l2x0_base)
 		return -ENOMEM;
 
-	l2x0_saved_regs.l2x0_phy_base = res.start;
+	l2x0_saved_regs.phy_base = res.start;
 
 	data = of_match_node(l2x0_ids, np)->data;
 
