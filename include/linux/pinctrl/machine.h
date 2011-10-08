@@ -20,42 +20,75 @@
  * @ctrl_dev: the pin control device to be used by this mapping, may be NULL
  *	if you provide .ctrl_dev_name instead (this is more common)
  * @ctrl_dev_name: the name of the device controlling this specific mapping,
- *	the name must be the same as in your struct device*
+ *	the name must be the same as in your struct device*, may be NULL if
+ *	you provide .ctrl_dev instead
  * @function: a function in the driver to use for this mapping, the driver
  *	will lookup the function referenced by this ID on the specified
  *	pin control device
- * @position: sometimes a function has several possible positions in the
- *	pin space, so this parameter accepts a certain position enumerator.
- *	If for example a certain port can be mapped in three different
- *	locations this could be 0, 1 or 2
+ * @group: sometimes a function can map to different pin groups, so this
+ *	selects a certain specific pin group to activate for the function, if
+ *	left as NULL, the first applicable group will be used
  * @dev: the device using this specific mapping, may be NULL if you provide
  *	.dev_name instead (this is more common)
  * @dev_name: the name of the device using this specific mapping, the name
- *	must be the same as in your struct device*
+ *	must be the same as in your struct device*, may be NULL if you
+ *	provide .dev instead
+ * @hog_on_boot: if this is set to true, the regulator subsystem will itself
+ *	hog the mappings as the pinmux device drivers are attched, so this is
+ *	typically used with system maps (mux mappings without an assigned
+ *	device) that you want to get hogged and enabled by default as soon as
+ *	a pinmux device supporting it is registered. These maps will not be
+ *	disabled and put until the system shuts down.
  */
 struct pinmux_map {
 	const char *name;
 	struct device *ctrl_dev;
 	const char *ctrl_dev_name;
 	const char *function;
-	unsigned position;
+	const char *group;
 	struct device *dev;
 	const char *dev_name;
+	const bool hog_on_boot;
 };
 
 /*
  * Convenience macro to set a simple map from a certain pin controller and a
  * certain function to a named device
  */
-#define PINMUX_MAP(a, b, c) \
-	{ .ctrl_dev_name = a, .function = b, .dev_name = c }
+#define PINMUX_MAP(a, b, c, d) \
+	{ .name = a, .ctrl_dev_name = b, .function = c, .dev_name = d }
+
+/*
+ * Convenience macro to map a system function onto a certain pinctrl device.
+ * System functions are not assigned to a particular device.
+ */
+#define PINMUX_MAP_SYS(a, b, c) \
+	{ .name = a, .ctrl_dev_name = b, .function = c }
+
 /*
  * Convenience macro to map a function onto the primary device pinctrl device
  * this is especially helpful on systems that have only one pin controller
  * or need to set up a lot of mappings on the primary controller.
  */
-#define PINMUX_MAP_PRIMARY(a, b) \
-	{ .ctrl_dev_name = "pinctrl.0", .function = a, .dev_name = b }
+#define PINMUX_MAP_PRIMARY(a, b, c) \
+	{ .name = a, .ctrl_dev_name = "pinctrl.0", .function = b, \
+	  .dev_name = c }
+
+/*
+ * Convenience macro to map a system function onto the primary pinctrl device.
+ * System functions are not assigned to a particular device.
+ */
+#define PINMUX_MAP_PRIMARY_SYS(a, b) \
+	{ .name = a, .ctrl_dev_name = "pinctrl.0", .function = b }
+
+/*
+ * Convenience macro to map a system function onto the primary pinctrl device,
+ * to be hogged by the pinmux core until the system shuts down.
+ */
+#define PINMUX_MAP_PRIMARY_SYS_HOG(a, b) \
+	{ .name = a, .ctrl_dev_name = "pinctrl.0", .function = b, \
+	  .hog_on_boot = true }
+
 
 #ifdef CONFIG_PINMUX
 

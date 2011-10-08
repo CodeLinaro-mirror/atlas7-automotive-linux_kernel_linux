@@ -17,7 +17,7 @@
 
 /* Padmux settings */
 static struct pinmux_map prima2_padmux_map[] = {
-	PINMUX_MAP_PRIMARY("uart1", "b0060000.uart"),
+	PINMUX_MAP_PRIMARY("UART1", "uart1", "b0060000.uart"),
 };
 
 static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {

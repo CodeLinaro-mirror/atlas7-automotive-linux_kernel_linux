@@ -17,7 +17,9 @@
 #include <linux/radix-tree.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
+#include <linux/seq_file.h>
 
+struct pinctrl_dev;
 struct pinmux_ops;
 struct gpio_chip;
 
@@ -39,20 +41,44 @@ struct pinctrl_pin_desc {
 /**
  * struct pinctrl_gpio_range - each pin controller can provide subranges of
  * the GPIO number space to be handled by the controller
+ * @node: list node for internal use
  * @name: a name for the chip in this range
  * @id: an ID number for the chip in this range
  * @base: base offset of the GPIO range
  * @npins: number of pins in the GPIO range, including the base number
  * @gc: an optional pointer to a gpio_chip
- * @node: list node for internal use
  */
 struct pinctrl_gpio_range {
-	const char name[16];
+	struct list_head node;
+	const char *name;
 	unsigned int id;
 	unsigned int base;
 	unsigned int npins;
 	struct gpio_chip *gc;
-	struct list_head node;
+};
+
+/**
+ * struct pinctrl_ops - global pin control operations, to be implemented by
+ * pin controller drivers.
+ * @list_groups: list the number of selectable named groups available
+ *	in this pinmux driver, the core will begin on 0 and call this
+ *	repeatedly as long as it returns >= 0 to enumerate the groups
+ * @get_group_name: return the group name of the pin group
+ * @get_group_pins: return an array of pins corresponding to a certain
+ *	group selector @pins, and the size of the array in @num_pins
+ * @pin_dbg_show: optional debugfs display hook that will provide per-device
+ *	info for a certain pin in debugfs
+ */
+struct pinctrl_ops {
+	int (*list_groups) (struct pinctrl_dev *pctldev, unsigned selector);
+	const char *(*get_group_name) (struct pinctrl_dev *pctldev,
+				       unsigned selector);
+	int (*get_group_pins) (struct pinctrl_dev *pctldev,
+			       unsigned selector,
+			       unsigned ** const pins,
+			       unsigned * const num_pins);
+	void (*pin_dbg_show) (struct pinctrl_dev *pctldev, struct seq_file *s,
+			  unsigned offset);
 };
 
 /**
@@ -67,6 +93,8 @@ struct pinctrl_gpio_range {
  *	pin range, this attribute gives the maximum pin number in the
  *	total range. This should not be lower than npins for example,
  *	but may be equal to npins if you have no holes in the pin range.
+ * @pctlops: pin control operation vtable, to support global concepts like
+ *	grouping of pins, this is optional.
  * @pmxops: pinmux operation vtable, if you support pinmuxing in your driver
  * @owner: module providing the pin controller, used for refcounting
  */
@@ -75,51 +103,10 @@ struct pinctrl_desc {
 	struct pinctrl_pin_desc const *pins;
 	unsigned int npins;
 	unsigned int maxpin;
+	struct pinctrl_ops *pctlops;
 	struct pinmux_ops *pmxops;
 	struct module *owner;
 };
-
-/**
- * struct pinctrl_dev - pin control class device
- * @desc: the pin controller descriptor supplied when initializing this pin
- *	controller
- * @pin_desc_tree: each pin descriptor for this pin controller is stored in
- *	this radix tree
- * @pin_desc_tree_lock: lock for the descriptor tree
- * @gpio_ranges: a list of GPIO ranges that is handled by this pin controller,
- *	ranges are added to this list at runtime
- * @gpio_ranges_lock: lock for the GPIO ranges list
- * @dev: the device entry for this pin controller
- * @owner: module providing the pin controller, used for refcounting
- * @driver_data: driver data for drivers registering to the pin controller
- *	subsystem
- * @node: node to include this pin controller in the global pin controller list
- *
- * This should be dereferenced and used by the pin controller core ONLY
- */
-struct pinctrl_dev {
-	struct pinctrl_desc *desc;
-	struct radix_tree_root pin_desc_tree;
-	spinlock_t pin_desc_tree_lock;
-	struct list_head gpio_ranges;
-	spinlock_t gpio_ranges_lock;
-	struct device dev;
-	struct module *owner;
-	void *driver_data;
-	struct list_head node;
-};
-
-/* These should only be used from drivers */
-static inline const char *pctldev_get_name(struct pinctrl_dev *pctldev)
-{
-	/* We're not allowed to register devices without name */
-	return pctldev->desc->name;
-}
-
-static inline void *pctldev_get_drvdata(struct pinctrl_dev *pctldev)
-{
-	return pctldev->driver_data;
-}
 
 /* External interface to pin controller */
 extern struct pinctrl_dev *pinctrl_register(struct pinctrl_desc *pctldesc,
@@ -127,10 +114,13 @@ extern struct pinctrl_dev *pinctrl_register(struct pinctrl_desc *pctldesc,
 extern void pinctrl_unregister(struct pinctrl_dev *pctldev);
 extern bool pin_is_valid(struct pinctrl_dev *pctldev, int pin);
 extern void pinctrl_add_gpio_range(struct pinctrl_dev *pctldev,
-				   struct pinctrl_gpio_range *range);
+				struct pinctrl_gpio_range *range);
+extern void pinctrl_remove_gpio_range(struct pinctrl_dev *pctldev,
+				struct pinctrl_gpio_range *range);
+extern const char *pctldev_get_name(struct pinctrl_dev *pctldev);
+extern void *pctldev_get_drvdata(struct pinctrl_dev *pctldev);
 #else
 
-struct pinctrl_dev;
 
 /* Sufficiently stupid default function when pinctrl is not in use */
 static inline bool pin_is_valid(struct pinctrl_dev *pctldev, int pin)

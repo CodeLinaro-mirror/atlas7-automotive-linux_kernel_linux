@@ -18,7 +18,7 @@ config PINMUX
 	bool "Support pinmux controllers"
 	help
 	  Say Y here if you want the pincontrol subsystem to handle pin
-	  multiplexing.
+	  multiplexing drivers.
 
 config DEBUG_PINCTRL
 	bool "Debug PINCTRL calls"
