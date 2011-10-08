@@ -162,20 +162,18 @@ struct sirfsoc_padmux {
 	unsigned long funcval;
 };
 
-/**
- * struct sirfsoc_pinmux_func - describes a SIRFSOC pinmux function
- * @name: the name of this specific function
- * @pins: an array of discrete physical pins used in this mapping, taken
- *	from the global pin enumeration space
- * @num_pins: the number of pins in this mapping array, i.e. the number of
+ /**
+ * struct sirfsoc_pin_group - describes a SiRFprimaII pin group
+ * @name: the name of this specific pin group
+ * @pins: an array of discrete physical pins used in this group, taken
+ *	from the driver-local pin enumeration space
+ * @num_pins: the number of pins in this group array, i.e. the number of
  *	elements in .pins so we can iterate over that array
- * @padmux: registers set for required pad mux
  */
-struct sirfsoc_pinmux_func {
+struct sirfsoc_pin_group {
 	const char *name;
 	const unsigned int *pins;
 	const unsigned num_pins;
-	const struct sirfsoc_padmux *padmux;
 };
 
 static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
@@ -808,192 +806,215 @@ static const struct sirfsoc_padmux pulse_count_padmux = {
 
 static const unsigned pulse_count_pins[] = { 9, 10, 11 };
 
-static const struct sirfsoc_pinmux_func sirfsoc_pinmux_funcs[] = {
+static const struct sirfsoc_pin_group sirfsoc_pin_groups[] = {
 	{
-		.name = "lcd_16bits",
+		.name = "lcd_16bitsgrp",
 		.pins = lcd_16bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_16bits_pins),
-		.padmux = &lcd_16bits_padmux,
 	}, {
-		.name = "lcd_18bits",
+		.name = "lcd_18bitsgrp",
 		.pins = lcd_18bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_18bits_pins),
-		.padmux = &lcd_18bits_padmux,
 	}, {
-		.name = "lcd_24bits",
+		.name = "lcd_24bitsgrp",
 		.pins = lcd_24bits_pins,
 		.num_pins = ARRAY_SIZE(lcd_24bits_pins),
-		.padmux = &lcd_24bits_padmux,
 	}, {
-		.name = "lcdrom",
+		.name = "lcdromgrp",
 		.pins = lcdrom_pins,
 		.num_pins = ARRAY_SIZE(lcdrom_pins),
-		.padmux = &lcdrom_padmux,
 	}, {
-		.name = "uart0",
+		.name = "uart0grp",
 		.pins = uart0_pins,
 		.num_pins = ARRAY_SIZE(uart0_pins),
-		.padmux = &uart0_padmux,
 	}, {
-		.name = "uart1",
+		.name = "uart1grp",
 		.pins = uart1_pins,
 		.num_pins = ARRAY_SIZE(uart1_pins),
-		.padmux = &uart1_padmux,
 	}, {
-		.name = "uart2",
+		.name = "uart2grp",
 		.pins = uart2_pins,
 		.num_pins = ARRAY_SIZE(uart2_pins),
-		.padmux = &uart2_padmux,
 	}, {
-		.name = "uart2_nostreamctrl",
+		.name = "uart2_nostreamctrlgrp",
 		.pins = uart2_nostreamctrl_pins,
 		.num_pins = ARRAY_SIZE(uart2_nostreamctrl_pins),
-		.padmux = &uart2_nostreamctrl_padmux,
 	}, {
-		.name = "usp0",
+		.name = "usp0grp",
 		.pins = usp0_pins,
 		.num_pins = ARRAY_SIZE(usp0_pins),
-		.padmux = &usp0_padmux,
 	}, {
-		.name = "usp1",
+		.name = "usp1grp",
 		.pins = usp1_pins,
 		.num_pins = ARRAY_SIZE(usp1_pins),
-		.padmux = &usp1_padmux,
 	}, {
-		.name = "usp2",
+		.name = "usp2grp",
 		.pins = usp2_pins,
 		.num_pins = ARRAY_SIZE(usp2_pins),
-		.padmux = &usp2_padmux,
 	}, {
-		.name = "i2c0",
+		.name = "i2c0grp",
 		.pins = i2c0_pins,
 		.num_pins = ARRAY_SIZE(i2c0_pins),
-		.padmux = &i2c0_padmux,
 	}, {
-		.name = "i2c1",
+		.name = "i2c1grp",
 		.pins = i2c1_pins,
 		.num_pins = ARRAY_SIZE(i2c1_pins),
-		.padmux = &i2c1_padmux,
 	}, {
-		.name = "pwm0",
+		.name = "pwm0grp",
 		.pins = pwm0_pins,
 		.num_pins = ARRAY_SIZE(pwm0_pins),
-		.padmux = &pwm0_padmux,
 	}, {
-		.name = "pwm1",
+		.name = "pwm1grp",
 		.pins = pwm1_pins,
 		.num_pins = ARRAY_SIZE(pwm1_pins),
-		.padmux = &pwm1_padmux,
 	}, {
-		.name = "pwm2",
+		.name = "pwm2grp",
 		.pins = pwm2_pins,
 		.num_pins = ARRAY_SIZE(pwm2_pins),
-		.padmux = &pwm2_padmux,
 	}, {
-		.name = "pwm3",
+		.name = "pwm3grp",
 		.pins = pwm3_pins,
 		.num_pins = ARRAY_SIZE(pwm3_pins),
-		.padmux = &pwm3_padmux,
 	}, {
-		.name = "vip",
+		.name = "vipgrp",
 		.pins = vip_pins,
 		.num_pins = ARRAY_SIZE(vip_pins),
-		.padmux = &vip_padmux,
 	}, {
-		.name = "viprom",
+		.name = "vipromgrp",
 		.pins = viprom_pins,
 		.num_pins = ARRAY_SIZE(viprom_pins),
-		.padmux = &viprom_padmux,
 	}, {
-		.name = "warm_rst",
+		.name = "warm_rstgrp",
 		.pins = warm_rst_pins,
 		.num_pins = ARRAY_SIZE(warm_rst_pins),
-		.padmux = &warm_rst_padmux,
 	}, {
-		.name = "cko0",
+		.name = "cko0grp",
 		.pins = cko0_pins,
 		.num_pins = ARRAY_SIZE(cko0_pins),
-		.padmux = &cko0_padmux,
 	}, {
-		.name = "cko1",
+		.name = "cko1grp",
 		.pins = cko1_pins,
 		.num_pins = ARRAY_SIZE(cko1_pins),
-		.padmux = &cko1_padmux,
 	}, {
-		.name = "sdmmc0",
+		.name = "sdmmc0grp",
 		.pins = sdmmc0_pins,
 		.num_pins = ARRAY_SIZE(sdmmc0_pins),
-		.padmux = &sdmmc0_padmux,
 	}, {
-		.name = "sdmmc1",
+		.name = "sdmmc1grp",
 		.pins = sdmmc1_pins,
 		.num_pins = ARRAY_SIZE(sdmmc1_pins),
-		.padmux = &sdmmc1_padmux,
 	}, {
-		.name = "sdmmc2",
+		.name = "sdmmc2grp",
 		.pins = sdmmc2_pins,
 		.num_pins = ARRAY_SIZE(sdmmc2_pins),
-		.padmux = &sdmmc2_padmux,
 	}, {
-		.name = "sdmmc3",
+		.name = "sdmmc3grp",
 		.pins = sdmmc3_pins,
 		.num_pins = ARRAY_SIZE(sdmmc3_pins),
-		.padmux = &sdmmc3_padmux,
 	}, {
-		.name = "sdmmc4",
+		.name = "sdmmc4grp",
 		.pins = sdmmc4_pins,
 		.num_pins = ARRAY_SIZE(sdmmc4_pins),
-		.padmux = &sdmmc4_padmux,
 	}, {
-		.name = "sdmmc5",
+		.name = "sdmmc5grp",
 		.pins = sdmmc5_pins,
 		.num_pins = ARRAY_SIZE(sdmmc5_pins),
-		.padmux = &sdmmc5_padmux,
 	}, {
-		.name = "usb0_utmi_drvbus",
+		.name = "usb0_utmi_drvbusgrp",
 		.pins = usb0_utmi_drvbus_pins,
 		.num_pins = ARRAY_SIZE(usb0_utmi_drvbus_pins),
-		.padmux = &usb0_utmi_drvbus_padmux,
 	}, {
-		.name = "usb1_utmi_drvbus",
+		.name = "usb1_utmi_drvbusgrp",
 		.pins = usb1_utmi_drvbus_pins,
 		.num_pins = ARRAY_SIZE(usb1_utmi_drvbus_pins),
-		.padmux = &usb1_utmi_drvbus_padmux,
 	}, {
-		.name = "pulse_count",
+		.name = "pulse_countgrp",
 		.pins = pulse_count_pins,
 		.num_pins = ARRAY_SIZE(pulse_count_pins),
-		.padmux = &pulse_count_padmux,
 	}, {
-		.name = "i2s",
+		.name = "i2sgrp",
 		.pins = i2s_pins,
 		.num_pins = ARRAY_SIZE(i2s_pins),
-		.padmux = &i2s_padmux,
 	}, {
-		.name = "ac97",
+		.name = "ac97grp",
 		.pins = ac97_pins,
 		.num_pins = ARRAY_SIZE(ac97_pins),
-		.padmux = &ac97_padmux,
 	}, {
-		.name = "nand",
+		.name = "nandgrp",
 		.pins = nand_pins,
 		.num_pins = ARRAY_SIZE(nand_pins),
-		.padmux = &nand_padmux,
 	}, {
-		.name = "spi0",
+		.name = "spi0grp",
 		.pins = spi0_pins,
 		.num_pins = ARRAY_SIZE(spi0_pins),
-		.padmux = &spi0_padmux,
 	}, {
-		.name = "spi1",
+		.name = "spi1grp",
 		.pins = spi1_pins,
 		.num_pins = ARRAY_SIZE(spi1_pins),
-		.padmux = &spi1_padmux,
 	}, {
-		.name = "gps",
+		.name = "gpsgrp",
 		.pins = gps_pins,
 		.num_pins = ARRAY_SIZE(gps_pins),
-		.padmux = &gps_padmux,
+	},
+};
+
+static int sirfsoc_list_groups(struct pinctrl_dev *pctldev, unsigned selector)
+{
+	if (selector >= ARRAY_SIZE(sirfsoc_pin_groups))
+		return -EINVAL;
+	return 0;
+}
+
+static const char *sirfsoc_get_group_name(struct pinctrl_dev *pctldev,
+				       unsigned selector)
+{
+	if (selector >= ARRAY_SIZE(sirfsoc_pin_groups))
+		return NULL;
+	return sirfsoc_pin_groups[selector].name;
+}
+
+static int sirfsoc_get_group_pins(struct pinctrl_dev *pctldev, unsigned selector,
+			       unsigned ** const pins,
+			       unsigned * const num_pins)
+{
+	if (selector >= ARRAY_SIZE(sirfsoc_pin_groups))
+		return -EINVAL;
+	*pins = (unsigned *) sirfsoc_pin_groups[selector].pins;
+	*num_pins = sirfsoc_pin_groups[selector].num_pins;
+	return 0;
+}
+
+static void sirfsoc_pin_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *s,
+		   unsigned offset)
+{
+	seq_printf(s, " " DRIVER_NAME);
+}
+
+static struct pinctrl_ops sirfsoc_pctrl_ops = {
+	.list_groups = sirfsoc_list_groups,
+	.get_group_name = sirfsoc_get_group_name,
+	.get_group_pins = sirfsoc_get_group_pins,
+	.pin_dbg_show = sirfsoc_pin_dbg_show,
+};
+
+struct sirfsoc_pmx_func {
+	const char *name;
+	const char * const *groups;
+	const unsigned num_groups;
+	const struct sirfsoc_padmux *padmux;
+};
+
+static const char * const lcd_16bitsgrp[] = { "lcd_16bitsgrp" };
+static const char * const lcd_18bitsgrp[] = { "lcd_18bitsgrp" };
+static const char * const lcd_24bitsgrp[] = { "lcd_24bitsgrp" };
+static const char * const lcdromgrp[] = { "lcdromgrp" };
+
+static const struct sirfsoc_pmx_func sirfsoc_pmx_functions[] = {
+	{
+		.name = "lcd_16bits",
+		.groups = lcd_16bitsgrp,
+		.num_groups = ARRAY_SIZE(lcd_16bitsgrp),
+		.padmux = &lcd_16bits_padmux,
 	},
 };
 
@@ -1001,7 +1022,7 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx, unsigned selector
 	bool enable)
 {
 	int i;
-	const struct sirfsoc_padmux *mux = sirfsoc_pinmux_funcs[selector].padmux;
+	const struct sirfsoc_padmux *mux = sirfsoc_pmx_functions[selector].padmux;
 	const struct sirfsoc_muxmask *mask = mux->muxmask;
 
 	for (i = 0; i < mux->muxmask_counts; i++) {
@@ -1030,7 +1051,7 @@ static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector,
 {
 	struct sirfsoc_pmx *spmx;
 
-	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
+	if (selector >= ARRAY_SIZE(sirfsoc_pmx_functions))
 		return -EINVAL;
 	spmx = pctldev_get_drvdata(pmxdev);
 	sirfsoc_pinmux_endisable(spmx, selector, true);
@@ -1043,7 +1064,7 @@ static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector
 {
 	struct sirfsoc_pmx *spmx;
 
-	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
+	if (selector >= ARRAY_SIZE(sirfsoc_pmx_functions))
 		return;
 	spmx = pctldev_get_drvdata(pmxdev);
 	sirfsoc_pinmux_endisable(spmx, selector, false);
@@ -1051,40 +1072,8 @@ static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector
 
 static int sirfsoc_pinmux_list_funcs(struct pinctrl_dev *pmxdev, unsigned selector)
 {
-	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
+	if (selector >= ARRAY_SIZE(sirfsoc_pmx_functions))
 		return -EINVAL;
-	return 0;
-}
-
-static int sirfsoc_pmx_list_positions(struct pinctrl_dev *pctldev,
-	unsigned selector,
-	unsigned position)
-{
-	/* Only one selectable position per selector in this driver */
-	if (position != 0)
-		return -EINVAL;
-	return 0;
-}
-
-static const char *sirfsoc_pinmux_get_fname(struct pinctrl_dev *pmxdev,
-	unsigned selector)
-{
-	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
-		return NULL;
-	return sirfsoc_pinmux_funcs[selector].name;
-}
-
-static int sirfsoc_pinmux_get_pins(struct pinctrl_dev *pmxdev, unsigned selector,
-	unsigned position, unsigned ** const pins, unsigned * const num_pins)
-{
-	if (position != 0)
-		return -EINVAL;
-
-	if (selector >= ARRAY_SIZE(sirfsoc_pinmux_funcs))
-		return -EINVAL;
-
-	*pins = (unsigned *) sirfsoc_pinmux_funcs[selector].pins;
-	*num_pins = sirfsoc_pinmux_funcs[selector].num_pins;
 	return 0;
 }
 
@@ -1114,12 +1103,8 @@ static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
 
 static struct pinmux_ops sirfsoc_pinmux_ops = {
 	.list_functions = sirfsoc_pinmux_list_funcs,
-	.list_positions = sirfsoc_pmx_list_positions,
-	.get_function_name = sirfsoc_pinmux_get_fname,
-	.get_function_pins = sirfsoc_pinmux_get_pins,
 	.enable = sirfsoc_pinmux_enable,
 	.disable = sirfsoc_pinmux_disable,
-	.dbg_show = sirfsoc_dbg_show,
 	.gpio_request_enable = sirfsoc_pinmux_request_gpio,
 };
 
@@ -1128,6 +1113,7 @@ static struct pinctrl_desc sirfsoc_pinmux_desc = {
 	.pins = sirfsoc_pads,
 	.npins = ARRAY_SIZE(sirfsoc_pads),
 	.maxpin = SIRFSOC_NUM_PADS - 1,
+	.pctlops = &sirfsoc_pctrl_ops,
 	.pmxops = &sirfsoc_pinmux_ops,
 	.owner = THIS_MODULE,
 };
@@ -1182,7 +1168,7 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 	int i;
 
 	/* Create state holders etc for this driver */
-	spmx = kzalloc(sizeof(struct sirfsoc_pmx), GFP_KERNEL);
+	spmx = devm_kzalloc(&pdev->dev, sizeof(*spmx), GFP_KERNEL);
 	if (!spmx)
 		return -ENOMEM;
 
