@@ -817,6 +817,7 @@ static const struct sirfsoc_pin_group sirfsoc_pin_groups[] = {
 	SIRFSOC_PIN_GROUP("lcd_16bitsgrp", lcd_16bits_pins),
 	SIRFSOC_PIN_GROUP("lcd_18bitsgrp", lcd_18bits_pins),
 	SIRFSOC_PIN_GROUP("lcd_24bitsgrp", lcd_24bits_pins),
+	SIRFSOC_PIN_GROUP("lcdrom_grp", lcdrom_pins),
 	SIRFSOC_PIN_GROUP("uart0grp", uart0_pins),
 	SIRFSOC_PIN_GROUP("uart1grp", uart1_pins),
 	SIRFSOC_PIN_GROUP("uart2grp", uart2_pins),
