@@ -1013,12 +1013,10 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx, unsigned selector
 }
 
 static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector,
-	unsigned position)
+	unsigned group)
 {
 	struct sirfsoc_pmx *spmx;
 
-	if (selector >= ARRAY_SIZE(sirfsoc_pmx_functions))
-		return -EINVAL;
 	spmx = pctldev_get_drvdata(pmxdev);
 	sirfsoc_pinmux_endisable(spmx, selector, true);
 
@@ -1026,12 +1024,10 @@ static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector,
 }
 
 static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector,
-	unsigned position)
+	unsigned group)
 {
 	struct sirfsoc_pmx *spmx;
 
-	if (selector >= ARRAY_SIZE(sirfsoc_pmx_functions))
-		return;
 	spmx = pctldev_get_drvdata(pmxdev);
 	sirfsoc_pinmux_endisable(spmx, selector, false);
 }
