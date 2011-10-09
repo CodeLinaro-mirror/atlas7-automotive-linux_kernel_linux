@@ -1008,14 +1008,86 @@ static const char * const lcd_16bitsgrp[] = { "lcd_16bitsgrp" };
 static const char * const lcd_18bitsgrp[] = { "lcd_18bitsgrp" };
 static const char * const lcd_24bitsgrp[] = { "lcd_24bitsgrp" };
 static const char * const lcdromgrp[] = { "lcdromgrp" };
+static const char * const uart0grp[] = { "uart0grp" };
+static const char * const uart1grp[] = { "uart1grp" };
+static const char * const uart2grp[] = { "uart2grp" };
+static const char * const uart2_nostreamctrlgrp[] = { "uart2_nostreamctrlgrp" };
+static const char * const usp0grp[] = { "usp0grp" };
+static const char * const usp1grp[] = { "usp1grp" };
+static const char * const usp2grp[] = { "usp2grp" };
+static const char * const i2c0grp[] = { "i2c0grp" };
+static const char * const i2c1grp[] = { "i2c1grp" };
+static const char * const pwm0grp[] = { "pwm0grp" };
+static const char * const pwm1grp[] = { "pwm1grp" };
+static const char * const pwm2grp[] = { "pwm2grp" };
+static const char * const pwm3grp[] = { "pwm3grp" };
+static const char * const vipgrp[] = { "vipgrp" };
+static const char * const vipromgrp[] = { "vipromgrp" };
+static const char * const warm_rstgrp[] = { "warm_rstgrp" };
+static const char * const cko0grp[] = { "cko0grp" };
+static const char * const cko1grp[] = { "cko1grp" };
+static const char * const sdmmc0grp[] = { "sdmmc0grp" };
+static const char * const sdmmc1grp[] = { "sdmmc1grp" };
+static const char * const sdmmc2grp[] = { "sdmmc2grp" };
+static const char * const sdmmc3grp[] = { "sdmmc3grp" };
+static const char * const sdmmc4grp[] = { "sdmmc4grp" };
+static const char * const sdmmc5grp[] = { "sdmmc5grp" };
+static const char * const usb0_utmi_drvbusgrp[] = { "usb0_utmi_drvbusgrp" };
+static const char * const usb1_utmi_drvbusgrp[] = { "usb1_utmi_drvbusgrp" };
+static const char * const pulse_countgrp[] = { "pulse_countgrp" };
+static const char * const i2sgrp[] = { "i2sgrp" };
+static const char * const ac97grp[] = { "ac97grp" };
+static const char * const nandgrp[] = { "nandgrp" };
+static const char * const spi0grp[] = { "spi0grp" };
+static const char * const spi1grp[] = { "spi1grp" };
+static const char * const gpsgrp[] = { "gpsgrp" };
+
+#define SIRFSOC_PMX_FUNCTION(n, g, m)		\
+	{					\
+		.name = n,			\
+		.groups = g,			\
+		.num_groups = ARRAY_SIZE(g),	\
+		.padmux = &m,			\
+	}
 
 static const struct sirfsoc_pmx_func sirfsoc_pmx_functions[] = {
-	{
-		.name = "lcd_16bits",
-		.groups = lcd_16bitsgrp,
-		.num_groups = ARRAY_SIZE(lcd_16bitsgrp),
-		.padmux = &lcd_16bits_padmux,
-	},
+	SIRFSOC_PMX_FUNCTION("lcd_16bits", lcd_16bitsgrp, lcd_16bits_padmux),
+	SIRFSOC_PMX_FUNCTION("lcd_18bits", lcd_18bitsgrp, lcd_18bits_padmux),
+	SIRFSOC_PMX_FUNCTION("lcd_24bits", lcd_24bitsgrp, lcd_24bits_padmux),
+	SIRFSOC_PMX_FUNCTION("lcdrom", lcdromgrp, lcdrom_padmux),
+	SIRFSOC_PMX_FUNCTION("uart0", uart0grp, uart0_padmux),
+	SIRFSOC_PMX_FUNCTION("uart1", uart1grp, uart1_padmux),
+	SIRFSOC_PMX_FUNCTION("uart2", uart2grp, uart2_padmux),
+	SIRFSOC_PMX_FUNCTION("uart2_nostreamctrl", uart2_nostreamctrlgrp, uart2_nostreamctrl_padmux),
+	SIRFSOC_PMX_FUNCTION("usp0", usp0grp, usp0_padmux),
+	SIRFSOC_PMX_FUNCTION("usp1", usp1grp, usp1_padmux),
+	SIRFSOC_PMX_FUNCTION("usp2", usp2grp, usp2_padmux),
+	SIRFSOC_PMX_FUNCTION("i2c0", i2c0grp, i2c0_padmux),
+	SIRFSOC_PMX_FUNCTION("i2c1", i2c1grp, i2c1_padmux),
+	SIRFSOC_PMX_FUNCTION("pwm0", pwm0grp, pwm0_padmux),
+	SIRFSOC_PMX_FUNCTION("pwm1", pwm1grp, pwm1_padmux),
+	SIRFSOC_PMX_FUNCTION("pwm2", pwm2grp, pwm2_padmux),
+	SIRFSOC_PMX_FUNCTION("pwm3", pwm3grp, pwm3_padmux),
+	SIRFSOC_PMX_FUNCTION("vip", vipgrp, vip_padmux),
+	SIRFSOC_PMX_FUNCTION("viprom", vipromgrp, viprom_padmux),
+	SIRFSOC_PMX_FUNCTION("warm_rst", warm_rstgrp, warm_rst_padmux),
+	SIRFSOC_PMX_FUNCTION("cko0", cko0grp, cko0_padmux),
+	SIRFSOC_PMX_FUNCTION("cko1", cko1grp, cko1_padmux),
+	SIRFSOC_PMX_FUNCTION("sdmmc0", sdmmc0grp, sdmmc0_padmux),
+	SIRFSOC_PMX_FUNCTION("sdmmc1", sdmmc1grp, sdmmc1_padmux),
+	SIRFSOC_PMX_FUNCTION("sdmmc2", sdmmc2grp, sdmmc2_padmux),
+	SIRFSOC_PMX_FUNCTION("sdmmc3", sdmmc3grp, sdmmc3_padmux),
+	SIRFSOC_PMX_FUNCTION("sdmmc4", sdmmc4grp, sdmmc4_padmux),
+	SIRFSOC_PMX_FUNCTION("sdmmc5", sdmmc5grp, sdmmc5_padmux),
+	SIRFSOC_PMX_FUNCTION("usb0_utmi_drvbus", usb0_utmi_drvbusgrp, usb0_utmi_drvbus_padmux),
+	SIRFSOC_PMX_FUNCTION("usb1_utmi_drvbus", usb1_utmi_drvbusgrp, usb1_utmi_drvbus_padmux),
+	SIRFSOC_PMX_FUNCTION("pulse_count", pulse_countgrp, pulse_count_padmux),
+	SIRFSOC_PMX_FUNCTION("i2s", i2sgrp, i2s_padmux),
+	SIRFSOC_PMX_FUNCTION("ac97", ac97grp, ac97_padmux),
+	SIRFSOC_PMX_FUNCTION("nand", nandgrp, nand_padmux),
+	SIRFSOC_PMX_FUNCTION("spi0", spi0grp, spi0_padmux),
+	SIRFSOC_PMX_FUNCTION("spi1", spi1grp, spi1_padmux),
+	SIRFSOC_PMX_FUNCTION("gps", gpsgrp, gps_padmux),
 };
 
 static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx, unsigned selector,
@@ -1075,12 +1147,6 @@ static int sirfsoc_pinmux_list_funcs(struct pinctrl_dev *pmxdev, unsigned select
 	if (selector >= ARRAY_SIZE(sirfsoc_pmx_functions))
 		return -EINVAL;
 	return 0;
-}
-
-static void sirfsoc_dbg_show(struct pinctrl_dev *pmxdev, struct seq_file *s,
-	unsigned offset)
-{
-	seq_printf(s, " " DRIVER_NAME);
 }
 
 static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
