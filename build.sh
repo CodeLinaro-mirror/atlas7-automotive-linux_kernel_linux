@@ -1,7 +1,7 @@
 export ARCH=arm
 export EXTRADIR=${PWD}/extra
 make prima2cb_defconfig
-make uImage
+make uImage KALLSYMS_EXTRA_PASS=1
 make modules
 make dtbs
 cp arch/arm/boot/uImage extra

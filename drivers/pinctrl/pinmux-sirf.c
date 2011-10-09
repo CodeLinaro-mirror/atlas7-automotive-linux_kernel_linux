@@ -1039,6 +1039,21 @@ static int sirfsoc_pinmux_list_funcs(struct pinctrl_dev *pmxdev, unsigned select
 	return 0;
 }
 
+static const char *sirfsoc_pinmux_get_func_name(struct pinctrl_dev *pctldev,
+					  unsigned selector)
+{
+	return sirfsoc_pmx_functions[selector].name;
+}
+
+static int sirfsoc_pinmux_get_groups(struct pinctrl_dev *pctldev, unsigned selector,
+			       const char * const **groups,
+			       unsigned * const num_groups)
+{
+	*groups = sirfsoc_pmx_functions[selector].groups;
+	*num_groups = sirfsoc_pmx_functions[selector].num_groups;
+	return 0;
+}
+
 static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
 	struct pinctrl_gpio_range *range, unsigned offset)
 {
@@ -1061,6 +1076,8 @@ static struct pinmux_ops sirfsoc_pinmux_ops = {
 	.list_functions = sirfsoc_pinmux_list_funcs,
 	.enable = sirfsoc_pinmux_enable,
 	.disable = sirfsoc_pinmux_disable,
+	.get_function_name = sirfsoc_pinmux_get_func_name,
+	.get_function_groups = sirfsoc_pinmux_get_groups,
 	.gpio_request_enable = sirfsoc_pinmux_request_gpio,
 };
 
