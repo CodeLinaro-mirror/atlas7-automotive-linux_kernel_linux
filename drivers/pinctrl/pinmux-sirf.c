@@ -806,156 +806,50 @@ static const struct sirfsoc_padmux pulse_count_padmux = {
 
 static const unsigned pulse_count_pins[] = { 9, 10, 11 };
 
+#define SIRFSOC_PIN_GROUP(n, p)  \
+	{			\
+		.name = n,	\
+		.pins = p,	\
+		.num_pins = ARRAY_SIZE(p),	\
+	}
+
 static const struct sirfsoc_pin_group sirfsoc_pin_groups[] = {
-	{
-		.name = "lcd_16bitsgrp",
-		.pins = lcd_16bits_pins,
-		.num_pins = ARRAY_SIZE(lcd_16bits_pins),
-	}, {
-		.name = "lcd_18bitsgrp",
-		.pins = lcd_18bits_pins,
-		.num_pins = ARRAY_SIZE(lcd_18bits_pins),
-	}, {
-		.name = "lcd_24bitsgrp",
-		.pins = lcd_24bits_pins,
-		.num_pins = ARRAY_SIZE(lcd_24bits_pins),
-	}, {
-		.name = "lcdromgrp",
-		.pins = lcdrom_pins,
-		.num_pins = ARRAY_SIZE(lcdrom_pins),
-	}, {
-		.name = "uart0grp",
-		.pins = uart0_pins,
-		.num_pins = ARRAY_SIZE(uart0_pins),
-	}, {
-		.name = "uart1grp",
-		.pins = uart1_pins,
-		.num_pins = ARRAY_SIZE(uart1_pins),
-	}, {
-		.name = "uart2grp",
-		.pins = uart2_pins,
-		.num_pins = ARRAY_SIZE(uart2_pins),
-	}, {
-		.name = "uart2_nostreamctrlgrp",
-		.pins = uart2_nostreamctrl_pins,
-		.num_pins = ARRAY_SIZE(uart2_nostreamctrl_pins),
-	}, {
-		.name = "usp0grp",
-		.pins = usp0_pins,
-		.num_pins = ARRAY_SIZE(usp0_pins),
-	}, {
-		.name = "usp1grp",
-		.pins = usp1_pins,
-		.num_pins = ARRAY_SIZE(usp1_pins),
-	}, {
-		.name = "usp2grp",
-		.pins = usp2_pins,
-		.num_pins = ARRAY_SIZE(usp2_pins),
-	}, {
-		.name = "i2c0grp",
-		.pins = i2c0_pins,
-		.num_pins = ARRAY_SIZE(i2c0_pins),
-	}, {
-		.name = "i2c1grp",
-		.pins = i2c1_pins,
-		.num_pins = ARRAY_SIZE(i2c1_pins),
-	}, {
-		.name = "pwm0grp",
-		.pins = pwm0_pins,
-		.num_pins = ARRAY_SIZE(pwm0_pins),
-	}, {
-		.name = "pwm1grp",
-		.pins = pwm1_pins,
-		.num_pins = ARRAY_SIZE(pwm1_pins),
-	}, {
-		.name = "pwm2grp",
-		.pins = pwm2_pins,
-		.num_pins = ARRAY_SIZE(pwm2_pins),
-	}, {
-		.name = "pwm3grp",
-		.pins = pwm3_pins,
-		.num_pins = ARRAY_SIZE(pwm3_pins),
-	}, {
-		.name = "vipgrp",
-		.pins = vip_pins,
-		.num_pins = ARRAY_SIZE(vip_pins),
-	}, {
-		.name = "vipromgrp",
-		.pins = viprom_pins,
-		.num_pins = ARRAY_SIZE(viprom_pins),
-	}, {
-		.name = "warm_rstgrp",
-		.pins = warm_rst_pins,
-		.num_pins = ARRAY_SIZE(warm_rst_pins),
-	}, {
-		.name = "cko0grp",
-		.pins = cko0_pins,
-		.num_pins = ARRAY_SIZE(cko0_pins),
-	}, {
-		.name = "cko1grp",
-		.pins = cko1_pins,
-		.num_pins = ARRAY_SIZE(cko1_pins),
-	}, {
-		.name = "sdmmc0grp",
-		.pins = sdmmc0_pins,
-		.num_pins = ARRAY_SIZE(sdmmc0_pins),
-	}, {
-		.name = "sdmmc1grp",
-		.pins = sdmmc1_pins,
-		.num_pins = ARRAY_SIZE(sdmmc1_pins),
-	}, {
-		.name = "sdmmc2grp",
-		.pins = sdmmc2_pins,
-		.num_pins = ARRAY_SIZE(sdmmc2_pins),
-	}, {
-		.name = "sdmmc3grp",
-		.pins = sdmmc3_pins,
-		.num_pins = ARRAY_SIZE(sdmmc3_pins),
-	}, {
-		.name = "sdmmc4grp",
-		.pins = sdmmc4_pins,
-		.num_pins = ARRAY_SIZE(sdmmc4_pins),
-	}, {
-		.name = "sdmmc5grp",
-		.pins = sdmmc5_pins,
-		.num_pins = ARRAY_SIZE(sdmmc5_pins),
-	}, {
-		.name = "usb0_utmi_drvbusgrp",
-		.pins = usb0_utmi_drvbus_pins,
-		.num_pins = ARRAY_SIZE(usb0_utmi_drvbus_pins),
-	}, {
-		.name = "usb1_utmi_drvbusgrp",
-		.pins = usb1_utmi_drvbus_pins,
-		.num_pins = ARRAY_SIZE(usb1_utmi_drvbus_pins),
-	}, {
-		.name = "pulse_countgrp",
-		.pins = pulse_count_pins,
-		.num_pins = ARRAY_SIZE(pulse_count_pins),
-	}, {
-		.name = "i2sgrp",
-		.pins = i2s_pins,
-		.num_pins = ARRAY_SIZE(i2s_pins),
-	}, {
-		.name = "ac97grp",
-		.pins = ac97_pins,
-		.num_pins = ARRAY_SIZE(ac97_pins),
-	}, {
-		.name = "nandgrp",
-		.pins = nand_pins,
-		.num_pins = ARRAY_SIZE(nand_pins),
-	}, {
-		.name = "spi0grp",
-		.pins = spi0_pins,
-		.num_pins = ARRAY_SIZE(spi0_pins),
-	}, {
-		.name = "spi1grp",
-		.pins = spi1_pins,
-		.num_pins = ARRAY_SIZE(spi1_pins),
-	}, {
-		.name = "gpsgrp",
-		.pins = gps_pins,
-		.num_pins = ARRAY_SIZE(gps_pins),
-	},
+	SIRFSOC_PIN_GROUP("lcd_16bitsgrp", lcd_16bits_pins),
+	SIRFSOC_PIN_GROUP("lcd_18bitsgrp", lcd_18bits_pins),
+	SIRFSOC_PIN_GROUP("lcd_24bitsgrp", lcd_24bits_pins),
+	SIRFSOC_PIN_GROUP("uart0grp", uart0_pins),
+	SIRFSOC_PIN_GROUP("uart1grp", uart1_pins),
+	SIRFSOC_PIN_GROUP("uart2grp", uart2_pins),
+	SIRFSOC_PIN_GROUP("uart2_nostreamctrlgrp", uart2_nostreamctrl_pins),
+	SIRFSOC_PIN_GROUP("usp0grp", usp0_pins),
+	SIRFSOC_PIN_GROUP("usp1grp", usp1_pins),
+	SIRFSOC_PIN_GROUP("usp2grp", usp2_pins),
+	SIRFSOC_PIN_GROUP("i2c0grp", i2c0_pins),
+	SIRFSOC_PIN_GROUP("i2c1grp", i2c1_pins),
+	SIRFSOC_PIN_GROUP("pwm0grp", pwm0_pins),
+	SIRFSOC_PIN_GROUP("pwm1grp", pwm1_pins),
+	SIRFSOC_PIN_GROUP("pwm2grp", pwm2_pins),
+	SIRFSOC_PIN_GROUP("pwm3grp", pwm3_pins),
+	SIRFSOC_PIN_GROUP("vipgrp", vip_pins),
+	SIRFSOC_PIN_GROUP("vipromgrp", viprom_pins),
+	SIRFSOC_PIN_GROUP("warm_rstgrp", warm_rst_pins),
+	SIRFSOC_PIN_GROUP("cko0_rstgrp", cko0_pins),
+	SIRFSOC_PIN_GROUP("cko1_rstgrp", cko1_pins),
+	SIRFSOC_PIN_GROUP("sdmmc0grp", sdmmc0_pins),
+	SIRFSOC_PIN_GROUP("sdmmc1grp", sdmmc1_pins),
+	SIRFSOC_PIN_GROUP("sdmmc2grp", sdmmc2_pins),
+	SIRFSOC_PIN_GROUP("sdmmc3grp", sdmmc3_pins),
+	SIRFSOC_PIN_GROUP("sdmmc4grp", sdmmc4_pins),
+	SIRFSOC_PIN_GROUP("sdmmc5grp", sdmmc5_pins),
+	SIRFSOC_PIN_GROUP("usb0_utmi_drvbusgrp", usb0_utmi_drvbus_pins),
+	SIRFSOC_PIN_GROUP("usb1_utmi_drvbusgrp", usb1_utmi_drvbus_pins),
+	SIRFSOC_PIN_GROUP("pulse_countgrp", pulse_count_pins),
+	SIRFSOC_PIN_GROUP("i2sgrp", i2s_pins),
+	SIRFSOC_PIN_GROUP("ac97grp", ac97_pins),
+	SIRFSOC_PIN_GROUP("nandgrp", nand_pins),
+	SIRFSOC_PIN_GROUP("spi0grp", spi0_pins),
+	SIRFSOC_PIN_GROUP("spi1grp", spi1_pins),
+	SIRFSOC_PIN_GROUP("gpsgrp", gps_pins),
 };
 
 static int sirfsoc_list_groups(struct pinctrl_dev *pctldev, unsigned selector)
