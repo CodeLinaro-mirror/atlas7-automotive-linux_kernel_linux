@@ -1295,7 +1295,8 @@ static int sirfsoc_serial_probe(struct platform_device *pdev)
 		 * refine it later
 		 */
 		struct pinmux *pmx = pinmux_get(&pdev->dev, NULL);
-		pinmux_enable(pmx);
+		if (!IS_ERR(pmx))
+			pinmux_enable(pmx);
 	}
 
 	port->irq = platform_get_irq(pdev, 0);
