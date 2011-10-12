@@ -507,7 +507,7 @@ static void sirfsoc_uart_console_putchar(struct uart_port *port, int ch)
 {
 	while (rd_regl(port,
 		SIRFUART_TX_FIFO_STATUS) & SIRFUART_FIFOFULL_MASK(port))
-		barrier();
+		cpu_relax();
 	wr_regb(port, SIRFUART_TX_FIFO_DATA, ch);
 }
 
