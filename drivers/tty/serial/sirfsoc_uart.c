@@ -22,7 +22,6 @@
 #include <linux/io.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
-#include <mach/hardware.h>
 #include <linux/pinctrl/pinmux.h>
 
 #include "sirfsoc_uart.h"
