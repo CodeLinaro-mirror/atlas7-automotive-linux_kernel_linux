@@ -31,10 +31,6 @@ config PINMUX_SIRF
 	depends on ARCH_PRIMA2
 	select PINMUX
 	help
-	  SPI, LCD, GPIO, SPI, IIS, SD and son on depend on pinmux. This driver
-	  sets the on-board function for pins with multi-functions.
-	  And SiRFprimaII GPIO driver need this driver to set pins to GPIO too.
-
 	  Say Y here to enable the SiRFprimaII pinmux driver
 
 config PINMUX_U300
