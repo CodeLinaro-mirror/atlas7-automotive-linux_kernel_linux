@@ -2290,14 +2290,14 @@ static int check_command(struct fsg_dev *fsg, int cmnd_size,
 
 	/* Check the LUN */
 	if (fsg->lun < fsg->nluns) {
-		fsg->curlun = curlun = &fsg->luns[fsg->lun];
+		curlun = fsg->curlun;
 		if (fsg->cmnd[0] != REQUEST_SENSE) {
 			curlun->sense_data = SS_NO_SENSE;
 			curlun->sense_data_info = 0;
 			curlun->info_valid = 0;
 		}
 	} else {
-		fsg->curlun = curlun = NULL;
+		curlun = NULL;
 		fsg->bad_lun_okay = 0;
 
 		/* INQUIRY and REQUEST SENSE commands are explicitly allowed
@@ -2412,6 +2412,8 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case READ_6:
+		if (unlikely(!fsg->curlun))
+			goto unknown_cmnd;
 		i = fsg->cmnd[4];
 		fsg->data_size_from_cmnd = (i == 0 ? 256 : i) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 6, DATA_DIR_TO_HOST,
@@ -2421,6 +2423,8 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case READ_10:
+		if (unlikely(!fsg->curlun))
+			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be16(&fsg->cmnd[7]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 10, DATA_DIR_TO_HOST,
@@ -2430,6 +2434,8 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case READ_12:
+		if (unlikely(!fsg->curlun))
+			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be32(&fsg->cmnd[6]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 12, DATA_DIR_TO_HOST,
@@ -2516,6 +2522,8 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case WRITE_6:
+		if (unlikely(!fsg->curlun))
+			goto unknown_cmnd;
 		i = fsg->cmnd[4];
 		fsg->data_size_from_cmnd = (i == 0 ? 256 : i) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 6, DATA_DIR_FROM_HOST,
@@ -2525,6 +2533,8 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case WRITE_10:
+		if (unlikely(!fsg->curlun))
+			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be16(&fsg->cmnd[7]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 10, DATA_DIR_FROM_HOST,
@@ -2534,6 +2544,8 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case WRITE_12:
+		if (unlikely(!fsg->curlun))
+			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be32(&fsg->cmnd[6]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 12, DATA_DIR_FROM_HOST,
@@ -2642,6 +2654,10 @@ static int received_cbw(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	if (fsg->data_size == 0)
 		fsg->data_dir = DATA_DIR_NONE;
 	fsg->lun = cbw->Lun;
+	if (fsg->lun >= 0 && fsg->lun < fsg->nluns)
+		fsg->curlun = &fsg->luns[fsg->lun];
+	else
+		fsg->curlun = NULL;
 	fsg->tag = cbw->Tag;
 	return 0;
 }

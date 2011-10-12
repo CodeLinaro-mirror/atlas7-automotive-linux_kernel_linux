@@ -1890,15 +1890,13 @@ static int check_command(struct fsg_common *common, int cmnd_size,
 
 	/* Check the LUN */
 	if (common->lun < common->nluns) {
-		curlun = &common->luns[common->lun];
-		common->curlun = curlun;
+		curlun = common->curlun;
 		if (common->cmnd[0] != REQUEST_SENSE) {
 			curlun->sense_data = SS_NO_SENSE;
 			curlun->sense_data_info = 0;
 			curlun->info_valid = 0;
 		}
 	} else {
-		common->curlun = NULL;
 		curlun = NULL;
 		common->bad_lun_okay = 0;
 
@@ -2026,6 +2024,8 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case READ_6:
+		if (unlikely(!common->curlun))
+			goto unknown_cmnd;
 		i = common->cmnd[4];
 		common->data_size_from_cmnd = (i == 0 ? 256 : i) <<
 				common->curlun->blkbits;
@@ -2037,6 +2037,8 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case READ_10:
+		if (unlikely(!common->curlun))
+			goto unknown_cmnd;
 		common->data_size_from_cmnd =
 				get_unaligned_be16(&common->cmnd[7]) <<
 						common->curlun->blkbits;
@@ -2048,6 +2050,8 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case READ_12:
+		if (unlikely(!common->curlun))
+			goto unknown_cmnd;
 		common->data_size_from_cmnd =
 				get_unaligned_be32(&common->cmnd[6]) <<
 						common->curlun->blkbits;
@@ -2149,6 +2153,8 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case WRITE_6:
+		if (unlikely(!common->curlun))
+			goto unknown_cmnd;
 		i = common->cmnd[4];
 		common->data_size_from_cmnd = (i == 0 ? 256 : i) <<
 					common->curlun->blkbits;
@@ -2160,6 +2166,8 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case WRITE_10:
+		if (unlikely(!common->curlun))
+			goto unknown_cmnd;
 		common->data_size_from_cmnd =
 				get_unaligned_be16(&common->cmnd[7]) <<
 						common->curlun->blkbits;
@@ -2171,6 +2179,8 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case WRITE_12:
+		if (unlikely(!common->curlun))
+			goto unknown_cmnd;
 		common->data_size_from_cmnd =
 				get_unaligned_be32(&common->cmnd[6]) <<
 						common->curlun->blkbits;
@@ -2289,6 +2299,10 @@ static int received_cbw(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	if (common->data_size == 0)
 		common->data_dir = DATA_DIR_NONE;
 	common->lun = cbw->Lun;
+	if (common->lun >= 0 && common->lun < common->nluns)
+		common->curlun = &common->luns[common->lun];
+	else
+		common->curlun = NULL;
 	common->tag = cbw->Tag;
 	return 0;
 }
