@@ -182,52 +182,37 @@ struct sirfsoc_uart_port {
 static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 	[0] = {
 		.name = "uart0",
-		.max_baud_rate = 921600,
 #ifdef CONFIG_SIRFSOC_UART0_FLOWCONTROL
 		.hw_flow_ctrl = 1,
 #else
 		.hw_flow_ctrl = 0,
 #endif
-		.rx_timeout_in_us = 20000,
 		.port = {
 			.iotype		= UPIO_MEM,
 			.flags		= UPF_BOOT_AUTOCONF,
 			.line		= 0,
-			.irq		= 17,
-			.mapbase	= 0xb0050000,
-			.fifosize	= 128,
 		},
 	},
 	[1] = {
 		.name = "uart1",
-		.max_baud_rate = 921600,
 		.hw_flow_ctrl = 0,
-		.rx_timeout_in_us = 20000,
 		.port = {
 			.iotype		= UPIO_MEM,
 			.flags		= UPF_BOOT_AUTOCONF,
 			.line		= 1,
-			.irq		= 18,
-			.mapbase	= 0xb0060000,
-			.fifosize	= 32,
 		},
 	},
 	[2] = {
 		.name = "uart2",
-		.max_baud_rate = 921600,
 #ifdef CONFIG_SIRFSOC_UART2_FLOWCONTROL
 		.hw_flow_ctrl = 1,
 #else
 		.hw_flow_ctrl = 0,
 #endif
-		.rx_timeout_in_us = 20000,
 		.port = {
 			.iotype		= UPIO_MEM,
 			.flags		= UPF_BOOT_AUTOCONF,
 			.line		= 2,
-			.irq		= 19,
-			.mapbase	= 0xb0070000,
-			.fifosize	= 128,
 		},
 	},
 };
