@@ -204,7 +204,7 @@
 				cell-index = <2>;
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0070000 0x1000>;
-				interrupts = <19>;;
+				interrupts = <19>;
 				platform_id = <2>;
 			};
 
