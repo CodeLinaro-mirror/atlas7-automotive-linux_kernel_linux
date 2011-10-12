@@ -189,8 +189,6 @@
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0050000 0x1000>;
 				interrupts = <17>;
-				max_baud_rate = <921600>;
-				rx_timeout_in_us = <2000>;
 				fifosize = <128>;
 			};
 
@@ -199,8 +197,6 @@
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0060000 0x1000>;
 				interrupts = <18>;
-				max_baud_rate = <921600>;
-				rx_timeout_in_us = <2000>;
 				fifosize = <32>;
 			};
 
@@ -209,8 +205,6 @@
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0070000 0x1000>;
 				interrupts = <19>;
-				max_baud_rate = <921600>;
-				rx_timeout_in_us = <2000>;
 				fifosize = <128>;
 			};
 

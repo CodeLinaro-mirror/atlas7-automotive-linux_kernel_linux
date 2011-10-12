@@ -1,5 +1,6 @@
 export ARCH=arm
 export EXTRADIR=${PWD}/extra
+export CROSS_COMPILE=arm-none-linux-gnueabi-
 make prima2cb_defconfig
 make uImage KALLSYMS_EXTRA_PASS=1
 make modules

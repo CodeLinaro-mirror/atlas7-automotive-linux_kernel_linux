@@ -143,11 +143,11 @@
 #define SIRFSOC_PORT_TYPE			0xa5
 
 /* For Fast Baud Rate Calculation */
-struct sirfsoc_uart_baud_rates {
+struct sirfsoc_baudrate_to_regv {
 	unsigned int baud_rate;
 	unsigned int reg_val;
 };
-static struct sirfsoc_uart_baud_rates baud_rates_mapping[] = {
+static struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
 	{4000000, 2359296},
 	{3500000, 1310721},
 	{3000000, 1572865},
@@ -169,7 +169,6 @@ static struct sirfsoc_uart_baud_rates baud_rates_mapping[] = {
 };
 
 struct sirfsoc_uart_port {
-	char				*name;
 	unsigned char			hw_flow_ctrl;
 	unsigned char			ms_enabled;
 	u32				max_baud_rate;
@@ -182,7 +181,6 @@ struct sirfsoc_uart_port {
 
 static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 	[0] = {
-		.name = "uart0",
 #ifdef CONFIG_SIRFSOC_UART0_FLOWCONTROL
 		.hw_flow_ctrl = 1,
 #else
@@ -195,7 +193,6 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 		},
 	},
 	[1] = {
-		.name = "uart1",
 		.hw_flow_ctrl = 0,
 		.port = {
 			.iotype		= UPIO_MEM,
@@ -204,7 +201,6 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 		},
 	},
 	[2] = {
-		.name = "uart2",
 #ifdef CONFIG_SIRFSOC_UART2_FLOWCONTROL
 		.hw_flow_ctrl = 1,
 #else

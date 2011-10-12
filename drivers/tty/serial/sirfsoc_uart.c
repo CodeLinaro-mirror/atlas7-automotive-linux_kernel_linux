@@ -336,8 +336,8 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 			sirfsoc_uart_disable_ms(port);
 	}
 	for (ic = 0; ic < SIRFUART_BAUD_RATE_SUPPORT_NR; ic++)
-		if (baud_rate == baud_rates_mapping[ic].baud_rate)
-			clk_div_reg = baud_rates_mapping[ic].reg_val;
+		if (baud_rate == baudrate_to_regv[ic].baud_rate)
+			clk_div_reg = baudrate_to_regv[ic].reg_val;
 	if (clk_div_reg == 0)
 		pr_err("SiRF UART: Cannot set Baud Rate (9600 ~ 4000000).\n");
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
@@ -475,8 +475,11 @@ static int __init sirfsoc_uart_console_setup(struct console *co, char *options)
 	unsigned int flow = 'n';
 	struct uart_port *port = &sirfsoc_uart_ports[co->index].port;
 
-	if (co->index < 0 || co->index >= SIRFSOC_UART_NR || !port->mapbase) {
-		dev_err(port->dev, "Set up console error.\n");
+	if (co->index < 0 || co->index >= SIRFSOC_UART_NR)
+		return -EINVAL;
+
+	if (!port->mapbase) {
+		pr_err("Console on ttyS%i is not present.\n", co->index);
 		return -ENODEV;
 	}
 
@@ -533,11 +536,11 @@ static struct uart_driver sirfsoc_uart_drv = {
 #endif
 };
 
-int sirfsoc_uart_platform_probe(struct platform_device *pdev)
+int sirfsoc_uart_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport;
 	struct uart_port *port;
-	struct resource *r_mem;
+	struct resource *res;
 	int ret;
 
 	if (of_property_read_u32(pdev->dev.of_node, "cell-index", &pdev->id)) {
@@ -549,25 +552,11 @@ int sirfsoc_uart_platform_probe(struct platform_device *pdev)
 
 	sirfport = &sirfsoc_uart_ports[pdev->id];
 	port = &sirfport->port;
+	port->dev = &pdev->dev;
 	port->private_data = sirfport;
 
-	if (of_property_read_u32(pdev->dev.of_node,
-					"max_baud_rate",
-					&sirfport->max_baud_rate)) {
-		dev_err(&pdev->dev,
-			"Unable to find max_baud_rate in uart node.\n");
-		ret = -EFAULT;
-		goto probe_out;
-	}
-
-	if (of_property_read_u32(pdev->dev.of_node,
-					"rx_timeout_in_us",
-					&sirfport->rx_timeout_in_us)) {
-		dev_err(&pdev->dev,
-			"Unable to find rx_timeout_in_us in uart node.\n");
-		ret = -EFAULT;
-		goto probe_out;
-	}
+	sirfport->max_baud_rate = 921600;
+	sirfport->rx_timeout_in_us = 20000;
 
 	if (of_property_read_u32(pdev->dev.of_node,
 					"fifosize",
@@ -578,26 +567,26 @@ int sirfsoc_uart_platform_probe(struct platform_device *pdev)
 		goto probe_out;
 	}
 
-	r_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (r_mem == NULL) {
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
 		dev_err(&pdev->dev, "Insufficient resources.\n");
 		ret = -EFAULT;
 		goto probe_out;
 	}
-	port->mapbase = r_mem->start;
-	port->membase = ioremap(r_mem->start, SIRFUART_MAP_SIZE);
+	port->mapbase = res->start;
+	port->membase = ioremap(res->start, SIRFUART_MAP_SIZE);
 	if (!port->membase) {
 		dev_err(&pdev->dev, "Cannot remap resource.\n");
 		ret = -ENOMEM;
 		goto probe_out;
 	}
-	r_mem = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (r_mem == NULL) {
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (res == NULL) {
 		dev_err(&pdev->dev, "Insufficient resources.\n");
 		ret = -EFAULT;
 		goto probe_out;
 	}
-	port->irq = r_mem->start;
+	port->irq = res->start;
 
 	if (sirfport->hw_flow_ctrl) {
 		sirfport->pmx = pinmux_get(&pdev->dev, NULL);
@@ -624,7 +613,7 @@ probe_out:
 	return ret;
 }
 
-static int sirfsoc_uart_platform_remove(struct platform_device *pdev)
+static int sirfsoc_uart_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport = platform_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
@@ -639,7 +628,7 @@ static int sirfsoc_uart_platform_remove(struct platform_device *pdev)
 }
 
 static int
-sirfsoc_uart_platform_suspend(struct platform_device *pdev, pm_message_t state)
+sirfsoc_uart_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct sirfsoc_uart_port *sirfport = platform_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
@@ -647,7 +636,7 @@ sirfsoc_uart_platform_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int sirfsoc_uart_platform_resume(struct platform_device *pdev)
+static int sirfsoc_uart_resume(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport = platform_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
@@ -662,10 +651,10 @@ static struct of_device_id sirfsoc_uart_ids[] __devinitdata = {
 MODULE_DEVICE_TABLE(of, sirfsoc_serial_of_match);
 
 static struct platform_driver sirfsoc_uart_driver = {
-	.probe		= sirfsoc_uart_platform_probe,
-	.remove		= __devexit_p(sirfsoc_uart_platform_remove),
-	.suspend	= sirfsoc_uart_platform_suspend,
-	.resume		= sirfsoc_uart_platform_resume,
+	.probe		= sirfsoc_uart_probe,
+	.remove		= __devexit_p(sirfsoc_uart_remove),
+	.suspend	= sirfsoc_uart_suspend,
+	.resume		= sirfsoc_uart_resume,
 	.driver		= {
 		.name	= SIRFUART_PORT_NAME,
 		.owner	= THIS_MODULE,
