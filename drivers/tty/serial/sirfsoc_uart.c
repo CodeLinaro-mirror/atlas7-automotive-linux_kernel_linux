@@ -177,7 +177,8 @@ sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned int num_tx = 0;
 	while (!uart_circ_empty(xmit) &&
-		!(rd_regl(port, SIRFUART_TX_FIFO_STATUS) & SIRFUART_FIFOFULL_MASK(port)) &&
+		!(rd_regl(port, SIRFUART_TX_FIFO_STATUS) &
+					SIRFUART_FIFOFULL_MASK(port)) &&
 		count--) {
 		wr_regl(port, SIRFUART_TX_FIFO_DATA, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
@@ -465,24 +466,6 @@ static struct uart_ops sirfsoc_uart_ops = {
 	.config_port	= sirfsoc_uart_config_port,
 };
 
-static int sirfsoc_init_port(struct sirfsoc_uart_port *sirfport)
-{
-	struct uart_port *port = &sirfport->port;
-	int ret = 0;
-	port->private_data = sirfport;
-	port->ops = &sirfsoc_uart_ops;
-	port->membase = ioremap(port->mapbase, SIRFUART_MAP_SIZE);
-	if (!port->membase) {
-		dev_err(port->dev, "Cannot ioremap resource.\n");
-		ret = -ENOMEM;
-		goto init_port_err;
-	}
-	spin_lock_init(&port->lock);
-	sirfport->rx_intr_mask |= SIRFUART_RX_IO_INT_EN;
-init_port_err:
-	return ret;
-}
-
 #ifdef CONFIG_SERIAL_SIRFSOC_CONSOLE
 static int __init sirfsoc_uart_console_setup(struct console *co, char *options)
 {
@@ -490,13 +473,17 @@ static int __init sirfsoc_uart_console_setup(struct console *co, char *options)
 	unsigned int bits = 8;
 	unsigned int parity = 'n';
 	unsigned int flow = 'n';
+	struct uart_port *port = &sirfsoc_uart_ports[co->index].port;
 
-	sirfsoc_init_port(&sirfsoc_uart_ports[co->index]);
+	if (co->index < 0 || co->index >= SIRFSOC_UART_NR || !port->mapbase) {
+		dev_err(port->dev, "Set up console error.\n");
+		return -ENODEV;
+	}
+
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
-	sirfsoc_uart_ports[co->index].port.cons = co;
-	return uart_set_options(&sirfsoc_uart_ports[co->index].port, co,
-						baud, parity, bits, flow);
+	port->cons = co;
+	return uart_set_options(port, co, baud, parity, bits, flow);
 }
 
 static void sirfsoc_uart_console_putchar(struct uart_port *port, int ch)
@@ -526,10 +513,6 @@ static struct console sirfsoc_uart_console = {
 
 static int __init sirfsoc_uart_console_init(void)
 {
-/*
-	add_preferred_console(sirfsoc_uart_console.name, 1, NULL);
-	sirfsoc_init_port(&sirfsoc_uart_ports[1]);
-*/
 	register_console(&sirfsoc_uart_console);
 	return 0;
 }
@@ -552,39 +535,89 @@ static struct uart_driver sirfsoc_uart_drv = {
 
 int sirfsoc_uart_platform_probe(struct platform_device *pdev)
 {
-	int probe_index;
 	struct sirfsoc_uart_port *sirfport;
 	struct uart_port *port;
-	struct pinmux *pmx;
-	const unsigned int *prop = NULL;
+	struct resource *r_mem;
 	int ret;
 
-	prop = of_get_property(pdev->dev.of_node, "platform_id", NULL);
-	if (!prop) {
-		ret = -ENODEV;
-		goto probe_out;
-	}
-	pdev->id = be32_to_cpup(prop);
-	probe_index = pdev->id;
-	sirfport = &sirfsoc_uart_ports[probe_index];
-	port = &sirfport->port;
-
-	if (sirfport->hw_flow_ctrl) {
-		pmx = pinmux_get(&pdev->dev, NULL);
-		if (!IS_ERR(pmx))
-			pinmux_enable(pmx);
-	}
-
-	if (sirfsoc_init_port(sirfport)) {
-		dev_err(&pdev->dev, "Failed to init port(%d).\n", probe_index);
+	if (of_property_read_u32(pdev->dev.of_node, "cell-index", &pdev->id)) {
+		dev_err(&pdev->dev,
+			"Unable to find cell-index in uart node.\n");
 		ret = -EFAULT;
 		goto probe_out;
 	}
+
+	sirfport = &sirfsoc_uart_ports[pdev->id];
+	port = &sirfport->port;
+	port->private_data = sirfport;
+
+	if (of_property_read_u32(pdev->dev.of_node,
+					"max_baud_rate",
+					&sirfport->max_baud_rate)) {
+		dev_err(&pdev->dev,
+			"Unable to find max_baud_rate in uart node.\n");
+		ret = -EFAULT;
+		goto probe_out;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node,
+					"rx_timeout_in_us",
+					&sirfport->rx_timeout_in_us)) {
+		dev_err(&pdev->dev,
+			"Unable to find rx_timeout_in_us in uart node.\n");
+		ret = -EFAULT;
+		goto probe_out;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node,
+					"fifosize",
+					&port->fifosize)) {
+		dev_err(&pdev->dev,
+			"Unable to find fifosize in uart node.\n");
+		ret = -EFAULT;
+		goto probe_out;
+	}
+
+	r_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (r_mem == NULL) {
+		dev_err(&pdev->dev, "Insufficient resources.\n");
+		ret = -EFAULT;
+		goto probe_out;
+	}
+	port->mapbase = r_mem->start;
+	port->membase = ioremap(r_mem->start, SIRFUART_MAP_SIZE);
+	if (!port->membase) {
+		dev_err(&pdev->dev, "Cannot remap resource.\n");
+		ret = -ENOMEM;
+		goto probe_out;
+	}
+	r_mem = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (r_mem == NULL) {
+		dev_err(&pdev->dev, "Insufficient resources.\n");
+		ret = -EFAULT;
+		goto probe_out;
+	}
+	port->irq = r_mem->start;
+
+	if (sirfport->hw_flow_ctrl) {
+		sirfport->pmx = pinmux_get(&pdev->dev, NULL);
+		if (!IS_ERR(sirfport->pmx))
+			pinmux_enable(sirfport->pmx);
+	}
+
+	port->ops = &sirfsoc_uart_ops;
+	spin_lock_init(&port->lock);
+	sirfport->rx_intr_mask = SIRFUART_RX_IO_INT_EN;
+
 	platform_set_drvdata(pdev, sirfport);
 	ret = uart_add_one_port(&sirfsoc_uart_drv, port);
 	if (ret != 0) {
 		platform_set_drvdata(pdev, NULL);
-		dev_err(&pdev->dev, "Cannot add UART port(%d).\n", probe_index);
+		if (sirfport->hw_flow_ctrl) {
+			pinmux_disable(sirfport->pmx);
+			pinmux_put(sirfport->pmx);
+		}
+		dev_err(&pdev->dev, "Cannot add UART port(%d).\n", pdev->id);
 		goto probe_out;
 	}
 probe_out:
@@ -596,6 +629,10 @@ static int sirfsoc_uart_platform_remove(struct platform_device *pdev)
 	struct sirfsoc_uart_port *sirfport = platform_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
 	platform_set_drvdata(pdev, NULL);
+	if (sirfport->hw_flow_ctrl) {
+		pinmux_disable(sirfport->pmx);
+		pinmux_put(sirfport->pmx);
+	}
 	iounmap(port->membase);
 	uart_remove_one_port(&sirfsoc_uart_drv, port);
 	return 0;
@@ -618,7 +655,7 @@ static int sirfsoc_uart_platform_resume(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id sirfsoc_serial_of_match[] __devinitdata = {
+static struct of_device_id sirfsoc_uart_ids[] __devinitdata = {
 	{ .compatible = "sirf,prima2-uart", },
 	{}
 };
@@ -632,7 +669,7 @@ static struct platform_driver sirfsoc_uart_driver = {
 	.driver		= {
 		.name	= SIRFUART_PORT_NAME,
 		.owner	= THIS_MODULE,
-		.of_match_table = sirfsoc_serial_of_match,
+		.of_match_table = sirfsoc_uart_ids,
 	},
 };
 

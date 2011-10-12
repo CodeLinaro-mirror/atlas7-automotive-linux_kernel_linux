@@ -172,11 +172,12 @@ struct sirfsoc_uart_port {
 	char				*name;
 	unsigned char			hw_flow_ctrl;
 	unsigned char			ms_enabled;
-	unsigned long			max_baud_rate;
+	u32				max_baud_rate;
+	u32				rx_timeout_in_us;
 	unsigned long			rx_intr_mask;
-	unsigned long			rx_timeout_in_us;
-	struct clk			*uart_clk;
+
 	struct uart_port		port;
+	struct pinmux			*pmx;
 };
 
 static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
