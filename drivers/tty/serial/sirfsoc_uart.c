@@ -1,14 +1,11 @@
 /*
- * linux/drivers/tty/serial/sirfsoc_uart.c
- *
- * Driver for SiRF SoC PrimaII onboard UARTs.
- *
- * Rong Wang<Rong.Wang@csr.com>
+ * Driver for CSR SiRFprimaII onboard UARTs.
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
  * Licensed under GPLv2 or later.
  */
+
 #include <linux/module.h>
 #include <linux/ioport.h>
 #include <linux/platform_device.h>
@@ -667,5 +664,5 @@ static void __exit sirfsoc_uart_exit(void)
 module_exit(sirfsoc_uart_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Rong Wang<Rong.Wang@csr.com>");
-MODULE_DESCRIPTION("SiRFSoC Uart Driver");
+MODULE_AUTHOR("Bin Shi <Bin.Shi@csr.com>, Rong Wang<Rong.Wang@csr.com>");
+MODULE_DESCRIPTION("CSR SiRFprimaII Uart Driver");

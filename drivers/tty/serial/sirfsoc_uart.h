@@ -1,9 +1,5 @@
 /*
- * linux/drivers/tty/serial/sirfsoc_uart.h
- *
- * Driver for SiRF SoC PrimaII onboard UARTs.
- *
- * Rong Wang<Rong.Wang@csr.com>
+ * Drivers for CSR SiRFprimaII onboard UARTs.
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
