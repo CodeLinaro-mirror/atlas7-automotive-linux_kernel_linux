@@ -70,10 +70,10 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	unsigned int assert = mctrl & TIOCM_RTS;
-	unsigned int val = (assert) ? SIRFUART_AFC_CTRL_RX_THD : 0x0;
+	unsigned int val = assert ? SIRFUART_AFC_CTRL_RX_THD : 0x0;
 	unsigned int current_val;
 	if (sirfport->hw_flow_ctrl) {
-		current_val = rd_regl(port, SIRFUART_AFC_CTRL) & ~(0xFF);
+		current_val = rd_regl(port, SIRFUART_AFC_CTRL) & ~0xFF;
 		val |= current_val;
 		wr_regl(port, SIRFUART_AFC_CTRL, val);
 	}
@@ -93,7 +93,7 @@ void sirfsoc_uart_start_tx(struct uart_port *port)
 	sirfsoc_uart_pio_tx_chars(sirfport, 1);
 	wr_regl(port, SIRFUART_TX_FIFO_OP, SIRFUART_TX_FIFO_START);
 	regv = rd_regl(port, SIRFUART_INT_EN);
-	wr_regl(port, SIRFUART_INT_EN, (regv | SIRFUART_TX_INT_EN));
+	wr_regl(port, SIRFUART_INT_EN, regv | SIRFUART_TX_INT_EN);
 }
 
 static void sirfsoc_uart_stop_rx(struct uart_port *port)
@@ -102,7 +102,7 @@ static void sirfsoc_uart_stop_rx(struct uart_port *port)
 	unsigned long regv;
 	wr_regl(port, SIRFUART_RX_FIFO_OP, 0);
 	regv = rd_regl(port, SIRFUART_INT_EN);
-	wr_regl(port, SIRFUART_INT_EN, (regv & ~(sirfport->rx_intr_mask)));
+	wr_regl(port, SIRFUART_INT_EN, regv & ~sirfport->rx_intr_mask);
 }
 
 static void sirfsoc_uart_disable_ms(struct uart_port *port)
@@ -113,9 +113,9 @@ static void sirfsoc_uart_disable_ms(struct uart_port *port)
 	if (!sirfport->hw_flow_ctrl)
 		return;
 	reg = rd_regl(port, SIRFUART_AFC_CTRL);
-	wr_regl(port, SIRFUART_AFC_CTRL, (reg & ~(0x3FF)));
+	wr_regl(port, SIRFUART_AFC_CTRL, reg & ~0x3FF);
 	reg = rd_regl(port, SIRFUART_INT_EN);
-	wr_regl(port, SIRFUART_INT_EN, (reg & ~SIRFUART_CTS_INT_EN));
+	wr_regl(port, SIRFUART_INT_EN, reg & ~SIRFUART_CTS_INT_EN);
 }
 
 static void sirfsoc_uart_enable_ms(struct uart_port *port)
@@ -127,9 +127,9 @@ static void sirfsoc_uart_enable_ms(struct uart_port *port)
 		return;
 	flg = SIRFUART_AFC_RX_EN | SIRFUART_AFC_TX_EN;
 	reg = rd_regl(port, SIRFUART_AFC_CTRL);
-	wr_regl(port, SIRFUART_AFC_CTRL, (reg | flg));
+	wr_regl(port, SIRFUART_AFC_CTRL, reg | flg);
 	reg = rd_regl(port, SIRFUART_INT_EN);
-	wr_regl(port, SIRFUART_INT_EN, (reg | SIRFUART_CTS_INT_EN));
+	wr_regl(port, SIRFUART_INT_EN, reg | SIRFUART_CTS_INT_EN);
 	uart_handle_cts_change(port,
 		!(rd_regl(port, SIRFUART_AFC_CTRL) & SIRFUART_CTS_IN_STATUS));
 	sirfport->ms_enabled = 1;
@@ -177,11 +177,8 @@ sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 	struct uart_port *port = &sirfport->port;
 	struct circ_buf *xmit = &port->state->xmit;
 	unsigned int num_tx = 0;
-	while (!uart_circ_empty(xmit)
-		&&
-		!(rd_regl(port, SIRFUART_TX_FIFO_STATUS) &
-					SIRFUART_FIFOFULL_MASK(port))
-		&&
+	while (!uart_circ_empty(xmit) &&
+		!(rd_regl(port, SIRFUART_TX_FIFO_STATUS) & SIRFUART_FIFOFULL_MASK(port)) &&
 		count--) {
 		wr_regl(port, SIRFUART_TX_FIFO_DATA, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
@@ -189,7 +186,7 @@ sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 		num_tx++;
 	}
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-			uart_write_wakeup(port);
+		uart_write_wakeup(port);
 	return num_tx;
 }
 
@@ -308,13 +305,13 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	/* read flags */
 	if (termios->c_iflag & INPCK)
 		port->read_status_mask |=
-			(SIRFUART_FRM_ERR_INT | SIRFUART_PARITY_ERR_INT);
+			SIRFUART_FRM_ERR_INT | SIRFUART_PARITY_ERR_INT;
 	if (termios->c_iflag & (BRKINT | PARMRK))
 		port->read_status_mask |= SIRFUART_RXD_BREAK_INT;
 	/* ignore flags */
 	if (termios->c_iflag & IGNPAR)
 		port->ignore_status_mask |=
-			(SIRFUART_FRM_ERR_INT | SIRFUART_PARITY_ERR_INT);
+			SIRFUART_FRM_ERR_INT | SIRFUART_PARITY_ERR_INT;
 	if ((termios->c_cflag & CREAD) == 0)
 		port->ignore_status_mask |= SIRFUART_DUMMY_READ;
 	/* enable parity if PARENB is set*/
@@ -362,13 +359,13 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	else
 		threshold_div = 2;
 	temp = port->line == 1 ? 16 : 64;
-	wr_regl(port, SIRFUART_TX_FIFO_CTRL, (temp / threshold_div));
-	wr_regl(port, SIRFUART_RX_FIFO_CTRL, (temp / threshold_div));
+	wr_regl(port, SIRFUART_TX_FIFO_CTRL, temp / threshold_div);
+	wr_regl(port, SIRFUART_RX_FIFO_CTRL, temp / threshold_div);
 	temp_reg_val |= SIRFUART_TX_FIFO_START;
 	wr_regl(port, SIRFUART_TX_FIFO_OP, temp_reg_val);
 	uart_update_timeout(port, termios->c_cflag, baud_rate);
 	sirfsoc_uart_start_rx(port);
-	wr_regl(port, SIRFUART_TX_RX_EN, (SIRFUART_TX_EN | SIRFUART_RX_EN));
+	wr_regl(port, SIRFUART_TX_RX_EN, SIRFUART_TX_EN | SIRFUART_RX_EN);
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
