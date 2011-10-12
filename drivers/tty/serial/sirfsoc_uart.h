@@ -1,0 +1,260 @@
+/*
+ * linux/drivers/tty/serial/sirfsoc_uart.h
+ *
+ * Driver for SiRF SoC PrimaII onboard UARTs.
+ *
+ * Rong Wang<Rong.Wang@csr.com>
+ *
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+#include <linux/bitops.h>
+
+/* UART Register Offset Define */
+#define SIRFUART_LINE_CTRL			0x0040
+#define SIRFUART_TX_RX_EN			0x004c
+#define SIRFUART_DIVISOR			0x0050
+#define SIRFUART_INT_EN				0x0054
+#define SIRFUART_INT_STATUS			0x0058
+#define SIRFUART_TX_DMA_IO_CTRL			0x0100
+#define SIRFUART_TX_DMA_IO_LEN			0x0104
+#define SIRFUART_TX_FIFO_CTRL			0x0108
+#define SIRFUART_TX_FIFO_LEVEL_CHK		0x010C
+#define SIRFUART_TX_FIFO_OP			0x0110
+#define SIRFUART_TX_FIFO_STATUS			0x0114
+#define SIRFUART_TX_FIFO_DATA			0x0118
+#define SIRFUART_RX_DMA_IO_CTRL			0x0120
+#define SIRFUART_RX_DMA_IO_LEN			0x0124
+#define SIRFUART_RX_FIFO_CTRL			0x0128
+#define SIRFUART_RX_FIFO_LEVEL_CHK		0x012C
+#define SIRFUART_RX_FIFO_OP			0x0130
+#define SIRFUART_RX_FIFO_STATUS			0x0134
+#define SIRFUART_RX_FIFO_DATA			0x0138
+#define SIRFUART_AFC_CTRL			0x0140
+#define SIRFUART_SWH_DMA_IO			0x0148
+
+/* UART Line Control Register */
+#define SIRFUART_DATA_BIT_LEN_MASK		0x3
+#define SIRFUART_DATA_BIT_LEN_5			BIT(0)
+#define SIRFUART_DATA_BIT_LEN_6			1
+#define SIRFUART_DATA_BIT_LEN_7			2
+#define SIRFUART_DATA_BIT_LEN_8			3
+#define SIRFUART_STOP_BIT_LEN_1			0
+#define SIRFUART_STOP_BIT_LEN_2			BIT(2)
+#define SIRFUART_PARITY_EN			BIT(3)
+#define SIRFUART_EVEN_BIT			BIT(4)
+#define SIRFUART_STICK_BIT_MASK			(7 << 3)
+#define SIRFUART_STICK_BIT_NONE			(0 << 3)
+#define SIRFUART_STICK_BIT_EVEN			BIT(3)
+#define SIRFUART_STICK_BIT_ODD			(3 << 3)
+#define SIRFUART_STICK_BIT_MARK			(5 << 3)
+#define SIRFUART_STICK_BIT_SPACE		(7 << 3)
+#define SIRFUART_SET_BREAK			BIT(6)
+#define SIRFUART_LOOP_BACK			BIT(7)
+#define SIRFUART_PARITY_MASK			(7 << 3)
+
+#define SIRFSOC_UART_RX_TIMEOUT(br, to)	(((br) * (((to) + 999) / 1000)) / 1000)
+#define SIRFUART_RECV_TIMEOUT_MASK	(0xFFFF << 16)
+#define SIRFUART_RECV_TIMEOUT(x)	(((x) & 0xFFFF) << 16)
+
+/* UART Auto Flow Control */
+#define SIRFUART_AFC_RX_THD_MASK		0x000000FF
+#define SIRFUART_AFC_RX_EN			BIT(8)
+#define SIRFUART_AFC_TX_EN			BIT(9)
+#define SIRFUART_CTS_CTRL			BIT(10)
+#define SIRFUART_RTS_CTRL			BIT(11)
+#define SIRFUART_CTS_IN_STATUS			BIT(12)
+#define SIRFUART_RTS_OUT_STATUS			BIT(13)
+
+/* UART Interrupt Enable Register */
+#define SIRFUART_RX_DONE_INT			BIT(0)
+#define SIRFUART_TX_DONE_INT			BIT(1)
+#define SIRFUART_RX_OFLOW_INT			BIT(2)
+#define SIRFUART_TX_ALLOUT_INT			BIT(3)
+#define SIRFUART_RX_IO_DMA_INT			BIT(4)
+#define SIRFUART_TX_IO_DMA_INT			BIT(5)
+#define SIRFUART_RXFIFO_FULL_INT		BIT(6)
+#define SIRFUART_TXFIFO_EMPTY_INT		BIT(7)
+#define SIRFUART_RXFIFO_THD_INT			BIT(8)
+#define SIRFUART_TXFIFO_THD_INT			BIT(9)
+#define SIRFUART_FRM_ERR_INT			BIT(10)
+#define SIRFUART_RXD_BREAK_INT			BIT(11)
+#define SIRFUART_RX_TIMEOUT_INT			BIT(12)
+#define SIRFUART_PARITY_ERR_INT			BIT(13)
+#define SIRFUART_CTS_INT_EN			BIT(14)
+#define SIRFUART_RTS_INT_EN			BIT(15)
+
+/* UART Interrupt Status Register */
+#define SIRFUART_RX_DONE			BIT(0)
+#define SIRFUART_TX_DONE			BIT(1)
+#define SIRFUART_RX_OFLOW			BIT(2)
+#define SIRFUART_TX_ALL_EMPTY			BIT(3)
+#define SIRFUART_DMA_IO_RX_DONE			BIT(4)
+#define SIRFUART_DMA_IO_TX_DONE			BIT(5)
+#define SIRFUART_RXFIFO_FULL			BIT(6)
+#define SIRFUART_TXFIFO_EMPTY			BIT(7)
+#define SIRFUART_RXFIFO_THD_REACH		BIT(8)
+#define SIRFUART_TXFIFO_THD_REACH		BIT(9)
+#define SIRFUART_FRM_ERR			BIT(10)
+#define SIRFUART_RXD_BREAK			BIT(11)
+#define SIRFUART_RX_TIMEOUT			BIT(12)
+#define SIRFUART_PARITY_ERR			BIT(13)
+#define SIRFUART_CTS_CHANGE			BIT(14)
+#define SIRFUART_RTS_CHANGE			BIT(15)
+#define SIRFUART_PLUG_IN			BIT(16)
+
+#define SIRFUART_ERR_INT_STAT					\
+				(SIRFUART_RX_OFLOW |		\
+				SIRFUART_FRM_ERR |		\
+				SIRFUART_RXD_BREAK |		\
+				SIRFUART_PARITY_ERR)
+#define SIRFUART_ERR_INT_EN					\
+				(SIRFUART_RX_OFLOW_INT |	\
+				SIRFUART_FRM_ERR_INT |		\
+				SIRFUART_RXD_BREAK_INT |	\
+				SIRFUART_PARITY_ERR_INT)
+#define SIRFUART_TX_INT_EN	SIRFUART_TXFIFO_EMPTY_INT
+#define SIRFUART_RX_IO_INT_EN					\
+				(SIRFUART_RX_TIMEOUT_INT |	\
+				SIRFUART_RXFIFO_THD_INT |	\
+				SIRFUART_RXFIFO_FULL_INT |	\
+				SIRFUART_ERR_INT_EN)
+
+/* UART FIFO Register */
+#define SIRFUART_TX_FIFO_STOP			0x0
+#define SIRFUART_TX_FIFO_RESET			0x1
+#define SIRFUART_TX_FIFO_START			0x2
+#define SIRFUART_RX_FIFO_STOP			0x0
+#define SIRFUART_RX_FIFO_RESET			0x1
+#define SIRFUART_RX_FIFO_START			0x2
+#define SIRFUART_TX_MODE_DMA			0
+#define SIRFUART_TX_MODE_IO			1
+#define SIRFUART_RX_MODE_DMA			0
+#define SIRFUART_RX_MODE_IO			1
+
+#define SIRFUART_RX_EN				0x1
+#define SIRFUART_TX_EN				0x2
+
+/* Generic Definitions */
+#define SIRFSOC_UART_NAME			"ttyS"
+#define SIRFSOC_UART_MAJOR			TTY_MAJOR
+#define SIRFSOC_UART_MINOR			64
+#define SIRFUART_PORT_NAME			"sirfsoc-uart"
+#define SIRFUART_BAUD_RATE_SUPPORT_NR		18
+#define SIRFUART_MAP_SIZE			0x200
+#define SIRFSOC_UART_NR				3
+#define SIRFSOC_PORT_TYPE			0xa5
+
+/* For Fast Baud Rate Calculation */
+struct sirfsoc_uart_baud_rates {
+	unsigned int baud_rate;
+	unsigned int reg_val;
+};
+static struct sirfsoc_uart_baud_rates baud_rates_mapping[] = {
+	{4000000, 2359296},
+	{3500000, 1310721},
+	{3000000, 1572865},
+	{2500000, 1245186},
+	{2000000, 1572866},
+	{1500000, 1245188},
+	{1152000, 1638404},
+	{1000000, 1572869},
+	{921600, 1114120},
+	{576000, 1245196},
+	{500000, 1245198},
+	{460800, 1572876},
+	{230400, 1310750},
+	{115200, 1310781},
+	{57600, 1310843},
+	{38400, 1114328},
+	{19200, 1114545},
+	{9600, 1114979},
+};
+
+struct sirfsoc_uart_port {
+	char				*name;
+	unsigned char			hw_flow_ctrl;
+	unsigned char			ms_enabled;
+	unsigned long			max_baud_rate;
+	unsigned long			rx_intr_mask;
+	unsigned long			rx_timeout_in_us;
+	struct clk			*uart_clk;
+	struct uart_port		port;
+};
+
+static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
+	[0] = {
+		.name = "uart0",
+		.max_baud_rate = 921600,
+#ifdef CONFIG_SIRFSOC_UART0_FLOWCONTROL
+		.hw_flow_ctrl = 1,
+#else
+		.hw_flow_ctrl = 0,
+#endif
+		.rx_timeout_in_us = 20000,
+		.port = {
+			.iotype		= UPIO_MEM,
+			.flags		= UPF_BOOT_AUTOCONF,
+			.line		= 0,
+			.irq		= 17,
+			.mapbase	= 0xb0050000,
+			.fifosize	= 128,
+		},
+	},
+	[1] = {
+		.name = "uart1",
+		.max_baud_rate = 921600,
+		.hw_flow_ctrl = 0,
+		.rx_timeout_in_us = 20000,
+		.port = {
+			.iotype		= UPIO_MEM,
+			.flags		= UPF_BOOT_AUTOCONF,
+			.line		= 1,
+			.irq		= 18,
+			.mapbase	= 0xb0060000,
+			.fifosize	= 32,
+		},
+	},
+	[2] = {
+		.name = "uart2",
+		.max_baud_rate = 921600,
+#ifdef CONFIG_SIRFSOC_UART2_FLOWCONTROL
+		.hw_flow_ctrl = 1,
+#else
+		.hw_flow_ctrl = 0,
+#endif
+		.rx_timeout_in_us = 20000,
+		.port = {
+			.iotype		= UPIO_MEM,
+			.flags		= UPF_BOOT_AUTOCONF,
+			.line		= 2,
+			.irq		= 19,
+			.mapbase	= 0xb0070000,
+			.fifosize	= 128,
+		},
+	},
+};
+
+#define uart_tx_port_tty_invalid(port)   \
+	(((port)->state == NULL) || ((port)->state->port.tty == NULL))
+#define SIRFUART_DUMMY_READ		BIT(16)
+
+/* Hardware Flow Control */
+#define SIRFUART_AFC_CTRL_RX_THD	0x70
+
+/* Register Access Control */
+#define portaddr(port, reg)		((port)->membase + (reg))
+#define rd_regb(port, reg)		(__raw_readb(portaddr(port, reg)))
+#define rd_regl(port, reg)		(__raw_readl(portaddr(port, reg)))
+#define wr_regb(port, reg, val)		__raw_writeb(val, portaddr(port, reg))
+#define wr_regl(port, reg, val)		__raw_writel(val, portaddr(port, reg))
+
+/* UART Port Mask */
+#define SIRFUART_FIFOLEVEL_MASK(port)	((port->line == 1) ? (0x1f) : (0x7f))
+#define SIRFUART_FIFOFULL_MASK(port)	((port->line == 1) ? (0x20) : (0x80))
+#define SIRFUART_FIFOEMPTY_MASK(port)	((port->line == 1) ? (0x40) : (0x100))
+
+/* I/O Mode */
+#define SIRFSOC_UART_IO_RX_MAX_CNT		256
+#define SIRFSOC_UART_IO_TX_REASONABLE_CNT	6

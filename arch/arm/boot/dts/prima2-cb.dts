@@ -189,22 +189,7 @@
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0050000 0x1000>;
 				interrupts = <17>;
-				fifo_size = <0x80>;
-				fifo_level_mask = <0x7f>;
-				fifo_full_mask = <0x80>;
-				fifo_empty_mask = <0x100>;
-				rx_threshold = <0x40>;
-				rx_timeout_in_us = <0x4e20>;
-				max_baudrate_in_bps = <0x2dc6c0>;
-				tx_dma_chan = <0x2>;
-				rx_dma_chan = <0x15>;
-				tx_dma_width_reg = <0x4>;
-				rx_dma_width_reg = <0x5>;
-				hw_flow_control_enabled  = <0x0>;
-				rts_gpio = <0xffffffff>;
-				cts_gpio = <0xffffffff>;
 				platform_id = <0>;
-				clock = "uart0";
 			};
 
 			uart1: uart@0xb0060000 {
@@ -212,45 +197,15 @@
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0060000 0x1000>;
 				interrupts = <18>;
-				fifo_size = <0x20>;
-				fifo_level_mask = <0x1f>;
-				fifo_full_mask = <0x20>;
-				fifo_empty_mask = <0x40>;
-				rx_threshold = <0x10>;
-				rx_timeout_in_us = <0x4e20>;
-				max_baudrate_in_bps = <0xe1000>;
-				tx_dma_chan = <0xffffffff>;
-				rx_dma_chan = <0xffffffff>;
-				tx_dma_width_reg = <0x0>;
-				rx_dma_width_reg = <0x0>;
-				hw_flow_control_enabled  = <0x0>;
-				rts_gpio = <0xffffffff>;
-				cts_gpio = <0xffffffff>;
 				platform_id = <1>;
-				clock = "uart1";
 			};
 
 			uart2: uart@0xb0070000 {
 				cell-index = <2>;
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0070000 0x1000>;
-				interrupts = <19>;
-				fifo_size = <0x80>;
-				fifo_level_mask = <0x7f>;
-				fifo_full_mask = <0x80>;
-				fifo_empty_mask = <0x100>;
-				rx_threshold = <0x40>;
-				rx_timeout_in_us = <0x4e20>;
-				max_baudrate_in_bps = <0x2dc6c0>;
-				tx_dma_chan = <0x7>;
-				rx_dma_chan = <0x6>;
-				tx_dma_width_reg = <0x0>;
-				rx_dma_width_reg = <0x0>;
-				hw_flow_control_enabled  = <0x0>;
-				rts_gpio = <0xffffffff>;
-				cts_gpio = <0xffffffff>;
+				interrupts = <19>;;
 				platform_id = <2>;
-				clock = "uart2";
 			};
 
 			usp0: usp@b0080000 {
