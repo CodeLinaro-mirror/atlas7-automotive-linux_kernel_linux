@@ -31,9 +31,9 @@
 #include "sirfsoc_uart.h"
 
 static unsigned int
-sirfsoc_uart_io_tx_chars(struct sirfsoc_uart_port *sirfport, int count);
+sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count);
 static unsigned int
-sirfsoc_uart_io_rx_chars(struct uart_port *port, unsigned int max_rx_count);
+sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count);
 static struct uart_driver sirfsoc_uart_drv;
 
 static inline struct sirfsoc_uart_port *to_sirfport(struct uart_port *port)
@@ -93,7 +93,7 @@ void sirfsoc_uart_start_tx(struct uart_port *port)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	unsigned long regv;
-	sirfsoc_uart_io_tx_chars(sirfport, 1);
+	sirfsoc_uart_pio_tx_chars(sirfport, 1);
 	wr_regl(port, SIRFUART_TX_FIFO_OP, SIRFUART_TX_FIFO_START);
 	regv = rd_regl(port, SIRFUART_INT_EN);
 	wr_regl(port, SIRFUART_INT_EN, (regv | SIRFUART_TX_INT_EN));
@@ -149,7 +149,7 @@ static void sirfsoc_uart_break_ctl(struct uart_port *port, int break_state)
 }
 
 static unsigned int
-sirfsoc_uart_io_rx_chars(struct uart_port *port, unsigned int max_rx_count)
+sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count)
 {
 	unsigned int ch, rx_count = 0;
 	int temp;
@@ -175,7 +175,7 @@ sirfsoc_uart_io_rx_chars(struct uart_port *port, unsigned int max_rx_count)
 }
 
 static unsigned int
-sirfsoc_uart_io_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
+sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 {
 	struct uart_port *port = &sirfport->port;
 	struct circ_buf *xmit = &port->state->xmit;
@@ -243,11 +243,11 @@ recv_char:
 		}
 	}
 	if (intr_status & SIRFUART_RX_IO_INT_EN)
-		sirfsoc_uart_io_rx_chars(port, SIRFSOC_UART_IO_RX_MAX_CNT);
+		sirfsoc_uart_pio_rx_chars(port, SIRFSOC_UART_IO_RX_MAX_CNT);
 	if (intr_status & SIRFUART_TX_INT_EN) {
 		if (!(uart_tx_port_tty_invalid(port) ||
 						uart_tx_stopped(port))) {
-			sirfsoc_uart_io_tx_chars(sirfport,
+			sirfsoc_uart_pio_tx_chars(sirfport,
 					SIRFSOC_UART_IO_TX_REASONABLE_CNT);
 			if ((uart_circ_empty(xmit)) &&
 				(rd_regl(port, SIRFUART_TX_FIFO_STATUS) &
