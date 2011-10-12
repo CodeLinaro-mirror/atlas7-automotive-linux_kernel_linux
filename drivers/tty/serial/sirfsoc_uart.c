@@ -562,7 +562,6 @@ int sirfsoc_uart_platform_probe(struct platform_device *pdev)
 	int probe_index;
 	struct sirfsoc_uart_port *sirfport;
 	struct uart_port *port;
-	struct resource *r_mem;
 	struct pinmux *pmx;
 	const unsigned int *prop = NULL;
 	int ret;
