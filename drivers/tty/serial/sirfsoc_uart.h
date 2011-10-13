@@ -151,8 +151,6 @@ struct sirfsoc_baudrate_to_regv {
 struct sirfsoc_uart_port {
 	unsigned char			hw_flow_ctrl;
 	unsigned char			ms_enabled;
-	u32				max_baud_rate;
-	u32				rx_timeout_in_us;
 	unsigned long			rx_intr_mask;
 
 	struct uart_port		port;

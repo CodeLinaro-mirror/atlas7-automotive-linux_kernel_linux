@@ -343,8 +343,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	}
 	if (termios->c_cflag & CSTOPB)
 		config_reg |= SIRFUART_STOP_BIT_LEN_2;
-	baud_rate = uart_get_baud_rate(port, termios, old, 0,
-					sirfport->max_baud_rate);
+	baud_rate = uart_get_baud_rate(port, termios, old, 0, 4000000);
 	spin_lock_irqsave(&port->lock, flags);
 	port->read_status_mask = SIRFUART_RX_OFLOW_INT;
 	port->ignore_status_mask = 0;
@@ -388,8 +387,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		pr_err("SiRF UART: Cannot set Baud Rate (9600 ~ 4000000).\n");
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
 	/* set receive timeout */
-	rx_time_out = SIRFSOC_UART_RX_TIMEOUT(baud_rate,
-						sirfport->rx_timeout_in_us);
+	rx_time_out = SIRFSOC_UART_RX_TIMEOUT(baud_rate, 20000);
 	rx_time_out = (rx_time_out > 0xFFFF) ? 0xFFFF : rx_time_out;
 	config_reg |= SIRFUART_RECV_TIMEOUT(rx_time_out);
 	temp_reg_val = rd_regl(port, SIRFUART_TX_FIFO_OP);
@@ -600,9 +598,6 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 	port = &sirfport->port;
 	port->dev = &pdev->dev;
 	port->private_data = sirfport;
-
-	sirfport->max_baud_rate = 921600;
-	sirfport->rx_timeout_in_us = 20000;
 
 	if (of_find_property(pdev->dev.of_node, "hw_flow_ctrl", NULL))
 		sirfport->hw_flow_ctrl = 1;
