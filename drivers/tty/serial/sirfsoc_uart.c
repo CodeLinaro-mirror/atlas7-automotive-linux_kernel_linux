@@ -285,8 +285,9 @@ recv_char:
 	if (intr_status & SIRFUART_RX_IO_INT_EN)
 		sirfsoc_uart_pio_rx_chars(port, SIRFSOC_UART_IO_RX_MAX_CNT);
 	if (intr_status & SIRFUART_TX_INT_EN) {
-		if (!(uart_tx_port_tty_invalid(port) ||
-						uart_tx_stopped(port))) {
+		if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
+			return IRQ_HANDLED;
+		} else {
 			sirfsoc_uart_pio_tx_chars(sirfport,
 					SIRFSOC_UART_IO_TX_REASONABLE_CNT);
 			if ((uart_circ_empty(xmit)) &&
@@ -309,7 +310,7 @@ static void sirfsoc_uart_start_rx(struct uart_port *port)
 }
 
 static unsigned int
-calc_sample_div(unsigned long baud_rate,
+sirfsoc_calc_sample_div(unsigned long baud_rate,
 			unsigned long ioclk_rate, unsigned long *setted_baud)
 {
 	unsigned long min_err = 0xffffffff;
@@ -417,9 +418,10 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (baud_rate == baudrate_to_regv[ic].baud_rate)
 			clk_div_reg = baudrate_to_regv[ic].reg_val;
 	setted_baud = baud_rate;
-	/* arbitary rate: call calc_sample_div() */
-	if (clk_div_reg == 0)
-		clk_div_reg = calc_sample_div(baud_rate, ioclk_rate, &setted_baud);
+	/* arbitary rate setting */
+	if (unlikely(clk_div_reg == 0))
+		clk_div_reg = sirfsoc_calc_sample_div(baud_rate, ioclk_rate,
+								&setted_baud);
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
 
 	if (tty_termios_baud_rate(termios))
@@ -589,7 +591,7 @@ static void sirfsoc_uart_console_write(struct console *co, const char *s,
 }
 
 static struct console sirfsoc_uart_console = {
-	.name		= "ttyS",
+	.name		= SIRFSOC_UART_NAME,
 	.device		= uart_console_device,
 	.flags		= CON_PRINTBUFFER,
 	.index		= -1,

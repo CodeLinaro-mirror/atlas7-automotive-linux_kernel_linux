@@ -133,9 +133,8 @@
 #define SIRFUART_TX_EN				0x2
 
 /* Generic Definitions */
-#define SIRFSOC_UART_NAME			"ttyS"
+#define SIRFSOC_UART_NAME			"ttySiRFS"
 #define SIRFSOC_UART_MAJOR			TTY_MAJOR
-#define SIRFSOC_UART_MINOR			64
 #define SIRFUART_PORT_NAME			"sirfsoc-uart"
 #define SIRFUART_MAP_SIZE			0x200
 #define SIRFSOC_UART_NR				3
@@ -164,8 +163,6 @@ struct sirfsoc_uart_port {
 	struct pinmux			*pmx;
 };
 
-#define uart_tx_port_tty_invalid(port)   \
-	(((port)->state == NULL) || ((port)->state->port.tty == NULL))
 #define SIRFUART_DUMMY_READ		BIT(16)
 
 /* Hardware Flow Control */
