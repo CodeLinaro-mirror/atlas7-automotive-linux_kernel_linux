@@ -147,26 +147,6 @@ struct sirfsoc_baudrate_to_regv {
 	unsigned int baud_rate;
 	unsigned int reg_val;
 };
-static struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
-	{4000000, 2359296},
-	{3500000, 1310721},
-	{3000000, 1572865},
-	{2500000, 1245186},
-	{2000000, 1572866},
-	{1500000, 1245188},
-	{1152000, 1638404},
-	{1000000, 1572869},
-	{921600, 1114120},
-	{576000, 1245196},
-	{500000, 1245198},
-	{460800, 1572876},
-	{230400, 1310750},
-	{115200, 1310781},
-	{57600, 1310843},
-	{38400, 1114328},
-	{19200, 1114545},
-	{9600, 1114979},
-};
 
 struct sirfsoc_uart_port {
 	unsigned char			hw_flow_ctrl;
@@ -177,41 +157,6 @@ struct sirfsoc_uart_port {
 
 	struct uart_port		port;
 	struct pinmux			*pmx;
-};
-
-static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
-	[0] = {
-#ifdef CONFIG_SIRFSOC_UART0_FLOWCONTROL
-		.hw_flow_ctrl = 1,
-#else
-		.hw_flow_ctrl = 0,
-#endif
-		.port = {
-			.iotype		= UPIO_MEM,
-			.flags		= UPF_BOOT_AUTOCONF,
-			.line		= 0,
-		},
-	},
-	[1] = {
-		.hw_flow_ctrl = 0,
-		.port = {
-			.iotype		= UPIO_MEM,
-			.flags		= UPF_BOOT_AUTOCONF,
-			.line		= 1,
-		},
-	},
-	[2] = {
-#ifdef CONFIG_SIRFSOC_UART2_FLOWCONTROL
-		.hw_flow_ctrl = 1,
-#else
-		.hw_flow_ctrl = 0,
-#endif
-		.port = {
-			.iotype		= UPIO_MEM,
-			.flags		= UPF_BOOT_AUTOCONF,
-			.line		= 2,
-		},
-	},
 };
 
 #define uart_tx_port_tty_invalid(port)   \
