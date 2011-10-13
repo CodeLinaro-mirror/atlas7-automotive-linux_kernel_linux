@@ -603,7 +603,7 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"Unable to find cell-index in uart node.\n");
 		ret = -EFAULT;
-		goto probe_out;
+		goto err;
 	}
 
 	sirfport = &sirfsoc_uart_ports[pdev->id];
@@ -615,39 +615,41 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 	sirfport->rx_timeout_in_us = 20000;
 
 	if (of_property_read_u32(pdev->dev.of_node,
-					"fifosize",
-					&port->fifosize)) {
+			"fifosize",
+			&port->fifosize)) {
 		dev_err(&pdev->dev,
 			"Unable to find fifosize in uart node.\n");
 		ret = -EFAULT;
-		goto probe_out;
+		goto err;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "Insufficient resources.\n");
 		ret = -EFAULT;
-		goto probe_out;
+		goto err;
 	}
 	port->mapbase = res->start;
-	port->membase = ioremap(res->start, resource_size(res));
+	port->membase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!port->membase) {
 		dev_err(&pdev->dev, "Cannot remap resource.\n");
 		ret = -ENOMEM;
-		goto probe_out;
+		goto err;
 	}
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "Insufficient resources.\n");
 		ret = -EFAULT;
-		goto probe_out;
+		goto irq_err;
 	}
 	port->irq = res->start;
 
 	if (sirfport->hw_flow_ctrl) {
 		sirfport->pmx = pinmux_get(&pdev->dev, NULL);
-		if (!IS_ERR(sirfport->pmx))
-			pinmux_enable(sirfport->pmx);
+		if (IS_ERR(sirfport->pmx))
+			goto pmx_err;
+
+		pinmux_enable(sirfport->pmx);
 	}
 
 	port->ops = &sirfsoc_uart_ops;
@@ -657,15 +659,22 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, sirfport);
 	ret = uart_add_one_port(&sirfsoc_uart_drv, port);
 	if (ret != 0) {
-		platform_set_drvdata(pdev, NULL);
-		if (sirfport->hw_flow_ctrl) {
-			pinmux_disable(sirfport->pmx);
-			pinmux_put(sirfport->pmx);
-		}
 		dev_err(&pdev->dev, "Cannot add UART port(%d).\n", pdev->id);
-		goto probe_out;
+		goto port_err;
 	}
-probe_out:
+
+	return 0;
+
+port_err:
+	platform_set_drvdata(pdev, NULL);
+	if (sirfport->hw_flow_ctrl) {
+		pinmux_disable(sirfport->pmx);
+		pinmux_put(sirfport->pmx);
+	}
+pmx_err:
+irq_err:
+	devm_iounmap(&pdev->dev, port->membase);
+err:
 	return ret;
 }
 
@@ -678,7 +687,7 @@ static int sirfsoc_uart_remove(struct platform_device *pdev)
 		pinmux_disable(sirfport->pmx);
 		pinmux_put(sirfport->pmx);
 	}
-	iounmap(port->membase);
+	devm_iounmap(&pdev->dev, port->membase);
 	uart_remove_one_port(&sirfsoc_uart_drv, port);
 	return 0;
 }
