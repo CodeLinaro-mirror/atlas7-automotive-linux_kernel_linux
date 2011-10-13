@@ -147,7 +147,7 @@ static void sirfsoc_uart_stop_rx(struct uart_port *port)
 	unsigned long regv;
 	wr_regl(port, SIRFUART_RX_FIFO_OP, 0);
 	regv = rd_regl(port, SIRFUART_INT_EN);
-	wr_regl(port, SIRFUART_INT_EN, regv & ~sirfport->rx_intr_mask);
+	wr_regl(port, SIRFUART_INT_EN, regv & ~SIRFUART_RX_IO_INT_EN);
 }
 
 static void sirfsoc_uart_disable_ms(struct uart_port *port)
@@ -303,7 +303,7 @@ static void sirfsoc_uart_start_rx(struct uart_port *port)
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	unsigned long regv;
 	regv = rd_regl(port, SIRFUART_INT_EN);
-	wr_regl(port, SIRFUART_INT_EN, regv | sirfport->rx_intr_mask);
+	wr_regl(port, SIRFUART_INT_EN, regv | SIRFUART_RX_IO_INT_EN);
 	wr_regl(port, SIRFUART_RX_FIFO_OP, SIRFUART_RX_FIFO_RESET);
 	wr_regl(port, SIRFUART_RX_FIFO_OP, 0);
 	wr_regl(port, SIRFUART_RX_FIFO_OP, SIRFUART_RX_FIFO_START);
@@ -643,7 +643,6 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 
 	port->ops = &sirfsoc_uart_ops;
 	spin_lock_init(&port->lock);
-	sirfport->rx_intr_mask = SIRFUART_RX_IO_INT_EN;
 
 	platform_set_drvdata(pdev, sirfport);
 	ret = uart_add_one_port(&sirfsoc_uart_drv, port);

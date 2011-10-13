@@ -151,7 +151,6 @@ struct sirfsoc_baudrate_to_regv {
 struct sirfsoc_uart_port {
 	unsigned char			hw_flow_ctrl;
 	unsigned char			ms_enabled;
-	unsigned long			rx_intr_mask;
 
 	struct uart_port		port;
 	struct pinmux			*pmx;
