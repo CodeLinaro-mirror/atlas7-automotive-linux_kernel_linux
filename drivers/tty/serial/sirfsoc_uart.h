@@ -49,6 +49,7 @@
 #define SIRFUART_SET_BREAK			BIT(6)
 #define SIRFUART_LOOP_BACK			BIT(7)
 #define SIRFUART_PARITY_MASK			(7 << 3)
+#define SIRFUART_DUMMY_READ			BIT(16)
 
 #define SIRFSOC_UART_RX_TIMEOUT(br, to)	(((br) * (((to) + 999) / 1000)) / 1000)
 #define SIRFUART_RECV_TIMEOUT_MASK	(0xFFFF << 16)
@@ -134,7 +135,8 @@
 
 /* Generic Definitions */
 #define SIRFSOC_UART_NAME			"ttySiRFS"
-#define SIRFSOC_UART_MAJOR			TTY_MAJOR
+#define SIRFSOC_UART_MAJOR			0 /* use dynamic alloction */
+#define SIRFSOC_UART_MINOR			0
 #define SIRFUART_PORT_NAME			"sirfsoc-uart"
 #define SIRFUART_MAP_SIZE			0x200
 #define SIRFSOC_UART_NR				3
@@ -162,8 +164,6 @@ struct sirfsoc_uart_port {
 	struct uart_port		port;
 	struct pinmux			*pmx;
 };
-
-#define SIRFUART_DUMMY_READ		BIT(16)
 
 /* Hardware Flow Control */
 #define SIRFUART_AFC_CTRL_RX_THD	0x70

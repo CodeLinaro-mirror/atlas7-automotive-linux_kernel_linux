@@ -564,10 +564,8 @@ static int __init sirfsoc_uart_console_setup(struct console *co, char *options)
 	if (co->index < 0 || co->index >= SIRFSOC_UART_NR)
 		return -EINVAL;
 
-	if (!port->mapbase) {
-		pr_err("Console on ttyS%i is not present.\n", co->index);
+	if (!port->mapbase)
 		return -ENODEV;
-	}
 
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
