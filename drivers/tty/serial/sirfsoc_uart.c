@@ -306,6 +306,35 @@ static void sirfsoc_uart_start_rx(struct uart_port *port)
 	wr_regl(port, SIRFUART_RX_FIFO_OP, SIRFUART_RX_FIFO_START);
 }
 
+static unsigned int
+calc_sample_div(unsigned int baud_rate, unsigned int ioclk_rate)
+{
+	unsigned int min_err = 0xffffffff;
+	unsigned short sample_div;
+	unsigned int ret = 0;
+	unsigned int ioclk_div;
+	unsigned int baud_tmp;
+	unsigned int baud_err;
+
+	for (sample_div = SIRF_MIN_SAMPLE_DIV;
+			sample_div <= SIRF_MAX_SAMPLE_DIV; sample_div++) {
+		ioclk_div = (ioclk_rate / (baud_rate * (sample_div + 1))) - 1;
+		if (ioclk_div > SIRF_IOCLK_DIV_MAX)
+			continue;
+		baud_tmp = ioclk_rate / ((ioclk_div + 1) * (sample_div + 1));
+		baud_err = baud_tmp - baud_rate;
+		baud_err = (baud_err > 0) ? baud_err : (-baud_err);
+		if (baud_err < min_err) {
+			ret = ret & (~SIRF_IOCLK_DIV_MASK);
+			ret = ret | ioclk_div;
+			ret = ret & (~SIRF_SAMPLE_DIV_MASK);
+			ret = ret | (sample_div << SIRF_SAMPLE_DIV_SHIFT);
+			min_err = baud_err;
+		}
+	}
+	return ret;
+}
+
 static void sirfsoc_uart_set_termios(struct uart_port *port,
 				       struct ktermios *termios,
 				       struct ktermios *old)
@@ -377,12 +406,16 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (sirfport->ms_enabled)
 			sirfsoc_uart_disable_ms(port);
 	}
-	for (ic = 0; ic < SIRFUART_BAUD_RATE_SUPPORT_NR; ic++)
+	/* set baud rate : support common and arbitary */
+	/* common rate: fast calculation */
+	for (ic = 0; ic < SIRF_BAUD_RATE_SUPPORT_NR; ic++)
 		if (baud_rate == baudrate_to_regv[ic].baud_rate)
 			clk_div_reg = baudrate_to_regv[ic].reg_val;
+	/* arbitary rate: call calc_sample_div() */
 	if (clk_div_reg == 0)
-		pr_err("SiRF UART: Cannot set Baud Rate (9600 ~ 4000000).\n");
+		clk_div_reg = calc_sample_div(baud_rate, ioclk_rate);
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
+
 	/* set receive timeout */
 	rx_time_out = SIRFSOC_UART_RX_TIMEOUT(baud_rate, 20000);
 	rx_time_out = (rx_time_out > 0xFFFF) ? 0xFFFF : rx_time_out;

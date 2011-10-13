@@ -137,10 +137,18 @@
 #define SIRFSOC_UART_MAJOR			TTY_MAJOR
 #define SIRFSOC_UART_MINOR			64
 #define SIRFUART_PORT_NAME			"sirfsoc-uart"
-#define SIRFUART_BAUD_RATE_SUPPORT_NR		18
 #define SIRFUART_MAP_SIZE			0x200
 #define SIRFSOC_UART_NR				3
 #define SIRFSOC_PORT_TYPE			0xa5
+
+/* Baud Rate Calculation */
+#define SIRF_MIN_SAMPLE_DIV			0xf
+#define SIRF_MAX_SAMPLE_DIV			0x3f
+#define SIRF_IOCLK_DIV_MAX			0xffff
+#define SIRF_SAMPLE_DIV_SHIFT			16
+#define SIRF_IOCLK_DIV_MASK			0xffff
+#define SIRF_SAMPLE_DIV_MASK			0x3f0000
+#define SIRF_BAUD_RATE_SUPPORT_NR		18
 
 /* For Fast Baud Rate Calculation */
 struct sirfsoc_baudrate_to_regv {
