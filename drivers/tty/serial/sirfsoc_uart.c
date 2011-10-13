@@ -55,11 +55,6 @@ static struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
 
 static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 	[0] = {
-#ifdef CONFIG_SIRFSOC_UART0_FLOWCONTROL
-		.hw_flow_ctrl = 1,
-#else
-		.hw_flow_ctrl = 0,
-#endif
 		.port = {
 			.iotype		= UPIO_MEM,
 			.flags		= UPF_BOOT_AUTOCONF,
@@ -75,11 +70,6 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 		},
 	},
 	[2] = {
-#ifdef CONFIG_SIRFSOC_UART2_FLOWCONTROL
-		.hw_flow_ctrl = 1,
-#else
-		.hw_flow_ctrl = 0,
-#endif
 		.port = {
 			.iotype		= UPIO_MEM,
 			.flags		= UPF_BOOT_AUTOCONF,
@@ -614,6 +604,9 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 	sirfport->max_baud_rate = 921600;
 	sirfport->rx_timeout_in_us = 20000;
 
+	if (of_find_property(pdev->dev.of_node, "hw_flow_ctrl", NULL))
+		sirfport->hw_flow_ctrl = 1;
+
 	if (of_property_read_u32(pdev->dev.of_node,
 			"fifosize",
 			&port->fifosize)) {
@@ -646,7 +639,8 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 
 	if (sirfport->hw_flow_ctrl) {
 		sirfport->pmx = pinmux_get(&pdev->dev, NULL);
-		if (IS_ERR(sirfport->pmx))
+		ret = IS_ERR(sirfport->pmx);
+		if (ret)
 			goto pmx_err;
 
 		pinmux_enable(sirfport->pmx);
