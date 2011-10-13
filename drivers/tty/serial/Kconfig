@@ -535,7 +535,7 @@ config SERIAL_SIRFSOC
         help
           Support for the on-chip UART on the CSR SiRFprimaII series,
           providing /dev/ttyS0, 1 and 2 (note, some machines may not
-          provide all of these ports, depending on how the serial port 
+          provide all of these ports, depending on how the serial port
           pins are configured.
 
 config SERIAL_SIRFSOC_CONSOLE

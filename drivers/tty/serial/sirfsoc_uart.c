@@ -62,7 +62,6 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 		},
 	},
 	[1] = {
-		.hw_flow_ctrl = 0,
 		.port = {
 			.iotype		= UPIO_MEM,
 			.flags		= UPF_BOOT_AUTOCONF,
@@ -143,7 +142,6 @@ void sirfsoc_uart_start_tx(struct uart_port *port)
 
 static void sirfsoc_uart_stop_rx(struct uart_port *port)
 {
-	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	unsigned long regv;
 	wr_regl(port, SIRFUART_RX_FIFO_OP, 0);
 	regv = rd_regl(port, SIRFUART_INT_EN);
@@ -300,7 +298,6 @@ recv_char:
 
 static void sirfsoc_uart_start_rx(struct uart_port *port)
 {
-	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	unsigned long regv;
 	regv = rd_regl(port, SIRFUART_INT_EN);
 	wr_regl(port, SIRFUART_INT_EN, regv | SIRFUART_RX_IO_INT_EN);
