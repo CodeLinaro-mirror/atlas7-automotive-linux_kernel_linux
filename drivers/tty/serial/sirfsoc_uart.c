@@ -32,7 +32,7 @@ static unsigned int
 sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count);
 static struct uart_driver sirfsoc_uart_drv;
 
-static struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
+static const struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
 	{4000000, 2359296},
 	{3500000, 1310721},
 	{3000000, 1572865},
