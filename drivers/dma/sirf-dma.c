@@ -43,6 +43,8 @@ struct sirfsoc_dma_desc {
 	int             xlen;           /* DMA xlen */
 	int             ylen;           /* DMA ylen */
 	int             width;          /* DMA width */
+	bool            cyclic;
+	u32             dma_addr;
 };
 
 struct sirfsoc_dma_chan {
@@ -53,13 +55,14 @@ struct sirfsoc_dma_chan {
 	struct list_head		active;
 	struct list_head		completed;
 	dma_cookie_t			completed_cookie;
+	unsigned long			happened_cyclic;
+	unsigned long			completed_cyclic;
 
 	/* Lock for this structure */
 	spinlock_t			lock;
 
 	int             direction;
 	int             mode;
-	u32             addr;
 };
 
 struct sirfsoc_dma {
@@ -106,7 +109,14 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) | (1 << cid),
 		sdma->base + SIRFSOC_DMA_INT_EN);
-	writel_relaxed(schan->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
+	writel_relaxed(sdesc->dma_addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
+
+	if (sdesc->cyclic) {
+		writel_relaxed((1 << cid) | 1 << (cid + 16) |
+			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
+			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
+		schan->happened_cyclic = schan->completed_cyclic = 0;
+	}
 }
 
 /* Interrupt handler */
@@ -114,6 +124,8 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 {
 	struct sirfsoc_dma *sdma = data;
 	struct sirfsoc_dma_chan *schan;
+	struct sirfsoc_dma_desc *sdesc = NULL;
+	unsigned long iflags;
 	u32 is;
 	int ch;
 
@@ -125,10 +137,17 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 
 		spin_lock(&schan->lock);
 
-		/* Execute queued descriptors */
-		list_splice_tail_init(&schan->active, &schan->completed);
-		if (!list_empty(&schan->queued))
-			sirfsoc_dma_execute(schan);
+		/* Get free descriptor */
+		spin_lock_irqsave(&schan->lock, iflags);
+		sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
+			node);
+		if (!sdesc->cyclic) {
+			/* Execute queued descriptors */
+			list_splice_tail_init(&schan->active, &schan->completed);
+			if (!list_empty(&schan->queued))
+				sirfsoc_dma_execute(schan);
+		} else
+			schan->happened_cyclic++;
 
 		spin_unlock(&schan->lock);
 	}
@@ -159,8 +178,18 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 			list_splice_tail_init(&schan->completed, &list);
 		spin_unlock_irqrestore(&schan->lock, flags);
 
-		if (list_empty(&list))
+		if (list_empty(&list)) {
+			/* for cyclic channel, desc is always in active list */
+			sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
+				node);
+			desc = &sdesc->desc;
+			if (sdesc->cyclic && (schan->happened_cyclic != schan->completed_cyclic)) {
+				if (desc->callback)
+					desc->callback(desc->callback_param);
+				schan->completed_cyclic++;
+			}
 			continue;
+		}
 
 		/* Execute callbacks and run dependencies */
 		list_for_each_entry(sdesc, &list, node) {
@@ -220,18 +249,16 @@ static dma_cookie_t sirfsoc_dma_tx_submit(struct dma_async_tx_descriptor *txd)
 static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
 	struct dma_slave_config *config)
 {
-	u32 addr, direction;
+	u32 direction;
 	unsigned long flags;
 
 	switch (config->direction) {
 	case DMA_FROM_DEVICE:
 		direction = 0;
-		addr = config->dst_addr;
 		break;
 
 	case DMA_TO_DEVICE:
 		direction = 1;
-		addr = config->src_addr;
 		break;
 
 	default:
@@ -243,7 +270,6 @@ static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
 		return -EINVAL;
 
 	spin_lock_irqsave(&schan->lock, flags);
-	schan->addr = addr;
 	schan->direction = direction;
 	schan->mode = (config->src_maxburst == 4 ? 1 : 0);
 	spin_unlock_irqrestore(&schan->lock, flags);
@@ -260,6 +286,10 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) & ~(1 << cid),
 		sdma->base + SIRFSOC_DMA_INT_EN);
 	writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_CH_VALID);
+
+	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
+		& ~((1 << cid) | 1 << (cid + 16)),
+			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
 
 	spin_lock_irqsave(&schan->lock, flags);
 	list_splice_tail_init(&schan->active, &schan->free);
@@ -422,9 +452,15 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_genxfer(
 	/* Place descriptor in prepared list */
 	spin_lock_irqsave(&schan->lock, iflags);
 	if ((xt->frame_size == 1) && (xt->numf > 0)) {
+		sdesc->cyclic = 0;
 		sdesc->xlen = xt->sgl[0].size;
 		sdesc->width = xt->sgl[0].size + xt->sgl[0].icg;
 		sdesc->ylen = xt->numf - 1;
+		if (xt->src_inc)
+			sdesc->dma_addr = xt->src_start;
+		else
+			sdesc->dma_addr = xt->dst_start;
+
 		list_add_tail(&sdesc->node, &schan->prepared);
 	} else {
 		pr_err("sirfsoc DMA Invalid xfer\n");
@@ -438,6 +474,46 @@ err_xfer:
 	spin_unlock_irqrestore(&schan->lock, iflags);
 no_desc:
 	return ERR_PTR(ret);
+}
+
+static struct dma_async_tx_descriptor *
+sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
+	size_t buf_len, size_t period_len,
+	enum dma_data_direction direction)
+{
+	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+	struct sirfsoc_dma_desc *sdesc = NULL;
+	unsigned long iflags;
+
+	/*
+	 * we only support cycle transfer with 2 period
+	 */
+	if (buf_len !=  2 * period_len)
+		return ERR_PTR(-EINVAL);
+
+	/* Get free descriptor */
+	spin_lock_irqsave(&schan->lock, iflags);
+	if (!list_empty(&schan->free)) {
+		sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
+			node);
+		list_del(&sdesc->node);
+	}
+	spin_unlock_irqrestore(&schan->lock, iflags);
+
+	if (!sdesc)
+		return 0;
+
+	/* Place descriptor in prepared list */
+	spin_lock_irqsave(&schan->lock, iflags);
+	sdesc->dma_addr = dma_addr;
+	sdesc->cyclic = 1;
+	sdesc->xlen = 0; /* prima2 loop mode */
+	sdesc->ylen = buf_len / 4 - 1;
+	sdesc->width = 4;
+	list_add_tail(&sdesc->node, &schan->prepared);
+	spin_unlock_irqrestore(&schan->lock, iflags);
+
+	return &sdesc->desc;
 }
 
 /*
@@ -523,9 +599,11 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 	dma->device_tx_status = sirfsoc_dma_tx_status;
 	dma->device_prep_slave_sg = sirfsoc_dma_prep_slave_sg;
 	dma->device_prep_dma_genxfer = sirfsoc_dma_prep_genxfer;
+	dma->device_prep_dma_cyclic = sirfsoc_dma_prep_cyclic;
 
 	INIT_LIST_HEAD(&dma->channels);
 	dma_cap_set(DMA_SLAVE, dma->cap_mask);
+	dma_cap_set(DMA_CYCLIC, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
 
 	for (i = 0; i < dma->chancnt; i++) {
