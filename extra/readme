@@ -4,7 +4,7 @@ Temp utilities to test the whold Linux 3.0, including:
 
 Note uboot setting:
 baudrate=115200
-bootargs=mem=512M console=ttySiRF retain_initrd earlyprintk
+bootargs=no_console_suspend mem=512M console=ttySiRF1 retain_initrd earlyprintk
 bootcmd=mmc read 0 0x3608000 0x3780 0x80;mmc read 0 0x02008000 0x1800 0x1800;fdt addr 0x3608000; fdt resize; bootm 0x02008000 - 0x3608000
 
 2. flash.sh for flashing SD card
