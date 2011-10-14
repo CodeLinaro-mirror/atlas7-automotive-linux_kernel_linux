@@ -23,7 +23,6 @@
 
 #include <linux/device.h>
 #include <linux/uio.h>
-#include <linux/dma-direction.h>
 
 struct scatterlist;
 
@@ -222,6 +221,19 @@ enum sum_check_flags {
 	SUM_CHECK_Q_RESULT = (1 << SUM_CHECK_Q),
 };
 
+/**
+ * enum dma_transfer_direction - dma transfer mode and direction indicator
+ * @MEM_TO_MEM: Async/Memcpy mode
+ * @MEM_TO_DEV: Slave mode & From Memory to Device
+ * @DEV_TO_MEM: Slave mode & From Device to Memory
+ * @DEV_TO_DEV: Slave mode & From Device to Device
+ */
+enum dma_transfer_direction {
+	MEM_TO_MEM,
+	MEM_TO_DEV,
+	DEV_TO_MEM,
+	DEV_TO_DEV,
+};
 
 /**
  * dma_cap_mask_t - capabilities bitmap modeled after cpumask_t.
@@ -338,7 +350,7 @@ enum dma_slave_buswidth {
  * struct, if applicable.
  */
 struct dma_slave_config {
-	enum dma_data_direction direction;
+	enum dma_transfer_direction direction;
 	dma_addr_t src_addr;
 	dma_addr_t dst_addr;
 	enum dma_slave_buswidth src_addr_width;
@@ -562,11 +574,11 @@ struct dma_device {
 
 	struct dma_async_tx_descriptor *(*device_prep_slave_sg)(
 		struct dma_chan *chan, struct scatterlist *sgl,
-		unsigned int sg_len, enum dma_data_direction direction,
+		unsigned int sg_len, enum dma_transfer_direction direction,
 		unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_cyclic)(
 		struct dma_chan *chan, dma_addr_t buf_addr, size_t buf_len,
-		size_t period_len, enum dma_data_direction direction);
+		size_t period_len, enum dma_transfer_direction direction);
 	struct dma_async_tx_descriptor *(*device_prep_dma_genxfer)(
 		struct dma_chan *chan, struct xfer_template *xt);
 	int (*device_control)(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
