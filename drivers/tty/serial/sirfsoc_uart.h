@@ -134,9 +134,9 @@
 #define SIRFUART_TX_EN				0x2
 
 /* Generic Definitions */
-#define SIRFSOC_UART_NAME			"ttyS"
-#define SIRFSOC_UART_MAJOR			TTY_MAJOR
-#define SIRFSOC_UART_MINOR			64
+#define SIRFSOC_UART_NAME			"ttySiRF"
+#define SIRFSOC_UART_MAJOR			0
+#define SIRFSOC_UART_MINOR			0
 #define SIRFUART_PORT_NAME			"sirfsoc-uart"
 #define SIRFUART_MAP_SIZE			0x200
 #define SIRFSOC_UART_NR				3
