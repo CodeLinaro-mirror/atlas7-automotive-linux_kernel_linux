@@ -313,12 +313,12 @@ static unsigned int
 sirfsoc_calc_sample_div(unsigned long baud_rate,
 			unsigned long ioclk_rate, unsigned long *setted_baud)
 {
-	unsigned long min_err = 0xffffffff;
+	unsigned long min_delta = ~0UL;
 	unsigned short sample_div;
-	unsigned int ret = 0;
+	unsigned int regv = 0;
 	unsigned long ioclk_div;
 	unsigned long baud_tmp;
-	int baud_err;
+	int temp_delta;
 
 	for (sample_div = SIRF_MIN_SAMPLE_DIV;
 			sample_div <= SIRF_MAX_SAMPLE_DIV; sample_div++) {
@@ -326,18 +326,18 @@ sirfsoc_calc_sample_div(unsigned long baud_rate,
 		if (ioclk_div > SIRF_IOCLK_DIV_MAX)
 			continue;
 		baud_tmp = ioclk_rate / ((ioclk_div + 1) * (sample_div + 1));
-		baud_err = baud_tmp - baud_rate;
-		baud_err = (baud_err > 0) ? baud_err : -baud_err;
-		if (baud_err < min_err) {
-			ret = ret & (~SIRF_IOCLK_DIV_MASK);
-			ret = ret | ioclk_div;
-			ret = ret & (~SIRF_SAMPLE_DIV_MASK);
-			ret = ret | (sample_div << SIRF_SAMPLE_DIV_SHIFT);
-			min_err = baud_err;
+		temp_delta = baud_tmp - baud_rate;
+		temp_delta = (temp_delta > 0) ? temp_delta : -temp_delta;
+		if (temp_delta < min_delta) {
+			regv = regv & (~SIRF_IOCLK_DIV_MASK);
+			regv = regv | ioclk_div;
+			regv = regv & (~SIRF_SAMPLE_DIV_MASK);
+			regv = regv | (sample_div << SIRF_SAMPLE_DIV_SHIFT);
+			min_delta = temp_delta;
 			*setted_baud = baud_tmp;
 		}
 	}
-	return ret;
+	return regv;
 }
 
 static void sirfsoc_uart_set_termios(struct uart_port *port,
