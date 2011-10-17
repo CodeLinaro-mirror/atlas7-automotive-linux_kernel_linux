@@ -425,6 +425,11 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 	unsigned long iflags;
 	int ret;
 
+	if ((xt->dir != MEM_TO_DEV) || (xt->dir != DEV_TO_MEM)) {
+		ret = -EINVAL;
+		goto err_dir;
+	}
+
 	/* Get free descriptor */
 	spin_lock_irqsave(&schan->lock, iflags);
 	if (!list_empty(&schan->free)) {
@@ -448,7 +453,7 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 		sdesc->xlen = xt->sgl[0].size / 4;
 		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / 4;
 		sdesc->ylen = xt->numf - 1;
-		if (xt->src_inc)
+		if (xt->dir == MEM_TO_DEV)
 			sdesc->dma_addr = xt->src_start;
 		else
 			sdesc->dma_addr = xt->dst_start;
@@ -465,6 +470,7 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 err_xfer:
 	spin_unlock_irqrestore(&schan->lock, iflags);
 no_desc:
+err_dir:
 	return ERR_PTR(ret);
 }
 
