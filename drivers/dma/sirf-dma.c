@@ -44,6 +44,7 @@ struct sirfsoc_dma_desc {
 	int             xlen;           /* DMA xlen */
 	int             ylen;           /* DMA ylen */
 	int             width;          /* DMA width */
+	int             dir;
 	bool            cyclic;         /* is loop DMA? */
 	u32             addr;		/* DMA buffer address */
 };
@@ -62,7 +63,6 @@ struct sirfsoc_dma_chan {
 	/* Lock for this structure */
 	spinlock_t			lock;
 
-	int             direction;
 	int             mode;
 };
 
@@ -104,7 +104,7 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	/* Start the DMA transfer */
 	writel_relaxed(sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_0 + cid * 4);
 	writel_relaxed(cid | (schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
-		(schan->direction << SIRFSOC_DMA_DIR_CTRL_BIT),
+		(sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT),
 		sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_CTRL);
 	writel_relaxed(sdesc->xlen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_XLEN);
 	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
@@ -260,28 +260,13 @@ static dma_cookie_t sirfsoc_dma_tx_submit(struct dma_async_tx_descriptor *txd)
 static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
 	struct dma_slave_config *config)
 {
-	u32 direction;
 	unsigned long flags;
-
-	switch (config->direction) {
-	case DMA_FROM_DEVICE:
-		direction = 0;
-		break;
-
-	case DMA_TO_DEVICE:
-		direction = 1;
-		break;
-
-	default:
-		return -EINVAL;
-	}
 
 	if ((config->src_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES) ||
 		(config->dst_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES))
 		return -EINVAL;
 
 	spin_lock_irqsave(&schan->lock, flags);
-	schan->direction = direction;
 	schan->mode = (config->src_maxburst == 4 ? 1 : 0);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
@@ -464,10 +449,13 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 		sdesc->xlen = xt->sgl[0].size / 4;
 		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / 4;
 		sdesc->ylen = xt->numf - 1;
-		if (xt->dir == MEM_TO_DEV)
+		if (xt->dir == MEM_TO_DEV) {
 			sdesc->addr = xt->src_start;
-		else
+			sdesc->dir = 1;
+		} else {
 			sdesc->addr = xt->dst_start;
+			sdesc->dir = 0;
+		}
 
 		list_add_tail(&sdesc->node, &schan->prepared);
 	} else {
