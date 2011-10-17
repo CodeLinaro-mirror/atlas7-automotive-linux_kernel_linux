@@ -40,11 +40,12 @@ struct sirfsoc_dma_desc {
 	struct list_head		node;
 
 	/* SiRFprimaII 2D-DMA parameters */
+
 	int             xlen;           /* DMA xlen */
 	int             ylen;           /* DMA ylen */
 	int             width;          /* DMA width */
-	bool            cyclic;
-	u32             dma_addr;
+	bool            cyclic;         /* is loop DMA? */
+	u32             addr;		/* DMA buffer address */
 };
 
 struct sirfsoc_dma_chan {
@@ -109,7 +110,7 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) | (1 << cid),
 		sdma->base + SIRFSOC_DMA_INT_EN);
-	writel_relaxed(sdesc->dma_addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
+	writel_relaxed(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
 	if (sdesc->cyclic) {
 		writel_relaxed((1 << cid) | 1 << (cid + 16) |
@@ -454,9 +455,9 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / 4;
 		sdesc->ylen = xt->numf - 1;
 		if (xt->dir == MEM_TO_DEV)
-			sdesc->dma_addr = xt->src_start;
+			sdesc->addr = xt->src_start;
 		else
-			sdesc->dma_addr = xt->dst_start;
+			sdesc->addr = xt->dst_start;
 
 		list_add_tail(&sdesc->node, &schan->prepared);
 	} else {
@@ -475,7 +476,7 @@ err_dir:
 }
 
 static struct dma_async_tx_descriptor *
-sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
+sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	size_t buf_len, size_t period_len,
 	enum dma_transfer_direction direction)
 {
@@ -511,7 +512,7 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 
 	/* Place descriptor in prepared list */
 	spin_lock_irqsave(&schan->lock, iflags);
-	sdesc->dma_addr = dma_addr;
+	sdesc->addr = addr;
 	sdesc->cyclic = 1;
 	sdesc->xlen = 0;
 	sdesc->ylen = buf_len / 4 - 1;
