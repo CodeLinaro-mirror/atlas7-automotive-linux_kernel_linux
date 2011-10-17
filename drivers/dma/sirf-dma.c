@@ -130,7 +130,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	u32 is;
 	int ch;
 
-	is = readl_relaxed(sdma->base + SIRFSOC_DMA_CH_INT);
+	is = readl(sdma->base + SIRFSOC_DMA_CH_INT);
 	while ((ch = fls(is) - 1) >= 0) {
 		is &= ~(1 << ch);
 		writel_relaxed(1 << ch, sdma->base + SIRFSOC_DMA_CH_INT);
