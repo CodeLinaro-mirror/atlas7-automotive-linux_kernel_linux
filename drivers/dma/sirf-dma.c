@@ -416,16 +416,8 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 	return dma_async_is_complete(cookie, last_complete, last_used);
 }
 
-static struct dma_async_tx_descriptor *sirfsoc_dma_prep_slave_sg(
-	struct dma_chan *chan, struct scatterlist *sgl,
-	unsigned int sg_len, enum dma_data_direction direction,
-	unsigned long flags)
-{
-	return NULL;
-}
-
-static struct dma_async_tx_descriptor *sirfsoc_dma_prep_genxfer(
-	struct dma_chan *chan, struct xfer_template *xt)
+static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
+	struct dma_chan *chan, struct dma_interleaved_template *xt)
 {
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
@@ -479,7 +471,7 @@ no_desc:
 static struct dma_async_tx_descriptor *
 sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 	size_t buf_len, size_t period_len,
-	enum dma_data_direction direction)
+	enum dma_transfer_direction direction)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
@@ -602,13 +594,13 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 	dma->device_issue_pending = sirfsoc_dma_issue_pending;
 	dma->device_control = sirfsoc_dma_control;
 	dma->device_tx_status = sirfsoc_dma_tx_status;
-	dma->device_prep_slave_sg = sirfsoc_dma_prep_slave_sg;
-	dma->device_prep_dma_genxfer = sirfsoc_dma_prep_genxfer;
+	dma->device_prep_interleaved_dma = sirfsoc_dma_prep_interleaved;
 	dma->device_prep_dma_cyclic = sirfsoc_dma_prep_cyclic;
 
 	INIT_LIST_HEAD(&dma->channels);
 	dma_cap_set(DMA_SLAVE, dma->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dma->cap_mask);
+	dma_cap_set(DMA_INTERLEAVE, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
 
 	for (i = 0; i < dma->chancnt; i++) {

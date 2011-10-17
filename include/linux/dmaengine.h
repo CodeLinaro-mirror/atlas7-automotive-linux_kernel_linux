@@ -27,6 +27,20 @@
 struct scatterlist;
 
 /**
+ * enum dma_transfer_direction - dma transfer mode and direction indicator
+ * @MEM_TO_MEM: Async/Memcpy mode
+ * @MEM_TO_DEV: Slave mode & From Memory to Device
+ * @DEV_TO_MEM: Slave mode & From Device to Memory
+ * @DEV_TO_DEV: Slave mode & From Device to Device
+ */
+enum dma_transfer_direction {
+	MEM_TO_MEM,
+	MEM_TO_DEV,
+	DEV_TO_MEM,
+	DEV_TO_DEV,
+};
+
+/**
  * typedef dma_cookie_t - an opaque DMA cookie
  *
  * if dma_cookie_t is >0 it's a DMA request cookie, <0 it's an error code
@@ -70,6 +84,9 @@ enum dma_transaction_type {
 	DMA_ASYNC_TX,
 	DMA_SLAVE,
 	DMA_CYCLIC,
+	DMA_INTERLEAVE,
+	/* last transaction type for creation of the capabilities mask */
+	DMA_TX_TYPE_END,
 };
 
 /* last transaction type for creation of the capabilities mask */
@@ -113,7 +130,7 @@ struct data_chunk {
 };
 
 /**
- * struct xfer_template - Template to convey DMAC the transfer pattern
+ * struct dma_interleaved_template - Template to convey DMAC the transfer pattern
  *	 and attributes.
  * @op: The operation to perform on source data before writing it on
  *	 to destination address.
@@ -132,15 +149,14 @@ struct data_chunk {
  * @frame_size: Number of chunks in a frame i.e, size of sgl[].
  * @sgl: Array of {chunk,icg} pairs that make up a frame.
  */
-struct xfer_template {
-	enum dma_transaction_type op;
+struct dma_interleaved_template {
 	dma_addr_t src_start;
 	dma_addr_t dst_start;
+	enum dma_transfer_direction dir;
 	bool src_inc;
 	bool dst_inc;
 	bool src_sgl;
 	bool dst_sgl;
-	bool frm_irq;
 	size_t numf;
 	size_t frame_size;
 	struct data_chunk sgl[0];
@@ -219,20 +235,6 @@ enum sum_check_bits {
 enum sum_check_flags {
 	SUM_CHECK_P_RESULT = (1 << SUM_CHECK_P),
 	SUM_CHECK_Q_RESULT = (1 << SUM_CHECK_Q),
-};
-
-/**
- * enum dma_transfer_direction - dma transfer mode and direction indicator
- * @MEM_TO_MEM: Async/Memcpy mode
- * @MEM_TO_DEV: Slave mode & From Memory to Device
- * @DEV_TO_MEM: Slave mode & From Device to Memory
- * @DEV_TO_DEV: Slave mode & From Device to Device
- */
-enum dma_transfer_direction {
-	MEM_TO_MEM,
-	MEM_TO_DEV,
-	DEV_TO_MEM,
-	DEV_TO_DEV,
 };
 
 /**
@@ -579,8 +581,8 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_cyclic)(
 		struct dma_chan *chan, dma_addr_t buf_addr, size_t buf_len,
 		size_t period_len, enum dma_transfer_direction direction);
-	struct dma_async_tx_descriptor *(*device_prep_dma_genxfer)(
-		struct dma_chan *chan, struct xfer_template *xt);
+	struct dma_async_tx_descriptor *(*device_prep_interleaved_dma)(
+		struct dma_chan *chan, struct dma_interleaved_template *xt);
 	int (*device_control)(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 		unsigned long arg);
 
