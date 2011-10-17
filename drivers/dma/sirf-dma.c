@@ -167,6 +167,7 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 	struct sirfsoc_dma_desc *sdesc;
 	struct dma_async_tx_descriptor *desc;
 	unsigned long flags;
+	unsigned long happened_cyclic;
 	LIST_HEAD(list);
 	int i;
 
@@ -175,39 +176,48 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 
 		/* Get all completed descriptors */
 		spin_lock_irqsave(&schan->lock, flags);
-		if (!list_empty(&schan->completed))
+		if (!list_empty(&schan->completed)) {
 			list_splice_tail_init(&schan->completed, &list);
-		spin_unlock_irqrestore(&schan->lock, flags);
+			spin_unlock_irqrestore(&schan->lock, flags);
 
-		if (list_empty(&list)) {
+			/* Execute callbacks and run dependencies */
+			list_for_each_entry(sdesc, &list, node) {
+				desc = &sdesc->desc;
+
+				if (desc->callback)
+					desc->callback(desc->callback_param);
+
+				last_cookie = desc->cookie;
+				dma_run_dependencies(desc);
+			}
+
+			/* Free descriptors */
+			spin_lock_irqsave(&schan->lock, flags);
+			list_splice_tail_init(&list, &schan->free);
+			schan->completed_cookie = last_cookie;
+			spin_unlock_irqrestore(&schan->lock, flags);
+		} else {
 			/* for cyclic channel, desc is always in active list */
 			sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
 				node);
+
+			if (!sdesc || (sdesc && !sdesc->cyclic)) { /* without active cyclic DMA */
+				spin_unlock_irqrestore(&schan->lock, flags);
+				continue;
+			}
+
+			/* cyclic DMA */
+			happened_cyclic = schan->happened_cyclic;
+			spin_unlock_irqrestore(&schan->lock, flags);
+
 			desc = &sdesc->desc;
-			if (sdesc->cyclic && (schan->happened_cyclic != schan->completed_cyclic)) {
+			while (happened_cyclic != schan->completed_cyclic) {
+				spin_unlock_irqrestore(&schan->lock, flags);
 				if (desc->callback)
 					desc->callback(desc->callback_param);
 				schan->completed_cyclic++;
 			}
-			continue;
 		}
-
-		/* Execute callbacks and run dependencies */
-		list_for_each_entry(sdesc, &list, node) {
-			desc = &sdesc->desc;
-
-			if (desc->callback)
-				desc->callback(desc->callback_param);
-
-			last_cookie = desc->cookie;
-			dma_run_dependencies(desc);
-		}
-
-		/* Free descriptors */
-		spin_lock_irqsave(&schan->lock, flags);
-		list_splice_tail_init(&list, &schan->free);
-		schan->completed_cookie = last_cookie;
-		spin_unlock_irqrestore(&schan->lock, flags);
 	}
 }
 
