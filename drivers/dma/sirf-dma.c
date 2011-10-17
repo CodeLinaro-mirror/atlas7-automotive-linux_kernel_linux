@@ -342,7 +342,7 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 
 	/* Alloc descriptors for this channel */
 	for (i = 0; i < SIRFSOC_DMA_DESCRIPTORS; i++) {
-		sdesc = kzalloc(sizeof(struct sirfsoc_dma_desc), GFP_KERNEL);
+		sdesc = kzalloc(sizeof(*sdesc), GFP_KERNEL);
 		if (!sdesc) {
 			dev_notice(sdma->dma.dev, "Memory allocation error. "
 				"Allocated only %u descriptors\n", i);
@@ -561,7 +561,7 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 	u32 id;
 	int retval, i;
 
-	sdma = devm_kzalloc(dev, sizeof(struct sirfsoc_dma), GFP_KERNEL);
+	sdma = devm_kzalloc(dev, sizeof(*sdma), GFP_KERNEL);
 	if (!sdma) {
 		dev_err(dev, "Memory exhausted!\n");
 		return -ENOMEM;
