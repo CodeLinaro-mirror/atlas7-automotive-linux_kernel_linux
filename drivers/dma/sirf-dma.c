@@ -485,6 +485,14 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 
 	/*
 	 * we only support cycle transfer with 2 period
+	 * If the X-length is set to 0, it would be the loop mode.
+	 * The DMA address keeps increasing until reaching the end of a loop
+	 * area whose size is defined by (DMA_WIDTH x (Y_LENGTH + 1)). Then
+	 * the DMA address goes back to the beginning of this area.
+	 * In loop mode, the DMA data region is divided into two parts, BUFA
+	 * and BUFB. DMA controller generates interrupts twice in each loop:
+	 * when the DMA address reaches the end of BUFA or the end of the
+	 * BUFB
 	 */
 	if (buf_len !=  2 * period_len)
 		return ERR_PTR(-EINVAL);
@@ -504,11 +512,6 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 	/* Place descriptor in prepared list */
 	spin_lock_irqsave(&schan->lock, iflags);
 	sdesc->dma_addr = dma_addr;
-	/*
-	 * If the X-length is set to 0, then it would be considered a special DMA mode,
-	 * the loop mode. In loop mode, DMA never finishes until user forces it to stop
-	 * (by writing 1’b0 to the BUFA_VALID or BUFB_VALID register)
-	 */
 	sdesc->cyclic = 1;
 	sdesc->xlen = 0;
 	sdesc->ylen = buf_len / 4 - 1;
