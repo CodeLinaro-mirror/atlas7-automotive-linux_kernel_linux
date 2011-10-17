@@ -110,10 +110,10 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) | (1 << cid),
 		sdma->base + SIRFSOC_DMA_INT_EN);
-	writel_relaxed(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
+	writel(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
 	if (sdesc->cyclic) {
-		writel_relaxed((1 << cid) | 1 << (cid + 16) |
+		writel((1 << cid) | 1 << (cid + 16) |
 			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
 			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
 		schan->happened_cyclic = schan->completed_cyclic = 0;
