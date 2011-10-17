@@ -453,8 +453,8 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_genxfer(
 	spin_lock_irqsave(&schan->lock, iflags);
 	if ((xt->frame_size == 1) && (xt->numf > 0)) {
 		sdesc->cyclic = 0;
-		sdesc->xlen = xt->sgl[0].size;
-		sdesc->width = xt->sgl[0].size + xt->sgl[0].icg;
+		sdesc->xlen = xt->sgl[0].size / 4;
+		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / 4;
 		sdesc->ylen = xt->numf - 1;
 		if (xt->src_inc)
 			sdesc->dma_addr = xt->src_start;
@@ -506,10 +506,15 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
 	/* Place descriptor in prepared list */
 	spin_lock_irqsave(&schan->lock, iflags);
 	sdesc->dma_addr = dma_addr;
+	/*
+	 * If the X-length is set to 0, then it would be considered a special DMA mode,
+	 * the loop mode. In loop mode, DMA never finishes until user forces it to stop
+	 * (by writing 1’b0 to the BUFA_VALID or BUFB_VALID register)
+	 */
 	sdesc->cyclic = 1;
-	sdesc->xlen = 0; /* prima2 loop mode */
+	sdesc->xlen = 0;
 	sdesc->ylen = buf_len / 4 - 1;
-	sdesc->width = 4;
+	sdesc->width = 1;
 	list_add_tail(&sdesc->node, &schan->prepared);
 	spin_unlock_irqrestore(&schan->lock, iflags);
 
