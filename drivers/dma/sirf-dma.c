@@ -365,7 +365,7 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 	list_splice_tail_init(&descs, &schan->free);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
-	return 0;
+	return i;
 }
 
 /* Free channel resources */
