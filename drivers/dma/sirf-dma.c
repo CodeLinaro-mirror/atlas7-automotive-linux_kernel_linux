@@ -35,6 +35,9 @@
 #define SIRFSOC_DMA_MODE_CTRL_BIT               4
 #define SIRFSOC_DMA_DIR_CTRL_BIT                5
 
+/* xlen and dma_width register is in 4 bytes boundary */
+#define SIRFSOC_DMA_WORD_LEN			4
+
 struct sirfsoc_dma_desc {
 	struct dma_async_tx_descriptor	desc;
 	struct list_head		node;
@@ -63,7 +66,7 @@ struct sirfsoc_dma_chan {
 	/* Lock for this structure */
 	spinlock_t			lock;
 
-	int             mode;
+	int				mode;
 };
 
 struct sirfsoc_dma {
@@ -96,6 +99,10 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	int cid = schan->chan.chan_id;
 	struct sirfsoc_dma_desc *sdesc = NULL;
 
+	/*
+	 * lock has been held by functions calling this, so we don't hold lock again
+	 */
+
 	sdesc = list_first_entry(&schan->queued, struct sirfsoc_dma_desc,
 		node);
 	/* Move the first queued descriptor to active list */
@@ -110,6 +117,11 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) | (1 << cid),
 		sdma->base + SIRFSOC_DMA_INT_EN);
+
+	/*
+	 * writel has an implict memory write barrier to make sure data is flushed
+	 * into memory before starting DMA
+	 */
 	writel(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
 	if (sdesc->cyclic) {
@@ -126,7 +138,6 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	struct sirfsoc_dma *sdma = data;
 	struct sirfsoc_dma_chan *schan;
 	struct sirfsoc_dma_desc *sdesc = NULL;
-	unsigned long iflags;
 	u32 is;
 	int ch;
 
@@ -138,8 +149,6 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 
 		spin_lock(&schan->lock);
 
-		/* Get free descriptor */
-		spin_lock_irqsave(&schan->lock, iflags);
 		sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
 			node);
 		if (!sdesc->cyclic) {
@@ -212,7 +221,6 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 
 			desc = &sdesc->desc;
 			while (happened_cyclic != schan->completed_cyclic) {
-				spin_unlock_irqrestore(&schan->lock, flags);
 				if (desc->callback)
 					desc->callback(desc->callback_param);
 				schan->completed_cyclic++;
@@ -444,10 +452,15 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 
 	/* Place descriptor in prepared list */
 	spin_lock_irqsave(&schan->lock, iflags);
+
+	/*
+	 * Number of chunks in a frame can only be 1 for prima2
+	 * and ylen (number of frame - 1) must be at least 0
+	 */
 	if ((xt->frame_size == 1) && (xt->numf > 0)) {
 		sdesc->cyclic = 0;
-		sdesc->xlen = xt->sgl[0].size / 4;
-		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / 4;
+		sdesc->xlen = xt->sgl[0].size / SIRFSOC_DMA_WORD_LEN;
+		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / SIRFSOC_DMA_WORD_LEN;
 		sdesc->ylen = xt->numf - 1;
 		if (xt->dir == MEM_TO_DEV) {
 			sdesc->addr = xt->src_start;
@@ -513,7 +526,7 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	sdesc->addr = addr;
 	sdesc->cyclic = 1;
 	sdesc->xlen = 0;
-	sdesc->ylen = buf_len / 4 - 1;
+	sdesc->ylen = buf_len / SIRFSOC_DMA_WORD_LEN - 1;
 	sdesc->width = 1;
 	list_add_tail(&sdesc->node, &schan->prepared);
 	spin_unlock_irqrestore(&schan->lock, iflags);
@@ -529,8 +542,7 @@ bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 {
 	unsigned int ch_nr = (unsigned int) chan_id;
 
-	if (ch_nr == chan->chan_id +
-		chan->device->dev_id * SIRFSOC_DMA_CHANNELS)
+	if (ch_nr == chan->chan_id + chan->device->dev_id * SIRFSOC_DMA_CHANNELS)
 		return true;
 
 	return false;
@@ -547,7 +559,7 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 	struct resource res;
 	ulong regs_start, regs_size;
 	u32 id;
-	int retval, i;
+	int ret, i;
 
 	sdma = devm_kzalloc(dev, sizeof(*sdma), GFP_KERNEL);
 	if (!sdma) {
@@ -557,40 +569,39 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 
 	if (of_property_read_u32(dn, "cell-index", &id)) {
 		dev_err(dev, "Fail to get DMAC index\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto free_mem;
 	}
 
 	sdma->irq = irq_of_parse_and_map(dn, 0);
 	if (sdma->irq == NO_IRQ) {
 		dev_err(dev, "Error mapping IRQ!\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto free_mem;
 	}
 
-	retval = of_address_to_resource(dn, 0, &res);
-	if (retval) {
+	ret = of_address_to_resource(dn, 0, &res);
+	if (ret) {
 		dev_err(dev, "Error parsing memory region!\n");
-		return retval;
+		goto free_mem;
 	}
 
 	regs_start = res.start;
 	regs_size = resource_size(&res);
 
-	if (!devm_request_mem_region(dev, regs_start, regs_size, DRV_NAME)) {
-		dev_err(dev, "Error requesting memory region!\n");
-		return -EBUSY;
-	}
-
 	sdma->base = devm_ioremap(dev, regs_start, regs_size);
 	if (!sdma->base) {
 		dev_err(dev, "Error mapping memory region!\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto irq_dispose;
 	}
 
-	retval = devm_request_irq(dev, sdma->irq, &sirfsoc_dma_irq, 0, DRV_NAME,
+	ret = devm_request_irq(dev, sdma->irq, &sirfsoc_dma_irq, 0, DRV_NAME,
 		sdma);
-	if (retval) {
+	if (ret) {
 		dev_err(dev, "Error requesting IRQ!\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unmap_mem;
 	}
 
 	dma = &sdma->dma;
@@ -632,13 +643,23 @@ static int __devinit sirfsoc_dma_probe(struct platform_device *op)
 
 	/* Register DMA engine */
 	dev_set_drvdata(dev, sdma);
-	retval = dma_async_device_register(dma);
-	if (retval) {
-		devm_free_irq(dev, sdma->irq, sdma);
-		irq_dispose_mapping(sdma->irq);
-	}
+	ret = dma_async_device_register(dma);
+	if (ret)
+		goto free_irq;
 
-	return retval;
+	dev_info(dev, "initialized SIRFSOC DMAC driver\n");
+
+	return 0;
+
+free_irq:
+	devm_free_irq(dev, sdma->irq, sdma);
+irq_dispose:
+	irq_dispose_mapping(sdma->irq);
+unmap_mem:
+	iounmap(sdma->base);
+free_mem:
+	devm_kfree(dev, sdma);
+	return ret;
 }
 
 static int __devexit sirfsoc_dma_remove(struct platform_device *op)
@@ -649,7 +670,8 @@ static int __devexit sirfsoc_dma_remove(struct platform_device *op)
 	dma_async_device_unregister(&sdma->dma);
 	devm_free_irq(dev, sdma->irq, sdma);
 	irq_dispose_mapping(sdma->irq);
-
+	iounmap(sdma->base);
+	devm_kfree(dev, sdma);
 	return 0;
 }
 
@@ -683,4 +705,4 @@ module_exit(sirfsoc_dma_exit);
 MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>, "
 	"Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("SIRFSOC DMA control driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
