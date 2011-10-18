@@ -307,7 +307,7 @@ static void l2x0_unlock(__u32 cache_id)
 	}
 }
 
-void l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
+void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 {
 	__u32 aux;
 	__u32 cache_id;
@@ -548,7 +548,7 @@ static const struct of_device_id l2x0_ids[] __initconst = {
 	{}
 };
 
-int l2x0_of_init(__u32 aux_val, __u32 aux_mask)
+int __init l2x0_of_init(__u32 aux_val, __u32 aux_mask)
 {
 	struct device_node *np;
 	struct l2x0_of_data *data;
