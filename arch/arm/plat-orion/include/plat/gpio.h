@@ -12,13 +12,7 @@
 #define __PLAT_GPIO_H
 
 #include <linux/init.h>
-
-#define __ARM_GPIOLIB_TRIVIAL
-
-/*
- * GENERIC_GPIO primitives.
- */
-#define gpio_to_irq     __gpio_to_irq
+#include <linux/types.h>
 
 /*
  * Orion-specific GPIO API extensions.

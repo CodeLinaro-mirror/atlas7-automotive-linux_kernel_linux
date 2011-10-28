@@ -869,12 +869,12 @@ static const char *sirfsoc_get_group_name(struct pinctrl_dev *pctldev,
 }
 
 static int sirfsoc_get_group_pins(struct pinctrl_dev *pctldev, unsigned selector,
-			       unsigned ** const pins,
-			       unsigned * const num_pins)
+			       const unsigned **pins,
+			       unsigned *num_pins)
 {
 	if (selector >= ARRAY_SIZE(sirfsoc_pin_groups))
 		return -EINVAL;
-	*pins = (unsigned *) sirfsoc_pin_groups[selector].pins;
+	*pins = sirfsoc_pin_groups[selector].pins;
 	*num_pins = sirfsoc_pin_groups[selector].num_pins;
 	return 0;
 }
@@ -1018,7 +1018,7 @@ static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector,
 {
 	struct sirfsoc_pmx *spmx;
 
-	spmx = pctldev_get_drvdata(pmxdev);
+	spmx = pinctrl_dev_get_drvdata(pmxdev);
 	sirfsoc_pinmux_endisable(spmx, selector, true);
 
 	return 0;
@@ -1029,7 +1029,7 @@ static void sirfsoc_pinmux_disable(struct pinctrl_dev *pmxdev, unsigned selector
 {
 	struct sirfsoc_pmx *spmx;
 
-	spmx = pctldev_get_drvdata(pmxdev);
+	spmx = pinctrl_dev_get_drvdata(pmxdev);
 	sirfsoc_pinmux_endisable(spmx, selector, false);
 }
 
@@ -1064,7 +1064,7 @@ static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
 
 	u32 muxval;
 
-	spmx = pctldev_get_drvdata(pmxdev);
+	spmx = pinctrl_dev_get_drvdata(pmxdev);
 
 	muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
 	muxval = muxval | (1 << offset);
@@ -1166,9 +1166,9 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 
 	/* Now register the pin controller and all pins it handles */
 	spmx->pmx = pinctrl_register(&sirfsoc_pinmux_desc, &pdev->dev, spmx);
-	if (IS_ERR(spmx->pmx)) {
+	if (!spmx->pmx) {
 		dev_err(&pdev->dev, "could not register SIRFSOC pinmux driver\n");
-		ret = PTR_ERR(spmx->pmx);
+		ret = -EINVAL;
 		goto out_no_pmx;
 	}
 

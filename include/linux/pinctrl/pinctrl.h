@@ -75,8 +75,8 @@ struct pinctrl_ops {
 				       unsigned selector);
 	int (*get_group_pins) (struct pinctrl_dev *pctldev,
 			       unsigned selector,
-			       unsigned ** const pins,
-			       unsigned * const num_pins);
+			       const unsigned **pins,
+			       unsigned *num_pins);
 	void (*pin_dbg_show) (struct pinctrl_dev *pctldev, struct seq_file *s,
 			  unsigned offset);
 };
@@ -117,8 +117,8 @@ extern void pinctrl_add_gpio_range(struct pinctrl_dev *pctldev,
 				struct pinctrl_gpio_range *range);
 extern void pinctrl_remove_gpio_range(struct pinctrl_dev *pctldev,
 				struct pinctrl_gpio_range *range);
-extern const char *pctldev_get_name(struct pinctrl_dev *pctldev);
-extern void *pctldev_get_drvdata(struct pinctrl_dev *pctldev);
+extern const char *pinctrl_dev_get_name(struct pinctrl_dev *pctldev);
+extern void *pinctrl_dev_get_drvdata(struct pinctrl_dev *pctldev);
 #else
 
 

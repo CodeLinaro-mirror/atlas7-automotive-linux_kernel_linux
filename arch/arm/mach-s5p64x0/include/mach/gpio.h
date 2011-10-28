@@ -13,9 +13,6 @@
 #ifndef __ASM_ARCH_GPIO_H
 #define __ASM_ARCH_GPIO_H __FILE__
 
-#define __ARM_GPIOLIB_TRIVIAL
-#define gpio_to_irq	__gpio_to_irq
-
 /* GPIO bank sizes */
 
 #define S5P6440_GPIO_A_NR	(6)

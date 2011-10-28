@@ -460,7 +460,6 @@ struct fsg_dev {
 
 	struct fsg_buffhd	*next_buffhd_to_fill;
 	struct fsg_buffhd	*next_buffhd_to_drain;
-	struct fsg_buffhd	buffhds[FSG_NUM_BUFFERS];
 
 	int			thread_wakeup_needed;
 	struct completion	thread_notifier;
@@ -487,6 +486,8 @@ struct fsg_dev {
 	unsigned int		nluns;
 	struct fsg_lun		*luns;
 	struct fsg_lun		*curlun;
+	/* Must be the last entry */
+	struct fsg_buffhd	buffhds[];
 };
 
 typedef void (*fsg_routine_t)(struct fsg_dev *);
@@ -585,7 +586,19 @@ dev_qualifier = {
 	.bNumConfigurations =	1,
 };
 
+static int populate_bos(struct fsg_dev *fsg, u8 *buf)
+{
+	memcpy(buf, &fsg_bos_desc, USB_DT_BOS_SIZE);
+	buf += USB_DT_BOS_SIZE;
 
+	memcpy(buf, &fsg_ext_cap_desc, USB_DT_USB_EXT_CAP_SIZE);
+	buf += USB_DT_USB_EXT_CAP_SIZE;
+
+	memcpy(buf, &fsg_ss_cap_desc, USB_DT_USB_SS_CAP_SIZE);
+
+	return USB_DT_BOS_SIZE + USB_DT_USB_SS_CAP_SIZE
+		+ USB_DT_USB_EXT_CAP_SIZE;
+}
 
 /*
  * Config descriptors must agree with the code that sets configurations
@@ -934,7 +947,8 @@ static int standard_setup_req(struct fsg_dev *fsg,
 			break;
 		case USB_DT_DEVICE_QUALIFIER:
 			VDBG(fsg, "get device qualifier\n");
-			if (!gadget_is_dualspeed(fsg->gadget))
+			if (!gadget_is_dualspeed(fsg->gadget) ||
+					fsg->gadget->speed == USB_SPEED_SUPER)
 				break;
 			/*
 			 * Assume ep0 uses the same maxpacket value for both
@@ -947,7 +961,8 @@ static int standard_setup_req(struct fsg_dev *fsg,
 
 		case USB_DT_OTHER_SPEED_CONFIG:
 			VDBG(fsg, "get other-speed config descriptor\n");
-			if (!gadget_is_dualspeed(fsg->gadget))
+			if (!gadget_is_dualspeed(fsg->gadget) ||
+					fsg->gadget->speed == USB_SPEED_SUPER)
 				break;
 			goto get_config;
 		case USB_DT_CONFIG:
@@ -966,7 +981,15 @@ get_config:
 			value = usb_gadget_get_string(&fsg_stringtab,
 					w_value & 0xff, req->buf);
 			break;
+
+		case USB_DT_BOS:
+			VDBG(fsg, "get bos descriptor\n");
+
+			if (gadget_is_superspeed(fsg->gadget))
+				value = populate_bos(fsg, req->buf);
+			break;
 		}
+
 		break;
 
 	/* One config, two speeds */
@@ -1135,7 +1158,6 @@ static int do_read(struct fsg_dev *fsg)
 	u32			amount_left;
 	loff_t			file_offset, file_offset_tmp;
 	unsigned int		amount;
-	unsigned int		partial_page;
 	ssize_t			nread;
 
 	/* Get the starting Logical Block Address and check that it's
@@ -1170,17 +1192,10 @@ static int do_read(struct fsg_dev *fsg)
 		 * Try to read the remaining amount.
 		 * But don't read more than the buffer size.
 		 * And don't try to read past the end of the file.
-		 * Finally, if we're not at a page boundary, don't read past
-		 *	the next page.
-		 * If this means reading 0 then we were asked to read past
-		 *	the end of file. */
+		 */
 		amount = min((unsigned int) amount_left, mod_data.buflen);
 		amount = min((loff_t) amount,
 				curlun->file_length - file_offset);
-		partial_page = file_offset & (PAGE_CACHE_SIZE - 1);
-		if (partial_page > 0)
-			amount = min(amount, (unsigned int) PAGE_CACHE_SIZE -
-					partial_page);
 
 		/* Wait for the next buffer to become available */
 		bh = fsg->next_buffhd_to_fill;
@@ -1225,6 +1240,11 @@ static int do_read(struct fsg_dev *fsg)
 		file_offset  += nread;
 		amount_left  -= nread;
 		fsg->residue -= nread;
+
+		/* Except at the end of the transfer, nread will be
+		 * equal to the buffer size, which is divisible by the
+		 * bulk-in maxpacket size.
+		 */
 		bh->inreq->length = nread;
 		bh->state = BUF_STATE_FULL;
 
@@ -1261,7 +1281,6 @@ static int do_write(struct fsg_dev *fsg)
 	u32			amount_left_to_req, amount_left_to_write;
 	loff_t			usb_offset, file_offset, file_offset_tmp;
 	unsigned int		amount;
-	unsigned int		partial_page;
 	ssize_t			nwritten;
 	int			rc;
 
@@ -1312,36 +1331,18 @@ static int do_write(struct fsg_dev *fsg)
 		if (bh->state == BUF_STATE_EMPTY && get_some_more) {
 
 			/* Figure out how much we want to get:
-			 * Try to get the remaining amount.
-			 * But don't get more than the buffer size.
-			 * And don't try to go past the end of the file.
-			 * If we're not at a page boundary,
-			 *	don't go past the next page.
-			 * If this means getting 0, then we were asked
-			 *	to write past the end of file.
-			 * Finally, round down to a block boundary. */
+			 * Try to get the remaining amount,
+			 * but not more than the buffer size.
+			 */
 			amount = min(amount_left_to_req, mod_data.buflen);
-			amount = min((loff_t) amount, curlun->file_length -
-					usb_offset);
-			partial_page = usb_offset & (PAGE_CACHE_SIZE - 1);
-			if (partial_page > 0)
-				amount = min(amount,
-	(unsigned int) PAGE_CACHE_SIZE - partial_page);
 
-			if (amount == 0) {
+			/* Beyond the end of the backing file? */
+			if (usb_offset >= curlun->file_length) {
 				get_some_more = 0;
 				curlun->sense_data =
 					SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
 				curlun->sense_data_info = usb_offset >> curlun->blkbits;
 				curlun->info_valid = 1;
-				continue;
-			}
-			amount = round_down(amount, curlun->blksize);
-			if (amount == 0) {
-
-				/* Why were we were asked to transfer a
-				 * partial block? */
-				get_some_more = 0;
 				continue;
 			}
 
@@ -1352,11 +1353,11 @@ static int do_write(struct fsg_dev *fsg)
 			if (amount_left_to_req == 0)
 				get_some_more = 0;
 
-			/* amount is always divisible by 512, hence by
-			 * the bulk-out maxpacket size */
-			bh->outreq->length = bh->bulk_out_intended_length =
-					amount;
-			bh->outreq->short_not_ok = 1;
+			/* Except at the end of the transfer, amount will be
+			 * equal to the buffer size, which is divisible by
+			 * the bulk-out maxpacket size.
+			 */
+			set_bulk_out_req_length(fsg, bh, amount);
 			start_transfer(fsg, fsg->bulk_out, bh->outreq,
 					&bh->outreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
@@ -1388,6 +1389,16 @@ static int do_write(struct fsg_dev *fsg)
 	(unsigned long long) curlun->file_length);
 				amount = curlun->file_length - file_offset;
 			}
+
+			/* Don't accept excess data.  The spec doesn't say
+			 * what to do in this case.  We'll ignore the error.
+			 */
+			amount = min(amount, bh->bulk_out_intended_length);
+
+			/* Don't write a partial block */
+			amount = round_down(amount, curlun->blksize);
+			if (amount == 0)
+				goto empty_write;
 
 			/* Perform the write */
 			file_offset_tmp = file_offset;
@@ -1421,8 +1432,9 @@ static int do_write(struct fsg_dev *fsg)
 				break;
 			}
 
+ empty_write:
 			/* Did the host decide to stop early? */
-			if (bh->outreq->actual != bh->outreq->length) {
+			if (bh->outreq->actual < bh->bulk_out_intended_length) {
 				fsg->short_packet_received = 1;
 				break;
 			}
@@ -1517,8 +1529,7 @@ static int do_verify(struct fsg_dev *fsg)
 		 * Try to read the remaining amount, but not more than
 		 * the buffer size.
 		 * And don't try to read past the end of the file.
-		 * If this means reading 0 then we were asked to read
-		 * past the end of file. */
+		 */
 		amount = min((unsigned int) amount_left, mod_data.buflen);
 		amount = min((loff_t) amount,
 				curlun->file_length - file_offset);
@@ -1967,7 +1978,7 @@ static int throw_away_data(struct fsg_dev *fsg)
 			fsg->next_buffhd_to_drain = bh->next;
 
 			/* A short packet or an error ends everything */
-			if (bh->outreq->actual != bh->outreq->length ||
+			if (bh->outreq->actual < bh->bulk_out_intended_length ||
 					bh->outreq->status != 0) {
 				raise_exception(fsg, FSG_STATE_ABORT_BULK_OUT);
 				return -EINTR;
@@ -1981,11 +1992,11 @@ static int throw_away_data(struct fsg_dev *fsg)
 			amount = min(fsg->usb_amount_left,
 					(u32) mod_data.buflen);
 
-			/* amount is always divisible by 512, hence by
-			 * the bulk-out maxpacket size */
-			bh->outreq->length = bh->bulk_out_intended_length =
-					amount;
-			bh->outreq->short_not_ok = 1;
+			/* Except at the end of the transfer, amount will be
+			 * equal to the buffer size, which is divisible by
+			 * the bulk-out maxpacket size.
+			 */
+			set_bulk_out_req_length(fsg, bh, amount);
 			start_transfer(fsg, fsg->bulk_out, bh->outreq,
 					&bh->outreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
@@ -2290,14 +2301,14 @@ static int check_command(struct fsg_dev *fsg, int cmnd_size,
 
 	/* Check the LUN */
 	if (fsg->lun < fsg->nluns) {
-		curlun = fsg->curlun;
+		fsg->curlun = curlun = &fsg->luns[fsg->lun];
 		if (fsg->cmnd[0] != REQUEST_SENSE) {
 			curlun->sense_data = SS_NO_SENSE;
 			curlun->sense_data_info = 0;
 			curlun->info_valid = 0;
 		}
 	} else {
-		curlun = NULL;
+		fsg->curlun = curlun = NULL;
 		fsg->bad_lun_okay = 0;
 
 		/* INQUIRY and REQUEST SENSE commands are explicitly allowed
@@ -2412,8 +2423,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case READ_6:
-		if (unlikely(!fsg->curlun))
-			goto unknown_cmnd;
 		i = fsg->cmnd[4];
 		fsg->data_size_from_cmnd = (i == 0 ? 256 : i) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 6, DATA_DIR_TO_HOST,
@@ -2423,8 +2432,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case READ_10:
-		if (unlikely(!fsg->curlun))
-			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be16(&fsg->cmnd[7]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 10, DATA_DIR_TO_HOST,
@@ -2434,8 +2441,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case READ_12:
-		if (unlikely(!fsg->curlun))
-			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be32(&fsg->cmnd[6]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 12, DATA_DIR_TO_HOST,
@@ -2522,8 +2527,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case WRITE_6:
-		if (unlikely(!fsg->curlun))
-			goto unknown_cmnd;
 		i = fsg->cmnd[4];
 		fsg->data_size_from_cmnd = (i == 0 ? 256 : i) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 6, DATA_DIR_FROM_HOST,
@@ -2533,8 +2536,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case WRITE_10:
-		if (unlikely(!fsg->curlun))
-			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be16(&fsg->cmnd[7]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 10, DATA_DIR_FROM_HOST,
@@ -2544,8 +2545,6 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		break;
 
 	case WRITE_12:
-		if (unlikely(!fsg->curlun))
-			goto unknown_cmnd;
 		fsg->data_size_from_cmnd =
 				get_unaligned_be32(&fsg->cmnd[6]) << fsg->curlun->blkbits;
 		if ((reply = check_command(fsg, 12, DATA_DIR_FROM_HOST,
@@ -2654,10 +2653,6 @@ static int received_cbw(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	if (fsg->data_size == 0)
 		fsg->data_dir = DATA_DIR_NONE;
 	fsg->lun = cbw->Lun;
-	if (fsg->lun >= 0 && fsg->lun < fsg->nluns)
-		fsg->curlun = &fsg->luns[fsg->lun];
-	else
-		fsg->curlun = NULL;
 	fsg->tag = cbw->Tag;
 	return 0;
 }
@@ -2680,7 +2675,6 @@ static int get_next_command(struct fsg_dev *fsg)
 
 		/* Queue a request to read a Bulk-only CBW */
 		set_bulk_out_req_length(fsg, bh, USB_BULK_CB_WRAP_LEN);
-		bh->outreq->short_not_ok = 1;
 		start_transfer(fsg, fsg->bulk_out, bh->outreq,
 				&bh->outreq_busy, &bh->state);
 
@@ -2766,7 +2760,7 @@ static int do_set_interface(struct fsg_dev *fsg, int altsetting)
 
 reset:
 	/* Deallocate the requests */
-	for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
+	for (i = 0; i < fsg_num_buffers; ++i) {
 		struct fsg_buffhd *bh = &fsg->buffhds[i];
 
 		if (bh->inreq) {
@@ -2805,29 +2799,32 @@ reset:
 
 	/* Enable the endpoints */
 	d = fsg_ep_desc(fsg->gadget,
-			&fsg_fs_bulk_in_desc, &fsg_hs_bulk_in_desc);
+			&fsg_fs_bulk_in_desc, &fsg_hs_bulk_in_desc,
+			&fsg_ss_bulk_in_desc);
 	if ((rc = enable_endpoint(fsg, fsg->bulk_in, d)) != 0)
 		goto reset;
 	fsg->bulk_in_enabled = 1;
 
 	d = fsg_ep_desc(fsg->gadget,
-			&fsg_fs_bulk_out_desc, &fsg_hs_bulk_out_desc);
+			&fsg_fs_bulk_out_desc, &fsg_hs_bulk_out_desc,
+			&fsg_ss_bulk_out_desc);
 	if ((rc = enable_endpoint(fsg, fsg->bulk_out, d)) != 0)
 		goto reset;
 	fsg->bulk_out_enabled = 1;
-	fsg->bulk_out_maxpacket = le16_to_cpu(d->wMaxPacketSize);
+	fsg->bulk_out_maxpacket = usb_endpoint_maxp(d);
 	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 
 	if (transport_is_cbi()) {
 		d = fsg_ep_desc(fsg->gadget,
-				&fsg_fs_intr_in_desc, &fsg_hs_intr_in_desc);
+				&fsg_fs_intr_in_desc, &fsg_hs_intr_in_desc,
+				&fsg_ss_intr_in_desc);
 		if ((rc = enable_endpoint(fsg, fsg->intr_in, d)) != 0)
 			goto reset;
 		fsg->intr_in_enabled = 1;
 	}
 
 	/* Allocate the requests */
-	for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
+	for (i = 0; i < fsg_num_buffers; ++i) {
 		struct fsg_buffhd	*bh = &fsg->buffhds[i];
 
 		if ((rc = alloc_request(fsg, fsg->bulk_in, &bh->inreq)) != 0)
@@ -2876,17 +2873,10 @@ static int do_set_config(struct fsg_dev *fsg, u8 new_config)
 		fsg->config = new_config;
 		if ((rc = do_set_interface(fsg, 0)) != 0)
 			fsg->config = 0;	// Reset on errors
-		else {
-			char *speed;
-
-			switch (fsg->gadget->speed) {
-			case USB_SPEED_LOW:	speed = "low";	break;
-			case USB_SPEED_FULL:	speed = "full";	break;
-			case USB_SPEED_HIGH:	speed = "high";	break;
-			default: 		speed = "?";	break;
-			}
-			INFO(fsg, "%s speed config #%d\n", speed, fsg->config);
-		}
+		else
+			INFO(fsg, "%s config #%d\n",
+			     usb_speed_string(fsg->gadget->speed),
+			     fsg->config);
 	}
 	return rc;
 }
@@ -2923,7 +2913,7 @@ static void handle_exception(struct fsg_dev *fsg)
 	/* Cancel all the pending transfers */
 	if (fsg->intreq_busy)
 		usb_ep_dequeue(fsg->intr_in, fsg->intreq);
-	for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
+	for (i = 0; i < fsg_num_buffers; ++i) {
 		bh = &fsg->buffhds[i];
 		if (bh->inreq_busy)
 			usb_ep_dequeue(fsg->bulk_in, bh->inreq);
@@ -2934,7 +2924,7 @@ static void handle_exception(struct fsg_dev *fsg)
 	/* Wait until everything is idle */
 	for (;;) {
 		num_active = fsg->intreq_busy;
-		for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
+		for (i = 0; i < fsg_num_buffers; ++i) {
 			bh = &fsg->buffhds[i];
 			num_active += bh->inreq_busy + bh->outreq_busy;
 		}
@@ -2956,7 +2946,7 @@ static void handle_exception(struct fsg_dev *fsg)
 	 * state, and the exception.  Then invoke the handler. */
 	spin_lock_irq(&fsg->lock);
 
-	for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
+	for (i = 0; i < fsg_num_buffers; ++i) {
 		bh = &fsg->buffhds[i];
 		bh->state = BUF_STATE_EMPTY;
 	}
@@ -3163,6 +3153,15 @@ static void /* __init_or_exit */ fsg_unbind(struct usb_gadget *gadget)
 	DBG(fsg, "unbind\n");
 	clear_bit(REGISTERED, &fsg->atomic_bitflags);
 
+	/* If the thread isn't already dead, tell it to exit now */
+	if (fsg->state != FSG_STATE_TERMINATED) {
+		raise_exception(fsg, FSG_STATE_EXIT);
+		wait_for_completion(&fsg->thread_notifier);
+
+		/* The cleanup routine waits for this completion also */
+		complete(&fsg->thread_notifier);
+	}
+
 	/* Unregister the sysfs attribute files and the LUNs */
 	for (i = 0; i < fsg->nluns; ++i) {
 		curlun = &fsg->luns[i];
@@ -3176,17 +3175,8 @@ static void /* __init_or_exit */ fsg_unbind(struct usb_gadget *gadget)
 		}
 	}
 
-	/* If the thread isn't already dead, tell it to exit now */
-	if (fsg->state != FSG_STATE_TERMINATED) {
-		raise_exception(fsg, FSG_STATE_EXIT);
-		wait_for_completion(&fsg->thread_notifier);
-
-		/* The cleanup routine waits for this completion also */
-		complete(&fsg->thread_notifier);
-	}
-
 	/* Free the data buffers */
-	for (i = 0; i < FSG_NUM_BUFFERS; ++i)
+	for (i = 0; i < fsg_num_buffers; ++i)
 		kfree(fsg->buffhds[i].buf);
 
 	/* Free the request and buffer for endpoint 0 */
@@ -3459,6 +3449,24 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 			fsg_fs_intr_in_desc.bEndpointAddress;
 	}
 
+	if (gadget_is_superspeed(gadget)) {
+		unsigned		max_burst;
+
+		fsg_ss_function[i + FSG_SS_FUNCTION_PRE_EP_ENTRIES] = NULL;
+
+		/* Calculate bMaxBurst, we know packet size is 1024 */
+		max_burst = min_t(unsigned, mod_data.buflen / 1024, 15);
+
+		/* Assume endpoint addresses are the same for both speeds */
+		fsg_ss_bulk_in_desc.bEndpointAddress =
+			fsg_fs_bulk_in_desc.bEndpointAddress;
+		fsg_ss_bulk_in_comp_desc.bMaxBurst = max_burst;
+
+		fsg_ss_bulk_out_desc.bEndpointAddress =
+			fsg_fs_bulk_out_desc.bEndpointAddress;
+		fsg_ss_bulk_out_comp_desc.bMaxBurst = max_burst;
+	}
+
 	if (gadget_is_otg(gadget))
 		fsg_otg_desc.bmAttributes |= USB_OTG_HNP;
 
@@ -3474,7 +3482,7 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 	req->complete = ep0_complete;
 
 	/* Allocate the data buffers */
-	for (i = 0; i < FSG_NUM_BUFFERS; ++i) {
+	for (i = 0; i < fsg_num_buffers; ++i) {
 		struct fsg_buffhd	*bh = &fsg->buffhds[i];
 
 		/* Allocate for the bulk-in endpoint.  We assume that
@@ -3485,7 +3493,7 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 			goto out;
 		bh->next = bh + 1;
 	}
-	fsg->buffhds[FSG_NUM_BUFFERS - 1].next = &fsg->buffhds[0];
+	fsg->buffhds[fsg_num_buffers - 1].next = &fsg->buffhds[0];
 
 	/* This should reflect the actual gadget power source */
 	usb_gadget_set_selfpowered(gadget);
@@ -3575,11 +3583,7 @@ static void fsg_resume(struct usb_gadget *gadget)
 /*-------------------------------------------------------------------------*/
 
 static struct usb_gadget_driver		fsg_driver = {
-#ifdef CONFIG_USB_GADGET_DUALSPEED
-	.speed		= USB_SPEED_HIGH,
-#else
-	.speed		= USB_SPEED_FULL,
-#endif
+	.speed		= USB_SPEED_SUPER,
 	.function	= (char *) fsg_string_product,
 	.unbind		= fsg_unbind,
 	.disconnect	= fsg_disconnect,
@@ -3601,7 +3605,9 @@ static int __init fsg_alloc(void)
 {
 	struct fsg_dev		*fsg;
 
-	fsg = kzalloc(sizeof *fsg, GFP_KERNEL);
+	fsg = kzalloc(sizeof *fsg +
+		      fsg_num_buffers * sizeof *(fsg->buffhds), GFP_KERNEL);
+
 	if (!fsg)
 		return -ENOMEM;
 	spin_lock_init(&fsg->lock);
@@ -3618,6 +3624,10 @@ static int __init fsg_init(void)
 {
 	int		rc;
 	struct fsg_dev	*fsg;
+
+	rc = fsg_num_buffers_validate();
+	if (rc != 0)
+		return rc;
 
 	if ((rc = fsg_alloc()) != 0)
 		return rc;

@@ -55,19 +55,17 @@ struct pinctrl_dev {
  */
 struct pin_desc {
 	struct pinctrl_dev *pctldev;
-	char	name[16];
+	const char *name;
 	spinlock_t lock;
 	/* These fields only added when supporting pinmux drivers */
 #ifdef CONFIG_PINMUX
-	bool	mux_requested;
-	char	mux_function[16];
+	const char *mux_function;
 #endif
 };
 
-const char *pctldev_get_devname(struct pinctrl_dev *pctldev);
+struct pinctrl_dev *get_pinctrl_dev_from_dev(struct device *dev,
+					     const char *dev_name);
 struct pin_desc *pin_desc_get(struct pinctrl_dev *pctldev, int pin);
-struct pinctrl_dev *get_pctldev_from_dev(struct device *dev,
-					 const char *dev_name);
 int pinctrl_get_device_gpio_range(unsigned gpio,
 				  struct pinctrl_dev **outdev,
 				  struct pinctrl_gpio_range **outrange);

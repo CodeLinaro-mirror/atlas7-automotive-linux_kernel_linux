@@ -849,12 +849,12 @@ static const char *u300_get_group_name(struct pinctrl_dev *pctldev,
 }
 
 static int u300_get_group_pins(struct pinctrl_dev *pctldev, unsigned selector,
-			       unsigned ** const pins,
-			       unsigned * const num_pins)
+			       const unsigned **pins,
+			       unsigned *num_pins)
 {
 	if (selector >= ARRAY_SIZE(u300_pin_groups))
 		return -EINVAL;
-	*pins = (unsigned *) u300_pin_groups[selector].pins;
+	*pins = u300_pin_groups[selector].pins;
 	*num_pins = u300_pin_groups[selector].num_pins;
 	return 0;
 }
@@ -966,7 +966,7 @@ static int u300_pmx_enable(struct pinctrl_dev *pctldev, unsigned selector,
 	if (selector == 0)
 		return 0;
 
-	upmx = pctldev_get_drvdata(pctldev);
+	upmx = pinctrl_dev_get_drvdata(pctldev);
 	u300_pmx_endisable(upmx, selector, true);
 
 	return 0;
@@ -981,7 +981,7 @@ static void u300_pmx_disable(struct pinctrl_dev *pctldev, unsigned selector,
 	if (selector == 0)
 		return;
 
-	upmx = pctldev_get_drvdata(pctldev);
+	upmx = pinctrl_dev_get_drvdata(pctldev);
 	u300_pmx_endisable(upmx, selector, false);
 }
 
@@ -1036,17 +1036,6 @@ static struct pinctrl_desc u300_pmx_desc = {
 	.owner = THIS_MODULE,
 };
 
-static void __init u300_pmx_dumpregs(struct u300_pmx *upmx)
-{
-	u16 regval;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(u300_pmx_registers); i++) {
-		regval = readw(upmx->virtbase + u300_pmx_registers[i]);
-		dev_info(upmx->dev, "PMX%u: 0x%04x\n", i, regval);
-	}
-}
-
 static int __init u300_pmx_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1054,7 +1043,7 @@ static int __init u300_pmx_probe(struct platform_device *pdev)
 	struct resource *res;
 
 	/* Create state holders etc for this driver */
-	upmx = devm_kzalloc(&pdev->dev, sizeof(struct u300_pmx), GFP_KERNEL);
+	upmx = devm_kzalloc(&pdev->dev, sizeof(*upmx), GFP_KERNEL);
 	if (!upmx)
 		return -ENOMEM;
 
@@ -1070,7 +1059,7 @@ static int __init u300_pmx_probe(struct platform_device *pdev)
 
 	if (request_mem_region(upmx->phybase, upmx->physize,
 			       DRIVER_NAME) == NULL) {
-		ret = -EBUSY;
+		ret = -ENOMEM;
 		goto out_no_memregion;
 	}
 
@@ -1081,9 +1070,9 @@ static int __init u300_pmx_probe(struct platform_device *pdev)
 	}
 
 	upmx->pctl = pinctrl_register(&u300_pmx_desc, &pdev->dev, upmx);
-	if (IS_ERR(upmx->pctl)) {
+	if (!upmx->pctl) {
 		dev_err(&pdev->dev, "could not register U300 pinmux driver\n");
-		ret = PTR_ERR(upmx->pctl);
+		ret = -EINVAL;
 		goto out_no_pmx;
 	}
 
@@ -1091,8 +1080,6 @@ static int __init u300_pmx_probe(struct platform_device *pdev)
 	pinctrl_add_gpio_range(upmx->pctl, &u300_gpio_range);
 
 	platform_set_drvdata(pdev, upmx);
-
-	u300_pmx_dumpregs(upmx);
 
 	dev_info(&pdev->dev, "initialized U300 pinmux driver\n");
 

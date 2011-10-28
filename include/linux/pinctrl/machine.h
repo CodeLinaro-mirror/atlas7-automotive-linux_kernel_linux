@@ -33,8 +33,8 @@
  * @dev_name: the name of the device using this specific mapping, the name
  *	must be the same as in your struct device*, may be NULL if you
  *	provide .dev instead
- * @hog_on_boot: if this is set to true, the regulator subsystem will itself
- *	hog the mappings as the pinmux device drivers are attched, so this is
+ * @hog_on_boot: if this is set to true, the pin control subsystem will itself
+ *	hog the mappings as the pinmux device drivers are attached, so this is
  *	typically used with system maps (mux mappings without an assigned
  *	device) that you want to get hogged and enabled by default as soon as
  *	a pinmux device supporting it is registered. These maps will not be
@@ -103,5 +103,5 @@ static inline int pinmux_register_mappings(struct pinmux_map const *map,
 	return 0;
 }
 
-#endif /* !CONFIG_PINCTRL */
+#endif /* !CONFIG_PINMUX */
 #endif

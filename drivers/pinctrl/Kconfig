@@ -4,7 +4,7 @@
 
 menuconfig PINCTRL
 	bool "PINCTRL Support"
-	depends on SYSFS && EXPERIMENTAL
+	depends on EXPERIMENTAL
 	help
 	  This enables the PINCTRL subsystem for controlling pins
 	  on chip packages, for example multiplexing pins on primarily

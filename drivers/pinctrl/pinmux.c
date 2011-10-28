@@ -12,6 +12,7 @@
 #define pr_fmt(fmt) "pinmux core: " fmt
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/slab.h>
@@ -129,14 +130,13 @@ static int pin_request(struct pinctrl_dev *pctldev,
 	}
 
 	spin_lock(&desc->lock);
-	if (desc->mux_requested) {
+	if (desc->mux_function) {
 		spin_unlock(&desc->lock);
 		dev_err(&pctldev->dev,
 			"pin already requested\n");
 		goto out;
 	}
-	desc->mux_requested = true;
-	strncpy(desc->mux_function, function, sizeof(desc->mux_function));
+	desc->mux_function = function;
 	spin_unlock(&desc->lock);
 
 	/* Let each pin increase references to this module */
@@ -167,8 +167,7 @@ static int pin_request(struct pinctrl_dev *pctldev,
 out_free_pin:
 	if (status) {
 		spin_lock(&desc->lock);
-		desc->mux_requested = false;
-		desc->mux_function[0] = '\0';
+		desc->mux_function = NULL;
 		spin_unlock(&desc->lock);
 	}
 out:
@@ -183,8 +182,9 @@ out:
  * pin_free() - release a single muxed in pin so something else can be muxed
  * @pctldev: pin controller device handling this pin
  * @pin: the pin to free
+ * @free_func: whether to free the pin's assigned function name string
  */
-static void pin_free(struct pinctrl_dev *pctldev, int pin)
+static void pin_free(struct pinctrl_dev *pctldev, int pin, int free_func)
 {
 	const struct pinmux_ops *ops = pctldev->desc->pmxops;
 	struct pin_desc *desc;
@@ -200,8 +200,9 @@ static void pin_free(struct pinctrl_dev *pctldev, int pin)
 		ops->free(pctldev, pin);
 
 	spin_lock(&desc->lock);
-	desc->mux_requested = false;
-	desc->mux_function[0] = '\0';
+	if (free_func)
+		kfree(desc->mux_function);
+	desc->mux_function = NULL;
 	spin_unlock(&desc->lock);
 	module_put(pctldev->owner);
 }
@@ -213,6 +214,7 @@ static void pin_free(struct pinctrl_dev *pctldev, int pin)
 int pinmux_request_gpio(unsigned gpio)
 {
 	char gpiostr[16];
+	const char *function;
 	struct pinctrl_dev *pctldev;
 	struct pinctrl_gpio_range *range;
 	int ret;
@@ -228,7 +230,15 @@ int pinmux_request_gpio(unsigned gpio)
 	/* Conjure some name stating what chip and pin this is taken by */
 	snprintf(gpiostr, 15, "%s:%d", range->name, gpio);
 
-	return pin_request(pctldev, pin, gpiostr, true, range);
+	function = kstrdup(gpiostr, GFP_KERNEL);
+	if (!function)
+		return -EINVAL;
+
+	ret = pin_request(pctldev, pin, function, true, range);
+	if (ret < 0)
+		kfree(function);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(pinmux_request_gpio);
 
@@ -250,7 +260,7 @@ void pinmux_free_gpio(unsigned gpio)
 	/* Convert to the pin controllers number space */
 	pin = gpio - range->base;
 
-	pin_free(pctldev, pin);
+	pin_free(pctldev, pin, true);
 }
 EXPORT_SYMBOL_GPL(pinmux_free_gpio);
 
@@ -325,7 +335,7 @@ static int acquire_pins(struct pinctrl_dev *pctldev,
 	const struct pinmux_ops *pmxops = pctldev->desc->pmxops;
 	const char *func = pmxops->get_function_name(pctldev,
 						     func_selector);
-	unsigned *pins;
+	const unsigned *pins;
 	unsigned num_pins;
 	int ret;
 	int i;
@@ -346,11 +356,11 @@ static int acquire_pins(struct pinctrl_dev *pctldev,
 				"could not get pin %d for function %s "
 				"on device %s - conflicting mux mappings?\n",
 				pins[i], func ? : "(undefined)",
-				pctldev_get_name(pctldev));
+				pinctrl_dev_get_name(pctldev));
 			/* On error release all taken pins */
 			i--; /* this pin just failed */
 			for (; i >= 0; i--)
-				pin_free(pctldev, pins[i]);
+				pin_free(pctldev, pins[i], false);
 			return -ENODEV;
 		}
 	}
@@ -366,7 +376,7 @@ static void release_pins(struct pinctrl_dev *pctldev,
 			 unsigned group_selector)
 {
 	const struct pinctrl_ops *pctlops = pctldev->desc->pctlops;
-	unsigned *pins;
+	const unsigned *pins;
 	unsigned num_pins;
 	int ret;
 	int i;
@@ -380,7 +390,7 @@ static void release_pins(struct pinctrl_dev *pctldev,
 		return;
 	}
 	for (i = 0; i < num_pins; i++)
-		pin_free(pctldev, pins[i]);
+		pin_free(pctldev, pins[i], false);
 }
 
 /**
@@ -478,13 +488,13 @@ static int pinmux_check_pin_group(struct pinctrl_dev *pctldev,
 
 	dev_dbg(&pctldev->dev,
 		"check if we have pin group %s on controller %s\n",
-		pin_group, pctldev_get_name(pctldev));
+		pin_group, pinctrl_dev_get_name(pctldev));
 
 	ret = pinmux_get_group_selector(pctldev, pin_group);
 	if (ret < 0) {
 		dev_dbg(&pctldev->dev,
 			"%s does not support pin group %s with function %s\n",
-			pctldev_get_name(pctldev),
+			pinctrl_dev_get_name(pctldev),
 			pin_group,
 			pmxops->get_function_name(pctldev, func_selector));
 	}
@@ -533,7 +543,7 @@ static int pinmux_search_function(struct pinctrl_dev *pctldev,
 	}
 
 	pr_err("%s does not support function %s\n",
-	       pctldev_get_name(pctldev), map->function);
+	       pinctrl_dev_get_name(pctldev), map->function);
 	return -EINVAL;
 }
 
@@ -667,8 +677,8 @@ struct pinmux *pinmux_get(struct device *dev, const char *name)
 		/*
 		 * First, try to find the pctldev given in the map
 		 */
-		pctldev = get_pctldev_from_dev(map->ctrl_dev,
-					       map->ctrl_dev_name);
+		pctldev = get_pinctrl_dev_from_dev(map->ctrl_dev,
+						   map->ctrl_dev_name);
 		if (!pctldev) {
 			const char *devname = NULL;
 
@@ -1012,7 +1022,8 @@ static int pinmux_pins_show(struct seq_file *s, void *what)
 
 		seq_printf(s, "pin %d (%s): %s\n", pin,
 			   desc->name ? desc->name : "unnamed",
-			   desc->mux_requested ? desc->mux_function : "UNCLAIMED");
+			   desc->mux_function ? desc->mux_function
+					      : "UNCLAIMED");
 	}
 
 	return 0;
@@ -1051,7 +1062,7 @@ static int pinmux_show(struct seq_file *s, void *what)
 		pctlops = pctldev->desc->pctlops;
 
 		seq_printf(s, "device: %s function: %s (%u),",
-			   pctldev_get_name(pmx->pctldev),
+			   pinctrl_dev_get_name(pmx->pctldev),
 			   pmxops->get_function_name(pctldev, pmx->func_selector),
 			   pmx->func_selector);
 

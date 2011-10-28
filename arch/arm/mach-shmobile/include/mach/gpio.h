@@ -18,17 +18,14 @@
 
 #ifdef CONFIG_GPIOLIB
 
-#define __ARM_GPIOLIB_TRIVIAL
-
-static inline int gpio_to_irq(unsigned gpio)
-{
-	return __gpio_to_irq(gpio);
-}
-
 static inline int irq_to_gpio(unsigned int irq)
 {
 	return -ENOSYS;
 }
+
+#else
+
+#define __ARM_GPIOLIB_COMPLEX
 
 #endif /* CONFIG_GPIOLIB */
 
