@@ -23,22 +23,8 @@
 
 #include <linux/device.h>
 #include <linux/uio.h>
-
-struct scatterlist;
-
-/**
- * enum dma_transfer_direction - dma transfer mode and direction indicator
- * @MEM_TO_MEM: Async/Memcpy mode
- * @MEM_TO_DEV: Slave mode & From Memory to Device
- * @DEV_TO_MEM: Slave mode & From Device to Memory
- * @DEV_TO_DEV: Slave mode & From Device to Device
- */
-enum dma_transfer_direction {
-	MEM_TO_MEM,
-	MEM_TO_DEV,
-	DEV_TO_MEM,
-	DEV_TO_DEV,
-};
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
 
 /**
  * typedef dma_cookie_t - an opaque DMA cookie
@@ -85,16 +71,20 @@ enum dma_transaction_type {
 	DMA_SLAVE,
 	DMA_CYCLIC,
 	DMA_INTERLEAVE,
-	/* last transaction type for creation of the capabilities mask */
+/* last transaction type for creation of the capabilities mask */
 	DMA_TX_TYPE_END,
 };
 
-/* last transaction type for creation of the capabilities mask */
-#define DMA_TX_TYPE_END (DMA_CYCLIC + 1)
+enum dma_transfer_direction {
+	MEM_TO_MEM,
+	MEM_TO_DEV,
+	DEV_TO_MEM,
+	DEV_TO_DEV,
+};
 
 /**
- * Generic Transfer Request
- * ------------------------
+ * Interleaved Transfer Request
+ * ----------------------------
  * A chunk is collection of contiguous bytes to be transfered.
  * The gap(in bytes) between two chunks is called inter-chunk-gap(ICG).
  * ICGs may or maynot change between chunks.
@@ -132,10 +122,9 @@ struct data_chunk {
 /**
  * struct dma_interleaved_template - Template to convey DMAC the transfer pattern
  *	 and attributes.
- * @op: The operation to perform on source data before writing it on
- *	 to destination address.
  * @src_start: Bus address of source for the first chunk.
  * @dst_start: Bus address of destination for the first chunk.
+ * @dir: Specifies the type of Source and Destination.
  * @src_inc: If the source address increments after reading from it.
  * @dst_inc: If the destination address increments after writing to it.
  * @src_sgl: If the 'icg' of sgl[] applies to Source (scattered read).
@@ -144,7 +133,6 @@ struct data_chunk {
  * @dst_sgl: If the 'icg' of sgl[] applies to Destination (scattered write).
  *		Otherwise, destination is filled contiguously (icg ignored).
  *		Ignored if dst_inc is false.
- * @frm_irq: If the client expects DMAC driver to do callback after each frame.
  * @numf: Number of frames in this template.
  * @frame_size: Number of chunks in a frame i.e, size of sgl[].
  * @sgl: Array of {chunk,icg} pairs that make up a frame.
@@ -236,6 +224,7 @@ enum sum_check_flags {
 	SUM_CHECK_P_RESULT = (1 << SUM_CHECK_P),
 	SUM_CHECK_Q_RESULT = (1 << SUM_CHECK_Q),
 };
+
 
 /**
  * dma_cap_mask_t - capabilities bitmap modeled after cpumask_t.
@@ -352,7 +341,7 @@ enum dma_slave_buswidth {
  * struct, if applicable.
  */
 struct dma_slave_config {
-	enum dma_transfer_direction direction;
+	enum dma_data_direction direction;
 	dma_addr_t src_addr;
 	dma_addr_t dst_addr;
 	enum dma_slave_buswidth src_addr_width;
@@ -516,7 +505,7 @@ struct dma_tx_state {
  * @device_prep_dma_cyclic: prepare a cyclic dma operation suitable for audio.
  *	The function takes a buffer of size buf_len. The callback function will
  *	be called after period_len bytes have been transferred.
- * @device_prep_dma_genxfer: Transfer expression in a generic way.
+ * @device_prep_interleaved_dma: Transfer expression in a generic way.
  * @device_control: manipulate all pending operations on a channel, returns
  *	zero or error code
  * @device_tx_status: poll for transaction completion, the optional
@@ -576,13 +565,14 @@ struct dma_device {
 
 	struct dma_async_tx_descriptor *(*device_prep_slave_sg)(
 		struct dma_chan *chan, struct scatterlist *sgl,
-		unsigned int sg_len, enum dma_transfer_direction direction,
+		unsigned int sg_len, enum dma_data_direction direction,
 		unsigned long flags);
 	struct dma_async_tx_descriptor *(*device_prep_dma_cyclic)(
 		struct dma_chan *chan, dma_addr_t buf_addr, size_t buf_len,
-		size_t period_len, enum dma_transfer_direction direction);
+		size_t period_len, enum dma_data_direction direction);
 	struct dma_async_tx_descriptor *(*device_prep_interleaved_dma)(
-		struct dma_chan *chan, struct dma_interleaved_template *xt);
+		struct dma_chan *chan, struct dma_interleaved_template *xt,
+		unsigned long flags);
 	int (*device_control)(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 		unsigned long arg);
 
@@ -604,6 +594,16 @@ static inline int dmaengine_slave_config(struct dma_chan *chan,
 {
 	return dmaengine_device_control(chan, DMA_SLAVE_CONFIG,
 			(unsigned long)config);
+}
+
+static inline struct dma_async_tx_descriptor *dmaengine_prep_slave_single(
+	struct dma_chan *chan, void *buf, size_t len,
+	enum dma_data_direction dir, unsigned long flags)
+{
+	struct scatterlist sg;
+	sg_init_one(&sg, buf, len);
+
+	return chan->device->device_prep_slave_sg(chan, &sg, 1, dir, flags);
 }
 
 static inline int dmaengine_terminate_all(struct dma_chan *chan)

@@ -80,7 +80,8 @@ struct sirfsoc_dma {
 #define DRV_NAME	"sirfsoc_dma"
 
 /* Convert struct dma_chan to struct sirfsoc_dma_chan */
-static inline struct sirfsoc_dma_chan *dma_chan_to_sirfsoc_dma_chan(struct dma_chan *c)
+static inline
+struct sirfsoc_dma_chan *dma_chan_to_sirfsoc_dma_chan(struct dma_chan *c)
 {
 	return container_of(c, struct sirfsoc_dma_chan, chan);
 }
@@ -100,7 +101,8 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	struct sirfsoc_dma_desc *sdesc = NULL;
 
 	/*
-	 * lock has been held by functions calling this, so we don't hold lock again
+	 * lock has been held by functions calling this, so we don't hold
+	 * lock again
 	 */
 
 	sdesc = list_first_entry(&schan->queued, struct sirfsoc_dma_desc,
@@ -109,18 +111,21 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	list_move_tail(&schan->queued, &schan->active);
 
 	/* Start the DMA transfer */
-	writel_relaxed(sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_0 + cid * 4);
+	writel_relaxed(sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_0 +
+		cid * 4);
 	writel_relaxed(cid | (schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
 		(sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT),
 		sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_CTRL);
-	writel_relaxed(sdesc->xlen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_XLEN);
-	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_YLEN);
-	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) | (1 << cid),
-		sdma->base + SIRFSOC_DMA_INT_EN);
+	writel_relaxed(sdesc->xlen, sdma->base + cid * 0x10 +
+		SIRFSOC_DMA_CH_XLEN);
+	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 +
+		SIRFSOC_DMA_CH_YLEN);
+	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) |
+		(1 << cid), sdma->base + SIRFSOC_DMA_INT_EN);
 
 	/*
-	 * writel has an implict memory write barrier to make sure data is flushed
-	 * into memory before starting DMA
+	 * writel has an implict memory write barrier to make sure data is
+	 * flushed into memory before starting DMA
 	 */
 	writel(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
@@ -210,7 +215,8 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 			sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
 				node);
 
-			if (!sdesc || (sdesc && !sdesc->cyclic)) { /* without active cyclic DMA */
+			if (!sdesc || (sdesc && !sdesc->cyclic)) {
+				/* without active cyclic DMA */
 				spin_unlock_irqrestore(&schan->lock, flags);
 				continue;
 			}
@@ -287,8 +293,8 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 	int cid = schan->chan.chan_id;
 	unsigned long flags;
 
-	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) & ~(1 << cid),
-		sdma->base + SIRFSOC_DMA_INT_EN);
+	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) &
+		~(1 << cid), sdma->base + SIRFSOC_DMA_INT_EN);
 	writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_CH_VALID);
 
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
@@ -421,7 +427,8 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 }
 
 static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
-	struct dma_chan *chan, struct dma_interleaved_template *xt)
+	struct dma_chan *chan, struct dma_interleaved_template *xt,
+	unsigned long flags)
 {
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
@@ -460,7 +467,8 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 	if ((xt->frame_size == 1) && (xt->numf > 0)) {
 		sdesc->cyclic = 0;
 		sdesc->xlen = xt->sgl[0].size / SIRFSOC_DMA_WORD_LEN;
-		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) / SIRFSOC_DMA_WORD_LEN;
+		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) /
+				SIRFSOC_DMA_WORD_LEN;
 		sdesc->ylen = xt->numf - 1;
 		if (xt->dir == MEM_TO_DEV) {
 			sdesc->addr = xt->src_start;
@@ -489,7 +497,7 @@ err_dir:
 static struct dma_async_tx_descriptor *
 sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	size_t buf_len, size_t period_len,
-	enum dma_transfer_direction direction)
+	enum dma_data_direction direction)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
@@ -542,7 +550,8 @@ bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 {
 	unsigned int ch_nr = (unsigned int) chan_id;
 
-	if (ch_nr == chan->chan_id + chan->device->dev_id * SIRFSOC_DMA_CHANNELS)
+	if (ch_nr == chan->chan_id +
+		chan->device->dev_id * SIRFSOC_DMA_CHANNELS)
 		return true;
 
 	return false;
