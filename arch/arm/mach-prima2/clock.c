@@ -286,6 +286,38 @@ static int cpu_set_rate(struct clk *clk, unsigned long rate)
 	return ret2 ? ret2 : ret1;
 }
 
+static int std_clk_enable(struct clk *clk)
+{
+	u32 val, reg;
+	int bit;
+
+	BUG_ON(clk->enable_bit < 0 || clk->enable_bit > 63);
+
+	bit = clk->enable_bit % 32;
+	reg = clk->enable_bit / 32;
+	reg = SIRFSOC_CLKC_CLK_EN0 + reg * sizeof(reg);
+
+	val = clkc_readl(reg) | BIT(bit);
+	clkc_writel(val, reg);
+	return 0;
+}
+
+static int std_clk_disable(struct clk *clk)
+{
+	u32 val, reg;
+	int bit;
+
+	BUG_ON(clk->enable_bit < 0 || clk->enable_bit > 63);
+
+	bit = clk->enable_bit % 32;
+	reg = clk->enable_bit / 32;
+	reg = SIRFSOC_CLKC_CLK_EN0 + reg * sizeof(reg);
+
+	val = clkc_readl(reg) & ~BIT(bit);
+	clkc_writel(val, reg);
+	return 0;
+}
+
 static struct clk_ops cpu_ops = {
 	.get_parent = dmn_get_parent,
 	.set_parent = dmn_set_parent,
@@ -298,12 +330,16 @@ static struct clk clk_cpu = {
 	.ops = &cpu_ops,
 };
 
-
 static struct clk_ops msi_ops = {
 	.set_rate = dmn_set_rate,
 	.get_rate = dmn_get_rate,
 	.set_parent = dmn_set_parent,
 	.get_parent = dmn_get_parent,
+};
+
+static struct clk_ops ios_ops = {
+	.enable = std_clk_enable,
+	.disable = std_clk_disable,
 };
 
 static struct clk clk_mem = {
@@ -322,6 +358,18 @@ static struct clk clk_io = {
 	.parent = &clk_pll3,
 	.regofs = SIRFSOC_CLKC_IO_CFG,
 	.ops = &msi_ops,
+};
+
+static struct clk clk_i2c0 = {
+	.parent = &clk_io,
+	.enable_bit = 46,
+	.ops = &ios_ops,
+};
+
+static struct clk clk_i2c1 = {
+	.parent = &clk_io,
+	.enable_bit = 47,
+	.ops = &ios_ops,
 };
 
 /*
@@ -355,6 +403,12 @@ static struct clk_lookup onchip_clks[] = {
 	}, {
 		.dev_id = "io",
 		.clk = &clk_io,
+	}, {
+		.dev_id = "b00e0000.i2c",
+		.clk = &clk_i2c0,
+	}, {
+		.dev_id = "b00f0000.i2c",
+		.clk = &clk_i2c1,
 	},
 };
 
