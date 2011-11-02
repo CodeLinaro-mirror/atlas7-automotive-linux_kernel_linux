@@ -18,7 +18,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 
-#include "i2c-sirfsoc.h"
+#include "i2c-sirf.h"
 
 #define SIRFSOC_I2C_DEFAULT_SPEED  100000
 
