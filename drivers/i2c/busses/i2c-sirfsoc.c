@@ -389,9 +389,17 @@ static int i2c_sirfsoc_resume(struct platform_device *pdev)
 #define i2c_sirfsoc_resume	NULL
 #endif
 
+static const struct of_device_id sirfsoc_i2c_of_match[] __devinitconst = {
+	{ .compatible = "sirf,prima2-i2c", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, sirfsoc_i2c_of_match);
+
 static struct platform_driver i2c_sirfsoc_driver = {
 	.driver = {
 		.name = "sirfsoc_i2c",
+		.owner = THIS_MODULE,
+		.of_match_table = sirfsoc_i2c_of_match,
 	},
 	.probe = i2c_sirfsoc_probe,
 	.remove = __devexit_p(i2c_sirfsoc_remove),
