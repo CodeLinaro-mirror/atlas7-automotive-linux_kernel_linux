@@ -237,7 +237,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(clk)) {
 		err = PTR_ERR(clk);
-		dev_err(&pdev->dev, "SIRFSOC-I2C: Clock get failed\n");
+		dev_err(&pdev->dev, "Clock get failed\n");
 		goto out;
 	}
 
@@ -248,14 +248,14 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	new_adapter = kzalloc(sizeof(*new_adapter), GFP_KERNEL);
 	if (!new_adapter) {
 		dev_err(&pdev->dev,
-			"SIRFSOC-I2C: Cant allocate new i2c adapter!\n");
+			"Can't allocate new i2c adapter!\n");
 		err = -ENOMEM;
 		goto clk_out;
 	}
 
 	siic = kzalloc(sizeof(*siic), GFP_KERNEL);
 	if (!siic) {
-		dev_err(&pdev->dev, "SIRFSOC-I2C: Cant allocate driver data\n");
+		dev_err(&pdev->dev, "Can't allocate driver data\n");
 		err = -ENOMEM;
 		goto free_adapter;
 	}
@@ -264,7 +264,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (mem_res == NULL) {
-		dev_err(&pdev->dev, "SIRFSOC-I2C: Unable to get MEM resource\n");
+		dev_err(&pdev->dev, "Unable to get MEM resource\n");
 		err = -EINVAL;
 		goto free_data;
 	}
@@ -272,7 +272,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	siic->base =
 		ioremap(mem_res->start, (mem_res->end - mem_res->start + 1));
 	if (siic->base == NULL) {
-		dev_err(&pdev->dev, "SIRFSOC-I2C: IO remap failed!\n");
+		dev_err(&pdev->dev, "IO remap failed!\n");
 		err = -ENOMEM;
 		goto free_data;
 	}
@@ -322,7 +322,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 
 	err = i2c_add_numbered_adapter(new_adapter);
 	if (err < 0) {
-		dev_err(&pdev->dev, "Cant add new i2c adapter\n");
+		dev_err(&pdev->dev, "Can't add new i2c adapter\n");
 		goto free_irq;
 	}
 
