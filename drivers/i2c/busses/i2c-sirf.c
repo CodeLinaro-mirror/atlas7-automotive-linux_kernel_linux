@@ -23,7 +23,7 @@
 #define SIRFSOC_I2C_DEFAULT_SPEED  100000
 
 struct sirfsoc_i2c {
-	void *base;
+	void __iomem *base;
 	struct clk *clk;
 	unsigned long speed;	/* I2C SCL frequency */
 	int irq;
@@ -210,15 +210,18 @@ static int i2c_sirfsoc_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 			siic->last = 0;
 
 		ret = i2c_sirfsoc_xfer_msg(siic, &msgs[i]);
-		if (ret)
+		if (ret) {
+			clk_disable(siic->clk);
 			return ret;
+		}
 	}
 
+	clk_disable(siic->clk);
 	return num;
 }
 
 /* I2C algorithms associated with this master controller driver */
-static struct i2c_algorithm i2c_sirfsoc_algo = {
+static const struct i2c_algorithm i2c_sirfsoc_algo = {
 	.master_xfer = i2c_sirfsoc_xfer,
 	.functionality = i2c_sirfsoc_func,
 };
@@ -238,26 +241,36 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	if (IS_ERR(clk)) {
 		err = PTR_ERR(clk);
 		dev_err(&pdev->dev, "Clock get failed\n");
-		goto out;
+		goto err_get_clk;
 	}
 
-	clk_enable(clk);
+	err = clk_prepare(clk);
+	if (err) {
+		dev_err(&pdev->dev, "Clock prepare failed\n");
+		goto  err_clk_prep;
+	}
+
+	err = clk_enable(clk);
+	if (err) {
+		dev_err(&pdev->dev, "Clock enable failed\n");
+		goto  err_clk_en;
+	}
 
 	ctrl_speed = clk_get_rate(clk);
 
-	new_adapter = kzalloc(sizeof(*new_adapter), GFP_KERNEL);
+	new_adapter = devm_kzalloc(&pdev->dev, sizeof(*new_adapter), GFP_KERNEL);
 	if (!new_adapter) {
 		dev_err(&pdev->dev,
 			"Can't allocate new i2c adapter!\n");
 		err = -ENOMEM;
-		goto clk_out;
+		goto out;
 	}
 
-	siic = kzalloc(sizeof(*siic), GFP_KERNEL);
+	siic = devm_kzalloc(&pdev->dev, sizeof(*siic), GFP_KERNEL);
 	if (!siic) {
 		dev_err(&pdev->dev, "Can't allocate driver data\n");
 		err = -ENOMEM;
-		goto free_adapter;
+		goto out;
 	}
 	new_adapter->class = I2C_CLASS_HWMON | I2C_CLASS_DDC | I2C_CLASS_SPD;
 	siic->adapter = new_adapter;
@@ -266,26 +279,26 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	if (mem_res == NULL) {
 		dev_err(&pdev->dev, "Unable to get MEM resource\n");
 		err = -EINVAL;
-		goto free_data;
+		goto out;
 	}
 
 	siic->base =
-		ioremap(mem_res->start, (mem_res->end - mem_res->start + 1));
+		devm_ioremap(&pdev->dev, mem_res->start, (mem_res->end - mem_res->start + 1));
 	if (siic->base == NULL) {
 		dev_err(&pdev->dev, "IO remap failed!\n");
 		err = -ENOMEM;
-		goto free_data;
+		goto out;
 	}
 
 	siic->irq = platform_get_irq(pdev, 0);
 	if (!siic->irq) {
 		err = -EINVAL;
-		goto free_base;
+		goto out;
 	}
-	err = request_irq(siic->irq, i2c_sirfsoc_irq, 0,
+	err = devm_request_irq(&pdev->dev, siic->irq, i2c_sirfsoc_irq, 0,
 		dev_name(&pdev->dev), siic);
 	if (err)
-		goto free_base;
+		goto out;
 
 	new_adapter->algo = &i2c_sirfsoc_algo;
 	new_adapter->algo_data = siic;
@@ -323,25 +336,22 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	err = i2c_add_numbered_adapter(new_adapter);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Can't add new i2c adapter\n");
-		goto free_irq;
+		goto out;
 	}
 
-	dev_info(&pdev->dev, "I2C adapter ready to operate\n");
+	clk_disable(clk);
+
+	dev_info(&pdev->dev, " I2C adapter ready to operate\n");
 
 	return 0;
 
-free_irq:
-	free_irq(siic->irq, siic);
-free_base:
-	iounmap(siic->base);
-free_data:
-	kfree(siic);
-free_adapter:
-	kfree(new_adapter);
-clk_out:
-	clk_disable(clk);
-	clk_put(clk);
 out:
+	clk_disable(clk);
+err_clk_en:
+	clk_unprepare(clk);
+err_clk_prep:
+	clk_put(clk);
+err_get_clk:
 	return err;
 }
 
@@ -352,11 +362,8 @@ static int __devexit i2c_sirfsoc_remove(struct platform_device *pdev)
 
 	writel(SIRFSOC_I2C_RESET, siic->base + SIRFSOC_I2C_CTRL);
 	i2c_del_adapter(adapter);
-	free_irq(siic->irq, siic);
-	iounmap(siic->base);
-	kfree(siic);
-	kfree(adapter);
 	clk_disable(siic->clk);
+	clk_unprepare(siic->clk);
 	clk_put(siic->clk);
 	return 0;
 }
