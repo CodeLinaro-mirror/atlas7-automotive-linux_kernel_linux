@@ -190,6 +190,8 @@ static int i2c_sirfsoc_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 	struct sirfsoc_i2c *siic = adap->algo_data;
 	int i, ret;
 
+	clk_enable(siic->clk);
+
 	for (i = 0; i < num; i++) {
 		siic->buf = msgs[i].buf;
 		siic->msg_len = msgs[i].len;
@@ -372,8 +374,10 @@ static int i2c_sirfsoc_suspend(struct platform_device *pdev, pm_message_t msg)
 	struct i2c_adapter *adapter = platform_get_drvdata(pdev);
 	struct sirfsoc_i2c *siic = adapter->algo_data;
 
+	clk_enable(siic->clk);
 	siic->sda_delay = readl(siic->base + SIRFSOC_I2C_SDA_DELAY);
 	siic->clk_div = readl(siic->base + SIRFSOC_I2C_CLK_CTRL);
+	clk_disable(siic->clk);
 	return 0;
 }
 
@@ -382,11 +386,13 @@ static int i2c_sirfsoc_resume(struct platform_device *pdev)
 	struct i2c_adapter *adapter = platform_get_drvdata(pdev);
 	struct sirfsoc_i2c *siic = adapter->algo_data;
 
+	clk_enable(siic->clk);
 	writel(SIRFSOC_I2C_RESET, siic->base + SIRFSOC_I2C_CTRL);
 	writel(SIRFSOC_I2C_CORE_EN | SIRFSOC_I2C_MASTER_MODE,
 		siic->base + SIRFSOC_I2C_CTRL);
 	writel(siic->clk_div, siic->base + SIRFSOC_I2C_CLK_CTRL);
 	writel(siic->sda_delay, siic->base + SIRFSOC_I2C_SDA_DELAY);
+	clk_disable(siic->clk);
 	return 0;
 }
 #else
