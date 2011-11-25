@@ -37,6 +37,12 @@
 #define HIBERNATE_SIG	"S1SUSPEND"
 
 /*
+ * if users know swap partitions are enough for compressed snapshots,
+ * echo 0 > /sys/power/check_swap_size
+ */
+int check_swap_size = 1;
+
+/*
  *	The swap map is a data structure used for keeping track of each page
  *	written to a swap partition.  It consists of many swap_map_page
  *	structures that contain each an array of MAP_PAGE_ENTRIES swap entries.
@@ -771,6 +777,9 @@ static int enough_swap(unsigned int nr_pages, unsigned int flags)
 {
 	unsigned int free_swap = count_swap_pages(root_swap, 1);
 	unsigned int required;
+
+	if (!check_swap_size)
+		return 1;
 
 	pr_debug("PM: Free swap pages: %u\n", free_swap);
 
