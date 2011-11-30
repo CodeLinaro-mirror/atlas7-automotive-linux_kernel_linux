@@ -169,9 +169,9 @@ static int pwm_backlight_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int pwm_backlight_suspend(struct platform_device *pdev,
-				 pm_message_t state)
+static int pwm_backlight_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 
@@ -184,8 +184,9 @@ static int pwm_backlight_suspend(struct platform_device *pdev,
 	return 0;
 }
 
-static int pwm_backlight_resume(struct platform_device *pdev)
+static int pwm_backlight_resume(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 
 	backlight_update_status(bl);
@@ -196,15 +197,19 @@ static int pwm_backlight_resume(struct platform_device *pdev)
 #define pwm_backlight_resume	NULL
 #endif
 
+static const struct dev_pm_ops pwm_backlight_pm_ops = {
+	.suspend = pwm_backlight_suspend,
+	.resume = pwm_backlight_resume,
+};
+
 static struct platform_driver pwm_backlight_driver = {
 	.driver		= {
 		.name	= "pwm-backlight",
 		.owner	= THIS_MODULE,
+		.pm	= &pwm_backlight_pm_ops,
 	},
 	.probe		= pwm_backlight_probe,
 	.remove		= pwm_backlight_remove,
-	.suspend	= pwm_backlight_suspend,
-	.resume		= pwm_backlight_resume,
 };
 
 static int __init pwm_backlight_init(void)
