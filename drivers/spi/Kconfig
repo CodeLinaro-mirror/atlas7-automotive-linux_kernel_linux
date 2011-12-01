@@ -325,6 +325,13 @@ config SPI_SH_SCI
 	help
 	  SPI driver for SuperH SCI blocks.
 
+config SPI_SIRFSOC
+        tristate "CSR SiRFprimaII SPI controller"
+	depends on ARCH_PRIMA2
+	select SPI_BITBANG
+        help
+          SPI driver for CSR SiRFprimaII SoCs
+
 config SPI_STMP3XXX
 	tristate "Freescale STMP37xx/378x SPI/SSP controller"
 	depends on ARCH_STMP3XXX && SPI_MASTER

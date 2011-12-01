@@ -51,6 +51,7 @@ obj-$(CONFIG_SPI_S3C64XX)		+= spi-s3c64xx.o
 obj-$(CONFIG_SPI_SH)			+= spi-sh.o
 obj-$(CONFIG_SPI_SH_MSIOF)		+= spi-sh-msiof.o
 obj-$(CONFIG_SPI_SH_SCI)		+= spi-sh-sci.o
+obj-$(CONFIG_SPI_SIRFSOC)		+= spi-sirfsoc.o
 obj-$(CONFIG_SPI_STMP3XXX)		+= spi-stmp.o
 obj-$(CONFIG_SPI_TEGRA)			+= spi-tegra.o
 obj-$(CONFIG_SPI_TI_SSP)		+= spi-ti-ssp.o
