@@ -18,7 +18,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
-#include <linux/spi/spi-sirfsoc.h>
+#include <linux/spi/spi-sirf.h>
 
 #define DRIVER_NAME "sirfsoc_spi"
 
