@@ -438,7 +438,6 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 {
 	struct spi_bitbang *bitbang;
 	struct sirfsoc_spi *sspi;
-	int retval;
 
 	if (!spi->max_speed_hz)
 		return -EINVAL;
@@ -449,18 +448,7 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 	if (!spi->bits_per_word)
 		spi->bits_per_word = 8;
 
-	retval = spi_sirfsoc_setup_transfer(spi, NULL);
-	if (retval < 0)
-		return retval;
-
-	spin_lock(&bitbang->lock);
-
-	if (!bitbang->busy)
-		bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
-
-	spin_unlock(&bitbang->lock);
-
-	return 0;
+	return spi_sirfsoc_setup_transfer(spi, NULL);
 }
 
 static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
@@ -501,9 +489,6 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 		goto free_master;
 	}
 	pdata = dev->dev.platform_data;
-
-	if (pdata->platform_init)
-		pdata->platform_init(0);
 
 	sspi->bitbang.master = spi_master_get(master);
 	sspi->bitbang.chipselect = spi_sirfsoc_chipselect;

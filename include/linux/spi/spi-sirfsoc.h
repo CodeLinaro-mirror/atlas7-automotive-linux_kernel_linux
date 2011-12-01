@@ -11,11 +11,6 @@
 
 struct sirfsoc_spi_platdata {
 	int bus_num;
-	void (*platform_init) (int bus_num);
-#ifdef CONFIG_SPI_SIRFSOC_DMA
-	int tx_dma_chan;
-	int rx_dma_chan;
-#endif
 };
 
 struct sirfsoc_spi_ctrldata {
