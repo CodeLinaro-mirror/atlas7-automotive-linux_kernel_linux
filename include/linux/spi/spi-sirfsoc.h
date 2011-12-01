@@ -9,10 +9,6 @@
 #ifndef __SIRFSOC_SPI_H__
 #define __SIRFSOC_SPI_H__
 
-struct sirfsoc_spi_platdata {
-	int bus_num;
-};
-
 struct sirfsoc_spi_ctrldata {
 	int cs_type;
 	void (*chip_select) (void);

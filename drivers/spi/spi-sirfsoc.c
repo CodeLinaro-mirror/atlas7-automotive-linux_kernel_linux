@@ -20,7 +20,7 @@
 #include <linux/spi/spi_bitbang.h>
 #include <linux/spi/spi-sirfsoc.h>
 
-#define DRIVER_NAME "spi_sirfsoc"
+#define DRIVER_NAME "sirfsoc_spi"
 
 #define SPI_CTRL		0x0000	/* SPI controller configuration register */
 #define SPI_CMD			0x0004	/* SPI command register */
@@ -456,9 +456,7 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 	struct sirfsoc_spi *sspi;
 	struct spi_master *master;
 	struct resource *mem_res;
-	struct sirfsoc_spi_platdata *pdata;
 	int ret;
-	char dev_id[16];
 
 	master = spi_alloc_master(&dev->dev, sizeof(*sspi));
 	if (master == NULL) {
@@ -483,21 +481,12 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 		goto free_master;
 	}
 
-	if (!dev->dev.platform_data) {
+#ifdef CONFIG_OF
+	if (of_property_read_u32(dev->dev.of_node, "cell-index", &dev->id)) {
+		dev_err(&dev->dev, "Fail to get index\n");
 		ret = -ENODEV;
-		dev_err(&dev->dev, "No platform data!\n");
 		goto free_master;
 	}
-	pdata = dev->dev.platform_data;
-
-	sspi->bitbang.master = spi_master_get(master);
-	sspi->bitbang.chipselect = spi_sirfsoc_chipselect;
-	sspi->bitbang.setup_transfer = spi_sirfsoc_setup_transfer;
-	sspi->bitbang.txrx_bufs = spi_sirfsoc_transfer;
-	sspi->bitbang.master->setup = spi_sirfsoc_setup;
-	sspi->bitbang.master->num_chipselect = 0xFFFF;
-#ifdef CONFIG_OF
-	sspi->bitbang.master->dev.of_node = dev->dev.of_node;
 #endif
 
 	sspi->irq = platform_get_irq(dev, 0);
@@ -509,18 +498,29 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 	if (ret)
 		goto free_master;
 
+	sspi->bitbang.master = spi_master_get(master);
+	sspi->bitbang.chipselect = spi_sirfsoc_chipselect;
+	sspi->bitbang.setup_transfer = spi_sirfsoc_setup_transfer;
+	sspi->bitbang.txrx_bufs = spi_sirfsoc_transfer;
+	sspi->bitbang.master->setup = spi_sirfsoc_setup;
+	sspi->bitbang.master->num_chipselect = 0xFFFF;
+	master->bus_num = dev->id;
+#ifdef CONFIG_OF
+	sspi->bitbang.master->dev.of_node = dev->dev.of_node;
+#endif
+
 	init_completion(&sspi->done);
-	master->bus_num = pdata->bus_num;
 
 	tasklet_init(&sspi->tasklet_tx, spi_sirfsoc_tasklet_tx,
 		     (unsigned long)sspi);
 
-	sspi->clk = clk_get(&dev->dev, dev_id);
+	sspi->clk = clk_get(&dev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
 		ret = -EINVAL;
 		goto free_master;
 	}
 	clk_enable(sspi->clk);
+
 	sspi->ctrl_freq = clk_get_rate(sspi->clk);
 
 	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);	/* Reset TX, RX FIFO */
