@@ -13,6 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/bitops.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/spi/spi.h>
@@ -44,63 +45,63 @@
 #define DUMMY_DELAY_CTRL	0x0144	/* Control reg when insert dummy delay */
 
 /* SPI CTRL register defines */
-#define SLV_MODE		(1<<16)
-#define CMD_MODE		(1<<17)
-#define CS_IO_OUT		(1<<18)
-#define CS_IO_MODE		(1<<19)
-#define CLK_IDLE_STAT		(1<<20)
-#define CS_IDLE_STAT		(1<<21)
-#define TRAN_MSB		(1<<22)
-#define DRV_POS_EDGE		(1<<23)
-#define CS_HOLD_TIME		(1<<24)
-#define CLK_SAMPLE_MODE		(1<<25)
+#define SLV_MODE		BIT(16)
+#define CMD_MODE		BIT(17)
+#define CS_IO_OUT		BIT(18)
+#define CS_IO_MODE		BIT(19)
+#define CLK_IDLE_STAT		BIT(20)
+#define CS_IDLE_STAT		BIT(21)
+#define TRAN_MSB		BIT(22)
+#define DRV_POS_EDGE		BIT(23)
+#define CS_HOLD_TIME		BIT(24)
+#define CLK_SAMPLE_MODE		BIT(25)
 #define TRAN_DAT_FORMAT_8	(0<<26)
 #define TRAN_DAT_FORMAT_12	(1<<26)
 #define TRAN_DAT_FORMAT_16	(2<<26)
 #define TRAN_DAT_FORMAT_32	(3<<26)
 #define CMD_BYTE_NUM(x)		((x&3)<<28)
-#define ENA_AUTO_CLR		(1<<30)
-#define MUL_DAT_MODE		(1<<31)
+#define ENA_AUTO_CLR		BIT(30)
+#define MUL_DAT_MODE		BIT(31)
 
 /* Interrupt Enable */
-#define RX_DONE_INT_EN		(1<<0)
-#define TX_DONE_INT_EN		(1<<1)
-#define RX_OFLOW_INT_EN		(1<<2)
-#define TX_UFLOW_INT_EN		(1<<3)
-#define RX_IO_DMA_INT_EN	(1<<4)
-#define TX_IO_DMA_INT_EN	(1<<5)
-#define RXFIFO_FULL_INT_EN	(1<<6)
-#define TXFIFO_EMPTY_INT_EN	(1<<7)
-#define RXFIFO_THD_INT_EN	(1<<8)
-#define TXFIFO_THD_INT_EN	(1<<9)
-#define FRM_END_INT_EN		(1<<10)
+#define RX_DONE_INT_EN		BIT(0)
+#define TX_DONE_INT_EN		BIT(1)
+#define RX_OFLOW_INT_EN		BIT(2)
+#define TX_UFLOW_INT_EN		BIT(3)
+#define RX_IO_DMA_INT_EN	BIT(4)
+#define TX_IO_DMA_INT_EN	BIT(5)
+#define RXFIFO_FULL_INT_EN	BIT(6)
+#define TXFIFO_EMPTY_INT_EN	BIT(7)
+#define RXFIFO_THD_INT_EN	BIT(8)
+#define TXFIFO_THD_INT_EN	BIT(9)
+#define FRM_END_INT_EN		BIT(10)
 
 #define INT_MASK_ALL		(0x1FFF)
 
 /* Interrupt status */
-#define RX_DONE			(1<<0)
-#define TX_DONE			(1<<1)
-#define RX_OFLOW		(1<<2)
-#define TX_UFLOW		(1<<3)
-#define DMA_IO_RX_DONE		(1<<4)
-#define DMA_IO_TX_DONE		(1<<5)
-#define RXFIFO_FULL		(1<<6)
-#define TXFIFO_EMPTY		(1<<7)
-#define RXFIFO_THD_REACH	(1<<8)
-#define TXFIFO_THD_REACH	(1<<9)
-#define FRM_END			(1<<10)
+#define RX_DONE			BIT(0)
+#define TX_DONE			BIT(1)
+#define RX_OFLOW		BIT(2)
+#define TX_UFLOW		BIT(3)
+#define DMA_IO_RX_DONE		BIT(4)
+#define DMA_IO_TX_DONE		BIT(5)
+#define RXFIFO_FULL		BIT(6)
+#define TXFIFO_EMPTY		BIT(7)
+#define RXFIFO_THD_REACH	BIT(8)
+#define TXFIFO_THD_REACH	BIT(9)
+#define FRM_END			BIT(10)
 
 /* TX RX enable */
-#define SPI_RX_EN		(1<<0)
-#define SPI_TX_EN		(1<<1)
-#define SPI_CMD_TX_EN		(1<<2)
+#define SPI_RX_EN		BIT(0)
+#define SPI_TX_EN		BIT(1)
+#define SPI_CMD_TX_EN		BIT(2)
 
-#define IO_MODE_SEL		(1<<0)
-#define RX_DMA_FLUSH		(1<<2)
+#define IO_MODE_SEL		BIT(0)
+#define RX_DMA_FLUSH		BIT(2)
 
 /* FIFO OPs */
-#define FIFO_RESET		(1<<0)
-#define FIFO_START		(1<<1)
+#define FIFO_RESET		BIT(0)
+#define FIFO_START		BIT(1)
 
 /* FIFO CTRL */
 #define FIFO_WIDTH_BYTE		(0<<0)
@@ -109,8 +110,8 @@
 
 /* FIFO Status */
 #define	FIFO_LEVEL_MASK		0xFF
-#define FIFO_FULL		(1<<8)
-#define FIFO_EMPTY		(1<<9)
+#define FIFO_FULL		BIT(8)
+#define FIFO_EMPTY		BIT(9)
 
 /* 256 bytes rx/tx FIFO */
 #define FIFO_SIZE		256
