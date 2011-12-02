@@ -344,10 +344,11 @@ static void __init mx27ads_map_io(void)
 
 MACHINE_START(MX27ADS, "Freescale i.MX27ADS")
 	/* maintainer: Freescale Semiconductor, Inc. */
-	.boot_params = MX27_PHYS_OFFSET + 0x100,
+	.atag_offset = 0x100,
 	.map_io = mx27ads_map_io,
 	.init_early = imx27_init_early,
 	.init_irq = mx27_init_irq,
+	.handle_irq = imx27_handle_irq,
 	.timer = &mx27ads_timer,
 	.init_machine = mx27ads_board_init,
 MACHINE_END

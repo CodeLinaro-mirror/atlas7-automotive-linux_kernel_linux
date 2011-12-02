@@ -80,9 +80,6 @@ struct sirfsoc_irq_status {
 	u32 mask1;
 	u32 level0;
 	u32 level1;
-	u32 dsp_mask0;
-	u32 dsp_mask1;
-	int saved;
 };
 
 static struct sirfsoc_irq_status sirfsoc_irq_st;

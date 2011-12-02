@@ -272,6 +272,7 @@ struct mlx4_en_rx_ring {
 	u32 prod;
 	u32 cons;
 	u32 buf_size;
+	u8  fcs_del;
 	void *buf;
 	void *rx_info;
 	unsigned long bytes;
@@ -581,8 +582,9 @@ extern const struct ethtool_ops mlx4_en_ethtool_ops;
  * printk / logging functions
  */
 
+__printf(3, 4)
 int en_print(const char *level, const struct mlx4_en_priv *priv,
-	     const char *format, ...) __attribute__ ((format (printf, 3, 4)));
+	     const char *format, ...);
 
 #define en_dbg(mlevel, priv, format, arg...)			\
 do {								\

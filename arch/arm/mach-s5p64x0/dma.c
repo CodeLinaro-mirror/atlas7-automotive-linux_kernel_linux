@@ -32,6 +32,7 @@
 #include <mach/regs-clock.h>
 #include <mach/dma.h>
 
+#include <plat/cpu.h>
 #include <plat/devs.h>
 #include <plat/irqs.h>
 
@@ -226,9 +227,7 @@ struct amba_device s5p64x0_device_pdma = {
 
 static int __init s5p64x0_dma_init(void)
 {
-	unsigned int id = __raw_readl(S5P64X0_SYS_ID) & 0xFF000;
-
-	if (id == 0x50000)
+	if (soc_is_s5p6450())
 		s5p64x0_device_pdma.dev.platform_data = &s5p6450_pdma_pdata;
 	else
 		s5p64x0_device_pdma.dev.platform_data = &s5p6440_pdma_pdata;

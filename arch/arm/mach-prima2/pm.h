@@ -1,11 +1,9 @@
 /*
  * arch/arm/mach-prima2/pm.h
  *
- * Copyright (C) 2011 CSR
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * This file is licensed under the terms of the GNU General Public
- * License version 2. This program is licensed "as is" without any
- * warranty of any kind, whether express or implied.
+ * Licensed under GPLv2 or later.
  */
 
 #ifndef _MACH_PRIMA2_PM_H_

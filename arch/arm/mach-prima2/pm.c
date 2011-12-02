@@ -29,12 +29,12 @@ void __iomem *sirfsoc_memc_base;
 
 static void sirfsoc_set_wakeup_source(void)
 {
-        u32 pwr_trigger_en_reg;
-        pwr_trigger_en_reg = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
+	u32 pwr_trigger_en_reg;
+	pwr_trigger_en_reg = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
 		SIRFSOC_PWRC_TRIGGER_EN);
 #define X_ON_KEY_B (1 << 0)
-        sirfsoc_rtc_iobrg_writel(pwr_trigger_en_reg | X_ON_KEY_B,
-                        sirfsoc_pwrc_base + SIRFSOC_PWRC_TRIGGER_EN);
+	sirfsoc_rtc_iobrg_writel(pwr_trigger_en_reg | X_ON_KEY_B,
+		sirfsoc_pwrc_base + SIRFSOC_PWRC_TRIGGER_EN);
 }
 
 static void sirfsoc_set_sleep_mode(u32 mode)

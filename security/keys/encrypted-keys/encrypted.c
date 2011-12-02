@@ -293,7 +293,7 @@ static char *datablob_format(struct encrypted_key_payload *epayload,
 	/* convert the hex encoded iv, encrypted-data and HMAC to ascii */
 	bufp = &ascii_buf[len];
 	for (i = 0; i < (asciiblob_len - len) / 2; i++)
-		bufp = pack_hex_byte(bufp, iv[i]);
+		bufp = hex_byte_pack(bufp, iv[i]);
 out:
 	return ascii_buf;
 }
@@ -444,7 +444,7 @@ static struct key *request_master_key(struct encrypted_key_payload *epayload,
 		goto out;
 
 	if (IS_ERR(mkey)) {
-		int ret = PTR_ERR(epayload);
+		int ret = PTR_ERR(mkey);
 
 		if (ret == -ENOTSUPP)
 			pr_info("encrypted_key: key %s not supported",

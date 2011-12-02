@@ -479,7 +479,7 @@ static void __init lpd270_init(void)
 
 static struct map_desc lpd270_io_desc[] __initdata = {
 	{
-		.virtual	= LPD270_CPLD_VIRT,
+		.virtual	= (unsigned long)LPD270_CPLD_VIRT,
 		.pfn		= __phys_to_pfn(LPD270_CPLD_PHYS),
 		.length		= LPD270_CPLD_SIZE,
 		.type		= MT_DEVICE,
@@ -498,7 +498,7 @@ static void __init lpd270_map_io(void)
 
 MACHINE_START(LOGICPD_PXA270, "LogicPD PXA270 Card Engine")
 	/* Maintainer: Peter Barada */
-	.boot_params	= 0xa0000100,
+	.atag_offset	= 0x100,
 	.map_io		= lpd270_map_io,
 	.nr_irqs	= LPD270_NR_IRQS,
 	.init_irq	= lpd270_init_irq,

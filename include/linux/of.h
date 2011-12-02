@@ -17,11 +17,13 @@
  */
 #include <linux/types.h>
 #include <linux/bitops.h>
+#include <linux/errno.h>
 #include <linux/kref.h>
 #include <linux/mod_devicetable.h>
 #include <linux/spinlock.h>
 
 #include <asm/byteorder.h>
+#include <asm/errno.h>
 
 typedef u32 phandle;
 typedef u32 ihandle;
@@ -206,6 +208,11 @@ extern int of_property_read_u64(const struct device_node *np,
 extern int of_property_read_string(struct device_node *np,
 				   const char *propname,
 				   const char **out_string);
+extern int of_property_read_string_index(struct device_node *np,
+					 const char *propname,
+					 int index, const char **output);
+extern int of_property_count_strings(struct device_node *np,
+				     const char *propname);
 extern int of_device_is_compatible(const struct device_node *device,
 				   const char *);
 extern int of_device_is_available(const struct device_node *device);
@@ -282,6 +289,19 @@ static inline int of_property_read_string(struct device_node *np,
 	return -ENOSYS;
 }
 
+static inline int of_property_read_string_index(struct device_node *np,
+						const char *propname, int index,
+						const char **out_string)
+{
+	return -ENOSYS;
+}
+
+static inline int of_property_count_strings(struct device_node *np,
+					    const char *propname)
+{
+	return -ENOSYS;
+}
+
 static inline const void *of_get_property(const struct device_node *node,
 				const char *name,
 				int *lenp)
@@ -300,6 +320,16 @@ static inline struct device_node *of_parse_phandle(struct device_node *np,
 						   int index)
 {
 	return NULL;
+}
+
+static inline int of_alias_get_id(struct device_node *np, const char *stem)
+{
+	return -ENOSYS;
+}
+
+static inline int of_machine_is_compatible(const char *compat)
+{
+	return 0;
 }
 
 #define of_match_ptr(_ptr)	NULL
