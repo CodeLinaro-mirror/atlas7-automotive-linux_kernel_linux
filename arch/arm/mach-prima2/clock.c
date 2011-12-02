@@ -360,6 +360,18 @@ static struct clk clk_io = {
 	.ops = &msi_ops,
 };
 
+static struct clk clk_spi0 = {
+	.parent = &clk_io,
+	.enable_bit = 43,
+	.ops = &ios_ops,
+};
+
+static struct clk clk_spi1 = {
+	.parent = &clk_io,
+	.enable_bit = 44,
+	.ops = &ios_ops,
+};
+
 static struct clk clk_i2c0 = {
 	.parent = &clk_io,
 	.enable_bit = 46,
@@ -403,6 +415,12 @@ static struct clk_lookup onchip_clks[] = {
 	}, {
 		.dev_id = "io",
 		.clk = &clk_io,
+	}, {
+		.dev_id = "b00d0000.spi",
+		.clk = &clk_spi0,
+	}, {
+		.dev_id = "b0170000.spi",
+		.clk = &clk_spi1,
 	}, {
 		.dev_id = "b00e0000.i2c",
 		.clk = &clk_i2c0,
