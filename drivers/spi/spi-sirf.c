@@ -263,7 +263,7 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	sspi->left_tx_cnt = sspi->left_rx_cnt = t->len;
 	INIT_COMPLETION(sspi->done);
 
-	writel(INT_MASK_ALL, sspi->base + SPI_INT_STATUS);	/* Clear all Pending interrupts */
+	writel(INT_MASK_ALL, sspi->base + SPI_INT_STATUS);	/* Clear interrupts */
 
 	if (t->len == 1) {
 		writel(readl(sspi->base + SPI_CTRL) | ENA_AUTO_CLR,
@@ -277,8 +277,8 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 		writel(t->len - 1, sspi->base + SPI_RX_DMA_IO_LEN);
 	} else {
 		writel(readl(sspi->base + SPI_CTRL),
-		       sspi->base + SPI_CTRL);
-		writel(0, sspi->base + SPI_TX_DMA_IO_LEN);	/* FIFO will operate continously until stopped */
+			sspi->base + SPI_CTRL);
+		writel(0, sspi->base + SPI_TX_DMA_IO_LEN);
 		writel(0, sspi->base + SPI_RX_DMA_IO_LEN);
 	}
 
@@ -358,7 +358,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	int hz = 0;
 	u32 regval;
 	u32 txfifo_ctrl, rxfifo_ctrl;
-	u32 fifo_size = FIFO_SIZE / 4;	/* FIFO size in DWORDs */
+	u32 fifo_size = FIFO_SIZE / 4;
 
 	sspi = spi_master_get_devdata(spi->master);
 
@@ -562,26 +562,21 @@ static int  __devexit spi_sirfsoc_remove(struct platform_device *dev)
 }
 
 #ifdef CONFIG_PM
-static int spi_sirfsoc_suspend(struct platform_device *dev, pm_message_t msg)
+static int spi_sirfsoc_suspend(struct device *dev)
 {
-	struct spi_master *master;
-	struct sirfsoc_spi *sspi;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
-	master = platform_get_drvdata(dev);
-	sspi = spi_master_get_devdata(master);
-
-	disable_irq(sspi->irq);
 	clk_disable(sspi->clk);
 	return 0;
 }
 
-static int spi_sirfsoc_resume(struct platform_device *dev)
+static int spi_sirfsoc_resume(struct device *dev)
 {
-	struct spi_master *master;
-	struct sirfsoc_spi *sspi;
-
-	master = platform_get_drvdata(dev);
-	sspi = spi_master_get_devdata(master);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
 	clk_enable(sspi->clk);
 	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);	/* Reset TX, RX FIFO */
@@ -589,7 +584,6 @@ static int spi_sirfsoc_resume(struct platform_device *dev)
 	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);	/* Start FIFOs */
 	writel(FIFO_START, sspi->base + SPI_TXFIFO_OP);
 
-	enable_irq(sspi->irq);
 	return 0;
 }
 #else
@@ -598,25 +592,29 @@ static int spi_sirfsoc_resume(struct platform_device *dev)
 #endif
 
 #ifdef CONFIG_OF
-static const struct of_device_id sirfsoc_spi_of_match[] = {
+static const struct of_device_id spi_sirfsoc_of_match[] = {
 	{ .compatible = "sirf,prima2-spi", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_spi_of_match);
 #endif
 
+static const struct dev_pm_ops spi_sirfsoc_pm_ops = {
+	.suspend = spi_sirfsoc_suspend,
+	.resume = spi_sirfsoc_resume,
+};
+
 static struct platform_driver spi_sirfsoc_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
+		.pm     = &spi_sirfsoc_pm_ops,
 #ifdef CONFIG_OF
-		.of_match_table = sirfsoc_spi_of_match,
+		.of_match_table = spi_sirfsoc_of_match,
 #endif
 	},
 	.probe = spi_sirfsoc_probe,
 	.remove = __devexit_p(spi_sirfsoc_remove),
-	.suspend = spi_sirfsoc_suspend,
-	.resume = spi_sirfsoc_resume,
 };
 
 static int __init spi_sirfsoc_init(void)
