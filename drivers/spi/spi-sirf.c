@@ -481,13 +481,11 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 		goto free_master;
 	}
 
-#ifdef CONFIG_OF
 	if (of_property_read_u32(dev->dev.of_node, "cell-index", &dev->id)) {
 		dev_err(&dev->dev, "Fail to get index\n");
 		ret = -ENODEV;
 		goto free_master;
 	}
-#endif
 
 	sspi->irq = platform_get_irq(dev, 0);
 	if (!sspi->irq) {
@@ -505,9 +503,7 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 	sspi->bitbang.master->setup = spi_sirfsoc_setup;
 	sspi->bitbang.master->num_chipselect = 0xFFFF;
 	master->bus_num = dev->id;
-#ifdef CONFIG_OF
 	sspi->bitbang.master->dev.of_node = dev->dev.of_node;
-#endif
 
 	init_completion(&sspi->done);
 
@@ -591,13 +587,11 @@ static int spi_sirfsoc_resume(struct device *dev)
 #define spi_sirfsoc_resume  NULL
 #endif
 
-#ifdef CONFIG_OF
 static const struct of_device_id spi_sirfsoc_of_match[] = {
 	{ .compatible = "sirf,prima2-spi", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_spi_of_match);
-#endif
 
 static const struct dev_pm_ops spi_sirfsoc_pm_ops = {
 	.suspend = spi_sirfsoc_suspend,
@@ -609,9 +603,7 @@ static struct platform_driver spi_sirfsoc_driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.pm     = &spi_sirfsoc_pm_ops,
-#ifdef CONFIG_OF
 		.of_match_table = spi_sirfsoc_of_match,
-#endif
 	},
 	.probe = spi_sirfsoc_probe,
 	.remove = __devexit_p(spi_sirfsoc_remove),
