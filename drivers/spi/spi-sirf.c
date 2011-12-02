@@ -18,6 +18,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
+#include <linux/pinctrl/pinmux.h>
 #include <linux/spi/spi-sirf.h>
 
 #define DRIVER_NAME "sirfsoc_spi"
@@ -131,6 +132,7 @@ struct sirfsoc_spi {
 	u32 ctrl_freq;  /* SPI controller clock speed */
 	struct clk *clk;
 	int bus_num;
+	struct pinmux *pmx;
 
 	/* rx & tx bufs from the spi_transfer */
 	const void *tx;
@@ -505,19 +507,25 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 	master->bus_num = dev->id;
 	sspi->bitbang.master->dev.of_node = dev->dev.of_node;
 
-	init_completion(&sspi->done);
+	sspi->pmx = pinmux_get(&dev->dev, NULL);
+	ret = IS_ERR(sspi->pmx);
+	if (ret)
+		goto free_master;
 
-	tasklet_init(&sspi->tasklet_tx, spi_sirfsoc_tasklet_tx,
-		     (unsigned long)sspi);
+	pinmux_enable(sspi->pmx);
 
 	sspi->clk = clk_get(&dev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
 		ret = -EINVAL;
-		goto free_master;
+		goto free_pmx;
 	}
 	clk_enable(sspi->clk);
-
 	sspi->ctrl_freq = clk_get_rate(sspi->clk);
+
+	init_completion(&sspi->done);
+
+	tasklet_init(&sspi->tasklet_tx, spi_sirfsoc_tasklet_tx,
+		     (unsigned long)sspi);
 
 	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);	/* Reset TX, RX FIFO */
 	writel(FIFO_RESET, sspi->base + SPI_TXFIFO_OP);
@@ -536,6 +544,9 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 free_clk:
 	clk_disable(sspi->clk);
 	clk_put(sspi->clk);
+free_pmx:
+	pinmux_disable(sspi->pmx);
+	pinmux_put(sspi->pmx);
 free_master:
 	spi_master_put(master);
 
@@ -553,6 +564,8 @@ static int  __devexit spi_sirfsoc_remove(struct platform_device *dev)
 	spi_bitbang_stop(&sspi->bitbang);
 	clk_put(sspi->clk);
 	clk_disable(sspi->clk);
+	pinmux_disable(sspi->pmx);
+	pinmux_put(sspi->pmx);
 	spi_master_put(master);
 	return 0;
 }
