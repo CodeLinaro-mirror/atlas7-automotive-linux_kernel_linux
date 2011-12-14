@@ -282,8 +282,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	siic->base =
-		devm_ioremap(&pdev->dev, mem_res->start, (mem_res->end - mem_res->start + 1));
+	siic->base = devm_request_and_ioremap(&pdev->dev, mem_res);
 	if (siic->base == NULL) {
 		dev_err(&pdev->dev, "IO remap failed!\n");
 		err = -ENOMEM;
@@ -291,7 +290,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	}
 
 	siic->irq = platform_get_irq(pdev, 0);
-	if (!siic->irq) {
+	if (siic->irq < 0) {
 		err = -EINVAL;
 		goto out;
 	}
