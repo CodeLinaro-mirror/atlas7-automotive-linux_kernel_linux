@@ -489,7 +489,7 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 	}
 
 	sspi->irq = platform_get_irq(dev, 0);
-	if (!sspi->irq) {
+	if (sspi->irq < 0) {
 		ret = -ENODEV;
 		goto free_master;
 	}
