@@ -368,8 +368,9 @@ static int __devexit i2c_sirfsoc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int i2c_sirfsoc_suspend(struct platform_device *pdev, pm_message_t msg)
+static int i2c_sirfsoc_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct i2c_adapter *adapter = platform_get_drvdata(pdev);
 	struct sirfsoc_i2c *siic = adapter->algo_data;
 
@@ -380,8 +381,9 @@ static int i2c_sirfsoc_suspend(struct platform_device *pdev, pm_message_t msg)
 	return 0;
 }
 
-static int i2c_sirfsoc_resume(struct platform_device *pdev)
+static int i2c_sirfsoc_resume(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct i2c_adapter *adapter = platform_get_drvdata(pdev);
 	struct sirfsoc_i2c *siic = adapter->algo_data;
 
@@ -394,9 +396,11 @@ static int i2c_sirfsoc_resume(struct platform_device *pdev)
 	clk_disable(siic->clk);
 	return 0;
 }
-#else
-#define i2c_sirfsoc_suspend	NULL
-#define i2c_sirfsoc_resume	NULL
+
+static const struct dev_pm_ops i2c_sirfsoc_pm_ops = {
+	.suspend = i2c_sirfsoc_suspend,
+	.resume = i2c_sirfsoc_resume,
+};
 #endif
 
 static const struct of_device_id sirfsoc_i2c_of_match[] __devinitconst = {
@@ -409,12 +413,13 @@ static struct platform_driver i2c_sirfsoc_driver = {
 	.driver = {
 		.name = "sirfsoc_i2c",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm = &i2c_sirfsoc_pm_ops,
+#endif
 		.of_match_table = sirfsoc_i2c_of_match,
 	},
 	.probe = i2c_sirfsoc_probe,
 	.remove = __devexit_p(i2c_sirfsoc_remove),
-	.suspend = i2c_sirfsoc_suspend,
-	.resume = i2c_sirfsoc_resume,
 };
 
 static int __init i2c_sirfsoc_init(void)
