@@ -56,11 +56,11 @@
 #define DRV_POS_EDGE		BIT(23)
 #define CS_HOLD_TIME		BIT(24)
 #define CLK_SAMPLE_MODE		BIT(25)
-#define TRAN_DAT_FORMAT_8	(0<<26)
-#define TRAN_DAT_FORMAT_12	(1<<26)
-#define TRAN_DAT_FORMAT_16	(2<<26)
-#define TRAN_DAT_FORMAT_32	(3<<26)
-#define CMD_BYTE_NUM(x)		((x&3)<<28)
+#define TRAN_DAT_FORMAT_8	(0 << 26)
+#define TRAN_DAT_FORMAT_12	(1 << 26)
+#define TRAN_DAT_FORMAT_16	(2 << 26)
+#define TRAN_DAT_FORMAT_32	(3 << 26)
+#define CMD_BYTE_NUM(x)		((x & 3) << 28)
 #define ENA_AUTO_CLR		BIT(30)
 #define MUL_DAT_MODE		BIT(31)
 
@@ -77,7 +77,7 @@
 #define TXFIFO_THD_INT_EN	BIT(9)
 #define FRM_END_INT_EN		BIT(10)
 
-#define INT_MASK_ALL		(0x1FFF)
+#define INT_MASK_ALL		0x1FFF
 
 /* Interrupt status */
 #define RX_DONE			BIT(0)
@@ -105,9 +105,9 @@
 #define FIFO_START		BIT(1)
 
 /* FIFO CTRL */
-#define FIFO_WIDTH_BYTE		(0<<0)
-#define FIFO_WIDTH_WORD		(1<<0)
-#define FIFO_WIDTH_DWORD	(2<<0)
+#define FIFO_WIDTH_BYTE		(0 << 0)
+#define FIFO_WIDTH_WORD		(1 << 0)
+#define FIFO_WIDTH_DWORD	(2 << 0)
 
 /* FIFO Status */
 #define	FIFO_LEVEL_MASK		0xFF
@@ -116,12 +116,12 @@
 
 /* 256 bytes rx/tx FIFO */
 #define FIFO_SIZE		256
-#define DATA_FRAME_LEN_MAX	(64*1024)
+#define DATA_FRAME_LEN_MAX	(64 * 1024)
 
-#define FIFO_SC(x)		((x)&0x3F)
-#define FIFO_LC(x)		(((x)&0x3F)<<10)
-#define FIFO_HC(x)		(((x)&0x3F)<<20)
-#define FIFO_THD(x)		(((x)&0xFF)<<2)
+#define FIFO_SC(x)		((x) & 0x3F)
+#define FIFO_LC(x)		(((x) & 0x3F) << 10)
+#define FIFO_HC(x)		(((x) & 0x3F) << 20)
+#define FIFO_THD(x)		(((x) & 0xFF) << 2)
 
 struct sirfsoc_spi {
 	struct spi_bitbang bitbang;
@@ -220,7 +220,6 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 	u32 spi_stat = readl(sspi->base + SPI_INT_STATUS);
 	u32 word = 0;
 
-	/* clear intr status */
 	writel(spi_stat, sspi->base + SPI_INT_STATUS);
 
 	/* Error Conditions */
@@ -265,7 +264,7 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	sspi->left_tx_cnt = sspi->left_rx_cnt = t->len;
 	INIT_COMPLETION(sspi->done);
 
-	writel(INT_MASK_ALL, sspi->base + SPI_INT_STATUS);	/* Clear interrupts */
+	writel(INT_MASK_ALL, sspi->base + SPI_INT_STATUS);
 
 	if (t->len == 1) {
 		writel(readl(sspi->base + SPI_CTRL) | ENA_AUTO_CLR,
@@ -284,9 +283,9 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 		writel(0, sspi->base + SPI_RX_DMA_IO_LEN);
 	}
 
-	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);	/* Reset TX, RX FIFO */
+	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);
 	writel(FIFO_RESET, sspi->base + SPI_TXFIFO_OP);
-	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);	/* Start FIFOs */
+	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);
 	writel(FIFO_START, sspi->base + SPI_TXFIFO_OP);
 
 	/* fill up the Tx FIFO */
@@ -300,15 +299,16 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	writel(RX_OFLOW_INT_EN | TX_UFLOW_INT_EN | RXFIFO_THD_INT_EN |
 		TXFIFO_THD_INT_EN | FRM_END_INT_EN | RXFIFO_FULL_INT_EN |
 		TXFIFO_EMPTY_INT_EN, sspi->base + SPI_INT_EN);
-	writel(SPI_RX_EN | SPI_TX_EN, sspi->base + SPI_TX_RX_EN); /* RX, TX enable */
+	writel(SPI_RX_EN | SPI_TX_EN, sspi->base + SPI_TX_RX_EN);
 
 	if (wait_for_completion_timeout(&sspi->done, timeout) == 0)
 		dev_err(&spi->dev, "transfer timeout\n");
 
-	writel(0, sspi->base + SPI_RXFIFO_OP);	/* TX, RX FIFO stop */
+	/* TX, RX FIFO stop */
+	writel(0, sspi->base + SPI_RXFIFO_OP);
 	writel(0, sspi->base + SPI_TXFIFO_OP);
-	writel(0, sspi->base + SPI_TX_RX_EN);	/* RX, TX disable */
-	writel(0, sspi->base + SPI_INT_EN);	/* Disable all interrupts */
+	writel(0, sspi->base + SPI_TX_RX_EN);
+	writel(0, sspi->base + SPI_INT_EN);
 
 	return t->len - sspi->left_rx_cnt;
 }
@@ -527,9 +527,9 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 	tasklet_init(&sspi->tasklet_tx, spi_sirfsoc_tasklet_tx,
 		     (unsigned long)sspi);
 
-	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);	/* Reset TX, RX FIFO */
+	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);
 	writel(FIFO_RESET, sspi->base + SPI_TXFIFO_OP);
-	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);	/* Start FIFOs */
+	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);
 	writel(FIFO_START, sspi->base + SPI_TXFIFO_OP);
 	writel(0, sspi->base + DUMMY_DELAY_CTRL);	/* We are not using dummy delay between command and data */
 
@@ -588,9 +588,9 @@ static int spi_sirfsoc_resume(struct device *dev)
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
 	clk_enable(sspi->clk);
-	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);	/* Reset TX, RX FIFO */
+	writel(FIFO_RESET, sspi->base + SPI_RXFIFO_OP);
 	writel(FIFO_RESET, sspi->base + SPI_TXFIFO_OP);
-	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);	/* Start FIFOs */
+	writel(FIFO_START, sspi->base + SPI_RXFIFO_OP);
 	writel(FIFO_START, sspi->base + SPI_TXFIFO_OP);
 
 	return 0;
