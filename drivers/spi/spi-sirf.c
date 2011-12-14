@@ -595,9 +595,11 @@ static int spi_sirfsoc_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define spi_sirfsoc_suspend NULL
-#define spi_sirfsoc_resume  NULL
+
+static const struct dev_pm_ops spi_sirfsoc_pm_ops = {
+	.suspend = spi_sirfsoc_suspend,
+	.resume = spi_sirfsoc_resume,
+};
 #endif
 
 static const struct of_device_id spi_sirfsoc_of_match[] = {
@@ -606,16 +608,13 @@ static const struct of_device_id spi_sirfsoc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_spi_of_match);
 
-static const struct dev_pm_ops spi_sirfsoc_pm_ops = {
-	.suspend = spi_sirfsoc_suspend,
-	.resume = spi_sirfsoc_resume,
-};
-
 static struct platform_driver spi_sirfsoc_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
 		.pm     = &spi_sirfsoc_pm_ops,
+#endif
 		.of_match_table = spi_sirfsoc_of_match,
 	},
 	.probe = spi_sirfsoc_probe,
