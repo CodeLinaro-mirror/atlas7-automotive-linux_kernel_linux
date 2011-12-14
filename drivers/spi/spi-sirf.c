@@ -475,8 +475,7 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *dev)
 		goto free_master;
 	}
 
-	sspi->base = devm_ioremap(&dev->dev, mem_res->start, mem_res->end -
-		mem_res->start + 1);
+	sspi->base = devm_request_and_ioremap(&dev->dev, mem_res);
 	if (sspi->base == NULL) {
 		dev_err(&dev->dev, "IO remap failed!\n");
 		ret = -ENOMEM;
