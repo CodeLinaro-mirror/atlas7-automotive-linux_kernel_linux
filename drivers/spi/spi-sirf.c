@@ -562,8 +562,8 @@ static int  __devexit spi_sirfsoc_remove(struct platform_device *dev)
 	sspi = spi_master_get_devdata(master);
 
 	spi_bitbang_stop(&sspi->bitbang);
-	clk_put(sspi->clk);
 	clk_disable(sspi->clk);
+	clk_put(sspi->clk);
 	pinmux_disable(sspi->pmx);
 	pinmux_put(sspi->pmx);
 	spi_master_put(master);
