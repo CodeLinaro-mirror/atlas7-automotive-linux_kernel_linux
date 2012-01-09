@@ -74,8 +74,6 @@ static struct kobj_attribute _name##_attr = {	\
 
 /* Preferred image size in bytes (default 500 MB) */
 extern unsigned long image_size;
-/* If 0, skip checking whether the swap size is enough for compressed snapshot */
-extern int check_swap_size;
 /* Size of memory reserved for drivers (default SPARE_PAGES x PAGE_SIZE) */
 extern unsigned long reserved_size;
 extern int in_suspend;

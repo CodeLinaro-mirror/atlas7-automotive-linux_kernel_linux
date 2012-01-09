@@ -47,11 +47,6 @@ Writing to this file will accept one of
        'testproc'
        'test'
 
-/sys/power/check_swap_size controls whether we can skip checking the swap
-partition size by worst compression ratio. If users know the swap partition
-is enough for compressed snapshot, write 0 to /sys/power/check_swap_size.
-It is useful for an embedded system with known running softwares.
-
 /sys/power/image_size controls the size of the image created by
 the suspend-to-disk mechanism.  It can be written a string
 representing a non-negative integer that will be used as an upper

@@ -1040,33 +1040,11 @@ static ssize_t reserved_size_store(struct kobject *kobj,
 
 power_attr(reserved_size);
 
-static ssize_t check_swap_size_show(struct kobject *kobj, struct kobj_attribute *attr,
-			       char *buf)
-{
-	return sprintf(buf, "%d\n", check_swap_size);
-}
-
-static ssize_t check_swap_size_store(struct kobject *kobj, struct kobj_attribute *attr,
-				const char *buf, size_t n)
-{
-	int check_size;
-
-	if (sscanf(buf, "%d", &check_size) == 1) {
-		check_swap_size = check_size;
-		return n;
-	}
-
-	return -EINVAL;
-}
-
-power_attr(check_swap_size);
-
 static struct attribute * g[] = {
 	&disk_attr.attr,
 	&resume_attr.attr,
 	&image_size_attr.attr,
 	&reserved_size_attr.attr,
-	&check_swap_size_attr.attr,
 	NULL,
 };
 

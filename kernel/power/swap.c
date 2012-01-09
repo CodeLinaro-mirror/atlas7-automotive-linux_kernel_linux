@@ -37,12 +37,6 @@
 #define HIBERNATE_SIG	"S1SUSPEND"
 
 /*
- * if users know swap partitions are enough for compressed snapshots,
- * echo 0 > /sys/power/check_swap_size
- */
-int check_swap_size = 1;
-
-/*
  *	The swap map is a data structure used for keeping track of each page
  *	written to a swap partition.  It consists of many swap_map_page
  *	structures that contain each an array of MAP_PAGE_ENTRIES swap entries.
@@ -778,13 +772,9 @@ static int enough_swap(unsigned int nr_pages, unsigned int flags)
 	unsigned int free_swap = count_swap_pages(root_swap, 1);
 	unsigned int required;
 
-	if (!check_swap_size)
-		return 1;
-
 	pr_debug("PM: Free swap pages: %u\n", free_swap);
 
-	required = PAGES_FOR_IO + ((flags & SF_NOCOMPRESS_MODE) ?
-		nr_pages : (nr_pages * LZO_CMP_PAGES) / LZO_UNC_PAGES + 1);
+	required = PAGES_FOR_IO + nr_pages;
 	return free_swap > required;
 }
 
@@ -812,10 +802,12 @@ int swsusp_write(unsigned int flags)
 		printk(KERN_ERR "PM: Cannot get swap writer\n");
 		return error;
 	}
-	if (!enough_swap(pages, flags)) {
-		printk(KERN_ERR "PM: Not enough free swap\n");
-		error = -ENOSPC;
-		goto out_finish;
+	if (flags & SF_NOCOMPRESS_MODE) {
+		if (!enough_swap(pages, flags)) {
+			printk(KERN_ERR "PM: Not enough free swap\n");
+			error = -ENOSPC;
+			goto out_finish;
+		}
 	}
 	memset(&snapshot, 0, sizeof(struct snapshot_handle));
 	error = snapshot_read_next(&snapshot);
