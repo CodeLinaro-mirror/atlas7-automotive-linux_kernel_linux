@@ -18,9 +18,9 @@
 
 /* Padmux settings */
 static struct pinmux_map prima2_padmux_map[] = {
-	PINMUX_MAP_PRIMARY("UART1", "uart1", "b0060000.uart"),
-	PINMUX_MAP_PRIMARY("SPI0", "spi0", "b00d0000.spi"),
-	PINMUX_MAP_PRIMARY("SPI1", "spi1", "b0170000.spi"),
+	PINMUX_MAP("UART1", "pinmux-sirf", "uart1", "b0060000.uart"),
+	PINMUX_MAP("SPI0", "pinmux-sirf", "spi0", "b00d0000.spi"),
+	PINMUX_MAP("SPI1", "pinmux-sirf", "spi1", "b0170000.spi"),
 };
 
 static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
