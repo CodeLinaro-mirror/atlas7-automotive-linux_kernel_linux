@@ -361,7 +361,6 @@ static int __devexit i2c_sirfsoc_remove(struct platform_device *pdev)
 
 	writel(SIRFSOC_I2C_RESET, siic->base + SIRFSOC_I2C_CTRL);
 	i2c_del_adapter(adapter);
-	clk_disable(siic->clk);
 	clk_unprepare(siic->clk);
 	clk_put(siic->clk);
 	return 0;
