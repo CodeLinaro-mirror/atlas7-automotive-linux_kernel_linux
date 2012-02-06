@@ -436,7 +436,7 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 	unsigned long iflags;
 	int ret;
 
-	if ((xt->dir != MEM_TO_DEV) || (xt->dir != DEV_TO_MEM)) {
+	if ((xt->dir != DMA_MEM_TO_DEV) || (xt->dir != DMA_DEV_TO_MEM)) {
 		ret = -EINVAL;
 		goto err_dir;
 	}
@@ -470,7 +470,7 @@ static struct dma_async_tx_descriptor *sirfsoc_dma_prep_interleaved(
 		sdesc->width = (xt->sgl[0].size + xt->sgl[0].icg) /
 				SIRFSOC_DMA_WORD_LEN;
 		sdesc->ylen = xt->numf - 1;
-		if (xt->dir == MEM_TO_DEV) {
+		if (xt->dir == DMA_MEM_TO_DEV) {
 			sdesc->addr = xt->src_start;
 			sdesc->dir = 1;
 		} else {
@@ -497,7 +497,7 @@ err_dir:
 static struct dma_async_tx_descriptor *
 sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	size_t buf_len, size_t period_len,
-	enum dma_data_direction direction)
+	enum dma_transfer_direction direction)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
@@ -699,17 +699,7 @@ static struct platform_driver sirfsoc_dma_driver = {
 	},
 };
 
-static int __init sirfsoc_dma_init(void)
-{
-	return platform_driver_register(&sirfsoc_dma_driver);
-}
-module_init(sirfsoc_dma_init);
-
-static void __exit sirfsoc_dma_exit(void)
-{
-	platform_driver_unregister(&sirfsoc_dma_driver);
-}
-module_exit(sirfsoc_dma_exit);
+module_platform_driver(sirfsoc_dma_driver);
 
 MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>, "
 	"Barry Song <baohua.song@csr.com>");
