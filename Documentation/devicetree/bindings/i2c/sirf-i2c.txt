@@ -1,0 +1,18 @@
+I2C for SiRFprimaII platforms
+
+Required properties :
+- compatible : Must be "sirf,prima2-i2c"
+- reg: physical base address of the controller and length of memory mapped
+     region.
+- interrupts: interrupt number to the cpu.
+
+Optional properties:
+- Child nodes conforming to i2c bus binding
+
+Examples :
+
+i2c0: i2c@b00e0000 {
+    compatible = "sirf,prima2-i2c";
+    reg = <0xb00e0000 0x10000>;
+    interrupts = <24>;
+};
