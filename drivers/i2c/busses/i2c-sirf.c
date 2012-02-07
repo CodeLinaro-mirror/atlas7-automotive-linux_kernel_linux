@@ -18,7 +18,7 @@
 
 #include "i2c-sirf.h"
 
-#define SIRFSOC_I2C_DEFAULT_SPEED  100000
+#define SIRFSOC_I2C_DEFAULT_SPEED 100000
 
 struct sirfsoc_i2c {
 	void __iomem *base;
@@ -42,13 +42,13 @@ struct sirfsoc_i2c {
 static void i2c_sirfsoc_read_data(struct sirfsoc_i2c *siic)
 {
 	u32 data = 0;
-	int i = 0;
+	int i;
 
 	for (i = 0; i < siic->read_cmd_len; i++) {
 		if (!(i & 0x3))
 			data = readl(siic->base + SIRFSOC_I2C_DATA_BUF + i);
 		siic->buf[siic->finished_len++] =
-			(unsigned char)((data & SIRFSOC_I2C_DATA_MASK(i)) >>
+			(u8)((data & SIRFSOC_I2C_DATA_MASK(i)) >>
 				SIRFSOC_I2C_DATA_SHIFT(i));
 	}
 }
@@ -190,19 +190,11 @@ static int i2c_sirfsoc_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 	for (i = 0; i < num; i++) {
 		siic->buf = msgs[i].buf;
 		siic->msg_len = msgs[i].len;
-
-		if (msgs[i].flags & I2C_M_RD)
-			siic->msg_read = 1;
-		else
-			siic->msg_read = 0;
-
+		siic->msg_read = !!(msgs[i].flags & I2C_M_RD);
 		siic->err_status = 0;
 		siic->cmd_ptr = 0;
 		siic->finished_len = 0;
-		if (i == (num - 1))
-			siic->last = 1;
-		else
-			siic->last = 0;
+		siic->last = (i == (num - 1));
 
 		ret = i2c_sirfsoc_xfer_msg(siic, &msgs[i]);
 		if (ret) {
@@ -243,13 +235,13 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	err = clk_prepare(clk);
 	if (err) {
 		dev_err(&pdev->dev, "Clock prepare failed\n");
-		goto  err_clk_prep;
+		goto err_clk_prep;
 	}
 
 	err = clk_enable(clk);
 	if (err) {
 		dev_err(&pdev->dev, "Clock enable failed\n");
-		goto  err_clk_en;
+		goto err_clk_en;
 	}
 
 	ctrl_speed = clk_get_rate(clk);
@@ -268,7 +260,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto out;
 	}
-	new_adapter->class = I2C_CLASS_HWMON | I2C_CLASS_DDC | I2C_CLASS_SPD;
+	new_adapter->class = I2C_CLASS_HWMON;
 	siic->adapter = new_adapter;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
