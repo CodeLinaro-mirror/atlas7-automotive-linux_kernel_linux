@@ -24,7 +24,6 @@ struct sirfsoc_i2c {
 	void __iomem *base;
 	struct clk *clk;
 	unsigned long speed;	/* I2C SCL frequency */
-	int irq;
 	u32 cmd_ptr;		/* Current position in CMD buffer */
 	u8 *buf;		/* Buffer passed by user */
 	u32 msg_len;		/* Message length */
@@ -233,6 +232,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	struct clk *clk;
 	int ctrl_speed;
+	int irq;
 
 	int err;
 	u32 regval;
@@ -289,12 +289,12 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	siic->irq = platform_get_irq(pdev, 0);
-	if (siic->irq < 0) {
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
 		err = -EINVAL;
 		goto out;
 	}
-	err = devm_request_irq(&pdev->dev, siic->irq, i2c_sirfsoc_irq, 0,
+	err = devm_request_irq(&pdev->dev, irq, i2c_sirfsoc_irq, 0,
 		dev_name(&pdev->dev), siic);
 	if (err)
 		goto out;
