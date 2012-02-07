@@ -36,7 +36,7 @@ struct sirfsoc_i2c {
 	int last;		/* Last message in transfer, STOP cmd can be sent */
 
 	struct completion done;	/* indicates completion of message transfer */
-	struct i2c_adapter *adapter;
+	struct i2c_adapter adapter;
 };
 
 static void i2c_sirfsoc_read_data(struct sirfsoc_i2c *siic)
@@ -101,9 +101,9 @@ static irqreturn_t i2c_sirfsoc_irq(int irq, void *dev_id)
 		writel(SIRFSOC_I2C_STAT_ERR, siic->base + SIRFSOC_I2C_STATUS);
 
 		if (i2c_stat & SIRFSOC_I2C_STAT_NACK)
-			dev_err(&siic->adapter->dev, "ACK not received\n");
+			dev_err(&siic->adapter.dev, "ACK not received\n");
 		else
-			dev_err(&siic->adapter->dev, "I2C error\n");
+			dev_err(&siic->adapter.dev, "I2C error\n");
 
 		complete(&siic->done);
 	} else if (i2c_stat & SIRFSOC_I2C_STAT_CMD_DONE) {
@@ -155,7 +155,7 @@ static int i2c_sirfsoc_xfer_msg(struct sirfsoc_i2c *siic, struct i2c_msg *msg)
 
 	if (wait_for_completion_timeout(&siic->done, timeout) == 0) {
 		siic->err_status = 1;
-		dev_err(&siic->adapter->dev, "Transfer timeout\n");
+		dev_err(&siic->adapter.dev, "Transfer timeout\n");
 	}
 
 	writel(regval & ~(SIRFSOC_I2C_CMD_DONE_EN | SIRFSOC_I2C_ERR_INT_EN),
@@ -216,7 +216,7 @@ static const struct i2c_algorithm i2c_sirfsoc_algo = {
 static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_i2c *siic;
-	struct i2c_adapter *new_adapter;
+	struct i2c_adapter *adap;
 	struct resource *mem_res;
 	struct clk *clk;
 	int ctrl_speed;
@@ -246,22 +246,14 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 
 	ctrl_speed = clk_get_rate(clk);
 
-	new_adapter = devm_kzalloc(&pdev->dev, sizeof(*new_adapter), GFP_KERNEL);
-	if (!new_adapter) {
-		dev_err(&pdev->dev,
-			"Can't allocate new i2c adapter!\n");
-		err = -ENOMEM;
-		goto out;
-	}
-
 	siic = devm_kzalloc(&pdev->dev, sizeof(*siic), GFP_KERNEL);
 	if (!siic) {
 		dev_err(&pdev->dev, "Can't allocate driver data\n");
 		err = -ENOMEM;
 		goto out;
 	}
-	new_adapter->class = I2C_CLASS_HWMON;
-	siic->adapter = new_adapter;
+	adap = &siic->adapter;
+	adap->class = I2C_CLASS_HWMON;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (mem_res == NULL) {
@@ -287,15 +279,15 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	if (err)
 		goto out;
 
-	new_adapter->algo = &i2c_sirfsoc_algo;
-	new_adapter->algo_data = siic;
+	adap->algo = &i2c_sirfsoc_algo;
+	adap->algo_data = siic;
 
-	new_adapter->dev.parent = &pdev->dev;
-	new_adapter->nr = pdev->id;
+	adap->dev.parent = &pdev->dev;
+	adap->nr = pdev->id;
 
-	strlcpy(new_adapter->name, "sirfsoc-i2c", sizeof(new_adapter->name));
+	strlcpy(adap->name, "sirfsoc-i2c", sizeof(adap->name));
 
-	platform_set_drvdata(pdev, new_adapter);
+	platform_set_drvdata(pdev, adap);
 	init_completion(&siic->done);
 
 	/* Controller Initalisation */
@@ -320,7 +312,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	else
 		writel(regval, siic->base + SIRFSOC_I2C_SDA_DELAY);
 
-	err = i2c_add_numbered_adapter(new_adapter);
+	err = i2c_add_numbered_adapter(adap);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Can't add new i2c adapter\n");
 		goto out;
