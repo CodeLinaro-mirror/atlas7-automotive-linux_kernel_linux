@@ -23,7 +23,6 @@
 struct sirfsoc_i2c {
 	void __iomem *base;
 	struct clk *clk;
-	unsigned long speed;	/* I2C SCL frequency */
 	u32 cmd_ptr;		/* Current position in CMD buffer */
 	u8 *buf;		/* Buffer passed by user */
 	u32 msg_len;		/* Message length */
@@ -51,8 +50,6 @@ static void i2c_sirfsoc_read_data(struct sirfsoc_i2c *siic)
 		siic->buf[siic->finished_len++] =
 			(unsigned char)((data & SIRFSOC_I2C_DATA_MASK(i)) >>
 				SIRFSOC_I2C_DATA_SHIFT(i));
-
-		BUG_ON(siic->finished_len > siic->msg_len);
 	}
 }
 
@@ -139,8 +136,6 @@ static void i2c_sirfsoc_set_address(struct sirfsoc_i2c *siic,
 	addr = msg->addr << 1;	/* Generate address */
 	if (msg->flags & I2C_M_RD)
 		addr |= 1;
-	if (msg->flags & I2C_M_REV_DIR_ADDR)	/* Reverse direction bit */
-		addr ^= 1;
 
 	writel(addr, siic->base + SIRFSOC_I2C_CMD(siic->cmd_ptr++));
 }
@@ -420,18 +415,7 @@ static struct platform_driver i2c_sirfsoc_driver = {
 	.probe = i2c_sirfsoc_probe,
 	.remove = __devexit_p(i2c_sirfsoc_remove),
 };
-
-static int __init i2c_sirfsoc_init(void)
-{
-	return platform_driver_register(&i2c_sirfsoc_driver);
-}
-arch_initcall(i2c_sirfsoc_init);
-
-static void __exit i2c_sirfsoc_exit(void)
-{
-	platform_driver_unregister(&i2c_sirfsoc_driver);
-}
-module_exit(i2c_sirfsoc_exit);
+module_platform_driver(i2c_sirfsoc_driver);
 
 MODULE_DESCRIPTION("SiRF SoC I2C master controller driver");
 MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>, "
