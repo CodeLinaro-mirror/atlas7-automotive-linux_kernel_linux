@@ -319,12 +319,12 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 		siic->base + SIRFSOC_I2C_CTRL);
 
 	siic->clk = clk;
-	siic->speed = SIRFSOC_I2C_DEFAULT_SPEED;
-	if (siic->speed < 100000)
+
+	if (SIRFSOC_I2C_DEFAULT_SPEED < 100000)
 		regval =
-			(2 * ctrl_speed) / (2 * siic->speed * 11);
+			(2 * ctrl_speed) / (2 * SIRFSOC_I2C_DEFAULT_SPEED * 11);
 	else
-		regval = ctrl_speed / (siic->speed * 5);
+		regval = ctrl_speed / (SIRFSOC_I2C_DEFAULT_SPEED * 5);
 
 	writel(regval, siic->base + SIRFSOC_I2C_CLK_CTRL);
 	if (regval > 0xFF)
