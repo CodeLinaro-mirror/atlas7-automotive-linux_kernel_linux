@@ -60,7 +60,7 @@ static void i2c_sirfsoc_queue_cmd(struct sirfsoc_i2c *siic)
 
 	if (siic->msg_read) {
 		while (((siic->finished_len + i) < siic->msg_len)
-			&& (siic->cmd_ptr < SIRFSOC_I2C_CMD_BUF_MAX)) {
+				&& (siic->cmd_ptr < SIRFSOC_I2C_CMD_BUF_MAX)) {
 			regval = SIRFSOC_I2C_READ | SIRFSOC_I2C_CMD_RP(0);
 			if (((siic->finished_len + i) ==
 					(siic->msg_len - 1)) && siic->last)
@@ -73,7 +73,7 @@ static void i2c_sirfsoc_queue_cmd(struct sirfsoc_i2c *siic)
 		siic->read_cmd_len = i;
 	} else {
 		while ((siic->cmd_ptr < SIRFSOC_I2C_CMD_BUF_MAX - 1)
-			&& (siic->finished_len < siic->msg_len)) {
+				&& (siic->finished_len < siic->msg_len)) {
 			regval = SIRFSOC_I2C_WRITE | SIRFSOC_I2C_CMD_RP(0);
 			if ((siic->finished_len == (siic->msg_len - 1))
 				&& siic->last)
@@ -143,7 +143,8 @@ static void i2c_sirfsoc_set_address(struct sirfsoc_i2c *siic,
 static int i2c_sirfsoc_xfer_msg(struct sirfsoc_i2c *siic, struct i2c_msg *msg)
 {
 	u32 regval = readl(siic->base + SIRFSOC_I2C_CTRL);
-	int timeout = (msg->len + 1) * 50;
+	/* timeout waiting for the xfer to finish or fail */
+	int timeout = msecs_to_jiffies((msg->len + 1) * 50);
 	int ret = 0;
 
 	i2c_sirfsoc_set_address(siic, msg);
