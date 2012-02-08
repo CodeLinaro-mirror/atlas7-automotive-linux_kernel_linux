@@ -657,18 +657,7 @@ static struct platform_driver spi_sirfsoc_driver = {
 	.probe = spi_sirfsoc_probe,
 	.remove = __devexit_p(spi_sirfsoc_remove),
 };
-
-static int __init spi_sirfsoc_init(void)
-{
-	return platform_driver_register(&spi_sirfsoc_driver);
-}
-arch_initcall(spi_sirfsoc_init);
-
-static void __exit spi_sirfsoc_exit(void)
-{
-	platform_driver_unregister(&spi_sirfsoc_driver);
-}
-module_exit(spi_sirfsoc_exit);
+module_platform_driver(spi_sirfsoc_driver);
 
 MODULE_DESCRIPTION("SiRF SoC SPI master driver");
 MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>, "
