@@ -271,7 +271,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		err = -ENXIO;
+		err = irq;
 		goto out;
 	}
 	err = devm_request_irq(&pdev->dev, irq, i2c_sirfsoc_irq, 0,
