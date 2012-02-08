@@ -138,7 +138,7 @@ struct sirfsoc_spi {
 	/* place received word into rx buffer */
 	void (*enq_rx_word) (u32 rx_data, struct sirfsoc_spi *);
 	/* get word from tx buffer for sending */
-	 u32(*pop_tx_word) (struct sirfsoc_spi *);
+	void (*tx_word) (struct sirfsoc_spi *);
 
 	/* number of words left to be tranmitted/received */
 	unsigned int left_tx_cnt;
@@ -155,13 +155,18 @@ static void spi_sirfsoc_rx_buf_u8(u32 data, struct sirfsoc_spi *sspi)
 	sspi->rx = rx;
 }
 
-static u32 spi_sirfsoc_tx_buf_u8(struct sirfsoc_spi *sspi)
+static void spi_sirfsoc_tx_word_u8(struct sirfsoc_spi *sspi)
 {
-	u32 data;
+	u32 data = 0;
 	const u8 *tx = sspi->tx;
-	data = *tx++;
-	sspi->tx = tx;
-	return data;
+
+	if (tx) {
+		data = *tx++;
+		sspi->tx = tx;
+	}
+
+	writel(data, sspi->base + SIRFSOC_SPI_TXFIFO_DATA);
+	sspi->left_tx_cnt--;
 }
 
 static void spi_sirfsoc_rx_buf_u16(u32 data, struct sirfsoc_spi *sspi)
@@ -171,13 +176,18 @@ static void spi_sirfsoc_rx_buf_u16(u32 data, struct sirfsoc_spi *sspi)
 	sspi->rx = rx;
 }
 
-static u32 spi_sirfsoc_tx_buf_u16(struct sirfsoc_spi *sspi)
+static void spi_sirfsoc_tx_word_u16(struct sirfsoc_spi *sspi)
 {
-	u32 data;
+	u32 data = 0;
 	const u16 *tx = sspi->tx;
-	data = *tx++;
-	sspi->tx = tx;
-	return data;
+
+	if (tx) {
+		data = *tx++;
+		sspi->tx = tx;
+	}
+
+	writel(data, sspi->base + SIRFSOC_SPI_TXFIFO_DATA);
+	sspi->left_tx_cnt--;
 }
 
 static void spi_sirfsoc_rx_buf_u32(u32 data, struct sirfsoc_spi *sspi)
@@ -187,29 +197,29 @@ static void spi_sirfsoc_rx_buf_u32(u32 data, struct sirfsoc_spi *sspi)
 	sspi->rx = rx;
 }
 
-static u32 spi_sirfsoc_tx_buf_u32(struct sirfsoc_spi *sspi)
+static void spi_sirfsoc_tx_word_u32(struct sirfsoc_spi *sspi)
 {
-	u32 data;
+	u32 data = 0;
 	const u32 *tx = sspi->tx;
-	data = *tx++;
-	sspi->tx = tx;
-	return data;
+
+	if (tx) {
+		data = *tx++;
+		sspi->tx = tx;
+	}
+
+	writel(data, sspi->base + SIRFSOC_SPI_TXFIFO_DATA);
+	sspi->left_tx_cnt--;
 }
 
 static void spi_sirfsoc_tasklet_tx(unsigned long arg)
 {
 	struct sirfsoc_spi *sspi = (struct sirfsoc_spi *)arg;
-	u32 word = 0;
 
 	/* Fill Tx FIFO while there are left words to be transmitted */
 	while (!((readl(sspi->base + SIRFSOC_SPI_TXFIFO_STATUS) &
-				SIRFSOC_SPI_FIFO_FULL)) &&
-				sspi->left_tx_cnt) {
-		if (sspi->tx)
-			word = sspi->pop_tx_word(sspi);
-		writel(word, sspi->base + SIRFSOC_SPI_TXFIFO_DATA);
-		sspi->left_tx_cnt--;
-	}
+			SIRFSOC_SPI_FIFO_FULL)) &&
+			sspi->left_tx_cnt)
+		sspi->tx_word(sspi);
 }
 
 static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
@@ -257,7 +267,6 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 {
 	struct sirfsoc_spi *sspi;
-	u32 word = 0;
 	int timeout = t->len * 10;
 	sspi = spi_master_get_devdata(spi->master);
 
@@ -295,12 +304,9 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 
 	/* fill up the Tx FIFO */
 	while (!(readl(sspi->base + SIRFSOC_SPI_TXFIFO_STATUS) & SIRFSOC_SPI_FIFO_FULL)
-			&& (sspi->left_tx_cnt > 0)) {
-		if (sspi->tx)
-			word = sspi->pop_tx_word(sspi);
-		writel(word, sspi->base + SIRFSOC_SPI_TXFIFO_DATA);
-		sspi->left_tx_cnt--;
-	}
+			&& (sspi->left_tx_cnt > 0))
+		sspi->tx_word(sspi);
+
 	writel(SIRFSOC_SPI_RX_OFLOW_INT_EN | SIRFSOC_SPI_TX_UFLOW_INT_EN |
 		SIRFSOC_SPI_RXFIFO_THD_INT_EN | SIRFSOC_SPI_TXFIFO_THD_INT_EN |
 		SIRFSOC_SPI_FRM_END_INT_EN | SIRFSOC_SPI_RXFIFO_FULL_INT_EN |
@@ -389,7 +395,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	case 8:
 		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_8;
 		sspi->enq_rx_word = spi_sirfsoc_rx_buf_u8;
-		sspi->pop_tx_word = spi_sirfsoc_tx_buf_u8;
+		sspi->tx_word = spi_sirfsoc_tx_word_u8;
 		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
 					SIRFSOC_SPI_FIFO_WIDTH_BYTE;
 		rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
@@ -400,7 +406,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		regval |= (bits_per_word ==  12) ? SIRFSOC_SPI_TRAN_DAT_FORMAT_12 :
 			SIRFSOC_SPI_TRAN_DAT_FORMAT_16;
 		sspi->enq_rx_word = spi_sirfsoc_rx_buf_u16;
-		sspi->pop_tx_word = spi_sirfsoc_tx_buf_u16;
+		sspi->tx_word = spi_sirfsoc_tx_word_u16;
 		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
 					SIRFSOC_SPI_FIFO_WIDTH_WORD;
 		rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
@@ -409,7 +415,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	case 32:
 		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_32;
 		sspi->enq_rx_word = spi_sirfsoc_rx_buf_u32;
-		sspi->pop_tx_word = spi_sirfsoc_tx_buf_u32;
+		sspi->tx_word = spi_sirfsoc_tx_word_u32;
 		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
 					SIRFSOC_SPI_FIFO_WIDTH_DWORD;
 		rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
