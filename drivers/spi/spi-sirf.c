@@ -14,8 +14,8 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/bitops.h>
+#include <linux/err.h>
 #include <linux/platform_device.h>
-#include <linux/dma-mapping.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 #include <linux/pinctrl/pinmux.h>
