@@ -318,31 +318,31 @@ static void spi_sirfsoc_chipselect(struct spi_device *spi, int value)
 
 	switch (value) {
 	case BITBANG_CS_ACTIVE:
-		if (ctl_data->cs_type == CS_HW_CTRL) {
+		if (ctl_data->cs_type == SIRFSOC_SPI_CS_HW_CTRL) {
 			/*
 			 * In hardware control mode, CS output is controlled
 			 * by the CS hardware logic
 			 */
 			regval &= ~SIRFSOC_SPI_CS_IO_OUT;
-			if (ctl_data->cs_hold_clk == CS_HOLD_2)
+			if (ctl_data->cs_hold_clk == SIRFSOC_SPI_CS_HOLD_2)
 				regval |= SIRFSOC_SPI_CS_HOLD_TIME;
-		} else if (ctl_data->cs_type == CS_RISC_IO) {
+		} else if (ctl_data->cs_type == SIRFSOC_SPI_CS_RISC_IO) {
 			/*
 			 * In I/O mode, CS outputs the value of the SIRFSOC_SPI_CS_IO_OUT bit
 			 */
 			regval |= SIRFSOC_SPI_CS_IO_OUT;
 			if (spi->mode & SPI_CS_HIGH)
 				regval |= SIRFSOC_SPI_CS_IO_OUT;
-		} else if (ctl_data->cs_type == CS_GPIO)
+		} else if (ctl_data->cs_type == SIRFSOC_SPI_CS_GPIO)
 			ctl_data->chip_select();
 		break;
 	case BITBANG_CS_INACTIVE:
-		if (ctl_data->cs_type == CS_RISC_IO) {
+		if (ctl_data->cs_type == SIRFSOC_SPI_CS_RISC_IO) {
 			if (spi->mode & SPI_CS_HIGH)
 				regval &= ~SIRFSOC_SPI_CS_IO_OUT;
 			else
 				regval |= SIRFSOC_SPI_CS_IO_OUT;
-		} else if (ctl_data->cs_type == CS_GPIO)
+		} else if (ctl_data->cs_type == SIRFSOC_SPI_CS_GPIO)
 			ctl_data->chip_deselect();
 		break;
 	}

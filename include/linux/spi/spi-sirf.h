@@ -16,12 +16,12 @@ struct sirfsoc_spi_ctrldata {
 	int cs_hold_clk;
 };
 
-#define CS_HW_CTRL	1
-#define CS_RISC_IO	2
-#define CS_GPIO		3
-#define CS_SW_CTRL	4
+#define SIRFSOC_SPI_CS_HW_CTRL	1
+#define SIRFSOC_SPI_CS_RISC_IO	2
+#define SIRFSOC_SPI_CS_GPIO		3
+#define SIRFSOC_SPI_CS_SW_CTRL	4
 
-#define CS_HOLD_1	0
-#define CS_HOLD_2	1
+#define SIRFSOC_SPI_CS_HOLD_1	0
+#define SIRFSOC_SPI_CS_HOLD_2	1
 
 #endif
