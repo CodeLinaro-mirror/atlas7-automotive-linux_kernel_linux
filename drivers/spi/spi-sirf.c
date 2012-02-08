@@ -136,7 +136,7 @@ struct sirfsoc_spi {
 	void *rx;
 
 	/* place received word into rx buffer */
-	void (*enq_rx_word) (u32 rx_data, struct sirfsoc_spi *);
+	void (*rx_word) (struct sirfsoc_spi *);
 	/* get word from tx buffer for sending */
 	void (*tx_word) (struct sirfsoc_spi *);
 
@@ -148,11 +148,19 @@ struct sirfsoc_spi {
 	struct tasklet_struct tasklet_tx;
 };
 
-static void spi_sirfsoc_rx_buf_u8(u32 data, struct sirfsoc_spi *sspi)
+static void spi_sirfsoc_rx_word_u8(struct sirfsoc_spi *sspi)
 {
+	u32 data;
 	u8 *rx = sspi->rx;
-	*rx++ = (u8) data;
-	sspi->rx = rx;
+
+	data = readl(sspi->base + SIRFSOC_SPI_RXFIFO_DATA);
+
+	if (rx) {
+		*rx++ = (u8) data;
+		sspi->rx = rx;
+	}
+
+	sspi->left_rx_cnt--;
 }
 
 static void spi_sirfsoc_tx_word_u8(struct sirfsoc_spi *sspi)
@@ -169,11 +177,19 @@ static void spi_sirfsoc_tx_word_u8(struct sirfsoc_spi *sspi)
 	sspi->left_tx_cnt--;
 }
 
-static void spi_sirfsoc_rx_buf_u16(u32 data, struct sirfsoc_spi *sspi)
+static void spi_sirfsoc_rx_word_u16(struct sirfsoc_spi *sspi)
 {
+	u32 data;
 	u16 *rx = sspi->rx;
-	*rx++ = (u16) data;
-	sspi->rx = rx;
+
+	data = readl(sspi->base + SIRFSOC_SPI_RXFIFO_DATA);
+
+	if (rx) {
+		*rx++ = (u16) data;
+		sspi->rx = rx;
+	}
+
+	sspi->left_rx_cnt--;
 }
 
 static void spi_sirfsoc_tx_word_u16(struct sirfsoc_spi *sspi)
@@ -190,11 +206,20 @@ static void spi_sirfsoc_tx_word_u16(struct sirfsoc_spi *sspi)
 	sspi->left_tx_cnt--;
 }
 
-static void spi_sirfsoc_rx_buf_u32(u32 data, struct sirfsoc_spi *sspi)
+static void spi_sirfsoc_rx_word_u32(struct sirfsoc_spi *sspi)
 {
+	u32 data;
 	u32 *rx = sspi->rx;
-	*rx++ = (u32) data;
-	sspi->rx = rx;
+
+	data = readl(sspi->base + SIRFSOC_SPI_RXFIFO_DATA);
+
+	if (rx) {
+		*rx++ = (u32) data;
+		sspi->rx = rx;
+	}
+
+	sspi->left_rx_cnt--;
+
 }
 
 static void spi_sirfsoc_tx_word_u32(struct sirfsoc_spi *sspi)
@@ -226,7 +251,6 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 {
 	struct sirfsoc_spi *sspi = dev_id;
 	u32 spi_stat = readl(sspi->base + SIRFSOC_SPI_INT_STATUS);
-	u32 word = 0;
 
 	writel(spi_stat, sspi->base + SIRFSOC_SPI_INT_STATUS);
 
@@ -239,14 +263,9 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 
 	if (spi_stat & SIRFSOC_SPI_FRM_END) {
 		while (!((readl(sspi->base + SIRFSOC_SPI_RXFIFO_STATUS)
-					& SIRFSOC_SPI_FIFO_EMPTY)) &&
-					sspi->left_rx_cnt) {
-			word = readl(sspi->base + SIRFSOC_SPI_RXFIFO_DATA);
-			if (sspi->rx)
-				sspi->enq_rx_word(word, sspi);
-
-			sspi->left_rx_cnt--;
-		}
+				& SIRFSOC_SPI_FIFO_EMPTY)) &&
+				sspi->left_rx_cnt)
+			sspi->rx_word(sspi);
 
 		/* Received all words */
 		if ((sspi->left_rx_cnt == 0) && (sspi->left_tx_cnt == 0)) {
@@ -394,7 +413,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	switch (bits_per_word) {
 	case 8:
 		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_8;
-		sspi->enq_rx_word = spi_sirfsoc_rx_buf_u8;
+		sspi->rx_word = spi_sirfsoc_rx_word_u8;
 		sspi->tx_word = spi_sirfsoc_tx_word_u8;
 		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
 					SIRFSOC_SPI_FIFO_WIDTH_BYTE;
@@ -405,7 +424,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	case 16:
 		regval |= (bits_per_word ==  12) ? SIRFSOC_SPI_TRAN_DAT_FORMAT_12 :
 			SIRFSOC_SPI_TRAN_DAT_FORMAT_16;
-		sspi->enq_rx_word = spi_sirfsoc_rx_buf_u16;
+		sspi->rx_word = spi_sirfsoc_rx_word_u16;
 		sspi->tx_word = spi_sirfsoc_tx_word_u16;
 		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
 					SIRFSOC_SPI_FIFO_WIDTH_WORD;
@@ -414,7 +433,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		break;
 	case 32:
 		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_32;
-		sspi->enq_rx_word = spi_sirfsoc_rx_buf_u32;
+		sspi->rx_word = spi_sirfsoc_rx_word_u32;
 		sspi->tx_word = spi_sirfsoc_tx_word_u32;
 		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
 					SIRFSOC_SPI_FIFO_WIDTH_DWORD;
