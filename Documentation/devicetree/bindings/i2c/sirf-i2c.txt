@@ -7,7 +7,8 @@ Required properties :
 - interrupts: interrupt number to the cpu.
 
 Optional properties:
-- Child nodes conforming to i2c bus binding
+- clock-frequency : Constains desired I2C/HS-I2C bus clock frequency in Hz.
+  The absence of the propoerty indicates the default frequency 100 kHz.
 
 Examples :
 

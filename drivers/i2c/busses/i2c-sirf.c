@@ -219,6 +219,7 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 	struct i2c_adapter *adap;
 	struct resource *mem_res;
 	struct clk *clk;
+	int bitrate;
 	int ctrl_speed;
 	int irq;
 
@@ -300,11 +301,16 @@ static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
 
 	siic->clk = clk;
 
-	if (SIRFSOC_I2C_DEFAULT_SPEED < 100000)
+	err = of_property_read_u32(pdev->dev.of_node,
+		"clock-frequency", &bitrate);
+	if (err < 0)
+		bitrate = SIRFSOC_I2C_DEFAULT_SPEED;
+
+	if (bitrate < 100000)
 		regval =
-			(2 * ctrl_speed) / (2 * SIRFSOC_I2C_DEFAULT_SPEED * 11);
+			(2 * ctrl_speed) / (2 * bitrate * 11);
 	else
-		regval = ctrl_speed / (SIRFSOC_I2C_DEFAULT_SPEED * 5);
+		regval = ctrl_speed / (bitrate * 5);
 
 	writel(regval, siic->base + SIRFSOC_I2C_CLK_CTRL);
 	if (regval > 0xFF)
