@@ -480,14 +480,12 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 
 static int spi_sirfsoc_setup(struct spi_device *spi)
 {
-	struct spi_bitbang *bitbang;
 	struct sirfsoc_spi *sspi;
 
 	if (!spi->max_speed_hz)
 		return -EINVAL;
 
 	sspi = spi_master_get_devdata(spi->master);
-	bitbang = &sspi->bitbang;
 
 	if (!spi->bits_per_word)
 		spi->bits_per_word = 8;
