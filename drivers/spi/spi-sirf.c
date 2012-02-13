@@ -557,7 +557,6 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	sspi->bitbang.setup_transfer = spi_sirfsoc_setup_transfer;
 	sspi->bitbang.txrx_bufs = spi_sirfsoc_transfer;
 	sspi->bitbang.master->setup = spi_sirfsoc_setup;
-	sspi->bitbang.master->num_chipselect = 0xFFFF;
 	master->bus_num = pdev->id;
 	sspi->bitbang.master->dev.of_node = pdev->dev.of_node;
 
