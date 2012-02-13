@@ -16,10 +16,10 @@
 #include <linux/bitops.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
+#include <linux/of_gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 #include <linux/pinctrl/pinmux.h>
-#include <linux/spi/spi-sirf.h>
 
 #define DRIVER_NAME "sirfsoc_spi"
 
@@ -144,6 +144,8 @@ struct sirfsoc_spi {
 
 	/* tasklet to push tx msg into FIFO */
 	struct tasklet_struct tasklet_tx;
+
+	int chipselect[0];
 };
 
 static void spi_sirfsoc_rx_word_u8(struct sirfsoc_spi *sspi)
@@ -343,41 +345,29 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 static void spi_sirfsoc_chipselect(struct spi_device *spi, int value)
 {
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(spi->master);
-	struct sirfsoc_spi_ctrldata *ctl_data = spi->controller_data;
-	u32 regval = readl(sspi->base + SIRFSOC_SPI_CTRL);
 
-	switch (value) {
-	case BITBANG_CS_ACTIVE:
-		if (ctl_data->cs_type == SIRFSOC_SPI_CS_HW_CTRL) {
-			/*
-			 * In hardware control mode, CS output is controlled
-			 * by the CS hardware logic
-			 */
-			regval &= ~SIRFSOC_SPI_CS_IO_OUT;
-			if (ctl_data->cs_hold_clk == SIRFSOC_SPI_CS_HOLD_2)
-				regval |= SIRFSOC_SPI_CS_HOLD_TIME;
-		} else if (ctl_data->cs_type == SIRFSOC_SPI_CS_RISC_IO) {
-			/*
-			 * In I/O mode, CS outputs the value of the
-			 * SIRFSOC_SPI_CS_IO_OUT bit
-			 */
+	if (sspi->chipselect[spi->chip_select] == 0) {
+		u32 regval = readl(sspi->base + SIRFSOC_SPI_CTRL);
+		switch (value) {
+		case BITBANG_CS_ACTIVE:
 			regval |= SIRFSOC_SPI_CS_IO_OUT;
 			if (spi->mode & SPI_CS_HIGH)
 				regval |= SIRFSOC_SPI_CS_IO_OUT;
-		} else if (ctl_data->cs_type == SIRFSOC_SPI_CS_GPIO)
-			ctl_data->chip_select();
-		break;
-	case BITBANG_CS_INACTIVE:
-		if (ctl_data->cs_type == SIRFSOC_SPI_CS_RISC_IO) {
+			else
+				regval &= ~SIRFSOC_SPI_CS_IO_OUT;
+			break;
+		case BITBANG_CS_INACTIVE:
 			if (spi->mode & SPI_CS_HIGH)
 				regval &= ~SIRFSOC_SPI_CS_IO_OUT;
 			else
 				regval |= SIRFSOC_SPI_CS_IO_OUT;
-		} else if (ctl_data->cs_type == SIRFSOC_SPI_CS_GPIO)
-			ctl_data->chip_deselect();
-		break;
+			break;
+		}
+		writel(regval, sspi->base + SIRFSOC_SPI_CTRL);
+	} else {
+		int gpio = sspi->chipselect[spi->chip_select];
+		gpio_direction_output(gpio, spi->mode & SPI_CS_HIGH ? 0 : 1);
 	}
-	writel(regval, sspi->base + SIRFSOC_SPI_CTRL);
 }
 
 static int
@@ -494,10 +484,18 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	struct sirfsoc_spi *sspi;
 	struct spi_master *master;
 	struct resource *mem_res;
-	int irq;
+	int num_cs, cs_gpio, irq;
+	int i;
 	int ret;
 
-	master = spi_alloc_master(&pdev->dev, sizeof(*sspi));
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"sirf,spi-num-chipselects", &num_cs);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to get chip select number\n");
+		goto err_cs;
+	}
+
+	master = spi_alloc_master(&pdev->dev, sizeof(*sspi) + sizeof(int) * num_cs);
 	if (!master) {
 		dev_err(&pdev->dev, "Unable to allocate SPI master\n");
 		return -ENOMEM;
@@ -508,8 +506,33 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
 		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		ret = -ENOMEM;
+		ret = -ENODEV;
 		goto free_master;
+	}
+	master->num_chipselect = num_cs;
+
+	for (i = 0; i < master->num_chipselect; i++) {
+		cs_gpio = of_get_named_gpio(pdev->dev.of_node, "cs-gpios", i - 1);
+		if (cs_gpio < 0) {
+			dev_err(&pdev->dev, "can't get cs gpio\n");
+			ret = -ENODEV;
+			goto free_master;
+		}
+
+		sspi->chipselect[i] = cs_gpio;
+		if (cs_gpio < 0)
+			continue; /* use cs from spi controller */
+
+		ret = gpio_request(cs_gpio, DRIVER_NAME);
+		if (ret) {
+			while (i > 1) {
+				i--;
+				if (sspi->chipselect[i] >= 0)
+					gpio_free(sspi->chipselect[i]);
+			}
+			dev_err(&pdev->dev, "can't get cs gpios\n");
+			goto free_master;
+		}
 	}
 
 	sspi->base = devm_request_and_ioremap(&pdev->dev, mem_res);
@@ -581,7 +604,7 @@ free_pmx:
 	pinmux_put(sspi->pmx);
 free_master:
 	spi_master_put(master);
-
+err_cs:
 	return ret;
 }
 
@@ -589,11 +612,16 @@ static int  __devexit spi_sirfsoc_remove(struct platform_device *pdev)
 {
 	struct spi_master *master;
 	struct sirfsoc_spi *sspi;
+	int i;
 
 	master = platform_get_drvdata(pdev);
 	sspi = spi_master_get_devdata(master);
 
 	spi_bitbang_stop(&sspi->bitbang);
+	for (i = 0; i < master->num_chipselect; i++) {
+		if (gpio_is_valid(sspi->chipselect[i]))
+			gpio_free(sspi->chipselect[i]);
+	}
 	clk_disable(sspi->clk);
 	clk_put(sspi->clk);
 	pinmux_disable(sspi->pmx);

@@ -4,6 +4,8 @@ Required properties:
 - compatible : Should be "sirf,prima2-spi"
 - reg : Offset and length of the register set for the device
 - interrupts : Should contain SPI interrupt
+- sirf,spi-num-chipselects : Contains the number of the chipselect
+- cs-gpios : Specifies the gpio pins to be used for chipselects.
 
 Example:
 
@@ -11,4 +13,7 @@ spi0: spi@b00d0000 {
 	compatible = "sirf,prima2-spi";
 	reg = <0xb00d0000 0x10000>;
 	interrupts = <15>;
+	sirf,spi-num-chipselects = <2>;
+	cs-gpios = <&gpio0 18 0>,
+		   <&gpio1 19 0>;
 };
