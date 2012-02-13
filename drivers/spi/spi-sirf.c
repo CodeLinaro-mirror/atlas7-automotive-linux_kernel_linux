@@ -124,11 +124,9 @@ struct sirfsoc_spi {
 	struct spi_bitbang bitbang;
 	struct completion done;
 
-	u32 irq;
 	void __iomem *base;
 	u32 ctrl_freq;  /* SPI controller clock speed */
 	struct clk *clk;
-	int bus_num;
 	struct pinmux *pmx;
 
 	/* rx & tx bufs from the spi_transfer */
