@@ -14,6 +14,6 @@ spi0: spi@b00d0000 {
 	reg = <0xb00d0000 0x10000>;
 	interrupts = <15>;
 	sirf,spi-num-chipselects = <2>;
-	cs-gpios = <&gpio0 18 0>,
-		   <&gpio1 19 0>;
+	cs-gpios = <&gpio 18 0>,
+		   <&gpio 19 0>;
 };

@@ -348,9 +348,9 @@ static void spi_sirfsoc_chipselect(struct spi_device *spi, int value)
 
 	if (sspi->chipselect[spi->chip_select] == 0) {
 		u32 regval = readl(sspi->base + SIRFSOC_SPI_CTRL);
+		regval |= SIRFSOC_SPI_CS_IO_OUT;
 		switch (value) {
 		case BITBANG_CS_ACTIVE:
-			regval |= SIRFSOC_SPI_CS_IO_OUT;
 			if (spi->mode & SPI_CS_HIGH)
 				regval |= SIRFSOC_SPI_CS_IO_OUT;
 			else
@@ -512,25 +512,25 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	master->num_chipselect = num_cs;
 
 	for (i = 0; i < master->num_chipselect; i++) {
-		cs_gpio = of_get_named_gpio(pdev->dev.of_node, "cs-gpios", i - 1);
+		cs_gpio = of_get_named_gpio(pdev->dev.of_node, "cs-gpios", i);
 		if (cs_gpio < 0) {
-			dev_err(&pdev->dev, "can't get cs gpio\n");
+			dev_err(&pdev->dev, "can't get cs gpio from DT\n");
 			ret = -ENODEV;
 			goto free_master;
 		}
 
 		sspi->chipselect[i] = cs_gpio;
-		if (cs_gpio < 0)
+		if (cs_gpio == 0)
 			continue; /* use cs from spi controller */
 
 		ret = gpio_request(cs_gpio, DRIVER_NAME);
 		if (ret) {
-			while (i > 1) {
+			while (i > 0) {
 				i--;
-				if (sspi->chipselect[i] >= 0)
+				if (sspi->chipselect[i] > 0)
 					gpio_free(sspi->chipselect[i]);
 			}
-			dev_err(&pdev->dev, "can't get cs gpios\n");
+			dev_err(&pdev->dev, "fail to request cs gpios\n");
 			goto free_master;
 		}
 	}
@@ -619,7 +619,7 @@ static int  __devexit spi_sirfsoc_remove(struct platform_device *pdev)
 
 	spi_bitbang_stop(&sspi->bitbang);
 	for (i = 0; i < master->num_chipselect; i++) {
-		if (gpio_is_valid(sspi->chipselect[i]))
+		if (sspi->chipselect[i] > 0)
 			gpio_free(sspi->chipselect[i]);
 	}
 	clk_disable(sspi->clk);
