@@ -401,7 +401,7 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 		bank->chip.direction_output = sirfsoc_gpio_direction_output;
 		bank->chip.set = sirfsoc_gpio_set_value;
 		bank->chip.to_irq = sirfsoc_gpio_to_irq;
-
+		bank->chip.of_node = np;
 		bank->chip.label = "gpio";
 		bank->chip.base = gpio;
 
