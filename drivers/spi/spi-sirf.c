@@ -319,10 +319,8 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	writel(SIRFSOC_SPI_FIFO_START, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_START, sspi->base + SIRFSOC_SPI_TXFIFO_OP);
 
-	/* fill up the Tx FIFO */
-	while (!(readl(sspi->base + SIRFSOC_SPI_TXFIFO_STATUS) & SIRFSOC_SPI_FIFO_FULL)
-			&& (sspi->left_tx_cnt > 0))
-		sspi->tx_word(sspi);
+	/* Send the first word to trigger the whole tx/rx process */
+	sspi->tx_word(sspi);
 
 	writel(SIRFSOC_SPI_RX_OFLOW_INT_EN | SIRFSOC_SPI_TX_UFLOW_INT_EN |
 		SIRFSOC_SPI_RXFIFO_THD_INT_EN | SIRFSOC_SPI_TXFIFO_THD_INT_EN |
@@ -496,6 +494,7 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	struct sirfsoc_spi *sspi;
 	struct spi_master *master;
 	struct resource *mem_res;
+	int irq;
 	int ret;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*sspi));
@@ -520,12 +519,12 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 		goto free_master;
 	}
 
-	sspi->irq = platform_get_irq(pdev, 0);
-	if (sspi->irq < 0) {
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
 		ret = -ENXIO;
 		goto free_master;
 	}
-	ret = devm_request_irq(&pdev->dev, sspi->irq, spi_sirfsoc_irq, 0,
+	ret = devm_request_irq(&pdev->dev, irq, spi_sirfsoc_irq, 0,
 				DRIVER_NAME, sspi);
 	if (ret)
 		goto free_master;
