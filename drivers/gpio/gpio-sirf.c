@@ -14,7 +14,8 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/gpio.h>
-#include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -43,7 +44,7 @@ static struct gpio_bank sirfsoc_gpio_bank[SIRFSOC_GPIO_NO_OF_BANKS] = {
 	{.group = 4, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP4,}
 };
 
-static void __iomem *sirfsoc_gpio_pinmux_base;
+static void __iomem *sirfsoc_gpio_pinctrl_base;
 static DEFINE_SPINLOCK(gpio_lock);
 
 static inline struct gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
@@ -81,12 +82,12 @@ static void sirfsoc_gpio_irq_ack(struct irq_data *d)
 	offset = SIRFSOC_GPIO_CTRL(bank->group, index);
 	spin_lock_irqsave(&gpio_lock, flags);
 
-	status = readl(sirfsoc_gpio_pinmux_base + offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + offset);
 
-	writel(status, sirfsoc_gpio_pinmux_base + offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + offset);
 	pr_debug("%s: ack gpio group %d index %d, status %#x\n",
 		__func__, bank->group, index,
-		readl(sirfsoc_gpio_pinmux_base + offset));
+		readl(sirfsoc_gpio_pinctrl_base + offset));
 	spin_unlock_irqrestore(&gpio_lock, flags);
 }
 
@@ -101,12 +102,12 @@ static void __sirfsoc_gpio_irq_mask(unsigned int irq)
 		bank->group, index);
 	offset = SIRFSOC_GPIO_CTRL(bank->group, index);
 	spin_lock_irqsave(&gpio_lock, flags);
-	status = readl(sirfsoc_gpio_pinmux_base + offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + offset);
 
 	status &= ~SIRFSOC_GPIO_CTL_INTR_EN_MASK;
 	status &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
 
-	writel(status, sirfsoc_gpio_pinmux_base + offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + offset);
 
 	spin_unlock_irqrestore(&gpio_lock, flags);
 }
@@ -128,12 +129,12 @@ static void sirfsoc_gpio_irq_unmask(struct irq_data *d)
 	offset = SIRFSOC_GPIO_CTRL(bank->group, index);
 
 	spin_lock_irqsave(&gpio_lock, flags);
-	status = readl(sirfsoc_gpio_pinmux_base + offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + offset);
 
 	status &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
 	status |= SIRFSOC_GPIO_CTL_INTR_EN_MASK;
 
-	writel(status, sirfsoc_gpio_pinmux_base + offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + offset);
 	spin_unlock_irqrestore(&gpio_lock, flags);
 }
 
@@ -146,7 +147,7 @@ static int sirfsoc_gpio_irq_type(struct irq_data *d, unsigned type)
 
 	offset = SIRFSOC_GPIO_CTRL(bank->group, index);
 	spin_lock_irqsave(&gpio_lock, flags);
-	status = readl(sirfsoc_gpio_pinmux_base + offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + offset);
 	status &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
 
 	switch (type) {
@@ -175,7 +176,7 @@ static int sirfsoc_gpio_irq_type(struct irq_data *d, unsigned type)
 		break;
 	}
 
-	writel(status, sirfsoc_gpio_pinmux_base + offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + offset);
 
 	spin_unlock_irqrestore(&gpio_lock, flags);
 
@@ -203,7 +204,7 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 		}
 	}
 
-	status = readl(sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_INT_STATUS(bank->group));
+	status = readl(sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_INT_STATUS(bank->group));
 	if (!status) {
 		printk(KERN_WARNING
 			"%s: gpio group %d status %#x no interrupt is flaged\n",
@@ -213,7 +214,7 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 	}
 
 	while (status) {
-		ctrl = readl(sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_CTRL(bank->group, index));
+		ctrl = readl(sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_CTRL(bank->group, index));
 
 		/*
 		 * Here we must check whether the corresponding GPIO's interrupt
@@ -236,9 +237,9 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 static inline void sirfsoc_gpio_set_input(struct gpio_bank *bank, unsigned ctrl_offset)
 {
 	u32 status;
-	status = readl(sirfsoc_gpio_pinmux_base + ctrl_offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + ctrl_offset);
 	status &= ~SIRFSOC_GPIO_CTL_OUT_EN_MASK;
-	writel(status, sirfsoc_gpio_pinmux_base + ctrl_offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + ctrl_offset);
 }
 
 static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
@@ -246,7 +247,7 @@ static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
 	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
 	unsigned long flags;
 
-	if (pinmux_request_gpio(chip->base + offset))
+	if (pinctrl_request_gpio(chip->base + offset))
 		return -ENODEV;
 
 	spin_lock_irqsave(&bank->lock, flags);
@@ -272,7 +273,7 @@ static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 	/*set gpio to input */
 	sirfsoc_gpio_set_input(bank, SIRFSOC_GPIO_CTRL(bank->group, offset));
 
-	pinmux_free_gpio(chip->base + offset);
+	pinctrl_free_gpio(chip->base + offset);
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
@@ -296,7 +297,7 @@ static inline void sirfsoc_gpio_set_output(struct gpio_bank *bank, unsigned offs
 {
 	u32 status;
 
-	status = readl(sirfsoc_gpio_pinmux_base + offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + offset);
 	if (value)
 		status |= SIRFSOC_GPIO_CTL_DATAOUT_MASK;
 	else
@@ -305,7 +306,7 @@ static inline void sirfsoc_gpio_set_output(struct gpio_bank *bank, unsigned offs
 	status &= ~SIRFSOC_GPIO_CTL_INTR_EN_MASK;
 	status |= SIRFSOC_GPIO_CTL_OUT_EN_MASK;
 
-	writel(status, sirfsoc_gpio_pinmux_base + offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + offset);
 }
 
 static int sirfsoc_gpio_direction_output(struct gpio_chip *chip, unsigned gpio, int value)
@@ -334,7 +335,7 @@ void gpio_set_pull(unsigned gpio, unsigned mode)
 
 	spin_lock_irqsave(&gpio_lock, flags);
 
-	status = readl(sirfsoc_gpio_pinmux_base + offset);
+	status = readl(sirfsoc_gpio_pinctrl_base + offset);
 
 	switch (mode) {
 	case GPIO_PULL_NONE:
@@ -352,7 +353,7 @@ void gpio_set_pull(unsigned gpio, unsigned mode)
 		break;
 	}
 
-	writel(status, sirfsoc_gpio_pinmux_base + offset);
+	writel(status, sirfsoc_gpio_pinctrl_base + offset);
 
 	spin_unlock_irqrestore(&gpio_lock, flags);
 }
@@ -363,7 +364,7 @@ static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
 	u32 status;
 
-	status = readl(sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
+	status = readl(sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
 
 	return !!(status & SIRFSOC_GPIO_CTL_DATAIN_MASK);
 }
@@ -374,12 +375,12 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
 	u32 status;
 
-	status = readl(sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
+	status = readl(sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
 	if (value)
 		status |= SIRFSOC_GPIO_CTL_DATAOUT_MASK;
 	else
 		status &= ~SIRFSOC_GPIO_CTL_DATAOUT_MASK;
-	writel(status, sirfsoc_gpio_pinmux_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
+	writel(status, sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
 }
 
 static int __devinit sirfsoc_gpio_probe(struct device_node *np)
@@ -431,8 +432,8 @@ static int __init sirfsoc_gpio_init(void)
 	if (!np)
 		panic("unable to find compatible gpio node in dtb\n");
 
-	sirfsoc_gpio_pinmux_base = of_iomap(np, 0);
-	if (!sirfsoc_gpio_pinmux_base)
+	sirfsoc_gpio_pinctrl_base = of_iomap(np, 0);
+	if (!sirfsoc_gpio_pinctrl_base)
 		panic("unable to map gpio registers\n");
 
 	return sirfsoc_gpio_probe(np);

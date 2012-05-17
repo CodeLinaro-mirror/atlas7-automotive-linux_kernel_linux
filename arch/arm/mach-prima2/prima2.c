@@ -17,10 +17,10 @@
 #include "common.h"
 
 /* Padmux settings */
-static struct pinmux_map prima2_padmux_map[] = {
-	PINMUX_MAP("UART1", "pinmux-sirf", "uart1", "b0060000.uart"),
-	PINMUX_MAP("SPI0", "pinmux-sirf", "spi0", "b00d0000.spi"),
-	PINMUX_MAP("SPI1", "pinmux-sirf", "spi1", "b0170000.spi"),
+static struct pinctrl_map prima2_padmux_map[] = {
+	PIN_MAP_MUX_GROUP_DEFAULT("UART1", "b0120000.gpio-controller", "uart1", "b0060000.uart"),
+	PIN_MAP_MUX_GROUP_DEFAULT("SPI0", "b0120000.gpio-controller", "spi0", "b00d0000.spi"),
+	PIN_MAP_MUX_GROUP_DEFAULT("SPI1", "b0120000.gpio-controller", "spi1", "b0170000.spi"),
 };
 
 static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
@@ -31,7 +31,7 @@ static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 void __init sirfsoc_mach_init(void)
 {
 	of_platform_bus_probe(NULL, sirfsoc_of_bus_ids, NULL);
-	pinmux_register_mappings(prima2_padmux_map, ARRAY_SIZE(prima2_padmux_map));
+	pinctrl_register_mappings(prima2_padmux_map, ARRAY_SIZE(prima2_padmux_map));
 }
 
 static const char *prima2cb_dt_match[] __initdata = {
