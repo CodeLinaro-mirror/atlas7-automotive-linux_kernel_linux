@@ -144,17 +144,6 @@ static int mmc_bus_resume(struct device *dev)
 	return ret;
 }
 
-static int mmc_bus_freeze(struct device *dev)
-{
-	struct mmc_driver *drv = to_mmc_driver(dev->driver);
-	struct mmc_card *card = mmc_dev_to_card(dev);
-	int ret = 0;
-
-	if (dev->driver && drv->suspend)
-		ret = drv->suspend(card, PMSG_FREEZE);
-	return ret;
-}
-
 #ifdef CONFIG_PM_RUNTIME
 
 static int mmc_runtime_suspend(struct device *dev)
