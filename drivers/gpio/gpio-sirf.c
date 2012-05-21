@@ -27,7 +27,7 @@
 #define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP3         46
 #define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP4         47
 
-struct gpio_bank {
+struct sirfsoc_gpio_bank {
 	u8 group;
 	u16 irq;
 	u8 wake_mask;
@@ -36,7 +36,7 @@ struct gpio_bank {
 	struct gpio_chip chip;
 };
 
-static struct gpio_bank sirfsoc_gpio_bank[SIRFSOC_GPIO_NO_OF_BANKS] = {
+static struct sirfsoc_gpio_bank sgpio_bank[SIRFSOC_GPIO_NO_OF_BANKS] = {
 	{.group = 0, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP0,},
 	{.group = 1, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP1,},
 	{.group = 2, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP2,},
@@ -47,9 +47,9 @@ static struct gpio_bank sirfsoc_gpio_bank[SIRFSOC_GPIO_NO_OF_BANKS] = {
 static void __iomem *sirfsoc_gpio_pinctrl_base;
 static DEFINE_SPINLOCK(gpio_lock);
 
-static inline struct gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
+static inline struct sirfsoc_gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
 {
-	return &sirfsoc_gpio_bank[(irq - SIRFSOC_GPIO_IRQ_START) / SIRFSOC_GPIO_BANK_SIZE];
+	return &sgpio_bank[(irq - SIRFSOC_GPIO_IRQ_START) / SIRFSOC_GPIO_BANK_SIZE];
 }
 
 static inline int sirfsoc_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
@@ -62,9 +62,9 @@ static inline int sirfsoc_irq_to_indx(unsigned int irq)
 	return (irq - SIRFSOC_GPIO_IRQ_START) % SIRFSOC_GPIO_BANK_SIZE;
 }
 
-static inline struct gpio_bank *sirfsoc_gpio_to_bank(unsigned int gpio)
+static inline struct sirfsoc_gpio_bank *sirfsoc_gpio_to_bank(unsigned int gpio)
 {
-	return &sirfsoc_gpio_bank[gpio / SIRFSOC_GPIO_BANK_SIZE];
+	return &sgpio_bank[gpio / SIRFSOC_GPIO_BANK_SIZE];
 }
 
 static inline int sirfsoc_gpio_to_offset(unsigned int gpio)
@@ -74,7 +74,7 @@ static inline int sirfsoc_gpio_to_offset(unsigned int gpio)
 
 static void sirfsoc_gpio_irq_ack(struct irq_data *d)
 {
-	struct gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
 	int index = sirfsoc_irq_to_indx(d->irq);
 	u32 status, offset;
 	unsigned long flags;
@@ -93,7 +93,7 @@ static void sirfsoc_gpio_irq_ack(struct irq_data *d)
 
 static void __sirfsoc_gpio_irq_mask(unsigned int irq)
 {
-	struct gpio_bank *bank = sirfsoc_irq_to_bank(irq);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(irq);
 	int index = sirfsoc_irq_to_indx(irq);
 	u32 status, offset;
 	unsigned long flags;
@@ -119,7 +119,7 @@ static void sirfsoc_gpio_irq_mask(struct irq_data *d)
 
 static void sirfsoc_gpio_irq_unmask(struct irq_data *d)
 {
-	struct gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
 	int index = sirfsoc_irq_to_indx(d->irq);
 	u32 status, offset;
 	unsigned long flags;
@@ -140,7 +140,7 @@ static void sirfsoc_gpio_irq_unmask(struct irq_data *d)
 
 static int sirfsoc_gpio_irq_type(struct irq_data *d, unsigned type)
 {
-	struct gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
 	int index = sirfsoc_irq_to_indx(d->irq);
 	u32 status, offset;
 	unsigned long flags;
@@ -193,13 +193,13 @@ static struct irq_chip sirfsoc_irq_chip = {
 
 static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 {
-	struct gpio_bank *bank = NULL;
+	struct sirfsoc_gpio_bank *bank = NULL;
 	u32 status, ctrl;
 	int i, index = 0;
 
 	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
-		if (sirfsoc_gpio_bank[i].irq == irq) {
-			bank = &sirfsoc_gpio_bank[i];
+		if (sgpio_bank[i].irq == irq) {
+			bank = &sgpio_bank[i];
 			break;
 		}
 	}
@@ -234,7 +234,7 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 	}
 }
 
-static inline void sirfsoc_gpio_set_input(struct gpio_bank *bank, unsigned ctrl_offset)
+static inline void sirfsoc_gpio_set_input(struct sirfsoc_gpio_bank *bank, unsigned ctrl_offset)
 {
 	u32 status;
 	status = readl(sirfsoc_gpio_pinctrl_base + ctrl_offset);
@@ -244,7 +244,7 @@ static inline void sirfsoc_gpio_set_input(struct gpio_bank *bank, unsigned ctrl_
 
 static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	struct sirfsoc_gpio_bank *bank = container_of(chip, struct sirfsoc_gpio_bank, chip);
 	unsigned long flags;
 
 	if (pinctrl_request_gpio(chip->base + offset))
@@ -262,7 +262,7 @@ static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
 
 static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	struct sirfsoc_gpio_bank *bank = container_of(chip, struct sirfsoc_gpio_bank, chip);
 	unsigned long flags;
 
 	spin_lock_irqsave(&bank->lock, flags);
@@ -280,7 +280,7 @@ static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 
 static int sirfsoc_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	struct sirfsoc_gpio_bank *bank = container_of(chip, struct sirfsoc_gpio_bank, chip);
 	int index = sirfsoc_gpio_to_offset(gpio);
 	unsigned long flags;
 	unsigned offset;
@@ -292,7 +292,7 @@ static int sirfsoc_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
 	return 0;
 }
 
-static inline void sirfsoc_gpio_set_output(struct gpio_bank *bank, unsigned offset,
+static inline void sirfsoc_gpio_set_output(struct sirfsoc_gpio_bank *bank, unsigned offset,
 	int value)
 {
 	u32 status;
@@ -311,7 +311,7 @@ static inline void sirfsoc_gpio_set_output(struct gpio_bank *bank, unsigned offs
 
 static int sirfsoc_gpio_direction_output(struct gpio_chip *chip, unsigned gpio, int value)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	struct sirfsoc_gpio_bank *bank = container_of(chip, struct sirfsoc_gpio_bank, chip);
 	int index = sirfsoc_gpio_to_offset(gpio);
 	u32 offset;
 	unsigned long flags;
@@ -326,7 +326,7 @@ static int sirfsoc_gpio_direction_output(struct gpio_chip *chip, unsigned gpio, 
 
 void gpio_set_pull(unsigned gpio, unsigned mode)
 {
-	struct gpio_bank *bank = sirfsoc_gpio_to_bank(gpio);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpio_to_bank(gpio);
 	int index = sirfsoc_gpio_to_offset(gpio);
 	u32 status, offset;
 	unsigned long flags;
@@ -361,7 +361,7 @@ EXPORT_SYMBOL(gpio_set_pull);
 
 static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	struct sirfsoc_gpio_bank *bank = container_of(chip, struct sirfsoc_gpio_bank, chip);
 	u32 status;
 
 	status = readl(sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
@@ -372,7 +372,7 @@ static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	int value)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	struct sirfsoc_gpio_bank *bank = container_of(chip, struct sirfsoc_gpio_bank, chip);
 	u32 status;
 
 	status = readl(sirfsoc_gpio_pinctrl_base + SIRFSOC_GPIO_CTRL(bank->group, offset));
@@ -387,11 +387,11 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 {
 	int i;
 
-	struct gpio_bank *bank;
+	struct sirfsoc_gpio_bank *bank;
 	int gpio = 0;
 
 	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
-		bank = &sirfsoc_gpio_bank[i];
+		bank = &sgpio_bank[i];
 		spin_lock_init(&bank->lock);
 		irq_set_chained_handler(bank->irq, sirfsoc_gpio_handle_irq);
 
