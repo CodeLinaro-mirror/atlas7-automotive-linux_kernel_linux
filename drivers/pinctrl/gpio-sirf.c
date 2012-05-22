@@ -63,11 +63,6 @@ static inline int sirfsoc_irq_to_offset(unsigned int irq)
 	return (irq - SIRFSOC_GPIO_IRQ_START) % SIRFSOC_GPIO_BANK_SIZE;
 }
 
-static inline struct sirfsoc_gpio_bank *sirfsoc_gpio_to_bank(unsigned int gpio)
-{
-	return &sgpio_bank[gpio / SIRFSOC_GPIO_BANK_SIZE];
-}
-
 static inline int sirfsoc_gpio_to_offset(unsigned int gpio)
 {
 	return gpio % SIRFSOC_GPIO_BANK_SIZE;
@@ -328,41 +323,6 @@ static int sirfsoc_gpio_direction_output(struct gpio_chip *chip, unsigned gpio, 
 	return 0;
 }
 
-void gpio_set_pull(unsigned gpio, unsigned mode)
-{
-	struct sirfsoc_gpio_bank *bank = sirfsoc_gpio_to_bank(gpio);
-	int idx = sirfsoc_gpio_to_offset(gpio);
-	u32 status, offset;
-	unsigned long flags;
-
-	offset = SIRFSOC_GPIO_CTRL(bank->id, idx);
-
-	spin_lock_irqsave(&gpio_lock, flags);
-
-	status = readl(bank->chip.regs + offset);
-
-	switch (mode) {
-	case GPIO_PULL_NONE:
-		status &= ~SIRFSOC_GPIO_CTL_PULL_MASK;
-		break;
-	case GPIO_PULL_UP:
-		status |= SIRFSOC_GPIO_CTL_PULL_MASK;
-		status |= SIRFSOC_GPIO_CTL_PULL_HIGH;
-		break;
-	case GPIO_PULL_DOWN:
-		status |= SIRFSOC_GPIO_CTL_PULL_MASK;
-		status &= ~SIRFSOC_GPIO_CTL_PULL_HIGH;
-		break;
-	default:
-		break;
-	}
-
-	writel(status, bank->chip.regs + offset);
-
-	spin_unlock_irqrestore(&gpio_lock, flags);
-}
-EXPORT_SYMBOL(gpio_set_pull);
-
 static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 {
 	struct sirfsoc_gpio_bank *bank = container_of(to_of_mm_gpio_chip(chip),
@@ -451,3 +411,5 @@ subsys_initcall(sirfsoc_gpio_init);
 MODULE_DESCRIPTION("SiRFSoC GPIO driver");
 MODULE_AUTHOR("Yuping Luo <yuping.luo@csr.com>, Barry Song <baohua.song@csr.com>");
 MODULE_LICENSE("GPL v2");
+
+#include "gpio-sirf-pull.c"
