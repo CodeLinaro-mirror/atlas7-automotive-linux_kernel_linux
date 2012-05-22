@@ -41,7 +41,6 @@ struct sirfsoc_gpio_bank {
 	struct of_mm_gpio_chip chip;
 	u8 id;
 	u16 irq;
-	u8 wake_mask;
 	spinlock_t lock;
 };
 
