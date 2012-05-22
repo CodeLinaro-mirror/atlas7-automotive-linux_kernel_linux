@@ -51,14 +51,7 @@ static DEFINE_SPINLOCK(gpio_lock);
 
 static inline struct sirfsoc_gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
 {
-	int i;
-
-	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
-		if (sgpio_bank[i].irq == irq)
-			return &sgpio_bank[i];
-	}
-
-	return NULL;
+	return &sgpio_bank[(irq - SIRFSOC_GPIO_IRQ_START) / SIRFSOC_GPIO_BANK_SIZE];
 }
 
 static inline int sirfsoc_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
@@ -206,7 +199,13 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 	u32 status, ctrl;
 	int i, idx = 0;
 
-	bank = sirfsoc_irq_to_bank(irq);
+	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
+		if (sgpio_bank[i].irq == irq) {
+			bank = &sgpio_bank[i];
+			break;
+		}
+	}
+
 	status = readl(bank->chip.regs + SIRFSOC_GPIO_INT_STATUS(bank->group));
 	if (!status) {
 		printk(KERN_WARNING
