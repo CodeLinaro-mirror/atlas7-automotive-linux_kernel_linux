@@ -18,12 +18,6 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/consumer.h>
 
-#define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP0         43
-#define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP1         44
-#define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP2         45
-#define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP3         46
-#define SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP4         47
-
 #define SIRFSOC_GPIO_CTRL(g, i)			((g)*0x100 + (i)*4)
 #define SIRFSOC_GPIO_DSP_EN0			(0x80)
 #define SIRFSOC_GPIO_PAD_EN(g)			((g)*0x100 + 0x84)
@@ -51,19 +45,20 @@ struct sirfsoc_gpio_bank {
 	spinlock_t lock;
 };
 
-static struct sirfsoc_gpio_bank sgpio_bank[SIRFSOC_GPIO_NO_OF_BANKS] = {
-	{.group = 0, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP0,},
-	{.group = 1, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP1,},
-	{.group = 2, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP2,},
-	{.group = 3, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP3,},
-	{.group = 4, .irq = SIRFSOC_IRQ_SIRFSOC_GPIO_GROUP4,}
-};
+static struct sirfsoc_gpio_bank sgpio_bank[SIRFSOC_GPIO_NO_OF_BANKS];
 
 static DEFINE_SPINLOCK(gpio_lock);
 
 static inline struct sirfsoc_gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
 {
-	return &sgpio_bank[(irq - SIRFSOC_GPIO_IRQ_START) / SIRFSOC_GPIO_BANK_SIZE];
+	int i;
+
+	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
+		if (sgpio_bank[i].irq == irq)
+			return &sgpio_bank[i];
+	}
+
+	return NULL;
 }
 
 static inline int sirfsoc_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
@@ -211,13 +206,7 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 	u32 status, ctrl;
 	int i, idx = 0;
 
-	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
-		if (sgpio_bank[i].irq == irq) {
-			bank = &sgpio_bank[i];
-			break;
-		}
-	}
-
+	bank = sirfsoc_irq_to_bank(irq);
 	status = readl(bank->chip.regs + SIRFSOC_GPIO_INT_STATUS(bank->group));
 	if (!status) {
 		printk(KERN_WARNING
@@ -404,14 +393,13 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 
 static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 {
-	int i, status;
+	int i, err = 0;
 	struct sirfsoc_gpio_bank *bank;
+	struct platform_device *pdev = of_find_device_by_node(np);
 
 	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
 		bank = &sgpio_bank[i];
 		spin_lock_init(&bank->lock);
-		irq_set_chained_handler(bank->irq, sirfsoc_gpio_handle_irq);
-
 		bank->chip.gc.request = sirfsoc_gpio_request;
 		bank->chip.gc.free = sirfsoc_gpio_free;
 		bank->chip.gc.direction_input = sirfsoc_gpio_direction_input;
@@ -420,22 +408,29 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 		bank->chip.gc.set = sirfsoc_gpio_set_value;
 		bank->chip.gc.to_irq = sirfsoc_gpio_to_irq;
 		bank->chip.gc.ngpio = SIRFSOC_GPIO_BANK_SIZE;
-		/* Call the OF gpio helper to setup and register the GPIO device */
-		status = of_mm_gpiochip_add(np, &bank->chip);
-		if (status) {
-			pr_err("%s: error in probe function with status %d\n",
-				np->full_name, status);
-			return status;
+		bank->group = i;
+		bank->irq = platform_get_irq(pdev, i);
+		if (bank->irq < 0) {
+			err = bank->irq;
+			goto out;
 		}
+
+		/* Call the OF gpio helper to setup and register the GPIO device */
+		err = of_mm_gpiochip_add(np, &bank->chip);
+		if (err) {
+			pr_err("%s: error in probe function with status %d\n",
+				np->full_name, err);
+			goto out;
+		}
+
+		irq_set_chained_handler(bank->irq, sirfsoc_gpio_handle_irq);
+		irq_set_chip(bank->irq, &sirfsoc_irq_chip);
+		irq_set_handler(bank->irq, handle_level_irq);
+		set_irq_flags(bank->irq, IRQF_VALID | IRQF_PROBE);
 	}
 
-	for (i = SIRFSOC_GPIO_IRQ_START; i < SIRFSOC_GPIO_IRQ_END; i++) {
-		irq_set_chip(i, &sirfsoc_irq_chip);
-		irq_set_handler(i, handle_level_irq);
-		set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
-	}
-
-	return 0;
+out:
+	return err;
 }
 
 static const struct of_device_id sgpio_of_match[] __devinitdata = {
