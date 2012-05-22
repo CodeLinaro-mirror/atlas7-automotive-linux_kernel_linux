@@ -23,7 +23,7 @@ void gpio_set_pull(unsigned gpio, unsigned mode)
 
 	offset = SIRFSOC_GPIO_CTRL(bank->id, idx);
 
-	spin_lock_irqsave(&gpio_lock, flags);
+	spin_lock_irqsave(&sgpio_lock, flags);
 
 	status = readl(bank->chip.regs + offset);
 
@@ -45,6 +45,6 @@ void gpio_set_pull(unsigned gpio, unsigned mode)
 
 	writel(status, bank->chip.regs + offset);
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+	spin_unlock_irqrestore(&sgpio_lock, flags);
 }
 EXPORT_SYMBOL(gpio_set_pull);
