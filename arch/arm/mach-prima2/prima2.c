@@ -34,6 +34,11 @@ void __init sirfsoc_mach_init(void)
 	pinctrl_register_mappings(prima2_padmux_map, ARRAY_SIZE(prima2_padmux_map));
 }
 
+void __init sirfsoc_init_late(void)
+{
+	sirfsoc_pm_init();
+}
+
 static const char *prima2cb_dt_match[] __initdata = {
        "sirf,prima2-cb",
        NULL
@@ -48,6 +53,7 @@ MACHINE_START(PRIMA2_EVB, "prima2cb")
 	.timer		= &sirfsoc_timer,
 	.dma_zone_size	= SZ_256M,
 	.init_machine	= sirfsoc_mach_init,
+	.init_late	= sirfsoc_init_late,
 	.dt_compat      = prima2cb_dt_match,
 	.restart	= sirfsoc_restart,
 MACHINE_END

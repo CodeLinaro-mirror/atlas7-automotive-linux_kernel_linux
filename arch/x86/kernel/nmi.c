@@ -19,8 +19,6 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 
-#include <linux/mca.h>
-
 #if defined(CONFIG_EDAC)
 #include <linux/edac.h>
 #endif
@@ -84,7 +82,7 @@ __setup("unknown_nmi_panic", setup_unknown_nmi_panic);
 
 #define nmi_to_desc(type) (&nmi_desc[type])
 
-static int notrace __kprobes nmi_handle(unsigned int type, struct pt_regs *regs, bool b2b)
+static int __kprobes nmi_handle(unsigned int type, struct pt_regs *regs, bool b2b)
 {
 	struct nmi_desc *desc = nmi_to_desc(type);
 	struct nmiaction *a;
@@ -166,7 +164,7 @@ void unregister_nmi_handler(unsigned int type, const char *name)
 }
 EXPORT_SYMBOL_GPL(unregister_nmi_handler);
 
-static notrace __kprobes void
+static __kprobes void
 pci_serr_error(unsigned char reason, struct pt_regs *regs)
 {
 	/* check to see if anyone registered against these types of errors */
@@ -197,7 +195,7 @@ pci_serr_error(unsigned char reason, struct pt_regs *regs)
 	outb(reason, NMI_REASON_PORT);
 }
 
-static notrace __kprobes void
+static __kprobes void
 io_check_error(unsigned char reason, struct pt_regs *regs)
 {
 	unsigned long i;
@@ -209,7 +207,7 @@ io_check_error(unsigned char reason, struct pt_regs *regs)
 	pr_emerg(
 	"NMI: IOCK error (debug interrupt?) for reason %02x on CPU %d.\n",
 		 reason, smp_processor_id());
-	show_registers(regs);
+	show_regs(regs);
 
 	if (panic_on_io_nmi)
 		panic("NMI IOCK error: Not continuing");
@@ -228,7 +226,7 @@ io_check_error(unsigned char reason, struct pt_regs *regs)
 	outb(reason, NMI_REASON_PORT);
 }
 
-static notrace __kprobes void
+static __kprobes void
 unknown_nmi_error(unsigned char reason, struct pt_regs *regs)
 {
 	int handled;
@@ -247,16 +245,6 @@ unknown_nmi_error(unsigned char reason, struct pt_regs *regs)
 
 	__this_cpu_add(nmi_stats.unknown, 1);
 
-#ifdef CONFIG_MCA
-	/*
-	 * Might actually be able to figure out what the guilty party
-	 * is:
-	 */
-	if (MCA_bus) {
-		mca_handle_nmi();
-		return;
-	}
-#endif
 	pr_emerg("Uhhuh. NMI received for unknown reason %02x on CPU %d.\n",
 		 reason, smp_processor_id());
 
@@ -270,7 +258,7 @@ unknown_nmi_error(unsigned char reason, struct pt_regs *regs)
 static DEFINE_PER_CPU(bool, swallow_nmi);
 static DEFINE_PER_CPU(unsigned long, last_nmi_rip);
 
-static notrace __kprobes void default_do_nmi(struct pt_regs *regs)
+static __kprobes void default_do_nmi(struct pt_regs *regs)
 {
 	unsigned char reason = 0;
 	int handled;
@@ -456,14 +444,16 @@ static inline void nmi_nesting_preprocess(struct pt_regs *regs)
 	 */
 	if (unlikely(is_debug_stack(regs->sp))) {
 		debug_stack_set_zero();
-		__get_cpu_var(update_debug_stack) = 1;
+		this_cpu_write(update_debug_stack, 1);
 	}
 }
 
 static inline void nmi_nesting_postprocess(void)
 {
-	if (unlikely(__get_cpu_var(update_debug_stack)))
+	if (unlikely(this_cpu_read(update_debug_stack))) {
 		debug_stack_reset();
+		this_cpu_write(update_debug_stack, 0);
+	}
 }
 #endif
 

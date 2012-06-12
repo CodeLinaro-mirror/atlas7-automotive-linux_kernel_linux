@@ -1108,7 +1108,9 @@ static void call_timer_fn(struct timer_list *timer, void (*fn)(unsigned long),
 	 * warnings as well as problems when looking into
 	 * timer->lockdep_map, make a copy and use that here.
 	 */
-	struct lockdep_map lockdep_map = timer->lockdep_map;
+	struct lockdep_map lockdep_map;
+
+	lockdep_copy_map(&lockdep_map, &timer->lockdep_map);
 #endif
 	/*
 	 * Couple the lock chain with the lock chain at
@@ -1433,25 +1435,25 @@ SYSCALL_DEFINE0(getppid)
 SYSCALL_DEFINE0(getuid)
 {
 	/* Only we change this so SMP safe */
-	return current_uid();
+	return from_kuid_munged(current_user_ns(), current_uid());
 }
 
 SYSCALL_DEFINE0(geteuid)
 {
 	/* Only we change this so SMP safe */
-	return current_euid();
+	return from_kuid_munged(current_user_ns(), current_euid());
 }
 
 SYSCALL_DEFINE0(getgid)
 {
 	/* Only we change this so SMP safe */
-	return current_gid();
+	return from_kgid_munged(current_user_ns(), current_gid());
 }
 
 SYSCALL_DEFINE0(getegid)
 {
 	/* Only we change this so SMP safe */
-	return  current_egid();
+	return from_kgid_munged(current_user_ns(), current_egid());
 }
 
 #endif
