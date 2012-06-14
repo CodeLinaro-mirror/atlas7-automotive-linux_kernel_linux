@@ -1665,17 +1665,12 @@ out:
 	return err;
 }
 
-static const struct of_device_id sgpio_of_match[] __devinitconst = {
-	{.compatible = "sirf,prima2-gpio-pinmux", },
-	{},
-};
-
 static int __init sirfsoc_gpio_init(void)
 {
 
 	struct device_node *np;
 
-	np = of_find_matching_node(NULL, sgpio_of_match);
+	np = of_find_matching_node(NULL, pinmux_ids);
 
 	if (!np)
 		return -ENODEV;
