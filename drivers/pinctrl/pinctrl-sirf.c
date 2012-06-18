@@ -1239,6 +1239,7 @@ static int __init sirfsoc_pinmux_init(void)
 }
 arch_initcall(sirfsoc_pinmux_init);
 
+
 static inline struct sirfsoc_gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
 {
 	return &sgpio_bank[(irq - SIRFSOC_GPIO_IRQ_START) / SIRFSOC_GPIO_BANK_SIZE];
@@ -1246,7 +1247,10 @@ static inline struct sirfsoc_gpio_bank *sirfsoc_irq_to_bank(unsigned int irq)
 
 static inline int sirfsoc_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
-	return SIRFSOC_GPIO_IRQ_START + (chip->base + offset);
+	struct sirfsoc_gpio_bank *bank = container_of(to_of_mm_gpio_chip(chip),
+		struct sirfsoc_gpio_bank, chip);
+
+	return irq_find_mapping(bank->domain, offset);
 }
 
 static inline int sirfsoc_irq_to_offset(unsigned int irq)
@@ -1313,7 +1317,7 @@ static inline struct sirfsoc_gpio_bank *sirfsoc_irqchip_to_bank(struct gpio_chip
 
 static void sirfsoc_gpio_irq_ack(struct irq_data *d)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
+	struct sirfsoc_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	int idx = sirfsoc_irq_to_offset(d->irq);
 	u32 status, offset;
 	unsigned long flags;
@@ -1355,7 +1359,7 @@ static void sirfsoc_gpio_irq_mask(struct irq_data *d)
 
 static void sirfsoc_gpio_irq_unmask(struct irq_data *d)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
+	struct sirfsoc_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	int idx = sirfsoc_irq_to_offset(d->irq);
 	u32 status, offset;
 	unsigned long flags;
@@ -1374,7 +1378,7 @@ static void sirfsoc_gpio_irq_unmask(struct irq_data *d)
 
 static int sirfsoc_gpio_irq_type(struct irq_data *d, unsigned type)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irq_to_bank(d->irq);
+	struct sirfsoc_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	int idx = sirfsoc_irq_to_offset(d->irq);
 	u32 val, offset;
 	unsigned long flags;
@@ -1607,14 +1611,14 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 int sirfsoc_gpio_irq_map(struct irq_domain *d, unsigned int irq,
 	irq_hw_number_t hwirq)
 {
-	struct sirfsoc_gpio_bank *sirfsoc_chip = d->host_data;
+	struct sirfsoc_gpio_bank *bank = d->host_data;
 
-	if (!sirfsoc_chip)
+	if (!bank)
 		return -EINVAL;
 
 	irq_set_chip(irq, &sirfsoc_irq_chip);
 	irq_set_handler(irq, handle_level_irq);
-	irq_set_chip_data(irq, sirfsoc_chip);
+	irq_set_chip_data(irq, bank);
 	set_irq_flags(irq, IRQF_VALID);
 
 	return 0;
