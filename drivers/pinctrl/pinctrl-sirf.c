@@ -13,6 +13,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/irqdomain.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/consumer.h>
@@ -51,8 +52,9 @@
 
 struct sirfsoc_gpio_bank {
 	struct of_mm_gpio_chip chip;
+	struct irq_domain *domain;
 	int id;
-	int irq;
+	int parent_irq;
 	spinlock_t lock;
 };
 
@@ -1426,16 +1428,9 @@ static struct irq_chip sirfsoc_irq_chip = {
 
 static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 {
-	struct sirfsoc_gpio_bank *bank = NULL;
+	struct sirfsoc_gpio_bank *bank = irq_get_handler_data(irq);
 	u32 status, ctrl;
-	int i, idx = 0;
-
-	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
-		if (sgpio_bank[i].irq == irq) {
-			bank = &sgpio_bank[i];
-			break;
-		}
-	}
+	int idx = 0;
 
 	status = readl(bank->chip.regs + SIRFSOC_GPIO_INT_STATUS(bank->id));
 	if (!status) {
@@ -1609,6 +1604,27 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
 
+int sirfsoc_gpio_irq_map(struct irq_domain *d, unsigned int irq,
+	irq_hw_number_t hwirq)
+{
+	struct sirfsoc_gpio_bank *sirfsoc_chip = d->host_data;
+
+	if (!sirfsoc_chip)
+		return -EINVAL;
+
+	irq_set_chip(irq, &sirfsoc_irq_chip);
+	irq_set_handler(irq, handle_level_irq);
+	irq_set_chip_data(irq, sirfsoc_chip);
+	set_irq_flags(irq, IRQF_VALID);
+
+	return 0;
+}
+
+const struct irq_domain_ops sirfsoc_gpio_irq_simple_ops = {
+	.map = sirfsoc_gpio_irq_map,
+	.xlate = irq_domain_xlate_twocell,
+};
+
 static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 {
 	int i, err = 0;
@@ -1640,9 +1656,9 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 		bank->chip.gc.of_node = np;
 		bank->chip.regs = regs;
 		bank->id = i;
-		bank->irq = platform_get_irq(pdev, i);
-		if (bank->irq < 0) {
-			err = bank->irq;
+		bank->parent_irq = platform_get_irq(pdev, i);
+		if (bank->parent_irq < 0) {
+			err = bank->parent_irq;
 			goto out;
 		}
 
@@ -1654,10 +1670,18 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 			goto out;
 		}
 
-		irq_set_chained_handler(bank->irq, sirfsoc_gpio_handle_irq);
-		irq_set_chip(bank->irq, &sirfsoc_irq_chip);
-		irq_set_handler(bank->irq, handle_level_irq);
-		set_irq_flags(bank->irq, IRQF_VALID | IRQF_PROBE);
+		bank->domain = irq_domain_add_legacy(np, SIRFSOC_GPIO_BANK_SIZE,
+			SIRFSOC_GPIO_IRQ_START + i * SIRFSOC_GPIO_BANK_SIZE, 0,
+			&sirfsoc_gpio_irq_simple_ops, bank);
+
+		if (!bank->domain) {
+			pr_err("%s: Failed to create irqdomain\n", np->full_name);
+			err = -ENOSYS;
+			goto out;
+		}
+
+		irq_set_chained_handler(bank->parent_irq, sirfsoc_gpio_handle_irq);
+		irq_set_handler_data(bank->parent_irq, bank);
 	}
 
 out:
