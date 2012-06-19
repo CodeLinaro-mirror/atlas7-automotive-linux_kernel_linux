@@ -1271,14 +1271,14 @@ void sirfsoc_gpio_set_pull(unsigned gpio, unsigned mode)
 	val = readl(bank->chip.regs + offset);
 
 	switch (mode) {
-	case GPIO_PULL_NONE:
+	case SIRFSOC_GPIO_PULL_NONE:
 		val &= ~SIRFSOC_GPIO_CTL_PULL_MASK;
 		break;
-	case GPIO_PULL_UP:
+	case SIRFSOC_GPIO_PULL_UP:
 		val |= SIRFSOC_GPIO_CTL_PULL_MASK;
 		val |= SIRFSOC_GPIO_CTL_PULL_HIGH;
 		break;
-	case GPIO_PULL_DOWN:
+	case SIRFSOC_GPIO_PULL_DOWN:
 		val |= SIRFSOC_GPIO_CTL_PULL_MASK;
 		val &= ~SIRFSOC_GPIO_CTL_PULL_HIGH;
 		break;
