@@ -1261,32 +1261,32 @@ void sirfsoc_gpio_set_pull(unsigned gpio, unsigned mode)
 {
 	struct sirfsoc_gpio_bank *bank = sirfsoc_gpio_to_bank(gpio);
 	int idx = sirfsoc_gpio_to_offset(gpio);
-	u32 status, offset;
+	u32 val, offset;
 	unsigned long flags;
 
 	offset = SIRFSOC_GPIO_CTRL(bank->id, idx);
 
 	spin_lock_irqsave(&sgpio_lock, flags);
 
-	status = readl(bank->chip.regs + offset);
+	val = readl(bank->chip.regs + offset);
 
 	switch (mode) {
 	case GPIO_PULL_NONE:
-		status &= ~SIRFSOC_GPIO_CTL_PULL_MASK;
+		val &= ~SIRFSOC_GPIO_CTL_PULL_MASK;
 		break;
 	case GPIO_PULL_UP:
-		status |= SIRFSOC_GPIO_CTL_PULL_MASK;
-		status |= SIRFSOC_GPIO_CTL_PULL_HIGH;
+		val |= SIRFSOC_GPIO_CTL_PULL_MASK;
+		val |= SIRFSOC_GPIO_CTL_PULL_HIGH;
 		break;
 	case GPIO_PULL_DOWN:
-		status |= SIRFSOC_GPIO_CTL_PULL_MASK;
-		status &= ~SIRFSOC_GPIO_CTL_PULL_HIGH;
+		val |= SIRFSOC_GPIO_CTL_PULL_MASK;
+		val &= ~SIRFSOC_GPIO_CTL_PULL_HIGH;
 		break;
 	default:
 		break;
 	}
 
-	writel(status, bank->chip.regs + offset);
+	writel(val, bank->chip.regs + offset);
 
 	spin_unlock_irqrestore(&sgpio_lock, flags);
 }
@@ -1301,33 +1301,33 @@ static void sirfsoc_gpio_irq_ack(struct irq_data *d)
 {
 	struct sirfsoc_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	int idx = d->hwirq % SIRFSOC_GPIO_BANK_SIZE;
-	u32 status, offset;
+	u32 val, offset;
 	unsigned long flags;
 
 	offset = SIRFSOC_GPIO_CTRL(bank->id, idx);
 
 	spin_lock_irqsave(&sgpio_lock, flags);
 
-	status = readl(bank->chip.regs + offset);
+	val = readl(bank->chip.regs + offset);
 
-	writel(status, bank->chip.regs + offset);
+	writel(val, bank->chip.regs + offset);
 
 	spin_unlock_irqrestore(&sgpio_lock, flags);
 }
 
 static void __sirfsoc_gpio_irq_mask(struct sirfsoc_gpio_bank *bank, int idx)
 {
-	u32 status, offset;
+	u32 val, offset;
 	unsigned long flags;
 
 	offset = SIRFSOC_GPIO_CTRL(bank->id, idx);
 
 	spin_lock_irqsave(&sgpio_lock, flags);
 
-	status = readl(bank->chip.regs + offset);
-	status &= ~SIRFSOC_GPIO_CTL_INTR_EN_MASK;
-	status &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
-	writel(status, bank->chip.regs + offset);
+	val = readl(bank->chip.regs + offset);
+	val &= ~SIRFSOC_GPIO_CTL_INTR_EN_MASK;
+	val &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
+	writel(val, bank->chip.regs + offset);
 
 	spin_unlock_irqrestore(&sgpio_lock, flags);
 }
@@ -1343,17 +1343,17 @@ static void sirfsoc_gpio_irq_unmask(struct irq_data *d)
 {
 	struct sirfsoc_gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	int idx = d->hwirq % SIRFSOC_GPIO_BANK_SIZE;
-	u32 status, offset;
+	u32 val, offset;
 	unsigned long flags;
 
 	offset = SIRFSOC_GPIO_CTRL(bank->id, idx);
 
 	spin_lock_irqsave(&sgpio_lock, flags);
 
-	status = readl(bank->chip.regs + offset);
-	status &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
-	status |= SIRFSOC_GPIO_CTL_INTR_EN_MASK;
-	writel(status, bank->chip.regs + offset);
+	val = readl(bank->chip.regs + offset);
+	val &= ~SIRFSOC_GPIO_CTL_INTR_STS_MASK;
+	val |= SIRFSOC_GPIO_CTL_INTR_EN_MASK;
+	writel(val, bank->chip.regs + offset);
 
 	spin_unlock_irqrestore(&sgpio_lock, flags);
 }
@@ -1450,14 +1450,14 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 
 static inline void sirfsoc_gpio_set_input(struct sirfsoc_gpio_bank *bank, unsigned ctrl_offset)
 {
-	u32 status;
+	u32 val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bank->lock, flags);
 
-	status = readl(bank->chip.regs + ctrl_offset);
-	status &= ~SIRFSOC_GPIO_CTL_OUT_EN_MASK;
-	writel(status, bank->chip.regs + ctrl_offset);
+	val = readl(bank->chip.regs + ctrl_offset);
+	val &= ~SIRFSOC_GPIO_CTL_OUT_EN_MASK;
+	writel(val, bank->chip.regs + ctrl_offset);
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
@@ -1559,33 +1559,33 @@ static int sirfsoc_gpio_direction_output(struct gpio_chip *chip, unsigned gpio, 
 static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 {
 	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
-	u32 status;
+	u32 val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bank->lock, flags);
 
-	status = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
+	val = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 
-	return !!(status & SIRFSOC_GPIO_CTL_DATAIN_MASK);
+	return !!(val & SIRFSOC_GPIO_CTL_DATAIN_MASK);
 }
 
 static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	int value)
 {
 	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
-	u32 status;
+	u32 ctrl;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bank->lock, flags);
 
-	status = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
+	ctrl = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
 	if (value)
-		status |= SIRFSOC_GPIO_CTL_DATAOUT_MASK;
+		ctrl |= SIRFSOC_GPIO_CTL_DATAOUT_MASK;
 	else
-		status &= ~SIRFSOC_GPIO_CTL_DATAOUT_MASK;
-	writel(status, bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
+		ctrl &= ~SIRFSOC_GPIO_CTL_DATAOUT_MASK;
+	writel(ctrl, bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
