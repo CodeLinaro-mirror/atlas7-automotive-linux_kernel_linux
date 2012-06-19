@@ -1417,6 +1417,7 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 	struct sirfsoc_gpio_bank *bank = irq_get_handler_data(irq);
 	u32 status, ctrl;
 	int idx = 0;
+	unsigned int first_irq;
 
 	status = readl(bank->chip.regs + SIRFSOC_GPIO_INT_STATUS(bank->id));
 	if (!status) {
@@ -1426,6 +1427,8 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 		handle_bad_irq(irq, desc);
 		return;
 	}
+
+	first_irq = bank->domain->revmap_data.legacy.first_irq;
 
 	while (status) {
 		ctrl = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, idx));
@@ -1437,10 +1440,7 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 		if ((status & 0x1) && (ctrl & SIRFSOC_GPIO_CTL_INTR_EN_MASK)) {
 			pr_debug("%s: gpio id %d idx %d happens\n",
 				__func__, bank->id, idx);
-			irq =
-				(SIRFSOC_GPIO_IRQ_START +
-				 (bank->id * SIRFSOC_GPIO_BANK_SIZE)) + idx;
-			generic_handle_irq(irq);
+			generic_handle_irq(first_irq + idx);
 		}
 
 		idx++;
