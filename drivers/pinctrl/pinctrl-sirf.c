@@ -1376,7 +1376,7 @@ static int sirfsoc_gpio_irq_type(struct irq_data *d, unsigned type)
 	case IRQ_TYPE_NONE:
 		break;
 	case IRQ_TYPE_EDGE_RISING:
-		val |= (SIRFSOC_GPIO_CTL_INTR_HIGH_MASK | SIRFSOC_GPIO_CTL_INTR_TYPE_MASK);
+		val |= SIRFSOC_GPIO_CTL_INTR_HIGH_MASK | SIRFSOC_GPIO_CTL_INTR_TYPE_MASK;
 		val &= ~SIRFSOC_GPIO_CTL_INTR_LOW_MASK;
 		break;
 	case IRQ_TYPE_EDGE_FALLING:
@@ -1405,7 +1405,7 @@ static int sirfsoc_gpio_irq_type(struct irq_data *d, unsigned type)
 }
 
 static struct irq_chip sirfsoc_irq_chip = {
-	.name = "SiRF SoC GPIO IRQ",
+	.name = "sirf-gpio-irq",
 	.irq_ack = sirfsoc_gpio_irq_ack,
 	.irq_mask = sirfsoc_gpio_irq_mask,
 	.irq_unmask = sirfsoc_gpio_irq_unmask,
@@ -1648,7 +1648,6 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 			goto out;
 		}
 
-		/* Call the OF gpio helper to setup and register the GPIO device */
 		err = gpiochip_add(&bank->chip.gc);
 		if (err) {
 			pr_err("%s: error in probe function with status %d\n",
