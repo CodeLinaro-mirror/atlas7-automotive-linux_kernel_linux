@@ -16,7 +16,8 @@ extern struct sys_timer sirfsoc_timer;
 extern void __iomem *sirfsoc_rstc_base;
 
 extern void __init sirfsoc_of_irq_init(void);
-extern void __init sirfsoc_of_clk_init(void);
+extern void __init sirfsoc_clk_map(void);
+extern void __init sirfsoc_clk_init(void);
 extern void sirfsoc_restart(char, const char *);
 
 #ifndef CONFIG_DEBUG_LL

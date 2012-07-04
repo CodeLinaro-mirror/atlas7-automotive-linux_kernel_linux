@@ -11,8 +11,9 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/io.h>
-#include <linux/clkdev.h>
 #include <linux/clk.h>
+#include <linux/clkdev.h>
+#include <linux/clk-provider.h>
 #include <linux/spinlock.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -47,24 +48,38 @@
 #define KHZ     1000
 #define MHZ     (KHZ * KHZ)
 
-struct clk_ops {
-	unsigned long (*get_rate)(struct clk *clk);
-	long (*round_rate)(struct clk *clk, unsigned long rate);
-	int (*set_rate)(struct clk *clk, unsigned long rate);
-	int (*enable)(struct clk *clk);
-	int (*disable)(struct clk *clk);
-	struct clk *(*get_parent)(struct clk *clk);
-	int (*set_parent)(struct clk *clk, struct clk *parent);
+/*
+ * SiRFprimaII clock controller
+ * - 2 oscillators: osc-26MHz, rtc-32.768KHz
+ * - 3 standard configurable plls: pll1, pll2 & pll3
+ * - 2 exclusive plls: usb phy pll and sata phy pll
+ * - 8 clock domains: cpu/cpudiv, mem/memdiv, sys/io, dsp, graphic, multimedia,
+ *     display and sdphy.
+ *     Each clock domain can select its own clock source from five clock sources,
+ *     X_XIN, X_XINW, PLL1, PLL2 and PLL3. The domain clock is used as the source
+ *     clock of the group clock.
+ */
+
+struct clk_pll {
+	struct clk_hw hw;
+	unsigned short regofs;  /* register offset */
 };
 
-struct clk {
-	struct clk *parent;     /* parent clk */
-	unsigned long rate;     /* clock rate in Hz */
-	signed char usage;      /* clock enable count */
-	signed char enable_bit; /* enable bit: 0 ~ 63 */
+#define to_pllclk(_hw) container_of(_hw, struct clk_pll, hw)
+
+struct clk_dmn {
+	struct clk_hw hw;
 	unsigned short regofs;  /* register offset */
-	struct clk_ops *ops;    /* clock operation */
 };
+
+#define to_dmnclk(_hw) container_of(_hw, struct clk_dmn, hw)
+
+struct clk_std {
+	struct clk_hw hw;
+	signed char enable_bit; /* enable bit: 0 ~ 63 */
+};
+
+#define to_stdclk(_hw) container_of(_hw, struct clk_std, hw)
 
 static DEFINE_SPINLOCK(clocks_lock);
 
@@ -79,30 +94,20 @@ static inline void clkc_writel(u32 val, unsigned reg)
 }
 
 /*
- * osc_rtc - real time oscillator - 32.768KHz
- * osc_sys - high speed oscillator - 26MHz
- */
-
-static struct clk clk_rtc = {
-	.rate = 32768,
-};
-
-static struct clk clk_osc = {
-	.rate = 26 * MHZ,
-};
-
-/*
  * std pll
  */
-static unsigned long std_pll_get_rate(struct clk *clk)
+
+static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
+	unsigned long parent_rate)
 {
-	unsigned long fin = clk_get_rate(clk->parent);
+	unsigned long fin = parent_rate;
+	struct clk_pll *clk = to_pllclk(hw);
 	u32 regcfg2 = clk->regofs + SIRFSOC_CLKC_PLL1_CFG2 -
 		SIRFSOC_CLKC_PLL1_CFG0;
 
 	if (clkc_readl(regcfg2) & BIT(2)) {
 		/* pll bypass mode */
-		clk->rate = fin;
+		return fin;
 	} else {
 		/* fout = fin * nf / nr / od */
 		u32 cfg0 = clkc_readl(clk->regofs);
@@ -110,14 +115,41 @@ static unsigned long std_pll_get_rate(struct clk *clk)
 		u32 nr = ((cfg0 >> 13) & (BIT(6) - 1)) + 1;
 		u32 od = ((cfg0 >> 19) & (BIT(4) - 1)) + 1;
 		WARN_ON(fin % MHZ);
-		clk->rate = fin / MHZ * nf / nr / od * MHZ;
+		return fin / MHZ * nf / nr / od * MHZ;
 	}
-
-	return clk->rate;
 }
 
-static int std_pll_set_rate(struct clk *clk, unsigned long rate)
+static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+			unsigned long *parent_rate)
 {
+	unsigned long fin, nf, nr, od;
+
+	/*
+	 * fout = fin * nf / (nr * od);
+	 * set od = 1, nr = fin/MHz, so fout = nf * MHz
+	 */
+	rate = rate - rate % MHZ;
+
+	nf = rate / MHZ;
+	if (nf > BIT(13))
+		nf = BIT(13);
+	if (nf < 1)
+		nf = 1;
+
+	fin = *parent_rate;
+
+	nr = fin / MHZ;
+	if (nr > BIT(6))
+		nr = BIT(6);
+	od = 1;
+
+	return fin * nf / (nr * od);
+}
+
+static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
+			unsigned long parent_rate)
+{
+	struct clk_pll *clk = to_pllclk(hw);
 	unsigned long fin, nf, nr, od, reg;
 
 	/*
@@ -129,7 +161,7 @@ static int std_pll_set_rate(struct clk *clk, unsigned long rate)
 	if (unlikely((rate % MHZ) || nf > BIT(13) || nf < 1))
 		return -EINVAL;
 
-	fin = clk_get_rate(clk->parent);
+	fin = parent_rate;
 	BUG_ON(fin < MHZ);
 
 	nr = fin / MHZ;
@@ -147,76 +179,120 @@ static int std_pll_set_rate(struct clk *clk, unsigned long rate)
 	while (!(clkc_readl(reg) & BIT(6)))
 		cpu_relax();
 
-	clk->rate = 0; /* set to zero will force recalculation */
 	return 0;
 }
 
 static struct clk_ops std_pll_ops = {
-	.get_rate = std_pll_get_rate,
-	.set_rate = std_pll_set_rate,
+	.recalc_rate = pll_clk_recalc_rate,
+	.round_rate = pll_clk_round_rate,
+	.set_rate = pll_clk_set_rate,
 };
 
-static struct clk clk_pll1 = {
-	.parent = &clk_osc,
+static const char * const pll_clk_parents[] = {
+	"osc",
+};
+
+static struct clk_init_data clk_pll1_init = {
+	.name = "pll1",
+	.ops = &std_pll_ops,
+	.parent_names = pll_clk_parents,
+	.num_parents = ARRAY_SIZE(pll_clk_parents),
+	.flags = CLK_SET_RATE_GATE,
+};
+
+static struct clk_init_data clk_pll2_init = {
+	.name = "pll2",
+	.ops = &std_pll_ops,
+	.parent_names = pll_clk_parents,
+	.num_parents = ARRAY_SIZE(pll_clk_parents),
+	.flags = CLK_SET_RATE_GATE,
+};
+
+static struct clk_init_data clk_pll3_init = {
+	.name = "pll3",
+	.ops = &std_pll_ops,
+	.parent_names = pll_clk_parents,
+	.num_parents = ARRAY_SIZE(pll_clk_parents),
+	.flags = CLK_SET_RATE_GATE,
+};
+
+static struct clk_pll clk_pll1 = {
 	.regofs = SIRFSOC_CLKC_PLL1_CFG0,
-	.ops = &std_pll_ops,
+	.hw = {
+		.init = &clk_pll1_init,
+	},
 };
 
-static struct clk clk_pll2 = {
-	.parent = &clk_osc,
+static struct clk_pll clk_pll2 = {
 	.regofs = SIRFSOC_CLKC_PLL2_CFG0,
-	.ops = &std_pll_ops,
+	.hw = {
+		.init = &clk_pll2_init,
+	},
 };
 
-static struct clk clk_pll3 = {
-	.parent = &clk_osc,
+static struct clk_pll clk_pll3 = {
 	.regofs = SIRFSOC_CLKC_PLL3_CFG0,
-	.ops = &std_pll_ops,
+	.hw = {
+		.init = &clk_pll3_init,
+	},
 };
 
 /*
  * clock domains - cpu, mem, sys/io
  */
 
-static struct clk clk_mem;
+static const char * const dmn_clk_parents[] = {
+	"rtc",
+	"osc",
+	"pll1",
+	"pll2",
+	"pll3",
+};
 
-static struct clk *dmn_get_parent(struct clk *clk)
+static u8 dmn_clk_get_parent(struct clk_hw *hw)
 {
-	struct clk *clks[] = {
-		&clk_osc, &clk_rtc, &clk_pll1, &clk_pll2, &clk_pll3
-	};
+	struct clk_dmn *clk = to_dmnclk(hw);
 	u32 cfg = clkc_readl(clk->regofs);
+
+	/* parent of io domain can only be pll3 */
+	if (strcmp(hw->init->name, "io") == 0)
+		return 4;
+
 	WARN_ON((cfg & (BIT(3) - 1)) > 4);
-	return clks[cfg & (BIT(3) - 1)];
+
+	return cfg & (BIT(3) - 1);
 }
 
-static int dmn_set_parent(struct clk *clk, struct clk *parent)
+static int dmn_clk_set_parent(struct clk_hw *hw, u8 parent)
 {
-	const struct clk *clks[] = {
-		&clk_osc, &clk_rtc, &clk_pll1, &clk_pll2, &clk_pll3
-	};
+	struct clk_dmn *clk = to_dmnclk(hw);
 	u32 cfg = clkc_readl(clk->regofs);
-	int i;
-	for (i = 0; i < ARRAY_SIZE(clks); i++) {
-		if (clks[i] == parent) {
-			cfg &= ~(BIT(3) - 1);
-			clkc_writel(cfg | i, clk->regofs);
-			/* BIT(3) - switching status: 1 - busy, 0 - done */
-			while (clkc_readl(clk->regofs) & BIT(3))
-				cpu_relax();
-			return 0;
-		}
-	}
-	return -EINVAL;
+
+	/* parent of io domain can only be pll3 */
+	if (strcmp(hw->init->name, "io") == 0)
+		return -EINVAL;
+
+	cfg &= ~(BIT(3) - 1);
+	clkc_writel(cfg | parent, clk->regofs);
+	/* BIT(3) - switching status: 1 - busy, 0 - done */
+	while (clkc_readl(clk->regofs) & BIT(3))
+		cpu_relax();
+
+	return 0;
 }
 
-static unsigned long dmn_get_rate(struct clk *clk)
+static unsigned long dmn_clk_recalc_rate(struct clk_hw *hw,
+	unsigned long parent_rate)
+
 {
-	unsigned long fin = clk_get_rate(clk->parent);
+	unsigned long fin = parent_rate;
+	struct clk_dmn *clk = to_dmnclk(hw);
+
 	u32 cfg = clkc_readl(clk->regofs);
+
 	if (cfg & BIT(24)) {
 		/* fcd bypass mode */
-		clk->rate = fin;
+		return fin;
 	} else {
 		/*
 		 * wait count: bit[19:16], hold count: bit[23:20]
@@ -224,19 +300,40 @@ static unsigned long dmn_get_rate(struct clk *clk)
 		u32 wait = (cfg >> 16) & (BIT(4) - 1);
 		u32 hold = (cfg >> 20) & (BIT(4) - 1);
 
-		clk->rate = fin / (wait + hold + 2);
+		return fin / (wait + hold + 2);
 	}
-
-	return clk->rate;
 }
 
-static int dmn_set_rate(struct clk *clk, unsigned long rate)
+static long dmn_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+	unsigned long *parent_rate)
 {
 	unsigned long fin;
-	unsigned ratio, wait, hold, reg;
-	unsigned bits = (clk == &clk_mem) ? 3 : 4;
+	unsigned ratio, wait, hold;
+	unsigned bits = (strcmp(hw->init->name, "mem") == 0) ? 3 : 4;
 
-	fin = clk_get_rate(clk->parent);
+	fin = *parent_rate;
+	ratio = fin / rate;
+
+	if (ratio < 2)
+		ratio = 2;
+	if (ratio > BIT(bits + 1))
+		ratio = BIT(bits + 1);
+
+	wait = (ratio >> 1) - 1;
+	hold = ratio - wait - 2;
+
+	return fin / (wait + hold + 2);
+}
+
+static int dmn_clk_set_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate)
+{
+	struct clk_dmn *clk = to_dmnclk(hw);
+	unsigned long fin;
+	unsigned ratio, wait, hold, reg;
+	unsigned bits = (strcmp(hw->init->name, "mem") == 0) ? 3 : 4;
+
+	fin = parent_rate;
 	ratio = fin / rate;
 
 	if (unlikely(ratio < 2 || ratio > BIT(bits + 1)))
@@ -256,40 +353,91 @@ static int dmn_set_rate(struct clk *clk, unsigned long rate)
 	while (clkc_readl(clk->regofs) & BIT(25))
 		cpu_relax();
 
-	clk->rate = 0; /* set to zero will force recalculation */
-
 	return 0;
 }
 
+static struct clk_ops msi_ops = {
+	.set_rate = dmn_clk_set_rate,
+	.round_rate = dmn_clk_round_rate,
+	.recalc_rate = dmn_clk_recalc_rate,
+	.set_parent = dmn_clk_set_parent,
+	.get_parent = dmn_clk_get_parent,
+};
+
+static struct clk_init_data clk_mem_init = {
+	.name = "mem",
+	.ops = &msi_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+	.flags = CLK_SET_RATE_GATE,
+};
+
+static struct clk_dmn clk_mem = {
+	.regofs = SIRFSOC_CLKC_MEM_CFG,
+	.hw = {
+		.init = &clk_mem_init,
+	},
+};
+
+static struct clk_init_data clk_sys_init = {
+	.name = "sys",
+	.ops = &msi_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+	.flags = CLK_SET_RATE_GATE,
+};
+
+static struct clk_dmn clk_sys = {
+	.regofs = SIRFSOC_CLKC_SYS_CFG,
+	.hw = {
+		.init = &clk_sys_init,
+	},
+};
+
+static struct clk_init_data clk_io_init = {
+	.name = "io",
+	.ops = &msi_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+	.flags = CLK_SET_RATE_GATE,
+};
+
+static struct clk_dmn clk_io = {
+	.regofs = SIRFSOC_CLKC_IO_CFG,
+	.hw = {
+		.init = &clk_io_init,
+	},
+};
+
+static struct clk_ops cpu_ops = {
+	.set_parent = dmn_clk_set_parent,
+	.get_parent = dmn_clk_get_parent,
+};
+
+static struct clk_init_data clk_cpu_init = {
+	.name = "cpu",
+	.ops = &cpu_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+	.flags = CLK_SET_RATE_PARENT,
+};
+
+static struct clk_dmn clk_cpu = {
+	.regofs = SIRFSOC_CLKC_CPU_CFG,
+	.hw = {
+		.init = &clk_cpu_init,
+	},
+};
+
 /*
- * cpu clock has no FCD register in Prima2, can only change pll
+ * peripheral controllers in io domain
  */
-static int cpu_set_rate(struct clk *clk, unsigned long rate)
-{
-	int ret1, ret2;
-	struct clk *cur_parent, *tmp_parent;
 
-	cur_parent = dmn_get_parent(clk);
-	BUG_ON(cur_parent == NULL || cur_parent->usage > 1);
-
-	/* switch to tmp pll before setting parent clock's rate */
-	tmp_parent = cur_parent == &clk_pll1 ? &clk_pll2 : &clk_pll1;
-	ret1 = dmn_set_parent(clk, tmp_parent);
-	BUG_ON(ret1);
-
-	ret2 = clk_set_rate(cur_parent, rate);
-
-	ret1 = dmn_set_parent(clk, cur_parent);
-
-	clk->rate = 0; /* set to zero will force recalculation */
-
-	return ret2 ? ret2 : ret1;
-}
-
-static int std_clk_enable(struct clk *clk)
+static int std_clk_enable(struct clk_hw *hw)
 {
 	u32 val, reg;
 	int bit;
+	struct clk_std *clk = to_stdclk(hw);
 
 	BUG_ON(clk->enable_bit < 0 || clk->enable_bit > 63);
 
@@ -302,10 +450,11 @@ static int std_clk_enable(struct clk *clk)
 	return 0;
 }
 
-static int std_clk_disable(struct clk *clk)
+static void std_clk_disable(struct clk_hw *hw)
 {
 	u32 val, reg;
 	int bit;
+	struct clk_std *clk = to_stdclk(hw);
 
 	BUG_ON(clk->enable_bit < 0 || clk->enable_bit > 63);
 
@@ -315,26 +464,10 @@ static int std_clk_disable(struct clk *clk)
 
 	val = clkc_readl(reg) & ~BIT(bit);
 	clkc_writel(val, reg);
-	return 0;
 }
 
-static struct clk_ops cpu_ops = {
-	.get_parent = dmn_get_parent,
-	.set_parent = dmn_set_parent,
-	.set_rate = cpu_set_rate,
-};
-
-static struct clk clk_cpu = {
-	.parent = &clk_pll1,
-	.regofs = SIRFSOC_CLKC_CPU_CFG,
-	.ops = &cpu_ops,
-};
-
-static struct clk_ops msi_ops = {
-	.set_rate = dmn_set_rate,
-	.get_rate = dmn_get_rate,
-	.set_parent = dmn_set_parent,
-	.get_parent = dmn_get_parent,
+static const char * const std_clk_parents[] = {
+	"io",
 };
 
 static struct clk_ops ios_ops = {
@@ -342,214 +475,107 @@ static struct clk_ops ios_ops = {
 	.disable = std_clk_disable,
 };
 
-static struct clk clk_mem = {
-	.parent = &clk_pll2,
-	.regofs = SIRFSOC_CLKC_MEM_CFG,
-	.ops = &msi_ops,
+static struct clk_init_data clk_spi0_init = {
+	.name = "spi0",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
 };
 
-static struct clk clk_sys = {
-	.parent = &clk_pll3,
-	.regofs = SIRFSOC_CLKC_SYS_CFG,
-	.ops = &msi_ops,
-};
-
-static struct clk clk_io = {
-	.parent = &clk_pll3,
-	.regofs = SIRFSOC_CLKC_IO_CFG,
-	.ops = &msi_ops,
-};
-
-static struct clk clk_spi0 = {
-	.parent = &clk_io,
+static struct clk_std clk_spi0 = {
 	.enable_bit = 43,
-	.ops = &ios_ops,
-};
-
-static struct clk clk_spi1 = {
-	.parent = &clk_io,
-	.enable_bit = 44,
-	.ops = &ios_ops,
-};
-
-static struct clk clk_i2c0 = {
-	.parent = &clk_io,
-	.enable_bit = 46,
-	.ops = &ios_ops,
-};
-
-static struct clk clk_i2c1 = {
-	.parent = &clk_io,
-	.enable_bit = 47,
-	.ops = &ios_ops,
-};
-
-/*
- * on-chip clock sets
- */
-static struct clk_lookup onchip_clks[] = {
-	{
-		.dev_id = "rtc",
-		.clk = &clk_rtc,
-	}, {
-		.dev_id = "osc",
-		.clk = &clk_osc,
-	}, {
-		.dev_id = "pll1",
-		.clk = &clk_pll1,
-	}, {
-		.dev_id = "pll2",
-		.clk = &clk_pll2,
-	}, {
-		.dev_id = "pll3",
-		.clk = &clk_pll3,
-	}, {
-		.dev_id = "cpu",
-		.clk = &clk_cpu,
-	}, {
-		.dev_id = "mem",
-		.clk = &clk_mem,
-	}, {
-		.dev_id = "sys",
-		.clk = &clk_sys,
-	}, {
-		.dev_id = "io",
-		.clk = &clk_io,
-	}, {
-		.dev_id = "spi0",
-		.clk = &clk_spi0,
-	}, {
-		.dev_id = "spi1",
-		.clk = &clk_spi1,
-	}, {
-		.dev_id = "i2c0",
-		.clk = &clk_i2c0,
-	}, {
-		.dev_id = "i2c1",
-		.clk = &clk_i2c1,
+	.hw = {
+		.init = &clk_spi0_init,
 	},
 };
 
-int clk_enable(struct clk *clk)
+static struct clk_init_data clk_spi1_init = {
+	.name = "spi1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_spi1 = {
+	.enable_bit = 44,
+	.hw = {
+		.init = &clk_spi1_init,
+	},
+};
+
+static struct clk_init_data clk_i2c0_init = {
+	.name = "i2c0",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_i2c0 = {
+	.enable_bit = 46,
+	.hw = {
+		.init = &clk_i2c0_init,
+	},
+};
+
+static struct clk_init_data clk_i2c1_init = {
+	.name = "i2c1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_i2c1 = {
+	.enable_bit = 47,
+	.hw = {
+		.init = &clk_i2c1_init,
+	},
+};
+
+void __init sirfsoc_clk_init(void)
 {
-	unsigned long flags;
+	struct clk *clk;
 
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return -EINVAL;
+	/* These are always available (RTC and 26MHz OSC)*/
+	clk = clk_register_fixed_rate(NULL, "rtc", NULL,
+				      CLK_IS_ROOT, 32768);
+	BUG_ON(!clk);
+	clk = clk_register_fixed_rate(NULL, "osc", NULL,
+				      CLK_IS_ROOT, 26000000);
+	BUG_ON(!clk);
 
-	if (clk->parent)
-		clk_enable(clk->parent);
+	clk = clk_register(NULL, &clk_pll1.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_pll2.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_pll3.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_mem.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_sys.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_io.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "io");
+	clk = clk_register(NULL, &clk_cpu.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "cpu");
 
-	spin_lock_irqsave(&clocks_lock, flags);
-	if (!clk->usage++ && clk->ops && clk->ops->enable)
-		clk->ops->enable(clk);
-	spin_unlock_irqrestore(&clocks_lock, flags);
-	return 0;
-}
-EXPORT_SYMBOL(clk_enable);
+	clk = clk_register(NULL, &clk_i2c0.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "i2c0");
+	clk = clk_register(NULL, &clk_i2c1.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "i2c1");
+	clk = clk_register(NULL, &clk_spi0.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "spi0");
+	clk = clk_register(NULL, &clk_spi1.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "spi1");
 
-void clk_disable(struct clk *clk)
-{
-	unsigned long flags;
-
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return;
-
-	WARN_ON(!clk->usage);
-
-	spin_lock_irqsave(&clocks_lock, flags);
-	if (--clk->usage == 0 && clk->ops && clk->ops->disable)
-		clk->ops->disable(clk);
-	spin_unlock_irqrestore(&clocks_lock, flags);
-
-	if (clk->parent)
-		clk_disable(clk->parent);
-}
-EXPORT_SYMBOL(clk_disable);
-
-unsigned long clk_get_rate(struct clk *clk)
-{
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return 0;
-
-	if (clk->rate)
-		return clk->rate;
-
-	if (clk->ops && clk->ops->get_rate)
-		return clk->ops->get_rate(clk);
-
-	return clk_get_rate(clk->parent);
-}
-EXPORT_SYMBOL(clk_get_rate);
-
-long clk_round_rate(struct clk *clk, unsigned long rate)
-{
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return 0;
-
-	if (clk->ops && clk->ops->round_rate)
-		return clk->ops->round_rate(clk, rate);
-
-	return 0;
-}
-EXPORT_SYMBOL(clk_round_rate);
-
-int clk_set_rate(struct clk *clk, unsigned long rate)
-{
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return -EINVAL;
-
-	if (!clk->ops || !clk->ops->set_rate)
-		return -EINVAL;
-
-	return clk->ops->set_rate(clk, rate);
-}
-EXPORT_SYMBOL(clk_set_rate);
-
-int clk_set_parent(struct clk *clk, struct clk *parent)
-{
-	int ret;
-	unsigned long flags;
-
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return -EINVAL;
-
-	if (!clk->ops || !clk->ops->set_parent)
-		return -EINVAL;
-
-	spin_lock_irqsave(&clocks_lock, flags);
-	ret = clk->ops->set_parent(clk, parent);
-	if (!ret) {
-		parent->usage += clk->usage;
-		clk->parent->usage -= clk->usage;
-		BUG_ON(clk->parent->usage < 0);
-		clk->parent = parent;
-	}
-	spin_unlock_irqrestore(&clocks_lock, flags);
-	return ret;
-}
-EXPORT_SYMBOL(clk_set_parent);
-
-struct clk *clk_get_parent(struct clk *clk)
-{
-	unsigned long flags;
-
-	if (unlikely(IS_ERR_OR_NULL(clk)))
-		return NULL;
-
-	if (!clk->ops || !clk->ops->get_parent)
-		return clk->parent;
-
-	spin_lock_irqsave(&clocks_lock, flags);
-	clk->parent = clk->ops->get_parent(clk);
-	spin_unlock_irqrestore(&clocks_lock, flags);
-	return clk->parent;
-}
-EXPORT_SYMBOL(clk_get_parent);
-
-static void __init sirfsoc_clk_init(void)
-{
-	clkdev_add_table(onchip_clks, ARRAY_SIZE(onchip_clks));
+	/* enable all clocks for testing */
+	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
+	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
 }
 
 static struct of_device_id clkc_ids[] = {
@@ -557,7 +583,7 @@ static struct of_device_id clkc_ids[] = {
 	{},
 };
 
-void __init sirfsoc_of_clk_init(void)
+void __init sirfsoc_clk_map(void)
 {
 	struct device_node *np;
 	struct resource res;
@@ -578,12 +604,6 @@ void __init sirfsoc_of_clk_init(void)
 	sirfsoc_clkc_iodesc.length = 1 + res.end - res.start;
 
 	iotable_init(&sirfsoc_clkc_iodesc, 1);
-
-	sirfsoc_clk_init();
-
-	/* enable all clocks for testing */
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
 }
 
 /*
