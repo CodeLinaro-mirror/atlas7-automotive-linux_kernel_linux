@@ -416,16 +416,16 @@ static struct clk_lookup onchip_clks[] = {
 		.dev_id = "io",
 		.clk = &clk_io,
 	}, {
-		.dev_id = "b00d0000.spi",
+		.dev_id = "spi0",
 		.clk = &clk_spi0,
 	}, {
-		.dev_id = "b0170000.spi",
+		.dev_id = "spi1",
 		.clk = &clk_spi1,
 	}, {
-		.dev_id = "b00e0000.i2c",
+		.dev_id = "i2c0",
 		.clk = &clk_i2c0,
 	}, {
-		.dev_id = "b00f0000.i2c",
+		.dev_id = "i2c1",
 		.clk = &clk_i2c1,
 	},
 };
