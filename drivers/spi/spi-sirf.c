@@ -567,7 +567,7 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 
 	sspi->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
-		ret = -EINVAL;
+		ret = PTR_ERR(sspi->clk);
 		goto free_pin;
 	}
 	clk_enable(sspi->clk);
