@@ -177,7 +177,7 @@ static int wm831x_fll_set_rate(struct clk_hw *hw, unsigned long rate,
 			       WM831X_FLL_AUTO_FREQ_MASK, i);
 }
 
-static const char *wm831x_fll_parents[] = {
+static const char * const wm831x_fll_parents[] = {
 	"xtal",
 	"clkin",
 };
@@ -298,7 +298,7 @@ static void wm831x_clkout_unprepare(struct clk_hw *hw)
 	wm831x_reg_lock(wm831x);
 }
 
-static const char *wm831x_clkout_parents[] = {
+static const char * const wm831x_clkout_parents[] = {
 	"xtal",
 	"fll",
 };
