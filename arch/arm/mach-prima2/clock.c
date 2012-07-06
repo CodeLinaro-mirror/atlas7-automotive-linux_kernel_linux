@@ -36,8 +36,12 @@
 #define SIRFSOC_CLKC_PLL1_CFG2  0x0058
 #define SIRFSOC_CLKC_PLL2_CFG2  0x005c
 #define SIRFSOC_CLKC_PLL3_CFG2  0x0060
+#define SIRFSOC_USBPHY_PLL_CTRL 0x0008
+#define SIRFSOC_USBPHY_PLL_POWERDOWN  BIT(1)
+#define SIRFSOC_USBPHY_PLL_BYPASS     BIT(2)
+#define SIRFSOC_USBPHY_PLL_LOCK       BIT(3)
 
-static void *sirfsoc_clk_vbase;
+static void *sirfsoc_clk_vbase, *sirfsoc_rsc_vbase;
 
 #define KHZ     1000
 #define MHZ     (KHZ * KHZ)
@@ -238,7 +242,53 @@ static struct clk_pll clk_pll3 = {
 };
 
 /*
- * clock domains - cpu, mem, sys/io
+ * usb uses specified pll
+ */
+
+static int usb_pll_clk_enable(struct clk_hw *hw)
+{
+	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
+	reg &= ~(SIRFSOC_USBPHY_PLL_POWERDOWN | SIRFSOC_USBPHY_PLL_BYPASS);
+	writel(reg, sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
+	while (!(readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL) &
+			SIRFSOC_USBPHY_PLL_LOCK))
+		cpu_relax();
+
+	return 0;
+}
+
+static void usb_pll_clk_disable(struct clk *clk)
+{
+	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
+	reg |= (SIRFSOC_USBPHY_PLL_POWERDOWN | SIRFSOC_USBPHY_PLL_BYPASS);
+	writel(reg, sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
+}
+
+static long usb_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
+	return (reg & SIRFSOC_USBPHY_PLL_BYPASS) ? parent_rate : 48*MHZ;
+}
+
+static struct clk_ops usb_pll_ops = {
+	.enable = usb_pll_clk_enable,
+	.disable = usb_pll_clk_disable,
+	.recalc_rate = usb_pll_clk_recalc_rate,
+};
+
+static struct clk_init_data clk_usb_pll_init = {
+	.name = "usb_pll",
+	.ops = &usb_pll_ops,
+	.parent_names = pll_clk_parents,
+	.num_parents = ARRAY_SIZE(pll_clk_parents),
+};
+
+static struct clk_hw usb_pll_clk_hw = {
+	.init = &clk_usb_pll_init,
+};
+
+/*
+ * clock domains - cpu, mem, sys/io, dsp, gfx
  */
 
 static const char * const dmn_clk_parents[] = {
@@ -938,8 +988,45 @@ static struct clk_std clk_security = {
 	},
 };
 
+static const char * const std_clk_usb_parents[] = {
+	"usb_pll",
+};
+
+static struct clk_init_data clk_usb0_init = {
+	.name = "usb0",
+	.ops = &ios_ops,
+	.parent_names = std_clk_usb_parents,
+	.num_parents = ARRAY_SIZE(std_clk_usb_parents),
+};
+
+static struct clk_std clk_usb0 = {
+	.enable_bit = 16,
+	.hw = {
+		.init = &clk_usb0_init,
+	},
+};
+
+static struct clk_init_data clk_usb1_init = {
+	.name = "usb1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_usb_parents,
+	.num_parents = ARRAY_SIZE(std_clk_usb_parents),
+};
+
+static struct clk_std clk_usb1 = {
+	.enable_bit = 17,
+	.hw = {
+		.init = &clk_usb1_init,
+	},
+};
+
 static struct of_device_id clkc_ids[] = {
 	{ .compatible = "sirf,prima2-clkc" },
+	{},
+};
+
+static struct of_device_id rsc_ids[] = {
+	{ .compatible = "sirf,prima2-rsc" },
 	{},
 };
 
@@ -957,6 +1044,17 @@ void __init sirfsoc_of_clk_init(void)
 		panic("unable to map clkc registers\n");
 
 	of_node_put(np);
+
+	np = of_find_matching_node(NULL, rsc_ids);
+	if (!np)
+		panic("unable to find compatible rsc node in dtb\n");
+
+	sirfsoc_rsc_vbase = of_iomap(np, 0);
+	if (!sirfsoc_rsc_vbase)
+		panic("unable to map rsc registers\n");
+
+	of_node_put(np);
+
 
 	/* These are always available (RTC and 26MHz OSC)*/
 	clk = clk_register_fixed_rate(NULL, "rtc", NULL,
@@ -1067,6 +1165,14 @@ void __init sirfsoc_of_clk_init(void)
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_mmc45.hw);
 	BUG_ON(!clk);
+	clk = clk_register(NULL, &usb_pll_clk_hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_usb0.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b00e0000.usb");
+	clk = clk_register(NULL, &clk_usb1.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b00f0000.usb");
 
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
