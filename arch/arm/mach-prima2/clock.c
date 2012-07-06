@@ -8,18 +8,12 @@
 
 #include <linux/module.h>
 #include <linux/bitops.h>
-#include <linux/err.h>
-#include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
-#include <linux/spinlock.h>
-#include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
-#include <asm/mach/map.h>
-#include <mach/map.h>
 
 #define SIRFSOC_CLKC_CLK_EN0    0x0000
 #define SIRFSOC_CLKC_CLK_EN1    0x0004
