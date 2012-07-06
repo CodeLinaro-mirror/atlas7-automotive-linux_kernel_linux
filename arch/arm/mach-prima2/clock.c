@@ -31,7 +31,7 @@
 #define SIRFSOC_CLKC_DSP_CFG    0x0028
 #define SIRFSOC_CLKC_GFX_CFG    0x002c
 #define SIRFSOC_CLKC_MM_CFG     0x0030
-#define SIRFSOC_LKC_LCD_CFG     0x0034
+#define SIRFSOC_CLKC_LCD_CFG     0x0034
 #define SIRFSOC_CLKC_MMC_CFG    0x0038
 #define SIRFSOC_CLKC_PLL1_CFG0  0x0040
 #define SIRFSOC_CLKC_PLL2_CFG0  0x0044
@@ -58,6 +58,9 @@
  *     Each clock domain can select its own clock source from five clock sources,
  *     X_XIN, X_XINW, PLL1, PLL2 and PLL3. The domain clock is used as the source
  *     clock of the group clock.
+ *     - dsp domain: gps, mf
+ *     - io domain: dmac, nand, audio, uart, i2c, spi, usp, pwm, pulse
+ *     - sys domain: security
  */
 
 struct clk_pll {
@@ -69,6 +72,7 @@ struct clk_pll {
 
 struct clk_dmn {
 	struct clk_hw hw;
+	signed char enable_bit; /* enable bit: 0 ~ 63 */
 	unsigned short regofs;  /* register offset */
 };
 
@@ -80,6 +84,10 @@ struct clk_std {
 };
 
 #define to_stdclk(_hw) container_of(_hw, struct clk_std, hw)
+
+static int std_clk_is_enabled(struct clk_hw *hw);
+static int std_clk_enable(struct clk_hw *hw);
+static void std_clk_disable(struct clk_hw *hw);
 
 static inline unsigned long clkc_readl(unsigned reg)
 {
@@ -427,6 +435,139 @@ static struct clk_dmn clk_cpu = {
 	},
 };
 
+static struct clk_ops dmn_ops = {
+	.is_enabled = std_clk_is_enabled,
+	.enable = std_clk_enable,
+	.disable = std_clk_disable,
+	.set_rate = dmn_clk_set_rate,
+	.round_rate = dmn_clk_round_rate,
+	.recalc_rate = dmn_clk_recalc_rate,
+	.set_parent = dmn_clk_set_parent,
+	.get_parent = dmn_clk_get_parent,
+};
+
+/* dsp, gfx, mm, lcd and vpp domain */
+
+static struct clk_init_data clk_dsp_init = {
+	.name = "dsp",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_dsp = {
+	.regofs = SIRFSOC_CLKC_DSP_CFG,
+	.enable_bit = 0,
+	.hw = {
+		.init = &clk_dsp_init,
+	},
+};
+
+static struct clk_init_data clk_gfx_init = {
+	.name = "gfx",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_gfx = {
+	.regofs = SIRFSOC_CLKC_GFX_CFG,
+	.enable_bit = 8,
+	.hw = {
+		.init = &clk_gfx_init,
+	},
+};
+
+static struct clk_init_data clk_mm_init = {
+	.name = "mm",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_mm = {
+	.regofs = SIRFSOC_CLKC_MM_CFG,
+	.enable_bit = 9,
+	.hw = {
+		.init = &clk_mm_init,
+	},
+};
+
+static struct clk_init_data clk_lcd_init = {
+	.name = "lcd",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_lcd = {
+	.regofs = SIRFSOC_CLKC_LCD_CFG,
+	.enable_bit = 10,
+	.hw = {
+		.init = &clk_lcd_init,
+	},
+};
+
+static struct clk_init_data clk_vpp_init = {
+	.name = "vpp",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_vpp = {
+	.regofs = SIRFSOC_CLKC_LCD_CFG,
+	.enable_bit = 11,
+	.hw = {
+		.init = &clk_vpp_init,
+	},
+};
+
+static struct clk_init_data clk_mmc01_init = {
+	.name = "mmc01",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_mmc01 = {
+	.regofs = SIRFSOC_CLKC_MMC_CFG,
+	.enable_bit = 59,
+	.hw = {
+		.init = &clk_mmc01_init,
+	},
+};
+
+static struct clk_init_data clk_mmc23_init = {
+	.name = "mmc23",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_mmc23 = {
+	.regofs = SIRFSOC_CLKC_MMC_CFG,
+	.enable_bit = 60,
+	.hw = {
+		.init = &clk_mmc23_init,
+	},
+};
+
+static struct clk_init_data clk_mmc45_init = {
+	.name = "mmc45",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_mmc45 = {
+	.regofs = SIRFSOC_CLKC_MMC_CFG,
+	.enable_bit = 61,
+	.hw = {
+		.init = &clk_mmc45_init,
+	},
+};
+
 /*
  * peripheral controllers in io domain
  */
@@ -477,7 +618,7 @@ static void std_clk_disable(struct clk_hw *hw)
 	clkc_writel(val, reg);
 }
 
-static const char * const std_clk_parents[] = {
+static const char * const std_clk_io_parents[] = {
 	"io",
 };
 
@@ -490,8 +631,8 @@ static struct clk_ops ios_ops = {
 static struct clk_init_data clk_dmac0_init = {
 	.name = "dmac0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_dmac0 = {
@@ -504,8 +645,8 @@ static struct clk_std clk_dmac0 = {
 static struct clk_init_data clk_dmac1_init = {
 	.name = "dmac1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_dmac1 = {
@@ -518,8 +659,8 @@ static struct clk_std clk_dmac1 = {
 static struct clk_init_data clk_nand_init = {
 	.name = "nand",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_nand = {
@@ -532,8 +673,8 @@ static struct clk_std clk_nand = {
 static struct clk_init_data clk_audio_init = {
 	.name = "audio",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_audio = {
@@ -546,8 +687,8 @@ static struct clk_std clk_audio = {
 static struct clk_init_data clk_uart0_init = {
 	.name = "uart0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_uart0 = {
@@ -560,8 +701,8 @@ static struct clk_std clk_uart0 = {
 static struct clk_init_data clk_uart1_init = {
 	.name = "uart1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_uart1 = {
@@ -574,8 +715,8 @@ static struct clk_std clk_uart1 = {
 static struct clk_init_data clk_uart2_init = {
 	.name = "uart2",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_uart2 = {
@@ -588,8 +729,8 @@ static struct clk_std clk_uart2 = {
 static struct clk_init_data clk_usp0_init = {
 	.name = "usp0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_usp0 = {
@@ -602,8 +743,8 @@ static struct clk_std clk_usp0 = {
 static struct clk_init_data clk_usp1_init = {
 	.name = "usp1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_usp1 = {
@@ -616,8 +757,8 @@ static struct clk_std clk_usp1 = {
 static struct clk_init_data clk_usp2_init = {
 	.name = "usp2",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_usp2 = {
@@ -630,8 +771,8 @@ static struct clk_std clk_usp2 = {
 static struct clk_init_data clk_vip_init = {
 	.name = "vip",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_vip = {
@@ -644,8 +785,8 @@ static struct clk_std clk_vip = {
 static struct clk_init_data clk_spi0_init = {
 	.name = "spi0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_spi0 = {
@@ -658,8 +799,8 @@ static struct clk_std clk_spi0 = {
 static struct clk_init_data clk_spi1_init = {
 	.name = "spi1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_spi1 = {
@@ -672,8 +813,8 @@ static struct clk_std clk_spi1 = {
 static struct clk_init_data clk_tsc_init = {
 	.name = "tsc",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_tsc = {
@@ -686,8 +827,8 @@ static struct clk_std clk_tsc = {
 static struct clk_init_data clk_i2c0_init = {
 	.name = "i2c0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_i2c0 = {
@@ -700,8 +841,8 @@ static struct clk_std clk_i2c0 = {
 static struct clk_init_data clk_i2c1_init = {
 	.name = "i2c1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_i2c1 = {
@@ -714,8 +855,8 @@ static struct clk_std clk_i2c1 = {
 static struct clk_init_data clk_pwmc_init = {
 	.name = "pwmc",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_pwmc = {
@@ -728,8 +869,8 @@ static struct clk_std clk_pwmc = {
 static struct clk_init_data clk_efuse_init = {
 	.name = "efuse",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_efuse = {
@@ -742,14 +883,64 @@ static struct clk_std clk_efuse = {
 static struct clk_init_data clk_pulse_init = {
 	.name = "pulse",
 	.ops = &ios_ops,
-	.parent_names = std_clk_parents,
-	.num_parents = ARRAY_SIZE(std_clk_parents),
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
 static struct clk_std clk_pulse = {
 	.enable_bit = 50,
 	.hw = {
 		.init = &clk_pulse_init,
+	},
+};
+
+static const char * const std_clk_dsp_parents[] = {
+	"dsp",
+};
+
+static struct clk_init_data clk_gps_init = {
+	.name = "gps",
+	.ops = &ios_ops,
+	.parent_names = std_clk_dsp_parents,
+	.num_parents = ARRAY_SIZE(std_clk_dsp_parents),
+};
+
+static struct clk_std clk_gps = {
+	.enable_bit = 1,
+	.hw = {
+		.init = &clk_gps_init,
+	},
+};
+
+static struct clk_init_data clk_mf_init = {
+	.name = "mf",
+	.ops = &ios_ops,
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
+};
+
+static struct clk_std clk_mf = {
+	.enable_bit = 2,
+	.hw = {
+		.init = &clk_mf_init,
+	},
+};
+
+static const char * const std_clk_sys_parents[] = {
+	"sys",
+};
+
+static struct clk_init_data clk_security_init = {
+	.name = "mf",
+	.ops = &ios_ops,
+	.parent_names = std_clk_sys_parents,
+	.num_parents = ARRAY_SIZE(std_clk_sys_parents),
+};
+
+static struct clk_std clk_security = {
+	.enable_bit = 19,
+	.hw = {
+		.init = &clk_security_init,
 	},
 };
 
@@ -775,13 +966,22 @@ void __init sirfsoc_clk_init(void)
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_sys.hw);
 	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_security.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b8030000.security");
+	clk = clk_register(NULL, &clk_dsp.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_gps.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "a8010000.gps");
+	clk = clk_register(NULL, &clk_mf.hw);
+	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_io.hw);
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "io");
 	clk = clk_register(NULL, &clk_cpu.hw);
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "cpu");
-
 	clk = clk_register(NULL, &clk_uart0.hw);
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "b0050000.uart");
@@ -839,6 +1039,24 @@ void __init sirfsoc_clk_init(void)
 	clk = clk_register(NULL, &clk_vip.hw);
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "b00c0000.vip");
+	clk = clk_register(NULL, &clk_gfx.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "98000000.graphics");
+	clk = clk_register(NULL, &clk_mm.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "a0000000.multimedia");
+	clk = clk_register(NULL, &clk_lcd.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "90010000.display");
+	clk = clk_register(NULL, &clk_vpp.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "90020000.vpp");
+	clk = clk_register(NULL, &clk_mmc01.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_mmc23.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_mmc45.hw);
+	BUG_ON(!clk);
 
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
