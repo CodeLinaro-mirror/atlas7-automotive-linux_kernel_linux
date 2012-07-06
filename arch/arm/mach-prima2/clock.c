@@ -81,8 +81,6 @@ struct clk_std {
 
 #define to_stdclk(_hw) container_of(_hw, struct clk_std, hw)
 
-static DEFINE_SPINLOCK(clocks_lock);
-
 static inline unsigned long clkc_readl(unsigned reg)
 {
 	return readl(SIRFSOC_CLOCK_VA_BASE + reg);
@@ -120,7 +118,7 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 }
 
 static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
-			unsigned long *parent_rate)
+	unsigned long *parent_rate)
 {
 	unsigned long fin, nf, nr, od;
 
@@ -147,7 +145,7 @@ static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
-			unsigned long parent_rate)
+	unsigned long parent_rate)
 {
 	struct clk_pll *clk = to_pllclk(hw);
 	unsigned long fin, nf, nr, od, reg;
@@ -326,7 +324,7 @@ static long dmn_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 static int dmn_clk_set_rate(struct clk_hw *hw, unsigned long rate,
-		unsigned long parent_rate)
+	unsigned long parent_rate)
 {
 	struct clk_dmn *clk = to_dmnclk(hw);
 	unsigned long fin;
@@ -435,7 +433,7 @@ static struct clk_dmn clk_cpu = {
 
 static int std_clk_is_enabled(struct clk_hw *hw)
 {
-	u32 val, reg;
+	u32 reg;
 	int bit;
 	struct clk_std *clk = to_stdclk(hw);
 
@@ -489,6 +487,160 @@ static struct clk_ops ios_ops = {
 	.disable = std_clk_disable,
 };
 
+static struct clk_init_data clk_dmac0_init = {
+	.name = "dmac0",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_dmac0 = {
+	.enable_bit = 32,
+	.hw = {
+		.init = &clk_dmac0_init,
+	},
+};
+
+static struct clk_init_data clk_dmac1_init = {
+	.name = "dmac1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_dmac1 = {
+	.enable_bit = 33,
+	.hw = {
+		.init = &clk_dmac1_init,
+	},
+};
+
+static struct clk_init_data clk_nand_init = {
+	.name = "nand",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_nand = {
+	.enable_bit = 34,
+	.hw = {
+		.init = &clk_nand_init,
+	},
+};
+
+static struct clk_init_data clk_audio_init = {
+	.name = "audio",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_audio = {
+	.enable_bit = 35,
+	.hw = {
+		.init = &clk_audio_init,
+	},
+};
+
+static struct clk_init_data clk_uart0_init = {
+	.name = "uart0",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_uart0 = {
+	.enable_bit = 36,
+	.hw = {
+		.init = &clk_uart0_init,
+	},
+};
+
+static struct clk_init_data clk_uart1_init = {
+	.name = "uart1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_uart1 = {
+	.enable_bit = 37,
+	.hw = {
+		.init = &clk_uart1_init,
+	},
+};
+
+static struct clk_init_data clk_uart2_init = {
+	.name = "uart2",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_uart2 = {
+	.enable_bit = 38,
+	.hw = {
+		.init = &clk_uart2_init,
+	},
+};
+
+static struct clk_init_data clk_usp0_init = {
+	.name = "usp0",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_usp0 = {
+	.enable_bit = 39,
+	.hw = {
+		.init = &clk_usp0_init,
+	},
+};
+
+static struct clk_init_data clk_usp1_init = {
+	.name = "usp1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_usp1 = {
+	.enable_bit = 40,
+	.hw = {
+		.init = &clk_usp1_init,
+	},
+};
+
+static struct clk_init_data clk_usp2_init = {
+	.name = "usp2",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_usp2 = {
+	.enable_bit = 41,
+	.hw = {
+		.init = &clk_usp2_init,
+	},
+};
+
+static struct clk_init_data clk_vip_init = {
+	.name = "vip",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_vip = {
+	.enable_bit = 39,
+	.hw = {
+		.init = &clk_vip_init,
+	},
+};
+
 static struct clk_init_data clk_spi0_init = {
 	.name = "spi0",
 	.ops = &ios_ops,
@@ -514,6 +666,20 @@ static struct clk_std clk_spi1 = {
 	.enable_bit = 44,
 	.hw = {
 		.init = &clk_spi1_init,
+	},
+};
+
+static struct clk_init_data clk_tsc_init = {
+	.name = "tsc",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_tsc = {
+	.enable_bit = 45,
+	.hw = {
+		.init = &clk_tsc_init,
 	},
 };
 
@@ -545,16 +711,58 @@ static struct clk_std clk_i2c1 = {
 	},
 };
 
+static struct clk_init_data clk_pwmc_init = {
+	.name = "pwmc",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_pwmc = {
+	.enable_bit = 48,
+	.hw = {
+		.init = &clk_pwmc_init,
+	},
+};
+
+static struct clk_init_data clk_efuse_init = {
+	.name = "efuse",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_efuse = {
+	.enable_bit = 49,
+	.hw = {
+		.init = &clk_efuse_init,
+	},
+};
+
+static struct clk_init_data clk_pulse_init = {
+	.name = "pulse",
+	.ops = &ios_ops,
+	.parent_names = std_clk_parents,
+	.num_parents = ARRAY_SIZE(std_clk_parents),
+};
+
+static struct clk_std clk_pulse = {
+	.enable_bit = 50,
+	.hw = {
+		.init = &clk_pulse_init,
+	},
+};
+
 void __init sirfsoc_clk_init(void)
 {
 	struct clk *clk;
 
 	/* These are always available (RTC and 26MHz OSC)*/
 	clk = clk_register_fixed_rate(NULL, "rtc", NULL,
-				      CLK_IS_ROOT, 32768);
+		CLK_IS_ROOT, 32768);
 	BUG_ON(!clk);
 	clk = clk_register_fixed_rate(NULL, "osc", NULL,
-				      CLK_IS_ROOT, 26000000);
+		CLK_IS_ROOT, 26000000);
 	BUG_ON(!clk);
 
 	clk = clk_register(NULL, &clk_pll1.hw);
@@ -574,18 +782,51 @@ void __init sirfsoc_clk_init(void)
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "cpu");
 
+	clk = clk_register(NULL, &clk_uart0.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0050000.uart");
+	clk = clk_register(NULL, &clk_uart1.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0060000.uart");
+	clk = clk_register(NULL, &clk_uart2.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0070000.uart");
+	clk = clk_register(NULL, &clk_tsc.hw);
+	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_i2c0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "i2c0");
+	clk_register_clkdev(clk, NULL, "b00e0000.i2c");
 	clk = clk_register(NULL, &clk_i2c1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "i2c1");
+	clk_register_clkdev(clk, NULL, "b00f0000.i2c");
 	clk = clk_register(NULL, &clk_spi0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "spi0");
+	clk_register_clkdev(clk, NULL, "b00d0000.spi");
 	clk = clk_register(NULL, &clk_spi1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "spi1");
+	clk_register_clkdev(clk, NULL, "b0170000.spi");
+	clk = clk_register(NULL, &clk_pwmc.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_efuse.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_pulse.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_dmac0.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_dmac1.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_nand.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_audio.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_usp0.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_usp1.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_usp2.hw);
+	BUG_ON(!clk);
+	clk = clk_register(NULL, &clk_vip.hw);
+	BUG_ON(!clk);
 
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
