@@ -433,6 +433,19 @@ static struct clk_dmn clk_cpu = {
  * peripheral controllers in io domain
  */
 
+static int std_clk_is_enabled(struct clk_hw *hw)
+{
+	u32 val, reg;
+	int bit;
+	struct clk_std *clk = to_stdclk(hw);
+
+	bit = clk->enable_bit % 32;
+	reg = clk->enable_bit / 32;
+	reg = SIRFSOC_CLKC_CLK_EN0 + reg * sizeof(reg);
+
+	return !!(clkc_readl(reg) & BIT(bit));
+}
+
 static int std_clk_enable(struct clk_hw *hw)
 {
 	u32 val, reg;
@@ -471,6 +484,7 @@ static const char * const std_clk_parents[] = {
 };
 
 static struct clk_ops ios_ops = {
+	.is_enabled = std_clk_is_enabled,
 	.enable = std_clk_enable,
 	.disable = std_clk_disable,
 };
