@@ -793,6 +793,7 @@ void __init sirfsoc_clk_init(void)
 	clk_register_clkdev(clk, NULL, "b0070000.uart");
 	clk = clk_register(NULL, &clk_tsc.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0110000.tsc");
 	clk = clk_register(NULL, &clk_i2c0.hw);
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "b00e0000.i2c");
@@ -807,26 +808,37 @@ void __init sirfsoc_clk_init(void)
 	clk_register_clkdev(clk, NULL, "b0170000.spi");
 	clk = clk_register(NULL, &clk_pwmc.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0130000.pwm");
 	clk = clk_register(NULL, &clk_efuse.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0140000.efusesys");
 	clk = clk_register(NULL, &clk_pulse.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0150000.pulsec");
 	clk = clk_register(NULL, &clk_dmac0.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b00b0000.dma-controller");
 	clk = clk_register(NULL, &clk_dmac1.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0160000.dma-controller");
 	clk = clk_register(NULL, &clk_nand.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0030000.nand");
 	clk = clk_register(NULL, &clk_audio.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0040000.audio");
 	clk = clk_register(NULL, &clk_usp0.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0080000.usp");
 	clk = clk_register(NULL, &clk_usp1.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b0090000.usp");
 	clk = clk_register(NULL, &clk_usp2.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b00a0000.usp");
 	clk = clk_register(NULL, &clk_vip.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "b00c0000.vip");
 
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
