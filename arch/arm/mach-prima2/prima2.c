@@ -52,7 +52,6 @@ static const char *prima2cb_dt_match[] __initdata = {
 MACHINE_START(PRIMA2_EVB, "prima2cb")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.atag_offset	= 0x100,
-	.init_early     = sirfsoc_clk_map,
 	.map_io         = sirfsoc_map_lluart,
 	.init_irq	= sirfsoc_of_irq_init,
 	.timer		= &sirfsoc_timer,

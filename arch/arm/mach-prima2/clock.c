@@ -43,7 +43,7 @@
 #define SIRFSOC_CLKC_PLL2_CFG2  0x005c
 #define SIRFSOC_CLKC_PLL3_CFG2  0x0060
 
-#define SIRFSOC_CLOCK_VA_BASE		SIRFSOC_VA(0x005000)
+static void *sirfsoc_clk_vbase;
 
 #define KHZ     1000
 #define MHZ     (KHZ * KHZ)
@@ -91,12 +91,12 @@ static void std_clk_disable(struct clk_hw *hw);
 
 static inline unsigned long clkc_readl(unsigned reg)
 {
-	return readl(SIRFSOC_CLOCK_VA_BASE + reg);
+	return readl(sirfsoc_clk_vbase + reg);
 }
 
 static inline void clkc_writel(u32 val, unsigned reg)
 {
-	writel(val, SIRFSOC_CLOCK_VA_BASE + reg);
+	writel(val, sirfsoc_clk_vbase + reg);
 }
 
 /*
@@ -944,9 +944,25 @@ static struct clk_std clk_security = {
 	},
 };
 
-void __init sirfsoc_clk_init(void)
+static struct of_device_id clkc_ids[] = {
+	{ .compatible = "sirf,prima2-clkc" },
+	{},
+};
+
+void __init sirfsoc_of_clk_init(void)
 {
 	struct clk *clk;
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, clkc_ids);
+	if (!np)
+		panic("unable to find compatible clkc node in dtb\n");
+
+	sirfsoc_clk_vbase = of_iomap(np, 0);
+	if (!sirfsoc_clk_vbase)
+		panic("unable to map clkc registers\n");
+
+	of_node_put(np);
 
 	/* These are always available (RTC and 26MHz OSC)*/
 	clk = clk_register_fixed_rate(NULL, "rtc", NULL,
@@ -1061,34 +1077,6 @@ void __init sirfsoc_clk_init(void)
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
-}
-
-static struct of_device_id clkc_ids[] = {
-	{ .compatible = "sirf,prima2-clkc" },
-	{},
-};
-
-void __init sirfsoc_clk_map(void)
-{
-	struct device_node *np;
-	struct resource res;
-	struct map_desc sirfsoc_clkc_iodesc = {
-		.virtual = SIRFSOC_CLOCK_VA_BASE,
-		.type    = MT_DEVICE,
-	};
-
-	np = of_find_matching_node(NULL, clkc_ids);
-	if (!np)
-		panic("unable to find compatible clkc node in dtb\n");
-
-	if (of_address_to_resource(np, 0, &res))
-		panic("unable to find clkc range in dtb");
-	of_node_put(np);
-
-	sirfsoc_clkc_iodesc.pfn = __phys_to_pfn(res.start);
-	sirfsoc_clkc_iodesc.length = 1 + res.end - res.start;
-
-	iotable_init(&sirfsoc_clkc_iodesc, 1);
 }
 
 /*
