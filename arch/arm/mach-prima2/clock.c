@@ -192,7 +192,7 @@ static struct clk_ops std_pll_ops = {
 	.set_rate = pll_clk_set_rate,
 };
 
-static const char * const pll_clk_parents[] = {
+static const char *pll_clk_parents[] = {
 	"osc",
 };
 
@@ -201,7 +201,6 @@ static struct clk_init_data clk_pll1_init = {
 	.ops = &std_pll_ops,
 	.parent_names = pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
-	.flags = CLK_SET_RATE_GATE,
 };
 
 static struct clk_init_data clk_pll2_init = {
@@ -209,7 +208,6 @@ static struct clk_init_data clk_pll2_init = {
 	.ops = &std_pll_ops,
 	.parent_names = pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
-	.flags = CLK_SET_RATE_GATE,
 };
 
 static struct clk_init_data clk_pll3_init = {
@@ -217,7 +215,6 @@ static struct clk_init_data clk_pll3_init = {
 	.ops = &std_pll_ops,
 	.parent_names = pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
-	.flags = CLK_SET_RATE_GATE,
 };
 
 static struct clk_pll clk_pll1 = {
@@ -257,14 +254,14 @@ static int usb_pll_clk_enable(struct clk_hw *hw)
 	return 0;
 }
 
-static void usb_pll_clk_disable(struct clk *clk)
+static void usb_pll_clk_disable(struct clk_hw *clk)
 {
 	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
 	reg |= (SIRFSOC_USBPHY_PLL_POWERDOWN | SIRFSOC_USBPHY_PLL_BYPASS);
 	writel(reg, sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
 }
 
-static long usb_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long usb_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
 	return (reg & SIRFSOC_USBPHY_PLL_BYPASS) ? parent_rate : 48*MHZ;
@@ -291,7 +288,7 @@ static struct clk_hw usb_pll_clk_hw = {
  * clock domains - cpu, mem, sys/io, dsp, gfx
  */
 
-static const char * const dmn_clk_parents[] = {
+static const char *dmn_clk_parents[] = {
 	"rtc",
 	"osc",
 	"pll1",
@@ -419,7 +416,6 @@ static struct clk_init_data clk_mem_init = {
 	.ops = &msi_ops,
 	.parent_names = dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
-	.flags = CLK_SET_RATE_GATE,
 };
 
 static struct clk_dmn clk_mem = {
@@ -449,7 +445,6 @@ static struct clk_init_data clk_io_init = {
 	.ops = &msi_ops,
 	.parent_names = dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
-	.flags = CLK_SET_RATE_GATE,
 };
 
 static struct clk_dmn clk_io = {
@@ -662,7 +657,7 @@ static void std_clk_disable(struct clk_hw *hw)
 	clkc_writel(val, reg);
 }
 
-static const char * const std_clk_io_parents[] = {
+static const char *std_clk_io_parents[] = {
 	"io",
 };
 
@@ -938,7 +933,7 @@ static struct clk_std clk_pulse = {
 	},
 };
 
-static const char * const std_clk_dsp_parents[] = {
+static const char *std_clk_dsp_parents[] = {
 	"dsp",
 };
 
@@ -970,7 +965,7 @@ static struct clk_std clk_mf = {
 	},
 };
 
-static const char * const std_clk_sys_parents[] = {
+static const char *std_clk_sys_parents[] = {
 	"sys",
 };
 
@@ -988,7 +983,7 @@ static struct clk_std clk_security = {
 	},
 };
 
-static const char * const std_clk_usb_parents[] = {
+static const char *std_clk_usb_parents[] = {
 	"usb_pll",
 };
 
