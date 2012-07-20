@@ -3,3 +3,4 @@ params_phys-y		:= 0x00000100
 initrd_phys-y		:= 0x00800000
 
 dtb-$(CONFIG_ARCH_PRIMA2) += prima2-cb.dtb
+dtb-$(CONFIG_ARCH_MARCO) += prima2-cb.dtb
