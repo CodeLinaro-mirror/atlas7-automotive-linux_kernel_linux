@@ -439,6 +439,7 @@ config ARCH_MARCO
 	select HAVE_SMP
 	select SMP_ON_UP
 	select NO_IOPORT
+	select ARM_GIC
 	select ARCH_REQUIRE_GPIOLIB
 	select GENERIC_CLOCKEVENTS
 	select COMMON_CLK
