@@ -170,7 +170,8 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 	maxdiv = min(ULONG_MAX / rate, maxdiv);
 
 	for (i = 1; i <= maxdiv; i++) {
-		if (!_is_valid_div(divider, i))
+		if ((divider->flags & CLK_DIVIDER_POWER_OF_TWO)
+			&& (!is_power_of_two(i)))
 			continue;
 		parent_rate = __clk_round_rate(__clk_get_parent(hw->clk),
 				MULT_ROUND_UP(rate, i));

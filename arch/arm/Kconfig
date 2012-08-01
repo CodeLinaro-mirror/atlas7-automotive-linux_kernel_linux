@@ -282,6 +282,7 @@ config ARCH_INTEGRATOR
 	select CLK_VERSATILE
 	select HAVE_TCM
 	select ICST
+	select CLK_ICST
 	select GENERIC_CLOCKEVENTS
 	select PLAT_VERSATILE
 	select PLAT_VERSATILE_FPGA_IRQ
@@ -340,6 +341,7 @@ config ARCH_VEXPRESS
 	select ICST
 	select NO_IOPORT
 	select PLAT_VERSATILE
+	select PLAT_VERSATILE_CLOCK
 	select PLAT_VERSATILE_CLCD
 	select REGULATOR_FIXED_VOLTAGE if REGULATOR
 	help
@@ -419,11 +421,32 @@ config ARCH_PRIMA2
 	select NO_IOPORT
 	select ARCH_REQUIRE_GPIOLIB
 	select GENERIC_CLOCKEVENTS
-	select CLKDEV_LOOKUP
+	select COMMON_CLK
 	select GENERIC_IRQ_CHIP
 	select HAVE_SCHED_CLOCK
 	select MIGHT_HAVE_CACHE_L2X0
 	select PINCTRL
+	select PINMUX
+	select PINCTRL_SIRF
+	select USE_OF
+	select ZONE_DMA
+	help
+          Support for CSR SiRFSoC ARM Cortex A9 Platform
+
+config ARCH_MARCO
+	bool "CSR SiRFSoC MARCO ARM Cortex A9 Platform"
+	select CPU_V7
+	select HAVE_SMP
+	select SMP_ON_UP
+	select NO_IOPORT
+	select ARCH_REQUIRE_GPIOLIB
+	select GENERIC_CLOCKEVENTS
+	select COMMON_CLK
+	select GENERIC_IRQ_CHIP
+	select HAVE_SCHED_CLOCK
+	select MIGHT_HAVE_CACHE_L2X0
+	select PINCTRL
+	select PINMUX
 	select PINCTRL_SIRF
 	select USE_OF
 	select ZONE_DMA

@@ -17,22 +17,15 @@
 #include "common.h"
 
 struct of_dev_auxdata prima2_auxdata_lookup[] __initdata = {
-	OF_DEV_AUXDATA("sirf,prima2-uart", 0xb0050000, "uart0", NULL),
-	OF_DEV_AUXDATA("sirf,prima2-uart", 0xb0060000, "uart1", NULL),
-	OF_DEV_AUXDATA("sirf,prima2-uart", 0xb0070000, "uart2", NULL),
-	OF_DEV_AUXDATA("sirf,prima2-spi", 0xb00d0000, "spi0", NULL),
-	OF_DEV_AUXDATA("sirf,prima2-spi", 0xb0170000, "spi1", NULL),
-	OF_DEV_AUXDATA("sirf,prima2-i2c", 0xb00e0000, "i2c0", NULL),
-	OF_DEV_AUXDATA("sirf,prima2-i2c", 0xb00f0000, "i2c1", NULL),
 	OF_DEV_AUXDATA("sirf,prima2-gpio-pinmux", 0xb0120000, "pinctrl0", NULL),
 	{},
 };
 
 /* Padmux settings */
 static struct pinctrl_map prima2_padmux_map[] = {
-	PIN_MAP_MUX_GROUP_DEFAULT("uart1", "pinctrl0", NULL, "uart1"),
-	PIN_MAP_MUX_GROUP_DEFAULT("spi0", "pinctrl0", NULL, "spi0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("spi1", "pinctrl0", NULL, "spi1"),
+	PIN_MAP_MUX_GROUP_DEFAULT("b0060000.uart", "pinctrl0", NULL, "uart1"),
+	PIN_MAP_MUX_GROUP_DEFAULT("b00d0000.spi", "pinctrl0", NULL, "spi0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("b0170000.spi", "pinctrl0", NULL, "spi1"),
 };
 
 static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
@@ -59,7 +52,6 @@ static const char *prima2cb_dt_match[] __initdata = {
 MACHINE_START(PRIMA2_EVB, "prima2cb")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.atag_offset	= 0x100,
-	.init_early     = sirfsoc_of_clk_init,
 	.map_io         = sirfsoc_map_lluart,
 	.init_irq	= sirfsoc_of_irq_init,
 	.timer		= &sirfsoc_timer,

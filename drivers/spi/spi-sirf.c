@@ -567,10 +567,10 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 
 	sspi->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
-		ret = -EINVAL;
+		ret = PTR_ERR(sspi->clk);
 		goto free_pin;
 	}
-	clk_enable(sspi->clk);
+	clk_prepare_enable(sspi->clk);
 	sspi->ctrl_freq = clk_get_rate(sspi->clk);
 
 	init_completion(&sspi->done);
