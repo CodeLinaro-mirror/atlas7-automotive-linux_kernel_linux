@@ -48,6 +48,8 @@
 #define SIRFSOC_GPIO_CTL_PULL_HIGH		0x200
 #define SIRFSOC_GPIO_CTL_DSP_INT		0x400
 
+#define SIRFSOC_GPIO_NO_OF_BANKS        5
+#define SIRFSOC_GPIO_BANK_SIZE          32
 #define SIRFSOC_GPIO_NUM(bank, index)	(((bank)*(32)) + (index))
 
 struct sirfsoc_gpio_bank {
