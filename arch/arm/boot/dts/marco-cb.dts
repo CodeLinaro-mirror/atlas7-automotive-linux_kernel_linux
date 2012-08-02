@@ -1,13 +1,13 @@
 /dts-v1/;
 / {
 	model = "SiRF Prima2 eVB";
-	compatible = "sirf,prima2-cb", "sirf,prima2";
+	compatible = "sirf,marco-cb", "sirf,marco";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	interrupt-parent = <&intc>;
 
 	memory {
-		reg = <0x00000000 0x20000000>;
+		reg = <0x40000000 0x60000000>;
 	};
 
 	chosen {
@@ -16,19 +16,11 @@
 	};
 
 	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		cpu@0 {
-			reg = <0x0>;
-			d-cache-line-size = <32>;
-			i-cache-line-size = <32>;
-			d-cache-size = <32768>;
-			i-cache-size = <32768>;
-			/* from bootloader */
-			timebase-frequency = <0>;
-			bus-frequency = <0>;
-			clock-frequency = <0>;
+			compatible = "arm,cortex-a9";
+		};
+		cpu@1 {
+			compatible = "arm,cortex-a9";
 		};
 	};
 
@@ -36,44 +28,39 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x40000000 0x40000000 0x80000000>;
+		ranges = <0x40000000 0x40000000 0xA0000000>;
 
-		l2-cache-controller@80040000 {
-			compatible = "arm,pl310-cache", "sirf,prima2-pl310-cache";
-			reg = <0x80040000 0x1000>;
+		l2-cache-controller@C0030000 {
+			compatible = "arm,pl310-cache", "sirf,marco-pl310-cache";
+			reg = <0xC0030000 0x1000>;
 			interrupts = <59>;
 			arm,tag-latency = <1 1 1>;
 			arm,data-latency = <1 1 1>;
 			arm,filter-ranges = <0 0x40000000>;
 		};
 
-		intc: interrupt-controller@80020000 {
+		intc: interrupt-controller@C0020000 {
 			#interrupt-cells = <1>;
 			interrupt-controller;
-			compatible = "sirf,prima2-intc";
-			reg = <0x80020000 0x1000>;
+			compatible = "sirf,marco-intc";
+			reg = <0xC0020000 0x1000>;
 		};
 
 		sys-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x88000000 0x88000000 0x40000>;
+			ranges = <0xC3000000 0xC3000000 0x30000>;
 
-			clock-controller@88000000 {
-				compatible = "sirf,prima2-clkc";
-				reg = <0x88000000 0x1000>;
+			clock-controller@C3000000 {
+				compatible = "sirf,marco-clkc";
+				reg = <0xC3000000 0x1000>;
 				interrupts = <3>;
 			};
 
-			reset-controller@88010000 {
-				compatible = "sirf,prima2-rstc";
-				reg = <0x88010000 0x1000>;
-			};
-
-			rsc-controller@88020000 {
-				compatible = "sirf,prima2-rsc";
-				reg = <0x88020000 0x1000>;
+			rsc-controller@C3010000 {
+				compatible = "sirf,marco-rsc";
+				reg = <0xC3010000 0x1000>;
 			};
 		};
 
@@ -81,30 +68,49 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x90000000 0x90000000 0x10000>;
+			ranges = <0xC4000000 0xC4000000 0x10000>;
 
-			memory-controller@90000000 {
-				compatible = "sirf,prima2-memc";
-				reg = <0x90000000 0x10000>;
+			memory-controller@C4000000 {
+				compatible = "sirf,marco-memc";
+				reg = <0xC4000000 0x10000>;
 				interrupts = <27>;
 			};
 		};
 
-		disp-iobg {
+		disp-iobg0 {
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x90010000 0x90010000 0x30000>;
+			ranges = <0xC5000000 0xC5000000 0x20000>;
 
-			display@90010000 {
-				compatible = "sirf,prima2-lcd";
-				reg = <0x90010000 0x20000>;
+			display0@C5000000 {
+				compatible = "sirf,marco-lcd";
+				reg = <0xC5000000 0x10000>;
 				interrupts = <30>;
 			};
 
-			vpp@90020000 {
-				compatible = "sirf,prima2-vpp";
-				reg = <0x90020000 0x10000>;
+			vpp0@C5010000 {
+				compatible = "sirf,marco-vpp";
+				reg = <0xC5010000 0x10000>;
+				interrupts = <31>;
+			};
+		};
+
+		disp-iobg1 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0xC6000000 0xC6000000 0x20000>;
+
+			display1@C6000000 {
+				compatible = "sirf,marco-lcd";
+				reg = <0xC6000000 0x10000>;
+				interrupts = <30>;
+			};
+
+			vpp1@C6010000 {
+				compatible = "sirf,marco-vpp";
+				reg = <0xC6010000 0x10000>;
 				interrupts = <31>;
 			};
 		};
@@ -113,11 +119,11 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x98000000 0x98000000 0x8000000>;
+			ranges = <0xC8000000 0xC8000000 0x1000000>;
 
-			graphics@98000000 {
-				compatible = "powervr,sgx531";
-				reg = <0x98000000 0x8000000>;
+			graphics@C8000000 {
+				compatible = "powervr,sgx540";
+				reg = <0xC8000000 0x1000000>;
 				interrupts = <6>;
 			};
 		};
@@ -126,11 +132,11 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xa0000000 0xa0000000 0x8000000>;
+			ranges = <0xC9000000 0xC9000000 0x1000000>;
 
 			multimedia@a0000000 {
-				compatible = "sirf,prima2-video-codec";
-				reg = <0xa0000000 0x8000000>;
+				compatible = "sirf,marco-video-codec";
+				reg = <0xC9000000 0x1000000>;
 				interrupts = <5>;
 			};
 		};
@@ -139,23 +145,23 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xa8000000 0xa8000000 0x2000000>;
+			ranges = <0xCA000000 0xCA000000 0x2000000>;
 
-			dspif@a8000000 {
-				compatible = "sirf,prima2-dspif";
-				reg = <0xa8000000 0x10000>;
+			dspif@CA000000 {
+				compatible = "sirf,marco-dspif";
+				reg = <0xCA000000 0x10000>;
 				interrupts = <9>;
 			};
 
-			gps@a8010000 {
-				compatible = "sirf,prima2-gps";
-				reg = <0xa8010000 0x10000>;
+			gps@CA010000 {
+				compatible = "sirf,marco-gps";
+				reg = <0xCA010000 0x10000>;
 				interrupts = <7>;
 			};
 
-			dsp@a9000000 {
-				compatible = "sirf,prima2-dsp";
-				reg = <0xa9000000 0x1000000>;
+			dsp@CB000000 {
+				compatible = "sirf,marco-dsp";
+				reg = <0xCB000000 0x1000000>;
 				interrupts = <8>;
 			};
 		};
@@ -164,235 +170,251 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xb0000000 0xb0000000 0x180000>;
+			ranges = <0xCC000000 0xCC000000 0x180000>;
 
-			timer@b0020000 {
-				compatible = "sirf,prima2-tick";
-				reg = <0xb0020000 0x1000>;
+			timer@CC020000 {
+				compatible = "sirf,marco-tick";
+				reg = <0xCC020000 0x1000>;
 				interrupts = <0>;
 			};
 
-			nand@b0030000 {
-				compatible = "sirf,prima2-nand";
-				reg = <0xb0030000 0x10000>;
+			nand@CC030000 {
+				compatible = "sirf,marco-nand";
+				reg = <0xCC030000 0x10000>;
 				interrupts = <41>;
 			};
 
-			audio@b0040000 {
-				compatible = "sirf,prima2-audio";
-				reg = <0xb0040000 0x10000>;
+			audio@CC040000 {
+				compatible = "sirf,marco-audio";
+				reg = <0xCC040000 0x10000>;
 				interrupts = <35>;
 			};
 
-			uart0: uart@0xb0050000 {
+			uart0: uart@CC050000 {
 				cell-index = <0>;
-				compatible = "sirf,prima2-uart";
-				reg = <0xb0050000 0x1000>;
+				compatible = "sirf,marco-uart";
+				reg = <0xCC050000 0x1000>;
 				interrupts = <17>;
 				fifosize = <128>;
 			};
 
-			uart1: uart@0xb0060000 {
+			uart1: uart@CC060000 {
 				cell-index = <1>;
-				compatible = "sirf,prima2-uart";
-				reg = <0xb0060000 0x1000>;
+				compatible = "sirf,marco-uart";
+				reg = <0xCC060000 0x1000>;
 				interrupts = <18>;
 				fifosize = <32>;
 			};
 
-			uart2: uart@0xb0070000 {
+			uart2: uart@0xCC070000 {
 				cell-index = <2>;
-				compatible = "sirf,prima2-uart";
-				reg = <0xb0070000 0x1000>;
+				compatible = "sirf,marco-uart";
+				reg = <0xCC070000 0x1000>;
 				interrupts = <19>;
 				fifosize = <128>;
 			};
 
-			usp0: usp@b0080000 {
+			uart3: uart@0xCC190000 {
+				cell-index = <3>;
+				compatible = "sirf,marco-uart";
+				reg = <0xCC190000 0x1000>;
+				interrupts = <19>;
+				fifosize = <128>;
+			};
+
+			uart4: uart@0xCC1A0000 {
+				cell-index = <3>;
+				compatible = "sirf,marco-uart";
+				reg = <0xCC1A0000 0x1000>;
+				interrupts = <19>;
+				fifosize = <128>;
+			};
+
+			usp0: usp@CC080000 {
 				cell-index = <0>;
-				compatible = "sirf,prima2-usp";
-				reg = <0xb0080000 0x10000>;
+				compatible = "sirf,marco-usp";
+				reg = <0xCC080000 0x10000>;
 				interrupts = <20>;
 			};
 
-			usp1: usp@b0090000 {
+			usp1: usp@CC090000 {
 				cell-index = <1>;
-				compatible = "sirf,prima2-usp";
-				reg = <0xb0090000 0x10000>;
+				compatible = "sirf,marco-usp";
+				reg = <0xCC090000 0x10000>;
 				interrupts = <21>;
 			};
 
-			usp2: usp@b00a0000 {
+			usp2: usp@CC0A0000 {
 				cell-index = <2>;
-				compatible = "sirf,prima2-usp";
-				reg = <0xb00a0000 0x10000>;
+				compatible = "sirf,marco-usp";
+				reg = <0xCC0A0000 0x10000>;
 				interrupts = <22>;
 			};
 
-			dmac0: dma-controller@b00b0000 {
+			dmac0: dma-controller@CC0B0000 {
 				cell-index = <0>;
-				compatible = "sirf,prima2-dmac";
-				reg = <0xb00b0000 0x10000>;
+				compatible = "sirf,marco-dmac";
+				reg = <0xCC0B0000 0x10000>;
 				interrupts = <12>;
 			};
 
-			dmac1: dma-controller@b0160000 {
+			dmac1: dma-controller@CC160000 {
 				cell-index = <1>;
-				compatible = "sirf,prima2-dmac";
-				reg = <0xb0160000 0x10000>;
+				compatible = "sirf,marco-dmac";
+				reg = <0xCC160000 0x10000>;
 				interrupts = <13>;
 			};
 
-			vip@b00C0000 {
-				compatible = "sirf,prima2-vip";
-				reg = <0xb00C0000 0x10000>;
+			vip@CC0C0000 {
+				compatible = "sirf,marco-vip";
+				reg = <0xCC0C0000 0x10000>;
 			};
 
-			spi0: spi@b00d0000 {
+			spi0: spi@CC0D0000 {
 				cell-index = <0>;
-				compatible = "sirf,prima2-spi";
-				reg = <0xb00d0000 0x10000>;
+				compatible = "sirf,marco-spi";
+				reg = <0xCC0D0000 0x10000>;
 				interrupts = <15>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
 			};
 
-			spi1: spi@b0170000 {
+			spi1: spi@CC170000 {
 				cell-index = <1>;
-				compatible = "sirf,prima2-spi";
-				reg = <0xb0170000 0x10000>;
+				compatible = "sirf,marco-spi";
+				reg = <0xCC170000 0x10000>;
 				interrupts = <16>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
 			};
 
-			i2c0: i2c@b00e0000 {
+			i2c0: i2c@CC0E0000 {
 				cell-index = <0>;
-				compatible = "sirf,prima2-i2c";
-				reg = <0xb00e0000 0x10000>;
+				compatible = "sirf,marco-i2c";
+				reg = <0xCC0E0000 0x10000>;
 				interrupts = <24>;
 			};
 
-			i2c1: i2c@b00f0000 {
+			i2c1: i2c@CC0F0000 {
 				cell-index = <1>;
-				compatible = "sirf,prima2-i2c";
-				reg = <0xb00f0000 0x10000>;
+				compatible = "sirf,marco-i2c";
+				reg = <0xCC0F0000 0x10000>;
 				interrupts = <25>;
 			};
 
-			tsc@b0110000 {
-				compatible = "sirf,prima2-tsc";
-				reg = <0xb0110000 0x10000>;
+			tsc@CC110000 {
+				compatible = "sirf,marco-tsc";
+				reg = <0xCC110000 0x10000>;
 				interrupts = <33>;
 			};
 
-			gpio: gpio-controller@b0120000 {
+			gpio: gpio-controller@CC120000 {
 				#gpio-cells = <2>;
 				#interrupt-cells = <2>;
-				compatible = "sirf,prima2-gpio-pinmux";
-				reg = <0xb0120000 0x10000>;
+				compatible = "sirf,marco-gpio-pinmux";
+				reg = <0xCC120000 0x10000>;
 				interrupts = <43 44 45 46 47>;
 				gpio-controller;
 				interrupt-controller;
 			};
 
-			pwm@b0130000 {
-				compatible = "sirf,prima2-pwm";
-				reg = <0xb0130000 0x10000>;
+			pwm@CC130000 {
+				compatible = "sirf,marco-pwm";
+				reg = <0xCC130000 0x10000>;
 			};
 
-			efusesys@b0140000 {
-				compatible = "sirf,prima2-efuse";
-				reg = <0xb0140000 0x10000>;
+			efusesys@CC140000 {
+				compatible = "sirf,marco-efuse";
+				reg = <0xCC140000 0x10000>;
 			};
 
-			pulsec@b0150000 {
-				compatible = "sirf,prima2-pulsec";
-				reg = <0xb0150000 0x10000>;
+			pulsec@CC150000 {
+				compatible = "sirf,marco-pulsec";
+				reg = <0xCC150000 0x10000>;
 				interrupts = <48>;
 			};
 
 			pci-iobg {
-				compatible = "sirf,prima2-pciiobg", "simple-bus";
+				compatible = "sirf,marco-pciiobg", "simple-bus";
 				#address-cells = <1>;
 				#size-cells = <1>;
-				ranges = <0x56000000 0x56000000 0x1b00000>;
+				ranges = <0xCD000000 0xCD000000 0x1000000>;
 
-				sd0: sdhci@56000000 {
+				sd0: sdhci@CD000000 {
 					cell-index = <0>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56000000 0x100000>;
+					compatible = "sirf,marco-sdhc";
+					reg = <0xCD000000 0x100000>;
 					interrupts = <38>;
 				};
 
-				sd1: sdhci@56100000 {
+				sd1: sdhci@CD100000 {
 					cell-index = <1>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56100000 0x100000>;
+					compatible = "sirf,marco-sdhc";
+					reg = <0xCD100000 0x100000>;
 					interrupts = <38>;
 				};
 
-				sd2: sdhci@56200000 {
+				sd2: sdhci@CD200000 {
 					cell-index = <2>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56200000 0x100000>;
+					compatible = "sirf,marco-sdhc";
+					reg = <0xCD200000 0x100000>;
 					interrupts = <23>;
 				};
 
-				sd3: sdhci@56300000 {
+				sd3: sdhci@CD300000 {
 					cell-index = <3>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56300000 0x100000>;
+					compatible = "sirf,marco-sdhc";
+					reg = <0xCD300000 0x100000>;
 					interrupts = <23>;
 				};
 
-				sd4: sdhci@56400000 {
+				sd4: sdhci@CD400000 {
 					cell-index = <4>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56400000 0x100000>;
+					compatible = "sirf,marco-sdhc";
+					reg = <0xCD400000 0x100000>;
 					interrupts = <39>;
 				};
 
-				sd5: sdhci@56500000 {
+				sd5: sdhci@CD500000 {
 					cell-index = <5>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56500000 0x100000>;
+					compatible = "sirf,marco-sdhc";
+					reg = <0xCD500000 0x100000>;
 					interrupts = <39>;
 				};
 
-				pci-copy@57900000 {
-					compatible = "sirf,prima2-pcicp";
-					reg = <0x57900000 0x100000>;
+				pci-copy@CD900000 {
+					compatible = "sirf,marco-pcicp";
+					reg = <0xCD900000 0x100000>;
 					interrupts = <40>;
 				};
 
-				rom-interface@57a00000 {
-					compatible = "sirf,prima2-romif";
-					reg = <0x57a00000 0x100000>;
+				rom-interface@CDA00000 {
+					compatible = "sirf,marco-romif";
+					reg = <0xCDA00000 0x100000>;
 				};
 			};
 		};
 
 		rtc-iobg {
-			compatible = "sirf,prima2-rtciobg", "sirf-prima2-rtciobg-bus";
+			compatible = "sirf,marco-rtciobg", "sirf-marco-rtciobg-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			reg = <0x80030000 0x10000>;
+			reg = <0xC1000000 0x10000>;
 
 			gpsrtc@1000 {
-				compatible = "sirf,prima2-gpsrtc";
+				compatible = "sirf,marco-gpsrtc";
 				reg = <0x1000 0x1000>;
 				interrupts = <55 56 57>;
 			};
 
 			sysrtc@2000 {
-				compatible = "sirf,prima2-sysrtc";
+				compatible = "sirf,marco-sysrtc";
 				reg = <0x2000 0x1000>;
 				interrupts = <52 53 54>;
 			};
 
 			pwrc@3000 {
-				compatible = "sirf,prima2-pwrc";
+				compatible = "sirf,marco-pwrc";
 				reg = <0x3000 0x1000>;
 				interrupts = <32>;
 			};
@@ -402,30 +424,56 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xb8000000 0xb8000000 0x40000>;
+			ranges = <0xCE000000 0xCE000000 0x40000>;
 
-			usb0: usb@b00e0000 {
-				compatible = "chipidea,ci13611a-prima2";
-				reg = <0xb8000000 0x10000>;
+			usb0: usb@CE000000 {
+				compatible = "chipidea,ci13611a-marco";
+				reg = <0xCE000000 0x10000>;
 				interrupts = <10>;
 			};
 
-			usb1: usb@b00f0000 {
-				compatible = "chipidea,ci13611a-prima2";
-				reg = <0xb8010000 0x10000>;
+			usb1: usb@CE010000 {
+				compatible = "chipidea,ci13611a-marco";
+				reg = <0xCE010000 0x10000>;
 				interrupts = <11>;
 			};
 
-			sata@b00f0000 {
-				compatible = "synopsys,dwc-ahsata";
-				reg = <0xb8020000 0x10000>;
-				interrupts = <37>;
+			security@CE020000 {
+				compatible = "sirf,marco-security";
+				reg = <0xCE020000 0x10000>;
+				interrupts = <42>;
+			};
+		};
+
+		can-iobg {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0xD0000000 0xD0000000 0x20000>;
+
+			can0: can@D0000000 {
+				compatible = "sirf,marco-can";
+				reg = <0xD0000000 0x10000>;
+				interrupts = <10>;
 			};
 
-			security@b00f0000 {
-				compatible = "sirf,prima2-security";
-				reg = <0xb8030000 0x10000>;
-				interrupts = <42>;
+			can1: can@D0010000 {
+				compatible = "sirf,marco-can";
+				reg = <0xD0010000 0x10000>;
+				interrupts = <11>;
+			};
+		};
+
+		lvds-iobg {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0xD1000000 0xD1000000 0x10000>;
+
+			lvds@D1000000 {
+				compatible = "sirf,marco-lvds";
+				reg = <0xD1000000 0x10000>;
+				interrupts = <10>;
 			};
 		};
 	};
