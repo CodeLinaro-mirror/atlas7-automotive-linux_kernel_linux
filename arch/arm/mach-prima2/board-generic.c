@@ -45,8 +45,8 @@ void __init sirfsoc_init_late(void)
 }
 
 static const char *prima2cb_dt_match[] __initdata = {
-       "sirf,prima2-cb",
-       NULL
+	"sirf,prima2-cb",
+	NULL
 };
 
 MACHINE_START(PRIMA2_EVB, "prima2cb")
