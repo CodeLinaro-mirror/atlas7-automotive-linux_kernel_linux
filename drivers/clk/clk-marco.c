@@ -816,17 +816,31 @@ static struct clk_std clk_usp2 = {
 	},
 };
 
-static struct clk_init_data clk_vip_init = {
-	.name = "vip",
+static struct clk_init_data clk_vip0_init = {
+	.name = "vip0",
 	.ops = &ios_ops,
 	.parent_names = std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
-static struct clk_std clk_vip = {
-	.enable_bit = 39,
+static struct clk_std clk_vip0 = {
+	.enable_bit = 42,
 	.hw = {
-		.init = &clk_vip_init,
+		.init = &clk_vip0_init,
+	},
+};
+
+static struct clk_init_data clk_vip1_init = {
+	.name = "vip1",
+	.ops = &ios_ops,
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
+};
+
+static struct clk_std clk_vip1 = {
+	.enable_bit = 51,
+	.hw = {
+		.init = &clk_vip1_init,
 	},
 };
 
@@ -1025,12 +1039,12 @@ static struct clk_std clk_usb1 = {
 };
 
 static struct of_device_id clkc_ids[] = {
-	{ .compatible = "sirf,prima2-clkc" },
+	{ .compatible = "sirf,marco-clkc" },
 	{},
 };
 
 static struct of_device_id rsc_ids[] = {
-	{ .compatible = "sirf,prima2-rsc" },
+	{ .compatible = "sirf,marco-rsc" },
 	{},
 };
 
@@ -1080,12 +1094,12 @@ void __init sirfsoc_of_clk_init(void)
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_security.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b8030000.security");
+	clk_register_clkdev(clk, NULL, "ce020000.security");
 	clk = clk_register(NULL, &clk_dsp.hw);
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_gps.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "a8010000.gps");
+	clk_register_clkdev(clk, NULL, "ca010000.gps");
 	clk = clk_register(NULL, &clk_mf.hw);
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_io.hw);
@@ -1096,61 +1110,64 @@ void __init sirfsoc_of_clk_init(void)
 	clk_register_clkdev(clk, NULL, "cpu");
 	clk = clk_register(NULL, &clk_uart0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0050000.uart");
+	clk_register_clkdev(clk, NULL, "cc050000.uart");
 	clk = clk_register(NULL, &clk_uart1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0060000.uart");
+	clk_register_clkdev(clk, NULL, "cc060000.uart");
 	clk = clk_register(NULL, &clk_uart2.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0070000.uart");
+	clk_register_clkdev(clk, NULL, "cc070000.uart");
 	clk = clk_register(NULL, &clk_tsc.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0110000.tsc");
+	clk_register_clkdev(clk, NULL, "cc110000.tsc");
 	clk = clk_register(NULL, &clk_i2c0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00e0000.i2c");
+	clk_register_clkdev(clk, NULL, "cc0e0000.i2c");
 	clk = clk_register(NULL, &clk_i2c1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00f0000.i2c");
+	clk_register_clkdev(clk, NULL, "cc0f0000.i2c");
 	clk = clk_register(NULL, &clk_spi0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00d0000.spi");
+	clk_register_clkdev(clk, NULL, "cc0d0000.spi");
 	clk = clk_register(NULL, &clk_spi1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0170000.spi");
+	clk_register_clkdev(clk, NULL, "cc170000.spi");
 	clk = clk_register(NULL, &clk_pwmc.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0130000.pwm");
+	clk_register_clkdev(clk, NULL, "cc130000.pwm");
 	clk = clk_register(NULL, &clk_efuse.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0140000.efusesys");
+	clk_register_clkdev(clk, NULL, "cc140000.efusesys");
 	clk = clk_register(NULL, &clk_pulse.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0150000.pulsec");
+	clk_register_clkdev(clk, NULL, "cc150000.pulsec");
 	clk = clk_register(NULL, &clk_dmac0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00b0000.dma-controller");
+	clk_register_clkdev(clk, NULL, "cc0b0000.dma-controller");
 	clk = clk_register(NULL, &clk_dmac1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0160000.dma-controller");
+	clk_register_clkdev(clk, NULL, "cc160000.dma-controller");
 	clk = clk_register(NULL, &clk_nand.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0030000.nand");
+	clk_register_clkdev(clk, NULL, "cc030000.nand");
 	clk = clk_register(NULL, &clk_audio.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0040000.audio");
+	clk_register_clkdev(clk, NULL, "cc040000.audio");
 	clk = clk_register(NULL, &clk_usp0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0080000.usp");
+	clk_register_clkdev(clk, NULL, "cc080000.usp");
 	clk = clk_register(NULL, &clk_usp1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b0090000.usp");
+	clk_register_clkdev(clk, NULL, "cc090000.usp");
 	clk = clk_register(NULL, &clk_usp2.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00a0000.usp");
-	clk = clk_register(NULL, &clk_vip.hw);
+	clk_register_clkdev(clk, NULL, "cc0a0000.usp");
+	clk = clk_register(NULL, &clk_vip0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00c0000.vip");
+	clk_register_clkdev(clk, NULL, "cc0c0000.vip");
+	clk = clk_register(NULL, &clk_vip1.hw);
+	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "cc180000.vip");
 	clk = clk_register(NULL, &clk_gfx.hw);
 	BUG_ON(!clk);
 	clk_register_clkdev(clk, NULL, "98000000.graphics");
@@ -1173,10 +1190,10 @@ void __init sirfsoc_of_clk_init(void)
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_usb0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00e0000.usb");
+	clk_register_clkdev(clk, NULL, "cc0e0000.usb");
 	clk = clk_register(NULL, &clk_usb1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "b00f0000.usb");
+	clk_register_clkdev(clk, NULL, "cc0f0000.usb");
 
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
