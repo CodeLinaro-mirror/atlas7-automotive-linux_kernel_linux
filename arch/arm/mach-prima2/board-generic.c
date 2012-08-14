@@ -44,6 +44,7 @@ void __init sirfsoc_init_late(void)
 	sirfsoc_pm_init();
 }
 
+#ifdef CONFIG_ARCH_PRIMA2
 static const char *prima2cb_dt_match[] __initdata = {
 	"sirf,prima2-cb",
 	NULL
@@ -61,3 +62,31 @@ MACHINE_START(PRIMA2_EVB, "prima2cb")
 	.dt_compat      = prima2cb_dt_match,
 	.restart	= sirfsoc_restart,
 MACHINE_END
+#endif
+
+#ifdef CONFIG_ARCH_MARCO
+static __init void sirfsoc_map_io(void)
+{
+	sirfsoc_map_lluart();
+	sirfsoc_map_scu();
+}
+
+static const char *marco_dt_match[] __initdata = {
+	"sirf,marco",
+	NULL
+};
+
+DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
+	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	.atag_offset	= 0x100,
+	.map_io         = sirfsoc_map_io,
+	.init_irq	= sirfsoc_of_irq_init,
+	.timer		= &sirfsoc_timer,
+	.dma_zone_size	= SZ_256M,
+	.init_machine	= sirfsoc_mach_init,
+	.init_late	= sirfsoc_init_late,
+	.dt_compat      = marco_dt_match,
+	.restart	= sirfsoc_restart,
+MACHINE_END
+#endif
+

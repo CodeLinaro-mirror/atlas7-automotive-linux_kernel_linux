@@ -34,7 +34,7 @@ static struct map_desc scu_io_desc __initdata = {
 	.type		= MT_DEVICE,
 };
 
-void __init sirfsoc_scu_map_io(void)
+void __init sirfsoc_map_scu(void)
 {
 	unsigned long base;
 
