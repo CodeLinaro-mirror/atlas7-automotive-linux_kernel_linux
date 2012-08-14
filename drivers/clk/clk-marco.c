@@ -1170,16 +1170,16 @@ void __init sirfsoc_of_clk_init(void)
 	clk_register_clkdev(clk, NULL, "cc180000.vip");
 	clk = clk_register(NULL, &clk_gfx.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "98000000.graphics");
+	clk_register_clkdev(clk, NULL, "c8000000.graphics");
 	clk = clk_register(NULL, &clk_mm.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "a0000000.multimedia");
+	clk_register_clkdev(clk, NULL, "c9000000.multimedia");
 	clk = clk_register(NULL, &clk_lcd.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "90010000.display");
+	clk_register_clkdev(clk, NULL, "c5000000.display");
 	clk = clk_register(NULL, &clk_vpp.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "90020000.vpp");
+	clk_register_clkdev(clk, NULL, "c5010000.vpp");
 	clk = clk_register(NULL, &clk_mmc01.hw);
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_mmc23.hw);
@@ -1190,10 +1190,10 @@ void __init sirfsoc_of_clk_init(void)
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_usb0.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "cc0e0000.usb");
+	clk_register_clkdev(clk, NULL, "ce0e0000.usb");
 	clk = clk_register(NULL, &clk_usb1.hw);
 	BUG_ON(!clk);
-	clk_register_clkdev(clk, NULL, "cc0f0000.usb");
+	clk_register_clkdev(clk, NULL, "ce0f0000.usb");
 
 	/* enable all clocks for testing */
 	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
