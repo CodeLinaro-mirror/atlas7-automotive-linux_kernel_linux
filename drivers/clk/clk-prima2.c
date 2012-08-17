@@ -824,7 +824,7 @@ static struct clk_init_data clk_vip_init = {
 };
 
 static struct clk_std clk_vip = {
-	.enable_bit = 39,
+	.enable_bit = 42,
 	.hw = {
 		.init = &clk_vip_init,
 	},
