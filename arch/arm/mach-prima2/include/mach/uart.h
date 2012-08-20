@@ -10,7 +10,11 @@
 #define __MACH_PRIMA2_SIRFSOC_UART_H
 
 /* UART-1: used as serial debug port */
+#ifdef CONFIG_ARCH_PRIMA2
 #define SIRFSOC_UART1_PA_BASE          0xb0060000
+#elif defined(CONFIG_ARCH_MARCO)
+#define SIRFSOC_UART1_PA_BASE          0xcc060000
+#endif
 #define SIRFSOC_UART1_VA_BASE          SIRFSOC_VA(0x060000)
 #define SIRFSOC_UART1_SIZE		SZ_4K
 
