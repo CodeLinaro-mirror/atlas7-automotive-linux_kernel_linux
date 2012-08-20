@@ -13,6 +13,7 @@
 
 static struct of_device_id prima2_l2x0_ids[]  = {
 	{ .compatible = "sirf,prima2-pl310-cache" },
+	{ .compatible = "sirf,marco-pl310-cache" },
 	{},
 };
 
