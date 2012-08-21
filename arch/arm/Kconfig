@@ -424,6 +424,7 @@ config ARCH_PRIMA2
 	select PINCTRL_SIRF
 	select USE_OF
 	select ZONE_DMA
+	select AUTO_ZRELADDR
 	help
           Support for CSR SiRFSoC ARM Cortex A9 Platform
 
@@ -444,7 +445,7 @@ config ARCH_MARCO
 	select PINMUX
 	select PINCTRL_SIRF
 	select USE_OF
-	select ZONE_DMA
+	select AUTO_ZRELADDR
 	help
           Support for CSR SiRFSoC ARM Cortex A9 Platform
 
