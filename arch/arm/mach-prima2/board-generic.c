@@ -52,7 +52,6 @@ static const char *prima2_dt_match[] __initdata = {
 
 DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
-	.atag_offset	= 0x100,
 	.map_io         = sirfsoc_map_lluart,
 	.init_irq	= sirfsoc_of_irq_init,
 	.timer		= &sirfsoc_timer,
@@ -78,7 +77,6 @@ static const char *marco_dt_match[] __initdata = {
 
 DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
-	.atag_offset	= 0x100,
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= sirfsoc_of_irq_init,
 	.timer		= &sirfsoc_timer,
