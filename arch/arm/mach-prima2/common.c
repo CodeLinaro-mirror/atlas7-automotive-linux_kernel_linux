@@ -13,20 +13,7 @@
 #include <asm/mach/arch.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
-#include <linux/pinctrl/machine.h>
 #include "common.h"
-
-struct of_dev_auxdata prima2_auxdata_lookup[] __initdata = {
-	OF_DEV_AUXDATA("sirf,prima2-gpio-pinmux", 0xb0120000, "pinctrl0", NULL),
-	{},
-};
-
-/* Padmux settings */
-static struct pinctrl_map prima2_padmux_map[] = {
-	PIN_MAP_MUX_GROUP_DEFAULT("b0060000.uart", "pinctrl0", NULL, "uart1"),
-	PIN_MAP_MUX_GROUP_DEFAULT("b00d0000.spi", "pinctrl0", NULL, "spi0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("b0170000.spi", "pinctrl0", NULL, "spi1"),
-};
 
 static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 	{ .compatible = "simple-bus", },
@@ -35,8 +22,7 @@ static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 
 void __init sirfsoc_mach_init(void)
 {
-	of_platform_populate(NULL, sirfsoc_of_bus_ids, prima2_auxdata_lookup, NULL);
-	pinctrl_register_mappings(prima2_padmux_map, ARRAY_SIZE(prima2_padmux_map));
+	of_platform_bus_probe(NULL, sirfsoc_of_bus_ids, NULL);
 }
 
 void __init sirfsoc_init_late(void)
