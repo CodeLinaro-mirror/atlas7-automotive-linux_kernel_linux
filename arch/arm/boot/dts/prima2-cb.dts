@@ -22,15 +22,15 @@
 		peri-iobg {
 			uart@0xb0060000 {
 				pinctrl-names = "default";
-				pinctrl-0 = <&uart1_state_default>;
+				pinctrl-0 = <&uart1_pins_a>;
 			};
 			spi@b00d0000 {
 				pinctrl-names = "default";
-				pinctrl-0 = <&spi0_state_default>;
+				pinctrl-0 = <&spi0_pins_a>;
 			};
 			spi@b0170000 {
 				pinctrl-names = "default";
-				pinctrl-0 = <&spi1_state_default>;
+				pinctrl-0 = <&spi1_pins_a>;
 			};
 		};
 	};
