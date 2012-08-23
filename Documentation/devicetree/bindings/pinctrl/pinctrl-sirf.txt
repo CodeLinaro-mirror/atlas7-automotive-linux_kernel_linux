@@ -3,6 +3,9 @@ CSR SiRFprimaII pinmux controller
 Required properties:
 - compatible	: "sirf,prima2-pinctrl"
 - reg		: Address range of the pinctrl registers
+- interrupts    : Interrupts used by every GPIO group
+- gpio-controller : Indicates this device is a GPIO controller
+- interrupt-controller  : Marks the device node as an interrupt controller
 
 Please refer to pinctrl-bindings.txt in this directory for details of the common
 pinctrl bindings used by client devices.
