@@ -2,5 +2,5 @@ zreladdr-y		+= 0x00008000
 params_phys-y		:= 0x00000100
 initrd_phys-y		:= 0x00800000
 
-dtb-$(CONFIG_ARCH_PRIMA2) += prima2-cb.dtb
-dtb-$(CONFIG_ARCH_MARCO) += marco-cb.dtb
+dtb-$(CONFIG_ARCH_PRIMA2) += prima2-evb.dtb
+dtb-$(CONFIG_ARCH_MARCO) += marco-evb.dtb
