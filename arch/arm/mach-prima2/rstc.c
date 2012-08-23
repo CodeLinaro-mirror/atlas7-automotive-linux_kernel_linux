@@ -43,13 +43,10 @@ early_initcall(sirfsoc_of_rstc_init);
 
 int sirfsoc_reset_device(struct device *dev)
 {
-	const unsigned int *prop = of_get_property(dev->of_node, "reset-bit", NULL);
-	unsigned int reset_bit;
+	u32 reset_bit;
 
-	if (!prop)
-		return -ENODEV;
-
-	reset_bit = be32_to_cpup(prop);
+	if (of_property_read_u32(dev->of_node, "reset-bit", &reset_bit))
+		return -EINVAL;
 
 	mutex_lock(&rstc_lock);
 
