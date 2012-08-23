@@ -182,7 +182,7 @@
 				interrupts = <35>;
 			};
 
-			uart0: uart@0xb0050000 {
+			uart0: uart@b0050000 {
 				cell-index = <0>;
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0050000 0x1000>;
@@ -190,7 +190,7 @@
 				fifosize = <128>;
 			};
 
-			uart1: uart@0xb0060000 {
+			uart1: uart@b0060000 {
 				cell-index = <1>;
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0060000 0x1000>;
@@ -198,7 +198,7 @@
 				fifosize = <32>;
 			};
 
-			uart2: uart@0xb0070000 {
+			uart2: uart@b0070000 {
 				cell-index = <2>;
 				compatible = "sirf,prima2-uart";
 				reg = <0xb0070000 0x1000>;

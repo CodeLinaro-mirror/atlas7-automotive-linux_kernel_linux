@@ -20,7 +20,7 @@
 
 	axi {
 		peri-iobg {
-			uart@0xb0060000 {
+			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
 			};
