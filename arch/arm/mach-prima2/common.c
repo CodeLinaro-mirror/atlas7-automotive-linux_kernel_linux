@@ -8,9 +8,11 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/of_irq.h>
 #include <asm/sizes.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/hardware/gic.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include "common.h"
@@ -56,6 +58,16 @@ static __init void sirfsoc_map_io(void)
 	sirfsoc_map_scu();
 }
 
+static const struct of_device_id marco_irq_match[] __initconst = {
+	{ .compatible = "arm,cortex-a9-gic", .data = gic_of_init, },
+	{ /* sentinel */ }
+};
+
+static void __init marco_init_irq(void)
+{
+	of_irq_init(marco_irq_match);
+}
+
 static const char *marco_dt_match[] __initdata = {
 	"sirf,marco",
 	NULL
@@ -64,7 +76,7 @@ static const char *marco_dt_match[] __initdata = {
 DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= sirfsoc_of_irq_init,
+	.init_irq	= marco_init_irq,
 	.timer		= &sirfsoc_timer,
 	.init_machine	= sirfsoc_mach_init,
 	.init_late	= sirfsoc_init_late,
