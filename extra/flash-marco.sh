@@ -65,7 +65,7 @@ fi
 # image file name stored in boot partition
 #
 readonly nboot=nboot.bin
-readonly uboot=u-boot.bin
+readonly uboot=u-boot-marco.bin
 readonly uimage=uImage
 readonly dtb=dtb
 readonly minigps=minigps.bin
