@@ -77,6 +77,7 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= marco_init_irq,
+	.handle_irq     = gic_handle_irq,
 	.timer		= &sirfsoc_timer,
 	.init_machine	= sirfsoc_mach_init,
 	.init_late	= sirfsoc_init_late,
