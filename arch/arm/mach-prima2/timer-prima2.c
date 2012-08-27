@@ -223,7 +223,6 @@ static void __init sirfsoc_timer_init(void)
 
 static struct of_device_id timer_ids[] = {
 	{ .compatible = "sirf,prima2-tick" },
-	{ .compatible = "sirf,marco-tick" },
 	{},
 };
 
@@ -234,7 +233,7 @@ static void __init sirfsoc_of_timer_map(void)
 
 	np = of_find_matching_node(NULL, timer_ids);
 	if (!np)
-		panic("unable to find compatible timer node in dtb\n");
+		return;
 	sirfsoc_timer_base = of_iomap(np, 0);
 	if (!sirfsoc_timer_base)
 		panic("unable to map timer cpu registers\n");
