@@ -446,6 +446,7 @@ config ARCH_MARCO
 	select PINCTRL_SIRF
 	select USE_OF
 	select AUTO_ZRELADDR
+	select SIRFMARCO_FPGA
 	help
           Support for CSR SiRFSoC ARM Cortex A9 Platform
 
@@ -2361,3 +2362,6 @@ source "security/Kconfig"
 source "crypto/Kconfig"
 
 source "lib/Kconfig"
+
+config SIRFMARCO_FPGA
+	bool "CSR SiRFmarco FPGA with 26Mhz io clock"
