@@ -36,7 +36,7 @@
 			interrupts = <0 59 0>;
 			arm,tag-latency = <1 1 1>;
 			arm,data-latency = <1 1 1>;
-			arm,filter-ranges = <0 0x40000000>;
+			arm,filter-ranges = <0x40000000 0xc0000000>;
 		};
 
                 gic: interrupt-controller@c0011000 {
