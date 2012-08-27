@@ -422,7 +422,9 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	if (unlikely(clk_div_reg == 0))
 		clk_div_reg = sirfsoc_calc_sample_div(baud_rate, ioclk_rate,
 								&setted_baud);
+#if !defined(CONFIG_SIRFMARCO_FPGA)
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
+#endif
 
 	if (tty_termios_baud_rate(termios))
 		tty_termios_encode_baud_rate(termios, setted_baud, setted_baud);
@@ -733,6 +735,7 @@ static int sirfsoc_uart_resume(struct platform_device *pdev)
 
 static struct of_device_id sirfsoc_uart_ids[] __devinitdata = {
 	{ .compatible = "sirf,prima2-uart", },
+	{ .compatible = "sirf,marco-uart", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_serial_of_match);

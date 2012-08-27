@@ -183,7 +183,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xcc000000 0xcc000000 0x180000>;
+			ranges = <0xcc000000 0xcc000000 0x1b0000>;
 
 			timer@cc020000 {
 				compatible = "sirf,marco-tick";
@@ -219,15 +219,21 @@
 				fifosize = <32>;
 			};
 
-			uart2: uart@0xcc070000 {
+			uart2: uart@cc070000 {
 				cell-index = <2>;
 				compatible = "sirf,marco-uart";
 				reg = <0xcc070000 0x1000>;
 				interrupts = <0 19 0>;
 				fifosize = <128>;
 			};
-
-			uart3: uart@0xcc190000 {
+/*
+ * fixme:
+ * sirfsoc-uart cc190000.uart: Cannot add UART port(3).
+ * sirfsoc-uart: probe of cc190000.uart failed with error -22
+ * sirfsoc-uart cc1a0000.uart: Cannot add UART port(3).
+ * sirfsoc-uart: probe of cc1a0000.uart failed with error -22
+ *
+			uart3: uart@cc190000 {
 				cell-index = <3>;
 				compatible = "sirf,marco-uart";
 				reg = <0xcc190000 0x1000>;
@@ -235,7 +241,7 @@
 				fifosize = <128>;
 			};
 
-			uart4: uart@0xcc1a0000 {
+			uart4: uart@cc1a0000 {
 				cell-index = <3>;
 				compatible = "sirf,marco-uart";
 				reg = <0xcc1a0000 0x1000>;
@@ -243,6 +249,7 @@
 				fifosize = <128>;
 			};
 
+*/
 			usp0: usp@cc080000 {
 				cell-index = <0>;
 				compatible = "sirf,marco-usp";
