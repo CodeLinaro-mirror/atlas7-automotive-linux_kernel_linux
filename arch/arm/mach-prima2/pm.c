@@ -93,6 +93,7 @@ int __init sirfsoc_pm_init(void)
 
 static const struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc" },
+	{ .compatible = "sirf,marco-pwrc" },
 	{}
 };
 
