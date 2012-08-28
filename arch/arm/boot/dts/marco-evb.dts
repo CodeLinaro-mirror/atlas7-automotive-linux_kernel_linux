@@ -226,13 +226,7 @@
 				interrupts = <0 19 0>;
 				fifosize = <128>;
 			};
-/*
- * fixme:
- * sirfsoc-uart cc190000.uart: Cannot add UART port(3).
- * sirfsoc-uart: probe of cc190000.uart failed with error -22
- * sirfsoc-uart cc1a0000.uart: Cannot add UART port(3).
- * sirfsoc-uart: probe of cc1a0000.uart failed with error -22
- *
+
 			uart3: uart@cc190000 {
 				cell-index = <3>;
 				compatible = "sirf,marco-uart";
@@ -242,14 +236,13 @@
 			};
 
 			uart4: uart@cc1a0000 {
-				cell-index = <3>;
+				cell-index = <4>;
 				compatible = "sirf,marco-uart";
 				reg = <0xcc1a0000 0x1000>;
 				interrupts = <0 69 0>;
 				fifosize = <128>;
 			};
 
-*/
 			usp0: usp@cc080000 {
 				cell-index = <0>;
 				compatible = "sirf,marco-usp";
