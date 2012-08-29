@@ -42,7 +42,7 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.map_io         = sirfsoc_map_lluart,
 	.init_irq	= sirfsoc_of_irq_init,
-	.timer		= &sirfsoc_timer,
+	.timer		= &sirfsoc_prima2_timer,
 	.dma_zone_size	= SZ_256M,
 	.init_machine	= sirfsoc_mach_init,
 	.init_late	= sirfsoc_init_late,
@@ -78,7 +78,7 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= marco_init_irq,
 	.handle_irq     = gic_handle_irq,
-	.timer		= &sirfsoc_timer,
+	.timer		= &sirfsoc_marco_timer,
 	.init_machine	= sirfsoc_mach_init,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = marco_dt_match,

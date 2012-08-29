@@ -12,7 +12,8 @@
 #include <linux/init.h>
 #include <asm/mach/time.h>
 
-extern struct sys_timer sirfsoc_timer;
+extern struct sys_timer sirfsoc_prima2_timer;
+extern struct sys_timer sirfsoc_marco_timer;
 
 extern void __init sirfsoc_of_irq_init(void);
 extern void __init sirfsoc_of_clk_init(void);

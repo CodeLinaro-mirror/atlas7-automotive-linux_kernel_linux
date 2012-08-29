@@ -285,6 +285,6 @@ static void __init sirfsoc_of_timer_map(void)
 	of_node_put(np);
 }
 
-struct sys_timer sirfsoc_timer = {
+struct sys_timer sirfsoc_marco_timer = {
 	.init = sirfsoc_timer_init,
 };
