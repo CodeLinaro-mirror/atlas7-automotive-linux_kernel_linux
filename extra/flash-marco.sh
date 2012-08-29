@@ -7,7 +7,7 @@
 # devfile may be any of: sdb, sdc,..., which is the name of your
 #   SDCARD or NAND disk device
 # targets may be one or more of:
-#  nboot uboot uimage minigps hibernation modules rootfs system data
+#  nboot uboot zimage minigps hibernation modules rootfs system data
 #  images
 #  kernel
 #  all
@@ -19,15 +19,15 @@ Linux-based systems. Copyright (C) 2011 CSR plc. Version: 1.23
 
 Usage: $0 <devfile> [<targets>]
 				targets can be one or more of
-				nboot, uboot, uimage, minigps,
+				nboot, uboot, zimage, minigps,
 				hibernation, modules, rootfs,
 				system and data
 
    or: $0 <devfile> kernel
-				kernel include uimage and modules
+				kernel include zimage and modules
 
    or: $0 <devfile> images
-				images include n/uboot, uimage,
+				images include n/uboot, zimage,
 				minigps and hibernation
 
    or: $0 <devfile> all
@@ -66,7 +66,7 @@ fi
 #
 readonly nboot=nboot.bin
 readonly uboot=u-boot-marco.bin
-readonly uimage=uImage
+readonly zimage=zImage
 readonly dtb=dtb
 readonly minigps=minigps.bin
 readonly hibernation=hibernation.bin
@@ -144,7 +144,7 @@ fi
 #[3MB-64KB]------------------------------------
 #         |  uboot environment variables area  |
 #     [3MB]------------------------------------
-#         |  uImage                            |
+#         |  zImage                            |
 #     [7MB]------------------------------------
 #         |  minigps.bin                       |
 #     [...]------------------------------------
@@ -174,7 +174,7 @@ readonly uboot_max_length=$((2*$size_1M-$sector_size))
 readonly uboot_commit_flag_max_length=$sector_size
 readonly layout_tbl_max_length=$((16*size_1K))
 readonly uboot_env_length=$((64*$size_1K))
-readonly uimage_max_length=$((4*$size_1M-64*$size_1K))
+readonly zimage_max_length=$((4*$size_1M-64*$size_1K))
 readonly dtb_max_length=$((64*$size_1K))
 readonly minigps_bin_max_length=$((4*$size_1M))
 readonly minigps_data_max_length=$((5*$size_1M))
@@ -198,13 +198,13 @@ readonly layout_tbl_beg_byte=$(((2048+512)*$size_1K))
 readonly layout_tbl_beg_sector=$(($layout_tbl_beg_byte/$sector_size))
 # uboot environment start sector
 readonly uboot_env_sector=$(((3*$size_1M-64*$size_1K)/$sector_size))
-# uimage begin sector
-readonly uimage_beg_sector=$((3*$size_1M/$sector_size))
+# zimage begin sector
+readonly zimage_beg_sector=$((3*$size_1M/$sector_size))
 # dtb begin sector
 readonly dtb_beg_sector=$(((7*$size_1M-64*$size_1K)/$sector_size))
 
 # current boot partition size
-boot_part_size=$(($uimage_beg_sector*$sector_size+$uimage_max_length+$dtb_max_length))
+boot_part_size=$(($zimage_beg_sector*$sector_size+$zimage_max_length+$dtb_max_length))
 
 if test -e $minigps; then
 	# minigps.bin begin sector
@@ -331,7 +331,7 @@ flash_layout_tbl()
 	layout_info+=" uboot_commit_flag $uboot_flg_sector $(bytes_to_sectors $uboot_commit_flag_max_length) $(bytes_to_sectors $uboot_commit_flag_max_length)" 
 	layout_info+=" layout_tbl $layout_tbl_beg_sector $(bytes_to_sectors $layout_tbl_max_length) $(bytes_to_sectors $layout_tbl_max_length)"
 	layout_info+=" uboot_env  $uboot_env_sector $(bytes_to_sectors $uboot_env_length) $(bytes_to_sectors $uboot_env_length)"
-	layout_info+=" $uimage  $uimage_beg_sector  $(bytes_to_sectors $uimage_max_length) $(file_length_sectors $uimage)"
+	layout_info+=" $zimage  $zimage_beg_sector  $(bytes_to_sectors $zimage_max_length) $(file_length_sectors $zimage)"
 	layout_info+=" $dtb  $dtb_beg_sector  $(bytes_to_sectors $dtb_max_length) $(file_length_sectors $dtb)"
 
 	if test -n "$minigps_beg_sector"; then
@@ -417,16 +417,16 @@ umount_partition()
 }
 
 #
-# flash_uimage()
+# flash_zimage()
 #
-flash_uimage()
+flash_zimage()
 {
-	local err=$(file_out_of_range $uimage $uimage_max_length)
+	local err=$(file_out_of_range $zimage $zimage_max_length)
 	if [ ! "$err" = "" ]; then
 		echo $err
 		return
 	fi
-	write_file $uimage_beg_sector $uimage
+	write_file $zimage_beg_sector $zimage
 }
 
 #
@@ -460,7 +460,7 @@ copy_modules()
 #
 flash_kernel()
 {
-	flash_uimage
+	flash_zimage
 	flash_dtb
 	copy_modules
 }
@@ -503,7 +503,7 @@ flash_images()
 		flash_nboot
 	fi
 	flash_uboot
-	flash_uimage
+	flash_zimage
 	flash_dtb
 
 	if test -e $minigps; then
@@ -815,8 +815,8 @@ do
 	uboot)
 		flash_uboot
 		;;
-	uimage)
-		flash_uimage
+	zimage)
+		flash_zimage
 		;;
 	modules)
 		copy_modules
