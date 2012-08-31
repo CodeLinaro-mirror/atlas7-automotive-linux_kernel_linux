@@ -117,7 +117,12 @@ static int sirfsoc_timer_set_next_event(unsigned long delta,
 	val |= BIT(0) | BIT(1) | BIT(2);
 
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0);
+#if 0
 	writel_relaxed(delta, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_0);
+#else
+	/* Fix FPGA: divider of 32counter_0 doesn't work */
+	writel_relaxed(delta * 13, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_0);
+#endif
 
 	/* enable the tick */
 	writel_relaxed(val, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
