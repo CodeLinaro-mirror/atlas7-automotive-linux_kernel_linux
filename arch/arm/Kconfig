@@ -418,7 +418,6 @@ config ARCH_SIRF
 	select GENERIC_IRQ_CHIP
 	select MIGHT_HAVE_CACHE_L2X0
 	select PINCTRL
-	select PINMUX
 	select PINCTRL_SIRF
 	select USE_OF
 	select AUTO_ZRELADDR
