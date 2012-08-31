@@ -11,11 +11,10 @@
 
 	__INIT
 /*
- * Cold boot and hardware reset show different behaviours,
- * system always run into panic if we warm-reset the board
- * by touching reset button
- * Here we invalidate L1 for CPU1 to make sure the memory
- * status is stable after reset.
+ * Cold boot and hardware reset show different behaviour,
+ * system will be always panic if we warm-reset the board
+ * Here we invalidate L1 of CPU1 to make sure there isn't
+ * uninitialized data written into memory later
  */
 ENTRY(v7_invalidate_l1)
 	mov	r0, #0
@@ -57,6 +56,7 @@ ENDPROC(v7_invalidate_l1)
  * ready for them to initialise.
  */
 ENTRY(sirfsoc_secondary_startup)
+	bl v7_invalidate_l1
         mrc     p15, 0, r0, c0, c0, 5
         and     r0, r0, #15
         adr     r4, 1f
@@ -67,7 +67,6 @@ pen:    ldr     r7, [r6]
         cmp     r7, r0
         bne     pen
 
-	bl v7_invalidate_l1
         /*
          * we've been released from the holding pen: secondary_stack
          * should now contain the SVC stack for this core
