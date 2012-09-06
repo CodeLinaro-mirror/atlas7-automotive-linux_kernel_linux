@@ -121,15 +121,10 @@ static void sirfsoc_timer_set_mode(enum clock_event_mode mode,
 	struct clock_event_device *ce)
 {
 	switch (mode) {
-	case CLOCK_EVT_MODE_PERIODIC:
-		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		/* enable in set_next_event */
 		break;
-	case CLOCK_EVT_MODE_SHUTDOWN:
-		break;
-	case CLOCK_EVT_MODE_UNUSED:
-	case CLOCK_EVT_MODE_RESUME:
+	default:
 		break;
 	}
 
@@ -230,15 +225,10 @@ static void sirfsoc_timer1_set_mode(enum clock_event_mode mode,
 	struct clock_event_device *ce)
 {
 	switch (mode) {
-	case CLOCK_EVT_MODE_PERIODIC:
-		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		/* enable in set_next_event */
 		break;
-	case CLOCK_EVT_MODE_SHUTDOWN:
-		break;
-	case CLOCK_EVT_MODE_UNUSED:
-	case CLOCK_EVT_MODE_RESUME:
+	default:
 		break;
 	}
 
@@ -265,7 +255,7 @@ static int __cpuinit sirfsoc_local_timer_setup(struct clock_event_device *ce)
 
 	sirfsoc_timer1_irq.dev_id = ce;
 	BUG_ON(setup_irq(ce->irq, &sirfsoc_timer1_irq));
-	irq_set_affinity(ce->irq, cpumask_of(1));
+	irq_set_affinity(sirfsoc_timer1_irq.irq, cpumask_of(1));
 
 	clockevents_register_device(ce);
 	return 0;
@@ -326,22 +316,13 @@ static void __init sirfsoc_timer_init(void)
 
 	sirfsoc_of_timer_map();
 
-	/* Initialize the timer divider */
+	/* Initialize the timer dividers */
 	timer_div = rate / CLOCK_TICK_RATE / 2 - 1;
-	writel_relaxed((timer_div << 16) | readl_relaxed(sirfsoc_timer_base +
-			SIRFSOC_TIMER_64COUNTER_CTRL),
-		sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_CTRL);
+	writel_relaxed(timer_div << 16, sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_CTRL);
+	writel_relaxed(timer_div << 16, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
+	writel_relaxed(timer_div << 16, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_1_CTRL);
 
-	writel_relaxed((timer_div << 16) | readl_relaxed(sirfsoc_timer_base +
-			SIRFSOC_TIMER_32COUNTER_0_CTRL) & ~0x7,
-		sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
-
-	writel_relaxed((timer_div << 16) | readl_relaxed(sirfsoc_timer_base +
-			SIRFSOC_TIMER_32COUNTER_1_CTRL) & ~0x7,
-		sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_1_CTRL);
-
-	/* Initialize all timer counter */
-
+	/* Initialize timer counters to 0 */
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_LOAD_LO);
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_LOAD_HI);
 	writel_relaxed(readl_relaxed(sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_CTRL) |
@@ -349,6 +330,7 @@ static void __init sirfsoc_timer_init(void)
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0);
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_1);
 
+	/* Clear all interrupts */
 	writel_relaxed(0xFFFF, sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS);
 
 	BUG_ON(clocksource_register_hz(&sirfsoc_clocksource, CLOCK_TICK_RATE));
@@ -381,7 +363,7 @@ static void __init sirfsoc_of_timer_map(void)
 #ifdef CONFIG_LOCAL_TIMERS
 	sirfsoc_timer1_irq.irq = irq_of_parse_and_map(np, 1);
 	if (!sirfsoc_timer1_irq.irq)
-		panic("No irq passed for timer via DT\n");
+		panic("No irq passed for timer1 via DT\n");
 #endif
 
 	of_node_put(np);
