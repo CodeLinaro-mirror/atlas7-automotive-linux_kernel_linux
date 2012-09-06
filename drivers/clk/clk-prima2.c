@@ -1034,14 +1034,14 @@ static struct of_device_id rsc_ids[] = {
 	{},
 };
 
-void __init sirfsoc_of_clk_init(void)
+void __init sirfsoc_prima2_of_clk_init(void)
 {
 	struct clk *clk;
 	struct device_node *np;
 
 	np = of_find_matching_node(NULL, clkc_ids);
 	if (!np)
-		panic("unable to find compatible clkc node in dtb\n");
+		return;
 
 	sirfsoc_clk_vbase = of_iomap(np, 0);
 	if (!sirfsoc_clk_vbase)
@@ -1205,6 +1205,9 @@ static struct syscore_ops sirfsoc_clk_syscore_ops = {
 
 static int __init sirfsoc_clk_pm_init(void)
 {
+	if (!of_find_matching_node(NULL, clkc_ids))
+		return;
+
 	register_syscore_ops(&sirfsoc_clk_syscore_ops);
 	return 0;
 }

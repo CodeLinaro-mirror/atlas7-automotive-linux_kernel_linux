@@ -193,7 +193,7 @@ static void __init sirfsoc_timer_init(void)
 	struct clk *clk;
 
 	/* initialize clocking early, we want to set the OS timer */
-	sirfsoc_of_clk_init();
+	sirfsoc_prima2_of_clk_init();
 
 	/* timer's input clock is io clock */
 	clk = clk_get_sys("io", NULL);
