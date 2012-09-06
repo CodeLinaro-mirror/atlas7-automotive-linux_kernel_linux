@@ -25,29 +25,8 @@
 #include "common.h"
 
 #define SIRFSOC_TIMER_32COUNTER_0_CTRL			0x0000
-#define SIRFSOC_TIMER_32COUNTER_1_CTRL			0x0004
-#define SIRFSOC_TIMER_32COUNTER_2_CTRL			0x0008
-#define SIRFSOC_TIMER_32COUNTER_3_CTRL			0x000c
-#define SIRFSOC_TIMER_32COUNTER_4_CTRL			0x0010
-#define SIRFSOC_TIMER_32COUNTER_5_CTRL			0x0014
 #define SIRFSOC_TIMER_MATCH_0				0x0018
-#define SIRFSOC_TIMER_MATCH_1				0x001c
-#define SIRFSOC_TIMER_MATCH_2				0x0020
-#define SIRFSOC_TIMER_MATCH_3				0x0024
-#define SIRFSOC_TIMER_MATCH_4				0x0028
-#define SIRFSOC_TIMER_MATCH_5				0x002c
-#define SIRFSOC_TIMER_32COUNTER_0_MATCH_NUM		0x0030
-#define SIRFSOC_TIMER_32COUNTER_1_MATCH_NUM		0x0034
-#define SIRFSOC_TIMER_32COUNTER_2_MATCH_NUM		0x0038
-#define SIRFSOC_TIMER_32COUNTER_3_MATCH_NUM		0x003c
-#define SIRFSOC_TIMER_32COUNTER_4_MATCH_NUM		0x0040
-#define SIRFSOC_TIMER_32COUNTER_5_MATCH_NUM		0x0044
 #define SIRFSOC_TIMER_COUNTER_0				0x0048
-#define SIRFSOC_TIMER_COUNTER_1				0x004c
-#define SIRFSOC_TIMER_COUNTER_2				0x0050
-#define SIRFSOC_TIMER_COUNTER_3				0x0054
-#define SIRFSOC_TIMER_COUNTER_4				0x0058
-#define SIRFSOC_TIMER_COUNTER_5				0x005c
 #define SIRFSOC_TIMER_INTR_STATUS			0x0060
 #define SIRFSOC_TIMER_WATCHDOG_EN			0x0064
 #define SIRFSOC_TIMER_64COUNTER_CTRL			0x0068
@@ -81,12 +60,14 @@ static irqreturn_t sirfsoc_timer_interrupt(int irq, void *dev_id)
 
 	WARN_ON(!(readl_relaxed(sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS) & BIT(0)));
 
-	/* Stop the timer tick */
-	val = readl_relaxed(sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
-	val &= ~(BIT(0) | BIT(1) | BIT(2));
-	writel_relaxed(val, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
+	if (ce->mode == CLOCK_EVT_MODE_ONESHOT) {
+		/* Stop the timer tick */
+		val = readl_relaxed(sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
+		val &= ~(BIT(0) | BIT(1) | BIT(2));
+		writel_relaxed(val, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
 
-	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0);
+		writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0);
+	}
 
 	/* clear timer0 interrupt */
 	writel_relaxed(BIT(0), sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS);
@@ -137,7 +118,6 @@ static void sirfsoc_timer_set_mode(enum clock_event_mode mode,
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
-		WARN_ON(1);
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		/* enable in set_next_event */
