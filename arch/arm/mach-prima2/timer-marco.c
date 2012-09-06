@@ -274,6 +274,8 @@ static int __cpuinit sirfsoc_local_timer_setup(struct clock_event_device *ce)
 static void sirfsoc_local_timer_stop(struct clock_event_device *ce)
 {
 	sirfsoc_timer_count_disable(1);
+
+	remove_irq(sirfsoc_timer1_irq.irq, &sirfsoc_timer1_irq);
 }
 
 static struct local_timer_ops sirfsoc_local_timer_ops __cpuinitdata = {
