@@ -186,7 +186,12 @@
 			timer@cc020000 {
 				compatible = "sirf,marco-tick";
 				reg = <0xcc020000 0x1000>;
-				interrupts = <0 0 0>;
+				interrupts = <0 0 0
+					      0 1 0
+					      0 2 0
+					      0 49 0
+					      0 50 0
+					      0 51 0>;
 			};
 
 			nand@cc030000 {
