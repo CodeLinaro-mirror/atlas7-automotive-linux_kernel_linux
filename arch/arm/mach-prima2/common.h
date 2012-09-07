@@ -11,6 +11,7 @@
 
 #include <linux/init.h>
 #include <asm/mach/time.h>
+#include <asm/exception.h>
 
 extern struct sys_timer sirfsoc_prima2_timer;
 extern struct sys_timer sirfsoc_marco_timer;
@@ -20,6 +21,7 @@ extern void __init sirfsoc_prima2_of_clk_init(void);
 extern void __init sirfsoc_marco_of_clk_init(void);
 extern void sirfsoc_restart(char, const char *);
 extern void sirfsoc_secondary_startup(void);
+extern asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs);
 
 #ifndef CONFIG_DEBUG_LL
 static inline void sirfsoc_map_lluart(void)  {}
