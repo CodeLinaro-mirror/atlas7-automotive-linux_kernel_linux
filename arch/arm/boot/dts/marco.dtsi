@@ -49,7 +49,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xc2000000 0xc2000000 0x10000>;
+			ranges = <0xc2000000 0xc2000000 0x1000000>;
 
 			reset-controller@c2000000 {
 				compatible = "sirf,marco-rstc";
@@ -61,7 +61,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xc3000000 0xc3000000 0x30000>;
+			ranges = <0xc3000000 0xc3000000 0x1000000>;
 
 			clock-controller@c3000000 {
 				compatible = "sirf,marco-clkc";
@@ -79,7 +79,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xc4000000 0xc4000000 0x10000>;
+			ranges = <0xc4000000 0xc4000000 0x1000000>;
 
 			memory-controller@c4000000 {
 				compatible = "sirf,marco-memc";
@@ -92,7 +92,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xc5000000 0xc5000000 0x20000>;
+			ranges = <0xc5000000 0xc5000000 0x1000000>;
 
 			display0@c5000000 {
 				compatible = "sirf,marco-lcd";
@@ -111,7 +111,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xc6000000 0xc6000000 0x20000>;
+			ranges = <0xc6000000 0xc6000000 0x1000000>;
 
 			display1@c6000000 {
 				compatible = "sirf,marco-lcd";
@@ -181,7 +181,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xcc000000 0xcc000000 0x1b0000>;
+			ranges = <0xcc000000 0xcc000000 0x1000000>;
 
 			timer@cc020000 {
 				compatible = "sirf,marco-tick";
@@ -286,10 +286,10 @@
 				reg = <0xcc0c0000 0x10000>;
 			};
 
-			spi0: spi@cc0D0000 {
+			spi0: spi@cc0d0000 {
 				cell-index = <0>;
 				compatible = "sirf,marco-spi";
-				reg = <0xcc0D0000 0x10000>;
+				reg = <0xcc0d0000 0x10000>;
 				interrupts = <0 15 0>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
@@ -358,59 +358,59 @@
 				compatible = "sirf,marco-pciiobg", "simple-bus";
 				#address-cells = <1>;
 				#size-cells = <1>;
-				ranges = <0xcD000000 0xcD000000 0x1000000>;
+				ranges = <0xcd000000 0xcd000000 0x1000000>;
 
-				sd0: sdhci@cD000000 {
+				sd0: sdhci@cd000000 {
 					cell-index = <0>;
 					compatible = "sirf,marco-sdhc";
-					reg = <0xcD000000 0x100000>;
+					reg = <0xcd000000 0x100000>;
 					interrupts = <0 38 0>;
 				};
 
-				sd1: sdhci@cD100000 {
+				sd1: sdhci@cd100000 {
 					cell-index = <1>;
 					compatible = "sirf,marco-sdhc";
-					reg = <0xcD100000 0x100000>;
+					reg = <0xcd100000 0x100000>;
 					interrupts = <0 38 0>;
 				};
 
-				sd2: sdhci@cD200000 {
+				sd2: sdhci@cd200000 {
 					cell-index = <2>;
 					compatible = "sirf,marco-sdhc";
-					reg = <0xcD200000 0x100000>;
+					reg = <0xcd200000 0x100000>;
 					interrupts = <0 23 0>;
 				};
 
-				sd3: sdhci@cD300000 {
+				sd3: sdhci@cd300000 {
 					cell-index = <3>;
 					compatible = "sirf,marco-sdhc";
-					reg = <0xcD300000 0x100000>;
+					reg = <0xcd300000 0x100000>;
 					interrupts = <0 23 0>;
 				};
 
-				sd4: sdhci@cD400000 {
+				sd4: sdhci@cd400000 {
 					cell-index = <4>;
 					compatible = "sirf,marco-sdhc";
-					reg = <0xcD400000 0x100000>;
+					reg = <0xcd400000 0x100000>;
 					interrupts = <0 39 0>;
 				};
 
-				sd5: sdhci@cD500000 {
+				sd5: sdhci@cd500000 {
 					cell-index = <5>;
 					compatible = "sirf,marco-sdhc";
-					reg = <0xcD500000 0x100000>;
+					reg = <0xcd500000 0x100000>;
 					interrupts = <0 39 0>;
 				};
 
-				pci-copy@cD900000 {
+				pci-copy@cd900000 {
 					compatible = "sirf,marco-pcicp";
-					reg = <0xcD900000 0x100000>;
+					reg = <0xcd900000 0x100000>;
 					interrupts = <0 40 0>;
 				};
 
-				rom-interface@cDa00000 {
+				rom-interface@cda00000 {
 					compatible = "sirf,marco-romif";
-					reg = <0xcDa00000 0x100000>;
+					reg = <0xcda00000 0x100000>;
 				};
 			};
 		};
@@ -448,7 +448,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xce000000 0xce000000 0x40000>;
+			ranges = <0xce000000 0xce000000 0x1000000>;
 
 			usb0: usb@ce000000 {
 				compatible = "chipidea,ci13611a-marco";
@@ -473,16 +473,16 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xD0000000 0xD0000000 0x20000>;
+			ranges = <0xd0000000 0xd0000000 0x1000000>;
 
-			can0: can@D0000000 {
+			can0: can@d0000000 {
 				compatible = "sirf,marco-can";
-				reg = <0xD0000000 0x10000>;
+				reg = <0xd0000000 0x10000>;
 			};
 
-			can1: can@D0010000 {
+			can1: can@d0010000 {
 				compatible = "sirf,marco-can";
-				reg = <0xD0010000 0x10000>;
+				reg = <0xd0010000 0x10000>;
 			};
 		};
 
@@ -490,11 +490,11 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xD1000000 0xD1000000 0x10000>;
+			ranges = <0xd1000000 0xd1000000 0x1000000>;
 
-			lvds@D1000000 {
+			lvds@d1000000 {
 				compatible = "sirf,marco-lvds";
-				reg = <0xD1000000 0x10000>;
+				reg = <0xd1000000 0x10000>;
 				interrupts = <0 64 0>;
 			};
 		};
