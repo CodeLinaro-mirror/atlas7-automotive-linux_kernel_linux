@@ -13,14 +13,13 @@
 #include <linux/bitops.h>
 #include <linux/irq.h>
 #include <linux/clk.h>
-#include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <asm/sched_clock.h>
-#include <asm/mach/time.h>
 #include <asm/localtimer.h>
+#include <asm/mach/time.h>
 
 #include "common.h"
 
@@ -40,11 +39,12 @@
 #define SIRFSOC_TIMER_64COUNTER_RLATCHED_LO		0x007c
 #define SIRFSOC_TIMER_64COUNTER_RLATCHED_HI		0x0080
 
-#define SIRFSOC_TIMER_REG_CNT 5
+#define SIRFSOC_TIMER_REG_CNT 6
 
 static const u32 sirfsoc_timer_reg_list[SIRFSOC_TIMER_REG_CNT] = {
 	SIRFSOC_TIMER_WATCHDOG_EN,
 	SIRFSOC_TIMER_32COUNTER_0_CTRL,
+	SIRFSOC_TIMER_32COUNTER_1_CTRL,
 	SIRFSOC_TIMER_64COUNTER_CTRL,
 	SIRFSOC_TIMER_64COUNTER_RLATCHED_LO,
 	SIRFSOC_TIMER_64COUNTER_RLATCHED_HI,
