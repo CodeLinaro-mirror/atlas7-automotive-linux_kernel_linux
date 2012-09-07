@@ -17,4 +17,12 @@
 	memory {
 		reg = <0x40000000 0x60000000>;
 	};
+
+	axi {
+		peri-iobg {
+		uart1: uart@cc060000 {
+				status = "okay";
+			};
+		};
+	};
 };

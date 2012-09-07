@@ -212,6 +212,7 @@
 				reg = <0xcc050000 0x1000>;
 				interrupts = <0 17 0>;
 				fifosize = <128>;
+				status = "disabled";
 			};
 
 			uart1: uart@cc060000 {
@@ -220,6 +221,7 @@
 				reg = <0xcc060000 0x1000>;
 				interrupts = <0 18 0>;
 				fifosize = <32>;
+				status = "disabled";
 			};
 
 			uart2: uart@cc070000 {
@@ -228,6 +230,7 @@
 				reg = <0xcc070000 0x1000>;
 				interrupts = <0 19 0>;
 				fifosize = <128>;
+				status = "disabled";
 			};
 
 			uart3: uart@cc190000 {
@@ -236,6 +239,7 @@
 				reg = <0xcc190000 0x1000>;
 				interrupts = <0 66 0>;
 				fifosize = <128>;
+				status = "disabled";
 			};
 
 			uart4: uart@cc1a0000 {
@@ -244,6 +248,7 @@
 				reg = <0xcc1a0000 0x1000>;
 				interrupts = <0 69 0>;
 				fifosize = <128>;
+				status = "disabled";
 			};
 
 			usp0: usp@cc080000 {
@@ -251,6 +256,7 @@
 				compatible = "sirf,marco-usp";
 				reg = <0xcc080000 0x10000>;
 				interrupts = <0 20 0>;
+				status = "disabled";
 			};
 
 			usp1: usp@cc090000 {
@@ -258,6 +264,7 @@
 				compatible = "sirf,marco-usp";
 				reg = <0xcc090000 0x10000>;
 				interrupts = <0 21 0>;
+				status = "disabled";
 			};
 
 			usp2: usp@cc0a0000 {
@@ -265,6 +272,7 @@
 				compatible = "sirf,marco-usp";
 				reg = <0xcc0a0000 0x10000>;
 				interrupts = <0 22 0>;
+				status = "disabled";
 			};
 
 			dmac0: dma-controller@cc0b0000 {
@@ -293,6 +301,7 @@
 				interrupts = <0 15 0>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
+				status = "disabled";
 			};
 
 			spi1: spi@cc170000 {
@@ -302,6 +311,7 @@
 				interrupts = <0 16 0>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
+				status = "disabled";
 			};
 
 			i2c0: i2c@cc0e0000 {
@@ -309,6 +319,7 @@
 				compatible = "sirf,marco-i2c";
 				reg = <0xcc0e0000 0x10000>;
 				interrupts = <0 24 0>;
+				status = "disabled";
 			};
 
 			i2c1: i2c@cc0f0000 {
@@ -316,6 +327,7 @@
 				compatible = "sirf,marco-i2c";
 				reg = <0xcc0f0000 0x10000>;
 				interrupts = <0 25 0>;
+				status = "disabled";
 			};
 
 			tsc@cc110000 {
