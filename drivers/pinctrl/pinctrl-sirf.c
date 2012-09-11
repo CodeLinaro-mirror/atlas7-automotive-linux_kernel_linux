@@ -1211,6 +1211,7 @@ static void __iomem *sirfsoc_rsc_of_iomap(void)
 {
 	const struct of_device_id rsc_ids[]  = {
 		{ .compatible = "sirf,prima2-rsc" },
+		{ .compatible = "sirf,marco-rsc" },
 		{}
 	};
 	struct device_node *np;
@@ -1278,6 +1279,7 @@ out_no_gpio_remap:
 
 static const struct of_device_id pinmux_ids[] __devinitconst = {
 	{ .compatible = "sirf,prima2-pinctrl" },
+	{ .compatible = "sirf,marco-pinctrl" },
 	{}
 };
 
