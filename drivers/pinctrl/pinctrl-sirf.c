@@ -1261,8 +1261,10 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 		goto out_no_pmx;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(sirfsoc_gpio_ranges); i++)
+	for (i = 0; i < ARRAY_SIZE(sirfsoc_gpio_ranges); i++) {
+		sirfsoc_gpio_ranges[i].gc = &sgpio_bank[i].chip.gc;
 		pinctrl_add_gpio_range(spmx->pmx, &sirfsoc_gpio_ranges[i]);
+	}
 
 	dev_info(&pdev->dev, "initialized SIRFSOC pinmux driver\n");
 
@@ -1512,13 +1514,9 @@ static inline void sirfsoc_gpio_set_input(struct sirfsoc_gpio_bank *bank, unsign
 	u32 val;
 	unsigned long flags;
 
-	spin_lock_irqsave(&bank->lock, flags);
-
 	val = readl(bank->chip.regs + ctrl_offset);
 	val &= ~SIRFSOC_GPIO_CTL_OUT_EN_MASK;
 	writel(val, bank->chip.regs + ctrl_offset);
-
-	spin_unlock_irqrestore(&bank->lock, flags);
 }
 
 static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
@@ -1727,6 +1725,8 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 		irq_set_chained_handler(bank->parent_irq, sirfsoc_gpio_handle_irq);
 		irq_set_handler_data(bank->parent_irq, bank);
 	}
+
+	return 0;
 
 out:
 	iounmap(regs);
