@@ -14,6 +14,18 @@ config DM9000
 	  To compile this driver as a module, choose M here.  The module
 	  will be called dm9000.
 
+config DM9000_SIRFFPGA
+	tristate "DM9000 support on SiRF FPGA"
+	depends on ARCH_SIRF
+	select CRC32
+	select NET_CORE
+	select MII
+	---help---
+	  Support for DM9000 chipset on SiRF FPGA.
+
+	  To compile this driver as a module, choose M here.  The module
+	  will be called dm9000-sirf.
+
 config DM9000_FORCE_SIMPLE_PHY_POLL
 	bool "Force simple NSR based PHY polling"
 	depends on DM9000

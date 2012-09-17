@@ -29,5 +29,10 @@ config SIRF_IRQ
 
 config SIRFMARCO_FPGA
 	bool "CSR SiRFmarco FPGA with 26Mhz io clock"
+	select NET
+	select INET
+	select ETHERNET
+	select NETDEVICES
+	select DM9000_SIRFFPGA
 
 endif
