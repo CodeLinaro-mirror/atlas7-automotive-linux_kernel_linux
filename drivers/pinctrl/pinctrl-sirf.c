@@ -69,6 +69,10 @@ static DEFINE_SPINLOCK(sgpio_lock);
  * refer to CS-131858-DC-6A.xls
  */
 static const struct pinctrl_pin_desc sirfsoc_pads[] = {
+	PINCTRL_PIN(0, "gpio0-0"),
+	PINCTRL_PIN(1, "gpio0-1"),
+	PINCTRL_PIN(2, "gpio0-2"),
+	PINCTRL_PIN(3, "gpio0-3"),
 	PINCTRL_PIN(4, "pwm0"),
 	PINCTRL_PIN(5, "pwm1"),
 	PINCTRL_PIN(6, "pwm2"),
@@ -77,6 +81,7 @@ static const struct pinctrl_pin_desc sirfsoc_pads[] = {
 	PINCTRL_PIN(9, "odo_0"),
 	PINCTRL_PIN(10, "odo_1"),
 	PINCTRL_PIN(11, "dr_dir"),
+	PINCTRL_PIN(12, "gpio0-12"),
 	PINCTRL_PIN(13, "scl_1"),
 	PINCTRL_PIN(15, "sda_1"),
 	PINCTRL_PIN(16, "x_ldd[16]"),
