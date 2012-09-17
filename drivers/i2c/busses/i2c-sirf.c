@@ -435,6 +435,7 @@ static const struct dev_pm_ops i2c_sirfsoc_pm_ops = {
 
 static const struct of_device_id sirfsoc_i2c_of_match[] __devinitconst = {
 	{ .compatible = "sirf,prima2-i2c", },
+	{ .compatible = "sirf,marco-i2c", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_i2c_of_match);

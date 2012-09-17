@@ -23,6 +23,9 @@
 		uart1: uart@cc060000 {
 				status = "okay";
 			};
+		i2c0: i2c@cc0e0000 {
+			      status = "okay";
+			};
 		};
 	};
 };
