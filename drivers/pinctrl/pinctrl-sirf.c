@@ -1606,7 +1606,7 @@ static inline void sirfsoc_gpio_set_output(struct sirfsoc_gpio_bank *bank, unsig
 
 	spin_lock_irqsave(&bank->lock, flags);
 
-	out_ctrl = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
+	out_ctrl = readl(bank->chip.regs + offset);
 	if (value)
 		out_ctrl |= SIRFSOC_GPIO_CTL_DATAOUT_MASK;
 	else
@@ -1614,7 +1614,7 @@ static inline void sirfsoc_gpio_set_output(struct sirfsoc_gpio_bank *bank, unsig
 
 	out_ctrl &= ~SIRFSOC_GPIO_CTL_INTR_EN_MASK;
 	out_ctrl |= SIRFSOC_GPIO_CTL_OUT_EN_MASK;
-	writel(out_ctrl, bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
+	writel(out_ctrl, bank->chip.regs + offset);
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
