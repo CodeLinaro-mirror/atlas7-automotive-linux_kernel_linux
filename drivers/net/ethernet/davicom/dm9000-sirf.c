@@ -1787,7 +1787,7 @@ dm9000_cleanup(void)
 	gpio_free(DM9K_PORT_GPIO);
 }
 
-module_init(dm9000_init);
+late_initcall(dm9000_init);
 module_exit(dm9000_cleanup);
 
 MODULE_AUTHOR("Sascha Hauer, Ben Dooks");

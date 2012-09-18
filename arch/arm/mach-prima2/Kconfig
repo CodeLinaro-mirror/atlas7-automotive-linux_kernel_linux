@@ -34,5 +34,7 @@ config SIRFMARCO_FPGA
 	select ETHERNET
 	select NETDEVICES
 	select DM9000_SIRFFPGA
+	select I2C_MUX_SIRFFPGACPLD
+	select I2C_MUX
 
 endif
