@@ -319,6 +319,8 @@
 				compatible = "sirf,marco-i2c";
 				reg = <0xcc0e0000 0x10000>;
 				interrupts = <0 24 0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 
@@ -327,6 +329,8 @@
 				compatible = "sirf,marco-i2c";
 				reg = <0xcc0f0000 0x10000>;
 				interrupts = <0 25 0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 
