@@ -15,12 +15,28 @@ static const struct i2c_device_id sfcpld_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, sfcpld_id);
 
-static int sfcpld_set_switch_to_dm9k(struct i2c_client *client)
+static int sfcpld_init_set_default_status(struct i2c_client *client)
 {
 	struct i2c_msg msg[2];
 	char cs_clear[2] = {0xf, 0x0};
 	char cs_dm9k[2] = {0xf, 0x2};
 	char dm9k_rst[2] = {0x8, 0x0};
+	char id[2] = {0x0, 0x0};
+
+	/* read CPLD ID */
+
+	msg[0].addr = client->addr;
+	msg[0].flags = client->flags & I2C_M_TEN;
+	msg[0].len = 1;
+	msg[0].buf = id;
+	msg[1].addr = client->addr;
+	msg[1].flags = client->flags & I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].len = 2;
+	msg[1].buf = id;
+	i2c_transfer(client->adapter, msg, 2);
+
+	dev_info(&client->dev, "cpld version:0x%02x%02x found\n", id[0], id[1]);
 
 	/* reset DM9000 */
 
@@ -81,10 +97,8 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, sfcpld);
 	sfcpld->client	= client;
 
-	if (sfcpld_set_switch_to_dm9k(client) < 0)
+	if (sfcpld_init_set_default_status(client) < 0)
 		goto exit_free;
-
-	dev_info(&client->dev, "registerred\n");
 
 	return 0;
 
