@@ -31,10 +31,10 @@
 #define SIRFSOC_NUM_PADS    622
 #define SIRFSOC_RSC_PIN_MUX 0x4
 
-#define SIRFSOC_GPIO_PAD_EN(g) ((g)*0x100 + 0x84)
+#define SIRFSOC_GPIO_PAD_EN(g)		((g)*0x100 + 0x84)
+#define SIRFSOC_GPIO_PAD_EN_CLR(g)	((g)*0x100 + 0x90)
 #define SIRFSOC_GPIO_CTRL(g, i)			((g)*0x100 + (i)*4)
 #define SIRFSOC_GPIO_DSP_EN0			(0x80)
-#define SIRFSOC_GPIO_PAD_EN(g)			((g)*0x100 + 0x84)
 #define SIRFSOC_GPIO_INT_STATUS(g)		((g)*0x100 + 0x8C)
 
 #define SIRFSOC_GPIO_CTL_INTR_LOW_MASK		0x1
@@ -59,6 +59,7 @@ struct sirfsoc_gpio_bank {
 	int id;
 	int parent_irq;
 	spinlock_t lock;
+	bool is_marco; /* for marco, some registers are different with prima2 */
 };
 
 static struct sirfsoc_gpio_bank sgpio_bank[SIRFSOC_GPIO_NO_OF_BANKS];
@@ -189,6 +190,7 @@ struct sirfsoc_pmx {
 	struct pinctrl_dev *pmx;
 	void __iomem *gpio_virtbase;
 	void __iomem *rsc_virtbase;
+	bool is_marco;
 };
 
 /* SIRFSOC_GPIO_PAD_EN set */
@@ -1086,12 +1088,21 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx, unsigned selector
 
 	for (i = 0; i < mux->muxmask_counts; i++) {
 		u32 muxval;
-		muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
-		if (enable)
-			muxval = muxval & ~mask[i].mask;
-		else
-			muxval = muxval | mask[i].mask;
-		writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+		if (!spmx->is_marco) {
+			muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+			if (enable)
+				muxval = muxval & ~mask[i].mask;
+			else
+				muxval = muxval | mask[i].mask;
+			writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(mask[i].group));
+		} else {
+			if (enable)
+				writel(mask[i].mask, spmx->gpio_virtbase +
+					SIRFSOC_GPIO_PAD_EN_CLR(mask[i].group));
+			else
+				writel(mask[i].mask, spmx->gpio_virtbase +
+					SIRFSOC_GPIO_PAD_EN(mask[i].group));
+		}
 	}
 
 	if (mux->funcmask && enable) {
@@ -1156,9 +1167,14 @@ static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
 
 	spmx = pinctrl_dev_get_drvdata(pmxdev);
 
-	muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
-	muxval = muxval | (1 << (offset - range->pin_base));
-	writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+	if (!spmx->is_marco) {
+		muxval = readl(spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+		muxval = muxval | (1 << (offset - range->pin_base));
+		writel(muxval, spmx->gpio_virtbase + SIRFSOC_GPIO_PAD_EN(group));
+	} else {
+		writel(1 << (offset - range->pin_base), spmx->gpio_virtbase +
+			SIRFSOC_GPIO_PAD_EN(group));
+	}
 
 	return 0;
 }
@@ -1257,6 +1273,9 @@ static int __devinit sirfsoc_pinmux_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "can't map rsc registers\n");
 		goto out_no_rsc_remap;
 	}
+
+	if (of_device_is_compatible(np, "sirf,marco-pinctrl"))
+		spmx->is_marco = 1;
 
 	/* Now register the pin controller and all pins it handles */
 	spmx->pmx = pinctrl_register(&sirfsoc_pinmux_desc, &pdev->dev, spmx);
@@ -1587,7 +1606,7 @@ static inline void sirfsoc_gpio_set_output(struct sirfsoc_gpio_bank *bank, unsig
 
 	spin_lock_irqsave(&bank->lock, flags);
 
-	out_ctrl = readl(bank->chip.regs + offset);
+	out_ctrl = readl(bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
 	if (value)
 		out_ctrl |= SIRFSOC_GPIO_CTL_DATAOUT_MASK;
 	else
@@ -1595,7 +1614,7 @@ static inline void sirfsoc_gpio_set_output(struct sirfsoc_gpio_bank *bank, unsig
 
 	out_ctrl &= ~SIRFSOC_GPIO_CTL_INTR_EN_MASK;
 	out_ctrl |= SIRFSOC_GPIO_CTL_OUT_EN_MASK;
-	writel(out_ctrl, bank->chip.regs + offset);
+	writel(out_ctrl, bank->chip.regs + SIRFSOC_GPIO_CTRL(bank->id, offset));
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
@@ -1679,6 +1698,7 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 	struct sirfsoc_gpio_bank *bank;
 	void *regs;
 	struct platform_device *pdev;
+	bool is_marco = false;
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev)
@@ -1687,6 +1707,9 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 	regs = of_iomap(np, 0);
 	if (!regs)
 		return -ENOMEM;
+
+	if (of_device_is_compatible(np, "sirf,marco-pinctrl"))
+		is_marco = 1;
 
 	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
 		bank = &sgpio_bank[i];
@@ -1704,6 +1727,7 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 		bank->chip.gc.of_node = np;
 		bank->chip.regs = regs;
 		bank->id = i;
+		bank->is_marco = is_marco;
 		bank->parent_irq = platform_get_irq(pdev, i);
 		if (bank->parent_irq < 0) {
 			err = bank->parent_irq;
