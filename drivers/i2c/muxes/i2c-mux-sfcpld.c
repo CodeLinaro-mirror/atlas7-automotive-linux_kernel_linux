@@ -3,6 +3,7 @@
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/string.h>
+#include <asm/delay.h>
 
 struct sirffpga_cpld {
 	struct i2c_client	*client;
@@ -19,6 +20,28 @@ static int sfcpld_set_switch_to_dm9k(struct i2c_client *client)
 	struct i2c_msg msg[2];
 	char cs_clear[2] = {0xf, 0x0};
 	char cs_dm9k[2] = {0xf, 0x2};
+	char dm9k_rst[2] = {0x8, 0x0};
+
+	/* reset DM9000 */
+
+	msg[0].addr = client->addr;
+	msg[0].flags = client->flags & I2C_M_TEN;
+	msg[0].len = 1;
+	msg[0].buf = dm9k_rst;
+	msg[1].addr = client->addr;
+	msg[1].flags = client->flags & I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].len = 1;
+	msg[1].buf = dm9k_rst + 1;
+	i2c_transfer(client->adapter, msg, 2);
+
+	dm9k_rst[1] &= ~0x80; /* 7: enet_rst */
+	i2c_master_send(client, dm9k_rst, 2);
+	udelay(50);
+	dm9k_rst[1] |= 0x80;
+	i2c_master_send(client, dm9k_rst, 2);
+
+	/* let VIP pin switch to DM9000*/
 
 	msg[0].addr = client->addr;
 	msg[0].flags = client->flags & I2C_M_TEN;
@@ -29,7 +52,6 @@ static int sfcpld_set_switch_to_dm9k(struct i2c_client *client)
 	msg[1].flags |= I2C_M_RD;
 	msg[1].len = 1;
 	msg[1].buf = cs_clear + 1;
-
 	i2c_transfer(client->adapter, msg, 2);
 
 	/* [1:0] VIP pin switch
