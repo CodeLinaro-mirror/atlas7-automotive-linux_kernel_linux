@@ -37,15 +37,15 @@
 			arm,filter-ranges = <0x40000000 0xc0000000>;
 		};
 
-                gic: interrupt-controller@c0011000 {
+		gic: interrupt-controller@c0011000 {
 			compatible = "arm,cortex-a9-gic";
 			interrupt-controller;
 			#interrupt-cells = <3>;
 			reg = <0xc0011000 0x1000>,
 			      <0xc0010100 0x0100>;
-                };
+		};
 
-		 rstc-iobg {
+		rstc-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -181,7 +181,7 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xcc000000 0xcc000000 0x1000000>;
+			ranges = <0xcc000000 0xcc000000 0x2000000>;
 
 			timer@cc020000 {
 				compatible = "sirf,marco-tick";
@@ -381,6 +381,7 @@
 					compatible = "sirf,marco-sdhc";
 					reg = <0xcd000000 0x100000>;
 					interrupts = <0 38 0>;
+					bus-width = <8>;
 				};
 
 				sd1: sdhci@cd100000 {
@@ -388,6 +389,7 @@
 					compatible = "sirf,marco-sdhc";
 					reg = <0xcd100000 0x100000>;
 					interrupts = <0 38 0>;
+					status = "disabled";
 				};
 
 				sd2: sdhci@cd200000 {
@@ -395,6 +397,7 @@
 					compatible = "sirf,marco-sdhc";
 					reg = <0xcd200000 0x100000>;
 					interrupts = <0 23 0>;
+					status = "disabled";
 				};
 
 				sd3: sdhci@cd300000 {
@@ -402,6 +405,7 @@
 					compatible = "sirf,marco-sdhc";
 					reg = <0xcd300000 0x100000>;
 					interrupts = <0 23 0>;
+					status = "disabled";
 				};
 
 				sd4: sdhci@cd400000 {
@@ -409,6 +413,7 @@
 					compatible = "sirf,marco-sdhc";
 					reg = <0xcd400000 0x100000>;
 					interrupts = <0 39 0>;
+					status = "disabled";
 				};
 
 				sd5: sdhci@cd500000 {
@@ -416,6 +421,7 @@
 					compatible = "sirf,marco-sdhc";
 					reg = <0xcd500000 0x100000>;
 					interrupts = <0 39 0>;
+					status = "disabled";
 				};
 
 				pci-copy@cd900000 {

@@ -20,15 +20,20 @@
 
 	axi {
 		peri-iobg {
-		uart1: uart@cc060000 {
+			uart1: uart@cc060000 {
 				status = "okay";
 			};
-		i2c0: i2c@cc0e0000 {
+			i2c0: i2c@cc0e0000 {
 			      status = "okay";
 			      fpga-cpld@2d {
 				      compatible = "sirf,fpga-cpld";
 				      reg = <0x2d>;
 			      };
+			};
+			pci-iobg {
+				sd0: sdhci@cd000000 {
+					bus-width = <8>;
+				};
 			};
 		};
 	};
