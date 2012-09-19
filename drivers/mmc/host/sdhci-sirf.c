@@ -33,12 +33,12 @@ static struct sdhci_ops sdhci_sirf_ops = {
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 	.ops = &sdhci_sirf_ops,
-	.quirks = SDHCI_QUIRK_BROKEN_DMA |
-		SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
-		SDHCI_QUIRK_INVERTED_WRITE_PROTECT |
-		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
+	.quirks = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
+		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
-		SDHCI_QUIRK_NONSTANDARD_CLOCK,
+		SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
+		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
+		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
 
 static int __devinit sdhci_sirf_probe(struct platform_device *pdev)
