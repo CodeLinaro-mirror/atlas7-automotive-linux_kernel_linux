@@ -4,6 +4,7 @@
 #include <linux/i2c.h>
 #include <linux/string.h>
 #include <asm/delay.h>
+#include <asm/io.h>
 
 struct sirffpga_cpld {
 	struct i2c_client	*client;
@@ -100,9 +101,24 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 	if (sfcpld_init_set_default_status(client) < 0)
 		goto exit_free;
 
+	do {
+		/*
+		 * init ROM interface, all these codes are temp for FPGA
+		 * they are in u-boot before
+		 */
+#define SIRFSOC_ROMIF_BASE 0xcc000000
+#define ROM_CFG_CS1 0x4
+		void *rom_base = ioremap(SIRFSOC_ROMIF_BASE, 0x100);
+		if (!rom_base)
+			goto exit_free;
+		*(u32 *)(rom_base + ROM_CFG_CS1) = 0xe59ff018;
+		iounmap(rom_base);
+	} while (0);
+
 	return 0;
 
 exit_free:
+	dev_err(&client->dev, "fails to init\n");
 	kfree(sfcpld);
 	return err;
 }
