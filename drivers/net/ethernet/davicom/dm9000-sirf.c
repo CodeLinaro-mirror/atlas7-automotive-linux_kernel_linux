@@ -1745,10 +1745,10 @@ static struct platform_driver dm9000_driver = {
 
 /* we don't want to pollute both arch/arm/mach-prima2 and dts */
 static struct resource sirf_dm9000_resource[] = {
-        [0] = DEFINE_RES_MEM(0x04000000, 4),
-        [1] = DEFINE_RES_MEM(0x04000000, 4),
-        [2] = DEFINE_RES_NAMED(131, 1, NULL, IORESOURCE_IRQ \
-                                        | IORESOURCE_IRQ_HIGHEDGE),
+	[0] = DEFINE_RES_MEM(0x04000000, 1),
+	[1] = DEFINE_RES_MEM(0x04000000, 1),
+	[2] = DEFINE_RES_NAMED(131, 1, NULL, IORESOURCE_IRQ \
+		| IORESOURCE_IRQ_HIGHLEVEL),
 };
 
 static struct dm9000_plat_data sirf_dm9000_pdata = {

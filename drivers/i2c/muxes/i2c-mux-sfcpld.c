@@ -23,6 +23,7 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 	char cs_dm9k[2] = {0xf, 0x2};
 	char dm9k_rst[2] = {0x8, 0x0};
 	char id[2] = {0x0, 0x0};
+	int ret = 0;
 
 	/* read CPLD ID */
 
@@ -35,10 +36,14 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 	msg[1].flags |= I2C_M_RD;
 	msg[1].len = 2;
 	msg[1].buf = id;
-	i2c_transfer(client->adapter, msg, 2);
+	ret = i2c_transfer(client->adapter, msg, 2);
+
+	if (ret < 0)
+		goto out;
 
 	dev_info(&client->dev, "cpld version:0x%02x%02x found\n", id[0], id[1]);
 
+#if 0
 	/* reset DM9000 */
 
 	msg[0].addr = client->addr;
@@ -81,7 +86,10 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 	i2c_master_send(client, cs_clear, 2);
 
 	cs_dm9k[1] = cs_clear[1] | 0x2;
-	return i2c_master_send(client, cs_dm9k, 2);
+	i2c_master_send(client, cs_dm9k, 2);
+#endif
+out:
+	return ret;
 }
 
 static int __devinit sfcpld_probe(struct i2c_client *client,
@@ -101,6 +109,7 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 	if (sfcpld_init_set_default_status(client) < 0)
 		goto exit_free;
 
+#if 0
 	do {
 		/*
 		 * init ROM interface, all these codes are temp for FPGA
@@ -114,6 +123,7 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 		*(u32 *)(rom_base + ROM_CFG_CS1) = 0xe59ff018;
 		iounmap(rom_base);
 	} while (0);
+#endif
 
 	return 0;
 
