@@ -3,11 +3,13 @@
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/string.h>
+#include <linux/kthread.h>
 #include <asm/delay.h>
 #include <asm/io.h>
 
 struct sirffpga_cpld {
 	struct i2c_client	*client;
+	struct task_struct	*irq_tsk;
 };
 
 static const struct i2c_device_id sfcpld_id[] = {
@@ -16,12 +18,12 @@ static const struct i2c_device_id sfcpld_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, sfcpld_id);
 
+static u32 sfcpld_irq_status;
+struct sirffpga_cpld *sffc;
+
 static int sfcpld_init_set_default_status(struct i2c_client *client)
 {
 	struct i2c_msg msg[2];
-	char cs_clear[2] = {0xf, 0x0};
-	char cs_dm9k[2] = {0xf, 0x2};
-	char dm9k_rst[2] = {0x8, 0x0};
 	char id[2] = {0x0, 0x0};
 	int ret = 0;
 
@@ -43,54 +45,141 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 
 	dev_info(&client->dev, "cpld version:0x%02x%02x found\n", id[0], id[1]);
 
-#if 0
-	/* reset DM9000 */
+#if defined(SIRF_OLD_FPGA)
+	{
+		char cs_clear[2] = {0xf, 0x0};
+		char cs_dm9k[2] = {0xf, 0x2};
+		char dm9k_rst[2] = {0x8, 0x0};
 
-	msg[0].addr = client->addr;
-	msg[0].flags = client->flags & I2C_M_TEN;
-	msg[0].len = 1;
-	msg[0].buf = dm9k_rst;
-	msg[1].addr = client->addr;
-	msg[1].flags = client->flags & I2C_M_TEN;
-	msg[1].flags |= I2C_M_RD;
-	msg[1].len = 1;
-	msg[1].buf = dm9k_rst + 1;
-	i2c_transfer(client->adapter, msg, 2);
+		/* reset DM9000 */
 
-	dm9k_rst[1] &= ~0x80; /* 7: enet_rst */
-	i2c_master_send(client, dm9k_rst, 2);
-	udelay(50);
-	dm9k_rst[1] |= 0x80;
-	i2c_master_send(client, dm9k_rst, 2);
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = 1;
+		msg[0].buf = dm9k_rst;
+		msg[1].addr = client->addr;
+		msg[1].flags = client->flags & I2C_M_TEN;
+		msg[1].flags |= I2C_M_RD;
+		msg[1].len = 1;
+		msg[1].buf = dm9k_rst + 1;
+		i2c_transfer(client->adapter, msg, 2);
 
-	/* let VIP pin switch to DM9000*/
+		dm9k_rst[1] &= ~0x80; /* 7: enet_rst */
+		i2c_master_send(client, dm9k_rst, 2);
+		udelay(50);
+		dm9k_rst[1] |= 0x80;
+		i2c_master_send(client, dm9k_rst, 2);
 
-	msg[0].addr = client->addr;
-	msg[0].flags = client->flags & I2C_M_TEN;
-	msg[0].len = 1;
-	msg[0].buf = cs_clear;
-	msg[1].addr = client->addr;
-	msg[1].flags = client->flags & I2C_M_TEN;
-	msg[1].flags |= I2C_M_RD;
-	msg[1].len = 1;
-	msg[1].buf = cs_clear + 1;
-	i2c_transfer(client->adapter, msg, 2);
+		/* let VIP pin switch to DM9000*/
 
-	/* [1:0] VIP pin switch
-	 * 00 VIP = CAM
-	 * 01 VIP = TV
-	 * 10 VIP = ENET
-	 * 11 NULL"
-	 */
-	cs_clear[1] &= ~0x3;
-	i2c_master_send(client, cs_clear, 2);
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = 1;
+		msg[0].buf = cs_clear;
+		msg[1].addr = client->addr;
+		msg[1].flags = client->flags & I2C_M_TEN;
+		msg[1].flags |= I2C_M_RD;
+		msg[1].len = 1;
+		msg[1].buf = cs_clear + 1;
+		i2c_transfer(client->adapter, msg, 2);
 
-	cs_dm9k[1] = cs_clear[1] | 0x2;
-	i2c_master_send(client, cs_dm9k, 2);
+		/* [1:0] VIP pin switch
+		 * 00 VIP = CAM
+		 * 01 VIP = TV
+		 * 10 VIP = ENET
+		 * 11 NULL"
+		 */
+		cs_clear[1] &= ~0x3;
+		i2c_master_send(client, cs_clear, 2);
+
+		cs_dm9k[1] = cs_clear[1] | 0x2;
+		i2c_master_send(client, cs_dm9k, 2);
+	}
+#else
+	{
+		char irq_enable[2] = {0xe, 0x0};
+
+		/* enable eint irq pin */
+
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = 1;
+		msg[0].buf = irq_enable;
+		msg[1].addr = client->addr;
+		msg[1].flags = client->flags & I2C_M_TEN;
+		msg[1].flags |= I2C_M_RD;
+		msg[1].len = 1;
+		msg[1].buf = irq_enable + 1;
+		i2c_transfer(client->adapter, msg, 1);
+
+		irq_enable[1] |= 0x1;
+		i2c_master_send(client, irq_enable, 2);
+	}
 #endif
+
 out:
 	return ret;
 }
+
+/*
+ * this thread will run in CPU0, its uses irq handler will run in CPU1
+ * this will make use don't need a sync i2c_transfer
+ */
+
+static int sfcpld_irq_get_stat_thread(void *data)
+{
+	struct i2c_msg msg[2];
+	struct i2c_client *client = data;
+
+	u8 irq[2] = {0x4, 0x0};
+
+	sched_setaffinity(current->pid, cpumask_of(0));
+	set_user_nice(current, -20);
+
+	while (1) {
+		set_current_state(TASK_UNINTERRUPTIBLE);
+
+		schedule();
+
+		/* read CPLD ID */
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = 1;
+		msg[0].buf = irq;
+		msg[1].addr = client->addr;
+		msg[1].flags = client->flags & I2C_M_TEN;
+		msg[1].flags |= I2C_M_RD;
+		msg[1].len = 1;
+		msg[1].buf = irq + 1;
+		i2c_transfer(client->adapter, msg, 1);
+
+		sfcpld_irq_status |= BIT(31) | irq[1];
+	}
+
+	return 0;
+}
+
+/*
+ * cpld's irq users will call this functions from CPU1
+ */
+u32 sfcpld_irq_get_status(void)
+{
+	if (!smp_processor_id()) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	sfcpld_irq_status = 0;
+
+	wake_up_process(sffc->irq_tsk);
+
+	do {
+		cpu_relax();
+	} while (!(sfcpld_irq_status & BIT(31)));
+
+	return sfcpld_irq_status & 0xFF;
+}
+EXPORT_SYMBOL(sfcpld_irq_get_status);
 
 static int __devinit sfcpld_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
@@ -99,17 +188,18 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 	int			err = -ENODEV;
 	int			tmp;
 	struct i2c_adapter	*adapter = to_i2c_adapter(client->dev.parent);
-	sfcpld = kzalloc(sizeof(*sfcpld), GFP_KERNEL);
+
+	sffc = sfcpld = kzalloc(sizeof(*sfcpld), GFP_KERNEL);
 	if (!sfcpld)
 		return -ENOMEM;
 
 	i2c_set_clientdata(client, sfcpld);
-	sfcpld->client	= client;
+	sfcpld->client = client;
 
 	if (sfcpld_init_set_default_status(client) < 0)
 		goto exit_free;
 
-#if 0
+#if defined(SIRF_OLD_FPGA)
 	do {
 		/*
 		 * init ROM interface, all these codes are temp for FPGA
@@ -124,6 +214,9 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 		iounmap(rom_base);
 	} while (0);
 #endif
+
+	sfcpld->irq_tsk = kthread_create(sfcpld_irq_get_stat_thread, NULL,
+		"sfcpld-irq");
 
 	return 0;
 
