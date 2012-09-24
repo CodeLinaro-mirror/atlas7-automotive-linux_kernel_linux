@@ -25,6 +25,7 @@
 #include <linux/bitops.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <asm/mach/irq.h>
 
 #define DRIVER_NAME "pinmux-sirf"
 
@@ -1504,6 +1505,9 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 	u32 status, ctrl;
 	int idx = 0;
 	unsigned int first_irq;
+	struct irq_chip *chip = irq_get_chip(irq);
+
+	chained_irq_enter(chip, desc);
 
 	status = readl(bank->chip.regs + SIRFSOC_GPIO_INT_STATUS(bank->id));
 	if (!status) {
@@ -1532,6 +1536,8 @@ static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 		idx++;
 		status = status >> 1;
 	}
+
+	chained_irq_exit(chip, desc);
 }
 
 static inline void sirfsoc_gpio_set_input(struct sirfsoc_gpio_bank *bank, unsigned ctrl_offset)
