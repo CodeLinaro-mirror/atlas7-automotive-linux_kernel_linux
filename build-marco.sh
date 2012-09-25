@@ -7,7 +7,7 @@ export CROSS_COMPILE=arm-none-linux-gnueabi-
 #use this to enable DEBUG_LL
 make marcocb_defconfig
 
-make zImage KALLSYMS_EXTRA_PASS=1 -j8 V=1
+make zImage KALLSYMS_EXTRA_PASS=1 -j8 V=1 KBUILD_CFLAGS_KERNEL=-DSIRF_OLD_FPGA
 make modules -j8
 make dtbs
 cp arch/arm/boot/zImage extra
