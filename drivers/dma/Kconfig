@@ -203,7 +203,7 @@ config TIMB_DMA
 
 config SIRF_DMA
 	tristate "CSR SiRFprimaII DMA support"
-	depends on ARCH_PRIMA2
+	depends on ARCH_SIRF
 	select DMA_ENGINE
 	help
 	  Enable support for the CSR SiRFprimaII DMA engine.
