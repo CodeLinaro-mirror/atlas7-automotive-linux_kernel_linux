@@ -50,8 +50,14 @@
 #define CARDNAME	"dm9000"
 #define DRV_VERSION	"1.31"
 
-#define DM9K_PORT_GPIO	0x02
-#define DM9K_INT_GPIO	0x03
+#if defined(SIRF_OLD_FPGA)
+#define DM9K_PORT_GPIO	2
+#define DM9K_INT_GPIO	3
+#else
+#define DM9K_PORT_GPIO	6
+#define DM9K_INT_GPIO	119
+#endif
+
 #define DM9K_SELECT_IO_ADDR()   \
 	do {			\
 		gpio_direction_output(DM9K_PORT_GPIO, 0); \
@@ -1747,7 +1753,7 @@ static struct platform_driver dm9000_driver = {
 static struct resource sirf_dm9000_resource[] = {
 	[0] = DEFINE_RES_MEM(0x04000000, 1),
 	[1] = DEFINE_RES_MEM(0x04000000, 1),
-	[2] = DEFINE_RES_NAMED(131, 1, NULL, IORESOURCE_IRQ \
+	[2] = DEFINE_RES_NAMED(128 + DM9K_INT_GPIO, 1, NULL, IORESOURCE_IRQ \
 		| IORESOURCE_IRQ_HIGHLEVEL),
 };
 
