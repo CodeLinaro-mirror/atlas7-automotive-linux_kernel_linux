@@ -123,8 +123,8 @@ out:
 }
 
 /*
- * this thread will run in CPU0, its uses irq handler will run in CPU1
- * this will make use don't need a sync i2c_transfer
+ * this thread will run at CPU0. it depends on I2C0 irq who will happen at CPU1
+ * its users' irq handler will run in CPU1
  */
 
 static int sfcpld_irq_get_stat_thread(void *data)
@@ -142,7 +142,7 @@ static int sfcpld_irq_get_stat_thread(void *data)
 
 		schedule();
 
-		/* read CPLD ID */
+		/* read IRQ stat */
 		msg[0].addr = client->addr;
 		msg[0].flags = client->flags & I2C_M_TEN;
 		msg[0].len = 1;
@@ -161,7 +161,7 @@ static int sfcpld_irq_get_stat_thread(void *data)
 }
 
 /*
- * cpld's irq users will call this functions from CPU1
+ * CPLD's IRQ users will call this functions at IRQ handlers from CPU1
  */
 u32 sfcpld_irq_get_status(void)
 {
