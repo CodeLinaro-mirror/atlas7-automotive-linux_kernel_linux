@@ -4,6 +4,7 @@
 #include <linux/i2c.h>
 #include <linux/string.h>
 #include <linux/kthread.h>
+#include <linux/interrupt.h>
 #include <asm/delay.h>
 #include <asm/io.h>
 
@@ -213,10 +214,26 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 		*(u32 *)(rom_base + ROM_CFG_CS1) = 0xe59ff018;
 		iounmap(rom_base);
 	} while (0);
+#else
+#define SIRF_I2C0_IRQ 56
+#define SIRF_GPIO0_IRQ 75
+	/*
+	 * make all devices whose irq is connected with CPLD
+	 * interrupt at CPU1, and I2C thread will work at CPU0
+	 */
+	irq_set_affinity(SIRF_I2C0_IRQ, cpumask_of(0));
+	irq_set_affinity(SIRF_GPIO0_IRQ, cpumask_of(1));
 #endif
 
-	sfcpld->irq_tsk = kthread_create(sfcpld_irq_get_stat_thread, NULL,
+	sfcpld->irq_tsk = kthread_create(sfcpld_irq_get_stat_thread, client,
 		"sfcpld-irq");
+
+	if (IS_ERR(sfcpld->irq_tsk)) {
+		dev_err(&client->dev, "disabled - Unable to start kernel thread\n");
+		goto exit_free;
+	}
+
+	wake_up_process(sfcpld->irq_tsk);
 
 	return 0;
 
@@ -226,23 +243,14 @@ exit_free:
 	return err;
 }
 
-static int __devexit sfcpld_remove(struct i2c_client *client)
-{
-	struct sfcpld *sfcpld = i2c_get_clientdata(client);
-	kfree(sfcpld);
-	return 0;
-}
-
 static struct i2c_driver sfcpld_driver = {
 	.driver = {
 		.name	= "sirf-fpgacpld",
 		.owner	= THIS_MODULE,
 	},
 	.probe		= sfcpld_probe,
-	.remove		= __devexit_p(sfcpld_remove),
 	.id_table	= sfcpld_id,
 };
-
 module_i2c_driver(sfcpld_driver);
 
 MODULE_DESCRIPTION("SiRF FPGA on-board CPLD driver");
