@@ -32,6 +32,8 @@
 			};
 			spi0: spi@cc0d0000 {
 				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&spi0_pins_a>;
 				spi@0 {
 					compatible = "spidev";
 					reg = <0>;
