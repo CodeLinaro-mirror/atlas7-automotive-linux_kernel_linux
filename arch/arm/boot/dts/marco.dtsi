@@ -301,6 +301,8 @@
 				interrupts = <0 15 0>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 
@@ -311,6 +313,8 @@
 				interrupts = <0 16 0>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 
