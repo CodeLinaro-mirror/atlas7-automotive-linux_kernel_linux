@@ -20,6 +20,8 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/sirfsoc_dma.h>
+#include <linux/dmaengine.h>
 
 #define DRIVER_NAME "sirfsoc_spi"
 
@@ -144,6 +146,10 @@ struct sirfsoc_spi {
 
 	/* tasklet to push tx msg into FIFO */
 	struct tasklet_struct tasklet_tx;
+
+	/* rx & tx DMA channels */
+	struct dma_chan *rx_chan;
+	struct dma_chan *tx_chan;
 
 	int chipselect[0];
 };
@@ -485,6 +491,8 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct resource *mem_res;
 	int num_cs, cs_gpio, irq;
+	u32 rx_dma_ch, tx_dma_ch;
+	dma_cap_mask_t dma_cap_mask;
 	int i;
 	int ret;
 
@@ -492,6 +500,20 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 			"sirf,spi-num-chipselects", &num_cs);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to get chip select number\n");
+		goto err_cs;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"sirf,spi-dma-rx-channel", &rx_dma_ch);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to get rx dma channel\n");
+		goto err_cs;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"sirf,spi-dma-tx-channel", &tx_dma_ch);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to get tx dma channel\n");
 		goto err_cs;
 	}
 
@@ -560,10 +582,26 @@ static int __devinit spi_sirfsoc_probe(struct platform_device *pdev)
 	master->bus_num = pdev->id;
 	sspi->bitbang.master->dev.of_node = pdev->dev.of_node;
 
+	/* request DMA channels */
+	dma_cap_zero(dma_cap_mask);
+	dma_cap_set(DMA_SLAVE, dma_cap_mask);
+	dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
+
+	sspi->rx_chan = dma_request_channel(dma_cap_mask, sirfsoc_dma_filter_id, rx_dma_ch);
+	if (!sspi->rx_chan) {
+		dev_err(&pdev->dev, "can not allocate rx dma channel\n");
+		goto free_master;
+	}
+	sspi->tx_chan = dma_request_channel(dma_cap_mask, sirfsoc_dma_filter_id, tx_dma_ch);
+	if (!sspi->tx_chan) {
+		dev_err(&pdev->dev, "can not allocate tx dma channel\n");
+		goto free_rx_dma;
+	}
+
 	sspi->p = pinctrl_get_select_default(&pdev->dev);
 	ret = IS_ERR(sspi->p);
 	if (ret)
-		goto free_master;
+		goto free_tx_dma;
 
 	sspi->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
@@ -598,6 +636,10 @@ free_clk:
 	clk_put(sspi->clk);
 free_pin:
 	pinctrl_put(sspi->p);
+free_tx_dma:
+	dma_release_channel(sspi->tx_chan);
+free_rx_dma:
+	dma_release_channel(sspi->rx_chan);
 free_master:
 	spi_master_put(master);
 err_cs:
@@ -620,6 +662,8 @@ static int  __devexit spi_sirfsoc_remove(struct platform_device *pdev)
 	}
 	clk_disable(sspi->clk);
 	clk_put(sspi->clk);
+	dma_release_channel(sspi->rx_chan);
+	dma_release_channel(sspi->tx_chan);
 	pinctrl_put(sspi->p);
 	spi_master_put(master);
 	return 0;
