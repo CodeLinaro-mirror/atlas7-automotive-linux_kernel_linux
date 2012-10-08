@@ -38,8 +38,9 @@ static int __init sirfsoc_l2x0_init(void)
 	if (np) {
 		pr_info("Initializing marco L2 cache\n");
 		/*
-		 * fixme: set the right aux_val and aux_mask
-		 * return l2x0_of_init(0x10000, 0);
+		 * Way size: 32KB Associativity: 16-way
+		 * Fixme: enable this for new FPGA:
+		 * return l2x0_of_init((2 << 17) | (1 << 13), 0);
 		 */
 	}
 
