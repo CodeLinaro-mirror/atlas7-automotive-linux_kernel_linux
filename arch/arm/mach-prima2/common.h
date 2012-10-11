@@ -15,12 +15,14 @@
 
 extern struct sys_timer sirfsoc_prima2_timer;
 extern struct sys_timer sirfsoc_marco_timer;
+extern struct smp_operations	sirfsoc_smp_ops;
 
 extern void __init sirfsoc_of_irq_init(void);
 extern void __init sirfsoc_prima2_of_clk_init(void);
 extern void __init sirfsoc_marco_of_clk_init(void);
 extern void sirfsoc_restart(char, const char *);
 extern void sirfsoc_secondary_startup(void);
+extern void sirfsoc_cpu_die(unsigned int cpu);
 extern asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs);
 
 #ifndef CONFIG_DEBUG_LL

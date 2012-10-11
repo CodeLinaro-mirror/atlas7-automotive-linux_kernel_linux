@@ -21,11 +21,6 @@
 #include "common.h"
 
 static void __iomem *scu_base;
-/*
- * control for which core is the next to come out of the secondary
- * boot "holding pen".
- */
-volatile int pen_release = -1;
 
 static DEFINE_SPINLOCK(boot_lock);
 
@@ -48,7 +43,7 @@ void __init sirfsoc_map_scu(void)
 	scu_base = (void __iomem *)SIRFSOC_VA(base);
 }
 
-void __cpuinit platform_secondary_init(unsigned int cpu)
+static void __cpuinit sirfsoc_secondary_init(unsigned int cpu)
 {
 	/*
 	 * if any interrupts are already enabled for the primary
@@ -71,7 +66,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	spin_unlock(&boot_lock);
 }
 
-int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
+static int __cpuinit sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
 	static void __iomem *sram_base;
@@ -136,7 +131,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	return pen_release != -1 ? -ENOSYS : 0;
 }
 
-void __init smp_init_cpus(void)
+static void __init sirfsoc_smp_init_cpus(void)
 {
 	int i, ncores;
 
@@ -148,7 +143,17 @@ void __init smp_init_cpus(void)
 	set_smp_cross_call(gic_raise_softirq);
 }
 
-void __init platform_smp_prepare_cpus(unsigned int max_cpus)
+static void __init sirfsoc_smp_prepare_cpus(unsigned int max_cpus)
 {
 	scu_enable(scu_base);
 }
+
+struct smp_operations sirfsoc_smp_ops __initdata = {
+        .smp_init_cpus          = sirfsoc_smp_init_cpus,
+        .smp_prepare_cpus       = sirfsoc_smp_prepare_cpus,
+        .smp_secondary_init     = sirfsoc_secondary_init,
+        .smp_boot_secondary     = sirfsoc_boot_secondary,
+#ifdef CONFIG_HOTPLUG_CPU
+	.cpu_die                = sirfsoc_cpu_die,
+#endif
+};

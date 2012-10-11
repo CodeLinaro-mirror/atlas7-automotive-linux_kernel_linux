@@ -76,6 +76,7 @@ static const char *marco_dt_match[] __initdata = {
 
 DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= marco_init_irq,
 	.handle_irq     = gic_handle_irq,

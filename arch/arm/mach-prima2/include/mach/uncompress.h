@@ -28,11 +28,11 @@ static __inline__ void putc(char c)
 	if (!SIRFSOC_UART1_PA_BASE)
 		return;
 
-	while (__raw_readl(SIRFSOC_UART1_PA_BASE + SIRFSOC_UART_TXFIFO_STATUS)
+	while (__raw_readl((void __iomem *)SIRFSOC_UART1_PA_BASE + SIRFSOC_UART_TXFIFO_STATUS)
 		& SIRFSOC_UART1_TXFIFO_FULL)
 		barrier();
 
-	__raw_writel(c, SIRFSOC_UART1_PA_BASE + SIRFSOC_UART_TXFIFO_DATA);
+	__raw_writel(c, (void __iomem *)SIRFSOC_UART1_PA_BASE + SIRFSOC_UART_TXFIFO_DATA);
 }
 
 static inline void flush(void)
