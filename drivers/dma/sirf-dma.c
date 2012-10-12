@@ -34,7 +34,8 @@
 #define SIRFSOC_DMA_INT_EN                      0x148
 #define SIRFSOC_DMA_INT_EN_CLR			0x14C
 #define SIRFSOC_DMA_CH_LOOP_CTRL                0x150
-#define SIRFSOC_DMA_CH_LOOP_CTRL_CLR            0x15C
+#define SIRFSOC_DMA_CH_LOOP_CTRL_SET            0x150
+#define SIRFSOC_DMA_CH_LOOP_CTRL_CLR            0x154
 
 #define SIRFSOC_DMA_MODE_CTRL_BIT               4
 #define SIRFSOC_DMA_DIR_CTRL_BIT                5
@@ -134,9 +135,14 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
 	if (sdesc->cyclic) {
-		writel((1 << cid) | 1 << (cid + 16) |
-			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
+		if (!sdma->is_marco)
+			writel((1 << cid) | 1 << (cid + 16) |
+				readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
+				sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
+		else
+			writel((1 << cid) | 1 << (cid + 16),
+				sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_SET);
+
 		schan->happened_cyclic = schan->completed_cyclic = 0;
 	}
 }
@@ -215,15 +221,14 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 			schan->chan.completed_cookie = last_cookie;
 			spin_unlock_irqrestore(&schan->lock, flags);
 		} else {
-			/* for cyclic channel, desc is always in active list */
-			sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
-				node);
-
-			if (!sdesc || (sdesc && !sdesc->cyclic)) {
-				/* without active cyclic DMA */
+			if (list_empty(&schan->active)) {
 				spin_unlock_irqrestore(&schan->lock, flags);
 				continue;
 			}
+
+			/* for cyclic channel, desc is always in active list */
+			sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
+				node);
 
 			/* cyclic DMA */
 			happened_cyclic = schan->happened_cyclic;
