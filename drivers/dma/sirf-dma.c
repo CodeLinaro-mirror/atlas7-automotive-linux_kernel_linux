@@ -34,7 +34,6 @@
 #define SIRFSOC_DMA_INT_EN                      0x148
 #define SIRFSOC_DMA_INT_EN_CLR			0x14C
 #define SIRFSOC_DMA_CH_LOOP_CTRL                0x150
-#define SIRFSOC_DMA_CH_LOOP_CTRL_SET            0x150
 #define SIRFSOC_DMA_CH_LOOP_CTRL_CLR            0x154
 
 #define SIRFSOC_DMA_MODE_CTRL_BIT               4
@@ -135,13 +134,9 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
 	if (sdesc->cyclic) {
-		if (!sdma->is_marco)
-			writel((1 << cid) | 1 << (cid + 16) |
-				readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
-				sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
-		else
-			writel((1 << cid) | 1 << (cid + 16),
-				sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_SET);
+		writel((1 << cid) | 1 << (cid + 16) |
+			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
+			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
 
 		schan->happened_cyclic = schan->completed_cyclic = 0;
 	}
@@ -542,6 +537,10 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	sdesc->xlen = 0;
 	sdesc->ylen = buf_len / SIRFSOC_DMA_WORD_LEN - 1;
 	sdesc->width = 1;
+	if (direction == DMA_MEM_TO_DEV)
+		sdesc->dir = 1;
+	else
+		sdesc->dir = 0;
 	list_add_tail(&sdesc->node, &schan->prepared);
 	spin_unlock_irqrestore(&schan->lock, iflags);
 
