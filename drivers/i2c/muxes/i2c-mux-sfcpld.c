@@ -200,7 +200,6 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 	if (sfcpld_init_set_default_status(client) < 0)
 		goto exit_free;
 
-#if defined(SIRF_OLD_FPGA)
 	do {
 		/*
 		 * init ROM interface, all these codes are temp for FPGA
@@ -214,7 +213,6 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 		*(u32 *)(rom_base + ROM_CFG_CS1) = 0xe59ff018;
 		iounmap(rom_base);
 	} while (0);
-#else
 #define SIRF_I2C0_IRQ 56
 #define SIRF_GPIO0_IRQ 75
 	/*
@@ -223,7 +221,6 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 	 */
 	irq_set_affinity(SIRF_I2C0_IRQ, cpumask_of(0));
 	irq_set_affinity(SIRF_GPIO0_IRQ, cpumask_of(1));
-#endif
 
 	sfcpld->irq_tsk = kthread_create(sfcpld_irq_get_stat_thread, client,
 		"sfcpld-irq");
