@@ -50,7 +50,7 @@
 #define CARDNAME	"dm9000"
 #define DRV_VERSION	"1.31"
 
-#define SIRF_OLD_FPGA
+#undef SIRF_OLD_FPGA
 
 #if defined(SIRF_OLD_FPGA)
 #define DM9K_PORT_GPIO	2
