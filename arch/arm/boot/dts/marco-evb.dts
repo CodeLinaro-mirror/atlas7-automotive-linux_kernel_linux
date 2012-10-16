@@ -25,9 +25,9 @@
 			};
 			i2c0: i2c@cc0e0000 {
 			      status = "okay";
-			      fpga-cpld@2d {
+			      fpga-cpld@4d {
 				      compatible = "sirf,fpga-cpld";
-				      reg = <0x2d>;
+				      reg = <0x4d>;
 			      };
 			};
 			spi1: spi@cc170000 {
