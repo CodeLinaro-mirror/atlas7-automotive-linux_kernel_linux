@@ -37,11 +37,10 @@ static int __init sirfsoc_l2x0_init(void)
 	np = of_find_matching_node(NULL, marco_l2x0_ids);
 	if (np) {
 		pr_info("Initializing marco L2 cache\n");
-		/*
-		 * Way size: 32KB Associativity: 16-way
-		 * Fixme: enable this for new FPGA:
-		 * return l2x0_of_init((2 << 17) | (1 << 13), 0);
-		 */
+		/* Way size: 32KB Associativity: 16-way */
+		return l2x0_of_init((2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
+			(1 << L2X0_AUX_CTRL_ASSOCIATIVITY_SHIFT),
+			L2X0_AUX_CTRL_MASK);
 	}
 
 	return 0;
