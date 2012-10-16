@@ -15,7 +15,7 @@ struct sirffpga_cpld {
 
 static const struct i2c_device_id sfcpld_id[] = {
 	{ "fpga-cpld", NULL },
-	{ }
+	{ },
 };
 MODULE_DEVICE_TABLE(i2c, sfcpld_id);
 
@@ -98,23 +98,35 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 	}
 #else
 	{
-		char irq_enable[2] = {0xe, 0x0};
+		char irq_enable[17] = {0, };
 
 		/* enable eint irq pin */
+		i2c_master_send(client, irq_enable, 1);
+		i2c_master_recv(client, irq_enable + 1, 16);
 
-		msg[0].addr = client->addr;
-		msg[0].flags = client->flags & I2C_M_TEN;
-		msg[0].len = 1;
-		msg[0].buf = irq_enable;
-		msg[1].addr = client->addr;
-		msg[1].flags = client->flags & I2C_M_TEN;
-		msg[1].flags |= I2C_M_RD;
-		msg[1].len = 1;
-		msg[1].buf = irq_enable + 1;
-		i2c_transfer(client->adapter, msg, 1);
+		{
+			int i;
 
-		irq_enable[1] |= 0x1;
-		i2c_master_send(client, irq_enable, 2);
+			for (i = 0;i < 16; i++)
+				dev_dbg(&client->dev, "%s r:%x v:%x\n", __func__,
+					i, irq_enable[i + 1]);
+		}
+
+		irq_enable[15] = 0xE;
+		irq_enable[16] |= 1;
+		i2c_master_send(client, irq_enable + 15, 2);
+
+		/* enable eint irq pin */
+		i2c_master_send(client, irq_enable, 1);
+		i2c_master_recv(client, irq_enable + 1, 16);
+
+		{
+			int i;
+
+			for (i = 0; i < 16; i++)
+				dev_dbg(&client->dev, "%s r:%x v:%x\n", __func__,
+					i, irq_enable[i + 1]);
+		}
 	}
 #endif
 
@@ -187,8 +199,6 @@ static int __devinit sfcpld_probe(struct i2c_client *client,
 {
 	struct sirffpga_cpld	*sfcpld;
 	int			err = -ENODEV;
-	int			tmp;
-	struct i2c_adapter	*adapter = to_i2c_adapter(client->dev.parent);
 
 	sffc = sfcpld = kzalloc(sizeof(*sfcpld), GFP_KERNEL);
 	if (!sfcpld)
