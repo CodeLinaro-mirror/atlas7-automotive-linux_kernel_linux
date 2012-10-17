@@ -162,7 +162,8 @@
 			compatible = "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0xb0000000 0xb0000000 0x180000>;
+			ranges = <0xb0000000 0xb0000000 0x180000>,
+			       <0x56000000 0x56000000 0x1b00000>;
 
 			timer@b0020000 {
 				compatible = "sirf,prima2-tick";
@@ -253,6 +254,11 @@
 				interrupts = <15>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
+				sirf,spi-dma-rx-channel = <25>;
+				sirf,spi-dma-tx-channel = <20>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
 			};
 
 			spi1: spi@b0170000 {
@@ -262,6 +268,11 @@
 				interrupts = <16>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
+				sirf,spi-dma-rx-channel = <12>;
+				sirf,spi-dma-tx-channel = <13>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
 			};
 
 			i2c0: i2c@b00e0000 {
@@ -538,6 +549,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
+					bus-width = <8>;
 				};
 
 				sd1: sdhci@56100000 {
@@ -545,6 +557,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56100000 0x100000>;
 					interrupts = <38>;
+					status = "disabled";
 				};
 
 				sd2: sdhci@56200000 {
@@ -552,6 +565,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56200000 0x100000>;
 					interrupts = <23>;
+					status = "disabled";
 				};
 
 				sd3: sdhci@56300000 {
@@ -559,6 +573,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56300000 0x100000>;
 					interrupts = <23>;
+					status = "disabled";
 				};
 
 				sd4: sdhci@56400000 {
@@ -566,6 +581,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56400000 0x100000>;
 					interrupts = <39>;
+					status = "disabled";
 				};
 
 				sd5: sdhci@56500000 {
@@ -573,6 +589,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
+					status = "disabled";
 				};
 
 				pci-copy@57900000 {
