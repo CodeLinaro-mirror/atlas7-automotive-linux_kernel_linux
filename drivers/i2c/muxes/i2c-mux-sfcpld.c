@@ -8,6 +8,8 @@
 #include <asm/delay.h>
 #include <asm/io.h>
 
+bool is_sirffpga;
+
 struct sirffpga_cpld {
 	struct i2c_client	*client;
 	struct task_struct	*irq_tsk;
@@ -45,6 +47,7 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 		goto out;
 
 	dev_info(&client->dev, "cpld version:0x%02x%02x found\n", id[0], id[1]);
+	is_sirffpga = true;
 
 	{
 		char irq_enable[17] = {0, };

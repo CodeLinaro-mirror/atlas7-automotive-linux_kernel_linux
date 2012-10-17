@@ -1774,9 +1774,13 @@ static struct platform_device sirf_device_eth = {
 	},
 };
 
+extern bool is_sirffpga;
 static int __init
 dm9000_init(void)
 {
+	if (!is_sirffpga)
+		return;
+
 	/* we don't want to pollute arch/arm/mach-prima2 */
 	platform_device_register(&sirf_device_eth);
 	gpio_request(DM9K_PORT_GPIO, "sirf-dm9000-ctrl");
