@@ -58,7 +58,7 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 			int i;
 
 			for (i = 0;i < 16; i++)
-				dev_info(&client->dev, "%s r:%x v:%x\n", __func__,
+				dev_dbg(&client->dev, "%s r:%x v:%x\n", __func__,
 					i, irq_enable[i + 1]);
 		}
 
@@ -77,7 +77,7 @@ static int sfcpld_init_set_default_status(struct i2c_client *client)
 			int i;
 
 			for (i = 0; i < 16; i++)
-				dev_info(&client->dev, "%s r:%x v:%x\n", __func__,
+				dev_dbg(&client->dev, "%s r:%x v:%x\n", __func__,
 					i, irq_enable[i + 1]);
 		}
 	}
