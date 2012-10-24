@@ -371,7 +371,12 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	int		threshold_div;
 	int		temp;
 
+#if !defined(CONFIG_SIRFMARCO_FPGA)
 	ioclk_rate = 150000000;
+#else
+	ioclk_rate = 26000000;
+#endif
+
 	switch (termios->c_cflag & CSIZE) {
 	default:
 	case CS8:
@@ -427,18 +432,18 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 			sirfsoc_uart_disable_ms(port);
 	}
 
+#if !defined(CONFIG_SIRFMARCO_FPGA)
 	/* common rate: fast calculation */
 	for (ic = 0; ic < SIRF_BAUD_RATE_SUPPORT_NR; ic++)
 		if (baud_rate == baudrate_to_regv[ic].baud_rate)
 			clk_div_reg = baudrate_to_regv[ic].reg_val;
+#endif
 	setted_baud = baud_rate;
 	/* arbitary rate setting */
 	if (unlikely(clk_div_reg == 0))
 		clk_div_reg = sirfsoc_calc_sample_div(baud_rate, ioclk_rate,
 								&setted_baud);
-#if !defined(CONFIG_SIRFMARCO_FPGA)
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
-#endif
 
 	if (tty_termios_baud_rate(termios))
 		tty_termios_encode_baud_rate(termios, setted_baud, setted_baud);
