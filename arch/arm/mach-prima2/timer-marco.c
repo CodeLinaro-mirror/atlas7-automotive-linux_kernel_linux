@@ -104,12 +104,7 @@ static int sirfsoc_timer_set_next_event(unsigned long delta,
 {
 
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0);
-#if 0
 	writel_relaxed(delta, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_0);
-#else
-	/* Fix FPGA: divider of 32counter_0 doesn't work */
-	writel_relaxed(delta * 13, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_0);
-#endif
 
 	/* enable the tick */
 	sirfsoc_timer_count_enable(0);
@@ -208,12 +203,7 @@ static int sirfsoc_timer1_set_next_event(unsigned long delta,
 	struct clock_event_device *ce)
 {
 	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_1);
-#if 0
 	writel_relaxed(delta, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_1);
-#else
-	/* Fix FPGA: divider of 32counter_0 doesn't work */
-	writel_relaxed(delta * 13, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_1);
-#endif
 
 	/* enable the tick */
 	sirfsoc_timer_count_enable(1);
