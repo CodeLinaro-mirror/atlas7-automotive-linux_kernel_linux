@@ -250,6 +250,9 @@ static u32 clear_idx;
 #define LOG_ALIGN __alignof__(struct log)
 #endif
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
+static char __boot_log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
+static int boot_log_len;
+
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
@@ -1247,6 +1250,16 @@ module_param(ignore_loglevel, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(ignore_loglevel, "ignore loglevel setting, to"
 	"print all kernel messages to the console.");
 
+static bool boot_quiet = false;
+
+static int __init boot_quiet_kernel(char *str)
+{
+        boot_quiet = true;
+        return 0;
+}
+
+early_param("boot_quiet", boot_quiet_kernel);
+
 /*
  * Call the console drivers, asking them to write out
  * log_buf[start] to log_buf[end - 1].
@@ -1257,6 +1270,20 @@ static void call_console_drivers(int level, const char *text, size_t len)
 	struct console *con;
 
 	trace_console(text, 0, len, len);
+
+	/*
+	 * if users require boot_quiet feature, we don't write console
+	 * until we get a non-quiet message or system state becomes
+	 * running
+	 */
+	if (boot_quiet && (system_state == SYSTEM_BOOTING) &&
+		(level >= 4) && (level < console_loglevel)) {
+		if (len + boot_log_len > __LOG_BUF_LEN)
+			len = __LOG_BUF_LEN - boot_log_len;
+		memcpy(__boot_log_buf + boot_log_len, text, len);
+		boot_log_len += len;
+		return;
+	}
 
 	if (level >= console_loglevel && !ignore_loglevel)
 		return;
@@ -1273,6 +1300,10 @@ static void call_console_drivers(int level, const char *text, size_t len)
 		if (!cpu_online(smp_processor_id()) &&
 		    !(con->flags & CON_ANYTIME))
 			continue;
+		if (unlikely(boot_log_len)) {
+			con->write(con, __boot_log_buf, boot_log_len);
+			boot_log_len = 0;
+		}
 		con->write(con, text, len);
 	}
 }

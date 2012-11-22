@@ -2383,6 +2383,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 
 	quiet		[KNL] Disable most log messages
 
+	boot_quiet	[KNL] Defer boot log messages to the moment either
+			we get a high level message or system state becomes
+			running.
+
 	r128=		[HW,DRM]
 
 	raid=		[HW,RAID]
