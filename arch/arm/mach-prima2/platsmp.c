@@ -69,25 +69,24 @@ static void __cpuinit sirfsoc_secondary_init(unsigned int cpu)
 static int __cpuinit sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
-	static void __iomem *sram_base;
+	static void __iomem *rsc_base;
 
-	/* for the moment in FPGA we use DSP SRAM */
-#define SIRFSOC_DSP_SRAM_BASE 0xCA008000UL
-	sram_base = ioremap_nocache(SIRFSOC_DSP_SRAM_BASE, SZ_4K);
+#define SIRFSOC_RSC_BASE 0xC3010000
+	rsc_base = ioremap_nocache(SIRFSOC_RSC_BASE, SZ_4K);
 
 	/*
 	 * write the address of secondary startup into the sram register
-	 * at offset 0x34, then write the magic number 0x12345678 to the
-	 * sram register at offset 0x30, which is what boot rom code is
-	 * waiting for. This would wake up the secondary core from WFI
+	 * at offset 0x2C, then write the magic number 0x3CAF5D62 to the
+	 * RSC register at offset 0x28, which is what boot rom code is
+	 * waiting for. This would wake up the secondary core from WFE
 	 */
-#define SIRFSOC_CPU1_JUMPADDR_OFFSET 0x34
+#define SIRFSOC_CPU1_JUMPADDR_OFFSET 0x2C
 	__raw_writel(virt_to_phys(sirfsoc_secondary_startup),
-		sram_base + SIRFSOC_CPU1_JUMPADDR_OFFSET);
+		rsc_base + SIRFSOC_CPU1_JUMPADDR_OFFSET);
 
-#define SIRFSOC_CPU1_WAKEMAGIC_OFFSET 0x30
-	__raw_writel(0x12345678,
-		sram_base + SIRFSOC_CPU1_WAKEMAGIC_OFFSET);
+#define SIRFSOC_CPU1_WAKEMAGIC_OFFSET 0x28
+	__raw_writel(0x3CAF5D62,
+		rsc_base + SIRFSOC_CPU1_WAKEMAGIC_OFFSET);
 
 	/* make sure write buffer is drained */
 	mb();
@@ -107,11 +106,10 @@ static int __cpuinit sirfsoc_boot_secondary(unsigned int cpu, struct task_struct
 	outer_clean_range(__pa(&pen_release), __pa(&pen_release + 1));
 
 	/*
-	 * Send the secondary CPU a soft interrupt ID15, thereby causing
-	 * the boot monitor to read the JUMPADDR and WAKEMAGIC, and branch
-	 * to the address found there.
+	 * Send the secondary CPU SEV, thereby causing the boot monitor to read
+	 * the JUMPADDR and WAKEMAGIC, and branch to the address found there.
 	 */
-	gic_raise_softirq(cpumask_of(cpu), 15);
+	dsb_sev();
 
 	timeout = jiffies + (1 * HZ);
 	while (time_before(jiffies, timeout)) {
