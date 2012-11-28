@@ -9,6 +9,8 @@
 #include <linux/init.h>
 #include <linux/smp.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <asm/page.h>
 #include <asm/mach/map.h>
 #include <asm/smp_plat.h>
@@ -21,6 +23,7 @@
 #include "common.h"
 
 static void __iomem *scu_base;
+static void __iomem *rsc_base;
 
 static DEFINE_SPINLOCK(boot_lock);
 
@@ -66,13 +69,23 @@ static void __cpuinit sirfsoc_secondary_init(unsigned int cpu)
 	spin_unlock(&boot_lock);
 }
 
+static struct of_device_id rsc_ids[]  = {
+	{ .compatible = "sirf,marco-rsc" },
+	{},
+};
+
 static int __cpuinit sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
-	static void __iomem *rsc_base;
+	struct device_node *np;
 
-#define SIRFSOC_RSC_BASE 0xC3010000
-	rsc_base = ioremap_nocache(SIRFSOC_RSC_BASE, SZ_4K);
+	np = of_find_matching_node(NULL, rsc_ids);
+	if (!np)
+		return -ENODEV;
+
+	rsc_base = of_iomap(np, 0);
+	if (!rsc_base)
+		return -ENOMEM;
 
 	/*
 	 * write the address of secondary startup into the sram register
