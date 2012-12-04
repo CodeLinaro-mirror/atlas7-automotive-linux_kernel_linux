@@ -26,6 +26,10 @@
 
 #include "sirfsoc_uart.h"
 
+#if defined(CONFIG_SIRFMARCO_FPGA)
+static bool is_marco = false;
+#endif
+
 static unsigned int
 sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count);
 static unsigned int
@@ -371,10 +375,10 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	int		threshold_div;
 	int		temp;
 
-#if !defined(CONFIG_SIRFMARCO_FPGA)
 	ioclk_rate = 150000000;
-#else
-	ioclk_rate = 26000000;
+#if defined(CONFIG_SIRFMARCO_FPGA)
+	if (is_marco)
+		ioclk_rate = 26000000;
 #endif
 
 	switch (termios->c_cflag & CSIZE) {
@@ -432,12 +436,13 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 			sirfsoc_uart_disable_ms(port);
 	}
 
-#if !defined(CONFIG_SIRFMARCO_FPGA)
-	/* common rate: fast calculation */
-	for (ic = 0; ic < SIRF_BAUD_RATE_SUPPORT_NR; ic++)
-		if (baud_rate == baudrate_to_regv[ic].baud_rate)
-			clk_div_reg = baudrate_to_regv[ic].reg_val;
-#endif
+	if (ioclk_rate == 150000000) {
+		/* common rate: fast calculation */
+		for (ic = 0; ic < SIRF_BAUD_RATE_SUPPORT_NR; ic++)
+			if (baud_rate == baudrate_to_regv[ic].baud_rate)
+				clk_div_reg = baudrate_to_regv[ic].reg_val;
+	}
+
 	setted_baud = baud_rate;
 	/* arbitary rate setting */
 	if (unlikely(clk_div_reg == 0))
@@ -654,6 +659,11 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto err;
 	}
+
+#if defined(CONFIG_SIRFMARCO_FPGA)
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
+		is_marco = true;
+#endif
 
 	sirfport = &sirfsoc_uart_ports[pdev->id];
 	port = &sirfport->port;
