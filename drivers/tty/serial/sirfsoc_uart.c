@@ -375,9 +375,15 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	int		threshold_div;
 	int		temp;
 
-	ioclk_rate = 150000000;
+	struct clk *clk = clk_get_sys("io", NULL);
+	BUG_ON(IS_ERR(clk));
+
+	ioclk_rate = clk_get_rate(clk);
+	clk_put(clk);
+
 #if defined(CONFIG_SIRFMARCO_FPGA)
 	if (is_marco)
+		/* For FPGA, the io clk is fixed to 26Mhz */
 		ioclk_rate = 26000000;
 #endif
 
