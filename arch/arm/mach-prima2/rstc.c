@@ -70,11 +70,9 @@ int sirfsoc_reset_device(struct device *dev)
 		 * datasheet doesn't require explicit delay between the set and clear
 		 * of reset bit. it could be shorter if tests pass.
 		 */
-		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 8) | reset_bit,
-			sirfsoc_rstc_base + (reset_bit / 32) * 8);
+		writel(reset_bit, sirfsoc_rstc_base + (reset_bit / 32) * 8);
 		msleep(10);
-		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 8) | reset_bit,
-			sirfsoc_rstc_base + (reset_bit / 32) * 8 + 4);
+		writel(reset_bit, sirfsoc_rstc_base + (reset_bit / 32) * 8 + 4);
 	}
 
 	mutex_unlock(&rstc_lock);
