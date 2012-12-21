@@ -11,10 +11,6 @@
 #include <linux/of.h>
 #include <asm/hardware/cache-l2x0.h>
 
-/*
- * fixme: make aux_val and aux_mask the private data
- * of of_device_id after we get right aux_val/mask
- */
 static struct of_device_id prima2_l2x0_ids[]  = {
 	{ .compatible = "sirf,prima2-pl310-cache" },
 	{},
@@ -28,6 +24,7 @@ static struct of_device_id marco_l2x0_ids[]  = {
 static int __init sirfsoc_l2x0_init(void)
 {
 	struct device_node *np;
+
 	np = of_find_matching_node(NULL, prima2_l2x0_ids);
 	if (np) {
 		pr_info("Initializing prima2 L2 cache\n");
