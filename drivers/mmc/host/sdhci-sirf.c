@@ -10,25 +10,20 @@
 #include <linux/device.h>
 #include <linux/mmc/host.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include "sdhci-pltfm.h"
+
+/* Fixme: make it the platform data of sdhci_host */
+
+static u32 sdhci_sirf_clk = 26000000; /* For FPGA */
 
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
-	return 150000000;
-}
-
-static void sdhci_sirf_set_clock(struct sdhci_host *host, unsigned int clock)
-{
-	/*
-	 * Todo: fulfill the implement for Marco Board
-	 * for FPGA, we use the default clock freq
-	 */
-	host->clock = clock;
+	return sdhci_sirf_clk;
 }
 
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
-	.set_clock	= sdhci_sirf_set_clock,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
@@ -44,6 +39,16 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 
 static int __devinit sdhci_sirf_probe(struct platform_device *pdev)
 {
+	/* 
+	 * we use 26MB for all marco for the moment, and get mmc clk
+	 * from DT for primaII
+	 */
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-sdhc")) {
+		struct clk *clk = clk_get(&pdev->dev, NULL);
+		sdhci_sirf_clk = clk_get_rate(clk);
+		clk_put(clk);
+	}
+
 	return sdhci_pltfm_register(pdev, &sdhci_sirf_pdata);
 }
 
