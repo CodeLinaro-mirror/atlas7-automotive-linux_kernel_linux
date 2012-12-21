@@ -307,7 +307,7 @@ static void __init sirfsoc_timer_init(void)
 	sirfsoc_of_timer_map();
 
 	/* Initialize the timer dividers */
-	timer_div = rate / CLOCK_TICK_RATE / 2 - 1;
+	timer_div = rate / CLOCK_TICK_RATE - 1;
 	writel_relaxed(timer_div << 16, sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_CTRL);
 	writel_relaxed(timer_div << 16, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL);
 	writel_relaxed(timer_div << 16, sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_1_CTRL);
