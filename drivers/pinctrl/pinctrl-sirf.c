@@ -1722,11 +1722,10 @@ static int __devinit sirfsoc_gpio_probe(struct device_node *np)
 	if (of_device_is_compatible(np, "sirf,marco-pinctrl")) {
 		is_marco = 1;
 		/* For marco, GPIO3_7..GPIO3_31 are reserved */
-		writel(readl(regs + SIRFSOC_GPIO_PAD_EN(3)) | ~0x7F,
-				regs + SIRFSOC_GPIO_PAD_EN(3));
+		writel(~0x7FUL, regs + SIRFSOC_GPIO_PAD_EN(3));
 	} else {
 		/* For primaII, GPIO23_8..GPIO3_31 are reserved */
-		writel(readl(regs + SIRFSOC_GPIO_PAD_EN(3)) | ~0x7FFFF,
+		writel(readl(regs + SIRFSOC_GPIO_PAD_EN(3)) | ~0x7FFFFUL,
 				regs + SIRFSOC_GPIO_PAD_EN(3));
 	}
 
