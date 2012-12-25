@@ -263,6 +263,7 @@ static irqreturn_t sirfsoc_uart_isr(int irq, void *dev_id)
 	struct uart_port *port = &sirfport->port;
 	struct uart_state *state = port->state;
 	struct circ_buf *xmit = &port->state->xmit;
+	spin_lock(&port->lock);
 	intr_status = rd_regl(port, SIRFUART_INT_STATUS);
 	wr_regl(port, SIRFUART_INT_STATUS, intr_status);
 	intr_status &= rd_regl(port, SIRFUART_INT_EN);
@@ -272,6 +273,7 @@ static irqreturn_t sirfsoc_uart_isr(int irq, void *dev_id)
 				goto recv_char;
 			uart_insert_char(port, intr_status,
 					SIRFUART_RX_OFLOW, 0, TTY_BREAK);
+			spin_unlock(&port->lock);
 			return IRQ_HANDLED;
 		}
 		if (intr_status & SIRFUART_RX_OFLOW)
@@ -304,6 +306,7 @@ recv_char:
 		sirfsoc_uart_pio_rx_chars(port, SIRFSOC_UART_IO_RX_MAX_CNT);
 	if (intr_status & SIRFUART_TX_INT_EN) {
 		if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
+			spin_unlock(&port->lock);
 			return IRQ_HANDLED;
 		} else {
 			sirfsoc_uart_pio_tx_chars(sirfport,
@@ -314,6 +317,7 @@ recv_char:
 				sirfsoc_uart_stop_tx(port);
 		}
 	}
+	spin_unlock(&port->lock);
 	return IRQ_HANDLED;
 }
 
