@@ -379,11 +379,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	int		threshold_div;
 	int		temp;
 
-	struct clk *clk = clk_get_sys("io", NULL);
-	BUG_ON(IS_ERR(clk));
-
-	ioclk_rate = clk_get_rate(clk);
-	clk_put(clk);
+	ioclk_rate = port->uartclk;
 
 #if defined(CONFIG_SIRFMARCO_FPGA)
 	if (is_marco)
@@ -720,6 +716,14 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 			goto err;
 	}
 
+	sirfport->clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(sirfport->clk)) {
+		ret = PTR_ERR(sirfport->clk);
+		goto clk_err;
+	}
+	clk_prepare_enable(sirfport->clk);
+	port->uartclk = clk_get_rate(sirfport->clk);
+
 	port->ops = &sirfsoc_uart_ops;
 	spin_lock_init(&port->lock);
 
@@ -733,6 +737,9 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 	return 0;
 
 port_err:
+	clk_disable_unprepare(sirfport->clk);
+	clk_put(sirfport->clk);
+clk_err:
 	platform_set_drvdata(pdev, NULL);
 	if (sirfport->hw_flow_ctrl)
 		pinctrl_put(sirfport->p);
@@ -747,6 +754,8 @@ static int sirfsoc_uart_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	if (sirfport->hw_flow_ctrl)
 		pinctrl_put(sirfport->p);
+	clk_disable_unprepare(sirfport->clk);
+	clk_put(sirfport->clk);
 	uart_remove_one_port(&sirfsoc_uart_drv, port);
 	return 0;
 }
