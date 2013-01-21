@@ -235,7 +235,6 @@ static int __cpuinit sirfsoc_local_timer_setup(struct clock_event_device *ce)
 	ce->name = "local_timer";
 	ce->features = sirfsoc_clockevent.features;
 	ce->rating = sirfsoc_clockevent.rating;
-	ce->cpumask = cpumask_of(1);
 	ce->set_mode = sirfsoc_timer1_set_mode;
 	ce->set_next_event = sirfsoc_timer1_set_next_event;
 	ce->shift = sirfsoc_clockevent.shift;
