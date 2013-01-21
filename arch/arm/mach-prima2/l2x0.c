@@ -18,14 +18,14 @@ struct l2x0_aux
 };
 
 static struct l2x0_aux prima2_l2x0_aux __initconst = {
-	0x40000,
-	0,
+	.val = 2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT,
+	.mask =	0,
 };
 
 static struct l2x0_aux marco_l2x0_aux __initconst = {
-	(2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
+	.val = (2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
 		(1 << L2X0_AUX_CTRL_ASSOCIATIVITY_SHIFT),
-	L2X0_AUX_CTRL_MASK,
+	.mask = L2X0_AUX_CTRL_MASK,
 };
 
 static struct of_device_id sirf_l2x0_ids[] __initconst = {
