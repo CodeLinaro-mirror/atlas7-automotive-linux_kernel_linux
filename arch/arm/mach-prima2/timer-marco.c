@@ -69,16 +69,17 @@ static inline void sirfsoc_timer_count_enable(int idx)
 		sirfsoc_timer_base + SIRFSOC_TIMER_32COUNTER_0_CTRL + 4 * idx);
 }
 
-/* timer0 interrupt handler */
+/* timer interrupt handler */
 static irqreturn_t sirfsoc_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *ce = dev_id;
+	int cpu = smp_processor_id();
 
-	/* clear timer0 interrupt */
-	writel_relaxed(BIT(0), sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS);
+	/* clear timer interrupt */
+	writel_relaxed(BIT(cpu), sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS);
 
 	if (ce->mode == CLOCK_EVT_MODE_ONESHOT)
-		sirfsoc_timer_count_disable(0);
+		sirfsoc_timer_count_disable(cpu);
 
 	ce->event_handler(ce);
 
@@ -102,12 +103,15 @@ static cycle_t sirfsoc_timer_read(struct clocksource *cs)
 static int sirfsoc_timer_set_next_event(unsigned long delta,
 	struct clock_event_device *ce)
 {
+	int cpu = smp_processor_id();
 
-	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0);
-	writel_relaxed(delta, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_0);
+	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_0 +
+		4 * cpu);
+	writel_relaxed(delta, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_0 +
+		4 * cpu);
 
 	/* enable the tick */
-	sirfsoc_timer_count_enable(0);
+	sirfsoc_timer_count_enable(cpu);
 
 	return 0;
 }
@@ -123,7 +127,7 @@ static void sirfsoc_timer_set_mode(enum clock_event_mode mode,
 		break;
 	}
 
-	sirfsoc_timer_count_disable(0);
+	sirfsoc_timer_count_disable(smp_processor_id());
 }
 
 static void sirfsoc_clocksource_suspend(struct clocksource *cs)
@@ -177,53 +181,11 @@ static struct irqaction sirfsoc_timer_irq = {
 
 #ifdef CONFIG_LOCAL_TIMERS
 
-/* timer1 interrupt handler */
-static irqreturn_t sirfsoc_timer1_interrupt(int irq, void *dev_id)
-{
-	struct clock_event_device *ce = dev_id;
-
-	/* clear timer1 interrupt */
-	writel_relaxed(BIT(1), sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS);
-
-	if (ce->mode == CLOCK_EVT_MODE_ONESHOT)
-		sirfsoc_timer_count_disable(1);
-
-	ce->event_handler(ce);
-
-	return IRQ_HANDLED;
-}
-
 static struct irqaction sirfsoc_timer1_irq = {
 	.name = "sirfsoc_timer1",
 	.flags = IRQF_TIMER | IRQF_NOBALANCING,
-	.handler = sirfsoc_timer1_interrupt,
+	.handler = sirfsoc_timer_interrupt,
 };
-
-static int sirfsoc_timer1_set_next_event(unsigned long delta,
-	struct clock_event_device *ce)
-{
-	writel_relaxed(0, sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_1);
-	writel_relaxed(delta, sirfsoc_timer_base + SIRFSOC_TIMER_MATCH_1);
-
-	/* enable the tick */
-	sirfsoc_timer_count_enable(1);
-
-	return 0;
-}
-
-static void sirfsoc_timer1_set_mode(enum clock_event_mode mode,
-	struct clock_event_device *ce)
-{
-	switch (mode) {
-	case CLOCK_EVT_MODE_ONESHOT:
-		/* enable in set_next_event */
-		break;
-	default:
-		break;
-	}
-
-	sirfsoc_timer_count_disable(1);
-}
 
 static int __cpuinit sirfsoc_local_timer_setup(struct clock_event_device *ce)
 {
@@ -235,8 +197,8 @@ static int __cpuinit sirfsoc_local_timer_setup(struct clock_event_device *ce)
 	ce->name = "local_timer";
 	ce->features = sirfsoc_clockevent.features;
 	ce->rating = sirfsoc_clockevent.rating;
-	ce->set_mode = sirfsoc_timer1_set_mode;
-	ce->set_next_event = sirfsoc_timer1_set_next_event;
+	ce->set_mode = sirfsoc_timer_set_mode;
+	ce->set_next_event = sirfsoc_timer_set_next_event;
 	ce->shift = sirfsoc_clockevent.shift;
 	ce->mult = sirfsoc_clockevent.mult;
 	ce->max_delta_ns = sirfsoc_clockevent.max_delta_ns;
