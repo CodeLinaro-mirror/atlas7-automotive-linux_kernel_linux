@@ -275,7 +275,6 @@ static struct platform_device *smdk6410_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_ohci,
 	&s3c_device_usb_hsotg,
-	&samsung_asoc_dma,
 	&s3c64xx_device_iisv4,
 	&samsung_device_keypad,
 
@@ -705,6 +704,6 @@ MACHINE_START(SMDK6410, "SMDK6410")
 	.map_io		= smdk6410_map_io,
 	.init_machine	= smdk6410_machine_init,
 	.init_late	= s3c64xx_init_late,
-	.timer		= &s3c24xx_timer,
+	.init_time	= s3c24xx_timer_init,
 	.restart	= s3c64xx_restart,
 MACHINE_END

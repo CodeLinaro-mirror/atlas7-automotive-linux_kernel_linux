@@ -2,7 +2,7 @@
 #define __ARCH_MACH_COMMON_H
 
 extern void shmobile_earlytimer_init(void);
-extern struct sys_timer shmobile_timer;
+extern void shmobile_timer_init(void);
 extern void shmobile_setup_delay(unsigned int max_cpu_core_mhz,
 			 unsigned int mult, unsigned int div);
 struct twd_local_timer;
@@ -18,26 +18,9 @@ extern int shmobile_enter_wfi(struct cpuidle_device *dev,
 			      struct cpuidle_driver *drv, int index);
 extern void shmobile_cpuidle_set_driver(struct cpuidle_driver *drv);
 
-extern void sh7367_init_irq(void);
-extern void sh7367_map_io(void);
-extern void sh7367_add_early_devices(void);
-extern void sh7367_add_standard_devices(void);
-extern void sh7367_clock_init(void);
-extern void sh7367_pinmux_init(void);
-extern struct clk sh7367_extalb1_clk;
-extern struct clk sh7367_extal2_clk;
-
-extern void sh7377_init_irq(void);
-extern void sh7377_map_io(void);
-extern void sh7377_add_early_devices(void);
-extern void sh7377_add_standard_devices(void);
-extern void sh7377_clock_init(void);
-extern void sh7377_pinmux_init(void);
-extern struct clk sh7377_extalc1_clk;
-extern struct clk sh7377_extal2_clk;
-
 extern void sh7372_init_irq(void);
 extern void sh7372_map_io(void);
+extern void sh7372_earlytimer_init(void);
 extern void sh7372_add_early_devices(void);
 extern void sh7372_add_standard_devices(void);
 extern void sh7372_clock_init(void);
@@ -50,6 +33,7 @@ extern struct clk sh7372_extal2_clk;
 
 extern void sh73a0_init_irq(void);
 extern void sh73a0_map_io(void);
+extern void sh73a0_earlytimer_init(void);
 extern void sh73a0_add_early_devices(void);
 extern void sh73a0_add_standard_devices(void);
 extern void sh73a0_clock_init(void);
@@ -68,6 +52,7 @@ extern void r8a7740_pinmux_init(void);
 
 extern void r8a7779_init_irq(void);
 extern void r8a7779_map_io(void);
+extern void r8a7779_earlytimer_init(void);
 extern void r8a7779_add_early_devices(void);
 extern void r8a7779_add_standard_devices(void);
 extern void r8a7779_clock_init(void);

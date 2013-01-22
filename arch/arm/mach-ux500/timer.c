@@ -9,10 +9,9 @@
 #include <linux/clksrc-dbx500-prcmu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/platform_data/clocksource-nomadik-mtu.h>
 
 #include <asm/smp_twd.h>
-
-#include <plat/mtu.h>
 
 #include <mach/setup.h>
 #include <mach/hardware.h>
@@ -47,7 +46,7 @@ const static struct of_device_id prcmu_timer_of_match[] __initconst = {
 	{ },
 };
 
-static void __init ux500_timer_init(void)
+void __init ux500_timer_init(void)
 {
 	void __iomem *mtu_timer_base;
 	void __iomem *prcmu_timer_base;
@@ -96,18 +95,7 @@ dt_fail:
 	 *
 	 */
 
-	nmdk_timer_init(mtu_timer_base);
+	nmdk_timer_init(mtu_timer_base, IRQ_MTU0);
 	clksrc_dbx500_prcmu_init(prcmu_timer_base);
 	ux500_twd_init();
 }
-
-static void ux500_timer_reset(void)
-{
-	nmdk_clkevt_reset();
-	nmdk_clksrc_reset();
-}
-
-struct sys_timer ux500_timer = {
-	.init		= ux500_timer_init,
-	.resume		= ux500_timer_reset,
-};

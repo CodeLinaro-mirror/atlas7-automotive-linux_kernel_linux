@@ -23,6 +23,8 @@
 #include <linux/i2c-gpio.h>
 #include <linux/i2c/mcs.h>
 #include <linux/i2c/atmel_mxt_ts.h>
+#include <linux/platform_data/i2c-s3c2410.h>
+#include <linux/platform_data/mipi-csis.h>
 #include <linux/platform_data/s3c-hsotg.h>
 #include <drm/exynos_drm.h>
 
@@ -35,7 +37,6 @@
 #include <plat/clock.h>
 #include <plat/cpu.h>
 #include <plat/devs.h>
-#include <linux/platform_data/i2c-s3c2410.h>
 #include <plat/gpio-cfg.h>
 #include <plat/fb.h>
 #include <plat/mfc.h>
@@ -43,7 +44,6 @@
 #include <plat/fimc-core.h>
 #include <plat/s5p-time.h>
 #include <plat/camport.h>
-#include <linux/platform_data/mipi-csis.h>
 
 #include <mach/map.h>
 
@@ -754,7 +754,6 @@ static struct s3c_sdhci_platdata universal_hsmmc0_data __initdata = {
 	.max_width		= 8,
 	.host_caps		= (MMC_CAP_8_BIT_DATA | MMC_CAP_4_BIT_DATA |
 				MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED),
-	.host_caps2		= MMC_CAP2_BROKEN_VOLTAGE,
 	.cd_type		= S3C_SDHCI_CD_PERMANENT,
 };
 
@@ -1081,9 +1080,6 @@ static struct platform_device *universal_devices[] __initdata = {
 	&s5p_device_onenand,
 	&s5p_device_fimd0,
 	&s5p_device_jpeg,
-#ifdef CONFIG_DRM_EXYNOS
-	&exynos_device_drm,
-#endif
 	&s3c_device_usb_hsotg,
 	&s5p_device_mfc,
 	&s5p_device_mfc_l,
@@ -1158,7 +1154,7 @@ MACHINE_START(UNIVERSAL_C210, "UNIVERSAL_C210")
 	.handle_irq	= gic_handle_irq,
 	.init_machine	= universal_machine_init,
 	.init_late	= exynos_init_late,
-	.timer		= &s5p_timer,
+	.init_time	= s5p_timer_init,
 	.reserve        = &universal_reserve,
 	.restart	= exynos4_restart,
 MACHINE_END

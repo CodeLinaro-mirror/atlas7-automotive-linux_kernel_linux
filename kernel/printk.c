@@ -87,6 +87,12 @@ static DEFINE_SEMAPHORE(console_sem);
 struct console *console_drivers;
 EXPORT_SYMBOL_GPL(console_drivers);
 
+#ifdef CONFIG_LOCKDEP
+static struct lockdep_map console_lock_dep_map = {
+	.name = "console_lock"
+};
+#endif
+
 /*
  * This is used for debugging the mess that is the VT code by
  * keeping track if we have the console semaphore held. It's
@@ -250,9 +256,6 @@ static u32 clear_idx;
 #define LOG_ALIGN __alignof__(struct log)
 #endif
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
-static char __boot_log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
-static int boot_log_len;
-
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
@@ -744,6 +747,21 @@ void __init setup_log_buf(int early)
 		free, (free * 100) / __LOG_BUF_LEN);
 }
 
+static bool __read_mostly ignore_loglevel;
+
+static int __init ignore_loglevel_setup(char *str)
+{
+	ignore_loglevel = 1;
+	printk(KERN_INFO "debug: ignoring loglevel setting.\n");
+
+	return 0;
+}
+
+early_param("ignore_loglevel", ignore_loglevel_setup);
+module_param(ignore_loglevel, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ignore_loglevel, "ignore loglevel setting, to"
+	"print all kernel messages to the console.");
+
 #ifdef CONFIG_BOOT_PRINTK_DELAY
 
 static int boot_delay; /* msecs delay after each printk during bootup */
@@ -767,13 +785,15 @@ static int __init boot_delay_setup(char *str)
 }
 __setup("boot_delay=", boot_delay_setup);
 
-static void boot_delay_msec(void)
+static void boot_delay_msec(int level)
 {
 	unsigned long long k;
 	unsigned long timeout;
 
-	if (boot_delay == 0 || system_state != SYSTEM_BOOTING)
+	if ((boot_delay == 0 || system_state != SYSTEM_BOOTING)
+		|| (level >= console_loglevel && !ignore_loglevel)) {
 		return;
+	}
 
 	k = (unsigned long long)loops_per_msec * boot_delay;
 
@@ -792,7 +812,7 @@ static void boot_delay_msec(void)
 	}
 }
 #else
-static inline void boot_delay_msec(void)
+static inline void boot_delay_msec(int level)
 {
 }
 #endif
@@ -1235,31 +1255,6 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
 	return do_syslog(type, buf, len, SYSLOG_FROM_CALL);
 }
 
-static bool __read_mostly ignore_loglevel;
-
-static int __init ignore_loglevel_setup(char *str)
-{
-	ignore_loglevel = 1;
-	printk(KERN_INFO "debug: ignoring loglevel setting.\n");
-
-	return 0;
-}
-
-early_param("ignore_loglevel", ignore_loglevel_setup);
-module_param(ignore_loglevel, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(ignore_loglevel, "ignore loglevel setting, to"
-	"print all kernel messages to the console.");
-
-static bool boot_quiet = false;
-
-static int __init boot_quiet_kernel(char *str)
-{
-        boot_quiet = true;
-        return 0;
-}
-
-early_param("boot_quiet", boot_quiet_kernel);
-
 /*
  * Call the console drivers, asking them to write out
  * log_buf[start] to log_buf[end - 1].
@@ -1270,20 +1265,6 @@ static void call_console_drivers(int level, const char *text, size_t len)
 	struct console *con;
 
 	trace_console(text, 0, len, len);
-
-	/*
-	 * if users require boot_quiet feature, we don't write console
-	 * until we get a non-quiet message or system state becomes
-	 * running
-	 */
-	if (boot_quiet && (system_state == SYSTEM_BOOTING) &&
-		(level >= 4) && (level < console_loglevel)) {
-		if (len + boot_log_len > __LOG_BUF_LEN)
-			len = __LOG_BUF_LEN - boot_log_len;
-		memcpy(__boot_log_buf + boot_log_len, text, len);
-		boot_log_len += len;
-		return;
-	}
 
 	if (level >= console_loglevel && !ignore_loglevel)
 		return;
@@ -1300,10 +1281,6 @@ static void call_console_drivers(int level, const char *text, size_t len)
 		if (!cpu_online(smp_processor_id()) &&
 		    !(con->flags & CON_ANYTIME))
 			continue;
-		if (unlikely(boot_log_len)) {
-			con->write(con, __boot_log_buf, boot_log_len);
-			boot_log_len = 0;
-		}
 		con->write(con, text, len);
 	}
 }
@@ -1523,7 +1500,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int this_cpu;
 	int printed_len = 0;
 
-	boot_delay_msec();
+	boot_delay_msec(level);
 	printk_delay();
 
 	/* This stops the holder of console_sem just where we want him */
@@ -1939,12 +1916,14 @@ static int __cpuinit console_cpu_notify(struct notifier_block *self,
  */
 void console_lock(void)
 {
-	BUG_ON(in_interrupt());
+	might_sleep();
+
 	down(&console_sem);
 	if (console_suspended)
 		return;
 	console_locked = 1;
 	console_may_schedule = 1;
+	mutex_acquire(&console_lock_dep_map, 0, 0, _RET_IP_);
 }
 EXPORT_SYMBOL(console_lock);
 
@@ -1966,6 +1945,7 @@ int console_trylock(void)
 	}
 	console_locked = 1;
 	console_may_schedule = 0;
+	mutex_acquire(&console_lock_dep_map, 0, 1, _RET_IP_);
 	return 1;
 }
 EXPORT_SYMBOL(console_trylock);
@@ -2126,6 +2106,7 @@ skip:
 		local_irq_restore(flags);
 	}
 	console_locked = 0;
+	mutex_release(&console_lock_dep_map, 1, _RET_IP_);
 
 	/* Release the exclusive_console once it is used */
 	if (unlikely(exclusive_console))

@@ -12,7 +12,7 @@
 #ifndef __ARCH_ARM_MACH_EXYNOS_COMMON_H
 #define __ARCH_ARM_MACH_EXYNOS_COMMON_H
 
-extern struct sys_timer exynos4_timer;
+extern void exynos4_timer_init(void);
 
 struct map_desc;
 void exynos_init_io(struct map_desc *mach_desc, int size);
@@ -25,7 +25,7 @@ void exynos_init_late(void);
 #ifdef CONFIG_PM_GENERIC_DOMAINS
 int exynos_pm_late_initcall(void);
 #else
-static int exynos_pm_late_initcall(void) { return 0; }
+static inline int exynos_pm_late_initcall(void) { return 0; }
 #endif
 
 #ifdef CONFIG_ARCH_EXYNOS4

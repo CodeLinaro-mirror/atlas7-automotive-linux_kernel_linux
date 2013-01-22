@@ -712,7 +712,6 @@ static struct platform_device *rx1950_devices[] __initdata = {
 	&s3c_device_wdt,
 	&s3c_device_i2c0,
 	&s3c_device_iis,
-	&samsung_asoc_dma,
 	&s3c_device_usbgadget,
 	&s3c_device_rtc,
 	&s3c_device_nand,
@@ -815,6 +814,6 @@ MACHINE_START(RX1950, "HP iPAQ RX1950")
 	.reserve	= rx1950_reserve,
 	.init_irq = s3c24xx_init_irq,
 	.init_machine = rx1950_init_machine,
-	.timer = &s3c24xx_timer,
+	.init_time	= s3c24xx_timer_init,
 	.restart	= s3c244x_restart,
 MACHINE_END

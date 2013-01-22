@@ -774,7 +774,6 @@ static void __init goni_pmic_init(void)
 /* MoviNAND */
 static struct s3c_sdhci_platdata goni_hsmmc0_data __initdata = {
 	.max_width		= 4,
-	.host_caps2		= MMC_CAP2_BROKEN_VOLTAGE,
 	.cd_type		= S3C_SDHCI_CD_PERMANENT,
 };
 
@@ -976,7 +975,7 @@ MACHINE_START(GONI, "GONI")
 	.handle_irq	= vic_handle_irq,
 	.map_io		= goni_map_io,
 	.init_machine	= goni_machine_init,
-	.timer		= &s5p_timer,
+	.init_time	= s5p_timer_init,
 	.reserve	= &goni_reserve,
 	.restart	= s5pv210_restart,
 MACHINE_END

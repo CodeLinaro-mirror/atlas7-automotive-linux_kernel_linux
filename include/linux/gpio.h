@@ -75,9 +75,9 @@ static inline int irq_to_gpio(unsigned int irq)
 	return -EINVAL;
 }
 
-#endif
+#endif /* ! CONFIG_ARCH_HAVE_CUSTOM_GPIO_H */
 
-#else
+#else /* ! CONFIG_GENERIC_GPIO */
 
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -234,6 +234,21 @@ static inline int irq_to_gpio(unsigned irq)
 	return -EINVAL;
 }
 
-#endif
+static inline int
+gpiochip_add_pin_range(struct gpio_chip *chip, const char *pinctl_name,
+		       unsigned int gpio_offset, unsigned int pin_offset,
+		       unsigned int npins)
+{
+	WARN_ON(1);
+	return -EINVAL;
+}
+
+static inline void
+gpiochip_remove_pin_ranges(struct gpio_chip *chip)
+{
+	WARN_ON(1);
+}
+
+#endif /* ! CONFIG_GENERIC_GPIO */
 
 #endif /* __LINUX_GPIO_H */

@@ -1305,7 +1305,7 @@ out_no_gpio_remap:
 	return ret;
 }
 
-static const struct of_device_id pinmux_ids[] __devinitconst = {
+static const struct of_device_id pinmux_ids[] = {
 	{ .compatible = "sirf,prima2-pinctrl" },
 	{ .compatible = "sirf,marco-pinctrl" },
 	{}
@@ -1642,8 +1642,8 @@ static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
 
-int sirfsoc_gpio_irq_map(struct irq_domain *d, unsigned int irq,
-	irq_hw_number_t hwirq)
+static int sirfsoc_gpio_irq_map(struct irq_domain *d, unsigned int irq,
+				irq_hw_number_t hwirq)
 {
 	struct sirfsoc_gpio_bank *bank = d->host_data;
 

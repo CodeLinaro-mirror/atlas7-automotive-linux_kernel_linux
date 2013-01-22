@@ -24,17 +24,16 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 
-#include <mach/common.h>
-#include <mach/hardware.h>
-#include <mach/iomux-mx50.h>
-
 #include <asm/irq.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
 
+#include "common.h"
 #include "devices-imx50.h"
+#include "hardware.h"
+#include "iomux-mx50.h"
 
 #define FEC_EN		IMX_GPIO_NR(6, 23)
 #define FEC_RESET_B	IMX_GPIO_NR(4, 12)
@@ -211,16 +210,12 @@ static void __init mx50_rdp_timer_init(void)
 	mx50_clocks_init(32768, 24000000, 22579200);
 }
 
-static struct sys_timer mx50_rdp_timer = {
-	.init	= mx50_rdp_timer_init,
-};
-
 MACHINE_START(MX50_RDP, "Freescale MX50 Reference Design Platform")
 	.map_io = mx50_map_io,
 	.init_early = imx50_init_early,
 	.init_irq = mx50_init_irq,
 	.handle_irq = imx50_handle_irq,
-	.timer = &mx50_rdp_timer,
+	.init_time	= mx50_rdp_timer_init,
 	.init_machine = mx50_rdp_board_init,
 	.restart	= mxc_restart,
 MACHINE_END

@@ -32,6 +32,7 @@
 #include <linux/amba/mmci.h>
 #include <linux/amba/pl022.h>
 #include <linux/io.h>
+#include <linux/irqchip/versatile-fpga.h>
 #include <linux/gfp.h>
 #include <linux/clkdev.h>
 #include <linux/mtd/physmap.h>
@@ -51,7 +52,6 @@
 #include <asm/hardware/timer-sp.h>
 
 #include <plat/clcd.h>
-#include <plat/fpga-irq.h>
 #include <plat/sched_clock.h>
 
 #include "core.h"
@@ -770,7 +770,7 @@ void __init versatile_init(void)
 /*
  * Set up timer interrupt, and return the current time in seconds.
  */
-static void __init versatile_timer_init(void)
+void __init versatile_timer_init(void)
 {
 	u32 val;
 
@@ -797,8 +797,3 @@ static void __init versatile_timer_init(void)
 	sp804_clocksource_init(TIMER3_VA_BASE, "timer3");
 	sp804_clockevents_init(TIMER0_VA_BASE, IRQ_TIMERINT0_1, "timer0");
 }
-
-struct sys_timer versatile_timer = {
-	.init		= versatile_timer_init,
-};
-

@@ -234,7 +234,6 @@ static struct platform_device *smdkv210_devices[] __initdata = {
 	&s5pv210_device_ac97,
 	&s5pv210_device_iis0,
 	&s5pv210_device_spdif,
-	&samsung_asoc_dma,
 	&samsung_asoc_idma,
 	&samsung_device_keypad,
 	&smdkv210_dm9000,
@@ -332,7 +331,7 @@ MACHINE_START(SMDKV210, "SMDKV210")
 	.handle_irq	= vic_handle_irq,
 	.map_io		= smdkv210_map_io,
 	.init_machine	= smdkv210_machine_init,
-	.timer		= &s5p_timer,
+	.init_time	= s5p_timer_init,
 	.restart	= s5pv210_restart,
 	.reserve	= &smdkv210_reserve,
 MACHINE_END

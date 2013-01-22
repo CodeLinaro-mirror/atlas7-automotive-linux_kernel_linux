@@ -194,7 +194,7 @@ static int evm_led_setup(struct i2c_client *client, int gpio,
 	while (ngpio--) {
 		leds->gpio = gpio++;
 		leds++;
-	};
+	}
 
 	evm_led_dev = platform_device_alloc("leds-gpio", 0);
 	platform_device_add_data(evm_led_dev, &evm_led_data,
@@ -818,7 +818,7 @@ MACHINE_START(DAVINCI_DM6467_EVM, "DaVinci DM646x EVM")
 	.atag_offset  = 0x100,
 	.map_io       = davinci_map_io,
 	.init_irq     = davinci_irq_init,
-	.timer        = &davinci_timer,
+	.init_time	= davinci_timer_init,
 	.init_machine = evm_init,
 	.init_late	= davinci_init_late,
 	.dma_zone_size	= SZ_128M,
@@ -829,7 +829,7 @@ MACHINE_START(DAVINCI_DM6467TEVM, "DaVinci DM6467T EVM")
 	.atag_offset  = 0x100,
 	.map_io       = davinci_map_io,
 	.init_irq     = davinci_irq_init,
-	.timer        = &davinci_timer,
+	.init_time	= davinci_timer_init,
 	.init_machine = evm_init,
 	.init_late	= davinci_init_late,
 	.dma_zone_size	= SZ_128M,

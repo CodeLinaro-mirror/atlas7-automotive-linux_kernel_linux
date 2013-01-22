@@ -165,7 +165,6 @@ static struct platform_device *smdk6440_devices[] __initdata = {
 	&s3c_device_i2c1,
 	&s3c_device_ts,
 	&s3c_device_wdt,
-	&samsung_asoc_dma,
 	&s5p6440_device_iis,
 	&s3c_device_fb,
 	&smdk6440_lcd_lte480wv,
@@ -276,6 +275,6 @@ MACHINE_START(SMDK6440, "SMDK6440")
 	.handle_irq	= vic_handle_irq,
 	.map_io		= smdk6440_map_io,
 	.init_machine	= smdk6440_machine_init,
-	.timer		= &s5p_timer,
+	.init_time	= s5p_timer_init,
 	.restart	= s5p64x0_restart,
 MACHINE_END

@@ -28,14 +28,12 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 
-#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
 #include "common.h"
-#include <plat/gpmc.h>
-#include <plat/usb.h>
+#include "gpmc.h"
 #include "gpmc-smc91x.h"
 
 #include <video/omapdss.h>
@@ -286,6 +284,6 @@ MACHINE_START(OMAP_2430SDP, "OMAP2430 sdp2430 board")
 	.handle_irq	= omap2_intc_handle_irq,
 	.init_machine	= omap_2430sdp_init,
 	.init_late	= omap2430_init_late,
-	.timer		= &omap2_timer,
-	.restart	= omap_prcm_restart,
+	.init_time	= omap2_sync32k_timer_init,
+	.restart	= omap2xxx_restart,
 MACHINE_END

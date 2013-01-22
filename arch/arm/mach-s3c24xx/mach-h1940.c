@@ -632,7 +632,6 @@ static struct platform_device *h1940_devices[] __initdata = {
 	&s3c_device_wdt,
 	&s3c_device_i2c0,
 	&s3c_device_iis,
-	&samsung_asoc_dma,
 	&s3c_device_usbgadget,
 	&h1940_device_leds,
 	&h1940_device_bluetooth,
@@ -747,6 +746,6 @@ MACHINE_START(H1940, "IPAQ-H1940")
 	.reserve	= h1940_reserve,
 	.init_irq	= h1940_init_irq,
 	.init_machine	= h1940_init,
-	.timer		= &s3c24xx_timer,
+	.init_time	= s3c24xx_timer_init,
 	.restart	= s3c2410_restart,
 MACHINE_END

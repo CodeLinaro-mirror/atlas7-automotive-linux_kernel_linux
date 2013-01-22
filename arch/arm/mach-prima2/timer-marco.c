@@ -242,7 +242,7 @@ static void __init sirfsoc_clockevent_init(void)
 }
 
 /* initialize the kernel jiffy timer source */
-static void __init sirfsoc_timer_init(void)
+void __init sirfsoc_marco_timer_init(void)
 {
 	unsigned long rate;
 	u32 timer_div;
@@ -319,7 +319,3 @@ static void __init sirfsoc_of_timer_map(void)
 
 	of_node_put(np);
 }
-
-struct sys_timer sirfsoc_marco_timer = {
-	.init = sirfsoc_timer_init,
-};

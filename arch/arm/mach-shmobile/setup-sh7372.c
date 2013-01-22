@@ -58,12 +58,6 @@ static struct map_desc sh7372_io_desc[] __initdata = {
 void __init sh7372_map_io(void)
 {
 	iotable_init(sh7372_io_desc, ARRAY_SIZE(sh7372_io_desc));
-
-	/*
-	 * DMA memory at 0xff200000 - 0xffdfffff. The default 2MB size isn't
-	 * enough to allocate the frame buffer memory.
-	 */
-	init_consistent_dma_size(12 << 20);
 }
 
 /* SCIFA0 */
@@ -407,6 +401,26 @@ static const struct sh_dmae_slave_config sh7372_dmae_slaves[] = {
 		.addr		= 0xe6c30060,
 		.chcr		= CHCR_RX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x3e,
+	}, {
+		.slave_id	= SHDMA_SLAVE_FLCTL0_TX,
+		.addr		= 0xe6a30050,
+		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid	= 0x83,
+	}, {
+		.slave_id	= SHDMA_SLAVE_FLCTL0_RX,
+		.addr		= 0xe6a30050,
+		.chcr		= CHCR_RX(XMIT_SZ_32BIT),
+		.mid_rid	= 0x83,
+	}, {
+		.slave_id	= SHDMA_SLAVE_FLCTL1_TX,
+		.addr		= 0xe6a30060,
+		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid	= 0x87,
+	}, {
+		.slave_id	= SHDMA_SLAVE_FLCTL1_RX,
+		.addr		= 0xe6a30060,
+		.chcr		= CHCR_RX(XMIT_SZ_32BIT),
+		.mid_rid	= 0x87,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
 		.addr		= 0xe6850030,
@@ -1040,7 +1054,7 @@ void __init sh7372_add_standard_devices(void)
 				       ARRAY_SIZE(domain_devices));
 }
 
-static void __init sh7372_earlytimer_init(void)
+void __init sh7372_earlytimer_init(void)
 {
 	sh7372_clock_init();
 	shmobile_earlytimer_init();
@@ -1053,9 +1067,6 @@ void __init sh7372_add_early_devices(void)
 
 	/* setup early console here as well */
 	shmobile_setup_console();
-
-	/* override timer setup with soc-specific code */
-	shmobile_timer.init = sh7372_earlytimer_init;
 }
 
 #ifdef CONFIG_USE_OF
@@ -1099,7 +1110,7 @@ DT_MACHINE_START(SH7372_DT, "Generic SH7372 (Flattened Device Tree)")
 	.init_irq	= sh7372_init_irq,
 	.handle_irq	= shmobile_handle_irq_intc,
 	.init_machine	= sh7372_add_standard_devices_dt,
-	.timer		= &shmobile_timer,
+	.init_time	= shmobile_timer_init,
 	.dt_compat	= sh7372_boards_compat_dt,
 MACHINE_END
 

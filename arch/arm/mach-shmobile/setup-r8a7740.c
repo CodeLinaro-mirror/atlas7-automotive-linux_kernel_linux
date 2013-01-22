@@ -66,12 +66,6 @@ static struct map_desc r8a7740_io_desc[] __initdata = {
 void __init r8a7740_map_io(void)
 {
 	iotable_init(r8a7740_io_desc, ARRAY_SIZE(r8a7740_io_desc));
-
-	/*
-	 * DMA memory at 0xff200000 - 0xffdfffff. The default 2MB size isn't
-	 * enough to allocate the frame buffer memory.
-	 */
-	init_consistent_dma_size(12 << 20);
 }
 
 /* SCIFA0 */
@@ -590,6 +584,21 @@ static struct platform_device i2c1_device = {
 	.num_resources	= ARRAY_SIZE(i2c1_resources),
 };
 
+static struct resource pmu_resources[] = {
+	[0] = {
+		.start	= evt2irq(0x19a0),
+		.end	= evt2irq(0x19a0),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device pmu_device = {
+	.name	= "arm-pmu",
+	.id	= -1,
+	.num_resources = ARRAY_SIZE(pmu_resources),
+	.resource = pmu_resources,
+};
+
 static struct platform_device *r8a7740_late_devices[] __initdata = {
 	&i2c0_device,
 	&i2c1_device,
@@ -597,6 +606,7 @@ static struct platform_device *r8a7740_late_devices[] __initdata = {
 	&dma1_device,
 	&dma2_device,
 	&usb_dma_device,
+	&pmu_device,
 };
 
 /*
@@ -695,12 +705,6 @@ void __init r8a7740_add_standard_devices(void)
 	rmobile_add_device_to_domain("A3SP",	&i2c1_device);
 }
 
-static void __init r8a7740_earlytimer_init(void)
-{
-	r8a7740_clock_init(0);
-	shmobile_earlytimer_init();
-}
-
 void __init r8a7740_add_early_devices(void)
 {
 	early_platform_add_devices(r8a7740_early_devices,
@@ -708,9 +712,6 @@ void __init r8a7740_add_early_devices(void)
 
 	/* setup early console here as well */
 	shmobile_setup_console();
-
-	/* override timer setup with soc-specific code */
-	shmobile_timer.init = r8a7740_earlytimer_init;
 }
 
 #ifdef CONFIG_USE_OF
@@ -747,13 +748,13 @@ static const char *r8a7740_boards_compat_dt[] __initdata = {
 	NULL,
 };
 
-DT_MACHINE_START(SH7372_DT, "Generic R8A7740 (Flattened Device Tree)")
+DT_MACHINE_START(R8A7740_DT, "Generic R8A7740 (Flattened Device Tree)")
 	.map_io		= r8a7740_map_io,
 	.init_early	= r8a7740_add_early_devices_dt,
 	.init_irq	= r8a7740_init_irq,
 	.handle_irq	= shmobile_handle_irq_intc,
 	.init_machine	= r8a7740_add_standard_devices_dt,
-	.timer		= &shmobile_timer,
+	.init_time	= shmobile_timer_init,
 	.dt_compat	= r8a7740_boards_compat_dt,
 MACHINE_END
 
