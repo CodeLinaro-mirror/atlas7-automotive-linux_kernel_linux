@@ -144,13 +144,6 @@ static int __cpuinit sirfsoc_boot_secondary(unsigned int cpu, struct task_struct
 
 static void __init sirfsoc_smp_init_cpus(void)
 {
-	int i, ncores;
-
-	ncores = scu_get_core_count(scu_base);
-
-	for (i = 0; i < ncores; i++)
-		set_cpu_possible(i, true);
-
 	set_smp_cross_call(gic_raise_softirq);
 }
 
