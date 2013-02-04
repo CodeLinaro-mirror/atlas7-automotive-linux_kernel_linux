@@ -27,7 +27,6 @@
 #include <asm/pmu.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
-#include <asm/hardware/gic.h>
 
 #include <mach/hardware.h>
 #include <mach/setup.h>
@@ -285,7 +284,8 @@ static struct of_dev_auxdata u8500_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("st,nomadik-i2c", 0x80110000, "nmk-i2c.3", NULL),
 	OF_DEV_AUXDATA("st,nomadik-i2c", 0x8012a000, "nmk-i2c.4", NULL),
 	/* Requires device name bindings. */
-	OF_DEV_AUXDATA("stericsson,nmk_pinctrl", 0, "pinctrl-db8500", NULL),
+	OF_DEV_AUXDATA("stericsson,nmk_pinctrl", U8500_PRCMU_BASE,
+		"pinctrl-db8500", NULL),
 	/* Requires clock name and DMA bindings. */
 	OF_DEV_AUXDATA("stericsson,ux500-msp-i2s", 0x80123000,
 		"ux500-msp-i2s.0", &msp0_platform_data),
@@ -341,7 +341,6 @@ DT_MACHINE_START(U8500_DT, "ST-Ericsson Ux5x0 platform (Device Tree Support)")
 	.init_irq	= ux500_init_irq,
 	/* we re-use nomadik timer here */
 	.init_time	= ux500_timer_init,
-	.handle_irq	= gic_handle_irq,
 	.init_machine	= u8500_init_machine,
 	.init_late	= NULL,
 	.dt_compat      = stericsson_dt_platform_compat,

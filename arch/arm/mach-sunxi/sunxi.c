@@ -21,8 +21,6 @@
 
 #include <linux/irqchip/sunxi.h>
 
-#include <asm/hardware/vic.h>
-
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
@@ -80,8 +78,8 @@ static void __init sunxi_dt_init(void)
 }
 
 static const char * const sunxi_board_dt_compat[] = {
-	"allwinner,sun4i",
-	"allwinner,sun5i",
+	"allwinner,sun4i-a10",
+	"allwinner,sun5i-a13",
 	NULL,
 };
 

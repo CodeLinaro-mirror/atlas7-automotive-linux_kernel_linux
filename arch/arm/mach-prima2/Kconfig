@@ -14,10 +14,10 @@ config ARCH_PRIMA2
 config ARCH_MARCO
 	bool "CSR SiRFSoC MARCO ARM Cortex A9 Platform"
 	default y
+	select ARM_GIC
 	select CPU_V7
 	select HAVE_SMP
 	select SMP_ON_UP
-	select ARM_GIC
 	select SIRFMARCO_FPGA
 	help
           Support for CSR SiRFSoC ARM Cortex A9 Platform

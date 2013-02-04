@@ -259,7 +259,7 @@ static const struct i2c_algorithm i2c_sirfsoc_algo = {
 	.functionality = i2c_sirfsoc_func,
 };
 
-static int __devinit i2c_sirfsoc_probe(struct platform_device *pdev)
+static int i2c_sirfsoc_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_i2c *siic;
 	struct i2c_adapter *adap;
@@ -389,7 +389,7 @@ err_get_clk:
 	return err;
 }
 
-static int __devexit i2c_sirfsoc_remove(struct platform_device *pdev)
+static int i2c_sirfsoc_remove(struct platform_device *pdev)
 {
 	struct i2c_adapter *adapter = platform_get_drvdata(pdev);
 	struct sirfsoc_i2c *siic = adapter->algo_data;
@@ -437,7 +437,7 @@ static const struct dev_pm_ops i2c_sirfsoc_pm_ops = {
 };
 #endif
 
-static const struct of_device_id sirfsoc_i2c_of_match[] __devinitconst = {
+static const struct of_device_id sirfsoc_i2c_of_match[] = {
 	{ .compatible = "sirf,prima2-i2c", },
 	{ .compatible = "sirf,marco-i2c", },
 	{},
@@ -454,7 +454,7 @@ static struct platform_driver i2c_sirfsoc_driver = {
 		.of_match_table = sirfsoc_i2c_of_match,
 	},
 	.probe = i2c_sirfsoc_probe,
-	.remove = __devexit_p(i2c_sirfsoc_remove),
+	.remove = i2c_sirfsoc_remove,
 };
 module_platform_driver(i2c_sirfsoc_driver);
 
