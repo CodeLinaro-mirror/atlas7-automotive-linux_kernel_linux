@@ -37,7 +37,7 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_BROKEN_DMA,
 };
 
-static int __devinit sdhci_sirf_probe(struct platform_device *pdev)
+static int sdhci_sirf_probe(struct platform_device *pdev)
 {
 	/* 
 	 * we use 26MB for all marco for the moment, and get mmc clk
@@ -52,7 +52,7 @@ static int __devinit sdhci_sirf_probe(struct platform_device *pdev)
 	return sdhci_pltfm_register(pdev, &sdhci_sirf_pdata);
 }
 
-static int __devexit sdhci_sirf_remove(struct platform_device *pdev)
+static int sdhci_sirf_remove(struct platform_device *pdev)
 {
 	return sdhci_pltfm_unregister(pdev);
 }
@@ -72,7 +72,7 @@ static struct platform_driver sdhci_sirf_driver = {
 		.pm	= SDHCI_PLTFM_PMOPS,
 	},
 	.probe		= sdhci_sirf_probe,
-	.remove		= __devexit_p(sdhci_sirf_remove),
+	.remove		= sdhci_sirf_remove,
 };
 
 module_platform_driver(sdhci_sirf_driver);

@@ -137,7 +137,7 @@ u32 sfcpld_irq_get_status(void)
 }
 EXPORT_SYMBOL(sfcpld_irq_get_status);
 
-static int __devinit sfcpld_probe(struct i2c_client *client,
+static int sfcpld_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	struct sirffpga_cpld	*sfcpld;

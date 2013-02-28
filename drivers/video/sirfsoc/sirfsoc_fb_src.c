@@ -2106,7 +2106,7 @@ static const struct dev_pm_ops sirfsocfb_pm_ops = {
 	.resume = sirfsocfb_resume,
 };
 
-static struct of_device_id __devinitdata sirfsocfb_match_tbl[] = {
+static struct of_device_id sirfsocfb_match_tbl[] = {
 	{ .compatible = "sirf,prima2-lcd", },
 	{ /* end */ }
 };
