@@ -21,6 +21,7 @@ extern void sirfsoc_secondary_startup(void);
 extern void sirfsoc_cpu_die(unsigned int cpu);
 
 extern void __init sirfsoc_of_irq_init(void);
+extern void __init sirfsoc_atlas6_of_clk_init(void);
 extern void __init sirfsoc_prima2_of_clk_init(void);
 extern void __init sirfsoc_marco_of_clk_init(void);
 extern void sirfsoc_restart(char, const char *);

@@ -188,6 +188,7 @@ void __init sirfsoc_prima2_timer_init(void)
 
 	/* initialize clocking early, we want to set the OS timer */
 	sirfsoc_prima2_of_clk_init();
+	sirfsoc_atlas6_of_clk_init();
 
 	/* timer's input clock is io clock */
 	clk = clk_get_sys("io", NULL);

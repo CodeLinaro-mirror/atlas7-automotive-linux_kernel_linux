@@ -1,5 +1,5 @@
 /*
- * DTS file for CSR SiRFprimaII Evaluation Board
+ * DTS file for CSR SiRFatlas6 Evaluation Board
  *
  * Copyright (c) 2012 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -39,5 +39,10 @@
 				pinctrl-0 = <&spi1_pins_a>;
 			};
 		};
+                sys-iobg {
+                        clks: clock-controller@88000000 {
+                                compatible = "sirf,atlas6-clkc";
+                        };
+               };
 	};
 };
