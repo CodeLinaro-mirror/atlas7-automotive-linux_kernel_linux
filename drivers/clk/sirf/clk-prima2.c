@@ -1,6 +1,44 @@
 #include "prima2.h"
 #include "common.c"
 
+static struct clk_dmn clk_mmc01 = {
+	.regofs = SIRFSOC_CLKC_MMC_CFG,
+	.enable_bit = 59,
+	.hw = {
+		.init = &clk_mmc01_init,
+	},
+};
+
+static struct clk_dmn clk_mmc23 = {
+	.regofs = SIRFSOC_CLKC_MMC_CFG,
+	.enable_bit = 60,
+	.hw = {
+		.init = &clk_mmc23_init,
+	},
+};
+
+static struct clk_dmn clk_mmc45 = {
+	.regofs = SIRFSOC_CLKC_MMC_CFG,
+	.enable_bit = 61,
+	.hw = {
+		.init = &clk_mmc45_init,
+	},
+};
+
+static struct clk_init_data clk_nand_init = {
+	.name = "nand",
+	.ops = &ios_ops,
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
+};
+
+static struct clk_std clk_nand = {
+	.enable_bit = 34,
+	.hw = {
+		.init = &clk_nand_init,
+	},
+};
+
 enum prima2_clk_index {
 	/* 0    1     2      3      4      5      6       7         8      9 */
 	rtc,    osc,   pll1,  pll2,  pll3,  mem,   sys,   security, dsp,   gps,

@@ -1,12 +1,51 @@
 #include "atlas6.h"
 #include "common.c"
 
+static struct clk_dmn clk_mmc01 = {
+	.regofs = SIRFSOC_CLKC_MMC01_CFG,
+	.enable_bit = 59,
+	.hw = {
+		.init = &clk_mmc01_init,
+	},
+};
+
+static struct clk_dmn clk_mmc23 = {
+	.regofs = SIRFSOC_CLKC_MMC23_CFG,
+	.enable_bit = 60,
+	.hw = {
+		.init = &clk_mmc23_init,
+	},
+};
+
+static struct clk_dmn clk_mmc45 = {
+	.regofs = SIRFSOC_CLKC_MMC45_CFG,
+	.enable_bit = 61,
+	.hw = {
+		.init = &clk_mmc45_init,
+	},
+};
+
+static struct clk_init_data clk_nand_init = {
+	.name = "nand",
+	.ops = &dmn_ops,
+	.parent_names = dmn_clk_parents,
+	.num_parents = ARRAY_SIZE(dmn_clk_parents),
+};
+
+static struct clk_dmn clk_nand = {
+	.regofs = SIRFSOC_CLKC_NAND_CFG,
+	.enable_bit = 34,
+	.hw = {
+		.init = &clk_nand_init,
+	},
+};
+
 enum atlas6_clk_index {
 	/* 0    1     2      3      4      5      6       7         8      9 */
 	rtc,    osc,   pll1,  pll2,  pll3,  mem,   sys,   security, dsp,   gps,
 	mf,     io,    cpu,   uart0, uart1, uart2, tsc,   i2c0,     i2c1,  spi0,
 	spi1,   pwmc,  efuse, pulse, dmac0, dmac1, nand,  audio,    usp0,  usp1,
-	usp2,   vip,   gfx,   mm,    lcd,   vpp,   mmc01, mmc23,    mmc45, usbpll,
+	usp2,   vip,   gfx,   gfx2d,    lcd,   vpp,   mmc01, mmc23,    mmc45, usbpll,
 	usb0,  usb1,  maxclk,
 };
 
@@ -44,7 +83,7 @@ static __initdata struct clk_hw *atlas6_clk_hw_array[maxclk] = {
 	&clk_usp2.hw,
 	&clk_vip.hw,
 	&clk_gfx.hw,
-	&clk_mm.hw,
+	&clk_gfx2d.hw,
 	&clk_lcd.hw,
 	&clk_vpp.hw,
 	&clk_mmc01.hw,

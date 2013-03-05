@@ -506,6 +506,11 @@ static struct clk_dmn clk_mm = {
 	},
 };
 
+/*
+ * for atlas6, gfx2d holds the bit of prima2's clk_mm
+ */
+#define clk_gfx2d clk_mm
+
 static struct clk_init_data clk_lcd_init = {
 	.name = "lcd",
 	.ops = &dmn_ops,
@@ -543,14 +548,6 @@ static struct clk_init_data clk_mmc01_init = {
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
-static struct clk_dmn clk_mmc01 = {
-	.regofs = SIRFSOC_CLKC_MMC_CFG,
-	.enable_bit = 59,
-	.hw = {
-		.init = &clk_mmc01_init,
-	},
-};
-
 static struct clk_init_data clk_mmc23_init = {
 	.name = "mmc23",
 	.ops = &dmn_ops,
@@ -558,27 +555,11 @@ static struct clk_init_data clk_mmc23_init = {
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
-static struct clk_dmn clk_mmc23 = {
-	.regofs = SIRFSOC_CLKC_MMC_CFG,
-	.enable_bit = 60,
-	.hw = {
-		.init = &clk_mmc23_init,
-	},
-};
-
 static struct clk_init_data clk_mmc45_init = {
 	.name = "mmc45",
 	.ops = &dmn_ops,
 	.parent_names = dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
-};
-
-static struct clk_dmn clk_mmc45 = {
-	.regofs = SIRFSOC_CLKC_MMC_CFG,
-	.enable_bit = 61,
-	.hw = {
-		.init = &clk_mmc45_init,
-	},
 };
 
 /*
@@ -675,20 +656,6 @@ static struct clk_std clk_dmac1 = {
 	.enable_bit = 33,
 	.hw = {
 		.init = &clk_dmac1_init,
-	},
-};
-
-static struct clk_init_data clk_nand_init = {
-	.name = "nand",
-	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
-	.num_parents = ARRAY_SIZE(std_clk_io_parents),
-};
-
-static struct clk_std clk_nand = {
-	.enable_bit = 34,
-	.hw = {
-		.init = &clk_nand_init,
 	},
 };
 

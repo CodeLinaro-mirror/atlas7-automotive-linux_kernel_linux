@@ -1223,7 +1223,7 @@ static struct syscore_ops sirfsoc_clk_syscore_ops = {
 static int __init sirfsoc_clk_pm_init(void)
 {
 	if (!of_find_matching_node(NULL, clkc_ids))
-		return;
+		return -ENODEV;
 
 	register_syscore_ops(&sirfsoc_clk_syscore_ops);
 	return 0;
