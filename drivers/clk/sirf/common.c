@@ -609,15 +609,6 @@ static void std_clk_disable(struct clk_hw *hw)
 	reg = SIRFSOC_CLKC_CLK_EN0 + reg * sizeof(reg);
 
 	val = clkc_readl(reg) & ~BIT(bit);
-	/*
-	 * Fixme: some automatic clk_disable() will make system die
-	 * since this driver probably will have no real user, ignore
-	 * here we just enable the support for i2c,spi and dma as marco
-	 * has same IPs with primaII
-	 */
-	if (clk->enable_bit == 32 || clk->enable_bit == 33 ||
-		clk->enable_bit == 43 || clk->enable_bit == 44 ||
-		clk->enable_bit == 46 || clk->enable_bit == 47)
 	clkc_writel(val, reg);
 }
 
