@@ -45,6 +45,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	 */
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-sdhc")) {
 		struct clk *clk = clk_get(&pdev->dev, NULL);
+		clk_prepare_enable(clk);
 		sdhci_sirf_clk = clk_get_rate(clk);
 		clk_put(clk);
 	}
