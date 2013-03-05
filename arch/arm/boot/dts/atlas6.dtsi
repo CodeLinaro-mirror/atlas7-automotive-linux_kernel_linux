@@ -108,24 +108,10 @@
 			ranges = <0x98000000 0x98000000 0x8000000>;
 
 			graphics@98000000 {
-				compatible = "powervr,sgx531";
+				compatible = "powervr,sgx510";
 				reg = <0x98000000 0x8000000>;
 				interrupts = <6>;
 				clocks = <&clks 32>;
-			};
-		};
-
-		multimedia-iobg {
-			compatible = "simple-bus";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges = <0xa0000000 0xa0000000 0x8000000>;
-
-			multimedia@a0000000 {
-				compatible = "sirf,prima2-video-codec";
-				reg = <0xa0000000 0x8000000>;
-				interrupts = <5>;
-				clocks = <&clks 33>;
 			};
 		};
 
