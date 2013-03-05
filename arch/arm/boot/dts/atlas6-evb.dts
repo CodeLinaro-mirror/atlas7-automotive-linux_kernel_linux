@@ -8,11 +8,11 @@
 
 /dts-v1/;
 
-/include/ "prima2.dtsi"
+/include/ "atlas6.dtsi"
 
 / {
 	model = "CSR SiRFatlas6 Evaluation Board";
-	compatible = "sirf,atlas6", "sirf,atlas6-cb";
+	compatible = "sirf,atlas6-cb", "sirf,atlas6";
 
 	memory {
 		reg = <0x00000000 0x20000000>;
@@ -39,10 +39,5 @@
 				pinctrl-0 = <&spi1_pins_a>;
 			};
 		};
-                sys-iobg {
-                        clks: clock-controller@88000000 {
-                                compatible = "sirf,atlas6-clkc";
-                        };
-               };
 	};
 };
