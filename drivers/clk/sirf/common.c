@@ -15,32 +15,6 @@
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
 
-#define SIRFSOC_CLKC_CLK_EN0    0x0000
-#define SIRFSOC_CLKC_CLK_EN1    0x0004
-#define SIRFSOC_CLKC_REF_CFG    0x0014
-#define SIRFSOC_CLKC_CPU_CFG    0x0018
-#define SIRFSOC_CLKC_MEM_CFG    0x001c
-#define SIRFSOC_CLKC_SYS_CFG    0x0020
-#define SIRFSOC_CLKC_IO_CFG     0x0024
-#define SIRFSOC_CLKC_DSP_CFG    0x0028
-#define SIRFSOC_CLKC_GFX_CFG    0x002c
-#define SIRFSOC_CLKC_MM_CFG     0x0030
-#define SIRFSOC_CLKC_LCD_CFG     0x0034
-#define SIRFSOC_CLKC_MMC_CFG    0x0038
-#define SIRFSOC_CLKC_PLL1_CFG0  0x0040
-#define SIRFSOC_CLKC_PLL2_CFG0  0x0044
-#define SIRFSOC_CLKC_PLL3_CFG0  0x0048
-#define SIRFSOC_CLKC_PLL1_CFG1  0x004c
-#define SIRFSOC_CLKC_PLL2_CFG1  0x0050
-#define SIRFSOC_CLKC_PLL3_CFG1  0x0054
-#define SIRFSOC_CLKC_PLL1_CFG2  0x0058
-#define SIRFSOC_CLKC_PLL2_CFG2  0x005c
-#define SIRFSOC_CLKC_PLL3_CFG2  0x0060
-#define SIRFSOC_USBPHY_PLL_CTRL 0x0008
-#define SIRFSOC_USBPHY_PLL_POWERDOWN  BIT(1)
-#define SIRFSOC_USBPHY_PLL_BYPASS     BIT(2)
-#define SIRFSOC_USBPHY_PLL_LOCK       BIT(3)
-
 static void *sirfsoc_clk_vbase, *sirfsoc_rsc_vbase;
 
 #define KHZ     1000
@@ -1026,6 +1000,7 @@ static struct clk_std clk_usb1 = {
 
 static struct of_device_id clkc_ids[] = {
 	{ .compatible = "sirf,prima2-clkc" },
+	{ .compatible = "sirf,atlas6-clkc" },
 	{},
 };
 
@@ -1034,109 +1009,7 @@ static struct of_device_id rsc_ids[] = {
 	{},
 };
 
-enum prima2_clk_index {
-	/* 0    1     2      3      4      5      6       7         8      9 */
-	rtc,    osc,   pll1,  pll2,  pll3,  mem,   sys,   security, dsp,   gps,
-	mf,     io,    cpu,   uart0, uart1, uart2, tsc,   i2c0,     i2c1,  spi0,
-	spi1,   pwmc,  efuse, pulse, dmac0, dmac1, nand,  audio,    usp0,  usp1,
-	usp2,   vip,   gfx,   mm,    lcd,   vpp,   mmc01, mmc23,    mmc45, usbpll,
-	usb0,  usb1,  maxclk,
-};
-
-static __initdata struct clk_hw* prima2_clk_hw_array[maxclk] = {
-	NULL, /* dummy */
-	NULL,
-	&clk_pll1.hw,
-	&clk_pll2.hw,
-	&clk_pll3.hw,
-	&clk_mem.hw,
-	&clk_sys.hw,
-	&clk_security.hw,
-	&clk_dsp.hw,
-	&clk_gps.hw,
-	&clk_mf.hw,
-	&clk_io.hw,
-	&clk_cpu.hw,
-	&clk_uart0.hw,
-	&clk_uart1.hw,
-	&clk_uart2.hw,
-	&clk_tsc.hw,
-	&clk_i2c0.hw,
-	&clk_i2c1.hw,
-	&clk_spi0.hw,
-	&clk_spi1.hw,
-	&clk_pwmc.hw,
-	&clk_efuse.hw,
-	&clk_pulse.hw,
-	&clk_dmac0.hw,
-	&clk_dmac1.hw,
-	&clk_nand.hw,
-	&clk_audio.hw,
-	&clk_usp0.hw,
-	&clk_usp1.hw,
-	&clk_usp2.hw,
-	&clk_vip.hw,
-	&clk_gfx.hw,
-	&clk_mm.hw,
-	&clk_lcd.hw,
-	&clk_vpp.hw,
-	&clk_mmc01.hw,
-	&clk_mmc23.hw,
-	&clk_mmc45.hw,
-	&usb_pll_clk_hw,
-	&clk_usb0.hw,
-	&clk_usb1.hw,
-};
-
-static struct clk *prima2_clks[maxclk];
 static struct clk_onecell_data clk_data;
-
-void __init sirfsoc_prima2_of_clk_init(void)
-{
-	struct device_node *np;
-	int i;
-
-	np = of_find_matching_node(NULL, rsc_ids);
-	if (!np)
-		panic("unable to find compatible rsc node in dtb\n");
-
-	sirfsoc_rsc_vbase = of_iomap(np, 0);
-	if (!sirfsoc_rsc_vbase)
-		panic("unable to map rsc registers\n");
-
-	of_node_put(np);
-
-	np = of_find_matching_node(NULL, clkc_ids);
-	if (!np)
-		return;
-
-	sirfsoc_clk_vbase = of_iomap(np, 0);
-	if (!sirfsoc_clk_vbase)
-		panic("unable to map clkc registers\n");
-
-	/* These are always available (RTC and 26MHz OSC)*/
-	prima2_clks[rtc] = clk_register_fixed_rate(NULL, "rtc", NULL,
-		CLK_IS_ROOT, 32768);
-	prima2_clks[osc]= clk_register_fixed_rate(NULL, "osc", NULL,
-		CLK_IS_ROOT, 26000000);
-
-	for (i = pll1; i < maxclk; i++) {
-		prima2_clks[i] = clk_register(NULL, prima2_clk_hw_array[i]);
-		BUG_ON(!prima2_clks[i]);
-	}
-	clk_register_clkdev(prima2_clks[cpu], NULL, "cpu");
-	clk_register_clkdev(prima2_clks[io],  NULL, "io");
-	clk_register_clkdev(prima2_clks[mem],  NULL, "mem");
-
-	clk_data.clks = prima2_clks;
-	clk_data.clk_num = maxclk;
-
-	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
-
-	/* enable all clocks for testing */
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
-}
 
 /*
  * clk disable/enable should be doned by every device
