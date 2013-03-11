@@ -63,15 +63,15 @@
 #define SIRFSOC_SPI_TRAN_DAT_FORMAT_12	(1 << 26)
 #define SIRFSOC_SPI_TRAN_DAT_FORMAT_16	(2 << 26)
 #define SIRFSOC_SPI_TRAN_DAT_FORMAT_32	(3 << 26)
-#define SIRFSOC_SPI_CMD_BYTE_NUM(x)		((x & 3) << 28)
-#define SIRFSOC_SPI_ENA_AUTO_CLR		BIT(30)
-#define SIRFSOC_SPI_MUL_DAT_MODE		BIT(31)
+#define SIRFSOC_SPI_CMD_BYTE_NUM(x)	((x & 3) << 28)
+#define SIRFSOC_SPI_ENA_AUTO_CLR	BIT(30)
+#define SIRFSOC_SPI_MUL_DAT_MODE	BIT(31)
 
 /* Interrupt Enable */
-#define SIRFSOC_SPI_RX_DONE_INT_EN		BIT(0)
-#define SIRFSOC_SPI_TX_DONE_INT_EN		BIT(1)
-#define SIRFSOC_SPI_RX_OFLOW_INT_EN		BIT(2)
-#define SIRFSOC_SPI_TX_UFLOW_INT_EN		BIT(3)
+#define SIRFSOC_SPI_RX_DONE_INT_EN	BIT(0)
+#define SIRFSOC_SPI_TX_DONE_INT_EN	BIT(1)
+#define SIRFSOC_SPI_RX_OFLOW_INT_EN	BIT(2)
+#define SIRFSOC_SPI_TX_UFLOW_INT_EN	BIT(3)
 #define SIRFSOC_SPI_RX_IO_DMA_INT_EN	BIT(4)
 #define SIRFSOC_SPI_TX_IO_DMA_INT_EN	BIT(5)
 #define SIRFSOC_SPI_RXFIFO_FULL_INT_EN	BIT(6)
@@ -418,7 +418,6 @@ static void spi_sirfsoc_chipselect(struct spi_device *spi, int value)
 
 	if (sspi->chipselect[spi->chip_select] == 0) {
 		u32 regval = readl(sspi->base + SIRFSOC_SPI_CTRL);
-		regval |= SIRFSOC_SPI_CS_IO_OUT;
 		switch (value) {
 		case BITBANG_CS_ACTIVE:
 			if (spi->mode & SPI_CS_HIGH)
