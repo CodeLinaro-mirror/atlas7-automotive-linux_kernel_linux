@@ -212,14 +212,6 @@
 				clocks = <&clks 29>;
 			};
 
-			usp2: usp@b00a0000 {
-				cell-index = <2>;
-				compatible = "sirf,prima2-usp";
-				reg = <0xb00a0000 0x10000>;
-				interrupts = <22>;
-				clocks = <&clks 30>;
-			};
-
 			dmac0: dma-controller@b00b0000 {
 				cell-index = <0>;
 				compatible = "sirf,prima2-dmac";
@@ -583,15 +575,6 @@
 					clocks = <&clks 37>;
 				};
 
-				sd4: sdhci@56400000 {
-					cell-index = <4>;
-					compatible = "sirf,prima2-sdhc";
-					reg = <0x56400000 0x100000>;
-					interrupts = <39>;
-					status = "disabled";
-					clocks = <&clks 38>;
-				};
-
 				sd5: sdhci@56500000 {
 					cell-index = <5>;
 					compatible = "sirf,prima2-sdhc";
@@ -657,12 +640,6 @@
 				reg = <0xb8010000 0x10000>;
 				interrupts = <11>;
 				clocks = <&clks 41>;
-			};
-
-			sata@b00f0000 {
-				compatible = "synopsys,dwc-ahsata";
-				reg = <0xb8020000 0x10000>;
-				interrupts = <37>;
 			};
 
 			security@b00f0000 {
