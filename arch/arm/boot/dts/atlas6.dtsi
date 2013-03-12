@@ -290,7 +290,7 @@
 			gpio: pinctrl@b0120000 {
 				#gpio-cells = <2>;
 				#interrupt-cells = <2>;
-				compatible = "sirf,prima2-pinctrl";
+				compatible = "sirf,atlas6-pinctrl";
 				reg = <0xb0120000 0x10000>;
 				interrupts = <43 44 45 46 47>;
 				gpio-controller;
@@ -428,12 +428,6 @@
                                                 sirf,function = "sdmmc3";
                                         };
                                 };
-                                sdmmc4_pins_a: sdmmc4@0 {
-                                        sdmmc4 {
-                                                sirf,pins = "sdmmc4grp";
-                                                sirf,function = "sdmmc4";
-                                        };
-                                };
                                 sdmmc5_pins_a: sdmmc5@0 {
                                         sdmmc5 {
                                                 sirf,pins = "sdmmc5grp";
@@ -470,16 +464,10 @@
                                                 sirf,function = "usp1";
                                         };
                                 };
-                                usp2_pins_a: usp2@0 {
-                                        usp2 {
-                                                sirf,pins = "usp2grp";
-                                                sirf,function = "usp2";
-                                        };
-                                };
-                                usb0_utmi_drvbus_pins_a: usb0_utmi_drvbus@0 {
-                                        usb0_utmi_drvbus {
-                                                sirf,pins = "usb0_utmi_drvbusgrp";
-                                                sirf,function = "usb0_utmi_drvbus";
+                                usb0_upli_drvbus_pins_a: usb0_upli_drvbus@0 {
+                                        usb0_upli_drvbus {
+                                                sirf,pins = "usb0_upli_drvbusgrp";
+                                                sirf,function = "usb0_upli_drvbus";
                                         };
                                 };
                                 usb1_utmi_drvbus_pins_a: usb1_utmi_drvbus@0 {
