@@ -351,7 +351,7 @@ static const struct sirfsoc_padmux uart0_nostreamctrl_padmux = {
 	.muxmask = uart0_nostreamctrl_muxmask,
 };
 
-static const unsigned uart0_nostreamctrl_pins[] = { 68, 39 };
+static const unsigned uart0_nostreamctrl_pins[] = { 68, 69 };
 
 static const struct sirfsoc_muxmask uart1_muxmask[] = {
 	{
