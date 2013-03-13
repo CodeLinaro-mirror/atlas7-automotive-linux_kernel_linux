@@ -26,6 +26,7 @@ extern void __init sirfsoc_prima2_of_clk_init(void);
 extern void __init sirfsoc_marco_of_clk_init(void);
 extern void sirfsoc_restart(char, const char *);
 extern asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs);
+extern void sirfsoc_fb_reserve_memblock(void);
 
 #ifndef CONFIG_DEBUG_LL
 static inline void sirfsoc_map_lluart(void)  {}

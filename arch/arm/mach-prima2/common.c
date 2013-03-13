@@ -21,6 +21,11 @@ static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 	{},
 };
 
+void __init sifrsoc_reserve(void)
+{
+	sirfsoc_fb_reserve_memblock();
+}
+
 void __init sirfsoc_mach_init(void)
 {
 	of_platform_bus_probe(NULL, sirfsoc_of_bus_ids, NULL);
@@ -45,6 +50,7 @@ static const char *atlas6_dt_match[] __initdata = {
 
 DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	.reserve	= sifrsoc_reserve,
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= sirfsoc_of_irq_init,
 	.init_time	= sirfsoc_prima2_timer_init,

@@ -87,10 +87,15 @@
 			#size-cells = <1>;
 			ranges = <0x90010000 0x90010000 0x30000>;
 
-			display@90010000 {
+			lcd@90010000 {
 				compatible = "sirf,prima2-lcd";
 				reg = <0x90010000 0x20000>;
 				interrupts = <30>;
+				clocks = <&clks 34>;
+				display=<&display>;
+				/* later transfer to pwm */
+				bl-gpio = <&gpio 7 0>;
+				default-panel = <&panel0>;
 			};
 
 			vpp@90020000 {
@@ -269,6 +274,8 @@
 				compatible = "sirf,prima2-i2c";
 				reg = <0xb00e0000 0x10000>;
 				interrupts = <24>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				clocks = <&clks 17>;
 			};
 
@@ -277,6 +284,8 @@
 				compatible = "sirf,prima2-i2c";
 				reg = <0xb00f0000 0x10000>;
 				interrupts = <25>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				clocks = <&clks 18>;
 			};
 

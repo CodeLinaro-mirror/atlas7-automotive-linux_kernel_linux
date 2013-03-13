@@ -38,18 +38,26 @@
 #include <asm/sizes.h>
 #include <linux/io.h>
 #include <linux/jiffies.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
+#include <linux/of_i2c.h>
+#include <linux/of_gpio.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/memblock.h>
+#include <linux/gpio.h>
 #include <asm/irq.h>
 #include <asm/cacheflush.h>
-
-#include <mach/hardware.h>
+#include <asm-generic/gpio.h>
 #include <video/sirfsoc_fb.h>
 
 #include "CspCmnLcd.h"
 #include "CspCmnVpp.h"
 
 #include "sirfsoc_clcdc.h"
-
-#include <mach/map.h>
 
 #if 0
 #undef FB_FUN_MSG
@@ -72,27 +80,23 @@
 #define MODULE_PARAM_PREFIX
 #endif
 
-static uint bpp = 16;
+static uint bpp = 32;
 module_param(bpp, uint, S_IRUGO);
 MODULE_PARM_DESC(bpp, "LCD panel default bits per pixel.");
 
-static uint pixclock;
-module_param(pixclock, uint, S_IRUGO);
-MODULE_PARM_DESC(pixclock, "LCD panel pixel clock value in Hz.");
-
-static uint toplayer;
+static uint toplayer = LCD_PRIMARY;
 module_param(toplayer, uint, S_IRUGO);
 MODULE_PARM_DESC(toplayer, "LCD panel default top layer.");
-
-static uint colorkey = 0x100010;
-module_param(colorkey, uint, S_IRUGO);
-MODULE_PARM_DESC(colorkey, "LCD panel default top layer color key.");
-
-static uint colorkey16 = 0x1002;
 
 #define REARVIEW_LAYER LCD_OVERLAY_3
 
 static u32 sirfsocfb_pseudo_palette[16];
+
+static struct i2c_client *lcd_client;
+static int bl_gpio;
+static phys_addr_t  sirf_fb_phy_base;
+static phys_addr_t  sirf_fb_phy_size;
+
 
 /************** DEBUG DATA THROUGH SYSFS **************/
 static ssize_t layer_uflow_show(struct device *dev,
@@ -111,25 +115,7 @@ static ssize_t layer_uflow_show(struct device *dev,
 	return ret;
 }
 
-static ssize_t layer_uflow_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
-{
-	char *endp;
-	int i;
-	struct sirfsocfb *fb = dev_get_drvdata(dev);
-	FB_FUN_MSG("layer_uflow_store\n");
-
-	i = simple_strtoul(buf, &endp, 10);
-	fb->layer_info[0].fifo_underflow = i;
-	fb->layer_info[1].fifo_underflow = i;
-	fb->layer_info[2].fifo_underflow = i;
-	fb->layer_info[3].fifo_underflow = i;
-	return count;
-}
-
-static DEVICE_ATTR(layer_fifo_underflow, S_IRUGO | S_IWUGO, layer_uflow_show,
-		   layer_uflow_store);
+static DEVICE_ATTR(layer_fifo_underflow, S_IRUGO, layer_uflow_show, NULL);
 
 static ssize_t layer_oflow_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -147,25 +133,7 @@ static ssize_t layer_oflow_show(struct device *dev,
 	return ret;
 }
 
-static ssize_t layer_oflow_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
-{
-	char *endp;
-	int i;
-	struct sirfsocfb *fb = dev_get_drvdata(dev);
-	FB_FUN_MSG("layer_oflow_store\n");
-
-	i = simple_strtoul(buf, &endp, 10);
-	fb->layer_info[0].fifo_overflow = i;
-	fb->layer_info[1].fifo_overflow = i;
-	fb->layer_info[2].fifo_overflow = i;
-	fb->layer_info[3].fifo_overflow = i;
-	return count;
-}
-
-static DEVICE_ATTR(layer_fifo_overflow, S_IRUGO | S_IWUGO, layer_oflow_show,
-		   layer_oflow_store);
+static DEVICE_ATTR(layer_fifo_overflow, S_IRUGO, layer_oflow_show, NULL);
 
 /**************** HELPER FUNCTIONS ****************/
 static inline int sirfsocfb_get_layer(struct fb_info *info)
@@ -225,7 +193,6 @@ static int set_bitfields(struct fb_var_screeninfo *var)
 		var->blue.length = 5;
 		var->accel_flags = 0;
 		break;
-#ifdef CONFIG_SIRFSOC_FB_32BPP
 	case 32:
 #if SIRFSOC_ENABLE_ALPHA_BLENDING
 		/* by default transp is kept enable
@@ -242,7 +209,6 @@ static int set_bitfields(struct fb_var_screeninfo *var)
 		var->blue.length = 8;
 		var->accel_flags = 0;
 		break;
-#endif
 	default:
 		FB_ERR_MSG("BPP %d not supported\n", var->bits_per_pixel);
 		return -EINVAL;
@@ -563,7 +529,7 @@ static int sirfsocfb_layer_setsize(struct sirfsocfb *fb, int layer,
 		sRectDst.right = scr->xstart + scr->xsize;
 		sRectDst.top = scr->ystart;
 		sRectDst.bottom = scr->ystart + scr->ysize;
-		
+
 		mutex_lock(&fb->layer_info[layer].layer_lock);
 
 		fb->lcd_func.pfnSetOverlayPos(layer, NULL, &sRectDst);
@@ -584,12 +550,11 @@ static int sirfsocfb_layer_setsize(struct sirfsocfb *fb, int layer,
 static void sirfsocfb_layer_getsize(struct sirfsocfb *fb, int layer,
 				    struct sirfsocfb_screen *scr)
 {
-	LCD_SETPARAMS_DATA sData;
 
 	FB_FUN_MSG("sirfsocfb_layer_getsize\n");
 
 	mutex_lock(&fb->ovl_lock);
-	
+
 	scr->xstart = fb->ovl_pos.x;
 	scr->ystart = fb->ovl_pos.y;
 	scr->xsize = fb->ovl_pos.w;
@@ -648,6 +613,7 @@ static int sirfsocfb_create_overlay(struct sirfsocfb *fb, int layer,
 		sData.eLcdFormat = LCD_PIXELFORMAT_565;
 		break;
 	case FORMAT_BGRA_8888:
+	case FORMAT_BGRX_8888:
 		bits_per_pixel = 32;
 		sData.eLcdFormat = LCD_PIXELFORMAT_8888;
 		break;
@@ -673,6 +639,7 @@ static int sirfsocfb_create_overlay(struct sirfsocfb *fb, int layer,
 		break;
 	case FORMAT_YCbCr_422_SP:
 	case FORMAT_RGBA_8888:
+	case FORMAT_RGBX_8888:
 		FB_ERR_MSG("Unsupported format!\n");
 		return -EINVAL;
 	}
@@ -1141,9 +1108,8 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 static int sirfsocfb_check_var(struct fb_var_screeninfo *var,
 			       struct fb_info *info)
 {
-	FB_FUN_MSG("sirfsocfb_check_var\n");
+	FB_FUN_MSG("+sirfsocfb_check_var\n");
 
-#ifdef CONFIG_SIRFSOC_FB_32BPP
 	if ((var->bits_per_pixel != 32) && (var->bits_per_pixel != 16)) {
 		FB_ERR_MSG("Unsupported bits per pixel\n");
 		return -EINVAL;
@@ -1154,10 +1120,6 @@ static int sirfsocfb_check_var(struct fb_var_screeninfo *var,
 			return -EINVAL;
 		}
 	}
-#else
-	if (var->bits_per_pixel != 16)
-		return -EINVAL;
-#endif
 
 	if (var->xres <= 0)
 		return -EINVAL;
@@ -1417,7 +1379,6 @@ static int sirfsocfb_setcolreg(unsigned regno, unsigned red, unsigned green,
 	return 0;
 }
 
-#if 1
 static int sirfsocfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
 #if SIRFSOC_OVERLAY_ENABLE_CACHE
@@ -1459,7 +1420,7 @@ static int sirfsocfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 		return -EAGAIN;
 	return 0;
 }
-#endif
+
 struct fb_ops sirfsocfb_ops = {.owner = THIS_MODULE,
 	.fb_open = sirfsocfb_open, .fb_release = sirfsocfb_close,
 	.fb_check_var = sirfsocfb_check_var, .fb_set_par = sirfsocfb_set_par,
@@ -1546,14 +1507,11 @@ static void sirfsocfb_irq_deinit(struct sirfsocfb *fb)
 static int sirfsocfb_register(struct sirfsocfb *fb)
 {
 	int ret, layer;
-	struct sirfsocfb_board *board = fb->board;
 
 	FB_FUN_MSG("sirfsocfb_register\n");
 
-	for (layer = 0; layer < SIRFSOCFB_MAX_LAYERS; layer++) {
+	for (layer = 0; layer < LCD_PRIMARY + 1; layer++) {
 		struct fb_var_screeninfo var = { 0 };
-		if (!(board->fb_layer_info[layer].valid))
-			continue;
 
 		fb->layer_info[layer].registered = 0;
 
@@ -1637,7 +1595,6 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 				ret = fb_set_var(&fb->fb[layer], &var);
 				if (ret)
 					return ret;
-
 			} else {
 				/* already enabled by the bootloader so just set the
 				 * activate field */
@@ -1679,12 +1636,9 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 static void sirfsocfb_unregister(struct sirfsocfb *fb)
 {
 	int layer;
-	struct sirfsocfb_board *board = fb->board;
 	FB_FUN_MSG("sirfsocfb_unregister\n");
 
-	for (layer = 0; layer < SIRFSOCFB_MAX_LAYERS; layer++) {
-		if (!(board->fb_layer_info[layer].valid))
-			continue;
+	for (layer = 0; layer < LCD_PRIMARY + 1; layer++) {
 
 		/* disable all interrupts */
 		fb->lcd_func.pfnDisableInterrupt(LCD_INTERRUPT_ALL);
@@ -1700,39 +1654,22 @@ static int remap_frame_buffers(struct platform_device *dev,
 			       struct sirfsocfb *fb)
 {
 	int i, ret = 0;
-	struct sirfsocfb_board *board = fb->board;
-	struct resource *mem_res[SIRFSOCFB_MAX_LAYERS];
 
 	FB_FUN_MSG("remap_frame_buffers\n");
 
-	mem_res[0] = platform_get_resource_byname(dev, IORESOURCE_MEM, "L0");
-	mem_res[1] = platform_get_resource_byname(dev, IORESOURCE_MEM, "L1");
-	mem_res[2] = platform_get_resource_byname(dev, IORESOURCE_MEM, "L2");
-	mem_res[3] = platform_get_resource_byname(dev, IORESOURCE_MEM, "L3");
+	for (i = 0; i < LCD_PRIMARY + 1; i++) {
+		fb->fb[i].fix.smem_start = sirf_fb_phy_base;
+		fb->fb[i].fix.smem_len = sirf_fb_phy_size;
+		fb->fb[i].screen_base = ioremap_wc(sirf_fb_phy_base,
+			sirf_fb_phy_size);
 
-	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++) {
-		if (board->fb_layer_info[i].valid) {
-			if (mem_res[i] == NULL) {
-				FB_ERR_MSG("Unable to get L%d resource!\n", i);
-				ret = -EINVAL;
-				break;
-			}
-
-			fb->fb[i].fix.smem_len =
-			    mem_res[i]->end - mem_res[i]->start + 1;
-			fb->fb[i].screen_base = ioremap_wc(mem_res[i]->start,
-				mem_res[i]->end - mem_res[i]->start + 1);
-			fb->fb[i].fix.smem_start = mem_res[i]->start;
-
-			if (fb->fb[i].screen_base == NULL) {
-				FB_ERR_MSG("L%d IO remap failed!\n", i);
-				ret = -ENOMEM;
-				break;
-			}
-
-			fb->layer_info[i].pan = board->fb_layer_info[i].pan;
+		if (fb->fb[i].screen_base == NULL) {
+			FB_ERR_MSG("L%d IO remap failed!\n", i);
+			ret = -ENOMEM;
+			break;
 		}
-#if 1
+		fb->layer_info[i].pan = 1;
+
 		if (i == LCD_PRIMARY) {
 			fb->layer_info[i].enabled = (fb->init_enabled) ? 1 : 0;
 			if (!fb->init_enabled)
@@ -1743,10 +1680,45 @@ static int remap_frame_buffers(struct platform_device *dev,
 			memset(fb->fb[i].screen_base, 0x0,
 			       fb->fb[i].fix.smem_len);
 		}
-#endif
 	}
 
 	return ret;
+}
+
+static void std_pre_enable(void)
+{
+	if (lcd_client) {
+		i2c_smbus_write_byte_data(lcd_client, 8, 0x1);
+		msleep(50);
+		i2c_smbus_write_byte_data(lcd_client, 6, 0x1);
+	}
+}
+
+static void std_post_enable(void)
+{
+	if (lcd_client) {
+		msleep(200);
+		i2c_smbus_write_byte_data(lcd_client, 5, 0x1);
+	}
+}
+
+static void std_pre_disable(void)
+{
+	if (lcd_client)
+		i2c_smbus_write_byte_data(lcd_client, 10, 0x1);
+}
+
+static void std_post_disable(void)
+{
+	if (lcd_client) {
+		i2c_smbus_write_byte_data(lcd_client, 11, 0x1);
+		i2c_smbus_write_byte_data(lcd_client, 13, 0x1);
+	}
+}
+
+static void reset(void)
+{
+
 }
 
 static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
@@ -1788,138 +1760,190 @@ static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
 	pPanel->pfnPostPowerUp = fb->panel->enable_post;
 	pPanel->pfnPrePowerDown = fb->panel->disable_pre;
 	pPanel->pfnPostPowerDown = fb->panel->disable_post;
-	pPanel->pfnReset = fb->board->platform_init;
+	pPanel->pfnReset = reset;
 
 	pPanel->eMaxLayer = SIRFSOCFB_MAX_LAYERS - 1;
 	pPanel->eLayer = LCD_PRIMARY;
 
 }
 
+void  __init sirfsoc_fb_reserve_memblock(void)
+{
+	sirf_fb_phy_size = 3 * SZ_1M;
+	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, PAGE_SIZE);
+	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
+}
+EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);
+
 static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 {
-	struct platform_device *dev = async_data;
-	struct sirfsocfb *fb;
-#if 0
-	struct resource *mem_res;
-	struct sirfsocfb_board *board =
-	    (struct sirfsocfb_board *)dev->dev.platform_data;
-	int i, ret = 0;
-	LCD_PANEL_INFO sPanel;
-#endif
+	struct platform_device *pdev = async_data;
+	struct device_node *np;
 
-	FB_NOT_MSG("+sirfsocfb_probe\n");
+	struct sirfsocfb *fb;
+	struct sirfsocfb_panel *panel;
+	struct resource *res;
+	struct pinctrl *p;
+	int i, ret = 0;
+	LCD_PANEL_INFO panel_info;
+
+	FB_FUN_MSG("+sirfsocfb_probe\n");
 
 	/* we sync to make sure multi-fb is registerred in order */
 	async_synchronize_cookie(cookie);
-#if 0
 
-	fb = kzalloc(sizeof(struct sirfsocfb), GFP_KERNEL);
+	fb = devm_kzalloc(&pdev->dev, sizeof(*fb), GFP_KERNEL);
 	if (!fb) {
-		FB_ERR_MSG("Unable to allocate driver private data!\n");
+		FB_ERR_MSG("Fail to allocate fb private data!\n");
 		ret = -ENOMEM;
 		goto err;
 	}
 
-	mem_res = platform_get_resource_byname(dev, IORESOURCE_MEM, "regs");
-	if (mem_res == NULL) {
-		FB_ERR_MSG("Unable to get regs resource!\n");
-		kfree(fb);
+	panel = devm_kzalloc(&pdev->dev, sizeof(*panel), GFP_KERNEL);
+	if (!panel) {
+		FB_ERR_MSG("Fail to allocate lcd panel!\n");
+		ret = -ENOMEM;
+		goto err_free_fb;
+	}
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
+		FB_ERR_MSG("Fail to get lcd regs resource!\n");
 		ret = -EINVAL;
-		goto err;
+		goto err_free_panel;
 	}
 
-	fb->base = ioremap(mem_res->start, (mem_res->end - mem_res->start + 1));
+	fb->base = devm_request_and_ioremap(&pdev->dev, res);
 	if (fb->base == NULL) {
-		FB_ERR_MSG("IO remap failed!\n");
+		FB_ERR_MSG("Fail to remap lcd regs!\n");
 		ret = -ENOMEM;
-		goto free_fb;
+		goto err_free_panel;
 	}
 
-	mem_res =
-	    platform_get_resource_byname(dev, IORESOURCE_MEM, "vpp-regs-fb");
-	if (mem_res == NULL) {
-		FB_ERR_MSG("Unable to get vpp-regs-fb resource!\n");
-		ret = -EINVAL;
-		goto unmap;
-	}
-
-	fb->vpp_base =
-	    ioremap(mem_res->start, (mem_res->end - mem_res->start + 1));
-	if (fb->vpp_base == NULL) {
-		FB_ERR_MSG("IO remap failed!\n");
-		ret = -ENOMEM;
-		goto unmap;
-	}
-
-	mem_res = platform_get_resource_byname(dev, IORESOURCE_MEM, "L0");
-
-	fb->clk = clk_get(&dev->dev, "lcd");
+	fb->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(fb->clk)) {
-		FB_ERR_MSG("Unable to get clock!\n");
+		FB_ERR_MSG("Fail to get lcd clock!\n");
 		ret = -EINVAL;
-		goto unmap_vpp;
+		goto err_unmap;
 	}
 
-	fb->vpp_clk = clk_get(NULL, "vpp");
-	if (IS_ERR(fb->vpp_clk)) {
-		FB_ERR_MSG("Unable to get vpp clock!\n");
-		ret = -EINVAL;
-		goto clk_rel;
-	}
-
-	fb->irq = platform_get_irq(dev, 0);
+	fb->irq = platform_get_irq(pdev, 0);
 	if (!fb->irq) {
+		FB_ERR_MSG("Fail to get lcd irq!\n");
 		ret = -EINVAL;
-		goto clk_rel_vpp;
+		goto err_unmap;
+	}
+
+	/* init panel */
+	np = of_parse_phandle(pdev->dev.of_node, "default-panel", 0);
+	if (!np) {
+		FB_ERR_MSG("Fail to get panel description\n");
+		ret = -EINVAL;
+		goto err_unmap;
+	}
+	ret = 0;
+
+	ret |= of_property_read_u32(np, "hactive", &panel->mode.xres);
+	ret |= of_property_read_u32(np, "vactive", &panel->mode.yres);
+	ret |= of_property_read_u32(np, "left_margin",
+		&panel->mode.left_margin);
+	ret |= of_property_read_u32(np, "right_margin",
+		&panel->mode.right_margin);
+	ret |= of_property_read_u32(np, "hsync_len",
+		&panel->mode.hsync_len);
+	ret |= of_property_read_u32(np, "upper_margin",
+		&panel->mode.upper_margin);
+	ret |= of_property_read_u32(np, "lower_margin",
+		&panel->mode.lower_margin);
+	ret |= of_property_read_u32(np, "vsync_len",
+		&panel->mode.vsync_len);
+	ret |= of_property_read_u32(np, "pixclock",
+		&panel->mode.pixclock);
+	ret |= of_property_read_u32(np, "timing", &panel->timing);
+	if (ret) {
+		FB_ERR_MSG("Fail to get panel parms\n");
+		ret = -EINVAL;
+		goto err_unmap;
+	}
+	panel->enable_pre   = std_pre_enable;
+	panel->enable_post  = std_post_enable;
+	panel->disable_pre  = std_pre_disable;
+	panel->disable_post = std_post_disable;
+
+	panel->bpp = bpp;
+	fb->panel = panel;
+	param_prepare(fb, &panel_info);
+
+	np = of_find_compatible_node(NULL, NULL, "sirf,lcd");
+	if (!np) {
+		FB_ERR_MSG("Fail to find lcd i2c node\n");
+		ret = -EINVAL;
+		goto err_unmap;
+	}
+
+	lcd_client = of_find_i2c_device_by_node(np);
+	if (!lcd_client) {
+		FB_ERR_MSG("Fail to get lcd i2c client\n");
+		ret = -EINVAL;
+		goto err_unmap;
+	}
+
+	p = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(p)) {
+		FB_ERR_MSG("Fail to select lcd pinmux\n");
+		ret = -EINVAL;
+		goto err_unmap;
 	}
 
 	spin_lock_init(&fb->lock);
-	fb->dev = dev;
-	fb->board = board;
-	platform_set_drvdata(dev, fb);
 
-	fb->panel = board->panel;
-	fb->panel->bpp = bpp;
+	fb->dev = pdev;
+	platform_set_drvdata(pdev, fb);
 
-	if (pixclock)
-		fb->panel->mode.pixclock = pixclock;
+	clk_prepare_enable(fb->clk);
 
-	clk_enable(fb->clk);
-	clk_enable(fb->vpp_clk);
+	/* later bl should be managed by pwm */
+	bl_gpio = of_get_named_gpio(pdev->dev.of_node, "bl-gpio", 0);
+	if (gpio_is_valid(bl_gpio)) {
+		ret = gpio_request(bl_gpio, "sirfsoc_backlight");
+		if (ret) {
+			dev_err(&pdev->dev, "request backlight gpio failed\n");
+			ret = -ENODEV;
+			goto err_unmap;
+		}
+		gpio_direction_output(bl_gpio, 1);
+	}
 
 	LCD_GetFuncTable(&fb->lcd_func);
 
-	param_prepare(fb, &sPanel);
-
 	/* Check if LCD preinited by uboot */
 	fb->init_enabled =
-	    fb->lcd_func.pfnInitialize(fb->base, fb->vpp_base, 0, bpp, &sPanel);
-	FB_NOT_MSG("%s board, %s panel initialisation complete\n",
-		   fb->board->name, fb->panel->mode.name);
+	    fb->lcd_func.pfnInitialize(fb->base, fb->vpp_base, 0,
+		    bpp, &panel_info);
 
 	FB_INF_MSG("lcd external init status %d\n", fb->init_enabled);
 
-	fb->vpp_func = fb->lcd_func.pfnGetVppTable();
-
 	ret = sirfsocfb_irq_init(fb);
 	if (ret)
-		goto board_rel;
+		goto err_rel_clk;
 
 	/* remap the frame buffers */
-	ret = remap_frame_buffers(dev, fb);
+	ret = remap_frame_buffers(pdev, fb);
 	if (ret)
-		goto irq_deinit;
+		goto err_deinit_irq;
 
-	ret = sirfsocfb_register(fb);	/* Register the framebuffer device */
+	/* Register the framebuffer device */
+	ret = sirfsocfb_register(fb);
 	if (ret)
-		goto unregister;
+		goto err_unregister;
 
-	ret = device_create_file(&dev->dev, &dev_attr_layer_fifo_underflow);
+	ret = device_create_file(&pdev->dev, &dev_attr_layer_fifo_underflow);
 	if (ret)
-		goto unregister;
-	ret = device_create_file(&dev->dev, &dev_attr_layer_fifo_overflow);
+		goto err_unregister;
+
+	ret = device_create_file(&pdev->dev, &dev_attr_layer_fifo_overflow);
 	if (ret)
-		goto dev_file_rel1;
+		goto err_remove_dev_file;
+
 
 	/* default alpha 0xFF */
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
@@ -1929,13 +1953,12 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	sirfsocfb_set_toplayer(fb, toplayer);
 
 #if !SIRFSOC_ENABLE_ALPHA_BLENDING
-	/* default enable toplayer colorkey */
-	FB_INF_MSG("set top layer's color key as 0x%x\n", colorkey);
+	/* Enable toplayer colorkey */
 	fb->layer_info[toplayer].ckey.enable = 1;
 	fb->layer_info[toplayer].ckey.color_key_big = (bpp == 32) ?
-		colorkey : colorkey16;
+		0x100010 : 0x1002;
 	fb->layer_info[toplayer].ckey.color_key_small = (bpp == 32) ?
-		colorkey : colorkey16;
+		0x100010 : 0x1002;
 	sirfsocfb_set_ckey(fb, toplayer);
 #endif
 
@@ -1944,29 +1967,30 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	fb_show_logo(&fb->fb[LCD_PRIMARY], 0);
 #endif
 	layer_enable(fb, LCD_PRIMARY);
-#endif
 
-	FB_NOT_MSG("-sirfsocfb_probe\n");
+	FB_FUN_MSG("-sirfsocfb_probe\n");
 
 	return;
-#if 0
-dev_file_rel1:device_remove_file(&dev->dev,
-			   &dev_attr_layer_fifo_underflow);
-unregister:sirfsocfb_unregister(fb);
-	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
-		if (board->fb_layer_info[i].valid)
-			iounmap(fb->fb[i].screen_base);
-irq_deinit:sirfsocfb_irq_deinit(fb);
-board_rel:fb->lcd_func.pfnTerminate();
-clk_rel_vpp:clk_put(fb->vpp_clk);
-clk_rel:clk_put(fb->clk);
-unmap_vpp:iounmap(fb->vpp_base);
-unmap:	iounmap(fb->base);
-free_fb:kfree(fb);
+err_remove_dev_file:
+	device_remove_file(&pdev->dev,
+		&dev_attr_layer_fifo_underflow);
+err_unregister:
+	sirfsocfb_unregister(fb);
+	iounmap(fb->fb[LCD_PRIMARY].screen_base);
+err_deinit_irq:
+	sirfsocfb_irq_deinit(fb);
+err_rel_clk:
+	clk_disable(fb->clk);
+	clk_put(fb->clk);
+err_unmap:
+	devm_iounmap(&pdev->dev, fb->base);
+err_free_panel:
+	devm_kfree(&pdev->dev, fb->panel);
+err_free_fb:
+	devm_kfree(&pdev->dev, fb);
 err:
 	async_synchronize_cookie(cookie);
 	return;
-#endif
 }
 
 static int sirfsocfb_probe(struct platform_device *pdev)
@@ -1975,34 +1999,33 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int sirfsocfb_remove(struct platform_device *dev)
+static int sirfsocfb_remove(struct platform_device *pdev)
 {
 	int i;
-	struct sirfsocfb *fb = platform_get_drvdata(dev);
-	struct sirfsocfb_board *board =
-	    (struct sirfsocfb_board *)dev->dev.platform_data;
+	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 
 	FB_FUN_MSG("sirfsocfb_remove\n");
 
 	sirfsocfb_unregister(fb);
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
-		if (board->fb_layer_info[i].valid)
-			kfree(fb->layer_info[i].pOvl);
+		kfree(fb->layer_info[i].pOvl);
+
+	if (gpio_is_valid(bl_gpio))
+		gpio_free(bl_gpio);
 
 	fb->lcd_func.pfnTerminate();
 	fb->init_enabled = 0;
-	device_remove_file(&dev->dev, &dev_attr_layer_fifo_overflow);
-	device_remove_file(&dev->dev, &dev_attr_layer_fifo_underflow);
+	device_remove_file(&pdev->dev, &dev_attr_layer_fifo_overflow);
+	device_remove_file(&pdev->dev, &dev_attr_layer_fifo_underflow);
 	sirfsocfb_irq_deinit(fb);
 
 	clk_disable(fb->clk);
 	clk_put(fb->clk);
 	iounmap(fb->base);
 
-	clk_disable(fb->vpp_clk);
-	clk_put(fb->vpp_clk);
-	iounmap(fb->vpp_base);
-	kfree(fb);
+	devm_kfree(&pdev->dev, fb->panel);
+	devm_kfree(&pdev->dev, fb);
+
 	FB_NOT_MSG("framebuffer driver unregistered!\n");
 	return 0;
 }

@@ -82,4 +82,14 @@ config LOGO_M32R_CLUT224
 	depends on M32R
 	default y
 
+config LOGO_PRIMA2_CLUT224
+        bool "224-color Prima2 Linux logo"
+        depends on ARCH_PRIMA2
+        default y
+
+config LOGO_ATLAS6_CLUT224
+        bool "224-color Atlas6 Linux logo"
+        depends on ARCH_ATLAS6
+        default y
+
 endif # LOGO
