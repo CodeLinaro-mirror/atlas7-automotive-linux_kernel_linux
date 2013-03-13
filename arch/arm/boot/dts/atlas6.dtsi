@@ -401,6 +401,12 @@
                                                 sirf,function = "pwm3";
                                         };
                                 };
+				pwm4_pins_a: pwm4@0 {
+                                        pwm {
+                                                sirf,pins = "pwm4grp";
+                                                sirf,function = "pwm4";
+                                        };
+                                };
                                 gps_pins_a: gps@0 {
                                         gps {
                                                 sirf,pins = "gpsgrp";
@@ -431,6 +437,12 @@
                                                 sirf,function = "sdmmc2";
                                         };
                                 };
+				sdmmc2_nowp_pins_a: sdmmc2_nowp@0 {
+                                        sdmmc2_nowp {
+                                                sirf,pins = "sdmmc2_nowpgrp";
+                                                sirf,function = "sdmmc2_nowp";
+                                        };
+                                };
                                 sdmmc3_pins_a: sdmmc3@0 {
                                         sdmmc3 {
                                                 sirf,pins = "sdmmc3grp";
@@ -447,6 +459,18 @@
                                         i2s {
                                                 sirf,pins = "i2sgrp";
                                                 sirf,function = "i2s";
+                                        };
+                                };
+				i2s_no_din_pins_a: i2s_no_din@0 {
+                                        i2s_no_din {
+                                                sirf,pins = "i2s_no_dingrp";
+                                                sirf,function = "i2s_no_din";
+                                        };
+                                };
+				i2s_6chn_pins_a: i2s_6chn@0 {
+                                        i2s_6chn {
+                                                sirf,pins = "i2s_6chngrp";
+                                                sirf,function = "i2s_6chn";
                                         };
                                 };
                                 ac97_pins_a: ac97@0 {
