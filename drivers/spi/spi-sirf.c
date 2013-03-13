@@ -698,7 +698,7 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	return 0;
 
 free_clk:
-	clk_disable(sspi->clk);
+	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
 free_pin:
 	pinctrl_put(sspi->p);
@@ -729,7 +729,7 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 			gpio_free(sspi->chipselect[i]);
 	}
 	kfree(sspi->dma_xt);
-	clk_disable(sspi->clk);
+	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
 	dma_release_channel(sspi->rx_chan);
 	dma_release_channel(sspi->tx_chan);
@@ -745,7 +745,7 @@ static int spi_sirfsoc_suspend(struct device *dev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
-	clk_disable(sspi->clk);
+	clk_disable_unprepare(sspi->clk);
 	return 0;
 }
 
@@ -755,7 +755,7 @@ static int spi_sirfsoc_resume(struct device *dev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
-	clk_enable(sspi->clk);
+	clk_prepare_enable(sspi->clk);
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_TXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_START, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
