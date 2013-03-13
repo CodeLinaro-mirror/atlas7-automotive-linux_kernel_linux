@@ -40,6 +40,8 @@
 			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2c0_pins_a>;
 				lcd@40 {
 					compatible = "sirf,lcd";
 					reg = <0x40>;

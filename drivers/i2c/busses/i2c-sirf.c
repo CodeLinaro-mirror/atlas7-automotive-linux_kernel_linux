@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/pinctrl/consumer.h>
 
 #define SIRFSOC_I2C_CLK_CTRL		0x00
 #define SIRFSOC_I2C_STATUS		0x0C
@@ -265,12 +266,19 @@ static int i2c_sirfsoc_probe(struct platform_device *pdev)
 	struct i2c_adapter *adap;
 	struct resource *mem_res;
 	struct clk *clk;
+	struct pinctrl *pinctrl;
 	int bitrate;
 	int ctrl_speed;
 	int irq;
 
 	int err;
 	u32 regval;
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		err = PTR_ERR(pinctrl);
+		goto failed_pin;
+	}
 
 	clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(clk)) {
@@ -386,6 +394,7 @@ err_clk_en:
 err_clk_prep:
 	clk_put(clk);
 err_get_clk:
+failed_pin:
 	return err;
 }
 
