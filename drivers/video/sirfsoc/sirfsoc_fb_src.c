@@ -2128,18 +2128,7 @@ static struct platform_driver sirfsocfb_driver = {
 	.remove = sirfsocfb_remove,
 };
 
-static int __init sirfsocfb_init(void)
-{
-	return platform_driver_register(&sirfsocfb_driver);
-}
-
-static void __exit sirfsocfb_exit(void)
-{
-	platform_driver_unregister(&sirfsocfb_driver);
-}
-
-module_init(sirfsocfb_init);
-module_exit(sirfsocfb_exit);
+module_platform_driver(sirfsocfb_driver);
 
 MODULE_DESCRIPTION("SiRF SoC Frame buffer driver");
 MODULE_AUTHOR("Ramya Segar");
