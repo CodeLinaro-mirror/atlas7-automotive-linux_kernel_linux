@@ -380,8 +380,10 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 
 	if (wait_for_completion_timeout(&sspi->done, timeout) == 0) {
 		dev_err(&spi->dev, "transfer timeout\n");
-		dmaengine_terminate_all(sspi->rx_chan);
-		dmaengine_terminate_all(sspi->tx_chan);
+		if (IS_DMA_VALID(t)) {
+			dmaengine_terminate_all(sspi->rx_chan);
+			dmaengine_terminate_all(sspi->tx_chan);
+		}
 	}
 
 	if (IS_DMA_VALID(t)) {
@@ -650,7 +652,6 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 
 	/* request DMA channels */
 	dma_cap_zero(dma_cap_mask);
-	dma_cap_set(DMA_SLAVE, dma_cap_mask);
 	dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
 
 	sspi->rx_chan = dma_request_channel(dma_cap_mask, (dma_filter_fn)sirfsoc_dma_filter_id,
