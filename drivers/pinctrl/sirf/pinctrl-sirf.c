@@ -808,10 +808,6 @@ static int sirfsoc_gpio_probe(struct device_node *np)
 		/* For primaII, GPIO23_8..GPIO3_31 are reserved */
 		writel(readl(regs + SIRFSOC_GPIO_PAD_EN(3)) | ~0x7FFFFUL,
 				regs + SIRFSOC_GPIO_PAD_EN(3));
-
-		/* Fixme: move it to i2c driver by pinmux */
-		writel(readl(regs + SIRFSOC_GPIO_PAD_EN(2)) & ~0xC00A000UL,
-				regs + SIRFSOC_GPIO_PAD_EN(2));
 	}
 
 	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
