@@ -142,8 +142,4 @@ void __init sirfsoc_atlas6_of_clk_init(void)
 	clk_data.clk_num = maxclk;
 
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
-
-	/* enable all clocks for testing */
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
 }
