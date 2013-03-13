@@ -16,42 +16,26 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307 USA
  */
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <linux/mm.h>
 #include <linux/fb.h>
 #include <linux/workqueue.h>
 #include <linux/init.h>
 #include <linux/async.h>
-#include <linux/ioport.h>
-#include <linux/list.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/uaccess.h>
-#include <asm/sizes.h>
 #include <linux/io.h>
-#include <linux/jiffies.h>
 #include <linux/of.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/of_i2c.h>
 #include <linux/of_gpio.h>
-#include <linux/pinctrl/pinctrl.h>
-#include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/memblock.h>
-#include <linux/gpio.h>
-#include <asm/irq.h>
 #include <asm/cacheflush.h>
-#include <asm-generic/gpio.h>
 #include <video/sirfsoc_fb.h>
 
 #include "CspCmnLcd.h"
