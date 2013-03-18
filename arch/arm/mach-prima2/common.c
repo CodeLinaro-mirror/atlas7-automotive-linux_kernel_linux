@@ -42,7 +42,7 @@ static __init void sirfsoc_map_io(void)
 	sirfsoc_map_scu();
 }
 
-#ifdef CONFIG_ARCH_PRIMA2
+#ifdef CONFIG_ARCH_ATLAS6
 static const char *atlas6_dt_match[] __initdata = {
 	"sirf,atlas6",
 	NULL
