@@ -968,33 +968,3 @@ static struct of_device_id rsc_ids[] = {
 };
 
 static struct clk_onecell_data clk_data;
-
-/*
- * clk disable/enable should be doned by every device
- * here we just give a workaround to enable all clk
- */
-static int sirfsoc_clk_suspend(void)
-{
-	return 0;
-}
-
-static void sirfsoc_clk_resume(void)
-{
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
-}
-
-static struct syscore_ops sirfsoc_clk_syscore_ops = {
-	.suspend	= sirfsoc_clk_suspend,
-	.resume		= sirfsoc_clk_resume,
-};
-
-static int __init sirfsoc_clk_pm_init(void)
-{
-	if (!of_find_matching_node(NULL, clkc_ids))
-		return -ENODEV;
-
-	register_syscore_ops(&sirfsoc_clk_syscore_ops);
-	return 0;
-}
-device_initcall(sirfsoc_clk_pm_init);
