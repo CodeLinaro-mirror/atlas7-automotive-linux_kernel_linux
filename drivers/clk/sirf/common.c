@@ -956,12 +956,6 @@ static struct clk_std clk_usb1 = {
 	},
 };
 
-static struct of_device_id clkc_ids[] = {
-	{ .compatible = "sirf,prima2-clkc" },
-	{ .compatible = "sirf,atlas6-clkc" },
-	{},
-};
-
 static struct of_device_id rsc_ids[] = {
 	{ .compatible = "sirf,prima2-rsc" },
 	{},
