@@ -15,21 +15,37 @@
 
 /* Fixme: make it the platform data of sdhci_host */
 
-static u32 sdhci_sirf_clk = 26000000; /* For FPGA */
+static u32 sdhci_sirf_clkrate = 26000000; /* For FPGA */
+struct clk *sdhci_sirf_clk;
 
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
-	return sdhci_sirf_clk;
+	return sdhci_sirf_clkrate;
 }
+
+#ifdef CONFIG_PM
+static void sdhci_sirf_suspend(struct sdhci_host *host)
+{
+	clk_disable_unprepare(sdhci_sirf_clk);
+}
+
+static void sdhci_sirf_resume(struct sdhci_host *host)
+{
+	clk_prepare_enable(sdhci_sirf_clk);
+}
+#endif
 
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
+#ifdef CONFIG_PM
+	.platform_suspend = sdhci_sirf_suspend,
+	.platform_resume = sdhci_sirf_resume,
+#endif
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 	.ops = &sdhci_sirf_ops,
 	.quirks = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
-		SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
 		SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
 		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT |
@@ -44,10 +60,9 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	 * from DT for primaII
 	 */
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-sdhc")) {
-		struct clk *clk = clk_get(&pdev->dev, NULL);
-		clk_prepare_enable(clk);
-		sdhci_sirf_clk = clk_get_rate(clk);
-		clk_put(clk);
+		sdhci_sirf_clk = clk_get(&pdev->dev, NULL);
+		clk_prepare_enable(sdhci_sirf_clk);
+		sdhci_sirf_clkrate = clk_get_rate(sdhci_sirf_clk);
 	}
 
 	return sdhci_pltfm_register(pdev, &sdhci_sirf_pdata);
@@ -55,6 +70,8 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 static int sdhci_sirf_remove(struct platform_device *pdev)
 {
+	clk_disable_unprepare(sdhci_sirf_clk);
+	clk_put(sdhci_sirf_clk);
 	return sdhci_pltfm_unregister(pdev);
 }
 
