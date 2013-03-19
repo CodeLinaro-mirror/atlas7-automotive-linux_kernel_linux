@@ -331,7 +331,7 @@
 
 			i2c0: i2c@cc0e0000 {
 				cell-index = <0>;
-				compatible = "sirf,marco-i2c";
+				compatible = "sirf,marco-i2c", "sirf,prima2-i2c";
 				reg = <0xcc0e0000 0x10000>;
 				interrupts = <0 24 0>;
 				#address-cells = <1>;
