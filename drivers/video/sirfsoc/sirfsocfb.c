@@ -681,7 +681,7 @@ static void sirfsocfb_dq_buffer(struct sirfsocfb *fb, int layer, int *bufidx)
 			*bufidx = -1;
 			return;
 		}
-		msleep(1);
+		msleep(20);
 	}
 
 	spin_lock_irqsave(&fb->lock, flags);
