@@ -39,8 +39,7 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
 		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT |
-		SDHCI_QUIRK_DELAY_AFTER_POWER |
-		SDHCI_QUIRK_BROKEN_DMA,
+		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
 
 static int sdhci_sirf_probe(struct platform_device *pdev)
