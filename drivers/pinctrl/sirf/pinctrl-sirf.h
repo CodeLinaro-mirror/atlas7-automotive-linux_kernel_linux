@@ -43,6 +43,11 @@ struct sirfsoc_pmx {
 	struct pinctrl_dev *pmx;
 	void __iomem *gpio_virtbase;
 	void __iomem *rsc_virtbase;
+	u32 gpio_regs[SIRFSOC_GPIO_NO_OF_BANKS][SIRFSOC_GPIO_BANK_SIZE];
+	u32 ints_regs[SIRFSOC_GPIO_NO_OF_BANKS];
+	u32 paden_regs[SIRFSOC_GPIO_NO_OF_BANKS];
+	u32 dspen_regs;
+	u32 rsc_regs[3];
 	bool is_marco;
 };
 
