@@ -47,7 +47,18 @@
 					reg = <0x40>;
 				};
 			};
-
+			pci-iobg {
+				sd0: sdhci@56000000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc0_pins_a>;
+				};
+				sd2: sdhci@56200000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc2_pins_a>;
+				};
+			};
 		};
 		disp-iobg {
 			lcd@90010000 {
