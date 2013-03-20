@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/mmc/slot-gpio.h>
 #include "sdhci-pltfm.h"
 
 struct sdhci_sirf_priv {
@@ -20,14 +21,6 @@ struct sdhci_sirf_priv {
 	int gpio_cd;
 };
 
-static irqreturn_t sdhci_sirf_carddetect_irq(int irq, void *data)
-{
-	struct sdhci_host *host = data;
-
-	tasklet_schedule(&host->card_tasklet);
-	return IRQ_HANDLED;
-}
-
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -35,28 +28,8 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	return priv->clock;
 }
 
-#ifdef CONFIG_PM
-static void sdhci_sirf_suspend(struct sdhci_host *host)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_sirf_priv *priv = pltfm_host->priv;
-	clk_disable_unprepare(priv->clk);
-}
-
-static void sdhci_sirf_resume(struct sdhci_host *host)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_sirf_priv *priv = pltfm_host->priv;
-	clk_prepare_enable(priv->clk);
-}
-#endif
-
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
-#ifdef CONFIG_PM
-	.platform_suspend = sdhci_sirf_suspend,
-	.platform_resume = sdhci_sirf_resume,
-#endif
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
@@ -129,20 +102,17 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	 * gets setup in sdhci_add_host() and we oops.
 	 */
 	if (gpio_is_valid(priv->gpio_cd)) {
-		ret = request_irq(gpio_to_irq(priv->gpio_cd),
-			sdhci_sirf_carddetect_irq,
-			IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
-			mmc_hostname(host->mmc), host);
+		ret = mmc_gpio_request_cd(host->mmc, priv->gpio_cd);
 		if (ret) {
 			dev_err(&pdev->dev, "card detect irq request failed: %d\n",
 				ret);
-			goto err_request_irq;
+			goto err_request_cd;
 		}
 	}
 
 	return 0;
 
-err_request_irq:
+err_request_cd:
 	sdhci_remove_host(host, 0);
 err_sdhci_add:
 	clk_disable_unprepare(priv->clk);
@@ -162,14 +132,48 @@ static int sdhci_sirf_remove(struct platform_device *pdev)
 
 	sdhci_pltfm_unregister(pdev);
 
-	if (gpio_is_valid(priv->gpio_cd)) {
-		free_irq(gpio_to_irq(priv->gpio_cd), host);
-		gpio_free(priv->gpio_cd);
-	}
+	if (gpio_is_valid(priv->gpio_cd))
+		mmc_gpio_free_cd(host->mmc);
 
 	clk_disable_unprepare(priv->clk);
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int sdhci_sirf_suspend(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+	int ret;
+
+	ret = sdhci_suspend_host(host);
+	if (ret)
+		return ret;
+
+	clk_disable(priv->clk);
+
+	return 0;
+}
+
+static int sdhci_sirf_resume(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+	int ret;
+
+	ret = clk_enable(priv->clk);
+	if (ret) {
+		dev_dbg(dev, "Resume: Error enabling clock\n");
+		return ret;
+	}
+
+	return sdhci_resume_host(host);
+}
+
+static SIMPLE_DEV_PM_OPS(sdhci_sirf_pm_ops, sdhci_sirf_suspend, sdhci_sirf_resume);
+#endif
 
 static const struct of_device_id sdhci_sirf_of_match[] = {
 	{ .compatible = "sirf,prima2-sdhc" },
@@ -183,7 +187,9 @@ static struct platform_driver sdhci_sirf_driver = {
 		.name	= "sdhci-sirf",
 		.owner	= THIS_MODULE,
 		.of_match_table = sdhci_sirf_of_match,
-		.pm	= SDHCI_PLTFM_PMOPS,
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &sdhci_sirf_pm_ops,
+#endif
 	},
 	.probe		= sdhci_sirf_probe,
 	.remove		= sdhci_sirf_remove,
