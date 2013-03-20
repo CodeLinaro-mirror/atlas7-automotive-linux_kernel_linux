@@ -27,6 +27,7 @@
 #include <linux/serial_sci.h>
 #include <linux/sh_dma.h>
 #include <linux/sh_timer.h>
+#include <linux/platform_data/sh_ipmmu.h>
 #include <mach/dma-register.h>
 #include <mach/r8a7740.h>
 #include <mach/pm-rmobile.h>
@@ -65,6 +66,32 @@ static struct map_desc r8a7740_io_desc[] __initdata = {
 void __init r8a7740_map_io(void)
 {
 	iotable_init(r8a7740_io_desc, ARRAY_SIZE(r8a7740_io_desc));
+}
+
+/* PFC */
+static struct resource r8a7740_pfc_resources[] = {
+	[0] = {
+		.start	= 0xe6050000,
+		.end	= 0xe6057fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= 0xe605800c,
+		.end	= 0xe605802b,
+		.flags	= IORESOURCE_MEM,
+	}
+};
+
+static struct platform_device r8a7740_pfc_device = {
+	.name		= "pfc-r8a7740",
+	.id		= -1,
+	.resource	= r8a7740_pfc_resources,
+	.num_resources	= ARRAY_SIZE(r8a7740_pfc_resources),
+};
+
+void __init r8a7740_pinmux_init(void)
+{
+	platform_device_register(&r8a7740_pfc_device);
 }
 
 /* SCIFA0 */
@@ -352,6 +379,37 @@ static struct platform_device tmu02_device = {
 	.num_resources	= ARRAY_SIZE(tmu02_resources),
 };
 
+/* IPMMUI (an IPMMU module for ICB/LMB) */
+static struct resource ipmmu_resources[] = {
+	[0] = {
+		.name	= "IPMMUI",
+		.start	= 0xfe951000,
+		.end	= 0xfe9510ff,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static const char * const ipmmu_dev_names[] = {
+	"sh_mobile_lcdc_fb.0",
+	"sh_mobile_lcdc_fb.1",
+	"sh_mobile_ceu.0",
+};
+
+static struct shmobile_ipmmu_platform_data ipmmu_platform_data = {
+	.dev_names = ipmmu_dev_names,
+	.num_dev_names = ARRAY_SIZE(ipmmu_dev_names),
+};
+
+static struct platform_device ipmmu_device = {
+	.name           = "ipmmu",
+	.id             = -1,
+	.dev = {
+		.platform_data = &ipmmu_platform_data,
+	},
+	.resource       = ipmmu_resources,
+	.num_resources  = ARRAY_SIZE(ipmmu_resources),
+};
+
 static struct platform_device *r8a7740_early_devices[] __initdata = {
 	&scif0_device,
 	&scif1_device,
@@ -366,6 +424,7 @@ static struct platform_device *r8a7740_early_devices[] __initdata = {
 	&tmu00_device,
 	&tmu01_device,
 	&tmu02_device,
+	&ipmmu_device,
 };
 
 /* DMA */

@@ -28,6 +28,7 @@
 #include <mach/devices.h>
 
 #include "board-mop500.h"
+#include "id.h"
 
 void __iomem *_PRCMU_BASE;
 
@@ -67,13 +68,11 @@ void __init ux500_init_irq(void)
 	 * Init clocks here so that they are available for system timer
 	 * initialization.
 	 */
-	if (cpu_is_u8500_family())
+	if (cpu_is_u8500_family() || cpu_is_u9540())
 		db8500_prcmu_early_init();
 
-	if (cpu_is_u8500_family())
+	if (cpu_is_u8500_family() || cpu_is_u9540())
 		u8500_clk_init();
-	else if (cpu_is_u9540())
-		u9540_clk_init();
 	else if (cpu_is_u8540())
 		u8540_clk_init();
 }

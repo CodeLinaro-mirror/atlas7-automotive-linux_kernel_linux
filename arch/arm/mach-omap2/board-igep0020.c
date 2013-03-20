@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/input.h>
+#include <linux/usb/phy.h>
 
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
@@ -300,20 +301,20 @@ static struct omap2_hsmmc_info mmc[] = {
 
 static struct gpio_led igep_gpio_leds[] = {
 	[0] = {
-		.name			= "gpio-led:red:d0",
-		.default_trigger	= "default-off"
+		.name			= "omap3:red:user0",
+		.default_state		= 0,
 	},
 	[1] = {
-		.name			= "gpio-led:green:d0",
-		.default_trigger	= "default-off",
+		.name			= "omap3:green:boot",
+		.default_state		= 1,
 	},
 	[2] = {
-		.name			= "gpio-led:red:d1",
-		.default_trigger	= "default-off",
+		.name			= "omap3:red:user1",
+		.default_state		= 0,
 	},
 	[3] = {
-		.name			= "gpio-led:green:d1",
-		.default_trigger	= "heartbeat",
+		.name			= "omap3:green:user1",
+		.default_state		= 0,
 		.gpio			= -EINVAL, /* gets replaced */
 		.active_low		= 1,
 	},
@@ -625,11 +626,12 @@ static void __init igep_init(void)
 	omap_serial_init();
 	omap_sdrc_init(m65kxxxxam_sdrc_params,
 				  m65kxxxxam_sdrc_params);
+	usb_bind_phy("musb-hdrc.0.auto", 0, "twl4030_usb");
 	usb_musb_init(NULL);
 
 	igep_flash_init();
 	igep_leds_init();
-	omap_twl4030_audio_init("igep2");
+	omap_twl4030_audio_init("igep2", NULL);
 
 	/*
 	 * WLAN-BT combo module from MuRata which has a Marvell WLAN

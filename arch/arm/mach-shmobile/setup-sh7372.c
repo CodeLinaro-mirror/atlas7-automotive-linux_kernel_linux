@@ -33,6 +33,7 @@
 #include <linux/sh_timer.h>
 #include <linux/pm_domain.h>
 #include <linux/dma-mapping.h>
+#include <linux/platform_data/sh_ipmmu.h>
 #include <mach/dma-register.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -58,6 +59,32 @@ static struct map_desc sh7372_io_desc[] __initdata = {
 void __init sh7372_map_io(void)
 {
 	iotable_init(sh7372_io_desc, ARRAY_SIZE(sh7372_io_desc));
+}
+
+/* PFC */
+static struct resource sh7372_pfc_resources[] = {
+	[0] = {
+		.start	= 0xe6050000,
+		.end	= 0xe6057fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= 0xe605800c,
+		.end	= 0xe6058027,
+		.flags	= IORESOURCE_MEM,
+	}
+};
+
+static struct platform_device sh7372_pfc_device = {
+	.name		= "pfc-sh7372",
+	.id		= -1,
+	.resource	= sh7372_pfc_resources,
+	.num_resources	= ARRAY_SIZE(sh7372_pfc_resources),
+};
+
+void __init sh7372_pinmux_init(void)
+{
+	platform_device_register(&sh7372_pfc_device);
 }
 
 /* SCIFA0 */
@@ -982,6 +1009,43 @@ static struct platform_device spu1_device = {
 	.num_resources	= ARRAY_SIZE(spu1_resources),
 };
 
+/* IPMMUI (an IPMMU module for ICB/LMB) */
+static struct resource ipmmu_resources[] = {
+	[0] = {
+		.name	= "IPMMUI",
+		.start	= 0xfe951000,
+		.end	= 0xfe9510ff,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static const char * const ipmmu_dev_names[] = {
+	"sh_mobile_lcdc_fb.0",
+	"sh_mobile_lcdc_fb.1",
+	"sh_mobile_ceu.0",
+	"uio_pdrv_genirq.0",
+	"uio_pdrv_genirq.1",
+	"uio_pdrv_genirq.2",
+	"uio_pdrv_genirq.3",
+	"uio_pdrv_genirq.4",
+	"uio_pdrv_genirq.5",
+};
+
+static struct shmobile_ipmmu_platform_data ipmmu_platform_data = {
+	.dev_names = ipmmu_dev_names,
+	.num_dev_names = ARRAY_SIZE(ipmmu_dev_names),
+};
+
+static struct platform_device ipmmu_device = {
+	.name           = "ipmmu",
+	.id             = -1,
+	.dev = {
+		.platform_data = &ipmmu_platform_data,
+	},
+	.resource       = ipmmu_resources,
+	.num_resources  = ARRAY_SIZE(ipmmu_resources),
+};
+
 static struct platform_device *sh7372_early_devices[] __initdata = {
 	&scif0_device,
 	&scif1_device,
@@ -993,6 +1057,7 @@ static struct platform_device *sh7372_early_devices[] __initdata = {
 	&cmt2_device,
 	&tmu00_device,
 	&tmu01_device,
+	&ipmmu_device,
 };
 
 static struct platform_device *sh7372_late_devices[] __initdata = {

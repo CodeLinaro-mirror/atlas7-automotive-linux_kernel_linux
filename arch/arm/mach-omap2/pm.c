@@ -273,7 +273,7 @@ static int __init omap2_common_pm_init(void)
 
 	return 0;
 }
-postcore_initcall(omap2_common_pm_init);
+omap_postcore_initcall(omap2_common_pm_init);
 
 int __init omap2_common_pm_late_init(void)
 {
@@ -282,19 +282,19 @@ int __init omap2_common_pm_late_init(void)
 	 * a completely different mechanism.
 	 * Disable this part if a DT blob is available.
 	 */
-	if (of_have_populated_dt())
-		return 0;
+	if (!of_have_populated_dt()) {
 
-	/* Init the voltage layer */
-	omap_pmic_late_init();
-	omap_voltage_late_init();
+		/* Init the voltage layer */
+		omap_pmic_late_init();
+		omap_voltage_late_init();
 
-	/* Initialize the voltages */
-	omap3_init_voltages();
-	omap4_init_voltages();
+		/* Initialize the voltages */
+		omap3_init_voltages();
+		omap4_init_voltages();
 
-	/* Smartreflex device init */
-	omap_devinit_smartreflex();
+		/* Smartreflex device init */
+		omap_devinit_smartreflex();
+	}
 
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&omap_pm_ops);

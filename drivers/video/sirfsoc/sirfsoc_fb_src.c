@@ -36,6 +36,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/memblock.h>
 #include <asm/cacheflush.h>
+#include <asm/uaccess.h>
 #include <video/sirfsoc_fb.h>
 
 #include "CspCmnLcd.h"

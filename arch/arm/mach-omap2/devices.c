@@ -20,6 +20,7 @@
 #include <linux/pinctrl/machine.h>
 #include <linux/platform_data/omap4-keypad.h>
 #include <linux/platform_data/omap_ocp2scp.h>
+#include <linux/usb/omap_control_usb.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/map.h>
@@ -67,7 +68,7 @@ static int __init omap3_l3_init(void)
 
 	return IS_ERR(pdev) ? PTR_ERR(pdev) : 0;
 }
-postcore_initcall(omap3_l3_init);
+omap_postcore_initcall(omap3_l3_init);
 
 static int __init omap4_l3_init(void)
 {
@@ -101,7 +102,7 @@ static int __init omap4_l3_init(void)
 
 	return IS_ERR(pdev) ? PTR_ERR(pdev) : 0;
 }
-postcore_initcall(omap4_l3_init);
+omap_postcore_initcall(omap4_l3_init);
 
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
@@ -252,6 +253,49 @@ static inline void omap_init_camera(void)
 #endif
 }
 
+#if IS_ENABLED(CONFIG_OMAP_CONTROL_USB)
+static struct omap_control_usb_platform_data omap4_control_usb_pdata = {
+	.type = 1,
+};
+
+struct resource omap4_control_usb_res[] = {
+	{
+		.name	= "control_dev_conf",
+		.start	= 0x4a002300,
+		.end	= 0x4a002303,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "otghs_control",
+		.start	= 0x4a00233c,
+		.end	= 0x4a00233f,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device omap4_control_usb = {
+	.name = "omap-control-usb",
+	.id = -1,
+	.dev = {
+		.platform_data = &omap4_control_usb_pdata,
+	},
+	.num_resources = 2,
+	.resource = omap4_control_usb_res,
+};
+
+static inline void __init omap_init_control_usb(void)
+{
+	if (!cpu_is_omap44xx())
+		return;
+
+	if (platform_device_register(&omap4_control_usb))
+		pr_err("Error registering omap_control_usb device\n");
+}
+
+#else
+static inline void omap_init_control_usb(void) { }
+#endif /* CONFIG_OMAP_CONTROL_USB */
+
 int __init omap4_keyboard_init(struct omap4_keypad_platform_data
 			*sdp4430_keypad_data, struct omap_board_data *bdata)
 {
@@ -382,7 +426,7 @@ static void __init omap_init_hdmi_audio(void)
 		return;
 	}
 
-	pdev = omap_device_build("omap-hdmi-audio-dai", -1, oh, NULL, 0, 0);
+	pdev = omap_device_build("omap-hdmi-audio-dai", -1, oh, NULL, 0);
 	WARN(IS_ERR(pdev),
 	     "Can't build omap_device for omap-hdmi-audio-dai.\n");
 
@@ -716,6 +760,7 @@ static int __init omap2_init_devices(void)
 	omap_init_mbox();
 	/* If dtb is there, the devices will be created dynamically */
 	if (!of_have_populated_dt()) {
+		omap_init_control_usb();
 		omap_init_dmic();
 		omap_init_mcpdm();
 		omap_init_mcspi();
@@ -729,4 +774,4 @@ static int __init omap2_init_devices(void)
 
 	return 0;
 }
-arch_initcall(omap2_init_devices);
+omap_arch_initcall(omap2_init_devices);

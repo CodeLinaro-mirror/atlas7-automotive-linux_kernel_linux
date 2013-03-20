@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#include <linux/log2.h>
 
 /*
  * DOC: basic adjustable divider clock that cannot gate
@@ -29,8 +30,7 @@
 
 #define to_clk_divider(_hw) container_of(_hw, struct clk_divider, hw)
 
-#define div_mask(d)	((1 << (d->width)) - 1)
-#define is_power_of_two(i)	!(i & ~i)
+#define div_mask(d)	((1 << ((d)->width)) - 1)
 
 static unsigned int _get_table_maxdiv(const struct clk_div_table *table)
 {
@@ -137,7 +137,7 @@ static bool _is_valid_table_div(const struct clk_div_table *table,
 static bool _is_valid_div(struct clk_divider *divider, unsigned int div)
 {
 	if (divider->flags & CLK_DIVIDER_POWER_OF_TWO)
-		return is_power_of_two(div);
+		return is_power_of_2(div);
 	if (divider->table)
 		return _is_valid_table_div(divider->table, div);
 	return true;
@@ -170,8 +170,7 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 	maxdiv = min(ULONG_MAX / rate, maxdiv);
 
 	for (i = 1; i <= maxdiv; i++) {
-		if ((divider->flags & CLK_DIVIDER_POWER_OF_TWO)
-			&& (!is_power_of_two(i)))
+		if (!_is_valid_div(divider, i))
 			continue;
 		parent_rate = __clk_round_rate(__clk_get_parent(hw->clk),
 				MULT_ROUND_UP(rate, i));

@@ -227,7 +227,7 @@ static int __init omap_dm_timer_init_one(struct omap_dm_timer *timer,
 	int r = 0;
 
 	if (of_have_populated_dt()) {
-		np = omap_get_timer_dt(omap_timer_match, NULL);
+		np = omap_get_timer_dt(omap_timer_match, property);
 		if (!np)
 			return -ENODEV;
 
@@ -718,7 +718,7 @@ static int __init omap2_dm_timer_init(void)
 
 	return 0;
 }
-arch_initcall(omap2_dm_timer_init);
+omap_arch_initcall(omap2_dm_timer_init);
 
 /**
  * omap2_override_clocksource - clocksource override with user configuration

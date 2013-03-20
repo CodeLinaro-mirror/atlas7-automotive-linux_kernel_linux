@@ -36,6 +36,7 @@
 #include <linux/of.h>
 #include <linux/notifier.h>
 
+#include "soc.h"
 #include "omap_device.h"
 #include "omap_hwmod.h"
 
@@ -840,7 +841,7 @@ static int __init omap_device_init(void)
 	bus_register_notifier(&platform_bus_type, &platform_nb);
 	return 0;
 }
-core_initcall(omap_device_init);
+omap_core_initcall(omap_device_init);
 
 /**
  * omap_device_late_idle - idle devices without drivers
@@ -878,4 +879,4 @@ static int __init omap_device_late_init(void)
 	bus_for_each_dev(&platform_bus_type, NULL, NULL, omap_device_late_idle);
 	return 0;
 }
-late_initcall(omap_device_late_init);
+omap_late_initcall(omap_device_late_init);

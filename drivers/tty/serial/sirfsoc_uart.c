@@ -210,11 +210,6 @@ static unsigned int
 sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count)
 {
 	unsigned int ch, rx_count = 0;
-	struct tty_struct *tty;
-
-	tty = tty_port_tty_get(&port->state->port);
-	if (!tty)
-		return -ENODEV;
 
 	while (!(rd_regl(port, SIRFUART_RX_FIFO_STATUS) &
 					SIRFUART_FIFOEMPTY_MASK(port))) {
@@ -228,8 +223,7 @@ sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count)
 	}
 
 	port->icount.rx += rx_count;
-	tty_flip_buffer_push(tty);
-	tty_kref_put(tty);
+	tty_flip_buffer_push(&port->state->port);
 
 	return rx_count;
 }
@@ -367,7 +361,6 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 				       struct ktermios *old)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
-	unsigned long	ioclk_rate;
 	unsigned long	config_reg = 0;
 	unsigned long	baud_rate;
 	unsigned long	setted_baud;
@@ -379,7 +372,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	int		threshold_div;
 	int		temp;
 
-	ioclk_rate = port->uartclk;
+	u32 ioclk_rate = port->uartclk;
 
 #if defined(CONFIG_SIRFMARCO_FPGA)
 	if (is_marco)
@@ -452,7 +445,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	setted_baud = baud_rate;
 	/* arbitary rate setting */
 	if (unlikely(clk_div_reg == 0))
-		clk_div_reg = sirfsoc_calc_sample_div(baud_rate, ioclk_rate,
+		clk_div_reg = sirfsoc_calc_sample_div(baud_rate, port->uartclk,
 								&setted_baud);
 	wr_regl(port, SIRFUART_DIVISOR, clk_div_reg);
 
