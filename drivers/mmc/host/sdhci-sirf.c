@@ -18,7 +18,6 @@
 
 struct sdhci_sirf_priv {
 	struct clk *clk;
-	u32 clock;
 	int gpio_cd;
 };
 
@@ -26,7 +25,7 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_sirf_priv *priv = pltfm_host->priv;
-	return priv->clock;
+	return clk_get_rate(priv->clk);
 }
 
 static struct sdhci_ops sdhci_sirf_ops = {
@@ -76,16 +75,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		priv->gpio_cd = -EINVAL;
 	}
 
-	if (gpio_is_valid(priv->gpio_cd)) {
-		ret = gpio_request(priv->gpio_cd, "sdhci-cd");
-		if (ret) {
-			dev_err(&pdev->dev, "card detect gpio request failed: %d\n",
-				ret);
-			return ret;
-		}
-		gpio_direction_input(priv->gpio_cd);
-	}
-
 	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata);
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);
@@ -98,7 +87,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	sdhci_get_of_property(pdev);
 
 	clk_prepare_enable(priv->clk);
-	priv->clock = clk_get_rate(priv->clk);
 
 	ret = sdhci_add_host(host);
 	if (ret)
@@ -125,10 +113,7 @@ err_sdhci_add:
 	clk_disable_unprepare(priv->clk);
 	sdhci_pltfm_free(pdev);
 err_sdhci_pltfm_init:
-	if (gpio_is_valid(priv->gpio_cd))
-		gpio_free(priv->gpio_cd);
 	return ret;
-
 }
 
 static int sdhci_sirf_remove(struct platform_device *pdev)
