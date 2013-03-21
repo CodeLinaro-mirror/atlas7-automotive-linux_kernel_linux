@@ -610,7 +610,7 @@
 
 				sd0: sdhci@cd000000 {
 					cell-index = <0>;
-					compatible = "sirf,marco-sdhc";
+					compatible = "sirf,marco-sdhc", "sirf,prima2-sdhc";
 					reg = <0xcd000000 0x100000>;
 					interrupts = <0 38 0>;
 					bus-width = <8>;
@@ -618,7 +618,7 @@
 
 				sd1: sdhci@cd100000 {
 					cell-index = <1>;
-					compatible = "sirf,marco-sdhc";
+					compatible = "sirf,marco-sdhc", "sirf,prima2-sdhc";
 					reg = <0xcd100000 0x100000>;
 					interrupts = <0 38 0>;
 					status = "disabled";
@@ -626,7 +626,7 @@
 
 				sd2: sdhci@cd200000 {
 					cell-index = <2>;
-					compatible = "sirf,marco-sdhc";
+					compatible = "sirf,marco-sdhc", "sirf,prima2-sdhc";
 					reg = <0xcd200000 0x100000>;
 					interrupts = <0 23 0>;
 					status = "disabled";
@@ -634,7 +634,7 @@
 
 				sd3: sdhci@cd300000 {
 					cell-index = <3>;
-					compatible = "sirf,marco-sdhc";
+					compatible = "sirf,marco-sdhc", "sirf,prima2-sdhc";
 					reg = <0xcd300000 0x100000>;
 					interrupts = <0 23 0>;
 					status = "disabled";
@@ -642,7 +642,7 @@
 
 				sd4: sdhci@cd400000 {
 					cell-index = <4>;
-					compatible = "sirf,marco-sdhc";
+					compatible = "sirf,marco-sdhc", "sirf,prima2-sdhc";
 					reg = <0xcd400000 0x100000>;
 					interrupts = <0 39 0>;
 					status = "disabled";
@@ -650,7 +650,7 @@
 
 				sd5: sdhci@cd500000 {
 					cell-index = <5>;
-					compatible = "sirf,marco-sdhc";
+					compatible = "sirf,marco-sdhc", "sirf,prima2-sdhc";
 					reg = <0xcd500000 0x100000>;
 					interrupts = <0 39 0>;
 					status = "disabled";

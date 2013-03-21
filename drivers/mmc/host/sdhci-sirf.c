@@ -169,7 +169,6 @@ static SIMPLE_DEV_PM_OPS(sdhci_sirf_pm_ops, sdhci_sirf_suspend, sdhci_sirf_resum
 
 static const struct of_device_id sdhci_sirf_of_match[] = {
 	{ .compatible = "sirf,prima2-sdhc" },
-	{ .compatible = "sirf,marco-sdhc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_sirf_of_match);
