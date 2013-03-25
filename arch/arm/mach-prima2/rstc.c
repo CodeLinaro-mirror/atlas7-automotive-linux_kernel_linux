@@ -40,7 +40,6 @@ static int __init sirfsoc_of_rstc_init(void)
 	return 0;
 }
 early_initcall(sirfsoc_of_rstc_init);
-
 int sirfsoc_reset_device(struct device *dev)
 {
 	u32 reset_bit;
@@ -79,6 +78,7 @@ int sirfsoc_reset_device(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(sirfsoc_reset_device);
 
 #define SIRFSOC_SYS_RST_BIT  BIT(31)
 
