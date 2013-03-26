@@ -45,11 +45,6 @@ struct sirfsocfb_panel {
 	void (*disable_post) (void);
 };
 
-struct sirfsocfb_layer {
-	int valid; /* Informs the driver that this layer has to be enabled */
-	int pan;
-};
-
 enum output_format_t {
 	OUTPUT_RGBRGB,
 	OUTPUT_8YUV422,
@@ -59,20 +54,6 @@ enum output_format_t {
 	OUTPUT_RGB888		/* This is relevant only for Prima/Belmont */
 };
 
-/*
- * the board-type specific routines
- */
-struct sirfsocfb_board {
-	const char *name;
-	u32 layer0_en;		/* 1 if layer0 is to be enabled */
-	u32 layer1_en;		/* 1 if layer1 is to be enabled */
-	u32 layer2_en;		/* 1 if layer2 is to be enabled */
-	u32 layer3_en;		/* 1 if layer3 is to be enabled */
-	struct sirfsocfb_layer *fb_layer_info;
-	struct sirfsocfb_panel *panel;
-	void (*platform_init) (void);
-	enum output_format_t oformat;
-};
 
 struct sirfsocfb_flipitem
 {
@@ -105,7 +86,7 @@ struct layer_info {
 	struct 	mutex layer_lock;
 	struct completion done;
 	u32		alpha;
-	int		pan;
+	int		valid;
 	int		waiting_to_pan;
 	struct 	sirfsocfb_colorkeys ckey;
 	int		fifo_underflow;

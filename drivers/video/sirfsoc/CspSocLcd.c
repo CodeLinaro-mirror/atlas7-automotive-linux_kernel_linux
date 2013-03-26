@@ -1626,7 +1626,6 @@ BOOL LcdSoc_Initialize(VOID *pLcdRegs,
 	    psLayerState->bShow = TRUE;		
 	    __LcdSoc_GetFBSize(&gsLcdConfig.ui32FBSize);
 	}
-#if 0
 	if (OSLoadVpp(&gsLcdConfig.hVppHandle, &gsVPPFuncTable))
 	{
 		if (pVppRegs)
@@ -1638,7 +1637,6 @@ BOOL LcdSoc_Initialize(VOID *pLcdRegs,
 			gsVPPFuncTable.pfnInitialize(OSGetVppRegs());
 		}
 	}
-#endif
 	gsLcdConfig.eTopLayer = gsPanelInfo.eMaxLayer;
     gsLcdConfig.bGammaEnable = FALSE;
     for (i = 0; i < 256; i++)

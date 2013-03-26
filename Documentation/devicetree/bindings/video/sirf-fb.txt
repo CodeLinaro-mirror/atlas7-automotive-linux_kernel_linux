@@ -1,0 +1,61 @@
+SirfSoc FrameBuffer
+-----------------------------------------------------
+
+Required properties:
+- compatible : "sirf,prima2-lcd"
+- reg : should contain 1 register ranges(address and length).
+- interrupts : lcd controller interrupt.
+- display: a handle pointing to the display node.
+- reset-bit: lcd reset index in the SOC reset controller.
+Required nodes:
+- clock: lcd clock index in the SOC clock system.
+- display: a display node is required to initialize the lcd panel
+	This should be in the board dts.
+- default-panel: panel within the display with timing parameters.
+
+Example:
+        lcd@90010000 {
+		compatible = "sirf,prima2-lcd";
+		reg = <0x90010000 0x20000>;
+		interrupts = <30>;
+		clocks = <&clks34>;
+		display=<&display>;
+		reset-bit = <5>;
+		/* later transfer to pwm */
+		bl-gpio	= <&gpio 7 0>;
+		default-panel = <&panel0>;
+	};
+
+SirfSoc Atlas6 Display
+-----------------------------------------------------
+Required properties:
+ - panel-name: the panel name used on the board
+ - hactive, vactive: the Display resolution
+ - left-margin, right-margin, hsync-len: Horizontal Display timing parameters
+   in pixels
+   upper-margin, lower-margin, vsync-len: Vertical Display timing parameters in
+   lines
+ - pixclock: lcd panel pixel clock
+ - timing: panel timing control, can set to PCLK_POLAR,PCLK_EDGE,
+	HSYNC_POLAR,VSYNC_POLAR
+
+Example:
+
+	display@0 {
+            panels {
+                panel0: panel@0 {
+                        panel-name = "Innolux TFT";
+                        hactive = <800>;
+                        vactive = <480>;
+                        left-margin = <20>;
+                        right-margin = <234>;
+                        upper-margin = <3>;
+                        lower-margin = <41>;
+                        hsync-len = <3>;
+                        vsync-len = <2>;
+                        pixclock = <33264000>;
+                        timing = <0x88>;
+                        };
+            };
+        };
+
