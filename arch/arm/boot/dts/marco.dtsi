@@ -165,22 +165,46 @@
 			#size-cells = <1>;
 			ranges = <0xca000000 0xca000000 0x2000000>;
 
-			dspif@ca000000 {
-				compatible = "sirf,marco-dspif";
+			kas@ca000000 {
+				compatible = "sirf,marco-kas";
 				reg = <0xca000000 0x10000>;
 				interrupts = <0 9 0>;
 			};
 
-			gps@ca010000 {
-				compatible = "sirf,marco-gps";
-				reg = <0xca010000 0x10000>;
+			kasgpio@ca110000 {
+				compatible = "sirf,marco-kasgpio";
+				reg = <0xca110000 0x10000>;
 				interrupts = <0 7 0>;
 			};
 
-			dsp@cb000000 {
-				compatible = "sirf,marco-dsp";
-				reg = <0xcb000000 0x1000000>;
-				interrupts = <0 8 0>;
+			audio@ca100000 {
+				compatible = "sirf,marco-audio";
+				reg = <0xca100000 0x10000>;
+				interrupts = <0 35 0>;
+			};
+
+			usp0: usp@ca120000 {
+				cell-index = <0>;
+				compatible = "sirf,marco-usp";
+				reg = <0xca120000 0x10000>;
+				interrupts = <0 20 0>;
+				status = "disabled";
+			};
+
+			usp1: usp@ca130000 {
+				cell-index = <1>;
+				compatible = "sirf,marco-usp";
+				reg = <0xca130000 0x10000>;
+				interrupts = <0 21 0>;
+				status = "disabled";
+			};
+
+			usp2: usp@ca140000 {
+				cell-index = <2>;
+				compatible = "sirf,marco-usp";
+				reg = <0xca140000 0x10000>;
+				interrupts = <0 22 0>;
+				status = "disabled";
 			};
 		};
 
@@ -205,12 +229,6 @@
 				compatible = "sirf,marco-nand";
 				reg = <0xcc030000 0x10000>;
 				interrupts = <0 41 0>;
-			};
-
-			audio@cc040000 {
-				compatible = "sirf,marco-audio";
-				reg = <0xcc040000 0x10000>;
-				interrupts = <0 35 0>;
 			};
 
 			uart0: uart@cc050000 {
@@ -255,30 +273,6 @@
 				reg = <0xcc1a0000 0x1000>;
 				interrupts = <0 69 0>;
 				fifosize = <128>;
-				status = "disabled";
-			};
-
-			usp0: usp@cc080000 {
-				cell-index = <0>;
-				compatible = "sirf,marco-usp";
-				reg = <0xcc080000 0x10000>;
-				interrupts = <0 20 0>;
-				status = "disabled";
-			};
-
-			usp1: usp@cc090000 {
-				cell-index = <1>;
-				compatible = "sirf,marco-usp";
-				reg = <0xcc090000 0x10000>;
-				interrupts = <0 21 0>;
-				status = "disabled";
-			};
-
-			usp2: usp@cc0a0000 {
-				cell-index = <2>;
-				compatible = "sirf,marco-usp";
-				reg = <0xcc0a0000 0x10000>;
-				interrupts = <0 22 0>;
 				status = "disabled";
 			};
 
