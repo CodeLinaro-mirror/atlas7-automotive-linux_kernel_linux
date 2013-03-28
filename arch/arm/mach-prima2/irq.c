@@ -123,6 +123,9 @@ static struct syscore_ops sirfsoc_irq_syscore_ops = {
 
 static int __init sirfsoc_irq_pm_init(void)
 {
+	if (!of_find_matching_node(NULL, intc_ids))
+		return -ENODEV;
+
 	register_syscore_ops(&sirfsoc_irq_syscore_ops);
 	return 0;
 }
