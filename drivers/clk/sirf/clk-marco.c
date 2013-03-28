@@ -104,6 +104,7 @@ static inline void clkc_writel(u32 val, unsigned reg)
 static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	unsigned long fin = parent_rate;
 	struct clk_pll *clk = to_pllclk(hw);
 	u32 regcfg2 = clk->regofs + SIRFSOC_CLKC_PLL1_CFG2 -
@@ -121,11 +122,15 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 		WARN_ON(fin % MHZ);
 		return fin / MHZ * nf / nr / od * MHZ;
 	}
+#else
+	return 26000000;
+#endif
 }
 
 static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long *parent_rate)
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	unsigned long fin, nf, nr, od;
 
 	/*
@@ -148,11 +153,15 @@ static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	od = 1;
 
 	return fin * nf / (nr * od);
+#else
+	return 26000000;
+#endif
 }
 
 static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long parent_rate)
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	struct clk_pll *clk = to_pllclk(hw);
 	unsigned long fin, nf, nr, od, reg;
 
@@ -182,7 +191,7 @@ static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	reg = clk->regofs + SIRFSOC_CLKC_PLL1_CFG2 - SIRFSOC_CLKC_PLL1_CFG0;
 	while (!(clkc_readl(reg) & BIT(6)))
 		cpu_relax();
-
+#endif
 	return 0;
 }
 
@@ -263,8 +272,12 @@ static void usb_pll_clk_disable(struct clk_hw *clk)
 
 static unsigned long usb_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
 	return (reg & SIRFSOC_USBPHY_PLL_BYPASS) ? parent_rate : 48*MHZ;
+#else
+	return 26000000;
+#endif
 }
 
 static struct clk_ops usb_pll_ops = {
@@ -332,6 +345,7 @@ static unsigned long dmn_clk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
 
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	unsigned long fin = parent_rate;
 	struct clk_dmn *clk = to_dmnclk(hw);
 
@@ -349,11 +363,15 @@ static unsigned long dmn_clk_recalc_rate(struct clk_hw *hw,
 
 		return fin / (wait + hold + 2);
 	}
+#else
+	return 26000000;
+#endif
 }
 
 static long dmn_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long *parent_rate)
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	unsigned long fin;
 	unsigned ratio, wait, hold;
 	unsigned bits = (strcmp(hw->init->name, "mem") == 0) ? 3 : 4;
@@ -370,11 +388,15 @@ static long dmn_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	hold = ratio - wait - 2;
 
 	return fin / (wait + hold + 2);
+#else
+	return 26000000;
+#endif
 }
 
 static int dmn_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long parent_rate)
 {
+#ifndef CONFIG_SIRFMARCO_FPGA
 	struct clk_dmn *clk = to_dmnclk(hw);
 	unsigned long fin;
 	unsigned ratio, wait, hold, reg;
@@ -399,7 +421,7 @@ static int dmn_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	/* waiting FCD been effective */
 	while (clkc_readl(clk->regofs) & BIT(25))
 		cpu_relax();
-
+#endif
 	return 0;
 }
 
@@ -1182,6 +1204,7 @@ void __init sirfsoc_marco_of_clk_init(void)
 	clk_register_clkdev(clk, NULL, "c5010000.vpp");
 	clk = clk_register(NULL, &clk_mmc01.hw);
 	BUG_ON(!clk);
+	clk_register_clkdev(clk, NULL, "cd000000.sdhci");
 	clk = clk_register(NULL, &clk_mmc23.hw);
 	BUG_ON(!clk);
 	clk = clk_register(NULL, &clk_mmc45.hw);

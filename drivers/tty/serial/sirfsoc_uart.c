@@ -372,14 +372,6 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	int		threshold_div;
 	int		temp;
 
-	u32 ioclk_rate = port->uartclk;
-
-#if defined(CONFIG_SIRFMARCO_FPGA)
-	if (is_marco)
-		/* For FPGA, the io clk is fixed to 26Mhz */
-		ioclk_rate = 26000000;
-#endif
-
 	switch (termios->c_cflag & CSIZE) {
 	default:
 	case CS8:
@@ -435,7 +427,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 			sirfsoc_uart_disable_ms(port);
 	}
 
-	if (ioclk_rate == 150000000) {
+	if (port->uartclk == 150000000) {
 		/* common rate: fast calculation */
 		for (ic = 0; ic < SIRF_BAUD_RATE_SUPPORT_NR; ic++)
 			if (baud_rate == baudrate_to_regv[ic].baud_rate)

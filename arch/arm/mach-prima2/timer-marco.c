@@ -255,12 +255,7 @@ void __init sirfsoc_marco_timer_init(void)
 	clk = clk_get_sys("io", NULL);
 
 	BUG_ON(IS_ERR(clk));
-#if defined(CONFIG_SIRFMARCO_FPGA)
-	/* For FPGA, the io clk is fixed to 26Mhz */
-	rate = 26000000;
-#else
 	rate = clk_get_rate(clk);
-#endif
 
 	BUG_ON(rate < CLOCK_TICK_RATE);
 	BUG_ON(rate % CLOCK_TICK_RATE);
