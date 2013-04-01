@@ -22,7 +22,8 @@
 #define SIRFSOC_PWRC_SCRATCH_PAD2       0x1C
 
 #ifndef __ASSEMBLY__
-extern int sirfsoc_finish_suspend(unsigned long);
+extern int sirfsoc_prima2_finish_suspend(unsigned long);
+extern int sirfsoc_marco_finish_suspend(unsigned long);
 #endif
 
 #endif

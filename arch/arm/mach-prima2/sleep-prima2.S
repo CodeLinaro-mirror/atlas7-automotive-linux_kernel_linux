@@ -17,7 +17,7 @@
 
 	.text
 
-ENTRY(sirfsoc_finish_suspend)
+ENTRY(sirfsoc_prima2_finish_suspend)
 	@ r5: 	mem controller
 	ldr     r0, =sirfsoc_memc_base
 	ldr	r5, [r0]

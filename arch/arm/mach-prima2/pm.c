@@ -27,6 +27,7 @@
  */
 u32 sirfsoc_pwrc_base;
 void __iomem *sirfsoc_memc_base;
+static int (*sirfsoc_finish_suspend)(unsigned long);
 
 static void sirfsoc_set_wakeup_source(void)
 {
@@ -120,8 +121,8 @@ static int __init sirfsoc_of_pwrc_init(void)
 postcore_initcall(sirfsoc_of_pwrc_init);
 
 static const struct of_device_id memc_ids[] = {
-	{ .compatible = "sirf,prima2-memc" },
-	{ .compatible = "sirf,marco-memc" },
+	{ .compatible = "sirf,prima2-memc", .data = sirfsoc_prima2_finish_suspend, },
+	{ .compatible = "sirf,marco-memc", .data = sirfsoc_marco_finish_suspend, },
 	{}
 };
 
@@ -132,6 +133,8 @@ static int sirfsoc_memc_probe(struct platform_device *op)
 	sirfsoc_memc_base = of_iomap(np, 0);
 	if (!sirfsoc_memc_base)
 		panic("unable to map memc registers\n");
+
+	sirfsoc_finish_suspend = of_match_node(memc_ids, np)->data;
 
 	return 0;
 }
