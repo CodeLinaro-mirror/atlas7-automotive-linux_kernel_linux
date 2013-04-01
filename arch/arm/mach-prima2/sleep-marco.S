@@ -44,9 +44,7 @@ ENTRY(sirfsoc_marco_finish_suspend)
 	mov	r1, #0x1
 
 	@ move to Config state from Init_mem or Access
-
-	ldr	r4, [r5, #MEMC_SCTL_OFFSET]
-	mov	r2, #0x1
+	mov	r4, #0x1
 	str	r4, [r5, #MEMC_SCTL_OFFSET]
 
 	@ wait till enter config state
