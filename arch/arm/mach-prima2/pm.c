@@ -121,6 +121,7 @@ postcore_initcall(sirfsoc_of_pwrc_init);
 
 static const struct of_device_id memc_ids[] = {
 	{ .compatible = "sirf,prima2-memc" },
+	{ .compatible = "sirf,marco-memc" },
 	{}
 };
 
