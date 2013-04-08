@@ -68,6 +68,9 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		priv->gpio_cd = -EINVAL;
 	}
 
+	if (of_get_property(pdev->dev.of_node, "broken-dma", NULL))
+		sdhci_sirf_pdata.quirks |= SDHCI_QUIRK_BROKEN_DMA;
+
 	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata);
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);

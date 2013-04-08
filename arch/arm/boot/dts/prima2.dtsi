@@ -573,6 +573,7 @@
 				sd0: sdhci@56000000 {
 					cell-index = <0>;
 					compatible = "sirf,prima2-sdhc";
+					broken-dma;
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
 					bus-width = <8>;
@@ -582,6 +583,7 @@
 				sd1: sdhci@56100000 {
 					cell-index = <1>;
 					compatible = "sirf,prima2-sdhc";
+					broken-dma;
 					reg = <0x56100000 0x100000>;
 					interrupts = <38>;
 					status = "disabled";
@@ -591,6 +593,7 @@
 				sd2: sdhci@56200000 {
 					cell-index = <2>;
 					compatible = "sirf,prima2-sdhc";
+					broken-dma;
 					reg = <0x56200000 0x100000>;
 					interrupts = <23>;
 					status = "disabled";
@@ -600,6 +603,7 @@
 				sd3: sdhci@56300000 {
 					cell-index = <3>;
 					compatible = "sirf,prima2-sdhc";
+					broken-dma;
 					reg = <0x56300000 0x100000>;
 					interrupts = <23>;
 					status = "disabled";
@@ -609,6 +613,7 @@
 				sd4: sdhci@56400000 {
 					cell-index = <4>;
 					compatible = "sirf,prima2-sdhc";
+					broken-dma;
 					reg = <0x56400000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
@@ -618,6 +623,7 @@
 				sd5: sdhci@56500000 {
 					cell-index = <5>;
 					compatible = "sirf,prima2-sdhc";
+					broken-dma;
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
