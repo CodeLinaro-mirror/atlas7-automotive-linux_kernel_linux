@@ -96,10 +96,17 @@
 			#size-cells = <1>;
 			ranges = <0x90010000 0x90010000 0x30000>;
 
-			display@90010000 {
+			lcd@90010000 {
 				compatible = "sirf,prima2-lcd";
 				reg = <0x90010000 0x20000>;
 				interrupts = <30>;
+				clocks = <&clks 34>;
+				display = <&display>;
+				/* later transfer to pwm */
+				bl-gpio = <&gpio 7 0>;
+				vcc-gpio = <&gpio 4 0>;
+				default-panel = <&panel0>;
+				reset-bit = <5>;
 			};
 
 			vpp@90020000 {
@@ -107,6 +114,7 @@
 				reg = <0x90020000 0x10000>;
 				interrupts = <31>;
 				clocks = <&clks 35>;
+				reset-bit = <6>;
 			};
 		};
 
@@ -301,6 +309,8 @@
 				reg = <0xb00e0000 0x10000>;
 				interrupts = <24>;
 				clocks = <&clks 17>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 			};
 
 			i2c1: i2c@b00f0000 {
@@ -309,6 +319,8 @@
 				reg = <0xb00f0000 0x10000>;
 				interrupts = <25>;
 				clocks = <&clks 18>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 			};
 
 			tsc@b0110000 {

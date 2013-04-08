@@ -21,7 +21,7 @@ static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 	{},
 };
 
-void __init sifrsoc_reserve(void)
+void __init sirfsoc_reserve(void)
 {
 	sirfsoc_fb_reserve_memblock();
 }
@@ -50,7 +50,7 @@ static const char *atlas6_dt_match[] __initdata = {
 
 DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
-	.reserve	= sifrsoc_reserve,
+	.reserve	= sirfsoc_reserve,
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= sirfsoc_of_irq_init,
 	.init_time	= sirfsoc_prima2_timer_init,
@@ -72,6 +72,7 @@ static const char *prima2_dt_match[] __initdata = {
 
 DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	.reserve	= sirfsoc_reserve,
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= sirfsoc_of_irq_init,
 	.init_time	= sirfsoc_prima2_timer_init,
@@ -94,6 +95,7 @@ static const char *marco_dt_match[] __initdata = {
 
 DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	.reserve	= sirfsoc_reserve,
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= irqchip_init,

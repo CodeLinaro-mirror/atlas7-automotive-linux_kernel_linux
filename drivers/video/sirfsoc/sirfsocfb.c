@@ -81,6 +81,7 @@ static u32 sirfsocfb_pseudo_palette[16];
 
 static struct i2c_client *lcd_client;
 static int bl_gpio;
+static int vcc_gpio;
 static phys_addr_t  sirf_fb_phy_base;
 static phys_addr_t  sirf_fb_phy_size;
 
@@ -1919,6 +1920,18 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 			goto err_unmap;
 		}
 		gpio_direction_output(bl_gpio, 1);
+	}
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2")) {
+		vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpio", 0);
+		if (gpio_is_valid(vcc_gpio)) {
+			ret = gpio_request(vcc_gpio, "sirfsoc_vcc");
+			if (ret) {
+				dev_err(&pdev->dev, "request VCC gpio failed\n");
+				ret = -ENODEV;
+				goto err_unmap;
+			}
+			gpio_direction_output(vcc_gpio, 1);
+		}
 	}
 	/* Init vpp staff here */
 	np = of_find_matching_node(NULL, sirfsoc_vpp_tbl);

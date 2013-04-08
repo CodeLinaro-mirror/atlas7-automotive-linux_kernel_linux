@@ -38,6 +38,57 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&spi1_pins_a>;
 			};
+			i2c0: i2c@b00e0000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2c0_pins_a>;
+				lcd@40{
+					compatible = "sirf,lcd";
+					reg = <0x40>;
+				};
+			};
+		};
+                disp-iobg {
+                      lcd@90010000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&lcd_24pins_a>;
+				/*layer enable info,default only enable layer1 */
+				layer-ctrl = <0x00000001>;
+		      };
+		};
+	};
+
+	display: display@0 {
+		panels {
+			panel0: panel@0 {
+				panel-name = "Samsung WVGA";
+				hactive = <800>;
+				vactive = <480>;
+				left-margin = <13>;
+				right-margin = <8>;
+				upper-margin = <5>;
+				lower-margin = <5>;
+				hsync-len = <3>;
+				vsync-len = <3>;
+				pixclock = <24000000>;
+				sync = <3>;
+				timing = <0xA8>;
+			};
+			panel1: panel@1 {
+				panel-name = "Toshiba WVGA";
+				hactive = <800>;
+				vactive = <480>;
+				left-margin = <69>;
+				right-margin = <167>;
+				upper-margin = <33>;
+				lower-margin = <11>;
+				hsync-len = <20>;
+				vsync-len = <1>;
+				pixclock = <33000000>;
+				sync = <3>;
+				timing = <0xA8>;
+			};
 		};
 	};
 };
