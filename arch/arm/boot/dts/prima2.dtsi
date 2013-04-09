@@ -103,10 +103,12 @@
 				clocks = <&clks 34>;
 				display = <&display>;
 				/* later transfer to pwm */
-				bl-gpio = <&gpio 7 0>;
-				vcc-gpio = <&gpio 4 0>;
+				bl-gpios = <&gpio 7 0>;
+				vcc-gpios = <&gpio 4 0>;
 				default-panel = <&panel0>;
 				reset-bit = <5>;
+				power-vdd  = <0x00180017>;
+				power-vee  = <0x00160015>;
 			};
 
 			vpp@90020000 {

@@ -80,10 +80,11 @@ MODULE_PARM_DESC(toplayer, "LCD panel default top layer.");
 static u32 sirfsocfb_pseudo_palette[16];
 
 static struct i2c_client *lcd_client;
-static int bl_gpio;
-static int vcc_gpio;
 static phys_addr_t  sirf_fb_phy_base;
 static phys_addr_t  sirf_fb_phy_size;
+static int vcc;
+static int vdd;
+static int vee;
 
 
 /************** DEBUG DATA THROUGH SYSFS **************/
@@ -1683,32 +1684,44 @@ static int remap_frame_buffers(struct platform_device *dev,
 
 static void std_pre_enable(void)
 {
-	if (lcd_client) {
-		i2c_smbus_write_byte_data(lcd_client, 8, 0x1);
+	int index = 0;
+
+        if (lcd_client) {
+		if (vcc != 0) {
+			index = vcc&0x0000FFFF;
+			i2c_smbus_write_byte_data(lcd_client, index, 0x1);
+		}
 		msleep(50);
-		i2c_smbus_write_byte_data(lcd_client, 6, 0x1);
+		index = vdd&0x0000FFFF;
+		i2c_smbus_write_byte_data(lcd_client, index, 0x1);
 	}
 }
 
 static void std_post_enable(void)
 {
+	int index = 0;
+
 	if (lcd_client) {
 		msleep(200);
-		i2c_smbus_write_byte_data(lcd_client, 5, 0x1);
+		index = vee&0x0000FFFF;
+		i2c_smbus_write_byte_data(lcd_client, index, 0x1);
 	}
 }
 
 static void std_pre_disable(void)
 {
 	if (lcd_client)
-		i2c_smbus_write_byte_data(lcd_client, 10, 0x1);
+		i2c_smbus_write_byte_data(lcd_client, vee>>16, 0x1);
+
 }
 
 static void std_post_disable(void)
 {
 	if (lcd_client) {
-		i2c_smbus_write_byte_data(lcd_client, 11, 0x1);
-		i2c_smbus_write_byte_data(lcd_client, 13, 0x1);
+		i2c_smbus_write_byte_data(lcd_client, vdd>>16, 0x1);
+		if (vcc != 0) {
+			i2c_smbus_write_byte_data(lcd_client, vcc>>16, 0x1);
+		}
 	}
 }
 static void reset(void)
@@ -1784,6 +1797,7 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	struct pinctrl *p;
 	int i, ret = 0;
 	int    layer_ctrl;
+	int bl_gpio, vcc_gpio;
 	LCD_PANEL_INFO panel_info;
 
 	FB_FUN_MSG("+sirfsocfb_probe\n");
@@ -1905,15 +1919,15 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	if (of_property_read_u32(pdev->dev.of_node, "layer-ctrl",
 				&layer_ctrl)) {
 		dev_err(&pdev->dev, "get valid layer failed,only enable primary\n");
-		layer_ctrl = 0x00010001;
+		layer_ctrl = 0x00000001;
 	}
 
 	get_layer_ctrl_info(fb, layer_ctrl);
 
 	/* later bl should be managed by pwm */
-	bl_gpio = of_get_named_gpio(pdev->dev.of_node, "bl-gpio", 0);
+	bl_gpio = of_get_named_gpio(pdev->dev.of_node, "bl-gpios", 0);
 	if (gpio_is_valid(bl_gpio)) {
-		ret = gpio_request(bl_gpio, "sirfsoc_backlight");
+		ret = devm_gpio_request(&pdev->dev, bl_gpio, "sirfsoc_backlight");
 		if (ret) {
 			dev_err(&pdev->dev, "request backlight gpio failed\n");
 			ret = -ENODEV;
@@ -1921,10 +1935,11 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 		}
 		gpio_direction_output(bl_gpio, 1);
 	}
+
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2")) {
-		vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpio", 0);
+		vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpios", 0);
 		if (gpio_is_valid(vcc_gpio)) {
-			ret = gpio_request(vcc_gpio, "sirfsoc_vcc");
+			ret = devm_gpio_request(&pdev->dev, vcc_gpio, "sirfsoc_vcc");
 			if (ret) {
 				dev_err(&pdev->dev, "request VCC gpio failed\n");
 				ret = -ENODEV;
@@ -1933,6 +1948,23 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 			gpio_direction_output(vcc_gpio, 1);
 		}
 	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "power-vdd", &vdd)) {
+		dev_err(&pdev->dev, "get lcd vdd failed\n");
+		ret = -ENODEV;
+		goto err_unmap;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "power-vee", &vee)) {
+		 dev_err(&pdev->dev, "get lcd vee failed\n");
+		 ret = -ENODEV;
+		goto err_unmap;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "power-vcc", &vcc)) {
+		vcc = 0;
+	}
+
 	/* Init vpp staff here */
 	np = of_find_matching_node(NULL, sirfsoc_vpp_tbl);
 	if (!np) {
@@ -2047,9 +2079,6 @@ static int sirfsocfb_remove(struct platform_device *pdev)
 	sirfsocfb_unregister(fb);
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
 		kfree(fb->layer_info[i].pOvl);
-
-	if (gpio_is_valid(bl_gpio))
-		gpio_free(bl_gpio);
 
 	fb->lcd_func.pfnTerminate();
 	fb->init_enabled = 0;
