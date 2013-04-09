@@ -16,6 +16,7 @@
 
 void __iomem *sirfsoc_rstc_base;
 static DEFINE_MUTEX(rstc_lock);
+static struct device_node * sirfsoc_rstc_np;
 
 static struct of_device_id rstc_ids[]  = {
 	{ .compatible = "sirf,prima2-rstc" },
@@ -25,21 +26,18 @@ static struct of_device_id rstc_ids[]  = {
 
 static int __init sirfsoc_of_rstc_init(void)
 {
-	struct device_node *np;
-
-	np = of_find_matching_node(NULL, rstc_ids);
-	if (!np)
+	sirfsoc_rstc_np = of_find_matching_node(NULL, rstc_ids);
+	if (!sirfsoc_rstc_np)
 		panic("unable to find compatible rstc node in dtb\n");
 
-	sirfsoc_rstc_base = of_iomap(np, 0);
+	sirfsoc_rstc_base = of_iomap(sirfsoc_rstc_np, 0);
 	if (!sirfsoc_rstc_base)
 		panic("unable to map rstc cpu registers\n");
-
-	of_node_put(np);
 
 	return 0;
 }
 early_initcall(sirfsoc_of_rstc_init);
+
 int sirfsoc_reset_device(struct device *dev)
 {
 	u32 reset_bit;
@@ -49,7 +47,7 @@ int sirfsoc_reset_device(struct device *dev)
 
 	mutex_lock(&rstc_lock);
 
-	if (of_device_is_compatible(dev->of_node, "sirf,prima2-rstc")) {
+	if (of_device_is_compatible(sirfsoc_rstc_np, "sirf,prima2-rstc")) {
 		/*
 		 * Writing 1 to this bit resets corresponding block. Writing 0 to this
 		 * bit de-asserts reset signal of the corresponding block.
