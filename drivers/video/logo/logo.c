@@ -12,6 +12,7 @@
 #include <linux/linux_logo.h>
 #include <linux/stddef.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 #ifdef CONFIG_M68K
 #include <asm/setup.h>
@@ -100,13 +101,13 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		/* M32R Linux logo */
 		logo = &logo_m32r_clut224;
 #endif
-#ifdef CONFIG_LOGO_PRIMA2_CLUT224
-		logo = &logo_prima2_clut224;
+#ifdef CONFIG_LOGO_SIRF_CLUT224
+		if(of_machine_is_compatible("sirf,prima2")) {
+			logo = &logo_prima2_clut224;
+		} else {
+			logo = &logo_atlas6_clut224;
+		}
 #endif
-#ifdef CONFIG_LOGO_ATLAS6_CLUT224
-		logo = &logo_atlas6_clut224;
-#endif
-
 	}
 	return logo;
 }
