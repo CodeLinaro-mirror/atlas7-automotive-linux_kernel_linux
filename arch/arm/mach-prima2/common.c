@@ -24,6 +24,7 @@ static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
 void __init sirfsoc_reserve(void)
 {
 	sirfsoc_fb_reserve_memblock();
+	sirfsoc_vip_reserve_memblock();
 }
 
 void __init sirfsoc_mach_init(void)
