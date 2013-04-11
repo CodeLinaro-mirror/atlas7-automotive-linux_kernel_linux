@@ -34,7 +34,13 @@ static inline void sirfsoc_fb_reserve_memblock(void)
 }
 #endif
 
+#ifdef CONFIG_VIDEO_SIRFSOC_VIP
 extern void sirfsoc_vip_reserve_memblock(void);
+#else
+static inline void sirfsoc_vip_reserve_memblock(void)
+{
+}
+#endif
 
 #ifndef CONFIG_DEBUG_LL
 static inline void sirfsoc_map_lluart(void)  {}
