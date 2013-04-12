@@ -888,6 +888,16 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_SIRFSOC
+	tristate "SiRFSoC touchscreen"
+	depends on ARCH_SIRF
+	select ADC_SIRFSOC
+	help
+	 To compile this driver as a module, choose M here: the
+	 module will be called sirfsoc_ts. If you choose M, note
+	 that there could be a race condition if TS modules are
+	 inserted when ADC is running.
+
 config ADC_SIRFSOC
         tristate "SiRFSoC ADC"
 
