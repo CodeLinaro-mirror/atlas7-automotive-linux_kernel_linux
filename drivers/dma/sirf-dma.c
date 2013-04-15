@@ -276,12 +276,8 @@ static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
 {
 	unsigned long flags;
 
-	if ((config->src_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES) ||
-		(config->dst_addr_width != DMA_SLAVE_BUSWIDTH_4_BYTES))
-		return -EINVAL;
-
 	spin_lock_irqsave(&schan->lock, flags);
-	schan->mode = (config->src_maxburst == 4 ? 1 : 0);
+	schan->mode = (config->src_maxburst > 4 ? 1 : 0);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	return 0;
@@ -552,6 +548,7 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
+	int width = 1;
 	unsigned long iflags;
 
 	/*
@@ -585,8 +582,14 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	sdesc->addr = addr;
 	sdesc->cyclic = 1;
 	sdesc->xlen = 0;
-	sdesc->ylen = buf_len / SIRFSOC_DMA_WORD_LEN - 1;
-	sdesc->width = 1;
+	if (!(buf_len % 32))
+		width = 8;
+	else if (!(buf_len % 16))
+		width = 4;
+	else if (!(buf_len % 8))
+		width = 2;
+	sdesc->ylen = buf_len / (width * SIRFSOC_DMA_WORD_LEN) - 1;
+	sdesc->width = width;
 	if (direction == DMA_MEM_TO_DEV)
 		sdesc->dir = 1;
 	else
