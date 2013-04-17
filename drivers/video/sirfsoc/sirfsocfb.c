@@ -1656,7 +1656,7 @@ static int remap_frame_buffers(struct platform_device *dev,
 
 		fb->fb[i].fix.smem_start = sirf_fb_phy_base+layer_mem_offset;
 		fb->fb[i].fix.smem_len = fb->panel->bpp/8 *
-			fb->panel->mode.xres * fb->panel->mode.yres;
+			fb->panel->mode.xres * fb->panel->mode.yres *4;
 		layer_mem_offset += fb->fb[i].fix.smem_len;
 		fb->fb[i].screen_base = ioremap_wc(fb->fb[i].fix.smem_start,
 			fb->fb[i].fix.smem_len);
@@ -1776,7 +1776,7 @@ static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
 
 void  __init sirfsoc_fb_reserve_memblock(void)
 {
-	sirf_fb_phy_size = 5 * SZ_1M;
+	sirf_fb_phy_size = 30 * SZ_1M;
 	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, PAGE_SIZE);
 	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
 }

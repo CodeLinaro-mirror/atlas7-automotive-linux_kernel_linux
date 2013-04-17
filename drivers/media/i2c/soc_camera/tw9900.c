@@ -1098,7 +1098,6 @@ static int tw9900_probe(struct i2c_client *client,
 	v4l2_i2c_subdev_init(&priv->subdev, client, &tw9900_subdev_ops);
 
 	tw9900_client = client;
-	sirfsoc_register_decoder_ops(&tw9900_decoder_ops);
 
 	return tw9900_video_probe(client);
 }

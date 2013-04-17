@@ -87,11 +87,5 @@ struct sirfsoc_camera_dev {
 	/* callbacks filled by vip, rearview--->vip */
 	void (*save_vip_context)(void *data);
 	void (*restore_vip_context)(void *data);
-
-	/* callbacks filled by rearview, vip--->rearview */
-	int (*rearview_freeze)(void);
-	int (*rearview_restore)(void);
-	int (*rearview_suspend)(void);
-	int (*rearview_resume)(void);
 };
 #endif
