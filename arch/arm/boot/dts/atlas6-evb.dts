@@ -24,6 +24,11 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
 			};
+			audio@b0040000 {
+				hp-pa-gpios = <&gpio 44 0>;
+				spk-pa-gpios = <&gpio 46 0>;
+				hp-switch-gpios = <&gpio 45 0>;
+			};
 			vip@b00C0000 {
 				status = "okay";
 				pinctrl-names = "default";
