@@ -277,7 +277,7 @@ static int sirfsoc_dma_slave_config(struct sirfsoc_dma_chan *schan,
 	unsigned long flags;
 
 	spin_lock_irqsave(&schan->lock, flags);
-	schan->mode = (config->src_maxburst > 4 ? 1 : 0);
+	schan->mode = (config->src_maxburst > 1 ? 1 : 0);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	return 0;
