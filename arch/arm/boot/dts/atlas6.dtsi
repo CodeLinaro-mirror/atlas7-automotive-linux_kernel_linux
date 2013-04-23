@@ -43,6 +43,10 @@
 			reg = <0x80020000 0x1000>;
 		};
 
+		pcm {
+			compatible = "sirf,pcm-audio";
+		};
+
 		sys-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
