@@ -1,0 +1,16 @@
+config SND_SIRF_SOC
+	tristate "SoC Audio for the SiRF SoC chips"
+	depends on ARCH_SIRF && SND_SOC
+	select SND_SOC_DMAENGINE_PCM
+
+config SND_SIRF_DEBUG
+	bool "Print debug message for SiRF audio driver"
+	depends on SND_SIRF_SOC
+
+config SND_SIRF_SOC_INNER
+	tristate
+
+config SND_SIRF_INNER
+	tristate "SoC Audio support for SiRF inner codec of Atlas6 EVB"
+	depends on SND_SIRF_SOC
+	select SND_SIRF_SOC_INNER
