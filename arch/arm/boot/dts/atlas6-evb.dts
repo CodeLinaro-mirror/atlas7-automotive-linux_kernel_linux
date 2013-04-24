@@ -17,17 +17,17 @@
 	memory {
 		reg = <0x00000000 0x20000000>;
 	};
-
+	sound {
+		compatible = "sirf,sirf-inner";
+		hp-pa-gpios = <&gpio 44 0>;
+		spk-pa-gpios = <&gpio 46 0>;
+		hp-switch-gpios = <&gpio 45 0>;
+	};
 	axi {
 		peri-iobg {
 			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
-			};
-			audio@b0040000 {
-				hp-pa-gpios = <&gpio 44 0>;
-				spk-pa-gpios = <&gpio 46 0>;
-				hp-switch-gpios = <&gpio 45 0>;
 			};
 			vip@b00C0000 {
 				status = "okay";
