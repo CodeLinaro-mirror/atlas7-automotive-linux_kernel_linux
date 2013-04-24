@@ -16,11 +16,6 @@
 #include <linux/of_platform.h>
 #include "common.h"
 
-static struct of_device_id sirfsoc_of_bus_ids[] __initdata = {
-	{ .compatible = "simple-bus", },
-	{},
-};
-
 void __init sirfsoc_reserve(void)
 {
 	sirfsoc_fb_reserve_memblock();
@@ -29,7 +24,7 @@ void __init sirfsoc_reserve(void)
 
 void __init sirfsoc_mach_init(void)
 {
-	of_platform_bus_probe(NULL, sirfsoc_of_bus_ids, NULL);
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
 
 void __init sirfsoc_init_late(void)
