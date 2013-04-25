@@ -360,6 +360,13 @@ config CHARGER_PM2301
 	  Say Y to include support for PM2301 charger driver.
 	  Depends on AB8500 battery management core.
 
+config  BATTERY_SIRFSOC
+        tristate "Sirfsoc battery driver"
+        select ADC_SIRFSOC
+        help
+           Say Y to enable support for battery on sirf platforms.
+
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
