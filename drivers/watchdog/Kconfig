@@ -391,6 +391,13 @@ config RETU_WATCHDOG
 	  To compile this driver as a module, choose M here: the
 	  module will be called retu_wdt.
 
+config SIRFSOC_WATCHDOG
+	tristate "SiRFSOC watchdog"
+	depends on ARCH_SIRF
+	default y
+	help
+	  Say N if not sure
+
 # AVR32 Architecture
 
 config AT32AP700X_WDT
