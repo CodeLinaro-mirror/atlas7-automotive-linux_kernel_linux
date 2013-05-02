@@ -106,7 +106,7 @@ static void free_buffer(struct videobuf_queue *vq,
 	spin_lock_irqsave(&pcdev->lock, flags);
 	if (pcdev->active != NULL && pcdev->active == &buf->vb) {
 		pcdev->vip_funcs.pfnStop();
-		dma_release_channel(pcdev->dma_chan);
+		dmaengine_terminate_all(pcdev->dma_chan);
 		pcdev->active = NULL;
 		list_del_init(&(buf->vb.queue));
 		buf->vb.state = VIDEOBUF_ERROR;
@@ -228,7 +228,7 @@ static int sirfsoc_camera_start_dma_channel(
 	if (vb == NULL) {
 		pcdev->vip_funcs.pfnStop();
 		mdelay(1);
-		dma_release_channel(pcdev->dma_chan);
+		dmaengine_terminate_all(pcdev->dma_chan);
 		return -EINVAL;
 	}
 
@@ -1086,6 +1086,7 @@ static int sirfsoc_camera_remove(struct platform_device *pdev)
 
 	soc_camera_host_unregister(&sirfsoc_soc_camera_host);
 	clk_put(pcdev->clk);
+	dmaengine_terminate_all(pcdev->dma_chan);
 	dma_release_channel(pcdev->dma_chan);
 	free_irq(pcdev->irq, pcdev);
 	dma_release_declared_memory(&pdev->dev);
