@@ -169,6 +169,11 @@
 				interrupts = <0>;
 			};
 
+			wdt@b0020000 {
+				compatible = "sirf,prima2-wdt";
+				reg = <0xb0020000 0x1000>;
+			};
+
 			nand@b0030000 {
 				compatible = "sirf,prima2-nand";
 				reg = <0xb0030000 0x10000>;
