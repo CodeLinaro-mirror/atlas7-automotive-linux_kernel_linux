@@ -207,7 +207,7 @@ static void sirfsoc_camera_callback (void *pdata) {
 		struct dma_async_tx_descriptor *rx_desc;
 
 		pcdev->active->state = VIDEOBUF_ACTIVE;
-		pcdev->dma_xt->dst_start = videobuf_to_dma_contig(vb);
+		pcdev->dma_xt->dst_start = videobuf_to_dma_contig(pcdev->active);
 
 		rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan, pcdev->dma_xt, 0);
 	        rx_desc->callback = sirfsoc_camera_callback;
