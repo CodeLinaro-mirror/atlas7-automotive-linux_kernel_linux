@@ -32,11 +32,12 @@
 #include <linux/memblock.h>
 #include <linux/dmaengine.h>
 #include <linux/sirfsoc_dma.h>
+#include <linux/slab.h>
 
 #include <asm/dma.h>
 #include <mach/hardware.h>
 
-#include "sirfsoc_vip.h"
+#include "sirfsocvip.h"
 
 #ifndef MODULE
 #ifdef MODULE_PARAM_PREFIX
@@ -49,15 +50,12 @@ static DEFINE_MUTEX(camera_lock);
 
 #define SIRFSOC_CAM_VERSION_CODE KERNEL_VERSION(0, 0, 5)
 #define SIRFSOC_CAM_DRV_NAME "sirfsoc-vip"
-#define SIRFSOC_TVDECODER_DEV 1
-#define DMA_SYNCTO_EVENFIELD_START
 
 /* v4l2 csr extensions */
 #define V4L2_CID_PADDR_Y (V4L2_CID_PRIVATE_BASE + 0)
 
-static const char *sirfsoc_cam_driver_description = "sirfsoc_vip";
+static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
-static u32 IfOdd[4], RDPtr, WRPtr, DMASync;
 static phys_addr_t sirf_vip_phy_base;
 static phys_addr_t sirf_vip_phy_size;
 
@@ -219,8 +217,7 @@ static void sirfsoc_camera_callback (void *pdata) {
 
 }
 
-static int sirfsoc_camera_start_dma_channel(
-			struct sirfsoc_camera_dev *pcdev, int bResetFifo)
+static int sirfsoc_camera_start_dma(struct sirfsoc_camera_dev *pcdev)
 {
 	struct videobuf_buffer *vb = pcdev->active;
 	struct dma_async_tx_descriptor *rx_desc;
@@ -234,10 +231,8 @@ static int sirfsoc_camera_start_dma_channel(
 
 	vb->state = VIDEOBUF_ACTIVE;
 
-	if (bResetFifo)	{
-		pcdev->vip_funcs.pfnStop();
-		mdelay(1);
-	}
+	pcdev->vip_funcs.pfnStop();
+	mdelay(1);
 
 	pcdev->dma_xt->sgl[0].size = vb->size/vb->height; /* transfer size in byte*/
 	pcdev->dma_xt->sgl[0].icg = 0;
@@ -271,10 +266,7 @@ static void sirfsoc_camera_videobuf_queue(struct videobuf_queue *vq,
 	list_add_tail(&vb->queue, &pcdev->capture);
 	if (!pcdev->active) {
 		pcdev->active = vb;
-		sirfsoc_camera_start_dma_channel(pcdev, 1);
-#if 0
-		pcdev->vip_funcs.pfnPrintRegister();
-#endif
+		sirfsoc_camera_start_dma(pcdev);
 	}
 }
 
@@ -349,11 +341,6 @@ static int sirfsoc_camera_activate(struct sirfsoc_camera_dev *pcdev)
 		}
 
 	}
-
-	/*DMA not sync*/
-	DMASync = 0;
-	RDPtr = 0;
-	WRPtr = 0;
 
 	return 0;
 }
@@ -485,8 +472,8 @@ static int test_platform_param(struct sirfsoc_camera_dev *pcdev,
 	return 0;
 }
 
-static int sirfsoc_camera_set_bus_param(struct soc_camera_device *icd,
-					__u32 pixfmt)
+/*need remove the pixfmt from the arg */
+static int sirfsoc_camera_set_bus_param(struct soc_camera_device *icd)
 {
 	struct soc_camera_host *ici =
 		to_soc_camera_host(icd->parent);
@@ -504,26 +491,13 @@ static int sirfsoc_camera_set_bus_param(struct soc_camera_device *icd,
 	ret = test_platform_param(pcdev, fmt->bits_per_sample, &bus_flags);
 	if (ret < 0)
 		return ret;
-#if 0
+
 	params->uiFlag |= VIP_CTRL_HSYNC_INV;
 	params->uiFlag |= VIP_CTRL_VSYNC_INV;
-#endif
+
 	/* We assume the input data is always UYVY */
 	params->eSrcFormat = LCD_PIXELFORMAT_UYVY;
-
-	switch (pixfmt) {
-	case V4L2_PIX_FMT_UYVY:
-	case V4L2_PIX_FMT_YUYV:
-		params->eDstFormat = LCD_PIXELFORMAT_UNKNOWN;
-		break;
-	case V4L2_PIX_FMT_RGB24:
-		params->eDstFormat = LCD_PIXELFORMAT_565;
-		break;
-	case V4L2_PIX_FMT_RGB565:
-		params->eDstFormat = LCD_PIXELFORMAT_8880;
-		break;
-	}
-
+	params->eDstFormat = LCD_PIXELFORMAT_UNKNOWN;
 
 	pcdev->vip_funcs.pfnSetParams(params);
 
@@ -695,7 +669,7 @@ int sirfsoc_camera_get_crop(struct soc_camera_device *icd,
 	return 0;
 }
 int sirfsoc_camera_set_crop(struct soc_camera_device *icd,
-				struct v4l2_crop *crop)
+				const struct v4l2_crop *crop)
 {
 	return 0;
 }
@@ -726,28 +700,15 @@ static irqreturn_t sirfsoc_camera_irq(int irq, void *data)
 {
 	struct sirfsoc_camera_dev *pcdev = data;
 	u32 status;
-	u32 temp;
 
 	status = pcdev->vip_funcs.pfnGetInterrupts();
 	pcdev->vip_funcs.pfnClearInterrupts(status);
 
 	if (status & VIP_INTMASK_SENSOR) {
 		dev_dbg(pcdev->dev, "sensor interrupt happens\n");
-		if (pcdev->pdata->sirfsoc_camera_ccir656_en) {
-			temp = pcdev->vip_funcs.pfnGetFID();
-
-			if (IfOdd[(WRPtr + 3) % 4] == temp) {
-				dev_err(pcdev->dev, "camera field bad sequence\n");
-				DMASync = 0;
-			}
-			IfOdd[WRPtr] = temp;
-			WRPtr = (WRPtr + 1) % 4;
-		}
 	}
 	if (status & VIP_INTMASK_FIFO_OFLOW) {
 		dev_err(pcdev->dev, "FIFO overflow interrupt happens\n");
-		if (pcdev->pdata->sirfsoc_camera_ccir656_en)
-			DMASync = 0;
 	}
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(pcdev->dev, "FIFO underflow interrupt happens\n");
@@ -773,9 +734,8 @@ static void sirfsoc_vip_save_context(void *data)
 
 	free_irq(pcdev->irq, pcdev);
 	pcdev->vip_funcs.pfnStop();
-#if 0
-	sirfsoc_disable_dma(pcdev->dma_chan);
-#endif
+
+	dmaengine_terminate_all(pcdev->dma_chan);
 
 	sirfsoc_camera_deactivate(pcdev);
 }
@@ -784,7 +744,7 @@ static void sirfsoc_vip_restore_context(void *data)
 {
 	struct sirfsoc_camera_dev *pcdev = data;
 
-	if (request_irq(pcdev->irq, sirfsoc_camera_irq,
+	if (devm_request_irq(pcdev->dev, pcdev->irq, sirfsoc_camera_irq,
 			0, SIRFSOC_CAM_DRV_NAME, pcdev)) {
 		dev_err(pcdev->dev, "%s: request_irq error for VIP\n",
 			__func__);
@@ -804,7 +764,7 @@ static void sirfsoc_vip_restore_context(void *data)
 		/*TODO, how to restart camera */
 
 	if (pcdev->active)
-		sirfsoc_camera_start_dma_channel(pcdev, 1);
+		sirfsoc_camera_start_dma(pcdev);
 
 	send_sig(SIGCONT, pcdev->task, 0);
 }
@@ -816,46 +776,39 @@ int platform_camera_init(struct device *cam_device)
 	int ret = 0;
 
 	if (GPIO_Cam_Power == 0) {
-		ret = gpio_request(pdata->power_gpio, "camera power control");
+		ret = devm_gpio_request(cam_device, pdata->power_gpio, "camera power control");
 		if (ret) {
 			dev_err(cam_device, "failed to request GPIO%d\n",
 							pdata->power_gpio);
 			goto out;
 		}
 		if (gpio_is_valid(pdata->vip_power_gpio)) {
-			ret = gpio_request(pdata->vip_power_gpio,
+			ret = devm_gpio_request(cam_device, pdata->vip_power_gpio,
 							"vip power control");
 			if (ret) {
 				dev_err(cam_device, "failed to request GPIO%d\n",
 							pdata->vip_power_gpio);
-				goto err_power_gpio_free;
+				goto out;
 			}
 		}
 		GPIO_Cam_Power++;
 	}
 
 	if (GPIO_Cam_Reset == 0 && gpio_is_valid(pdata->reset_gpio)) {
-		ret = gpio_request(pdata->reset_gpio, "camera reset control");
+		ret = devm_gpio_request(cam_device, pdata->reset_gpio, "camera reset control");
 		if (ret) {
 			dev_err(cam_device, "failed to request GPIO%d\n",
 							pdata->reset_gpio);
-			goto err_vip_power_gpio_free;
+			goto out;
 		}
 		GPIO_Cam_Reset++;
 	}
 
 	return ret;
 
-err_reset_gpio_free:
-	gpio_free(pdata->reset_gpio);
-err_vip_power_gpio_free:
-	if (gpio_is_valid(pdata->vip_power_gpio))
-		gpio_free(pdata->vip_power_gpio);
-err_power_gpio_free:
-	gpio_free(pdata->power_gpio);
+out:
 	GPIO_Cam_Power = 0;
 	GPIO_Cam_Reset = 0;
-out:
 	return ret;
 }
 
@@ -897,7 +850,7 @@ static struct sirfsoc_camera_platform_data sirfsoc_platform_camera_data = {
 	.release = platform_camera_release,
 
 	/* The vip controller supports both 8-bit and 16-bit */
-	.flags = SOCAM_DATAWIDTH_8 | SOCAM_DATAWIDTH_16,
+	.flags = SOCAM_DATAWIDTH_8,
 
 	.sirfsoc_cam_yuv_coef1 = 0x12a00198,
 	.sirfsoc_cam_yuv_coef2 = 0x12a190d0,
@@ -913,7 +866,7 @@ static struct sirfsoc_camera_platform_data sirfsoc_platform_camera_data = {
 
 void  __init sirfsoc_vip_reserve_memblock(void)
 {
-	sirf_vip_phy_size = 12 * SZ_1M;
+	sirf_vip_phy_size = 10 * SZ_1M;
 	sirf_vip_phy_base = memblock_alloc(sirf_vip_phy_size, PAGE_SIZE);
 	memblock_remove(sirf_vip_phy_base, sirf_vip_phy_size);
 }
@@ -938,6 +891,13 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		goto exit;
 	}
 
+	pcdev = devm_kzalloc(&pdev->dev, sizeof(*pcdev), GFP_KERNEL);
+	if (!pcdev) {
+		dev_err(&pdev->dev, "%s: fail to allocate pcdev\n", __func__);
+		ret = -ENOMEM;
+		goto exit;
+	}
+
 	irq = platform_get_irq(pdev, 0);
 	if (!irq) {
 		dev_err(&pdev->dev, "%s: fail to get vip irq\n", __func__);
@@ -945,12 +905,10 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		goto exit;
 	}
 
-	pcdev = devm_kzalloc(&pdev->dev, sizeof(*pcdev), GFP_KERNEL);
-	if (!pcdev) {
-		dev_err(&pdev->dev, "%s: fail to allocate pcdev\n", __func__);
-		ret = -ENOMEM;
+	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_camera_irq, 0,
+                                SIRFSOC_CAM_DRV_NAME, pcdev);
+	if (ret)
 		goto exit;
-	}
 
 	pcdev->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(pcdev->clk)) {
@@ -990,7 +948,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		 sirf_vip_phy_base,  sirf_vip_phy_size);
 	ret = dma_declare_coherent_memory(&pdev->dev, sirf_vip_phy_base,
 					  sirf_vip_phy_base,
-					  10 * SZ_1M,
+					  sirf_vip_phy_size,
 					  DMA_MEMORY_MAP |
 					  DMA_MEMORY_EXCLUSIVE);
 	if (!ret) {
@@ -1000,8 +958,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		goto exit_iounmap;
 	}
 
-	pcdev->video_limit =  10 * SZ_1M;
-	pcdev->dma_addr = sirf_vip_phy_base + 10 * SZ_1M;
+	pcdev->video_limit =  sirf_vip_phy_size;
 
 	pcdev->dma_xt = kzalloc(sizeof(struct dma_interleaved_template) +
 		sizeof(struct data_chunk), GFP_KERNEL);
@@ -1043,16 +1000,12 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	sirfsoc_soc_camera_host.nr		= 0;
 	ret = soc_camera_host_register(&sirfsoc_soc_camera_host);
 	if (ret)
-		goto exit_free_irq;
+		goto exit_free_pin;
 
 	pcdev->save_vip_context = sirfsoc_vip_save_context;
 	pcdev->restore_vip_context = sirfsoc_vip_restore_context;
 	return;
 
-exit_host_unregister:
-	soc_camera_host_unregister(&sirfsoc_soc_camera_host);
-exit_free_irq:
-	free_irq(pcdev->irq, pcdev);
 exit_free_pin:
 	pinctrl_put(pcdev->p);
 exit_free_dma:
