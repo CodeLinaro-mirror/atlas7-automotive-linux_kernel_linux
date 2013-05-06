@@ -988,6 +988,20 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		goto exit_free_dma_xt;
 	}
 
+	pcdev->dma_slave_config.direction = DMA_DEV_TO_MEM;
+	pcdev->dma_slave_config.src_addr = 0;
+	pcdev->dma_slave_config.dst_addr = 0;
+	pcdev->dma_slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	pcdev->dma_slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	pcdev->dma_slave_config.src_maxburst = 4;
+	pcdev->dma_slave_config.dst_maxburst = 4;
+	pcdev->dma_slave_config.device_fc = 0;
+
+	if(dmaengine_slave_config(pcdev->dma_chan, &pcdev->dma_slave_config)) {
+		dev_err(&pdev->dev, "%s: can not set dma slave config\n",
+			__func__);
+		goto exit_free_dma_xt;
+	}
 
 	pcdev->p = pinctrl_get_select_default(&pdev->dev);
 	if (IS_ERR(pcdev->p))

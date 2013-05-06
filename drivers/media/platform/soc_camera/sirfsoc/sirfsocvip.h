@@ -65,8 +65,7 @@ struct sirfsoc_camera_dev {
 
 	struct dma_chan		*dma_chan;
 	struct dma_interleaved_template *dma_xt;
-	unsigned long           dma_addr;
-
+	struct dma_slave_config dma_slave_config;
 	struct sirfsoc_camera_platform_data *pdata;
 	struct resource		*res;
 	unsigned int		platform_flags;
