@@ -85,6 +85,9 @@ static phys_addr_t  sirf_fb_phy_size;
 static int vcc;
 static int vdd;
 static int vee;
+static int vcc_gpio;
+static int vdd_gpio;
+static int vee_gpio;
 
 
 /************** DEBUG DATA THROUGH SYSFS **************/
@@ -1684,46 +1687,49 @@ static int remap_frame_buffers(struct platform_device *dev,
 
 static void std_pre_enable(void)
 {
-	int index = 0;
+	if (vcc != 0)
+		i2c_smbus_write_byte_data(lcd_client, vcc & 0xFFFF, 0x1);
+	else if (gpio_is_valid(vcc_gpio))
+		gpio_set_value_cansleep(vcc_gpio, 1);
 
-        if (lcd_client) {
-		if (vcc != 0) {
-			index = vcc&0x0000FFFF;
-			i2c_smbus_write_byte_data(lcd_client, index, 0x1);
-		}
-		msleep(50);
-		index = vdd&0x0000FFFF;
-		i2c_smbus_write_byte_data(lcd_client, index, 0x1);
-	}
+	msleep(50);
+	if (vdd != 0)
+		i2c_smbus_write_byte_data(lcd_client, vdd & 0xFFFF, 0x1);
+	else if (gpio_is_valid(vdd_gpio))
+		gpio_set_value_cansleep(vdd_gpio, 1);
 }
 
 static void std_post_enable(void)
 {
-	int index = 0;
-
-	if (lcd_client) {
-		msleep(200);
-		index = vee&0x0000FFFF;
-		i2c_smbus_write_byte_data(lcd_client, index, 0x1);
-	}
+	msleep(200);
+	if (vee != 0)
+		i2c_smbus_write_byte_data(lcd_client, vee & 0xFFFF, 0x1);
+	else if (gpio_is_valid(vee_gpio))
+		gpio_set_value_cansleep(vee_gpio, 1);
 }
 
 static void std_pre_disable(void)
 {
-	if (lcd_client)
-		i2c_smbus_write_byte_data(lcd_client, vee>>16, 0x1);
+	if (vee != 0)
+		i2c_smbus_write_byte_data(lcd_client, vee >> 16, 0x1);
+	else if (gpio_is_valid(vee_gpio))
+		gpio_set_value_cansleep(vee_gpio, 0);
 
 }
 
 static void std_post_disable(void)
 {
-	if (lcd_client) {
-		i2c_smbus_write_byte_data(lcd_client, vdd>>16, 0x1);
-		if (vcc != 0) {
-			i2c_smbus_write_byte_data(lcd_client, vcc>>16, 0x1);
-		}
-	}
+	if (vdd != 0)
+		i2c_smbus_write_byte_data(lcd_client, vdd >> 16, 0x1);
+	else if (gpio_is_valid(vdd_gpio))
+		gpio_set_value_cansleep(vdd_gpio, 0);
+
+	if (vcc != 0)
+		i2c_smbus_write_byte_data(lcd_client, vcc >> 16, 0x1);
+	else if (gpio_is_valid(vcc_gpio))
+		gpio_set_value_cansleep(vcc_gpio, 0);
 }
+
 static void reset(void)
 {
 }
@@ -1797,7 +1803,7 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	struct pinctrl *p;
 	int i, ret = 0;
 	int    layer_ctrl;
-	int bl_gpio, vcc_gpio;
+	int bl_gpio;
 	LCD_PANEL_INFO panel_info;
 
 	FB_FUN_MSG("+sirfsocfb_probe\n");
@@ -1936,34 +1942,42 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 		gpio_direction_output(bl_gpio, 1);
 	}
 
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2")) {
-		vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpios", 0);
-		if (gpio_is_valid(vcc_gpio)) {
-			ret = devm_gpio_request(&pdev->dev, vcc_gpio, "sirfsoc_vcc");
-			if (ret) {
-				dev_err(&pdev->dev, "request VCC gpio failed\n");
-				ret = -ENODEV;
-				goto err_unmap;
-			}
-			gpio_direction_output(vcc_gpio, 1);
+	vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpios", 0);
+	if (gpio_is_valid(vcc_gpio)) {
+		ret = devm_gpio_request(&pdev->dev, vcc_gpio, "sirfsoc_vcc");
+		if (ret) {
+			dev_err(&pdev->dev, "request VCC gpio failed\n");
+			ret = -ENODEV;
+			goto err_unmap;
 		}
+		gpio_direction_output(vcc_gpio, 1);
 	}
 
-	if (of_property_read_u32(pdev->dev.of_node, "power-vdd", &vdd)) {
-		dev_err(&pdev->dev, "get lcd vdd failed\n");
-		ret = -ENODEV;
-		goto err_unmap;
+	vdd_gpio = of_get_named_gpio(pdev->dev.of_node, "vdd-gpios", 0);
+	if (gpio_is_valid(vdd_gpio)) {
+		ret = devm_gpio_request(&pdev->dev, vdd_gpio, "sirfsoc_vdd");
+		if (ret) {
+			dev_err(&pdev->dev, "request VDD gpio failed\n");
+			ret = -ENODEV;
+			goto err_unmap;
+		}
+		gpio_direction_output(vdd_gpio, 1);
 	}
 
-	if (of_property_read_u32(pdev->dev.of_node, "power-vee", &vee)) {
-		 dev_err(&pdev->dev, "get lcd vee failed\n");
-		 ret = -ENODEV;
-		goto err_unmap;
+	vee_gpio = of_get_named_gpio(pdev->dev.of_node, "vee-gpios", 0);
+	if (gpio_is_valid(vee_gpio)) {
+		ret = devm_gpio_request(&pdev->dev, vee_gpio, "sirfsoc_vee");
+		if (ret) {
+			dev_err(&pdev->dev, "request VEE gpio failed\n");
+			ret = -ENODEV;
+			goto err_unmap;
+		}
+		gpio_direction_output(vee_gpio, 1);
 	}
 
-	if (of_property_read_u32(pdev->dev.of_node, "power-vcc", &vcc)) {
-		vcc = 0;
-	}
+	of_property_read_u32(pdev->dev.of_node, "power-vdd", &vdd);
+	of_property_read_u32(pdev->dev.of_node, "power-vcc", &vcc);
+	of_property_read_u32(pdev->dev.of_node, "power-vee", &vee);
 
 	/* Init vpp staff here */
 	np = of_find_matching_node(NULL, sirfsoc_vpp_tbl);
