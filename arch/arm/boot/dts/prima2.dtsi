@@ -332,12 +332,12 @@
 				#size-cells = <0>;
 			};
 
-			tsc@b0110000 {
-				compatible = "sirf,prima2-tsc";
-				reg = <0xb0110000 0x10000>;
-				interrupts = <33>;
-				clocks = <&clks 16>;
-			};
+                        adc@b0110000 {
+                                compatible = "sirf,prima2-adc";
+                                reg = <0xb0110000 0x10000>;
+                                interrupts = <34>;
+                                clocks = <&clks 16>;
+                        };
 
 			gpio: pinctrl@b0120000 {
 				#gpio-cells = <2>;
