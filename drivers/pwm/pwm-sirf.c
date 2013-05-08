@@ -116,16 +116,15 @@ static u32 sirf_get_in_cycles_ps(struct pwm_chip *chip,
 static unsigned int time_to_cycle(struct pwm_chip *chip,
 		struct pwm_device *pwm, unsigned int time_ns)
 {
-	unsigned int src_clk;
+	u64 src_clk;
 	unsigned int cycle;
+	u64 dividend;
 
-	src_clk = sirf_get_in_cycles_ps(chip, pwm);
+	src_clk = (u64) sirf_get_in_cycles_ps(chip, pwm);
+	dividend = (src_clk * time_ns + NSEC_PER_SEC / 2);
+	do_div(dividend, NSEC_PER_SEC);
 
-	/* for overflow  */
-	if (src_clk >= USEC_PER_SEC)
-		cycle = (src_clk / USEC_PER_SEC * time_ns + NSEC_PER_USEC / 2) / NSEC_PER_USEC;
-	else
-		cycle = (src_clk / MSEC_PER_SEC * time_ns + NSEC_PER_MSEC / 2) / NSEC_PER_MSEC;
+	cycle = dividend & 0xFFFFFFFF;
 
 	if (cycle < 1)
 		cycle = 1;
