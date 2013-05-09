@@ -1,0 +1,14 @@
+SiRFSoC Real Time Clock
+
+Required properties:
+- compatible: "sirf,prima2-sysrtc"
+- reg: Address range of rtc register set
+- interrupts: rtc Alarm0, rtc TIC, rtc Alarm1 interrupts in order
+
+Example:
+
+sysrtc@2000 {
+	compatible = "sirf,prima2-sysrtc";
+	reg = <0x2000 0x1000>;
+	interrupts = <52 53 54>;
+};
