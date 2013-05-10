@@ -27,7 +27,7 @@ static struct device *dev;
 #define debug_info(x...)
 #endif
 
-#define PWM_NUM 5
+#define PWM_NUM 7
 #define PWM_BLS_GROUP_NUM		16
 
 struct bklscaling_config {
@@ -88,6 +88,16 @@ int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 	int hwpwm = pwm->hwpwm;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	char pwm_pin_name[8];
+
+	if (hwpwm >= PWM_NUM) {
+		dev_err(chip->dev, "Not support pwm%d\n", hwpwm);
+		return -EINVAL;
+	}
+	/*Because the PWM6 used by I2S interface internal, So we not
+	 *need get the pin via pinctrl interface.
+	 */
+	if (hwpwm == 6)
+		return 0;
 	sprintf(pwm_pin_name, "pwm%d", hwpwm);
 	spwm->p[hwpwm] = pinctrl_get_select(chip->dev, pwm_pin_name);
 	ret = IS_ERR(spwm->p[hwpwm]);
