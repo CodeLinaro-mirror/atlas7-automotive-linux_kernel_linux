@@ -52,7 +52,7 @@ static DEFINE_MUTEX(camera_lock);
 #define SIRFSOC_CAM_DRV_NAME "sirfsoc-vip"
 
 /* v4l2 csr extensions */
-#define V4L2_CID_PADDR_Y (V4L2_CID_PRIVATE_BASE + 0)
+#define V4L2_CID_GET_ADDR (V4L2_CID_USER_BASE + 0x1000)
 
 static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
@@ -557,8 +557,6 @@ static int sirfsoc_camera_set_fmt_cap(struct soc_camera_device *icd,
 		"%s: x_start %d x_end %d y_start %d y_end %d\n",
 		__func__, x_start, x_end, y_start, y_end);
 
-	printk("pix->width = %x,buswidth = %x\n",width,buswidth);
-
 	src_rect.left = x_start;
 	src_rect.right = x_end;
 	src_rect.top = y_start;
@@ -617,6 +615,54 @@ static int sirfsoc_camera_try_fmt_cap(struct soc_camera_device *icd,
 
 }
 
+static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
+{
+        return container_of(ctrl->handler, struct soc_camera_device,
+                                                        ctrl_handler);
+}
+
+static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+        struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+        struct videobuf_queue *q;
+        int index;
+
+        switch (ctrl->id) {
+	case V4L2_CID_GET_ADDR:
+                q = &icd->vb_vidq;
+                index = ctrl->val;
+
+                if (index < 0 || index > VIDEO_MAX_FRAME - 1)
+                        return -EINVAL;
+
+                if (q->bufs[index] == NULL ||
+                        q->bufs[index]->map == NULL)
+                        return -EINVAL;
+
+                ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
+                break;
+        default:
+                return -EINVAL;
+        }
+        return 0;
+}
+
+
+static const struct v4l2_ctrl_ops sirfsoc_vip_ctrl_ops = {
+        .s_ctrl = sirfsoc_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config sirfsoc_ctrl_get_addr = {
+	.ops = &sirfsoc_vip_ctrl_ops,
+	.id = V4L2_CID_GET_ADDR,
+	.name = "Get VideoBuf Physical Address",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.def = 1,
+	.min = 0,
+	.max = 4,
+	.step = 1,
+};
+
 static int sirfsoc_camera_reqbufs(struct soc_camera_device *icd,
 			      struct v4l2_requestbuffers *p)
 {
@@ -632,6 +678,15 @@ static int sirfsoc_camera_reqbufs(struct soc_camera_device *icd,
 				struct sirfsoc_buffer, vb);
 		INIT_LIST_HEAD(&buf->vb.queue);
 	}
+
+        if(!icd->host_priv) {
+                icd->host_priv = icd;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler, &sirfsoc_ctrl_get_addr, NULL);
+                if (icd->ctrl_handler.error)
+                {
+                        return icd->ctrl_handler.error;
+                }
+        }
 
 	return 0;
 }
@@ -769,7 +824,7 @@ static void sirfsoc_vip_restore_context(void *data)
 	send_sig(SIGCONT, pcdev->task, 0);
 }
 
-int platform_camera_init(struct device *cam_device)
+int sirfsoc_camera_init(struct device *cam_device)
 {
 	struct sirfsoc_camera_platform_data *pdata = cam_device->platform_data;
 	static int GPIO_Cam_Reset, GPIO_Cam_Power;
@@ -812,7 +867,7 @@ out:
 	return ret;
 }
 
-int platform_camera_power(struct device *cam_device, int on)
+int sirfsoc_camera_power(struct device *cam_device, int on)
 {
 	struct sirfsoc_camera_platform_data *pdata = cam_device->platform_data;
 
@@ -823,7 +878,7 @@ int platform_camera_power(struct device *cam_device, int on)
 	return 0;
 }
 
-int platform_camera_reset(struct device *cam_device)
+int sirfsoc_camera_reset(struct device *cam_device)
 {
 	struct sirfsoc_camera_platform_data *pdata = cam_device->platform_data;
 
@@ -838,16 +893,16 @@ int platform_camera_reset(struct device *cam_device)
 	return 0;
 }
 
-int platform_camera_release(struct device *cam_device)
+int sirfsoc_camera_release(struct device *cam_device)
 {
 	return 0;
 }
 
 static struct sirfsoc_camera_platform_data sirfsoc_platform_camera_data = {
-	.init = platform_camera_init,
-	.power = platform_camera_power,
-	.reset = platform_camera_reset,
-	.release = platform_camera_release,
+	.init = sirfsoc_camera_init,
+	.power = sirfsoc_camera_power,
+	.reset = sirfsoc_camera_reset,
+	.release = sirfsoc_camera_release,
 
 	/* The vip controller supports both 8-bit and 16-bit */
 	.flags = SOCAM_DATAWIDTH_8,
