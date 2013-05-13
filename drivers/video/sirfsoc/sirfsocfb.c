@@ -89,7 +89,6 @@ static int vcc_gpio;
 static int vdd_gpio;
 static int vee_gpio;
 
-
 /************** DEBUG DATA THROUGH SYSFS **************/
 static ssize_t layer_uflow_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -1649,7 +1648,17 @@ static int remap_frame_buffers(struct platform_device *dev,
 			       struct sirfsocfb *fb)
 {
 	int i, ret = 0;
-	int layer_mem_offset = 0;
+	unsigned layer_mem_offset = 0;
+	/*
+	 * allocate memory per defined, otherwise
+	 * according to actual needs.
+	 */
+	const unsigned layer_reserve_size[] = {
+		0,
+		16 * SZ_1M,
+		0,
+		2 * SZ_1M,
+	};
 
 	FB_FUN_MSG("remap_frame_buffers\n");
 
@@ -1657,10 +1666,15 @@ static int remap_frame_buffers(struct platform_device *dev,
 		if (!fb->layer_info[i].valid)
 			continue;
 
-		fb->fb[i].fix.smem_start = sirf_fb_phy_base+layer_mem_offset;
-		fb->fb[i].fix.smem_len = fb->panel->bpp/8 *
-			fb->panel->mode.xres * fb->panel->mode.yres *4;
+		if (layer_reserve_size[i] != 0)
+			fb->fb[i].fix.smem_len = layer_reserve_size[i];
+		else
+			fb->fb[i].fix.smem_len = (fb->panel->bpp / 8) *
+				fb->panel->mode.xres * fb->panel->mode.yres * 2;
+
+		fb->fb[i].fix.smem_start = sirf_fb_phy_base + layer_mem_offset;
 		layer_mem_offset += fb->fb[i].fix.smem_len;
+
 		fb->fb[i].screen_base = ioremap_wc(fb->fb[i].fix.smem_start,
 			fb->fb[i].fix.smem_len);
 
