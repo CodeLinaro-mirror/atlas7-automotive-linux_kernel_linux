@@ -23,6 +23,7 @@
 		spk-pa-gpios = <&gpio 46 0>;
 		hp-switch-gpios = <&gpio 45 0>;
 	};
+
 	axi {
 		peri-iobg {
 			uart@b0060000 {

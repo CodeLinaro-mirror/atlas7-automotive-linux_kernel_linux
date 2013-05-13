@@ -9,5 +9,5 @@ obj-$(CONFIG_SUSPEND) += pm.o sleep-prima2.o sleep-marco.o
 obj-$(CONFIG_SIRF_IRQ) += irq.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_HOTPLUG_CPU)  += hotplug.o
-obj-$(CONFIG_ARCH_PRIMA2) += timer-prima2.o
-obj-$(CONFIG_ARCH_MARCO) += timer-marco.o
+
+CFLAGS_hotplug.o += -march=armv7-a
