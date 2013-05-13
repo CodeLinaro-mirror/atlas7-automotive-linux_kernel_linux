@@ -30,8 +30,6 @@
 #include <asm/sizes.h>
 #include <linux/io.h>
 #include <asm/irq.h>
-#include <mach/map.h>
-#include <mach/hardware.h>
 
 #define DRIVER_NAME "sirfsoc_tsc"
 

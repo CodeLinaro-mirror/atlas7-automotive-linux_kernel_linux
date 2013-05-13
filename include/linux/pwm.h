@@ -80,6 +80,7 @@ enum {
 
 struct pwm_device {
 	const char		*label;
+	struct device_node	*user_dev_np;
 	unsigned long		flags;
 	unsigned int		hwpwm;
 	unsigned int		pwm;

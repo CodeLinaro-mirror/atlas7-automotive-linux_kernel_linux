@@ -343,12 +343,6 @@
 				status = "disabled";
 			};
 
-			tsc@cc110000 {
-				compatible = "sirf,marco-tsc";
-				reg = <0xcc110000 0x10000>;
-				interrupts = <0 33 0>;
-			};
-
 			gpio: pinctrl@cc120000 {
 				#gpio-cells = <2>;
 				#interrupt-cells = <2>;

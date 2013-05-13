@@ -18,7 +18,6 @@
 #include <linux/proc_fs.h>
 #include <linux/sysctl.h>
 #include <asm/system.h>
-#include <mach/hardware.h>
 #include <linux/input/sirfsoc_ts.h>
 
 /*

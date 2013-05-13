@@ -55,6 +55,12 @@
 				};
 
 			};
+                        tsc {
+                                compatible = "sirf,prima2-tsc";
+                                interrupts = <33>;
+                                reset-bit = <32>;
+                                default-parameter = <&touch>;
+                        };
 		};
                 disp-iobg {
                       lcd@90010000 {
@@ -99,4 +105,15 @@
 			};
 		};
 	};
+        touch: touch@0 {
+                x_min = <0x0>;
+                x_max = <0xfff>;
+                y_min = <0x0>;
+                y_max = <0xfff>;
+                debounce_rep = <0x01>;
+                debounce_max = <0x03>;
+                debounce_tol = <0x30>;
+                interval = <10>;
+        };
+
 };
