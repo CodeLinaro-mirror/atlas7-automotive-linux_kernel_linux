@@ -540,6 +540,7 @@ struct pwm_device *of_pwm_get(struct device_node *np, const char *con_id)
 	}
 
 	pwm->label = con_id;
+	pwm->user_dev_np = np;
 
 put:
 	of_node_put(args.np);
