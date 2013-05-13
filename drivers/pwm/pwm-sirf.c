@@ -28,14 +28,26 @@ static struct device *dev;
 #endif
 
 #define PWM_NUM 5
+#define PWM_BLS_GROUP_NUM		16
+
+struct bklscaling_config {
+	unsigned int duty_ns;
+	unsigned int period_ns;
+};
 
 struct sirf_pwm {
-	void __iomem            *base;
-	struct clk              *clk;
-	struct pinctrl		*p[PWM_NUM];
-	struct pwm_chip		chip;
-	int			duty_ns[PWM_NUM];
-	int			src_clk_id[PWM_NUM];
+	void __iomem                *base;
+	struct clk                  *clk;
+	struct pinctrl              *p[PWM_NUM];
+	struct pwm_chip             chip;
+	int                         duty_ns[PWM_NUM];
+	int                         src_clk_id[PWM_NUM];
+	int                         trans_mode[PWM_NUM];
+	unsigned int                trans_process_step[PWM_NUM];
+	unsigned int                trans_process_time[PWM_NUM];
+	int                         pwm3_use_bklscaling;
+	struct bklscaling_config    bklscaling_para[PWM_BLS_GROUP_NUM];
+
 };
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
@@ -108,7 +120,6 @@ static u32 sirf_get_in_cycles_ps(struct pwm_chip *chip,
 	BUG_ON(IS_ERR(clk));
 
 	rate = clk_get_rate(clk);
-	debug_info("rate = %d\n", rate);
 	clk_put(clk);
 	return rate;
 }
@@ -128,14 +139,76 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 
 	if (cycle < 1)
 		cycle = 1;
-	debug_info("cycle = %d\n", cycle);
+	debug_info("time_ns = %d, cycle = %d\n",
+			time_ns, cycle);
 	return cycle;
+}
+
+static void sirf_get_params_from_np(struct pwm_chip *chip,
+		struct pwm_device *pwm)
+{
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	struct device_node *np = pwm->user_dev_np;
+	int ret;
+	u32 trans_mode_params[2];
+	u32 bklscaling_params[PWM_BLS_GROUP_NUM * 2];
+	ret = of_property_read_u32(np, "sirf-pwm-transfer-mode",
+			&(spwm->trans_mode[pwm->hwpwm]));
+	if (ret) {
+		/*Directly mode*/
+		debug_info("SiRF PWM used directly-mode\n");
+		spwm->trans_mode[pwm->hwpwm] = 0;
+	}
+	if (spwm->trans_mode[pwm->hwpwm]) {
+		/*Step mode*/
+		debug_info("SiRF PWM used step-mode\n");
+		ret = of_property_read_u32_array(np,
+				"sirf-pwm-step-mode-params",
+				trans_mode_params, 2);
+		if (ret)
+			trans_mode_params[0] = trans_mode_params[1] = 0;
+		spwm->trans_process_step[pwm->hwpwm] = trans_mode_params[0];
+		spwm->trans_process_time[pwm->hwpwm] = trans_mode_params[1];
+		debug_info("Step mode, trans_step = %d, trans_time = %d\n",
+				spwm->trans_process_step[pwm->hwpwm],
+				spwm->trans_process_time[pwm->hwpwm]);
+	}
+
+	/*Only PWM3 can use bklscaling mode*/
+	if (pwm->hwpwm != 3)
+		return;
+	ret = of_property_read_u32(np, "sirf-pwm-bklscaling-mode",
+			&(spwm->pwm3_use_bklscaling));
+	if (ret)
+		spwm->pwm3_use_bklscaling = 0;
+	if (spwm->pwm3_use_bklscaling) {
+		/*bklscaling mode*/
+		int i;
+		debug_info("SiRF PWM used bklscaing mode\n");
+		ret = of_property_read_u32_array(np,
+				"sirf-pwm-bklscaling-params",
+				bklscaling_params, PWM_BLS_GROUP_NUM * 2);
+		if (ret)
+			memset(bklscaling_params, 0, sizeof(u32) * PWM_BLS_GROUP_NUM * 2);
+		for (i = 0; i < PWM_BLS_GROUP_NUM; i++) {
+			spwm->bklscaling_para[i].period_ns = bklscaling_params[i * 2];
+			spwm->bklscaling_para[i].duty_ns = bklscaling_params[i * 2 + 1];
+		}
+#ifdef CONFIG_SIRF_PWM_DEBUG
+		debug_info("PWM3 set bklscaling mode\n");
+		for (i = 0; i < PWM_BLS_GROUP_NUM; i++)
+			debug_info("bklscaling_para: %d: period_ns = %d, duty_ns = %d\n",
+					i, spwm->bklscaling_para[i].period_ns,
+					spwm->bklscaling_para[i].duty_ns);
+#endif
+	}
 }
 
 int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		int duty_ns, int period_ns)
 {
 	unsigned int period_cycles, period_high, period_low;
+	unsigned int step_value, step_hold;
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
@@ -151,7 +224,7 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	period_cycles = time_to_cycle(chip, pwm, period_ns);
 	if (period_cycles == 1) {
 		dev_err(chip->dev, "pwm config warning: period_ns is too short!"
-			" bypass this channel!\n");
+				" bypass this channel!\n");
 	}
 
 	period_high = time_to_cycle(chip, pwm, duty_ns);
@@ -179,8 +252,18 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			period_high--;
 			period_low = 1;
 		}
-		period_high--;
-		period_low--;
+		if (spwm->trans_mode[pwm->hwpwm]) {
+			step_value = ((spwm->duty_ns[pwm->hwpwm] > duty_ns) ?
+					(spwm->duty_ns[pwm->hwpwm] - duty_ns) :
+					(duty_ns - spwm->duty_ns[pwm->hwpwm])) / spwm->trans_process_step[pwm->hwpwm];
+			step_value = time_to_cycle(chip, pwm, step_value);
+			step_hold = time_to_cycle(chip, pwm, spwm->trans_process_time[pwm->hwpwm]);
+
+			writel(step_value, spwm->base + PWM_TR_STEP(pwm->hwpwm));
+			writel(step_hold, spwm->base + PWM_STEP_HOLD(pwm->hwpwm));
+			period_high--;
+			period_low--;
+		}
 
 		writel(period_high, (spwm->base + PWM_GET_WAIT_OFFSET(pwm->hwpwm)));
 		writel(period_low, (spwm->base + PWM_GET_HOLD_OFFSET(pwm->hwpwm)));
@@ -188,15 +271,18 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
+	sirf_get_params_from_np(chip, pwm);
 	return 0;
 }
 
 int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
+	int i;
 	unsigned int val;
-
+	unsigned int cycle, high, low;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	debug_info("%s\n", __func__);
+
+	debug_info("%s: lable = %s\n", __func__, pwm->label);
 	sirf_pwm_config(chip, pwm, spwm->duty_ns[pwm->hwpwm], pwm->period);
 	/* disable preclock */
 	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
@@ -225,9 +311,30 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	val = readl(spwm->base + PWM_OE);
 	val |= (1 << pwm->hwpwm);
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
-
-	if (pwm->hwpwm == 3)
-		val &= ~(1 << LOOK_TABLE_EN_BIT);
+	val |= (spwm->trans_mode[pwm->hwpwm] <<
+			(pwm->hwpwm + TRANS_MODE_SELECT_BIT));
+	if (pwm->hwpwm == 3) {
+		if (spwm->pwm3_use_bklscaling) {
+			val |= (1 << LOOK_TABLE_EN_BIT);
+			for (i = 0; i < PWM_BLS_GROUP_NUM; i++) {
+				cycle = time_to_cycle(chip, pwm,
+						spwm->bklscaling_para[i].period_ns);
+				high = time_to_cycle(chip, pwm,
+						spwm->bklscaling_para[i].duty_ns);
+				low = cycle - high;
+				if (cycle == 1) {
+					dev_info(spwm->chip.dev, "pwm scaling config warning:"
+							"period_ns is too short!\n");
+					high = 2;
+					low = 2;
+				}
+				writel(high - 1, spwm->base + PWM_WAIT3(i));
+				writel(low - 1, spwm->base + PWM_HOLD3(i));
+			}
+		} else {
+			val &= ~(1 << LOOK_TABLE_EN_BIT);
+		}
+	}
 
 	writel(val, spwm->base + PWM_OE);
 
