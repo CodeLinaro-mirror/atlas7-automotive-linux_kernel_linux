@@ -56,7 +56,7 @@ static int sirf_pcm_open(struct snd_pcm_substream *substream)
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
-	return snd_dmaengine_pcm_open(substream,
+	return snd_dmaengine_pcm_open_request_chan(substream,
 			(dma_filter_fn)sirfsoc_dma_filter_id,
 			(void *)(dma_data->dma_req));
 }
@@ -119,7 +119,7 @@ static int sirf_pcm_mmap(struct snd_pcm_substream *substream,
 
 static struct snd_pcm_ops sirf_pcm_ops = {
 	.open		= sirf_pcm_open,
-	.close		= snd_dmaengine_pcm_close,
+	.close		= snd_dmaengine_pcm_close_release_chan,
 	.ioctl		= snd_pcm_lib_ioctl,
 	.hw_params	= sirf_pcm_hw_params,
 	.hw_free	= sirf_pcm_hw_free,
