@@ -1,0 +1,13 @@
+SiRFSoC Watchdog Timer(WDT) Controller
+
+Required properties:
+- compatible: "sirf,prima2-wdt"
+- reg: Address range of WDT register set
+
+Example:
+
+wdt@b0020000 {
+	compatible = "sirf,prima2-wdt";
+	reg = <0xb0020000 0x1000>;
+};
+

@@ -1,5 +1,5 @@
 /*
- * I2C bus driver for CSR SiRFprimaII
+ * Watchdog driver for CSR SiRFprimaII
  *
  * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -102,33 +102,16 @@ static int sirfsoc_wdt_disable(struct watchdog_device *wdd)
 	return 0;
 }
 
-static long sirfsoc_wdt_ioctl(struct watchdog_device *wdd,
-	unsigned int cmd, unsigned long arg)
+static int sirfsoc_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 {
-	int val = 0;
-	const struct watchdog_info ident = *wdd->info;
-	switch (cmd) {
-	case WDIOC_GETSUPPORT:
-		return copy_to_user((struct watchdog_info __user *)arg, &ident,
-				sizeof(ident));
-	case WDIOC_SETTIMEOUT:
-		if (get_user(val, (int __user *)arg))
-			return -EFAULT;
-		if (val < SIRFSOC_WDT_MIN_TIMEOUT)
-			val = SIRFSOC_WDT_MIN_TIMEOUT;
-		else if (val > SIRFSOC_WDT_MAX_TIMEOUT)
-			val = SIRFSOC_WDT_MAX_TIMEOUT;
-		wdd->timeout = val;
-		sirfsoc_wdt_updatetimeout(wdd);
-		/* Fall to WDIOC_GETTIMEOUT*/
-	case WDIOC_GETTIMEOUT:
-		/* timeout == 0 means that we don't know the timeout */
-		if (wdd->timeout == 0)
-			return -EOPNOTSUPP;
-		return put_user(wdd->timeout, (int __user *)arg);
-	default:
-		return -ENOIOCTLCMD;
-	}
+	if (to < SIRFSOC_WDT_MIN_TIMEOUT)
+		to = SIRFSOC_WDT_MIN_TIMEOUT;
+	if (to > SIRFSOC_WDT_MAX_TIMEOUT)
+		to = SIRFSOC_WDT_MAX_TIMEOUT;
+	wdd->timeout = to;
+	sirfsoc_wdt_updatetimeout(wdd);
+
+	return 0;
 }
 
 #define OPTIONS (WDIOF_SETTIMEOUT | WDIOF_KEEPALIVEPING | WDIOF_MAGICCLOSE)
@@ -143,9 +126,9 @@ static struct watchdog_ops sirfsoc_wdt_ops = {
 	.owner = THIS_MODULE,
 	.start = sirfsoc_wdt_enable,
 	.stop = sirfsoc_wdt_disable,
-	.ioctl = sirfsoc_wdt_ioctl,
 	.get_timeleft = sirfsoc_wdt_gettimeleft,
 	.ping = sirfsoc_wdt_updatetimeout,
+	.set_timeout = sirfsoc_wdt_settimeout,
 };
 
 static struct watchdog_device sirfsoc_wdd = {
@@ -203,7 +186,9 @@ static int sirfsoc_wdt_remove(struct platform_device *pdev)
 
 static void sirfsoc_wdt_shutdown(struct platform_device *pdev)
 {
-	sirfsoc_wdt_remove(pdev);
+	struct watchdog_device *wdd = platform_get_drvdata(pdev);
+
+	sirfsoc_wdt_disable(wdd);
 }
 
 #ifdef	CONFIG_PM
@@ -219,8 +204,8 @@ static int sirfsoc_wdt_resume(struct device *dev)
 
 	/*
 	 * NOTE: Since timer controller registers settings are saved
-	 * and restored back by the pm.c, so we need not update WD
-	 * settings except refreshing timeout.
+	 * and restored back by the timer-prima2.c, so we need not
+	 * update WD settings except refreshing timeout.
 	 */
 	sirfsoc_wdt_updatetimeout(wdd);
 
