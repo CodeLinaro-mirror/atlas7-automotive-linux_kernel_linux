@@ -20,8 +20,8 @@
 #include <sound/pcm_params.h>
 #include <sound/initval.h>
 #include <sound/soc.h>
-#include "sirf-inner-audio-controller.h"
 
+#include "sirf-audio.h"
 #include "sirf-pcm.h"
 
 #ifdef CONFIG_SND_SIRF_DEBUG
