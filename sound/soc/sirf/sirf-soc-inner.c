@@ -666,6 +666,10 @@ static struct snd_soc_dai_driver sirf_soc_inner_dai = {
 	.ops = &sirf_soc_inner_dai_ops,
 };
 
+static const struct snd_soc_component_driver sirf_soc_inner_component = {
+	.name		= "sirf-soc-inner",
+};
+
 static int sirf_soc_inner_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -727,7 +731,8 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		goto err_clk_put;
 	}
 	sinner_audio->playing = false;
-	ret = snd_soc_register_dai(&pdev->dev, &sirf_soc_inner_dai);
+	ret = snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
+		&sirf_soc_inner_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
 		goto err_clk_put;
@@ -738,7 +743,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 			&sirf_inner_codec_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio Codec dai failed.\n");
-		snd_soc_unregister_dai(&pdev->dev);
+		snd_soc_unregister_component(&pdev->dev);
 		return ret;
 	}
 
@@ -774,7 +779,7 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 		devm_kfree(&pdev->dev, sinner_audio);
 	platform_set_drvdata(pdev, NULL);
 	snd_soc_unregister_codec(&(pdev->dev));
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
 
