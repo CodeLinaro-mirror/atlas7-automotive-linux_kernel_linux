@@ -396,7 +396,8 @@ config SIRFSOC_WATCHDOG
 	depends on ARCH_SIRF
 	default y
 	help
-	  Say N if not sure
+	  Support for CSR SiRFprimaII and SiRFatlasVI watchdog. When
+	  the watchdog triggers the system will be reset.
 
 # AVR32 Architecture
 
