@@ -224,6 +224,8 @@
 				interrupts = <20>;
 				fifosize = <128>;
 				clocks = <&clks 28>;
+				sirf,usp-dma-rx-channel = <17>;
+				sirf,usp-dma-tx-channel = <18>;
 			};
 
 			usp1: usp@b0090000 {

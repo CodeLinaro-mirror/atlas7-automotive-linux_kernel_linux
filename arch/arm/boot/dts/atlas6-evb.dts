@@ -24,6 +24,12 @@
 		hp-switch-gpios = <&gpio 45 0>;
 	};
 
+	csrbt {
+		compatible = "csr,bluetooth";
+	};
+	sirf-csrbt {
+		compatible = "sirf,sirf-csrbt";
+	};
 	axi {
 		peri-iobg {
 			uart@b0060000 {
@@ -52,7 +58,7 @@
 				pinctrl-0 = <&spi1_pins_a>;
 			};
 			usp@b0080000 {
-				compatible = "sirf,prima2-usp-uart";
+				compatible = "sirf,prima2-usp-pcm", "sirf,prima2-usp", "sirf,prima2-usp-uart";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_pins_a>;
 			};
