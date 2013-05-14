@@ -51,6 +51,16 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&spi1_pins_a>;
 			};
+			usp@b0080000 {
+				compatible = "sirf,prima2-usp-uart";
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp0_pins_a>;
+			};
+			usp@b0090000 {
+				compatible = "sirf,prima2-usp-uart";
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp1_pins_a>;
+			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
 				pinctrl-names = "default";
