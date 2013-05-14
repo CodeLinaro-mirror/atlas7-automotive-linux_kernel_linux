@@ -1,5 +1,5 @@
 /*
- * Watchdog driver for CSR SiRFprimaII
+ * Watchdog driver for CSR SiRFprimaII and SiRFatlasVI
  *
  * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
