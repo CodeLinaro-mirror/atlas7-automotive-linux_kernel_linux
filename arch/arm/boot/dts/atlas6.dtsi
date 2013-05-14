@@ -190,6 +190,16 @@
 				clocks = <&clks 27>;
 			};
 
+			i2s@b0040000 {
+				compatible = "sirf,prima2-i2s";
+				reg = <0xb0040000 0x10000>;
+				sirf,i2s-dma-rx-channel = <22>;
+				sirf,i2s-dma-tx-channel = <28>;
+				clocks = <&clks 27>;
+				pwms = <&pwm 6 41 20 4>;
+				reset-bit = <5>;
+			};
+
 			uart0: uart@b0050000 {
 				cell-index = <0>;
 				compatible = "sirf,prima2-uart";

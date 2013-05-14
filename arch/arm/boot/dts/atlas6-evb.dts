@@ -36,6 +36,10 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
 			};
+			i2s@b0040000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2s_pins_a>;
+			};
 			vip@b00C0000 {
 				status = "okay";
 				pinctrl-names = "default";
