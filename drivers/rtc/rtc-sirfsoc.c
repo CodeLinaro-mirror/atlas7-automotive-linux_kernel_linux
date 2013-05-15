@@ -40,8 +40,6 @@
 
 #define INTR_SYSRTC_CN		0x48
 
-extern void __iomem *sirfsoc_intc_base;
-
 struct sirfsoc_rtc_drv {
 	struct rtc_device	*rtc;
 	u32			rtc_base;
@@ -64,7 +62,7 @@ static int sirfsoc_rtc_read_alarm(struct device *dev,
 
 	local_irq_disable();
 
-	rtc_count = readl(sirfsoc_intc_base + INTR_SYSRTC_CN);
+	rtc_count = sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_CN);
 
 	rtc_alarm = sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_ALARM0);
 	memset(alrm, 0, sizeof(struct rtc_wkalrm));
@@ -411,7 +409,7 @@ static int sirfsoc_rtc_thaw(struct device *dev)
 	 * if current counter is small than previous,
 	 * it means overflow in sleep
 	 */
-	tmp = readl(sirfsoc_intc_base + INTR_SYSRTC_CN);
+	tmp = sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_CN);
 	if (tmp <= rtcdrv->bak_counter)
 		rtcdrv->overflow_rtc++;
 	/*
