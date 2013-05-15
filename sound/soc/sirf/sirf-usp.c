@@ -41,14 +41,12 @@ struct sirf_usp {
 static struct sirf_pcm_dma_data sirf_usp_pcm_dai_dma_data[2] = {
 	{
 		.name = "Audio Playback",
-	},
-	{
+	}, {
 		.name = "Audio Capture",
 	}
 };
 static void sirf_usp_tx_fifo_op(struct sirf_usp *susp, int cmd)
 {
-	debug_info("%s-%d\n", __func__, cmd);
 	switch (cmd) {
 	case FIFO_RESET:
 		writel(USP_TX_FIFO_RESET, susp->base + USP_TX_FIFO_OP);
@@ -65,7 +63,6 @@ static void sirf_usp_tx_fifo_op(struct sirf_usp *susp, int cmd)
 
 static void sirf_usp_rx_fifo_op(struct sirf_usp *susp, int cmd)
 {
-	debug_info("%s\n", __func__);
 	switch (cmd) {
 	case FIFO_RESET:
 		writel(USP_RX_FIFO_RESET, susp->base + USP_RX_FIFO_OP);
@@ -82,8 +79,6 @@ static void sirf_usp_rx_fifo_op(struct sirf_usp *susp, int cmd)
 
 static void sirf_usp_tx_enable(struct sirf_usp *susp, int enable)
 {
-	debug_info("%s-%d\n", __func__, ENABLE);
-
 	if (enable == ENABLE)
 		writel(readl(susp->base + USP_TX_RX_ENABLE) | USP_TX_ENA,
 				susp->base + USP_TX_RX_ENABLE);
@@ -94,7 +89,6 @@ static void sirf_usp_tx_enable(struct sirf_usp *susp, int enable)
 
 static void sirf_usp_rx_enable(struct sirf_usp *susp, int enable)
 {
-	debug_info("%s-%d\n", __func__, ENABLE);
 	if (enable == ENABLE)
 		writel(readl(susp->base + USP_TX_RX_ENABLE) | USP_RX_ENA,
 				susp->base + USP_TX_RX_ENABLE);
@@ -124,7 +118,6 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
 	u32 val = readl(susp->base + USP_MODE2);
 
-	debug_info("%s\n", __func__);
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
@@ -151,7 +144,6 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
 
-	debug_info("%s-%d-%d\n", __func__, cmd, playback);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		if (playback) {
@@ -276,7 +268,6 @@ static void sirf_usp_controller_init(struct sirf_usp *susp)
 {
 	u32 val;
 
-	debug_info("%s\n", __func__);
 	/* Configure RISC mode */
 	writel(readl(susp->base + USP_RISC_DSP_MODE) & ~USP_RISC_DSP_SEL,
 		susp->base + USP_RISC_DSP_MODE);
@@ -364,7 +355,6 @@ static void sirf_usp_controller_init(struct sirf_usp *susp)
 
 static void sirf_usp_controller_uninit(struct sirf_usp *susp)
 {
-	debug_info("%s\n", __func__);
 	/* Disable RX/TX */
 	writel(0, susp->base+USP_INT_ENABLE);
 	writel(0, susp->base + USP_TX_RX_ENABLE);
@@ -375,7 +365,6 @@ static int sirf_usp_pcm_suspend(struct platform_device *pdev,
 	pm_message_t state)
 {
 	struct sirf_usp *susp = platform_get_drvdata(pdev);
-	debug_info("%s\n", __func__);
 
 	susp->usp_mode1_reg = readl(susp->base + USP_MODE1);
 	susp->usp_mode2_reg = readl(susp->base + USP_MODE2);
@@ -387,7 +376,6 @@ static int sirf_usp_pcm_suspend(struct platform_device *pdev,
 static int sirf_usp_pcm_resume(struct platform_device *pdev)
 {
 	struct sirf_usp *susp = platform_get_drvdata(pdev);
-	debug_info("%s\n", __func__);
 
 	clk_prepare_enable(susp->clk);
 	sirf_usp_controller_init(susp);

@@ -41,8 +41,6 @@ static int sirf_csrbt_probe(struct platform_device *pdev)
 #ifdef CONFIG_SND_SIRF_DEBUG
 	dev = &pdev->dev;
 #endif
-	debug_info("%s\n", __func__);
-
 	sirf_csrbt_dai_links[0].platform_of_node =
 		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_csrbt_dai_links[0].cpu_of_node =
@@ -66,7 +64,6 @@ static int sirf_csrbt_remove(struct platform_device *pdev)
 	dev = NULL;
 #endif
 	snd_soc_unregister_card(card);
-	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 static const struct of_device_id sirf_csrbt_of_match[] = {

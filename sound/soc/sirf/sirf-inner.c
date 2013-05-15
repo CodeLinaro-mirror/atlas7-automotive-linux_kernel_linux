@@ -102,7 +102,6 @@ static int sirf_inner_headphone_out_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	debug_info("%s\n", __func__);
 
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
 		hp_out = gpio_get_value(sinner_card->gpio_hp_pa);
@@ -118,11 +117,13 @@ static int sirf_inner_headphone_out_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	debug_info("%s\n", __func__);
+
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
 		gpio_direction_output(sinner_card->gpio_hp_pa, is_hp_out);
+
 	return 0;
 }
+
 static int sirf_inner_speaker_out_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
@@ -130,7 +131,6 @@ static int sirf_inner_speaker_out_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	debug_info("%s\n", __func__);
 
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		spk_out = gpio_get_value(sinner_card->gpio_spk_pa);
@@ -138,6 +138,7 @@ static int sirf_inner_speaker_out_get(struct snd_kcontrol *kcontrol,
 	*ucontrol->value.integer.value = spk_out;
 	return 0;
 }
+
 static int sirf_inner_speaker_out_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
@@ -151,6 +152,7 @@ static int sirf_inner_speaker_out_put(struct snd_kcontrol *kcontrol,
 		gpio_direction_output(sinner_card->gpio_spk_pa, is_spk_out);
 	return 0;
 }
+
 static int sirf_inner_speaker_out_info(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_info *uinfo)
 {
@@ -172,8 +174,7 @@ static struct snd_kcontrol_new snd_sirf_inner_out_route_controls[] = {
 		.info           =	sirf_inner_speaker_out_info,
 		.get            =       sirf_inner_speaker_out_get,
 		.put            =       sirf_inner_speaker_out_put,
-	},
-	{
+	}, {
 		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name           =       "Headphone Out",
 		.index          =       0,
@@ -197,12 +198,10 @@ static struct snd_soc_card snd_soc_sirf_inner_card = {
 static int sirf_inner_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_sirf_inner_card;
-	int ret;
 	struct sirf_inner_card *sinner_card;
 #ifdef CONFIG_SND_SIRF_DEBUG
 	dev = &pdev->dev;
 #endif
-	debug_info("%s\n", __func__);
 	sinner_card = devm_kzalloc(&pdev->dev, sizeof(struct sirf_inner_card),
 			GFP_KERNEL);
 	if (sinner_card == NULL)
@@ -237,10 +236,8 @@ static int sirf_inner_probe(struct platform_device *pdev)
 		gpio_direction_output(sinner_card->gpio_hp_pa, 0);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
-	ret = snd_soc_register_card(card);
-	if (ret)
-		devm_kfree(&pdev->dev, sinner_card);
-	return ret;
+
+	return snd_soc_register_card(card);
 }
 
 static int sirf_inner_remove(struct platform_device *pdev)
@@ -254,8 +251,8 @@ static int sirf_inner_remove(struct platform_device *pdev)
 		gpio_free(sinner_card->gpio_hp_pa);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_free(sinner_card->gpio_spk_pa);
+
 	snd_soc_unregister_card(card);
-	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 
@@ -274,8 +271,8 @@ static struct platform_driver sirf_inner_driver = {
 	.probe = sirf_inner_probe,
 	.remove = sirf_inner_remove,
 };
-
 module_platform_driver(sirf_inner_driver);
+
 MODULE_AUTHOR("RongJun Ying <RongJun.Ying@csr.com>");
 MODULE_DESCRIPTION("ALSA SoC SIRF inner AUDIO driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
