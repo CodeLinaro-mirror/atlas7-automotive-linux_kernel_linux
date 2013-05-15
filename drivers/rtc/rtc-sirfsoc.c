@@ -25,8 +25,8 @@
 #define SIRFSOC_RTC_AL1		(1<<4)
 #define SIRFSOC_RTC_HZE		(1<<3)
 #define SIRFSOC_RTC_AL0E	(1<<2)
-#define	SIRFSOC_RTC_HZ		(1<<1)
-#define	SIRFSOC_RTC_AL0		(1<<0)
+#define SIRFSOC_RTC_HZ		(1<<1)
+#define SIRFSOC_RTC_AL0		(1<<0)
 #define RTC_DIV			0x0c
 #define RTC_DEEP_CTRL		0x14
 #define RTC_CLOCK_SWITCH	0x1c
@@ -47,8 +47,8 @@ struct sirfsoc_rtc_drv {
 	/* Overflow for every 8 years extra time */
 	u32			overflow_rtc;
 #ifdef CONFIG_PM
-	u32		bak_counter;
-	u32		bak_overflow_rtc;
+	u32		saved_counter;
+	u32		saved_overflow_rtc;
 #endif
 };
 
@@ -343,10 +343,6 @@ static int sirfsoc_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void sirfsoc_rtc_shutdown(struct platform_device *pdev)
-{
-}
-
 #ifdef CONFIG_PM
 
 static int sirfsoc_rtc_suspend(struct device *dev)
@@ -356,9 +352,9 @@ static int sirfsoc_rtc_suspend(struct device *dev)
 	rtcdrv->overflow_rtc =
 		sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_SW_VALUE);
 
-	rtcdrv->bak_counter =
+	rtcdrv->saved_counter =
 		sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_CN);
-	rtcdrv->bak_overflow_rtc = rtcdrv->overflow_rtc;
+	rtcdrv->saved_overflow_rtc = rtcdrv->overflow_rtc;
 	if (device_may_wakeup(&pdev->dev))
 		enable_irq_wake(rtcdrv->irq);
 
@@ -403,14 +399,14 @@ static int sirfsoc_rtc_thaw(struct device *dev)
 		/* reset SYS RTC ALARM1 */
 		sirfsoc_rtc_iobrg_writel(0x0, rtcdrv->rtc_base + RTC_ALARM1);
 	}
-	rtcdrv->overflow_rtc = rtcdrv->bak_overflow_rtc;
+	rtcdrv->overflow_rtc = rtcdrv->saved_overflow_rtc;
 
 	/*
 	 * if current counter is small than previous,
 	 * it means overflow in sleep
 	 */
 	tmp = sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_CN);
-	if (tmp <= rtcdrv->bak_counter)
+	if (tmp <= rtcdrv->saved_counter)
 		rtcdrv->overflow_rtc++;
 	/*
 	 *PWRC Value Be Changed When Suspend, Restore Overflow
@@ -469,7 +465,6 @@ static struct platform_driver sirfsoc_rtc_driver = {
 		.of_match_table = of_match_ptr(sirfsoc_rtc_of_match),
 	},
 	.probe = sirfsoc_rtc_probe,
-	.shutdown = sirfsoc_rtc_shutdown,
 	.remove = sirfsoc_rtc_remove,
 };
 module_platform_driver(sirfsoc_rtc_driver);
