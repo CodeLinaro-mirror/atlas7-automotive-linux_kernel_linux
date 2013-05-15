@@ -9,21 +9,13 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/delay.h>
-#include <linux/mm.h>
-#include <linux/init.h>
-#include <linux/ioport.h>
-#include <linux/list.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/input/sirfsoc_adc.h>
-
-#include <asm/sizes.h>
-#include <linux/io.h>
 #include <asm/irq.h>
 
 #define DRIVER_NAME "sirfsoc_adc"
@@ -204,12 +196,9 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	pr_info("sirfsoc_adc: start adc!");
 	return 0;
-err:
-	platform_set_drvdata(pdev, NULL);
 
-	adc = NULL;
+err:
 	return ret;
 }
 
@@ -218,11 +207,8 @@ static int sirfsoc_adc_remove(struct platform_device *pdev)
 	struct sirfsoc_adc *adc = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(adc->clk);
-	platform_set_drvdata(pdev, NULL);
 
-	pr_info("sirfsoc_adc: stop adc!");
 	return 0;
-
 }
 
 static const struct of_device_id sirfsoc_adc_of_match[] = {
@@ -232,7 +218,7 @@ static const struct of_device_id sirfsoc_adc_of_match[] = {
 };
 
 static struct platform_driver sirfsoc_adc_driver = {
-	.driver		= {
+	.driver	= {
 		.name	= DRIVER_NAME,
 		.of_match_table = sirfsoc_adc_of_match,
 	},
