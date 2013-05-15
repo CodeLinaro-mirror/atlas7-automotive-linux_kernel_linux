@@ -18,6 +18,9 @@ config SND_SIRF_INNER
 config SND_SOC_SIRF_USP
 	tristate
 
+config SND_SOC_SIRF_I2S
+	tristate
+
 config SND_SOC_SIRF_CSRBT
 	tristate "SpC Audio support for SiRF CSR bluetooth codec of Atlas6 EVB"
 	depends on SND_SIRF_SOC
