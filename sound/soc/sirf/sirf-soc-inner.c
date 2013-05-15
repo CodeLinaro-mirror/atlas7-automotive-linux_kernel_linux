@@ -684,13 +684,13 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 			"sirf,inner-audio-dma-rx-channel", &rx_dma_ch);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to audio capture dma channel\n");
-		goto err_dma_rx;
+		return ret;
 	}
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"sirf,inner-audio-dma-tx-channel", &tx_dma_ch);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to audio playback dma channel\n");
-		goto err_dma_rx;
+		return ret;
 	}
 	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
@@ -700,21 +700,17 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
 		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		ret = -ENODEV;
-		goto err_dma_rx;
+		return -ENODEV;
 	}
 
 	sinner_audio->base = devm_ioremap_resource(&pdev->dev, mem_res);
-	if (sinner_audio->base == NULL) {
-		ret = -ENOMEM;
-		goto err_dma_rx;
-	}
+	if (sinner_audio->base == NULL)
+		return -ENOMEM;
 
 	sinner_audio->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sinner_audio->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
-		ret = PTR_ERR(sinner_audio->clk);
-		goto err_dma_rx;
+		return PTR_ERR(sinner_audio->clk);
 	}
 	clk_prepare_enable(sinner_audio->clk);
 
@@ -757,8 +753,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 err_clk_put:
 	clk_disable_unprepare(sinner_audio->clk);
 	clk_put(sinner_audio->clk);
-err_dma_rx:
-	devm_kfree(&pdev->dev, sinner_audio);
 	return ret;
 }
 
@@ -769,8 +763,8 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 	dev = NULL;
 #endif
 	sinner_audio = platform_get_drvdata(pdev);
-	if (sinner_audio)
-		devm_kfree(&pdev->dev, sinner_audio);
+	clk_disable_unprepare(sinner_audio->clk);
+	clk_put(sinner_audio->clk);
 	platform_set_drvdata(pdev, NULL);
 	snd_soc_unregister_codec(&(pdev->dev));
 	snd_soc_unregister_component(&pdev->dev);
