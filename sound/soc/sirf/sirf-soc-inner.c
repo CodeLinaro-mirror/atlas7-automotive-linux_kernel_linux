@@ -771,6 +771,40 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int sirf_soc_inner_suspend(struct platform_device *pdev,
+		pm_message_t msg)
+{
+	struct sirf_soc_inner_audio *sinner_audio;
+	sinner_audio = platform_get_drvdata(pdev);
+	clk_disable_unprepare(sinner_audio->clk);
+	return 0;
+}
+
+static int sirf_soc_inner_resume(struct platform_device *pdev)
+{
+	struct sirf_soc_inner_audio *sinner_audio;
+	sinner_audio = platform_get_drvdata(pdev);
+
+	clk_prepare_enable(sinner_audio->clk);
+
+	writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
+				| IC_CODEC_CLK_EN),
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+	writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
+				| IC_ADC14B_12),
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPFREQ,
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPEN,
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+	return 0;
+}
+#else
+#define sirf_soc_inner_suspend NULL
+#define sirf_soc_inner_resume NULL
+#endif
+
 static const struct of_device_id sirf_soc_inner_of_match[] = {
 	{ .compatible = "sirf,prima2-audio", },
 	{}
@@ -785,6 +819,8 @@ static struct platform_driver sirf_soc_inner_driver = {
 	},
 	.probe = sirf_soc_inner_probe,
 	.remove = sirf_soc_inner_remove,
+	.suspend = sirf_soc_inner_suspend,
+	.resume = sirf_soc_inner_resume,
 };
 
 module_platform_driver(sirf_soc_inner_driver);
