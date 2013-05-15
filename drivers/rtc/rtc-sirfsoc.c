@@ -69,9 +69,10 @@ static int sirfsoc_rtc_read_alarm(struct device *dev,
 	rtc_alarm = sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_ALARM0);
 	memset(alrm, 0, sizeof(struct rtc_wkalrm));
 
-	/* assume alarm interval not beyond one round counter overflow_rtc:
-	* 0->0xffffffff
-	*/
+	/*
+	 * assume alarm interval not beyond one round counter overflow_rtc:
+	 * 0->0xffffffff
+	 */
 	/* if alarm is in next overflow cycle */
 	if (rtc_count > rtc_alarm)
 		rtc_time_to_tm((rtcdrv->overflow_rtc + 1)
@@ -104,8 +105,9 @@ static int sirfsoc_rtc_set_alarm(struct device *dev,
 		rtc_status_reg = sirfsoc_rtc_iobrg_readl(
 				rtcdrv->rtc_base + RTC_STATUS);
 		if (rtc_status_reg & SIRFSOC_RTC_AL0E) {
-			/* An ongoing alarm in progress - ingore it and not
-			* to return EBUSY
+			/*
+			 * An ongoing alarm in progress - ingore it and not
+			 * to return EBUSY
 			 */
 			dev_info(dev, "An old alarm was set, will be replaced by a new one\n");
 		}
@@ -113,7 +115,8 @@ static int sirfsoc_rtc_set_alarm(struct device *dev,
 		sirfsoc_rtc_iobrg_writel(
 			rtc_alarm << RTC_SHIFT, rtcdrv->rtc_base + RTC_ALARM0);
 		rtc_status_reg &= ~0x07; /* mask out the lower status bits */
-		/* This bit RTC_AL sets it as a wake-up source for Sleep Mode
+		/*
+		 * This bit RTC_AL sets it as a wake-up source for Sleep Mode
 		 * Writing 1 into this bit will clear it
 		 */
 		rtc_status_reg |= SIRFSOC_RTC_AL0;
@@ -123,7 +126,8 @@ static int sirfsoc_rtc_set_alarm(struct device *dev,
 			rtc_status_reg, rtcdrv->rtc_base + RTC_STATUS);
 		local_irq_enable();
 	} else {
-		/* if this function was called with enabled=0
+		/*
+		 * if this function was called with enabled=0
 		 * then it could mean that the application is
 		 * trying to cancel an ongoing alarm
 		 */
@@ -142,6 +146,7 @@ static int sirfsoc_rtc_set_alarm(struct device *dev,
 			sirfsoc_rtc_iobrg_writel(rtc_status_reg,
 					rtcdrv->rtc_base + RTC_STATUS);
 		}
+
 		local_irq_enable();
 	}
 
@@ -256,7 +261,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	int err;
 	unsigned long rtc_div;
 	struct sirfsoc_rtc_drv *rtcdrv;
-	struct device_node *np;
+	struct device_node *np = pdev->dev.of_node;
 
 	rtcdrv = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirfsoc_rtc_drv), GFP_KERNEL);
@@ -267,16 +272,15 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	np = of_find_matching_node(NULL, sirfsoc_rtc_of_match);
-	if (!np)
-		panic("unable to find compatible rtc node in dtb\n");
-	if (of_property_read_u32(np, "reg", &rtcdrv->rtc_base))
-		panic("unable to find base address of rtc node in dtb\n");
-	of_node_put(np);
+	err = of_property_read_u32(np, "reg", &rtcdrv->rtc_base);
+	if (err) {
+		dev_err(&pdev->dev, "unable to find base address of rtc node in dtb\n");
+		goto error;
+	}
 
 	platform_set_drvdata(pdev, rtcdrv);
 
-	/*Register rtc alarm as a wakeup source*/
+	/* Register rtc alarm as a wakeup source */
 	device_init_wakeup(&pdev->dev, 1);
 
 	/*
@@ -291,8 +295,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 			&sirfsoc_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtcdrv->rtc)) {
 		err = PTR_ERR(rtcdrv->rtc);
-		pr_debug("%s: can't register RTC device, err %d\n",
-				pdev->name, err);
+		dev_err(&pdev->dev, "can't register RTC device\n");
 		return err;
 	}
 
@@ -309,6 +312,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	/* Restore RTC Overflow From Register After Command Reboot */
 	rtcdrv->overflow_rtc =
 		sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_SW_VALUE);
+
 	rtcdrv->irq = platform_get_irq(pdev, 0);
 	err = devm_request_irq(
 			&pdev->dev,
@@ -318,8 +322,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 			pdev->name,
 			rtcdrv);
 	if (err) {
-		dev_dbg(&pdev->dev,
-			"Unable to register for the SiRF SOC RTC IRQ\n");
+		dev_err(&pdev->dev, "Unable to register for the SiRF SOC RTC IRQ\n");
 		goto error;
 	}
 
