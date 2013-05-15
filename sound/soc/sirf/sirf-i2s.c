@@ -19,16 +19,10 @@
 #include "sirf-pcm.h"
 #include "sirf-audio.h"
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
 struct sirf_i2s {
 	void __iomem        *base;
 	struct clk          *clk;
-	struct pwm_device   *pwm;
+	struct pwm_device   *mclk_pwm;
 	u32                 i2s_ctrl;
 };
 
@@ -45,7 +39,7 @@ static int sirf_i2s_startup(struct snd_pcm_substream *substream,
 {
 
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	pwm_enable(si2s->pwm);
+	pwm_enable(si2s->mclk_pwm);
 	return 0;
 }
 
@@ -53,7 +47,7 @@ static void sirf_i2s_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	pwm_disable(si2s->pwm);
+	pwm_disable(si2s->mclk_pwm);
 }
 
 static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
@@ -74,9 +68,6 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 			writel(AUDIO_FIFO_START,
 				si2s->base+AUDIO_CTRL_EXT_TXFIFO1_OP);
 			mdelay(1);
-			debug_info("%s: %s\n", __func__, cmd == SNDRV_PCM_TRIGGER_START ?
-				"SNDRV_PCM_TRIGGER_START" : (cmd == SNDRV_PCM_TRIGGER_RESUME ?
-				"SNDRV_PCM_TRIGGER_RESUME" : "SNDRV_PCM_TRIGGER_PAUSE_RELEASE"));
 
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
 				| I2S_TX_ENABLE | I2S_DOUT_OE | I2S_MCLK_EN,
@@ -101,10 +92,6 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 		local_irq_save(irqs);
 
 		if (playback) {
-			debug_info("%s: %s\n", __func__, cmd == SNDRV_PCM_TRIGGER_STOP ?
-				"SNDRV_PCM_TRIGGER_STOP" : (cmd == SNDRV_PCM_TRIGGER_SUSPEND ?
-				"SNDRV_PCM_TRIGGER_SUSPEND" : "SNDRV_PCM_TRIGGER_PAUSE_PUSH"));
-
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
 				& ~(I2S_TX_ENABLE | I2S_MCLK_EN),
 				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
@@ -266,7 +253,9 @@ static int sirf_i2s_suspend(struct platform_device *pdev,
 		pm_message_t state)
 {
 	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
-	pwm_enable(si2s->pwm);
+
+	pwm_enable(si2s->mclk_pwm);
+
 	si2s->i2s_ctrl = readl(si2s->base+AUDIO_CTRL_I2S_CTRL);
 
 	clk_disable_unprepare(si2s->clk);
@@ -287,7 +276,7 @@ static int sirf_i2s_resume(struct platform_device *pdev)
 	writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_INT_MSK);
 	writel(0, si2s->base + AUDIO_CTRL_RXFIFO_INT_MSK);
 
-	pwm_disable(si2s->pwm);
+	pwm_disable(si2s->mclk_pwm);
 
 	return 0;
 }
@@ -306,9 +295,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	u32 rx_dma_ch, tx_dma_ch;
 	int ret;
 	struct resource *mem_res;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = &pdev->dev;
-#endif
+
 	si2s = devm_kzalloc(&pdev->dev, sizeof(struct sirf_i2s),
 			GFP_KERNEL);
 	if (si2s == NULL)
@@ -326,8 +313,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
 		return ret;
 	}
-	debug_info("Record dma channel = %u\n", (unsigned int)rx_dma_ch);
-	debug_info("Playback dma channel = %u\n", (unsigned int)tx_dma_ch);
+
 	sirf_i2s_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_i2s_dai_dma_data[1].dma_req = rx_dma_ch;
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -335,15 +321,10 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to get IO resource\n");
 		return -ENODEV;
 	}
-#if 0
-	si2s->base = devm_ioremap_resource(&pdev->dev, mem_res);
-	if (si2s->base == NULL)
-		return -ENOMEM;
-#endif
+
 	si2s->base = ioremap(mem_res->start, mem_res->end - mem_res->start + 1);
 	if (si2s->base == NULL)
 		return -ENOMEM;
-	debug_info("si2s->base = %x\n", si2s->base);
 
 	si2s->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(si2s->clk)) {
@@ -355,10 +336,11 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 
 	sirfsoc_reset_device(&pdev->dev);
 
-	si2s->pwm = devm_pwm_get(&pdev->dev, NULL);
-	if (IS_ERR(si2s->pwm)) {
+	/* i2s bus uses PWM to generate MCLK */
+	si2s->mclk_pwm = devm_pwm_get(&pdev->dev, NULL);
+	if (IS_ERR(si2s->mclk_pwm)) {
 		dev_err(&pdev->dev, "unable to request PWM\n");
-		ret = PTR_ERR(si2s->pwm);
+		ret = PTR_ERR(si2s->mclk_pwm);
 		goto err_clk_put;
 	}
 
@@ -372,7 +354,9 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
 		goto err_clk_put;
 	}
+
 	return 0;
+
 err_clk_put:
 	clk_disable_unprepare(si2s->clk);
 	clk_put(si2s->clk);
@@ -383,16 +367,14 @@ err_unmap:
 
 static int sirf_i2s_remove(struct platform_device *pdev)
 {
-	struct sirf_i2s *si2s;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = NULL;
-#endif
-	si2s = platform_get_drvdata(pdev);
-	pwm_disable(si2s->pwm);
+	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
+
+	pwm_disable(si2s->mclk_pwm);
 	snd_soc_unregister_component(&pdev->dev);
 	clk_disable_unprepare(si2s->clk);
 	clk_put(si2s->clk);
 	iounmap(si2s->base);
+
 	return 0;
 }
 

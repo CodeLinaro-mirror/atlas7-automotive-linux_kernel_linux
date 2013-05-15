@@ -20,13 +20,6 @@
 
 #include "sirf-pcm.h"
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
-
 static struct snd_pcm_hardware sirf_pcm_hardware = {
 	.info                   = (SNDRV_PCM_INFO_MMAP
 			| SNDRV_PCM_INFO_MMAP_VALID
@@ -163,8 +156,6 @@ static int sirf_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 		return -ENOMEM;
 
 	buf->bytes = size;
-	debug_info("%s: the buf addr is %#x, the area is %p, the size is %#x\n",
-			__func__, buf->addr, buf->area, buf->bytes);
 
 	return 0;
 }
@@ -204,19 +195,12 @@ static struct snd_soc_platform_driver sirf_soc_platform = {
 
 static int sirf_pcm_probe(struct platform_device *pdev)
 {
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = &pdev->dev;
-#endif
-	debug_info("%s\n", __func__);
 	return snd_soc_register_platform(&pdev->dev,
 			&sirf_soc_platform);
 }
 
 static int sirf_pcm_remove(struct platform_device *pdev)
 {
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = NULL;
-#endif
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
 }

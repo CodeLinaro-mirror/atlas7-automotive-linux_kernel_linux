@@ -17,13 +17,6 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
-
 struct sirf_inner_card {
 	unsigned int            gpio_hp_pa;
 	unsigned int            gpio_spk_pa;
@@ -56,8 +49,6 @@ static int sirf_inner_jack_status_check(void)
 	if (gpio_is_valid(sinner_card->gpio_hp_detect))
 		spk_out = gpio_get_value(sinner_card->gpio_hp_detect);
 
-	debug_info("%s\n", spk_out ? "Headphone plugin" : "Headphone unplugin");
-
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
 		gpio_direction_output(sinner_card->gpio_hp_pa, !spk_out);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
@@ -71,7 +62,6 @@ static int sirf_inner_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_card *card = codec->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 	int ret;
-	debug_info("%s\n", __func__);
 	hp_jack_gpios[0].gpio = sinner_card->gpio_hp_detect;
 	ret = snd_soc_jack_new(codec, "Headphone Jack", SND_JACK_HEADPHONE,
 			&sinner_card->hp_jack);
@@ -146,7 +136,6 @@ static int sirf_inner_speaker_out_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	debug_info("%s\n", __func__);
 
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_direction_output(sinner_card->gpio_spk_pa, is_spk_out);
@@ -199,9 +188,6 @@ static int sirf_inner_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_sirf_inner_card;
 	struct sirf_inner_card *sinner_card;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = &pdev->dev;
-#endif
 	sinner_card = devm_kzalloc(&pdev->dev, sizeof(struct sirf_inner_card),
 			GFP_KERNEL);
 	if (sinner_card == NULL)
@@ -220,10 +206,7 @@ static int sirf_inner_probe(struct platform_device *pdev)
 #ifndef CONFIG_ANDROID
 	sinner_card->gpio_hp_detect = of_get_named_gpio(pdev->dev.of_node,
 			"hp-switch-gpios", 0);
-	debug_info("gpio_hp_detect = %d\n", sinner_card->gpio_hp_detect);
 #endif
-	debug_info("gpio_spk_pa = %d\n", sinner_card->gpio_spk_pa);
-	debug_info("gpio_hp_pa = %d\n", sinner_card->gpio_hp_pa);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_request(sinner_card->gpio_spk_pa, "SPA_PA_SD");
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
@@ -244,9 +227,7 @@ static int sirf_inner_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = NULL;
-#endif
+
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
 		gpio_free(sinner_card->gpio_hp_pa);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))

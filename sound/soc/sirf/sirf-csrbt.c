@@ -10,13 +10,6 @@
 
 #include <sound/soc.h>
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
-
 /* Digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link sirf_csrbt_dai_links[] = {
 	{
@@ -38,9 +31,6 @@ static int sirf_csrbt_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &snd_soc_sirf_csrbt_card;
 	int ret;
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = &pdev->dev;
-#endif
 	sirf_csrbt_dai_links[0].platform_of_node =
 		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_csrbt_dai_links[0].cpu_of_node =
@@ -60,12 +50,11 @@ static int sirf_csrbt_probe(struct platform_device *pdev)
 static int sirf_csrbt_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = NULL;
-#endif
 	snd_soc_unregister_card(card);
+
 	return 0;
 }
+
 static const struct of_device_id sirf_csrbt_of_match[] = {
 	{ .compatible = "sirf,sirf-csrbt", },
 	{}

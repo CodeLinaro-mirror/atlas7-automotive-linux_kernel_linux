@@ -15,13 +15,6 @@
 
 #include "sirf-pcm.h"
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
-
 #define FIFO_RESET  0
 #define FIFO_START	1
 #define FIFO_STOP	2
@@ -124,7 +117,6 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 		dev_info(dai->dev, "USP master mode is not supported.\n");
 		return -EINVAL;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		debug_info("USP slave mode set\n");
 		writel(readl(susp->base + USP_MODE1)
 			| USP_CLOCK_MODE_SLAVE, susp->base + USP_MODE1);
 		val |= (USP_TFS_CLK_SLAVE_MODE);
@@ -400,9 +392,7 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	u32 rx_dma_ch, tx_dma_ch;
 	int ret;
 	struct resource *mem_res;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = &pdev->dev;
-#endif
+
 	susp = devm_kzalloc(&pdev->dev, sizeof(struct sirf_usp),
 			GFP_KERNEL);
 	if (susp == NULL)
@@ -420,8 +410,6 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
 		return ret;
 	}
-	debug_info("Record dma channel = %u\n", (unsigned int)rx_dma_ch);
-	debug_info("Playback dma channel = %u\n", (unsigned int)tx_dma_ch);
 	sirf_usp_pcm_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_usp_pcm_dai_dma_data[1].dma_req = rx_dma_ch;
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -432,7 +420,6 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	susp->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (susp->base == NULL)
 		return -ENOMEM;
-	debug_info("susp->base = %x\n", susp->base);
 
 	susp->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(susp->clk)) {
@@ -458,15 +445,12 @@ err_clk_put:
 
 static int sirf_usp_pcm_remove(struct platform_device *pdev)
 {
-	struct sirf_usp *susp;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = NULL;
-#endif
-	susp = platform_get_drvdata(pdev);
+	struct sirf_usp *susp = platform_get_drvdata(pdev);
 	snd_soc_unregister_component(&pdev->dev);
 	sirf_usp_controller_uninit(susp);
 	clk_disable_unprepare(susp->clk);
 	clk_put(susp->clk);
+
 	return 0;
 }
 

@@ -3,10 +3,6 @@ config SND_SIRF_SOC
 	depends on ARCH_SIRF && SND_SOC
 	select SND_SOC_DMAENGINE_PCM
 
-config SND_SIRF_DEBUG
-	bool "Print debug message for SiRF audio driver"
-	depends on SND_SIRF_SOC
-
 config SND_SIRF_SOC_INNER
 	tristate
 

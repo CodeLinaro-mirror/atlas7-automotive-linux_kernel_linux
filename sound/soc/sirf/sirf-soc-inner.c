@@ -24,13 +24,6 @@
 #include "sirf-audio.h"
 #include "sirf-pcm.h"
 
-#ifdef CONFIG_SND_SIRF_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
-
 #define SYS_PWR_BASE          0x3000
 #define PWRC_SCRATCH_PAD11     0x40
 #define PWRC_PDN_CTRL          0x0
@@ -354,8 +347,7 @@ static struct snd_kcontrol_new snd_sirf_inner_volume_controls[] = {
 		.get            =       sirf_inner_snd_mute_get,
 		.put            =       sirf_inner_snd_mute_set,
 		.private_value  =       AUDIO_IC_CODEC_CTRL1,
-	},
-	{
+	}, {
 		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name           =       "Speaker Switch",
 		.index          =       0,
@@ -363,8 +355,7 @@ static struct snd_kcontrol_new snd_sirf_inner_volume_controls[] = {
 		.info           =       sirf_inner_snd_speaker_info,
 		.get            =       sirf_inner_snd_speaker_get,
 		.put            =       sirf_inner_snd_speaker_set,
-	},
-	{
+	}, {
 		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name           =       "Headphone Switch",
 		.index          =       0,
@@ -599,10 +590,9 @@ static struct snd_soc_codec_driver soc_codec_device_sirf_inner_codec = {
 static struct sirf_pcm_dma_data sirf_soc_inner_dai_dma_data[2] = {
 	{
 		.name = "Audio Playback",
-	},
-	{
+	}, {
 		.name = "Audio Capture",
-	}
+	},
 };
 
 static int sirf_soc_inner_dai_startup(struct snd_pcm_substream *substream,
@@ -671,9 +661,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	u32 rx_dma_ch, tx_dma_ch;
 	struct sirf_soc_inner_audio *sinner_audio;
 	struct resource *mem_res;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = &pdev->dev;
-#endif
+
 	sinner_audio = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
 	if (sinner_audio == NULL)
@@ -694,8 +682,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	}
 	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
-	debug_info("Record dma channel = %u\n", (unsigned int)rx_dma_ch);
-	debug_info("Playback dma channel = %u\n", (unsigned int)tx_dma_ch);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
@@ -758,16 +744,13 @@ err_clk_put:
 
 static int sirf_soc_inner_remove(struct platform_device *pdev)
 {
-	struct sirf_soc_inner_audio *sinner_audio;
-#ifdef CONFIG_SND_SIRF_DEBUG
-	dev = NULL;
-#endif
-	sinner_audio = platform_get_drvdata(pdev);
+	struct sirf_soc_inner_audio *sinner_audio = platform_get_drvdata(pdev);
+
 	clk_disable_unprepare(sinner_audio->clk);
 	clk_put(sinner_audio->clk);
-	platform_set_drvdata(pdev, NULL);
 	snd_soc_unregister_codec(&(pdev->dev));
 	snd_soc_unregister_component(&pdev->dev);
+
 	return 0;
 }
 

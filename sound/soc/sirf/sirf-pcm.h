@@ -11,7 +11,7 @@
 
 struct sirf_pcm_dma_data {
 	char	*name;		/* Stream name */
-	int		dma_req;	/* DMA request line */
+	int	dma_req;	/* DMA request line */
 };
 
 #endif
