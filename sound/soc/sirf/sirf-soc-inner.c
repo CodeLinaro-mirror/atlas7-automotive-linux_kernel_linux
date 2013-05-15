@@ -250,7 +250,6 @@ static int sirf_inner_snd_speaker_info(struct snd_kcontrol *kcontrol,
 	WARN_ON(!uinfo);
 	WARN_ON(!kcontrol);
 
-	debug_info("%s\n", __func__);
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 
 	uinfo->count = 1;
@@ -262,7 +261,6 @@ static int sirf_inner_snd_speaker_info(struct snd_kcontrol *kcontrol,
 static int sirf_inner_snd_speaker_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	debug_info("%s\n", __func__);
 	sirf_inner_control(kcontrol, ucontrol, 1, "Speaker Out");
 	return 0;
 }
@@ -307,8 +305,6 @@ static int sirf_inner_snd_headphone_info(struct snd_kcontrol *kcontrol,
 	WARN_ON(!uinfo);
 	WARN_ON(!kcontrol);
 
-	debug_info("%s\n", __func__);
-
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count = 1;
 	uinfo->value.integer.min = 0;
@@ -319,7 +315,6 @@ static int sirf_inner_snd_headphone_info(struct snd_kcontrol *kcontrol,
 static int sirf_inner_snd_headphone_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	debug_info("%s\n", __func__);
 	sirf_inner_control(kcontrol, ucontrol, 1, "Headphone Out");
 	return 0;
 }
@@ -679,7 +674,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 #ifdef CONFIG_SND_SIRF_DEBUG
 	dev = &pdev->dev;
 #endif
-	debug_info("%s\n", __func__);
 	sinner_audio = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
 	if (sinner_audio == NULL)
