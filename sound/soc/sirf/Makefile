@@ -4,6 +4,7 @@ snd-soc-sirf-inner-objs := sirf-inner.o
 snd-soc-sirf-usp-objs := sirf-usp.o
 snd-soc-sirf-i2s-objs := sirf-i2s.o
 snd-soc-sirf-csrbt-objs := sirf-csrbt.o
+snd-soc-sirf-hdmi-objs := sirf-hdmi.o
 
 obj-$(CONFIG_SND_SIRF_SOC) += snd-soc-sirf.o
 obj-$(CONFIG_SND_SIRF_SOC_INNER) += snd-soc-sirf-soc-inner.o
@@ -11,3 +12,4 @@ obj-$(CONFIG_SND_SIRF_INNER) += snd-soc-sirf-inner.o
 obj-$(CONFIG_SND_SOC_SIRF_USP) += snd-soc-sirf-usp.o
 obj-$(CONFIG_SND_SOC_SIRF_I2S) += snd-soc-sirf-i2s.o
 obj-$(CONFIG_SND_SOC_SIRF_CSRBT) += snd-soc-sirf-csrbt.o
+obj-$(CONFIG_SND_SOC_SIRF_HDMI) += snd-soc-sirf-hdmi.o

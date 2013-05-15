@@ -1,0 +1,78 @@
+/*
+ * SIRF HDMI ALSA SoC Audio board driver
+ *
+ * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/module.h>
+#include <linux/of.h>
+
+#include <sound/soc.h>
+
+/* Digital audio interface glue - connects codec <--> CPU */
+static struct snd_soc_dai_link sirf_hdmi_dai_links[] = {
+	{
+		.name = "SiRF HDMI",
+		.stream_name = "SiRF HDMI",
+		.codec_dai_name = "sirf-hdmi-codec",
+	},
+};
+
+static struct snd_soc_card snd_soc_sirf_hdmi_card = {
+	.name = "SiRF HDMI",
+	.owner = THIS_MODULE,
+	.dai_link = sirf_hdmi_dai_links,
+	.num_links = ARRAY_SIZE(sirf_hdmi_dai_links),
+};
+
+static int sirf_hdmi_card_probe(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = &snd_soc_sirf_hdmi_card;
+	int ret;
+
+	sirf_hdmi_dai_links[0].platform_of_node =
+		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
+	sirf_hdmi_dai_links[0].cpu_of_node =
+		of_find_compatible_node(NULL, NULL, "sirf,prima2-i2s");
+	sirf_hdmi_dai_links[0].codec_of_node =
+		of_find_compatible_node(NULL, NULL, "sirf,hdmi-codec");
+
+	card->dev = &pdev->dev;
+	ret = snd_soc_register_card(card);
+	if (ret)
+		return ret;
+
+	platform_set_drvdata(pdev, card);
+	return 0;
+}
+
+static int sirf_hdmi_card_remove(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	snd_soc_unregister_card(card);
+	platform_set_drvdata(pdev, NULL);
+	return 0;
+}
+static const struct of_device_id sirf_hdmi_card_of_match[] = {
+	{ .compatible = "sirf,hdmi-card", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, sirf_hdmi_card_of_match);
+
+static struct platform_driver sirf_hdmi_card_driver = {
+	.driver = {
+		.name = "sirf-hdmi-card",
+		.owner = THIS_MODULE,
+		.of_match_table = sirf_hdmi_card_of_match,
+	},
+	.probe = sirf_hdmi_card_probe,
+	.remove = sirf_hdmi_card_remove,
+};
+
+module_platform_driver(sirf_hdmi_card_driver);
+
+MODULE_DESCRIPTION("SIRF HDMI ALSA SoC Audio board driver");
+MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
+MODULE_LICENSE("GPL v2");

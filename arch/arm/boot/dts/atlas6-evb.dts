@@ -30,6 +30,12 @@
 	sirf-csrbt {
 		compatible = "sirf,sirf-csrbt";
 	};
+	sirf-hdmi-codec {
+		compatible = "sirf,hdmi-codec";
+	};
+	sirf-hdmi {
+		compatible = "sirf,hdmi-card";
+	};
 	axi {
 		peri-iobg {
 			uart@b0060000 {
