@@ -361,6 +361,7 @@ static int sirf_usp_pcm_suspend(struct platform_device *pdev,
 	susp->usp_mode1_reg = readl(susp->base + USP_MODE1);
 	susp->usp_mode2_reg = readl(susp->base + USP_MODE2);
 	sirf_usp_controller_uninit(susp);
+	clk_disable_unprepare(susp->clk);
 
 	return 0;
 }
