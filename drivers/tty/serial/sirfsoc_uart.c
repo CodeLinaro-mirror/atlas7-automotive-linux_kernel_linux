@@ -322,6 +322,7 @@ sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 static irqreturn_t sirfsoc_uart_isr(int irq, void *dev_id)
 {
 	unsigned long intr_status;
+	unsigned long cts_status;
 	unsigned long flag = TTY_NORMAL;
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)dev_id;
 	struct uart_port *port = &sirfport->port;
@@ -357,6 +358,13 @@ static irqreturn_t sirfsoc_uart_isr(int irq, void *dev_id)
 		tty_flip_buffer_push(&state->port);
 	}
 recv_char:
+	if (sirfport->uart_reg->uart_type == sirf_real_uart ||
+			(intr_status & SIRFUART_CTS_INT_ST(uint_st))) {
+		cts_status = rd_regl(port, ureg->sirfsoc_int_st_reg) &
+				uint_st->sirfsoc_cts;
+		uart_handle_cts_change(port, !cts_status);
+		wake_up_interruptible(&state->port.delta_msr_wait);
+	}
 	if (intr_status & SIRFUART_RX_IO_INT_ST(uint_st))
 		sirfsoc_uart_pio_rx_chars(port, SIRFSOC_UART_IO_RX_MAX_CNT);
 	if (intr_status & uint_st->sirfsoc_txfifo_empty) {

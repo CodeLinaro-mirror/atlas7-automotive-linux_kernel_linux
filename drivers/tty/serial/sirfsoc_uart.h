@@ -337,6 +337,7 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 				(uint_st->sirfsoc_rx_timeout |\
 				 uint_st->sirfsoc_rxfifo_thd |\
 				 uint_st->sirfsoc_rxfifo_full)
+#define SIRFUART_CTS_INT_ST(uint_st)	(uint_st->sirfsoc_cts)
 /* Generic Definitions */
 #define SIRFSOC_UART_NAME			"ttySiRF"
 #define SIRFSOC_UART_MAJOR			0
