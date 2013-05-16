@@ -333,9 +333,7 @@ static u32 sirfsoc_batt_get_adc_volt(struct sirfsoc_adc_request *req,
 		batt_volt = (1200 * digital_convert) / cali_data->digital_ideal;
 		batt_volt = batt_volt * 2;
 
-		pr_debug("battery_voltage = %d\n", batt_volt);
 	} else {
-		pr_debug("ERROR\n");
 		return 0;
 	}
 
@@ -359,7 +357,6 @@ static u32 sirfsoc_batt_get_custom_volt(u32 battery)
 		return SIRFSOC_BATT_MAX;
 	if (battery <= SIRFSOC_BATT_MIN)
 		return SIRFSOC_BATT_MIN;
-	pr_debug("A1 custom batt  = %d\n", battery);
 	return battery;
 }
 
@@ -570,9 +567,6 @@ static int sirfsoc_batt_thread(void *data)
 				}
 			}
 		}
-		pr_debug("new battery = %d capacity = %d\n",
-			batt->batt_info.battery_voltage,
-			batt->batt_info.batt_capacity);
 		old_status_batt = batt->status_batt;
 		power_supply_changed(&sirfsoc_batt_psy_batt);
 
@@ -644,7 +638,7 @@ static int sirfsoc_batt_get_property(struct power_supply *psy,
 #ifdef CONFIG_PM
 static int sirfsoc_batt_suspend(struct device *dev)
 {
-	pr_info("%s\n", __func__);
+	dev_info(dev, "%s\n", __func__);
 	if (sirfsoc_batt->battery_task) {
 		kthread_stop(sirfsoc_batt->battery_task);
 		sirfsoc_batt->battery_task = NULL;
@@ -659,7 +653,7 @@ static int sirfsoc_batt_resume(struct device *dev)
 {
 	int ret = 0;
 
-	pr_info("%s\n", __func__);
+	dev_info(dev, "%s\n", __func__);
 	enable_irq(gpio_to_irq(sirfsoc_batt->charge_full_gpio));
 	sirfsoc_batt->charge_full = gpio_get_value(
 						sirfsoc_batt->charge_full_gpio);
@@ -667,7 +661,7 @@ static int sirfsoc_batt_resume(struct device *dev)
 	sirfsoc_batt->battery_task = kthread_run(sirfsoc_batt_thread,
 						sirfsoc_batt, "battery_task");
 	if (IS_ERR(sirfsoc_batt->battery_task)) {
-		pr_info("unable to start battery kthread!");
+		dev_info(dev, "unable to start battery kthread!");
 		ret = PTR_ERR(sirfsoc_batt->battery_task);
 		sirfsoc_batt->battery_task = NULL;
 		return ret;
@@ -704,14 +698,16 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 	int charge_full_irq;
 	struct sirfsoc_batt *batt;
 	if (pdev->id != -1) {
-		pr_debug("%s:sirfsoc only support one battery\n", __func__);
+		dev_dbg(&pdev->dev,
+			"%s:sirfsoc only support one battery\n", __func__);
 		return -EINVAL;
 	}
 
 	batt = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_batt),
 				GFP_KERNEL);
 	if (!batt) {
-		pr_err("sirfsoc_batt: Cant allocate request batt buffer\n");
+		dev_err(&pdev->dev,
+			"sirfsoc_batt: Cant allocate request batt buffer\n");
 		return -ENOMEM;
 	}
 
@@ -721,23 +717,26 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 	batt->charge_full_gpio = of_get_named_gpio(
 					pdev->dev.of_node, "cf-gpio", 0);
 	if (batt->charge_full_gpio < 0) {
-		pr_debug("%s:Charge full gpio get fail\n", __func__);
+		dev_dbg(&pdev->dev, "%s:Charge full gpio get fail\n", __func__);
 		return batt->charge_full_gpio;
 	}
 	ret = gpio_request(batt->charge_full_gpio, "charge_full");
 	if (ret < 0) {
-		pr_debug("%s:Charge full gpio request fail\n", __func__);
+		dev_dbg(&pdev->dev,
+			"%s:Charge full gpio request fail\n", __func__);
 		return ret;
 	}
 	ret = gpio_direction_input(batt->charge_full_gpio);
 	if (ret < 0) {
-		pr_debug("%s:Charge full gpio set direction fail\n", __func__);
+		dev_dbg(&pdev->dev,
+			"%s:Charge full gpio set direction fail\n", __func__);
 		return ret;
 	}
 	charge_full_irq = gpio_to_irq(batt->charge_full_gpio);
 	if (charge_full_irq < 0) {
 		ret = charge_full_irq;
-		pr_debug("%s:Charge full gpio to irq fail\n", __func__);
+		dev_dbg(&pdev->dev,
+			"%s:Charge full gpio to irq fail\n", __func__);
 		return ret;
 	}
 	ret = devm_request_irq(&pdev->dev, charge_full_irq,
@@ -745,7 +744,8 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
 			| IRQF_SHARED, "charge_full", &batt);
 	if (ret < 0) {
-		pr_debug("%s:Request charge full irq fail\n", __func__);
+		dev_dbg(&pdev->dev,
+			"%s:Request charge full irq fail\n", __func__);
 		return ret;
 	}
 
@@ -753,7 +753,7 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 		batt->batt_info.avail_chg_sources |= SIRFSOC_BATT_AC_CHG;
 		ret = power_supply_register(&pdev->dev, &sirfsoc_batt_psy_ac);
 		if (ret) {
-			pr_debug("sirfsoc_ac register failure!!!\n");
+			dev_dbg(&pdev->dev, "sirfsoc_ac register failure!!!\n");
 			goto err_power_supply_register_ac;
 		}
 	}
@@ -762,14 +762,14 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 		batt->batt_info.avail_chg_sources |= SIRFSOC_BATT_USB_CHG;
 		ret = power_supply_register(&pdev->dev, &sirfsoc_batt_psy_usb);
 		if (ret) {
-			pr_debug("sirfsoc_usb register failure !!\n\n");
+			dev_dbg(&pdev->dev, "sirfsoc_usb register failure !!\n\n");
 			goto err_power_supply_register_usb;
 		}
 		batt->batt_info.psy_usb = &sirfsoc_batt_psy_usb;
 	}
 	if (!batt->batt_info.psy_ac &&
 		!batt->batt_info.psy_usb) {
-		pr_debug("%s:No external Power Supply(ACorUSB) is available\n",
+		dev_dbg(&pdev->dev, "%s:No external Power Supply(ACorUSB) is available\n",
 			__func__);
 		return -ENODEV;
 	}
@@ -779,14 +779,14 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 	batt->batt_info.voltage_min_design = SIRFSOC_BATT_MIN;
 	ret = power_supply_register(&pdev->dev, &sirfsoc_batt_psy_batt);
 	if (ret) {
-		pr_debug("%s:power_supply_register failed ret = %d\n",
+		dev_dbg(&pdev->dev, "%s:power_supply_register failed ret = %d\n",
 			__func__, ret);
 		goto err_power_supply_register_batt;
 	}
 	batt->req = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_adc_request),
 				GFP_KERNEL);
 	if (!batt->req) {
-		pr_err("sirfsoc_batt: Cant allocate request buffer\n");
+		dev_err(&pdev->dev, "sirfsoc_batt: Cant allocate request buffer\n");
 		goto err_power_supply_register_batt;
 	}
 
@@ -795,7 +795,7 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 	batt->battery_task = kthread_run(sirfsoc_batt_thread,
 						batt, "battery_task");
 	if (IS_ERR(batt->battery_task)) {
-		pr_info("unable to start battery kthread!");
+		dev_info(&pdev->dev, "unable to start battery kthread!");
 		ret = PTR_ERR(batt->battery_task);
 		batt->battery_task = NULL;
 		return ret;
@@ -805,7 +805,7 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 	power_supply_changed(&sirfsoc_batt_psy_batt);
 
 	platform_set_drvdata(pdev, batt);
-	pr_info("sirfsoc_batt_probe OK!!\n");
+	dev_info(&pdev->dev, "sirfsoc_batt_probe OK!!\n");
 
 	return 0;
 
@@ -837,7 +837,7 @@ static int sirfsoc_batt_remove(struct platform_device *pdev)
 
 static void sirfsoc_batt_shutdown(struct platform_device *pdev)
 {
-	pr_info("%s\n", __func__);
+	dev_info(&pdev->dev, "%s\n", __func__);
 	sirfsoc_batt_remove(pdev);
 }
 

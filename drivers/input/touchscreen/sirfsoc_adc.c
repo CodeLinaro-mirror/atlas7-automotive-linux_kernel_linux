@@ -62,7 +62,6 @@ int sirfsoc_adc_sync_request(struct sirfsoc_adc_request *req)
 
 	if (!wait_for_completion_timeout(&sirfsoc_adc->done,
 		msecs_to_jiffies(50))) {
-		pr_err("sample adc time out\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -148,7 +147,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	adc = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_adc), GFP_KERNEL);
 	if (!adc) {
-		pr_err("sirfsoc adc: Cant allocate driver private data\n");
+		dev_err(&pdev->dev, "sirfsoc adc: Cant allocate driver private data\n");
 		return -ENOMEM;
 	}
 
@@ -157,7 +156,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	adc->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(adc->clk)) {
-		pr_err("sirfsoc adc: get adc clk err\n");
+		dev_err(&pdev->dev, "sirfsoc adc: get adc clk err\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -165,14 +164,14 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
-		pr_err("sirfsoc adc: Unalbe to get io resource\n");
+		dev_err(&pdev->dev, "sirfsoc adc: Unalbe to get io resource\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
 	adc->base = devm_request_and_ioremap(&pdev->dev, mem_res);
 	if (adc->base == NULL) {
-		pr_err("sirfsoc adc: IO remap failed!\n");
+		dev_err(&pdev->dev, "sirfsoc adc: IO remap failed!\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -182,7 +181,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	adc->irq = platform_get_irq(pdev, 0);
 	if (adc->irq < 0) {
-		pr_err("sirfsoc adc: get irq failed!\n");
+		dev_err(&pdev->dev, "sirfsoc adc: get irq failed!\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -191,7 +190,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		0, DRIVER_NAME, adc);
 
 	if (ret < 0) {
-		pr_err("sirfsoc adc: regist irq handler failed!\n");
+		dev_err(&pdev->dev, "sirfsoc adc: regist irq handler failed!\n");
 		ret = -ENODEV;
 		goto err;
 	}

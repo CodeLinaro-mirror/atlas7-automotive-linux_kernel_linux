@@ -337,7 +337,7 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 	diff = ts->debounce_tol;
 	for (i = 0; i < finger; i++) {
 		/*
-		   pr_info("%s,  point %x before scale,
+		   dev_info(&pdev->dev, "%s,  point %x before scale,
 			x %x, y %x\n", __func__, i, ts->x[i] , ts->y[i]);
 		*/
 		if ((ts->x[i] < tmp_x[i] + diff && ts->x[i] > tmp_x[i] - diff)
@@ -351,7 +351,7 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 		}
 		ts_linear_scale(&ts->x[i], &ts->y[i], 0);
 		/*
-		pr_info("%s,  point %x after scale,
+		dev_info(&pdev->dev, "%s,  point %x after scale,
 			x %x, y %x\n", __func__, i, ts->x[i] , ts->y[i]);
 		*/
 		if (ts->swap_xy) {
@@ -456,7 +456,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	ts = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_ts), GFP_KERNEL);
 	if (!ts) {
-		pr_err("sirfsoc ts: Cant allocate driver private data\n");
+		dev_err(&pdev->dev, "sirfsoc ts: Cant allocate driver private data\n");
 		return -ENOMEM;
 	}
 
@@ -464,7 +464,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
-		pr_err("sirfsoc ts: Unable to allocate input device\n");
+		dev_err(&pdev->dev, "sirfsoc ts: Unable to allocate input device\n");
 		ret = -ENOMEM;
 		goto out1;
 	}
@@ -487,7 +487,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	ret = input_register_device(input_dev);
 	if (ret) {
-		pr_err("sirfsoc ts: Unable to register input device\n");
+		dev_err(&pdev->dev, "sirfsoc ts: Unable to register input device\n");
 		goto out2;
 	}
 	ts->input = input_dev;
@@ -510,7 +510,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		pr_err("sirfsoc tsc: get irq failed!\n");
+		dev_err(&pdev->dev, "sirfsoc tsc: get irq failed!\n");
 		ret = -ENOMEM;
 		goto out2;
 	}
@@ -520,14 +520,14 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		DRIVER_NAME, ts);
 
 	if (ret < 0) {
-		pr_err("sirfsoc ts: regist irq handler failed!\n");
+		dev_err(&pdev->dev, "sirfsoc ts: regist irq handler failed!\n");
 		ret = -ENODEV;
 		goto out2;
 	}
 
 	np = of_parse_phandle(pdev->dev.of_node, "default-parameter", 0);
 	if (!np) {
-		pr_err("sirfsoc ts: Fail to get ts parameter!\n");
+		dev_err(&pdev->dev, "sirfsoc ts: Fail to get ts parameter!\n");
 		ret = -EINVAL;
 		goto out2;
 	}
@@ -556,14 +556,14 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		input_set_abs_params(input_dev, ABS_Y, 0, 0x3FF, 0, 0);
 	}
 
-	pr_info("sirfsoc-ts: %s Ready to operate!\n",
+	dev_info(&pdev->dev, "sirfsoc-ts: %s Ready to operate!\n",
 		ts->dual_touch ? "Dual Touch" : "Touch");
 	return 0;
 out2:
 	input_free_device(input_dev);
 out1:
 	platform_set_drvdata(pdev, NULL);
-	pr_err("sirfsoc-ts: Start failed\n");
+	dev_err(&pdev->dev, "sirfsoc-ts: Start failed\n");
 	ts = NULL;
 
 	return ret;
@@ -576,7 +576,7 @@ static int sirfsoc_ts_remove(struct platform_device *pdev)
 	input_unregister_device(ts->input);
 	platform_set_drvdata(pdev, NULL);
 
-	pr_info("sirfsoc ts: Shutdown\n");
+	dev_info(&pdev->dev, "sirfsoc ts: Shutdown\n");
 	return 0;
 }
 
