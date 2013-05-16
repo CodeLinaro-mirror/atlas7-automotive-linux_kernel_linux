@@ -38,9 +38,19 @@
 	};
 	axi {
 		peri-iobg {
+			uart@b0050000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&uart0_pins_a>;
+				hw_flow_ctrl;
+			};
 			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
+			};
+			uart@b0070000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&uart2_pins_a>;
+				hw_flow_ctrl;
 			};
 			i2s@b0040000 {
 				pinctrl-names = "default";
