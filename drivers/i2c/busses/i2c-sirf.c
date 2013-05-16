@@ -463,7 +463,19 @@ static struct platform_driver i2c_sirfsoc_driver = {
 	.probe = i2c_sirfsoc_probe,
 	.remove = i2c_sirfsoc_remove,
 };
-module_platform_driver(i2c_sirfsoc_driver);
+
+static __init int i2c_sirfsoc_init(void)
+{
+	return platform_driver_register(&i2c_sirfsoc_driver);
+}
+
+static void __exit i2c_sirfsoc_exit(void)
+{
+	platform_driver_unregister(&i2c_sirfsoc_driver);
+}
+
+subsys_initcall(i2c_sirfsoc_init);
+module_exit(i2c_sirfsoc_exit);
 
 MODULE_DESCRIPTION("SiRF SoC I2C master controller driver");
 MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>, "
