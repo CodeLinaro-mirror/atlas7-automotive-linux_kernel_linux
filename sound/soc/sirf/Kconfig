@@ -22,3 +22,9 @@ config SND_SOC_SIRF_CSRBT
 	depends on SND_SIRF_SOC
 	select SND_SOC_CSRBT
 	select SND_SOC_SIRF_USP
+
+config SND_SOC_SIRF_HDMI
+	tristate "SoC Audio support for SiRF HDMI of Atlas6 EVB"
+	depends on SND_SIRF_SOC && HDMI_SIRFSOC
+	select SND_SOC_SIRF_HDMI_CODEC
+	select SND_SOC_SIRF_I2S
