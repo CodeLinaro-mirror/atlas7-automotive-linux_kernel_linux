@@ -73,7 +73,6 @@ EXPORT_SYMBOL_GPL(csr_bt_codec_dai);
 
 static int csr_bt_codec_probe(struct platform_device *pdev)
 {
-	dev_info(&pdev->dev, "%s\n", __func__);
 	return snd_soc_register_codec(&(pdev->dev),
 			&soc_codec_device_csr_bt_codec,
 			&csr_bt_codec_dai, 1);
