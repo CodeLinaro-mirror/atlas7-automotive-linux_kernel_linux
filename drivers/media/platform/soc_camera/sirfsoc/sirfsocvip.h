@@ -66,6 +66,7 @@ struct sirfsoc_camera_dev {
 	struct dma_chan		*dma_chan;
 	struct dma_interleaved_template *dma_xt;
 	struct dma_slave_config dma_slave_config;
+
 	struct sirfsoc_camera_platform_data *pdata;
 	struct resource		*res;
 	unsigned int		platform_flags;
@@ -83,8 +84,19 @@ struct sirfsoc_camera_dev {
 	/* Current active task which holds VIP hardware */
 	struct task_struct      *task;
 
+
+	/* start address of dma buf reserved for rearview */
+	unsigned long		rearview_dma_addr;
+	unsigned		rearview_gpio;
+
 	/* callbacks filled by vip, rearview--->vip */
 	void (*save_vip_context)(void *data);
 	void (*restore_vip_context)(void *data);
+
+	/* callbacks filled by rearview, vip--->rearview */
+	int (*rearview_freeze)(void);
+	int (*rearview_restore)(void);
+	int (*rearview_suspend)(void);
+	int (*rearview_resume)(void);
 };
 #endif
