@@ -358,11 +358,15 @@ static irqreturn_t sirfsoc_uart_isr(int irq, void *dev_id)
 		tty_flip_buffer_push(&state->port);
 	}
 recv_char:
-	if (sirfport->uart_reg->uart_type == sirf_real_uart ||
+	if ((sirfport->uart_reg->uart_type == sirf_real_uart) &&
 			(intr_status & SIRFUART_CTS_INT_ST(uint_st))) {
-		cts_status = rd_regl(port, ureg->sirfsoc_int_st_reg) &
-				uint_st->sirfsoc_cts;
-		uart_handle_cts_change(port, !cts_status);
+		cts_status = rd_regl(port, ureg->sirfsoc_afc_ctrl) &
+					SIRFUART_AFC_CTS_STATUS;
+		if (cts_status != 0)
+			cts_status = 0;
+		else
+			cts_status = 1;
+		uart_handle_cts_change(port, cts_status);
 		wake_up_interruptible(&state->port.delta_msr_wait);
 	}
 	if (intr_status & SIRFUART_RX_IO_INT_ST(uint_st))
