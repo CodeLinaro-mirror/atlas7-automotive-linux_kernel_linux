@@ -24,11 +24,12 @@
 		hp-switch-gpios = <&gpio 45 0>;
 	};
 
-	csrbt {
-		compatible = "csr,bluetooth";
+	bt-sco {
+		compatible = "bt-sco";
 	};
-	sirf-csrbt {
-		compatible = "sirf,sirf-csrbt";
+	sirf-bt-sco {
+		compatible = "sirf,sirf-bt-sco";
+		codec-clock-frame-master = <1>;
 	};
 	sirf-hdmi-codec {
 		compatible = "sirf,hdmi-codec";
