@@ -562,7 +562,7 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
-	int width = 1;
+	int width = 0, i;
 	unsigned long iflags;
 
 	/*
@@ -596,12 +596,19 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	sdesc->addr = addr;
 	sdesc->cyclic = 1;
 	sdesc->xlen = 0;
-	if (!(buf_len % 32))
-		width = 8;
-	else if (!(buf_len % 16))
-		width = 4;
-	else if (!(buf_len % 8))
-		width = 2;
+	/*
+	 * In loop mode, DMA width is in D-word unit and is restricted to an
+	 * integer multiple of 4
+	 */
+	for (i = 1024; i >= 16; i /= 2) {
+		if (!(period_len % i)) {
+			width = i / 4;
+			break;
+		}
+	}
+	if (width == 0)
+		return ERR_PTR(-EINVAL);
+
 	sdesc->ylen = buf_len / (width * SIRFSOC_DMA_WORD_LEN) - 1;
 	sdesc->width = width;
 	if (direction == DMA_MEM_TO_DEV)
