@@ -118,7 +118,6 @@ snd-soc-wm9705-objs := wm9705.o
 snd-soc-wm9712-objs := wm9712.o
 snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
-snd-soc-csrbt-objs := csrbt.o
 snd-soc-sirf-hdmi-codec-objs := sirf-hdmi.o
 
 # Amp
@@ -250,5 +249,3 @@ obj-$(CONFIG_SND_SOC_SIRF_HDMI_CODEC) += snd-soc-sirf-hdmi-codec.o
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
 
-# CSR bluetooth
-obj-$(CONFIG_SND_SOC_CSRBT) += snd-soc-csrbt.o
