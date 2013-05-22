@@ -1,0 +1,17 @@
+#
+# SiRF SoC NANDDisk driver configuration
+#
+
+config NANDDISK
+	bool "SiRF NANDDisk driver"
+	depends on BLOCK
+	default y
+	help
+	  This selects Nand flash SLC/MLC support, include legacy
+	  and latest one.
+
+	  If you want Nand flash support, you should
+	  enable this option to add in the NANDDisk driver support.
+
+
+

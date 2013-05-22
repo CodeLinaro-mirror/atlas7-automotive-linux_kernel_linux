@@ -161,7 +161,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0xb0000000 0xb0000000 0x180000>,
-			       <0x56000000 0x56000000 0x1b00000>;
+				<0x56000000 0x56000000 0x1b00000>;
 
 			timer@b0020000 {
 				compatible = "sirf,prima2-tick";
@@ -177,8 +177,12 @@
 			nand@b0030000 {
 				compatible = "sirf,prima2-nand";
 				reg = <0xb0030000 0x10000>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&nand_pins_a>;
+				sirf,nand-dma-channel = <8>;
 				interrupts = <41>;
 				clocks = <&clks 26>;
+
 			};
 
 			audio@b0040000 {
