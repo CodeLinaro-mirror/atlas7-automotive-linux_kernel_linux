@@ -52,7 +52,6 @@ static struct snd_soc_codec_driver soc_codec_dev_bt_sco = {
 
 static int bt_sco_probe(struct platform_device *pdev)
 {
-	dev_info(&pdev->dev, "%s\n", __func__);
 	return snd_soc_register_codec(&pdev->dev, &soc_codec_dev_bt_sco,
 			&bt_sco_dai, 1);
 }
@@ -70,7 +69,8 @@ static const struct of_device_id bt_sco_of_match[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, bt_sco_of_match);
-#else
+#endif
+
 static struct platform_device_id bt_sco_driver_ids[] = {
 	{
 		.name		= "dfbmcs320",
@@ -81,7 +81,6 @@ static struct platform_device_id bt_sco_driver_ids[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(platform, bt_sco_driver_ids);
-#endif
 
 static struct platform_driver bt_sco_driver = {
 	.driver = {
@@ -93,9 +92,7 @@ static struct platform_driver bt_sco_driver = {
 	},
 	.probe = bt_sco_probe,
 	.remove = bt_sco_remove,
-#ifndef CONFIG_OF
 	.id_table = bt_sco_driver_ids,
-#endif
 };
 
 module_platform_driver(bt_sco_driver);
