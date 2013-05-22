@@ -17,10 +17,10 @@ config SND_SOC_SIRF_USP
 config SND_SOC_SIRF_I2S
 	tristate
 
-config SND_SOC_SIRF_CSRBT
-	tristate "SpC Audio support for SiRF CSR bluetooth codec of Atlas6 EVB"
+config SND_SOC_SIRF_BT_SCO
+	tristate "SoC Audio support for BT SCO of Atlas6 EVB"
 	depends on SND_SIRF_SOC
-	select SND_SOC_CSRBT
+	select SND_SOC_BT_SCO
 	select SND_SOC_SIRF_USP
 
 config SND_SOC_SIRF_HDMI
