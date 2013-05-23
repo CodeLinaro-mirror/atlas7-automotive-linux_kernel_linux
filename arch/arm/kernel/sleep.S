@@ -101,10 +101,13 @@ ENDPROC(cpu_resume)
 	.align
 ENTRY(cpu_resume_restore_nosave)
 	ldr	r0, =__nosave_backup_phys
+	and	r0, #0x3FFFFFFF
 	ldr	r0, [r0]
 	ldr	r1, =__nosave_begin_phys
+	and	r1, #0x3FFFFFFF
 	ldr	r1, [r1]
 	ldr	r2, =__nosave_end_phys
+	and	r2, #0x3FFFFFFF
 	ldr	r2, [r2]
 1:	ldmia	r0!, {r3-r10}
 	stmia	r1!, {r3-r10}
