@@ -52,6 +52,66 @@ struct sirf_pwm {
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
+static void sirf_get_params_from_np(struct pwm_chip *chip,
+		struct pwm_device *pwm)
+{
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	struct device_node *np = pwm->user_dev_np;
+	int ret;
+	u32 trans_mode_params[2];
+	u32 bklscaling_params[PWM_BLS_GROUP_NUM * 2];
+	ret = of_property_read_u32(np, "sirf-pwm-transfer-mode",
+			&(spwm->trans_mode[pwm->hwpwm]));
+	if (ret) {
+		/*Directly mode*/
+		debug_info("SiRF PWM used directly-mode\n");
+		spwm->trans_mode[pwm->hwpwm] = 0;
+	}
+	if (spwm->trans_mode[pwm->hwpwm]) {
+		/*Step mode*/
+		debug_info("SiRF PWM used step-mode\n");
+		ret = of_property_read_u32_array(np,
+				"sirf-pwm-step-mode-params",
+				trans_mode_params, 2);
+		if (ret)
+			trans_mode_params[0] = trans_mode_params[1] = 0;
+		spwm->trans_process_step[pwm->hwpwm] = trans_mode_params[0];
+		spwm->trans_process_time[pwm->hwpwm] = trans_mode_params[1];
+		debug_info("Step mode, trans_step = %d, trans_time = %d\n",
+				spwm->trans_process_step[pwm->hwpwm],
+				spwm->trans_process_time[pwm->hwpwm]);
+	}
+
+	/*Only PWM3 can use bklscaling mode*/
+	if (pwm->hwpwm != 3)
+		return;
+	ret = of_property_read_u32(np, "sirf-pwm-bklscaling-mode",
+			&(spwm->pwm3_use_bklscaling));
+	if (ret)
+		spwm->pwm3_use_bklscaling = 0;
+	if (spwm->pwm3_use_bklscaling) {
+		/*bklscaling mode*/
+		int i;
+		debug_info("SiRF PWM used bklscaing mode\n");
+		ret = of_property_read_u32_array(np,
+				"sirf-pwm-bklscaling-params",
+				bklscaling_params, PWM_BLS_GROUP_NUM * 2);
+		if (ret)
+			memset(bklscaling_params, 0, sizeof(u32) * PWM_BLS_GROUP_NUM * 2);
+		for (i = 0; i < PWM_BLS_GROUP_NUM; i++) {
+			spwm->bklscaling_para[i].period_ns = bklscaling_params[i * 2];
+			spwm->bklscaling_para[i].duty_ns = bklscaling_params[i * 2 + 1];
+		}
+#ifdef CONFIG_SIRF_PWM_DEBUG
+		debug_info("PWM3 set bklscaling mode\n");
+		for (i = 0; i < PWM_BLS_GROUP_NUM; i++)
+			debug_info("bklscaling_para: %d: period_ns = %d, duty_ns = %d\n",
+					i, spwm->bklscaling_para[i].period_ns,
+					spwm->bklscaling_para[i].duty_ns);
+#endif
+	}
+}
+
 struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 		const struct of_phandle_args *args)
 {
@@ -79,6 +139,7 @@ struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 			pwm->period, spwm->duty_ns[pwm->hwpwm],
 			spwm->src_clk_id[pwm->hwpwm]);
 
+	sirf_get_params_from_np(chip, pwm);
 	return pwm;
 }
 
@@ -152,66 +213,6 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	debug_info("time_ns = %d, cycle = %d\n",
 			time_ns, cycle);
 	return cycle;
-}
-
-static void sirf_get_params_from_np(struct pwm_chip *chip,
-		struct pwm_device *pwm)
-{
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	struct device_node *np = pwm->user_dev_np;
-	int ret;
-	u32 trans_mode_params[2];
-	u32 bklscaling_params[PWM_BLS_GROUP_NUM * 2];
-	ret = of_property_read_u32(np, "sirf-pwm-transfer-mode",
-			&(spwm->trans_mode[pwm->hwpwm]));
-	if (ret) {
-		/*Directly mode*/
-		debug_info("SiRF PWM used directly-mode\n");
-		spwm->trans_mode[pwm->hwpwm] = 0;
-	}
-	if (spwm->trans_mode[pwm->hwpwm]) {
-		/*Step mode*/
-		debug_info("SiRF PWM used step-mode\n");
-		ret = of_property_read_u32_array(np,
-				"sirf-pwm-step-mode-params",
-				trans_mode_params, 2);
-		if (ret)
-			trans_mode_params[0] = trans_mode_params[1] = 0;
-		spwm->trans_process_step[pwm->hwpwm] = trans_mode_params[0];
-		spwm->trans_process_time[pwm->hwpwm] = trans_mode_params[1];
-		debug_info("Step mode, trans_step = %d, trans_time = %d\n",
-				spwm->trans_process_step[pwm->hwpwm],
-				spwm->trans_process_time[pwm->hwpwm]);
-	}
-
-	/*Only PWM3 can use bklscaling mode*/
-	if (pwm->hwpwm != 3)
-		return;
-	ret = of_property_read_u32(np, "sirf-pwm-bklscaling-mode",
-			&(spwm->pwm3_use_bklscaling));
-	if (ret)
-		spwm->pwm3_use_bklscaling = 0;
-	if (spwm->pwm3_use_bklscaling) {
-		/*bklscaling mode*/
-		int i;
-		debug_info("SiRF PWM used bklscaing mode\n");
-		ret = of_property_read_u32_array(np,
-				"sirf-pwm-bklscaling-params",
-				bklscaling_params, PWM_BLS_GROUP_NUM * 2);
-		if (ret)
-			memset(bklscaling_params, 0, sizeof(u32) * PWM_BLS_GROUP_NUM * 2);
-		for (i = 0; i < PWM_BLS_GROUP_NUM; i++) {
-			spwm->bklscaling_para[i].period_ns = bklscaling_params[i * 2];
-			spwm->bklscaling_para[i].duty_ns = bklscaling_params[i * 2 + 1];
-		}
-#ifdef CONFIG_SIRF_PWM_DEBUG
-		debug_info("PWM3 set bklscaling mode\n");
-		for (i = 0; i < PWM_BLS_GROUP_NUM; i++)
-			debug_info("bklscaling_para: %d: period_ns = %d, duty_ns = %d\n",
-					i, spwm->bklscaling_para[i].period_ns,
-					spwm->bklscaling_para[i].duty_ns);
-#endif
-	}
 }
 
 int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
@@ -288,7 +289,6 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	writel(val, spwm->base + PWM_OE);
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
-	sirf_get_params_from_np(chip, pwm);
 	return 0;
 }
 
