@@ -694,6 +694,7 @@ static int nand_alloc_resource(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	dma_cap_mask_t dma_cap_mask;
 	int i, ret, addr_map_tbl_size;
+	int resource_index;
 
 	/* total other controller */
 	nand_dev.addr_entry_num = ARRAY_SIZE(other);
@@ -713,16 +714,10 @@ static int nand_alloc_resource(struct platform_device *pdev)
 	/* get resouce from other controller */
 	i = 0;
 	while (i < ARRAY_SIZE(other)) {
-		dn = of_find_compatible_node(NULL, NULL, other[i].compatible);
-		if (!dn) {
-			dev_err(dev, "failed to get %s node!\n",
-				other[i].compatible);
-			ret = -ENODEV;
-			goto err_exit;
-		}
-
+		dn = NULL;
+		resource_index = other[i].index;
 		/* when it is not the first node */
-		while (other[i].index) {
+		do {
 			dn = of_find_compatible_node(dn, NULL,
 				other[i].compatible);
 			if (!dn) {
@@ -731,8 +726,7 @@ static int nand_alloc_resource(struct platform_device *pdev)
 				ret = -ENODEV;
 				goto err_exit;
 			}
-			other[i].index--;
-		}
+		} while (resource_index--);
 
 		ret = of_address_to_resource(dn, 0, &res);
 		if (ret) {
