@@ -240,6 +240,10 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	period_high = time_to_cycle(chip, pwm, duty_ns);
 	period_low = period_cycles - period_high;
 
+	val = readl(spwm->base + PWM_OE);
+	val &= ~(1 << pwm->hwpwm);
+	writel(val, spwm->base + PWM_OE);
+
 	if (period_cycles == 1) {
 		/* bypass mode */
 		val = readl(spwm->base + PWM_SELECT_PRECLK);
@@ -279,6 +283,9 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		writel(period_low, (spwm->base + PWM_GET_HOLD_OFFSET(pwm->hwpwm)));
 	}
 
+	val = readl(spwm->base + PWM_OE);
+	val |= (1 << pwm->hwpwm);
+	writel(val, spwm->base + PWM_OE);
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
 	sirf_get_params_from_np(chip, pwm);
