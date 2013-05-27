@@ -321,7 +321,7 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	val = readl(spwm->base + PWM_OE);
 	val |= (1 << pwm->hwpwm);
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
-	val |= (spwm->trans_mode[pwm->hwpwm] <<
+	val |= (!(spwm->trans_mode[pwm->hwpwm]) <<
 			(pwm->hwpwm + TRANS_MODE_SELECT_BIT));
 	if (pwm->hwpwm == 3) {
 		if (spwm->pwm3_use_bklscaling) {
