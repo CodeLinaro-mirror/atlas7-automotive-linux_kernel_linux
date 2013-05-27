@@ -8,28 +8,19 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
 #include <linux/init.h>
-#include <linux/ioport.h>
-#include <linux/list.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
-#include <linux/jiffies.h>
 #include <linux/slab.h>
 #include <linux/sirfsoc_rst.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/input/sirfsoc_ts.h>
 #include <linux/input/sirfsoc_adc.h>
-
-#include <asm/sizes.h>
-#include <linux/io.h>
-#include <asm/irq.h>
 
 #define DRIVER_NAME "sirfsoc_tsc"
 
@@ -556,16 +547,14 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		input_set_abs_params(input_dev, ABS_Y, 0, 0x3FF, 0, 0);
 	}
 
-	dev_info(&pdev->dev, "sirfsoc-ts: %s Ready to operate!\n",
+	dev_info(&pdev->dev, "%s Ready to operate!\n",
 		ts->dual_touch ? "Dual Touch" : "Touch");
 	return 0;
+
 out2:
 	input_free_device(input_dev);
 out1:
-	platform_set_drvdata(pdev, NULL);
-	dev_err(&pdev->dev, "sirfsoc-ts: Start failed\n");
-	ts = NULL;
-
+	dev_err(&pdev->dev, "Start failed\n");
 	return ret;
 }
 
@@ -574,9 +563,7 @@ static int sirfsoc_ts_remove(struct platform_device *pdev)
 	struct sirfsoc_ts *ts = platform_get_drvdata(pdev);
 
 	input_unregister_device(ts->input);
-	platform_set_drvdata(pdev, NULL);
 
-	dev_info(&pdev->dev, "sirfsoc ts: Shutdown\n");
 	return 0;
 }
 
@@ -647,6 +634,6 @@ static struct platform_driver tsc_sirfsoc_driver = {
 
 module_platform_driver(tsc_sirfsoc_driver);
 
-MODULE_AUTHOR("sober song <zhiwu.song@csr.com>");
+MODULE_AUTHOR("Sober Song <Zhiwu.Song@csr.com>");
 MODULE_DESCRIPTION("SiRF SoC On-chip Touch screen driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPLv2");
