@@ -437,6 +437,28 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int sirf_pwm_suspend(struct platform_device *pdev,
+		pm_message_t state)
+{
+	struct sirf_pwm *spwm;
+	spwm = platform_get_drvdata(pdev);
+	clk_disable_unprepare(spwm->clk);
+	return 0;
+}
+
+static int sirf_pwm_resume(struct platform_device *pdev)
+{
+	struct sirf_pwm *spwm;
+	spwm = platform_get_drvdata(pdev);
+	clk_prepare_enable(spwm->clk);
+	return 0;
+}
+#else
+#define sirf_pwm_resume NULL
+#define sirf_pwm_suspend NULL
+#endif
+
 static const struct of_device_id sirf_pwm_of_match[] = {
 	{ .compatible = "sirf,prima2-pwm", },
 	{}
@@ -451,6 +473,8 @@ static struct platform_driver sirf_pwm_driver = {
 	},
 	.probe = sirf_pwm_probe,
 	.remove = sirf_pwm_remove,
+	.suspend = sirf_pwm_suspend,
+	.resume = sirf_pwm_resume,
 };
 
 module_platform_driver(sirf_pwm_driver);
