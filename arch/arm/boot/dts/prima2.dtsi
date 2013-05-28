@@ -65,9 +65,10 @@
 				#clock-cells = <1>;
 			};
 
-			reset-controller@88010000 {
+			rstc: reset-controller@88010000 {
 				compatible = "sirf,prima2-rstc";
 				reg = <0x88010000 0x1000>;
+				#reset-cells = <1>;
 			};
 
 			rsc-controller@88020000 {
@@ -106,7 +107,7 @@
 				bl-gpios = <&gpio 7 0>;
 				vcc-gpios = <&gpio 4 0>;
 				default-panel = <&panel0>;
-				reset-bit = <5>;
+				resets = <&rstc 5>;
 				power-vdd  = <0x00180017>;
 				power-vee  = <0x00160015>;
 			};
@@ -116,7 +117,7 @@
 				reg = <0x90020000 0x10000>;
 				interrupts = <31>;
 				clocks = <&clks 35>;
-				reset-bit = <6>;
+				resets = <&rstc 6>;
 			};
 		};
 

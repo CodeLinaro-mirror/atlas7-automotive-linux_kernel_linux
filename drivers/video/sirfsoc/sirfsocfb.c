@@ -36,7 +36,7 @@
 #include <linux/of_address.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/memblock.h>
-#include <linux/sirfsoc_rst.h>
+#include <linux/reset.h>
 #include <asm/cacheflush.h>
 #include <asm/uaccess.h>
 #include <video/sirfsoc_fb.h>
@@ -1934,7 +1934,7 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 
 	clk_prepare_enable(fb->clk);
 
-	sirfsoc_reset_device(&pdev->dev);
+	device_reset(&pdev->dev);
 
 	if (of_property_read_u32(pdev->dev.of_node, "layer-ctrl",
 				&layer_ctrl)) {

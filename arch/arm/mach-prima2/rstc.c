@@ -14,41 +14,24 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/reset-controller.h>
+
+#define SIRFSOC_RSTBIT_NUM	64
 
 void __iomem *sirfsoc_rstc_base;
 static DEFINE_MUTEX(rstc_lock);
-static struct device_node * sirfsoc_rstc_np;
 
-static struct of_device_id rstc_ids[]  = {
-	{ .compatible = "sirf,prima2-rstc" },
-	{ .compatible = "sirf,marco-rstc" },
-	{},
-};
-
-static int __init sirfsoc_of_rstc_init(void)
+static int sirfsoc_reset_module(struct reset_controller_dev *rcdev,
+					unsigned long sw_reset_idx)
 {
-	sirfsoc_rstc_np = of_find_matching_node(NULL, rstc_ids);
-	if (!sirfsoc_rstc_np)
-		panic("unable to find compatible rstc node in dtb\n");
+	u32 reset_bit = sw_reset_idx;
 
-	sirfsoc_rstc_base = of_iomap(sirfsoc_rstc_np, 0);
-	if (!sirfsoc_rstc_base)
-		panic("unable to map rstc cpu registers\n");
-
-	return 0;
-}
-early_initcall(sirfsoc_of_rstc_init);
-
-int sirfsoc_reset_device(struct device *dev)
-{
-	u32 reset_bit;
-
-	if (of_property_read_u32(dev->of_node, "reset-bit", &reset_bit))
+	if (reset_bit >= SIRFSOC_RSTBIT_NUM)
 		return -EINVAL;
 
 	mutex_lock(&rstc_lock);
 
-	if (of_device_is_compatible(sirfsoc_rstc_np, "sirf,prima2-rstc")) {
+	if (of_device_is_compatible(rcdev->of_node, "sirf,prima2-rstc")) {
 		/*
 		 * Writing 1 to this bit resets corresponding block. Writing 0 to this
 		 * bit de-asserts reset signal of the corresponding block.
@@ -77,7 +60,41 @@ int sirfsoc_reset_device(struct device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL(sirfsoc_reset_device);
+
+static struct reset_control_ops sirfsoc_rstc_ops = {
+	.reset = sirfsoc_reset_module,
+};
+
+static struct reset_controller_dev sirfsoc_reset_controller = {
+	.ops = &sirfsoc_rstc_ops,
+	.nr_resets = SIRFSOC_RSTBIT_NUM,
+};
+
+static struct of_device_id rstc_ids[]  = {
+	{ .compatible = "sirf,prima2-rstc" },
+	{ .compatible = "sirf,marco-rstc" },
+	{},
+};
+
+static int __init sirfsoc_of_rstc_init(void)
+{
+	struct device_node *np = of_find_matching_node(NULL, rstc_ids);
+	if (!np)
+		goto out;
+
+	sirfsoc_rstc_base = of_iomap(np, 0);
+	if (!sirfsoc_rstc_base)
+		panic("unable to map rstc cpu registers\n");
+
+	sirfsoc_reset_controller.of_node = np;
+
+	if (IS_ENABLED(CONFIG_RESET_CONTROLLER))
+		reset_controller_register(&sirfsoc_reset_controller);
+
+out:
+	return 0;
+}
+arch_initcall(sirfsoc_of_rstc_init);
 
 #define SIRFSOC_SYS_RST_BIT  BIT(31)
 

@@ -11,7 +11,7 @@
 #include <linux/clk.h>
 #include <linux/pwm.h>
 #include <linux/delay.h>
-#include <linux/sirfsoc_rst.h>
+#include <linux/reset.h>
 
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
@@ -268,7 +268,7 @@ static int sirf_i2s_resume(struct platform_device *pdev)
 	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
 	clk_prepare_enable(si2s->clk);
 
-	sirfsoc_reset_device(&pdev->dev);
+	device_reset(&pdev->dev);
 	writel(readl(si2s->base+AUDIO_CTRL_MODE_SEL)
 			| I2S_MODE,
 			si2s->base+AUDIO_CTRL_MODE_SEL);
@@ -334,7 +334,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(si2s->clk);
 
-	sirfsoc_reset_device(&pdev->dev);
+	device_reset(&pdev->dev);
 
 	/* i2s bus uses PWM to generate MCLK */
 	si2s->mclk_pwm = devm_pwm_get(&pdev->dev, NULL);

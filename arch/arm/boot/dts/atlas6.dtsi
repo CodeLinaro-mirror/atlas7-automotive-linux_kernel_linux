@@ -60,9 +60,10 @@
 				#clock-cells = <1>;
 			};
 
-			reset-controller@88010000 {
+			rstc: reset-controller@88010000 {
 				compatible = "sirf,prima2-rstc";
 				reg = <0x88010000 0x1000>;
+				#reset-cells = <1>;
 			};
 
 			rsc-controller@88020000 {
@@ -100,7 +101,7 @@
 				/* later transfer to pwm */
 				bl-gpios = <&gpio 7 0>;
 				default-panel = <&panel0>;
-				reset-bit = <5>;
+				resets = <&rstc 5>;
 				power-vcc  = <0x000d0008>;
 				power-vdd  = <0x000b0006>;
 				power-vee  = <0x000a0005>;
@@ -111,7 +112,7 @@
 				reg = <0x90020000 0x10000>;
 				interrupts = <31>;
 				clocks = <&clks 35>;
-				reset-bit = <6>;
+				resets = <&rstc 6>;
 			};
 		};
 
@@ -201,7 +202,7 @@
 				sirf,i2s-dma-tx-channel = <28>;
 				clocks = <&clks 27>;
 				pwms = <&pwm 6 41 20 4>;
-				reset-bit = <5>;
+				resets = <&rstc 5>;
 			};
 
 			uart0: uart@b0050000 {

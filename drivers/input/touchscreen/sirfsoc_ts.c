@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/slab.h>
-#include <linux/sirfsoc_rst.h>
+#include <linux/reset.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/input/sirfsoc_ts.h>
 #include <linux/input/sirfsoc_adc.h>
@@ -487,7 +487,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		SIRFSOC_PWRC_TRIGGER_EN) | (1 << PWR_WAKEEN_TS_SHIFT),
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
-	sirfsoc_reset_device(&pdev->dev);
+	device_reset(&pdev->dev);
 
 	sirfsoc_adc_write_reg(ADC_PRP_MODE3 | ADC_RTOUCH(1) |
 		ADC_DEL_PRE(2) | ADC_DEL_DIS(5), ADC_CONTROL2);
@@ -588,7 +588,7 @@ static int sirfsoc_ts_resume(struct device *device)
 		| (1 << PWR_WAKEEN_TS_SHIFT),
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
-	sirfsoc_reset_device(device);
+	device_reset(device);
 
 	sirfsoc_adc_write_reg(ADC_PRP_MODE3 | ADC_RTOUCH(1) |
 		ADC_DEL_PRE(2) | ADC_DEL_DIS(5), ADC_CONTROL2);
