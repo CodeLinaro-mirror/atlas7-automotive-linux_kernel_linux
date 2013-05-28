@@ -222,10 +222,6 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
-	if (pwm == NULL) {
-		dev_err(chip->dev, "pwm config error: no pwm device!\n");
-		return -EINVAL;
-	}
 	if (duty_ns > period_ns) {
 		dev_err(chip->dev, "pwm config error: duty_ns > period_ns\n");
 		return -EINVAL;
@@ -282,6 +278,7 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
 	sirf_get_params_from_np(chip, pwm);
+
 	return 0;
 }
 
@@ -397,20 +394,18 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
 		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		ret = -ENODEV;
-		goto err_free_spwm;
+		return -ENODEV;
 	}
 	spwm->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (spwm->base == NULL) {
-		ret = -ENOMEM;
-		goto err_free_spwm;
+		return -ENOMEM;
 	}
 	spwm->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(spwm->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
-		ret = PTR_ERR(spwm->clk);
-		goto err_free_spwm;
+		return PTR_ERR(spwm->clk);
 	}
+
 	clk_prepare_enable(spwm->clk);
 
 	spwm->chip.dev = &pdev->dev;
@@ -423,14 +418,11 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	ret = pwmchip_add(&spwm->chip);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to register pwm\n");
-		goto err_free_clk;
+		clk_disable_unprepare(spwm->clk);
+		return ret;
 	}
+
 	return 0;
-err_free_clk:
-	clk_disable_unprepare(spwm->clk);
-err_free_spwm:
-	devm_kfree(&pdev->dev, spwm);
-	return ret;
 }
 
 static int sirf_pwm_remove(struct platform_device *pdev)
@@ -442,7 +434,6 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 	spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
 	clk_put(spwm->clk);
-	devm_kfree(&pdev->dev, spwm);
 	return 0;
 }
 
