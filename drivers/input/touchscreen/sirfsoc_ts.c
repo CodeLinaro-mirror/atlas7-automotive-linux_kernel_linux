@@ -598,7 +598,6 @@ static int sirfsoc_ts_resume(struct device *device)
 	/* Clear interrupts and enable PEN INTR */
 	sirfsoc_adc_write_reg(val | PEN_INTR | DATA_INTR |
 		PEN_INTR_EN | DATA_INTR_EN, ADC_INTR);
-
 	return 0;
 }
 #endif

@@ -14,6 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/input/sirfsoc_adc.h>
 #include <asm/irq.h>
@@ -139,6 +140,26 @@ static irqreturn_t sirfsoc_adc_data_irq(int irq, void *handle)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_PM
+static int sirfsoc_adc_suspend(struct platform_device *pdev,
+	pm_message_t state)
+{
+	struct sirfsoc_adc *adc = platform_get_drvdata(pdev);
+	clk_disable_unprepare(adc->clk);
+	return 0;
+}
+
+static int sirfsoc_adc_resume(struct platform_device *pdev)
+{
+	struct sirfsoc_adc *adc = platform_get_drvdata(pdev);
+	clk_prepare_enable(adc->clk);
+	return 0;
+}
+#else
+#define sirfsoc_adc_resume NULL
+#define sirfsoc_adc_suspend NULL
+#endif
+
 static int sirfsoc_adc_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -223,6 +244,8 @@ static struct platform_driver sirfsoc_adc_driver = {
 	},
 	.probe		= sirfsoc_adc_probe,
 	.remove		= sirfsoc_adc_remove,
+	.suspend	= sirfsoc_adc_suspend,
+	.resume		= sirfsoc_adc_resume,
 };
 
 module_platform_driver(sirfsoc_adc_driver);
