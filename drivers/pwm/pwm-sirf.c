@@ -12,20 +12,12 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
-#include <asm/uaccess.h>
-#include <asm/io.h>
 #include <linux/pwm.h>
 #include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/io.h>
 
 #include "pwm-sirf.h"
-
-#ifdef CONFIG_SIRF_PWM_DEBUG
-static struct device *dev;
-#define debug_info(x...) dev_info(dev, x)
-#else
-#define debug_info(x...)
-#endif
 
 #define PWM_NUM 7
 #define PWM_BLS_GROUP_NUM		16
@@ -57,8 +49,7 @@ struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 {
 	struct pwm_device *pwm;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	debug_info("of_pwm_n_cells = %d, pwm_id = %d\n",
-			chip->of_pwm_n_cells, args->args[0]);
+
 	if (chip->of_pwm_n_cells < 4)
 		return ERR_PTR(-EINVAL);
 
@@ -75,10 +66,6 @@ struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 
 	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
 
-	debug_info("period = %d, duty_ns = %d, src_clk_id = %d\n",
-			pwm->period, spwm->duty_ns[pwm->hwpwm],
-			spwm->src_clk_id[pwm->hwpwm]);
-
 	return pwm;
 }
 
@@ -93,8 +80,9 @@ int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 		dev_err(chip->dev, "Not support pwm%d\n", hwpwm);
 		return -EINVAL;
 	}
-	/*Because the PWM6 used by I2S interface internal, So we not
-	 *need get the pin via pinctrl interface.
+	/*
+	 * Because the PWM6 used by I2S interface internal, So we not
+	 * need get the pin via pinctrl interface.
 	 */
 	if (hwpwm == 6)
 		return 0;
@@ -147,11 +135,7 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 
 	cycle = dividend & 0xFFFFFFFF;
 
-	if (cycle < 1)
-		cycle = 1;
-	debug_info("time_ns = %d, cycle = %d\n",
-			time_ns, cycle);
-	return cycle;
+	return cycle < 1 ? cycle : 1;
 }
 
 static void sirf_get_params_from_np(struct pwm_chip *chip,
@@ -164,14 +148,12 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 	u32 bklscaling_params[PWM_BLS_GROUP_NUM * 2];
 	ret = of_property_read_u32(np, "sirf-pwm-transfer-mode",
 			&(spwm->trans_mode[pwm->hwpwm]));
-	if (ret) {
-		/*Directly mode*/
-		debug_info("SiRF PWM used directly-mode\n");
+
+	if (ret) /*Directly mode*/
 		spwm->trans_mode[pwm->hwpwm] = 0;
-	}
+
 	if (spwm->trans_mode[pwm->hwpwm]) {
 		/*Step mode*/
-		debug_info("SiRF PWM used step-mode\n");
 		ret = of_property_read_u32_array(np,
 				"sirf-pwm-step-mode-params",
 				trans_mode_params, 2);
@@ -179,9 +161,6 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 			trans_mode_params[0] = trans_mode_params[1] = 0;
 		spwm->trans_process_step[pwm->hwpwm] = trans_mode_params[0];
 		spwm->trans_process_time[pwm->hwpwm] = trans_mode_params[1];
-		debug_info("Step mode, trans_step = %d, trans_time = %d\n",
-				spwm->trans_process_step[pwm->hwpwm],
-				spwm->trans_process_time[pwm->hwpwm]);
 	}
 
 	/*Only PWM3 can use bklscaling mode*/
@@ -194,7 +173,6 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 	if (spwm->pwm3_use_bklscaling) {
 		/*bklscaling mode*/
 		int i;
-		debug_info("SiRF PWM used bklscaing mode\n");
 		ret = of_property_read_u32_array(np,
 				"sirf-pwm-bklscaling-params",
 				bklscaling_params, PWM_BLS_GROUP_NUM * 2);
@@ -204,13 +182,6 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 			spwm->bklscaling_para[i].period_ns = bklscaling_params[i * 2];
 			spwm->bklscaling_para[i].duty_ns = bklscaling_params[i * 2 + 1];
 		}
-#ifdef CONFIG_SIRF_PWM_DEBUG
-		debug_info("PWM3 set bklscaling mode\n");
-		for (i = 0; i < PWM_BLS_GROUP_NUM; i++)
-			debug_info("bklscaling_para: %d: period_ns = %d, duty_ns = %d\n",
-					i, spwm->bklscaling_para[i].period_ns,
-					spwm->bklscaling_para[i].duty_ns);
-#endif
 	}
 }
 
@@ -289,7 +260,6 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	unsigned int cycle, high, low;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
-	debug_info("%s: lable = %s\n", __func__, pwm->label);
 	sirf_pwm_config(chip, pwm, spwm->duty_ns[pwm->hwpwm], pwm->period);
 	/* disable preclock */
 	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
@@ -382,9 +352,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	struct sirf_pwm *spwm;
 	struct resource *mem_res;
 	int ret = 0;
-#ifdef CONFIG_SIRF_PWM_DEBUG
-	dev = &pdev->dev;
-#endif
+
 	spwm = devm_kzalloc(&pdev->dev, sizeof(struct sirf_pwm),
 			GFP_KERNEL);
 	if (spwm == NULL)
@@ -428,9 +396,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 static int sirf_pwm_remove(struct platform_device *pdev)
 {
 	struct sirf_pwm *spwm;
-#ifdef CONFIG_SIRF_PWM_DEBUG
-	dev = NULL;
-#endif
+
 	spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
 	clk_put(spwm->clk);
@@ -441,16 +407,14 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 static int sirf_pwm_suspend(struct platform_device *pdev,
 		pm_message_t state)
 {
-	struct sirf_pwm *spwm;
-	spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
 	return 0;
 }
 
 static int sirf_pwm_resume(struct platform_device *pdev)
 {
-	struct sirf_pwm *spwm;
-	spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
 	clk_prepare_enable(spwm->clk);
 	return 0;
 }

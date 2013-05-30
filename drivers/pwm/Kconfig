@@ -210,8 +210,4 @@ config PWM_SIRF
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-sirf.
 
-config SIRF_PWM_DEBUG
-	bool "Print SiRF PWM driver debug message"
-	depends on PWM_SIRF
-
 endif
