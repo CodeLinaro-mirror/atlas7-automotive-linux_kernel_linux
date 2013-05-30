@@ -427,6 +427,8 @@ static int i2c_sirfsoc_resume(struct device *dev)
 static const struct dev_pm_ops i2c_sirfsoc_pm_ops = {
 	.suspend = i2c_sirfsoc_suspend,
 	.resume = i2c_sirfsoc_resume,
+	.freeze_late = i2c_sirfsoc_suspend,
+	.restore_early = i2c_sirfsoc_resume,
 };
 #endif
 
