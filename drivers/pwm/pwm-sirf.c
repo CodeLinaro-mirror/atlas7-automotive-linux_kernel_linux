@@ -25,7 +25,7 @@
 /* PWM6 is an internal channel dedicated to as the source of I2S MCLK */
 #define SIRF_PWM_I2S_CHL		6
 
-/* PWM3 supports backlight scaling */
+/* PWM3 supports black light scaling */
 #define SIRF_PWM_BKS_CHL		3
 
 struct bklscaling_cfg {
@@ -40,10 +40,10 @@ struct sirf_pwm {
 	struct pwm_chip		chip;
 	int			duty_ns[SIRF_PWM_CHL_NUM];
 	int			src_clk_id[SIRF_PWM_CHL_NUM];
-	int			trans_mode[SIRF_PWM_CHL_NUM];
+	bool			is_step_mode[SIRF_PWM_CHL_NUM];
 	unsigned int		trans_process_step[SIRF_PWM_CHL_NUM];
 	unsigned int		trans_process_time[SIRF_PWM_CHL_NUM];
-	int			pwm3_use_bklscaling;
+	bool			is_pwm3_use_bks;
 	struct bklscaling_cfg	bcfg[SIRF_PWM_BLS_GRP_NUM];
 };
 
@@ -151,13 +151,10 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 	int ret;
 	u32 trans_mode_params[2];
 	u32 bcfg_params[SIRF_PWM_BLS_GRP_NUM * 2];
-	ret = of_property_read_u32(np, "sirf-pwm-transfer-mode",
-			&(spwm->trans_mode[pwm->hwpwm]));
 
-	if (ret) /*Directly mode*/
-		spwm->trans_mode[pwm->hwpwm] = 0;
+	spwm->is_step_mode[pwm->hwpwm] = of_property_read_bool(np, "sirf-pwm-step-mode");
 
-	if (spwm->trans_mode[pwm->hwpwm]) {
+	if (spwm->is_step_mode[pwm->hwpwm]) {
 		/*Step mode*/
 		ret = of_property_read_u32_array(np,
 				"sirf-pwm-step-mode-params",
@@ -171,11 +168,8 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 	if (pwm->hwpwm != SIRF_PWM_BKS_CHL)
 		return;
 
-	ret = of_property_read_u32(np, "sirf-pwm-bklscaling-mode",
-			&(spwm->pwm3_use_bklscaling));
-	if (ret)
-		spwm->pwm3_use_bklscaling = 0;
-	if (spwm->pwm3_use_bklscaling) {
+	spwm->is_pwm3_use_bks = of_property_read_bool(np, "sirf-pwm-bklscaling-mode");
+	if (spwm->is_pwm3_use_bks) {
 		/*bklscaling mode*/
 		int i;
 		ret = of_property_read_u32_array(np,
@@ -234,7 +228,7 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			period_high--;
 			period_low = 1;
 		}
-		if (spwm->trans_mode[pwm->hwpwm]) {
+		if (spwm->is_step_mode[pwm->hwpwm]) {
 			step_value = ((spwm->duty_ns[pwm->hwpwm] > duty_ns) ?
 					(spwm->duty_ns[pwm->hwpwm] - duty_ns) :
 					(duty_ns - spwm->duty_ns[pwm->hwpwm])) / spwm->trans_process_step[pwm->hwpwm];
@@ -293,11 +287,11 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	val = readl(spwm->base + PWM_OE);
 	val |= (1 << pwm->hwpwm);
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
-	val |= (!(spwm->trans_mode[pwm->hwpwm]) <<
+	val |= (!(spwm->is_step_mode[pwm->hwpwm]) <<
 			(pwm->hwpwm + TRANS_MODE_SELECT_BIT));
 
 	if (pwm->hwpwm == SIRF_PWM_BKS_CHL) {
-		if (spwm->pwm3_use_bklscaling) {
+		if (spwm->is_pwm3_use_bks) {
 			val |= (1 << LOOK_TABLE_EN_BIT);
 			for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
 				cycle = time_to_cycle(chip, pwm,
