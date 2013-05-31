@@ -19,27 +19,26 @@
 
 #include "pwm-sirf.h"
 
-#define PWM_NUM 7
-#define PWM_BLS_GROUP_NUM		16
+#define SIRF_PWM_CHL_NUM		7
+#define SIRF_PWM_BLS_GRP_NUM		16
 
-struct bklscaling_config {
+struct bklscaling_cfg {
 	unsigned int duty_ns;
 	unsigned int period_ns;
 };
 
 struct sirf_pwm {
-	void __iomem                *base;
-	struct clk                  *clk;
-	struct pinctrl              *p[PWM_NUM];
-	struct pwm_chip             chip;
-	int                         duty_ns[PWM_NUM];
-	int                         src_clk_id[PWM_NUM];
-	int                         trans_mode[PWM_NUM];
-	unsigned int                trans_process_step[PWM_NUM];
-	unsigned int                trans_process_time[PWM_NUM];
-	int                         pwm3_use_bklscaling;
-	struct bklscaling_config    bklscaling_para[PWM_BLS_GROUP_NUM];
-
+	void __iomem		*base;
+	struct clk		*clk;
+	struct pinctrl		*p[SIRF_PWM_CHL_NUM];
+	struct pwm_chip		chip;
+	int			duty_ns[SIRF_PWM_CHL_NUM];
+	int			src_clk_id[SIRF_PWM_CHL_NUM];
+	int			trans_mode[SIRF_PWM_CHL_NUM];
+	unsigned int		trans_process_step[SIRF_PWM_CHL_NUM];
+	unsigned int		trans_process_time[SIRF_PWM_CHL_NUM];
+	int			pwm3_use_bklscaling;
+	struct bklscaling_cfg	bcfg[SIRF_PWM_BLS_GRP_NUM];
 };
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
@@ -76,7 +75,7 @@ int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	char pwm_pin_name[8];
 
-	if (hwpwm >= PWM_NUM) {
+	if (hwpwm >= SIRF_PWM_CHL_NUM) {
 		dev_err(chip->dev, "Not support pwm%d\n", hwpwm);
 		return -EINVAL;
 	}
@@ -145,7 +144,7 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 	struct device_node *np = pwm->user_dev_np;
 	int ret;
 	u32 trans_mode_params[2];
-	u32 bklscaling_params[PWM_BLS_GROUP_NUM * 2];
+	u32 bcfg_params[SIRF_PWM_BLS_GRP_NUM * 2];
 	ret = of_property_read_u32(np, "sirf-pwm-transfer-mode",
 			&(spwm->trans_mode[pwm->hwpwm]));
 
@@ -175,12 +174,12 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 		int i;
 		ret = of_property_read_u32_array(np,
 				"sirf-pwm-bklscaling-params",
-				bklscaling_params, PWM_BLS_GROUP_NUM * 2);
+				bcfg_params, SIRF_PWM_BLS_GRP_NUM * 2);
 		if (ret)
-			memset(bklscaling_params, 0, sizeof(u32) * PWM_BLS_GROUP_NUM * 2);
-		for (i = 0; i < PWM_BLS_GROUP_NUM; i++) {
-			spwm->bklscaling_para[i].period_ns = bklscaling_params[i * 2];
-			spwm->bklscaling_para[i].duty_ns = bklscaling_params[i * 2 + 1];
+			memset(bcfg_params, 0, sizeof(u32) * SIRF_PWM_BLS_GRP_NUM * 2);
+		for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
+			spwm->bcfg[i].period_ns = bcfg_params[i * 2];
+			spwm->bcfg[i].duty_ns = bcfg_params[i * 2 + 1];
 		}
 	}
 }
@@ -293,11 +292,11 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	if (pwm->hwpwm == 3) {
 		if (spwm->pwm3_use_bklscaling) {
 			val |= (1 << LOOK_TABLE_EN_BIT);
-			for (i = 0; i < PWM_BLS_GROUP_NUM; i++) {
+			for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
 				cycle = time_to_cycle(chip, pwm,
-						spwm->bklscaling_para[i].period_ns);
+						spwm->bcfg[i].period_ns);
 				high = time_to_cycle(chip, pwm,
-						spwm->bklscaling_para[i].duty_ns);
+						spwm->bcfg[i].duty_ns);
 				low = cycle - high;
 				if (cycle == 1) {
 					dev_info(spwm->chip.dev, "pwm scaling config warning:"
@@ -379,7 +378,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	spwm->chip.dev = &pdev->dev;
 	spwm->chip.ops = &sirf_pwm_ops;
 	spwm->chip.base = 0;
-	spwm->chip.npwm = PWM_NUM;
+	spwm->chip.npwm = SIRF_PWM_CHL_NUM;
 	spwm->chip.of_xlate = sirf_of_pwm_xlate_with_flags;
 	spwm->chip.of_pwm_n_cells = 4;
 
