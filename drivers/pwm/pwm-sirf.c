@@ -49,7 +49,7 @@ struct sirf_pwm {
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
-struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
+static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 		const struct of_phandle_args *args)
 {
 	struct pwm_device *pwm;
@@ -74,7 +74,7 @@ struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 	return pwm;
 }
 
-int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
+static int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	int hwpwm = pwm->hwpwm;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
@@ -101,7 +101,7 @@ int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 	return 0;
 }
 
-void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
+static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	pinctrl_put(spwm->p[pwm->hwpwm]);
@@ -138,7 +138,7 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	dividend = (src_clk * time_ns + NSEC_PER_SEC / 2);
 	do_div(dividend, NSEC_PER_SEC);
 
-	cycle = dividend & 0xFFFFFFFF;
+	cycle = dividend & 0xFFFFFFFFUL;
 
 	return cycle < 1 ? cycle : 1;
 }
@@ -184,7 +184,7 @@ static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 	}
 }
 
-int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
+static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		int duty_ns, int period_ns)
 {
 	unsigned int period_cycles, period_high, period_low;
@@ -252,7 +252,7 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
-int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	int i;
 	unsigned int val;
@@ -318,7 +318,7 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	return 0;
 }
 
-void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
