@@ -143,7 +143,7 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	return cycle < 1 ? cycle : 1;
 }
 
-static void sirf_get_params_from_np(struct pwm_chip *chip,
+static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 		struct pwm_device *pwm)
 {
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
@@ -247,7 +247,7 @@ int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
-	sirf_get_params_from_np(chip, pwm);
+	sirf_pwm_get_cfg_from_user(chip, pwm);
 
 	return 0;
 }
