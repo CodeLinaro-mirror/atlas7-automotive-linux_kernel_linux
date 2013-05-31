@@ -25,6 +25,9 @@
 /* PWM6 is an internal channel dedicated to as the source of I2S MCLK */
 #define SIRF_PWM_I2S_CHL		6
 
+/* PWM3 supports backlight scaling */
+#define SIRF_PWM_BKS_CHL		3
+
 struct bklscaling_cfg {
 	unsigned int duty_ns;
 	unsigned int period_ns;
@@ -165,9 +168,9 @@ static void sirf_get_params_from_np(struct pwm_chip *chip,
 		spwm->trans_process_time[pwm->hwpwm] = trans_mode_params[1];
 	}
 
-	/*Only PWM3 can use bklscaling mode*/
-	if (pwm->hwpwm != 3)
+	if (pwm->hwpwm != SIRF_PWM_BKS_CHL)
 		return;
+
 	ret = of_property_read_u32(np, "sirf-pwm-bklscaling-mode",
 			&(spwm->pwm3_use_bklscaling));
 	if (ret)
@@ -292,7 +295,8 @@ int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
 	val |= (!(spwm->trans_mode[pwm->hwpwm]) <<
 			(pwm->hwpwm + TRANS_MODE_SELECT_BIT));
-	if (pwm->hwpwm == 3) {
+
+	if (pwm->hwpwm == SIRF_PWM_BKS_CHL) {
 		if (spwm->pwm3_use_bklscaling) {
 			val |= (1 << LOOK_TABLE_EN_BIT);
 			for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
