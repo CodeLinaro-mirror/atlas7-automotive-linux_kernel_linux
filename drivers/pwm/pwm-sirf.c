@@ -22,6 +22,9 @@
 #define SIRF_PWM_CHL_NUM		7
 #define SIRF_PWM_BLS_GRP_NUM		16
 
+/* PWM6 is an internal channel dedicated to as the source of I2S MCLK */
+#define SIRF_PWM_I2S_CHL		6
+
 struct bklscaling_cfg {
 	unsigned int duty_ns;
 	unsigned int period_ns;
@@ -70,28 +73,28 @@ struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 
 int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	int ret;
 	int hwpwm = pwm->hwpwm;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	char pwm_pin_name[8];
+#define PIN_NAME_LEN	8
+	char pins[PIN_NAME_LEN];
+	int ret;
 
 	if (hwpwm >= SIRF_PWM_CHL_NUM) {
 		dev_err(chip->dev, "Not support pwm%d\n", hwpwm);
 		return -EINVAL;
 	}
-	/*
-	 * Because the PWM6 used by I2S interface internal, So we not
-	 * need get the pin via pinctrl interface.
-	 */
-	if (hwpwm == 6)
+
+	if (hwpwm == SIRF_PWM_I2S_CHL)
 		return 0;
-	sprintf(pwm_pin_name, "pwm%d", hwpwm);
-	spwm->p[hwpwm] = pinctrl_get_select(chip->dev, pwm_pin_name);
+
+	snprintf(pins, PIN_NAME_LEN, "pwm%d", hwpwm);
+	spwm->p[hwpwm] = pinctrl_get_select(chip->dev, pins);
 	ret = IS_ERR(spwm->p[hwpwm]);
 	if (ret) {
-		dev_err(chip->dev, "Get %s pin failed.\n", pwm_pin_name);
+		dev_err(chip->dev, "Get %s pin failed.\n", pins);
 		return ret;
 	}
+
 	return 0;
 }
 
