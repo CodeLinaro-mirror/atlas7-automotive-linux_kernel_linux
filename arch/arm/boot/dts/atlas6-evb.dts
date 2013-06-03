@@ -42,7 +42,6 @@
 		pwms = <&pwm 3 50000 90 0>;
 		sirf-pwm-step-mode;
 		sirf-pwm-step-mode-params = <30 100000000>;
-		sirf-pwm-bklscaling-mode;
 		sirf-pwm-bklscaling-params = <50000 3125
 					50000 6250
 					50000 9375
