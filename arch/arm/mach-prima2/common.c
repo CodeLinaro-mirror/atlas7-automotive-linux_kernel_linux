@@ -23,6 +23,13 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_vip_reserve_memblock();
 }
 
+void __init sirfsoc_mach_init(void)
+{
+	sirfsoc_of_rstc_init();
+	of_platform_populate(NULL, of_default_bus_match_table,
+		NULL, NULL);
+}
+
 void __init sirfsoc_init_late(void)
 {
 	sirfsoc_pm_init();

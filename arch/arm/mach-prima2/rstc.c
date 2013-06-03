@@ -75,11 +75,11 @@ static struct of_device_id rstc_ids[]  = {
 	{},
 };
 
-static int __init sirfsoc_of_rstc_init(void)
+void __init sirfsoc_of_rstc_init(void)
 {
 	struct device_node *np = of_find_matching_node(NULL, rstc_ids);
 	if (!np)
-		goto out;
+		panic("unable to find compatible rstc node in dtb\n");
 
 	sirfsoc_rstc_base = of_iomap(np, 0);
 	if (!sirfsoc_rstc_base)
@@ -89,11 +89,7 @@ static int __init sirfsoc_of_rstc_init(void)
 
 	if (IS_ENABLED(CONFIG_RESET_CONTROLLER))
 		reset_controller_register(&sirfsoc_reset_controller);
-
-out:
-	return 0;
 }
-arch_initcall(sirfsoc_of_rstc_init);
 
 #define SIRFSOC_SYS_RST_BIT  BIT(31)
 
