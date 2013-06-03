@@ -117,7 +117,7 @@ static u32 sirf_get_in_cycles_ps(struct pwm_chip *chip,
 
 	BUG_ON(spwm->src_clk_id[pwm->hwpwm] >= ARRAY_SIZE(clk_name));
 
-	clk = devm_clk_get(chip->dev,
+	clk = clk_get(chip->dev,
 			clk_name[spwm->src_clk_id[pwm->hwpwm]]);
 
 	BUG_ON(IS_ERR(clk));
