@@ -27,8 +27,8 @@
 struct sirf_usp {
 	void __iomem *base;
 	struct clk *clk;
-	u32 usp_mode1_reg;
-	u32 usp_mode2_reg;
+	u32 mode1_reg;
+	u32 mode2_reg;
 };
 
 static struct sirf_pcm_dma_data sirf_usp_pcm_dai_dma_data[2] = {
@@ -358,8 +358,8 @@ static int sirf_usp_pcm_suspend(struct platform_device *pdev,
 {
 	struct sirf_usp *susp = platform_get_drvdata(pdev);
 
-	susp->usp_mode1_reg = readl(susp->base + USP_MODE1);
-	susp->usp_mode2_reg = readl(susp->base + USP_MODE2);
+	susp->mode1_reg = readl(susp->base + USP_MODE1);
+	susp->mode2_reg = readl(susp->base + USP_MODE2);
 	sirf_usp_controller_uninit(susp);
 	clk_disable_unprepare(susp->clk);
 
@@ -373,8 +373,8 @@ static int sirf_usp_pcm_resume(struct platform_device *pdev)
 	clk_prepare_enable(susp->clk);
 	sirf_usp_controller_init(susp);
 
-	writel(susp->usp_mode1_reg, susp->base + USP_MODE1);
-	writel(susp->usp_mode2_reg, susp->base + USP_MODE2);
+	writel(susp->mode1_reg, susp->base + USP_MODE1);
+	writel(susp->mode2_reg, susp->base + USP_MODE2);
 
 	return 0;
 }
