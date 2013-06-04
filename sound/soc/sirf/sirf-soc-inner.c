@@ -664,8 +664,9 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 
 	sinner_audio = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
-	if (sinner_audio == NULL)
+	if (!sinner_audio)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, sinner_audio);
 
 	ret = of_property_read_u32(pdev->dev.of_node,
@@ -693,7 +694,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	if (sinner_audio->base == NULL)
 		return -ENOMEM;
 
-	sinner_audio->clk = clk_get(&pdev->dev, NULL);
+	sinner_audio->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sinner_audio->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(sinner_audio->clk);
@@ -706,7 +707,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		ret = -ENXIO;
 		goto err_clk_put;
 	}
-	sinner_audio->playing = false;
 	ret = snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
 		&sirf_soc_inner_dai, 1);
 	if (ret) {
@@ -719,8 +719,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 			&sirf_inner_codec_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio Codec dai failed.\n");
-		snd_soc_unregister_component(&pdev->dev);
-		return ret;
+		goto err_com_unreg;
 	}
 
 	spin_lock_init(&sinner_audio->lock);
@@ -736,9 +735,10 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 	return 0;
 
+err_com_unreg:
+	snd_soc_unregister_component(&pdev->dev);
 err_clk_put:
 	clk_disable_unprepare(sinner_audio->clk);
-	clk_put(sinner_audio->clk);
 	return ret;
 }
 
@@ -747,7 +747,6 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 	struct sirf_soc_inner_audio *sinner_audio = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(sinner_audio->clk);
-	clk_put(sinner_audio->clk);
 	snd_soc_unregister_codec(&(pdev->dev));
 	snd_soc_unregister_component(&pdev->dev);
 
