@@ -9,10 +9,9 @@
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/clk.h>
-#include <linux/sirf-usp.h>
-
 #include <sound/soc.h>
 
+#include "sirf-usp.h"
 #include "sirf-pcm.h"
 
 #define FIFO_RESET  0
