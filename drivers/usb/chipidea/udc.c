@@ -1392,7 +1392,7 @@ static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 {
 	struct ci13xxx *ci = container_of(_gadget, struct ci13xxx, gadget);
 
-	if (ci->transceiver)
+	if (!IS_ERR_OR_NULL(ci->transceiver))
 		return usb_phy_set_power(ci->transceiver, mA);
 	return -ENOTSUPP;
 }
@@ -1682,8 +1682,9 @@ static int udc_start(struct ci13xxx *ci)
 		ci->transceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 
 	if (ci->platdata->flags & CI13XXX_REQUIRE_TRANSCEIVER) {
-		if (ci->transceiver == NULL) {
-			retval = -ENODEV;
+		if (IS_ERR_OR_NULL(ci->transceiver)) {
+			retval = ci->transceiver ?
+				PTR_ERR(ci->transceiver) : -ENODEV;
 			goto destroy_eps;
 		}
 	}
