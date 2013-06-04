@@ -111,7 +111,7 @@ static struct nanddisk_device   nand_dev;
 #define UBOOT_MAX_SECTOR 1024
 #define UBOOT_MAX_LENGTH 0x80000
 
-static int param_set_nandinfo(const char *val, struct kernel_param *kp)
+static int __init param_set_nandinfo(const char *val, struct kernel_param *kp)
 {
 	static bool bootmem_reserved;
 	unsigned int ret;
