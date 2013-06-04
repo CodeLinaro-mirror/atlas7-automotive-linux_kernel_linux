@@ -322,15 +322,15 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	si2s->base = ioremap(mem_res->start, mem_res->end - mem_res->start + 1);
-	if (si2s->base == NULL)
+	si2s->base = devm_ioremap(mem_res->start, mem_res->end - mem_res->start + 1);
+	if (!si2s->base)
 		return -ENOMEM;
 
-	si2s->clk = clk_get(&pdev->dev, NULL);
+	si2s->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(si2s->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		ret = PTR_ERR(si2s->clk);
-		goto err_unmap;
+		goto err;
 	}
 	clk_prepare_enable(si2s->clk);
 
@@ -359,9 +359,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 
 err_clk_put:
 	clk_disable_unprepare(si2s->clk);
-	clk_put(si2s->clk);
-err_unmap:
-	iounmap(si2s->base);
+err:
 	return ret;
 }
 
@@ -372,8 +370,6 @@ static int sirf_i2s_remove(struct platform_device *pdev)
 	pwm_disable(si2s->mclk_pwm);
 	snd_soc_unregister_component(&pdev->dev);
 	clk_disable_unprepare(si2s->clk);
-	clk_put(si2s->clk);
-	iounmap(si2s->base);
 
 	return 0;
 }
