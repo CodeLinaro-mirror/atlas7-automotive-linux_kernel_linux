@@ -23,14 +23,14 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_vip_reserve_memblock();
 }
 
-void __init sirfsoc_mach_init(void)
+static void __init sirfsoc_init_mach(void)
 {
 	sirfsoc_of_rstc_init();
 	of_platform_populate(NULL, of_default_bus_match_table,
 		NULL, NULL);
 }
 
-void __init sirfsoc_init_late(void)
+static void __init sirfsoc_init_late(void)
 {
 	sirfsoc_pm_init();
 }
@@ -62,6 +62,7 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= irqchip_init,
 	.init_time	= sirfsoc_init_time,
+	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas6_dt_match,
 	.restart	= sirfsoc_restart,
@@ -81,6 +82,7 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= irqchip_init,
 	.init_time	= sirfsoc_init_time,
+	.init_machine   = sirfsoc_init_mach,
 	.dma_zone_size	= SZ_256M,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = prima2_dt_match,
@@ -101,6 +103,7 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= irqchip_init,
 	.init_time	= sirfsoc_init_time,
+	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = marco_dt_match,
 	.restart	= sirfsoc_restart,
