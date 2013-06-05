@@ -2192,7 +2192,11 @@ static int sirfsocfb_freeze(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_freeze\n");
 
-	sirfsocfb_irq_deinit(fb);
+	disable_irq(fb->irq);
+
+	fb->lcd_func.pfnSleep();
+	clk_disable(fb->clk);
+	clk_disable(fb->vpp_clk);
 
 	return 0;
 }
@@ -2203,9 +2207,12 @@ static int sirfsocfb_restore(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_NOT_MSG("LCD restore\n");
 
-	sirfsocfb_irq_init(fb);
+	clk_enable(fb->clk);
+	clk_enable(fb->vpp_clk);
 
-	fb->lcd_func.pfnEnableInterrupt(LCD_INTERRUPT_VSYNC);
+	/* Check if LCD preinited by uboot */
+	fb->init_enabled = fb->lcd_func.pfnWakeup();
+	enable_irq(fb->irq);
 
 	return 0;
 }
