@@ -1675,8 +1675,7 @@ static int remap_frame_buffers(struct platform_device *dev,
 		fb->fb[i].fix.smem_start = sirf_fb_phy_base + layer_mem_offset;
 		layer_mem_offset += fb->fb[i].fix.smem_len;
 
-		fb->fb[i].screen_base = ioremap_wc(fb->fb[i].fix.smem_start,
-			fb->fb[i].fix.smem_len);
+		fb->fb[i].screen_base = phys_to_virt(fb->fb[i].fix.smem_start);
 
 		if (fb->fb[i].screen_base == NULL) {
 			FB_ERR_MSG("L%d IO remap failed!\n", i);
@@ -1798,7 +1797,7 @@ void  __init sirfsoc_fb_reserve_memblock(void)
 {
 	sirf_fb_phy_size = 30 * SZ_1M;
 	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, PAGE_SIZE);
-	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
+	memblock_reserve(sirf_fb_phy_base, sirf_fb_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);
 
