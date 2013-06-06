@@ -685,11 +685,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		return -ENODEV;
-	}
-
 	sinner_audio->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (sinner_audio->base == NULL)
 		return -ENOMEM;

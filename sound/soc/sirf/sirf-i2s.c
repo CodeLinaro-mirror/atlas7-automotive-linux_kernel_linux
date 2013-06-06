@@ -316,12 +316,8 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 
 	sirf_i2s_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_i2s_dai_dma_data[1].dma_req = rx_dma_ch;
-	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		return -ENODEV;
-	}
 
+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	si2s->base = devm_ioremap(mem_res->start, mem_res->end - mem_res->start + 1);
 	if (!si2s->base)
 		return -ENOMEM;
