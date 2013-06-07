@@ -31,4 +31,26 @@ config USB_CHIPIDEA_DEBUG
 	help
 	  Say Y here to enable debugging output of the ChipIdea driver.
 
+if USB_CHIPIDEA_UDC && USB_CHIPIDEA_HOST
+
+config USB_CHIPIDEA_SIRF
+	depends on ARCH_SIRF
+	bool "SiRF USB controller ChipIdea driver binding"
+	help
+	  Say Y here to enable sirf usb ChipIdea driver binding.
+
+config USB_CHIPIDEA_MSM
+	depends on ARCH_MSM
+	bool "MSM USB controller ChipIdea driver binding"
+	help
+	  Say Y here to enable msm usb ChipIdea driver binding.
+
+config USB_CHIPIDEA_IMX
+	depends on ARCH_MXC || ARCH_MXS
+	bool "i.MX USB controller ChipIdea driver binding"
+	help
+	  Say Y here to enable imx usb ChipIdea driver binding.
+
+endif
+
 endif

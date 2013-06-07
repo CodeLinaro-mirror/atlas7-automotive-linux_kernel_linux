@@ -700,18 +700,20 @@
 			#size-cells = <1>;
 			ranges = <0xb8000000 0xb8000000 0x40000>;
 
-			usb0: usb@b00e0000 {
-				compatible = "chipidea,ci13611a-prima2";
-				reg = <0xb8000000 0x10000>;
-				interrupts = <10>;
-				clocks = <&clks 40>;
+			usbphy: usbphy@b8010200 {
+				compatible = "sirf,ci13xxx-usbphy";
+				reg = <0xb8010200 0x100>;
+				clocks = <&clks 39>;
 			};
 
-			usb1: usb@b00f0000 {
-				compatible = "chipidea,ci13611a-prima2";
-				reg = <0xb8010000 0x10000>;
+			usbcontroller: usbcontroller@b8010000 {
+				compatible = "sirf,ci13xxx-usbcontroller";
+				reg = <0xb8010000 0x200>;
 				interrupts = <11>;
 				clocks = <&clks 41>;
+				resets = <&rstc 9>;
+				vbus-gpios = <&gpio 0 14>;
+				sirf,ci13xxx-usbphy = <&usbphy>;
 			};
 
 			security@b00f0000 {
