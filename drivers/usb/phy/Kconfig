@@ -180,6 +180,16 @@ config USB_MXS_PHY
 
 	  MXS Phy is used by some of the i.MX SoCs, for example imx23/28/6x.
 
+config USB_SIRF_PHY
+	tristate "SiRF USB PHY support"
+	depends on ARCH_SIRF
+	help
+	  Say Y here if you want to build SiRF USB OTG transciever
+	  driver in kernel (including Prima and Atlas series). This driver
+	  implements role switch between EHCI host driver and gadget driver.
+
+	  To compile this driver as a module, choose M here.
+
 config USB_RCAR_PHY
 	tristate "Renesas R-Car USB phy support"
 	depends on USB || USB_GADGET
