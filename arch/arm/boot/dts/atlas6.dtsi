@@ -212,6 +212,8 @@
 				interrupts = <17>;
 				fifosize = <128>;
 				clocks = <&clks 13>;
+				sirf,uart-dma-rx-channel = <21>;
+				sirf,uart-dma-tx-channel = <2>;
 			};
 
 			uart1: uart@b0060000 {
@@ -230,6 +232,8 @@
 				interrupts = <19>;
 				fifosize = <128>;
 				clocks = <&clks 15>;
+				sirf,uart-dma-rx-channel = <6>;
+				sirf,uart-dma-tx-channel = <7>;
 			};
 
 			usp0: usp@b0080000 {
