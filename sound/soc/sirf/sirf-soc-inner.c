@@ -280,7 +280,7 @@ static int sirf_inner_snd_speaker_set(struct snd_kcontrol *kcontrol,
 					IC_SPEN), sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 	} else {
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0)
-					& ~(IC_SPEN | IC_SPSELR | IC_HSLEN)),
+					& ~(IC_SPEN | IC_SPSELR)),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
 				& ~IC_FIRDAC_LOUT_EN,
