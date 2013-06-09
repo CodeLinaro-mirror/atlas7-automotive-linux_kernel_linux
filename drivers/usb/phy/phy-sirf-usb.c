@@ -36,7 +36,6 @@ static int sirf_phy_init(struct usb_phy *phy)
 {
 	struct sirf_phy *sirf_phy = to_sirf_phy(phy);
 
-	dev_info(phy->dev, "init\n");
 	clk_prepare_enable(sirf_phy->clk);
 	sirf_phy_por(phy->io_priv);
 
@@ -46,27 +45,23 @@ static int sirf_phy_init(struct usb_phy *phy)
 static void sirf_phy_shutdown(struct usb_phy *phy)
 {
 	struct sirf_phy *sirf_phy = to_sirf_phy(phy);
-	dev_info(phy->dev, "shutdown\n");
 	clk_disable_unprepare(sirf_phy->clk);
 }
 
 static int sirf_phy_suspend(struct usb_phy *phy, int suspend)
 {
-	dev_info(phy->dev, "suspend\n");
 	return 0;
 }
 
 static int sirf_phy_on_connect(struct usb_phy *phy,
 		enum usb_device_speed speed)
 {
-	dev_info(phy->dev, "connect\n");
 	return 0;
 }
 
 static int sirf_phy_on_disconnect(struct usb_phy *phy,
 		enum usb_device_speed speed)
 {
-	dev_info(phy->dev, "disconnect\n");
 	return 0;
 }
 
@@ -166,9 +161,6 @@ static int sirf_phy_remove(struct platform_device *pdev)
 	struct sirf_phy *sirf_phy = platform_get_drvdata(pdev);
 
 	usb_remove_phy(&sirf_phy->phy);
-
-	platform_set_drvdata(pdev, NULL);
-
 	return 0;
 }
 
