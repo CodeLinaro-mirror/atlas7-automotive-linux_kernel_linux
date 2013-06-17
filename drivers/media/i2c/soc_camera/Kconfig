@@ -91,3 +91,8 @@ config SOC_CAMERA_TW9910
 	depends on SOC_CAMERA && I2C
 	help
 	  This is a tw9910 video driver
+config SOC_CAMERA_CH7102
+	tristate "ch7102 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This is a ch7102 video driver

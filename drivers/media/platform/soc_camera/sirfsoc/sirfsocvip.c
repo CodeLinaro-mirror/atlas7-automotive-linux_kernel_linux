@@ -53,6 +53,7 @@ static DEFINE_MUTEX(camera_lock);
 
 /* v4l2 csr extensions */
 #define V4L2_CID_GET_ADDR (V4L2_CID_USER_BASE + 0x1000)
+#define V4L2_CID_SET_INTERLACE (V4L2_CID_USER_BASE + 0x1001)
 
 static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
@@ -427,20 +428,24 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 
 	dev_info(icd->pdev, "%s: %d attach to vip\n", __func__,
 		icd->devnum);
-	/* For switch of camera and tvdecoder device:
-	 * two devices are always registered, 0-camera, 1-tvdecoder
-	 */
+	/*  currently only two devices are registered, 1-tvdecoder, 1-hdmi
+	    receiver  */
 	if (icd->vdev != NULL) {
 		if (icd->devnum == 0) {
 			dev_info(icd->pdev, "%s: this is a tvdecoder device\n",
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 1;
+		} else if (icd->devnum == 1) {
+			dev_info(icd->pdev, "%s: this is a HDMI receiver device\n",
+				__func__);
+			pdata->sirfsoc_camera_ccir656_en = 1;
 		} else {
-			dev_info(icd->pdev, "%s: this is a camera device\n",
+			dev_info(icd->pdev, "%s: unsupported device\n",
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 0;
 		}
 	}
+
 	ret = sirfsoc_camera_activate(pcdev);
 	if (ret)
 		goto err;
@@ -592,7 +597,8 @@ static int sirfsoc_camera_set_fmt_cap(struct soc_camera_device *icd,
 	x_start = 0;
 	x_end = width + x_start - 1;
 	y_start = 0;
-	if (pcdev->pdata->sirfsoc_camera_ccir656_en)
+
+	if (pcdev->pdata->sirfsoc_camera_interlaced)
 		y_end = height / 2 + y_start - 1;
 	else
 		y_end = height + y_start - 1;
@@ -668,6 +674,8 @@ static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
 static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
         struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	struct sirfsoc_camera_dev *pcdev = ici->priv;
         struct videobuf_queue *q;
         int index;
 
@@ -685,6 +693,13 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 
                 ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
                 break;
+
+	case V4L2_CID_SET_INTERLACE:
+		if (ctrl->val)
+			pcdev->pdata->sirfsoc_camera_interlaced = 1;
+		else
+			pcdev->pdata->sirfsoc_camera_interlaced = 0;
+		break;
         default:
                 return -EINVAL;
         }
@@ -699,7 +714,7 @@ static const struct v4l2_ctrl_ops sirfsoc_vip_ctrl_ops = {
 static const struct v4l2_ctrl_config sirfsoc_ctrl_get_addr = {
 	.ops = &sirfsoc_vip_ctrl_ops,
 	.id = V4L2_CID_GET_ADDR,
-	.name = "Get VideoBuf Physical Address",
+	.name = "get videobuf physical address",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.def = 1,
 	.min = 0,
@@ -707,9 +722,77 @@ static const struct v4l2_ctrl_config sirfsoc_ctrl_get_addr = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config sirfsoc_ctrl_set_interlace = {
+	.ops = &sirfsoc_vip_ctrl_ops,
+	.id = V4L2_CID_SET_INTERLACE,
+	.name = "set interlace flag",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.def = 1,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+};
+
+static const struct soc_mbus_pixelfmt sirfsoc_camera_formats[] = {
+	{
+		.fourcc			= V4L2_PIX_FMT_UYVY,
+		.name			= "Packed YUV422 16 bit",
+		.bits_per_sample	= 8,
+		.packing		= SOC_MBUS_PACKING_2X8_PADHI,
+		.order			= SOC_MBUS_ORDER_LE,
+		.layout			= SOC_MBUS_LAYOUT_PACKED,
+	},
+};
+
+static int sirfsoc_camera_get_formats(struct soc_camera_device *icd,
+	unsigned int idx, struct soc_camera_format_xlate *xlate) {
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct device *dev = icd->parent;
+	int formats = 0, ret;
+	enum v4l2_mbus_pixelcode code;
+	const struct soc_mbus_pixelfmt *fmt;
+
+	ret = v4l2_subdev_call(sd, video, enum_mbus_fmt, idx, &code);
+	if (ret < 0)
+		/* No more formats */
+		return 0;
+
+	fmt = soc_mbus_get_fmtdesc(code);
+	if (!fmt) {
+		dev_err(dev, "Invalid format code #%u: %d\n", idx, code);
+		return 0;
+	}
+
+	if (!icd->host_priv) {
+		icd->host_priv = icd;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler,
+			&sirfsoc_ctrl_set_interlace, NULL);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler,
+			&sirfsoc_ctrl_get_addr, NULL);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+	}
+
+	switch (code) {
+	case V4L2_MBUS_FMT_UYVY8_2X8:
+		formats++;
+		if (xlate) {
+			xlate->host_fmt = &sirfsoc_camera_formats[0];
+			xlate->code	= code;
+			dev_dbg(dev, "Providing format %s using code %d\n",
+				sirfsoc_camera_formats[0].name, code);
+		}
+		return formats;
+	default:
+		return 0;
+	}
+
+}
+
 static int sirfsoc_camera_reqbufs(struct soc_camera_device *icd,
-			      struct v4l2_requestbuffers *p)
-{
+			      struct v4l2_requestbuffers *p) {
 	int i;
 
 	/* This is for locking debugging only. I removed spinlocks and now I
@@ -723,14 +806,6 @@ static int sirfsoc_camera_reqbufs(struct soc_camera_device *icd,
 		INIT_LIST_HEAD(&buf->vb.queue);
 	}
 
-        if(!icd->host_priv) {
-                icd->host_priv = icd;
-		v4l2_ctrl_new_custom(&icd->ctrl_handler, &sirfsoc_ctrl_get_addr, NULL);
-                if (icd->ctrl_handler.error)
-                {
-                        return icd->ctrl_handler.error;
-                }
-        }
 
 	return 0;
 }
@@ -778,6 +853,7 @@ static struct soc_camera_host_ops sirfsoc_soc_camera_host_ops = {
 	.owner		= THIS_MODULE,
 	.add		= sirfsoc_camera_add_device,
 	.remove		= sirfsoc_camera_remove_device,
+	.get_formats	= sirfsoc_camera_get_formats,
 	.set_fmt	= sirfsoc_camera_set_fmt_cap,
 	.try_fmt	= sirfsoc_camera_try_fmt_cap,
 	.init_videobuf	= sirfsoc_camera_init_videobuf,
@@ -961,6 +1037,7 @@ static struct sirfsoc_camera_platform_data sirfsoc_platform_camera_data = {
 	.sirfsoc_camera_hsync_en = 0,
 	.sirfsoc_camera_vsync_en = 0,
 	.sirfsoc_camera_ccir656_en = 0,
+	.sirfsoc_camera_interlaced = 1,
 };
 
 void  __init sirfsoc_vip_reserve_memblock(void)
