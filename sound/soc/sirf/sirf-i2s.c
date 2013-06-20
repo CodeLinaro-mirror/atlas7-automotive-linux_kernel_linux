@@ -67,7 +67,7 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 			/* First start the FIFO, then enable the tx/rx */
 			writel(AUDIO_FIFO_START,
 				si2s->base+AUDIO_CTRL_EXT_TXFIFO1_OP);
-			mdelay(1);
+			usleep_range(1000, 2000);
 
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
 				| I2S_TX_ENABLE | I2S_DOUT_OE | I2S_MCLK_EN,
@@ -77,7 +77,7 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 			/* First start the FIFO, then enable the tx/rx */
 			writel(AUDIO_FIFO_START,
 				si2s->base+AUDIO_CTRL_RXFIFO_OP);
-			mdelay(1);
+			usleep_range(1000, 2000);
 
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
 				| I2S_RX_ENABLE | I2S_MCLK_EN,
