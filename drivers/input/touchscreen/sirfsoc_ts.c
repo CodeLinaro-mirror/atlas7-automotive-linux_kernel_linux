@@ -133,6 +133,8 @@ static int sirfsoc_ts_measure_x(struct sirfsoc_ts *ts, int *data)
 			| ADC_MORE_CTL1;
 
 	sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
+	if (sirfsoc_adc_sync_reg() < 0)
+		return -1;
 
 	coord = sirfsoc_adc_read_reg(ADC_COORD);
 	*data = coord & DATA_XMASK;
@@ -150,6 +152,8 @@ static int sirfsoc_ts_measure_y(struct sirfsoc_ts *ts, int *data)
 			| ADC_MORE_CTL1;
 
 	sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
+	if (sirfsoc_adc_sync_reg() < 0)
+		return -1;
 
 	coord = sirfsoc_adc_read_reg(ADC_COORD);
 	*data = (coord & DATA_YMASK) >> DATA_SHIFT_BITS;

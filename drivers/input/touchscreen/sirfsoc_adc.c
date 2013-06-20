@@ -124,6 +124,16 @@ u32 sirfsoc_adc_read_reg(u32 offset)
 	return readl(sirfsoc_adc->base + offset);
 }
 
+int sirfsoc_adc_sync_reg(void)
+{
+	if (!wait_for_completion_timeout(&sirfsoc_adc->done,
+		msecs_to_jiffies(50))) {
+		return -1;
+	}
+
+	return 0;
+}
+
 static irqreturn_t sirfsoc_adc_data_irq(int irq, void *handle)
 {
 	int val;
