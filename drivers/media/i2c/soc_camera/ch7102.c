@@ -1,21 +1,10 @@
 /*
- * ch7102 Video Driver
+ * CSR SiRFprima2 HDMI receiver driver
  *
- * Copyright (C) 2008 Renesas Solutions Corp.
- * Kuninori Morimoto <morimoto.kuninori@renesas.com>
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * Based on ov772x driver,
- *
- * Copyright (C) 2008 Kuninori Morimoto <morimoto.kuninori@renesas.com>
- * Copyright 2006-7 Jonathan Corbet <corbet@lwn.net>
- * Copyright (C) 2008 Magnus Damm
- * Copyright (C) 2008, Guennadi Liakhovetski <kernel@pengutronix.de>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Licensed under GPLv2 or later.
  */
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/i2c.h>

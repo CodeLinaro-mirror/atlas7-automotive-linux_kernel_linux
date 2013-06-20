@@ -1,16 +1,9 @@
 /*
- * tw9900 Driver header
+ * CSR SiRFprima2 VIP host driver
  *
- * Copyright (C) 2008 Renesas Solutions Corp.
- * Kuninori Morimoto <morimoto.kuninori@renesas.com>
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group  company.
  *
- * Based on ov772x.h
- *
- * Copyright (C) Kuninori Morimoto <morimoto.kuninori@renesas.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Licensed under GPLv2 or later.
  */
 
 #ifndef __CH7102_H__
@@ -22,4 +15,4 @@ struct ch7102_video_info {
 	unsigned long		buswidth;
 };
 
-#endif /* __TW9900_H__ */
+#endif /* __CH7102_H__ */
