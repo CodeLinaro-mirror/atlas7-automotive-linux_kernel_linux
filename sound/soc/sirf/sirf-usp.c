@@ -18,9 +18,6 @@
 #define FIFO_START	1
 #define FIFO_STOP	2
 
-#define DISABLE		0
-#define ENABLE		1
-
 #define AUDIO_WORD_SIZE 16
 
 struct sirf_usp {
@@ -69,24 +66,28 @@ static void sirf_usp_rx_fifo_op(struct sirf_usp *susp, int cmd)
 	}
 }
 
-static void sirf_usp_tx_enable(struct sirf_usp *susp, int enable)
+static inline void sirf_usp_tx_enable(struct sirf_usp *susp)
 {
-	if (enable == ENABLE)
-		writel(readl(susp->base + USP_TX_RX_ENABLE) | USP_TX_ENA,
-				susp->base + USP_TX_RX_ENABLE);
-	else
-		writel(readl(susp->base + USP_TX_RX_ENABLE) & ~USP_TX_ENA,
-				susp->base + USP_TX_RX_ENABLE);
+	writel(readl(susp->base + USP_TX_RX_ENABLE) | USP_TX_ENA,
+			susp->base + USP_TX_RX_ENABLE);
 }
 
-static void sirf_usp_rx_enable(struct sirf_usp *susp, int enable)
+static inline void sirf_usp_tx_disable(struct sirf_usp *susp)
 {
-	if (enable == ENABLE)
-		writel(readl(susp->base + USP_TX_RX_ENABLE) | USP_RX_ENA,
-				susp->base + USP_TX_RX_ENABLE);
-	else
-		writel(readl(susp->base + USP_TX_RX_ENABLE) & ~USP_RX_ENA,
-				susp->base + USP_TX_RX_ENABLE);
+	writel(readl(susp->base + USP_TX_RX_ENABLE) & ~USP_TX_ENA,
+			susp->base + USP_TX_RX_ENABLE);
+}
+
+static inline void sirf_usp_rx_enable(struct sirf_usp *susp)
+{
+	writel(readl(susp->base + USP_TX_RX_ENABLE) | USP_RX_ENA,
+			susp->base + USP_TX_RX_ENABLE);
+}
+
+static inline void sirf_usp_rx_disable(struct sirf_usp *susp)
+{
+	writel(readl(susp->base + USP_TX_RX_ENABLE) & ~USP_RX_ENA,
+			susp->base + USP_TX_RX_ENABLE);
 }
 
 static int sirf_usp_pcm_dai_startup(struct snd_pcm_substream *substream,
@@ -140,19 +141,19 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (playback) {
 			sirf_usp_tx_fifo_op(susp, FIFO_RESET);
 			sirf_usp_tx_fifo_op(susp, FIFO_START);
-			sirf_usp_tx_enable(susp, ENABLE);
+			sirf_usp_tx_enable(susp);
 		} else {
 			sirf_usp_rx_fifo_op(susp, FIFO_RESET);
 			sirf_usp_rx_fifo_op(susp, FIFO_START);
-			sirf_usp_rx_enable(susp, ENABLE);
+			sirf_usp_rx_enable(susp);
 		}
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		if (playback) {
-			sirf_usp_tx_enable(susp, DISABLE);
+			sirf_usp_tx_disable(susp);
 			sirf_usp_tx_fifo_op(susp, FIFO_STOP);
 		} else {
-			sirf_usp_rx_enable(susp, DISABLE);
+			sirf_usp_rx_disable(susp);
 			sirf_usp_rx_fifo_op(susp, FIFO_STOP);
 		}
 		break;
@@ -160,38 +161,38 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (playback) {
 			sirf_usp_tx_fifo_op(susp, FIFO_RESET);
 			sirf_usp_tx_fifo_op(susp, FIFO_START);
-			sirf_usp_tx_enable(susp, ENABLE);
+			sirf_usp_tx_enable(susp);
 		} else {
 			sirf_usp_rx_fifo_op(susp, FIFO_RESET);
 			sirf_usp_rx_fifo_op(susp, FIFO_START);
-			sirf_usp_rx_enable(susp, ENABLE);
+			sirf_usp_rx_enable(susp);
 		}
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		if (playback) {
-			sirf_usp_tx_enable(susp, DISABLE);
+			sirf_usp_tx_disable(susp);
 			sirf_usp_tx_fifo_op(susp, FIFO_STOP);
 		} else {
-			sirf_usp_rx_enable(susp, DISABLE);
+			sirf_usp_rx_disable(susp);
 			sirf_usp_rx_fifo_op(susp, FIFO_STOP);
 		}
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (playback) {
-			sirf_usp_tx_enable(susp, DISABLE);
+			sirf_usp_tx_disable(susp);
 			sirf_usp_tx_fifo_op(susp, FIFO_STOP);
 		} else {
-			sirf_usp_rx_enable(susp, DISABLE);
+			sirf_usp_rx_disable(susp);
 			sirf_usp_rx_fifo_op(susp, FIFO_STOP);
 		}
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (playback) {
 			sirf_usp_tx_fifo_op(susp, FIFO_START);
-			sirf_usp_tx_enable(susp, ENABLE);
+			sirf_usp_tx_enable(susp);
 		} else {
 			sirf_usp_rx_fifo_op(susp, FIFO_START);
-			sirf_usp_rx_enable(susp, ENABLE);
+			sirf_usp_rx_enable(susp);
 		}
 		break;
 	}
