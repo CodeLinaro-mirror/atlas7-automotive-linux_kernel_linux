@@ -167,12 +167,12 @@ static int __init ts_linear_init(void)
 	  unchanged after transform */
 	/*if (cpu_is_prima2_BX()) {*/
 	if (of_machine_is_compatible("sirf,prima2-cb")) {
-		cal.a[0] = -20410;
-		cal.a[1] = 7;
-		cal.a[2] = 54705176;
-		cal.a[3] = -36;
-		cal.a[4] = 13210;
-		cal.a[5] = -2458976;
+		cal.a[0] = -3966;
+		cal.a[1] = -8;
+		cal.a[2] = 54124960;
+		cal.a[3] = -19;
+		cal.a[4] = 2601;
+		cal.a[5] = -2492944;
 		cal.a[6] = 65536;
 	/*} else if (cpu_is_prima2_A1()) {
 		cal.a[0] = -3601;
