@@ -24,6 +24,7 @@ struct sirf_i2s {
 	struct clk          *clk;
 	struct pwm_device   *mclk_pwm;
 	u32                 i2s_ctrl;
+	spinlock_t		lock;
 };
 
 static struct sirf_pcm_dma_data sirf_i2s_dai_dma_data[2] = {
@@ -55,13 +56,12 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 {
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
 	int playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
-	unsigned long irqs;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		local_irq_save(irqs);
+		spin_lock(&si2s->lock);
 
 		if (playback) {
 			/* First start the FIFO, then enable the tx/rx */
@@ -84,12 +84,12 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 				si2s->base+AUDIO_CTRL_I2S_TX_RX_EN);
 		}
 
-		local_irq_restore(irqs);
+		spin_unlock(&si2s->lock);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		local_irq_save(irqs);
+		spin_lock(&si2s->lock);
 
 		if (playback) {
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
@@ -106,7 +106,7 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 			writel(0, si2s->base+AUDIO_CTRL_RXFIFO_OP);
 		}
 
-		local_irq_restore(irqs);
+		spin_unlock(&si2s->lock);
 		break;
 	default:
 		return -EINVAL;
@@ -301,6 +301,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	if (si2s == NULL)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, si2s);
+	spin_lock_init(&si2s->lock);
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"sirf,i2s-dma-rx-channel", &rx_dma_ch);
 	if (ret < 0) {
