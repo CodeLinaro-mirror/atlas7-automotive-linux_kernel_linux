@@ -155,6 +155,7 @@ struct sirfsoc_adc_request {
 extern int sirfsoc_adc_sync_request(struct sirfsoc_adc_request *req);
 void sirfsoc_adc_write_reg(u32 data, u32 offset);
 u32 sirfsoc_adc_read_reg(u32 offset);
+int sirfsoc_adc_sync_reg(void);
 
 /*static inline void sirfsoc_adc_message_init(struct sirfsoc_adc_request *req)
 {
