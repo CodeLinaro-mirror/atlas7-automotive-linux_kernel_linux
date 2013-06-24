@@ -5,7 +5,7 @@
 # Each configuration option enables a list of files.
 
 wm97xx-ts-y := wm97xx-core.o
-sirfsoc_touch-objs := sirfsoc_ts.o ts_linear.o
+sirfsoc_touch-objs := sirfsoc_ts.o sirfsoc_ts_linear.o
 
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_AD7877)	+= ad7877.o

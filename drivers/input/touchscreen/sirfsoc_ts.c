@@ -19,10 +19,16 @@
 #include <linux/slab.h>
 #include <linux/reset.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
-#include <linux/input/sirfsoc_ts.h>
 #include <linux/input/sirfsoc_adc.h>
 
+#include "sirfsoc_ts_linear.h"
+
 #define DRIVER_NAME "sirfsoc_tsc"
+
+#define PWR_WAKEEN_TSC_SHIFT 23
+#define PWR_WAKEEN_TS_SHIFT 5
+#define SIRFSOC_PWRC_TRIGGER_EN 0x8
+#define SIRFSOC_PWRC_BASE 0x3000
 
 u32 ABS_X_REP, ABS_Y_REP;
 

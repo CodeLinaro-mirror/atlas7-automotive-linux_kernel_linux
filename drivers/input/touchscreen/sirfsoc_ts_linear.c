@@ -18,7 +18,8 @@
 #include <linux/proc_fs.h>
 #include <linux/sysctl.h>
 #include <asm/system.h>
-#include <linux/input/sirfsoc_ts.h>
+
+#include "sirfsoc_ts_linear.h"
 
 /*
  * sysctl-tuning infrastructure.
