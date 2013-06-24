@@ -38,10 +38,6 @@ int sirfsoc_adc_sync_request(struct sirfsoc_adc_request *req)
 	int data, reg_offset;
 
 	mutex_lock(&sirfsoc_adc->adc_lock);
-	if (!sirfsoc_adc) {
-		mutex_unlock(&sirfsoc_adc->adc_lock);
-		return -EINVAL;
-	}
 
 	intr = readl(sirfsoc_adc->base + ADC_INTR);
 	control1 = readl(sirfsoc_adc->base + ADC_CONTROL1);
@@ -51,15 +47,9 @@ int sirfsoc_adc_sync_request(struct sirfsoc_adc_request *req)
 	writel(ADC_PRP_MODE3 | req->reference,
 		sirfsoc_adc->base + ADC_CONTROL2);
 
-	if (of_machine_is_compatible("sirf,atlas6")) {
-		writel(ADC_POLL | ADC_MORE_CTL1 | req->mode |
-			req->aux | req->delay_bits | ADC_RESOLUTION_12,
-				sirfsoc_adc->base + ADC_CONTROL1);
-	} else {
-		writel(ADC_POLL | ADC_MORE_CTL1 | req->mode |
-			req->aux | req->delay_bits,
-				sirfsoc_adc->base + ADC_CONTROL1);
-	}
+	writel(ADC_POLL | ADC_MORE_CTL1 | req->mode |
+		req->aux | req->delay_bits | ADC_RESOLUTION_12,
+			sirfsoc_adc->base + ADC_CONTROL1);
 
 	if (!wait_for_completion_timeout(&sirfsoc_adc->done,
 		msecs_to_jiffies(50))) {
