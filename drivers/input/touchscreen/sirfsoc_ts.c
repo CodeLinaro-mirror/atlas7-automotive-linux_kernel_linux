@@ -41,7 +41,7 @@ enum sirfsoc_ts_filter {
 struct sirfsoc_ts {
 	int				x_min, x_max;
 	int				y_min, y_max;
-	int				x[2], y[2];
+	int				x, y;
 	char				phys[32];
 	int				read_cnt;
 	int				read_rep;
@@ -57,7 +57,6 @@ struct sirfsoc_ts {
 
 	struct input_dev		*input;
 	bool				stopped;
-	bool				dual_touch;
 	bool				eight_sample;
 };
 
@@ -76,7 +75,7 @@ struct sirfsoc_record {
 #define READ_STATE_COUNT 5
 bool xy_filter;
 int last_x, last_y, press_hold_cnt;
-int tmp_x[2], tmp_y[2];
+int tmp_x, tmp_y;
 struct sirfsoc_record ts_record[READ_STATE_COUNT];
 
 static int get_pendown_state(struct sirfsoc_ts *ts)
@@ -166,48 +165,11 @@ static int sirfsoc_ts_measure_y(struct sirfsoc_ts *ts, int *data)
 	return 0;
 }
 
-/* FIXME: implement this function later */
-static int sirfsoc_calculate_dual(struct sirfsoc_ts *ts)
-{
-	u32 coord;
-
-	coord = sirfsoc_adc_read_reg(ADC_COORD);
-	ts->x[0] = coord & DATA_XMASK;
-	ts->y[0] = (coord & DATA_YMASK) >> DATA_SHIFT_BITS;
-
-	coord = sirfsoc_adc_read_reg(ADC_COORD2);
-	ts->x[1] = coord & DATA_XMASK;
-	ts->y[1] = (coord & DATA_YMASK) >> DATA_SHIFT_BITS;
-
-	return 0;
-}
-
-static int sirfsoc_ts_measure_dual_xy(struct sirfsoc_ts *ts)
-{
-	u32 reg_control1;
-
-	reg_control1 = ADC_POLL | ADC_SEL(0xE) | ADC_DEL_SET(6)
-			| ADC_FREQ_6K | ADC_TP_TIME(0) | ADC_SGAIN(0)
-			| ADC_EXTCM(0) | ADC_RBAT_DISABLE
-			| ADC_MORE_CTL1;
-
-	sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
-
-	sirfsoc_calculate_dual(ts);
-
-	return 0;
-}
-
 static int sirfsoc_ts_read_state(struct sirfsoc_ts *ts)
 {
 	int action;
 	int x, y, i, cnt_x, cnt_y, index, rep_cnt, sum_x, sum_y, rec_x, rec_y;
 	bool add_point;
-
-	if (ts->dual_touch) {
-		sirfsoc_ts_measure_dual_xy(ts);
-		return 0;
-	}
 
 	for (i = 0; i < READ_STATE_COUNT; ++i)
 		RESET_SIRFSOC_RECORD(ts_record[i]);
@@ -259,9 +221,9 @@ static int sirfsoc_ts_read_state(struct sirfsoc_ts *ts)
 	}
 break1:
 	if (ts_record[rec_x].count > 1)
-		ts->x[0] = ts_record[rec_x].coor_xy;
+		ts->x = ts_record[rec_x].coor_xy;
 	else
-		ts->x[0] = (sum_x / cnt_x);
+		ts->x = (sum_x / cnt_x);
 	rep_cnt = index = 0;
 	for (i = 0; i < READ_STATE_COUNT; ++i)
 		RESET_SIRFSOC_RECORD(ts_record[i]);
@@ -313,81 +275,69 @@ break1:
 
 break2:
 	if (ts_record[rec_y].count > 1)
-		ts->y[0] = ts_record[rec_y].coor_xy;
+		ts->y = ts_record[rec_y].coor_xy;
 	else
-		ts->y[0] = (sum_y / cnt_y);
+		ts->y = (sum_y / cnt_y);
 	if (press_hold_cnt == 0) {
-		tmp_x[0] = ts->x[0];
-		tmp_x[1] = ts->x[1];
-		tmp_y[0] = ts->y[0];
-		tmp_y[1] = ts->y[1];
+		tmp_x = ts->x;
+		tmp_x = ts->x;
+		tmp_y = ts->y;
+		tmp_y = ts->y;
 	}
 	return 0;
 }
 
 static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 {
-	int i, finger = 1;
 	int diff;
 	input_report_abs(ts->input, ABS_PRESSURE, 1);
 	input_report_key(ts->input, BTN_TOUCH, 1);
 
-	if (ts->dual_touch)
-		finger = 2;
-
 	diff = ts->debounce_tol;
-	for (i = 0; i < finger; i++) {
-		/*
-		   dev_info(&pdev->dev, "%s,  point %x before scale,
-			x %x, y %x\n", __func__, i, ts->x[i] , ts->y[i]);
-		*/
-		if ((ts->x[i] < tmp_x[i] + diff && ts->x[i] > tmp_x[i] - diff)
-				&& (ts->y[i] < tmp_y[i] + diff
-				&& ts->y[i] > tmp_y[i] - diff)) {
-			ts->x[i] = tmp_x[i];
-			ts->y[i] = tmp_y[i];
-		} else {
-			tmp_x[i] = ts->x[i];
-			tmp_y[i] = ts->y[i];
-		}
-		ts_linear_scale(&ts->x[i], &ts->y[i], 0);
-		/*
-		dev_info(&pdev->dev, "%s,  point %x after scale,
-			x %x, y %x\n", __func__, i, ts->x[i] , ts->y[i]);
-		*/
-		if (ts->swap_xy) {
-			if (ts->invert_x)
-				input_report_abs(ts->input, ABS_X_REP,
-					ts->x_min + ts->x_max - ts->y[i]);
-			else
-				input_report_abs(ts->input,
-					ABS_X_REP, ts->y[i]);
-
-			if (ts->invert_y)
-				input_report_abs(ts->input, ABS_Y_REP,
-					ts->y_min + ts->y_max - ts->x[i]);
-			else
-				input_report_abs(ts->input,
-					ABS_Y_REP, ts->x[i]);
-
-		} else {
-			if (ts->invert_x)
-				input_report_abs(ts->input, ABS_X_REP,
-					ts->x_min + ts->x_max - ts->x[i]);
-			else
-				input_report_abs(ts->input,
-					ABS_X_REP, ts->x[i]);
-
-			if (ts->invert_y)
-				input_report_abs(ts->input, ABS_Y_REP,
-					ts->y_min + ts->y_max - ts->y[i]);
-			else
-				input_report_abs(ts->input,
-					ABS_Y_REP, ts->y[i]);
-
-		}
-		input_mt_sync(ts->input);
+	if ((ts->x < tmp_x + diff && ts->x > tmp_x - diff)
+			&& (ts->y < tmp_y + diff
+			&& ts->y > tmp_y - diff)) {
+		ts->x = tmp_x;
+		ts->y = tmp_y;
+	} else {
+		tmp_x = ts->x;
+		tmp_y = ts->y;
 	}
+
+	ts_linear_scale(&ts->x, &ts->y, 0);
+
+	if (ts->swap_xy) {
+		if (ts->invert_x)
+			input_report_abs(ts->input, ABS_X_REP,
+				ts->x_min + ts->x_max - ts->y);
+		else
+			input_report_abs(ts->input,
+				ABS_X_REP, ts->y);
+
+		if (ts->invert_y)
+			input_report_abs(ts->input, ABS_Y_REP,
+				ts->y_min + ts->y_max - ts->x);
+		else
+			input_report_abs(ts->input,
+				ABS_Y_REP, ts->x);
+
+	} else {
+		if (ts->invert_x)
+			input_report_abs(ts->input, ABS_X_REP,
+				ts->x_min + ts->x_max - ts->x);
+		else
+			input_report_abs(ts->input,
+				ABS_X_REP, ts->x);
+
+		if (ts->invert_y)
+			input_report_abs(ts->input, ABS_Y_REP,
+				ts->y_min + ts->y_max - ts->y);
+		else
+			input_report_abs(ts->input,
+				ABS_Y_REP, ts->y);
+
+	}
+	input_mt_sync(ts->input);
 
 	input_sync(ts->input);
 }
@@ -544,7 +494,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	ts->swap_xy = of_property_read_bool(np, "swap_xy");
 	ts->invert_x = of_property_read_bool(np, "invert_x");
 	ts->invert_y = of_property_read_bool(np, "invert_y");
-	ts->dual_touch = of_property_read_bool(np, "dual_touch");
 	ts->eight_sample = of_property_read_bool(np, "eight_sample");
 
 	if (!ret) {
@@ -557,8 +506,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		input_set_abs_params(input_dev, ABS_Y, 0, 0x3FF, 0, 0);
 	}
 
-	dev_info(&pdev->dev, "%s Ready to operate!\n",
-		ts->dual_touch ? "Dual Touch" : "Touch");
 	return 0;
 
 out2:
