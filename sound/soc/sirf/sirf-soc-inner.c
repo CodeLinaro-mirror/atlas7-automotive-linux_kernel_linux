@@ -383,7 +383,7 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 				& ~IC_MONOR,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
-		mdelay(50);
+		msleep(50);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_RDACEN |
 				IC_LDACEN | IC_HPRSELR | IC_HPLSELL,
@@ -392,7 +392,8 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
 					IC_FIRDAC_HSL_EN | IC_FIRDAC_HSR_EN),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-		udelay(300);
+
+		usleep_range(300, 1000);
 
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0)
 					| IC_HSREN | IC_HSLEN),
@@ -416,19 +417,19 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
 				IC_CODEC_CLK_EN | IC_POR,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-		mdelay(50);
+		msleep(50);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_PWR) |
 				MICBIASEN, sinner_audio->base + AUDIO_IC_CODEC_PWR);
-		udelay(300);
+		usleep_range(300, 1000);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
 				| IC_MICINREN | IC_MICINLEN,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-		udelay(100);
+		usleep_range(100, 200);
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) | IC_RADCEN |
 				IC_LADCEN, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-		udelay(100);
+		usleep_range(100, 200);
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) | IC_MICIN1SEL
 					| IC_MICDIFSEL) & (~IC_MICIN2SEL),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
