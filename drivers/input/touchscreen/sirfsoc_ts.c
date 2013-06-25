@@ -51,13 +51,9 @@ struct sirfsoc_ts {
 	int				debounce_tol;
 	int				debounce_rep;
 	int				interval;
-	bool				swap_xy;
-	bool				invert_x;
-	bool				invert_y;
 
 	struct input_dev		*input;
 	bool				stopped;
-	bool				eight_sample;
 };
 
 struct sirfsoc_record {
@@ -306,37 +302,10 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 
 	ts_linear_scale(&ts->x, &ts->y, 0);
 
-	if (ts->swap_xy) {
-		if (ts->invert_x)
-			input_report_abs(ts->input, ABS_X_REP,
-				ts->x_min + ts->x_max - ts->y);
-		else
-			input_report_abs(ts->input,
-				ABS_X_REP, ts->y);
+	input_report_abs(ts->input, ABS_X_REP, ts->x);
 
-		if (ts->invert_y)
-			input_report_abs(ts->input, ABS_Y_REP,
-				ts->y_min + ts->y_max - ts->x);
-		else
-			input_report_abs(ts->input,
-				ABS_Y_REP, ts->x);
+	input_report_abs(ts->input, ABS_Y_REP, ts->y);
 
-	} else {
-		if (ts->invert_x)
-			input_report_abs(ts->input, ABS_X_REP,
-				ts->x_min + ts->x_max - ts->x);
-		else
-			input_report_abs(ts->input,
-				ABS_X_REP, ts->x);
-
-		if (ts->invert_y)
-			input_report_abs(ts->input, ABS_Y_REP,
-				ts->y_min + ts->y_max - ts->y);
-		else
-			input_report_abs(ts->input,
-				ABS_Y_REP, ts->y);
-
-	}
 	input_mt_sync(ts->input);
 
 	input_sync(ts->input);
@@ -491,10 +460,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	ret |= of_property_read_u32(np, "debounce_max", &ts->debounce_max);
 	ret |= of_property_read_u32(np, "debounce_tol", &ts->debounce_tol);
 	ret |= of_property_read_u32(np, "interval", &ts->interval);
-	ts->swap_xy = of_property_read_bool(np, "swap_xy");
-	ts->invert_x = of_property_read_bool(np, "invert_x");
-	ts->invert_y = of_property_read_bool(np, "invert_y");
-	ts->eight_sample = of_property_read_bool(np, "eight_sample");
 
 	if (!ret) {
 		input_set_abs_params(input_dev, ABS_X_REP,
