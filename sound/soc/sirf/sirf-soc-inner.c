@@ -25,9 +25,7 @@
 #include "sirf-pcm.h"
 
 #define SYS_PWR_BASE          0x3000
-#define PWRC_SCRATCH_PAD11     0x40
 #define PWRC_PDN_CTRL          0x0
-#define SYS_PWRC_SCRATCH_PAD11		(SYS_PWR_BASE + PWRC_SCRATCH_PAD11)
 #define SYS_PWRC_PDN_CTRL		(SYS_PWR_BASE + PWRC_PDN_CTRL)
 
 #define AUDIO_POWER_EN_BIT     (0xE)
@@ -147,10 +145,6 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 {
 	struct sirf_soc_inner_audio *sinner_audio = snd_soc_dai_get_drvdata(dai);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		sirfsoc_rtc_iobrg_writel(
-				sirfsoc_rtc_iobrg_readl(SYS_PWRC_SCRATCH_PAD11) | 0x3,
-				SYS_PWRC_SCRATCH_PAD11);
-
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
 					| IC_CODEC_CLK_EN | IC_POR),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
