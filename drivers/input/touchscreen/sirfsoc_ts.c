@@ -56,23 +56,8 @@ struct sirfsoc_ts {
 	bool				stopped;
 };
 
-struct sirfsoc_record {
-	int coor_xy;
-	int count;
-};
-
-#define INIT_SIRFSOC_RECORD(x) struct sirfsoc_record x = {\
-				.coor_xy = 0,\
-				.count = 0,\
-				}
-#define RESET_SIRFSOC_RECORD(x) {x.coor_xy = 0;\
-				 x.count = 0;\
-				}
-#define READ_STATE_COUNT 5
-bool xy_filter;
 int last_x, last_y, press_hold_cnt;
 int tmp_x, tmp_y;
-struct sirfsoc_record ts_record[READ_STATE_COUNT];
 
 static int get_pendown_state(struct sirfsoc_ts *ts)
 {
@@ -82,10 +67,7 @@ static int get_pendown_state(struct sirfsoc_ts *ts)
 static int sirfsoc_ts_debounce_filter(void *ads, int val)
 {
 	struct sirfsoc_ts *ts = ads;
-	if (xy_filter)
-		ts->last_read = last_x;
-	else
-		ts->last_read = last_y;
+
 	if (!ts->read_cnt || (abs(ts->last_read - val) > ts->debounce_tol)) {
 		/* Start over collecting consistent readings. */
 		ts->read_rep = 0;
@@ -124,162 +106,111 @@ static int sirfsoc_ts_debounce_filter(void *ads, int val)
 	}
 }
 
-static int sirfsoc_ts_measure_x(struct sirfsoc_ts *ts, int *data)
+/*Get the touched x position form adc register*/
+static int sirfsoc_ts_get_position_x(struct sirfsoc_ts *ts)
 {
+	int action, x;
 	u32 reg_control1, coord;
+	int cnt_x = 0;
+	int sum_x = 0;
 
 	reg_control1 = ADC_POLL | ADC_SEL(1) | ADC_DEL_SET(6)
 			| ADC_FREQ_6K | ADC_TP_TIME(0) | ADC_SGAIN(0)
 			| ADC_EXTCM(0) | ADC_RBAT_DISABLE
 			| ADC_MORE_CTL1;
 
-	sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
-	if (sirfsoc_adc_sync_reg() < 0)
-		return -1;
+	while (true) {
+		sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
+		if (sirfsoc_adc_sync_reg() < 0) {
+			ts->read_cnt = 0;
+			ts->read_rep = 0;
+			return -EBUSY;
+		}
 
-	coord = sirfsoc_adc_read_reg(ADC_COORD);
-	*data = coord & DATA_XMASK;
+		coord = sirfsoc_adc_read_reg(ADC_COORD);
+		x = coord & DATA_XMASK;
 
-	return 0;
+		cnt_x++;
+		sum_x += x;
+		ts->last_read = last_x;
+		action = sirfsoc_ts_debounce_filter(ts, x);
+		last_x = ts->last_read;
+
+		switch (action) {
+		case SIRFSOC_TS_FILTER_REPEAT:
+			break;
+		case SIRFSOC_TS_FILTER_IGNORE:
+			return -EAGAIN;
+			break;
+		case SIRFSOC_TS_FILTER_OK:
+			return sum_x / cnt_x;
+			break;
+		default:
+			BUG();
+		}
+	}
 }
 
-static int sirfsoc_ts_measure_y(struct sirfsoc_ts *ts, int *data)
+/*Get the touched x position form adc register*/
+static int sirfsoc_ts_get_position_y(struct sirfsoc_ts *ts)
 {
+	int action, y;
 	u32 reg_control1, coord;
+	int cnt_y = 0;
+	int sum_y = 0;
 
 	reg_control1 = ADC_POLL | ADC_SEL(2) | ADC_DEL_SET(6)
 			| ADC_FREQ_6K | ADC_TP_TIME(0) | ADC_SGAIN(0)
 			| ADC_EXTCM(0) | ADC_RBAT_DISABLE
 			| ADC_MORE_CTL1;
 
-	sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
-	if (sirfsoc_adc_sync_reg() < 0)
-		return -1;
+	while (true) {
+		sirfsoc_adc_write_reg(reg_control1, ADC_CONTROL1);
+		if (sirfsoc_adc_sync_reg() < 0) {
+			ts->read_cnt = 0;
+			ts->read_rep = 0;
+			return -EBUSY;
+		}
 
-	coord = sirfsoc_adc_read_reg(ADC_COORD);
-	*data = (coord & DATA_YMASK) >> DATA_SHIFT_BITS;
-	return 0;
+		coord = sirfsoc_adc_read_reg(ADC_COORD);
+		y = (coord & DATA_YMASK) >> DATA_SHIFT_BITS;
+
+		cnt_y++;
+		sum_y += y;
+		ts->last_read = last_y;
+		action = sirfsoc_ts_debounce_filter(ts, y);
+		last_y = ts->last_read;
+
+		switch (action) {
+		case SIRFSOC_TS_FILTER_REPEAT:
+			break;
+		case SIRFSOC_TS_FILTER_IGNORE:
+			return -EAGAIN;
+			break;
+		case SIRFSOC_TS_FILTER_OK:
+			return sum_y / cnt_y;
+			break;
+		default:
+			BUG();
+		}
+	}
 }
 
 static int sirfsoc_ts_read_state(struct sirfsoc_ts *ts)
 {
-	int action;
-	int x, y, i, cnt_x, cnt_y, index, rep_cnt, sum_x, sum_y, rec_x, rec_y;
-	bool add_point;
+	ts->x = sirfsoc_ts_get_position_x(ts);
+	if (ts->x < 0)
+		return ts->x;
 
-	for (i = 0; i < READ_STATE_COUNT; ++i)
-		RESET_SIRFSOC_RECORD(ts_record[i]);
-	cnt_y = cnt_x = index = rep_cnt = sum_x = sum_y = rec_x = rec_y = 0;
-	/* first x, later y */
-	while (true) {
-		add_point = true;
-		xy_filter = true;
-		if (sirfsoc_ts_measure_x(ts, &x)) {
-			ts->read_cnt = 0;
-			ts->read_rep = 0;
-			return -1;
-		}
-		for (i = 0; i < index; ++i) {
-			if (ts_record[i].coor_xy == x) {
-				ts_record[i].count++;
-				if (ts_record[i].count > rep_cnt) {
-					rep_cnt = ts_record[i].count;
-					rec_x = i;
-				}
-				add_point = false;
-				break;
-			}
-		}
-		if (add_point) {
-			ts_record[index].coor_xy = x;
-			ts_record[index].count++;
-			index++;
-		}
-		cnt_x++;
-		sum_x += x;
-		action = sirfsoc_ts_debounce_filter(ts, x);
-		last_x = ts->last_read;
-		switch (action) {
-		case SIRFSOC_TS_FILTER_REPEAT:
-			break;
+	ts->y = sirfsoc_ts_get_position_y(ts);
+	if (ts->y < 0)
+		return ts->y;
 
-		case SIRFSOC_TS_FILTER_IGNORE:
-			return -1;
-			break;
-
-		case SIRFSOC_TS_FILTER_OK:
-			goto break1;
-			break;
-
-		default:
-			BUG();
-		}
-	}
-break1:
-	if (ts_record[rec_x].count > 1)
-		ts->x = ts_record[rec_x].coor_xy;
-	else
-		ts->x = (sum_x / cnt_x);
-	rep_cnt = index = 0;
-	for (i = 0; i < READ_STATE_COUNT; ++i)
-		RESET_SIRFSOC_RECORD(ts_record[i]);
-	while (true) {
-		add_point = true;
-		xy_filter = false;
-		if (sirfsoc_ts_measure_y(ts, &y)) {
-			ts->read_cnt = 0;
-			ts->read_rep = 0;
-			return -1;
-		}
-		for (i = 0; i < index; ++i) {
-			if (ts_record[i].coor_xy == y) {
-				ts_record[i].count++;
-				if (ts_record[i].count > rep_cnt) {
-					rep_cnt = ts_record[i].count;
-					rec_y = i;
-				}
-				add_point = false;
-				break;
-			}
-		}
-		if (add_point) {
-			ts_record[index].coor_xy = y;
-			ts_record[index].count++;
-			index++;
-		}
-		cnt_y++;
-		sum_y += y;
-		action = sirfsoc_ts_debounce_filter(ts, y);
-
-		last_y = ts->last_read;
-		switch (action) {
-		case SIRFSOC_TS_FILTER_REPEAT:
-			break;
-
-		case SIRFSOC_TS_FILTER_IGNORE:
-			return -1;
-			break;
-
-		case SIRFSOC_TS_FILTER_OK:
-			goto break2;
-			break;
-
-		default:
-			BUG();
-		}
-	}
-
-break2:
-	if (ts_record[rec_y].count > 1)
-		ts->y = ts_record[rec_y].coor_xy;
-	else
-		ts->y = (sum_y / cnt_y);
 	if (press_hold_cnt == 0) {
 		tmp_x = ts->x;
-		tmp_x = ts->x;
-		tmp_y = ts->y;
 		tmp_y = ts->y;
 	}
+
 	return 0;
 }
 
@@ -290,6 +221,7 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 	input_report_key(ts->input, BTN_TOUCH, 1);
 
 	diff = ts->debounce_tol;
+	/*Make the position in the accuracy*/
 	if ((ts->x < tmp_x + diff && ts->x > tmp_x - diff)
 			&& (ts->y < tmp_y + diff
 			&& ts->y > tmp_y - diff)) {
