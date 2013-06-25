@@ -20,6 +20,14 @@
 
 	axi {
 		peri-iobg {
+			pci-iobg {
+				sd1: sdhci@56100000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc1_pins_a>;
+				};
+			};
+
 			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
