@@ -740,7 +740,6 @@ static void sirfsoc_rx_dma_complete_callback(void *param)
 		wr_regl(port, SIRFUART_INT_EN_CLR,
 				uint_en->sirfsoc_rx_timeout_en);
 	wr_regl(port, ureg->sirfsoc_int_st_reg,
-			rd_regl(port, ureg->sirfsoc_int_st_reg) &
 			uint_st->sirfsoc_rx_timeout);
 	dmaengine_tx_status(sirfport->rx_dma_chan, sirfport->rx_dma_cookie,
 			&tx_state);
@@ -778,9 +777,6 @@ static void sirfsoc_uart_start_next_rx_dma(struct uart_port *port)
 		~SIRFUART_IO_MODE);
 	sirfport->rx_dma_buf.tail = sirfport->rx_dma_buf.head = 0;
 	sirfport->rx_dma_rdy = 0;
-	wr_regl(port, ureg->sirfsoc_rx_dma_io_ctrl,
-				rd_regl(port, ureg->sirfsoc_rx_dma_io_ctrl) &
-				~SIRFUART_IO_MODE);
 	sirfport->rx_dma_desc = dmaengine_prep_dma_cyclic(
 			sirfport->rx_dma_chan, sirfport->rx_dma_addr,
 			SIRFSOC_RX_DMA_BUF_SIZE, SIRFSOC_RX_DMA_BUF_SIZE/2,
@@ -788,14 +784,15 @@ static void sirfsoc_uart_start_next_rx_dma(struct uart_port *port)
 			DMA_PREP_INTERRUPT);
 	if (!sirfport->rx_dma_desc) {
 		dev_err(port->dev, "DMA slave single fail\n");
+		spin_unlock_irqrestore(&sirfport->rx_lock, flags);
 		return;
 	}
 
 	sirfport->rx_dma_desc->callback = sirfsoc_rx_dma_complete_callback;
 	sirfport->rx_dma_desc->callback_param = sirfport;
 	sirfport->rx_dma_cookie = dmaengine_submit(sirfport->rx_dma_desc);
-	dmaengine_device_control(sirfport->rx_dma_chan, DMA_PAUSE, 2);
 	dma_async_issue_pending(sirfport->rx_dma_chan);
+	dmaengine_device_control(sirfport->rx_dma_chan, DMA_PAUSE, 2);
 
 	if (!sirfport->is_marco)
 		wr_regl(port, ureg->sirfsoc_int_en_reg,
