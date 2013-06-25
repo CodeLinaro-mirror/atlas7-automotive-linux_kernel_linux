@@ -40,186 +40,6 @@ struct sirf_soc_inner_audio {
 	spinlock_t              lock;
 };
 
-#define SIRF_INNER_PLAYBACK_VOLUME(xname, xindex, addr) \
-{ .iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, .index = xindex, \
-	.info = sirf_inner_playback_volume_info, \
-	.get = sirf_inner_playback_volume_get, \
-	.put = sirf_inner_playback_volume_put, \
-	.private_value = addr }
-
-static int sirf_inner_playback_volume_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-
-	uinfo->count = 2;
-	uinfo->value.integer.min = 0x0;
-	uinfo->value.integer.max = 0x7F;
-	return 0;
-}
-
-static int sirf_inner_playback_volume_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	int reg = kcontrol->private_value;
-
-	ucontrol->value.integer.value[0] =
-		readl(sinner_audio->base + reg) >> 21 & 0x7F;
-
-	ucontrol->value.integer.value[1] =
-		readl(sinner_audio->base + reg) >> 14 & 0x7F;
-
-	return 0;
-}
-
-static int sirf_inner_playback_volume_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	unsigned int reg = kcontrol->private_value;
-	unsigned int val, val2, val_mask;
-	unsigned int old, new;
-
-	val = ucontrol->value.integer.value[0] & 0x7F;
-	val_mask = 0x7F << 21;
-	val = val << 21;
-	val2 = ucontrol->value.integer.value[1] & 0x7F;
-	val_mask |= 0x7F << 14;
-	val |= val2 << 14;
-
-	old = readl(sinner_audio->base + reg);
-	new = (old & ~val_mask) | val;
-	if (old != new)
-		writel(new, sinner_audio->base + reg);
-	return 0;
-}
-
-#define SIRF_INNER_RECORD_VOLUME(xname, xindex, addr) \
-{                                               \
-	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, .index = xindex, \
-	.info = sirf_inner_record_volume_info, \
-	.get = sirf_inner_record_volume_get, \
-	.put = sirf_inner_record_volume_put, \
-	.private_value = addr \
-}
-
-static int sirf_inner_record_volume_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-
-	uinfo->count = 2;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = IC_MIC_MAX_GAIN;
-	return 0;
-}
-
-static int sirf_inner_record_volume_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	int reg = kcontrol->private_value;
-
-	ucontrol->value.integer.value[0] =
-		readl(sinner_audio->base + reg) >> IC_ADC_LEFT_GAIN_SHIFT &
-		IC_ADC_GAIN_MASK;
-
-	ucontrol->value.integer.value[1] =
-		readl(sinner_audio->base + reg) >> IC_ADC_RIGHT_GAIN_SHIFT &
-		IC_ADC_GAIN_MASK;
-
-	return 0;
-}
-
-static int sirf_inner_record_volume_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	unsigned int reg = kcontrol->private_value;
-	unsigned int val, val2, val_mask;
-	unsigned int old, new;
-
-	val = ucontrol->value.integer.value[0] & IC_ADC_GAIN_MASK;
-	val_mask = IC_ADC_GAIN_MASK << IC_ADC_LEFT_GAIN_SHIFT;
-	val = val << IC_ADC_LEFT_GAIN_SHIFT;
-	val2 = ucontrol->value.integer.value[1] & IC_ADC_GAIN_MASK;
-	val_mask |= IC_ADC_GAIN_MASK << IC_ADC_RIGHT_GAIN_SHIFT;
-	val |= val2 << IC_ADC_RIGHT_GAIN_SHIFT;
-	/* workaround for minimum catpture volume doesn't mute issue */
-	if (val == 0) {
-		old = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-		new = (old & ~0x3);
-		if (old != new)
-			writel(new, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-
-	} else {
-		old = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-		new = (old | 0x3);
-		if (old != new)
-			writel(new, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-
-	}
-	old = readl(sinner_audio->base + reg);
-	new = (old & ~val_mask) | val;
-	if (old != new)
-		writel(new, sinner_audio->base + reg);
-	return 0;
-}
-
-static int sirf_inner_snd_mute_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	WARN_ON(!uinfo);
-	WARN_ON(!kcontrol);
-
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	uinfo->count = 2;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
-	return 0;
-}
-
-static int sirf_inner_snd_mute_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	unsigned int reg = kcontrol->private_value;
-
-	ucontrol->value.integer.value[0] = readl(sinner_audio->base + reg) & 0x01;
-	ucontrol->value.integer.value[1] = readl(sinner_audio->base + reg) >> 1
-		& 0x01;
-
-	return 0;
-}
-
-static int sirf_inner_snd_mute_set(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	unsigned int reg = kcontrol->private_value;
-	unsigned int val, val2, val_mask;
-	unsigned int old, new;
-
-	val = ucontrol->value.integer.value[0];
-	val_mask = 0x01;
-	val2 = ucontrol->value.integer.value[1];
-	val_mask |= 0x01 << 1;
-	val |= val2 << 1;
-
-	old = readl(sinner_audio->base + reg);
-	new = (old & ~val_mask) | val;
-	if (old != new)
-		writel(new, sinner_audio->base + reg);
-
-	return 0;
-}
 static int sirf_inner_control(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol,
 		int get, char *name)
@@ -235,19 +55,6 @@ static int sirf_inner_control(struct snd_kcontrol *kcontrol,
 				return card->controls[i].put(kcontrol, ucontrol);
 		}
 	}
-	return 0;
-}
-static int sirf_inner_snd_speaker_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	WARN_ON(!uinfo);
-	WARN_ON(!kcontrol);
-
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-
-	uinfo->count = 1;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
 	return 0;
 }
 
@@ -292,19 +99,6 @@ static int sirf_inner_snd_speaker_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int sirf_inner_snd_headphone_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	WARN_ON(!uinfo);
-	WARN_ON(!kcontrol);
-
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
-	uinfo->count = 1;
-	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = 1;
-	return 0;
-}
-
 static int sirf_inner_snd_headphone_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
@@ -336,34 +130,16 @@ static int sirf_inner_snd_headphone_set(struct snd_kcontrol *kcontrol,
 }
 
 static struct snd_kcontrol_new snd_sirf_inner_volume_controls[] = {
-	SIRF_INNER_PLAYBACK_VOLUME("Speaker Volume", 0, AUDIO_IC_CODEC_CTRL0),
-	SIRF_INNER_RECORD_VOLUME("Capture Volume", 1, AUDIO_IC_CODEC_CTRL1),
-	{
-		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name           =       "Capture Switch",
-		.index          =       1,
-		.access         =       SNDRV_CTL_ELEM_ACCESS_READWRITE,
-		.info           =       sirf_inner_snd_mute_info,
-		.get            =       sirf_inner_snd_mute_get,
-		.put            =       sirf_inner_snd_mute_set,
-		.private_value  =       AUDIO_IC_CODEC_CTRL1,
-	}, {
-		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name           =       "Speaker Switch",
-		.index          =       0,
-		.access         =       SNDRV_CTL_ELEM_ACCESS_READWRITE,
-		.info           =       sirf_inner_snd_speaker_info,
-		.get            =       sirf_inner_snd_speaker_get,
-		.put            =       sirf_inner_snd_speaker_set,
-	}, {
-		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name           =       "Headphone Switch",
-		.index          =       0,
-		.access         =       SNDRV_CTL_ELEM_ACCESS_READWRITE,
-		.info           =       sirf_inner_snd_headphone_info,
-		.get            =       sirf_inner_snd_headphone_get,
-		.put            =       sirf_inner_snd_headphone_set,
-	},
+	SOC_DOUBLE("Speaker Volume", AUDIO_IC_CODEC_CTRL0, 21, 14,
+			0x7F, 0),
+	SOC_DOUBLE("Capture Volume", AUDIO_IC_CODEC_CTRL1, 16, 10,
+			0x3F, 0),
+	SOC_DOUBLE("Capture Switch", AUDIO_IC_CODEC_CTRL1, 0, 1,
+			1, 0),
+	SOC_SINGLE_BOOL_EXT("Speaker Switch", 0, sirf_inner_snd_speaker_get,
+			sirf_inner_snd_speaker_set),
+	SOC_SINGLE_BOOL_EXT("Headphone Switch", 0, sirf_inner_snd_headphone_get,
+			sirf_inner_snd_headphone_set),
 };
 
 static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
@@ -583,9 +359,27 @@ static int sirf_inner_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static unsigned int sirf_inner_codec_reg_read(struct snd_soc_codec *codec,
+		unsigned int reg)
+{
+	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	return readl(sinner_audio->base + reg);
+}
+
+static int sirf_inner_codec_reg_write(struct snd_soc_codec *codec,
+	unsigned int reg, unsigned int val)
+{
+	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	writel(val, sinner_audio->base + reg);
+	return 0;
+}
+
+
 static struct snd_soc_codec_driver soc_codec_device_sirf_inner_codec = {
 	.probe = sirf_inner_codec_probe,
 	.remove = sirf_inner_codec_remove,
+	.read = sirf_inner_codec_reg_read,
+	.write = sirf_inner_codec_reg_write,
 };
 
 static struct sirf_pcm_dma_data sirf_soc_inner_dai_dma_data[2] = {
