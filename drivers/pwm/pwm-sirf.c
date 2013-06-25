@@ -143,6 +143,13 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	return cycle < 1 ? cycle : 1;
 }
 
+/*
+ * The SiRF SoC's PWM device has some special features.
+ * Such as step mode and bklscaling mode. So if any devices
+ * need use the these modes, they need write the configuration
+ * in the dts file. The configuration specify mode enable/disable
+ * and mode parameters.
+ */
 static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 		struct pwm_device *pwm)
 {
@@ -152,6 +159,12 @@ static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 	u32 trans_mode_params[2];
 	u32 bcfg_params[SIRF_PWM_BLS_GRP_NUM * 2];
 
+	/*
+	 * In step mode, If the user change the PWM output period or duty.
+	 * The PWM module isn't changed directly. It will change the output
+	 * step-by-step. The first specifies the change the steps and the
+	 * second specifies the time interval of each steps in nanoseconds.
+	 */
 	spwm->is_step_mode[pwm->hwpwm] = of_property_read_bool(np, "sirf-pwm-step-mode");
 
 	if (spwm->is_step_mode[pwm->hwpwm]) {
@@ -168,6 +181,15 @@ static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 	if (pwm->hwpwm != SIRF_PWM_BKS_CHL)
 		return;
 
+	/* 
+	 * The bklscaling mode is used to support back light scaling function.
+	 * Set 16 groups parameters look table is used by LCD driver.
+	 * Every group includes one wait state (number of pre-clock for high
+	 * level of output waveform) and one hold state (number of pre-clock
+	 * for low level of output wavefrom). The  wait_hold_sel register in
+	 * the LCD module can be used to choose one of them. In dts script file,
+	 * these parameters specify with period and duty in nanoseconds.
+	 */
 	spwm->is_pwm3_use_bks = of_property_read_bool(np, "sirf-pwm-bklscaling-mode");
 	if (spwm->is_pwm3_use_bks) {
 		/*bklscaling mode*/

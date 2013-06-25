@@ -27,9 +27,8 @@ More configration can be set by the pwm user driver.
 
 - sirf-pwm-step-mode-params: If set the transfer mode as
   setting step switch. Need set the step parameters.
-  The first specifies pulse width transition every time 
-  in nanoseconds and the second specifies hold at temporary
-  pulse width in nanoseconds.
+  The first specifies the change the steps and the second
+  specifies the time interval of each steps in nanoseconds.
 
 - sirf-pwm-bklscaling-mode: used set the pwm use the bklscaling mode.
   Only PWM3 support this mode.
