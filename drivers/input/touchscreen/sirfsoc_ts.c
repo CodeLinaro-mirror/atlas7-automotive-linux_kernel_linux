@@ -30,8 +30,6 @@
 #define SIRFSOC_PWRC_TRIGGER_EN 0x8
 #define SIRFSOC_PWRC_BASE 0x3000
 
-u32 ABS_X_REP, ABS_Y_REP;
-
 enum sirfsoc_ts_filter {
 	SIRFSOC_TS_FILTER_OK,
 	SIRFSOC_TS_FILTER_REPEAT,
@@ -234,9 +232,8 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 
 	ts_linear_scale(&ts->x, &ts->y, 0);
 
-	input_report_abs(ts->input, ABS_X_REP, ts->x);
-
-	input_report_abs(ts->input, ABS_Y_REP, ts->y);
+	input_report_abs(ts->input, ABS_X, ts->x);
+	input_report_abs(ts->input, ABS_Y, ts->y);
 
 	input_mt_sync(ts->input);
 
@@ -288,23 +285,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	const unsigned int codes[] = {
 		KEY_HOME, KEY_MENU, KEY_BACK, KEY_SEARCH,
 	};
-	/*
-	 * fixme: some non-android platforms don't support multi-touch yet
-	 * just add this workaround for them to work
-	 * rememeber to fix the input event plugin in Ubuntu
-	 */
-#ifndef CONFIG_ANDROID
-	ABS_X_REP = ABS_X;
-	ABS_Y_REP = ABS_Y;
-#else
-	if (of_machine_is_compatible("sirf,prima2")) {
-		ABS_X_REP = ABS_X;
-		ABS_Y_REP = ABS_Y;
-	} else {
-		ABS_X_REP = ABS_MT_POSITION_X;
-		ABS_Y_REP = ABS_MT_POSITION_Y;
-	}
-#endif
 
 	ts = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_ts), GFP_KERNEL);
 	if (!ts) {
@@ -394,9 +374,9 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	ret |= of_property_read_u32(np, "interval", &ts->interval);
 
 	if (!ret) {
-		input_set_abs_params(input_dev, ABS_X_REP,
+		input_set_abs_params(input_dev, ABS_X,
 				ts->x_min, ts->x_max, 0, 0);
-		input_set_abs_params(input_dev, ABS_Y_REP,
+		input_set_abs_params(input_dev, ABS_Y,
 				ts->y_min, ts->y_max, 0, 0);
 	} else {
 		input_set_abs_params(input_dev, ABS_X, 0, 0x3FF, 0, 0);
