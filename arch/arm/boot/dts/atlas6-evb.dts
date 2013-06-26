@@ -63,14 +63,6 @@
 	};
 	axi {
 		peri-iobg {
-			pci-iobg {
-				sd2: sdhci@56200000 {
-					status = "okay";
-					pinctrl-names = "default";
-					pinctrl-0 = <&sdmmc2_pins_a>;
-				};
-			};
-
 			uart@b0050000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart0_pins_a>;
