@@ -43,6 +43,18 @@ static inline void sirfsoc_vip_reserve_memblock(void)
 }
 #endif
 
+#ifdef CONFIG_NANDDISK
+extern void sirfsoc_nand_reserve_memblock(void);
+extern void sirfsoc_nand_nosave_memblock(void);
+#else
+static inline void sirfsoc_nand_reserve_memblock(void)
+{
+};
+static inline void sirfsoc_nand_nosave_memblock(void)
+{
+};
+#endif
+
 #ifndef CONFIG_DEBUG_LL
 static inline void sirfsoc_map_lluart(void)  {}
 #else
