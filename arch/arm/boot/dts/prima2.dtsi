@@ -596,6 +596,7 @@
 					cell-index = <0>;
 					compatible = "sirf,prima2-sdhc";
 					broken-dma;
+					wp-inverted;
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
 					bus-width = <8>;
