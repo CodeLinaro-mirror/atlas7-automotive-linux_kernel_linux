@@ -44,6 +44,11 @@ struct sirfsoc_ts {
 	int				read_cnt;
 	int				read_rep;
 	int				last_read;
+	/*last_x, last_y store the last valid pos read from adc */
+	int				last_x, last_y;
+	/*reported_x, reported_y store the last reported pos*/
+	int				reported_x, reported_y;
+	int				press_hold_cnt;
 
 	int				debounce_max;
 	int				debounce_tol;
@@ -51,11 +56,7 @@ struct sirfsoc_ts {
 	int				interval;
 
 	struct input_dev		*input;
-	bool				stopped;
 };
-
-int last_x, last_y, press_hold_cnt;
-int tmp_x, tmp_y;
 
 static int get_pendown_state(struct sirfsoc_ts *ts)
 {
@@ -130,9 +131,9 @@ static int sirfsoc_ts_get_position_x(struct sirfsoc_ts *ts)
 
 		cnt_x++;
 		sum_x += x;
-		ts->last_read = last_x;
+		ts->last_read = ts->last_x;
 		action = sirfsoc_ts_debounce_filter(ts, x);
-		last_x = ts->last_read;
+		ts->last_x = ts->last_read;
 
 		switch (action) {
 		case SIRFSOC_TS_FILTER_REPEAT:
@@ -175,9 +176,9 @@ static int sirfsoc_ts_get_position_y(struct sirfsoc_ts *ts)
 
 		cnt_y++;
 		sum_y += y;
-		ts->last_read = last_y;
+		ts->last_read = ts->last_y;
 		action = sirfsoc_ts_debounce_filter(ts, y);
-		last_y = ts->last_read;
+		ts->last_y = ts->last_read;
 
 		switch (action) {
 		case SIRFSOC_TS_FILTER_REPEAT:
@@ -203,10 +204,9 @@ static int sirfsoc_ts_read_state(struct sirfsoc_ts *ts)
 	ts->y = sirfsoc_ts_get_position_y(ts);
 	if (ts->y < 0)
 		return ts->y;
-
-	if (press_hold_cnt == 0) {
-		tmp_x = ts->x;
-		tmp_y = ts->y;
+	if (ts->press_hold_cnt == 0) {
+		ts->reported_x = ts->x;
+		ts->reported_y = ts->y;
 	}
 
 	return 0;
@@ -220,14 +220,14 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 
 	diff = ts->debounce_tol;
 	/*Make the position in the accuracy*/
-	if ((ts->x < tmp_x + diff && ts->x > tmp_x - diff)
-			&& (ts->y < tmp_y + diff
-			&& ts->y > tmp_y - diff)) {
-		ts->x = tmp_x;
-		ts->y = tmp_y;
+	if ((ts->x < ts->reported_x + diff && ts->x > ts->reported_x - diff)
+			&& (ts->y < ts->reported_y + diff
+			&& ts->y > ts->reported_y - diff)) {
+		ts->x = ts->reported_x;
+		ts->y = ts->reported_y;
 	} else {
-		tmp_x = ts->x;
-		tmp_y = ts->y;
+		ts->reported_x = ts->x;
+		ts->reported_y = ts->y;
 	}
 
 	ts_linear_scale(&ts->x, &ts->y, 0);
@@ -245,11 +245,11 @@ static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 	struct sirfsoc_ts *ts = (struct sirfsoc_ts *)handle;
 	struct input_dev *input = ts->input;
 
-	press_hold_cnt = 0;
+	ts->press_hold_cnt = 0;
 	while (get_pendown_state(ts)) {
 		if (!sirfsoc_ts_read_state(ts))
 			sirfsoc_ts_report_state(ts);
-		press_hold_cnt++;
+		ts->press_hold_cnt++;
 		if (ts->interval)
 			msleep(ts->interval);
 	}
