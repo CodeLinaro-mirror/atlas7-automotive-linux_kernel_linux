@@ -27,6 +27,7 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
 #include <linux/sirfsoc_dma.h>
+#include <linux/of_gpio.h>
 
 #include "sirfsoc_uart.h"
 
@@ -1388,15 +1389,51 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 	port->private_data = sirfport;
 	sirfport->uart_reg = (struct sirfsoc_uart_register *)match->data;
 
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart"))
-		sirfport->uart_reg->uart_type = sirf_real_uart;
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-usp-uart"))
-		sirfport->uart_reg->uart_type =	sirf_usp_uart;
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
-		sirfport->is_marco = true;
-
 	if (of_find_property(pdev->dev.of_node, "hw_flow_ctrl", NULL))
 		sirfport->hw_flow_ctrl = 1;
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart"))
+		sirfport->uart_reg->uart_type = sirf_real_uart;
+	if (of_device_is_compatible(pdev->dev.of_node,
+					"sirf,prima2-usp-uart")) {
+		sirfport->uart_reg->uart_type =	sirf_usp_uart;
+		if (!sirfport->hw_flow_ctrl)
+			goto usp_no_flow_control;
+		if (of_find_property(pdev->dev.of_node, "rfs-gpios", NULL))
+			sirfport->rfs_gpio = of_get_named_gpio(
+					pdev->dev.of_node, "rfs-gpios", 0);
+		else
+			sirfport->rfs_gpio = -1;
+		if (of_find_property(pdev->dev.of_node, "tfs-gpios", NULL))
+			sirfport->tfs_gpio = of_get_named_gpio(
+					pdev->dev.of_node, "tfs-gpios", 0);
+		else
+			sirfport->tfs_gpio = -1;
+
+		if ((!gpio_is_valid(sirfport->rfs_gpio) ||
+			 !gpio_is_valid(sirfport->tfs_gpio))) {
+			ret = -EINVAL;
+			dev_err(&pdev->dev,
+				"Usp flow control must have rfs and tfs gpio");
+			goto err;
+		}
+		ret = devm_gpio_request(&pdev->dev, sirfport->rfs_gpio,
+				"usp-rfs-gpio");
+		if (ret) {
+			dev_err(&pdev->dev, "Unable request rfs gpio");
+			goto err;
+		}
+		gpio_direction_input(sirfport->rfs_gpio);
+		ret = devm_gpio_request(&pdev->dev, sirfport->tfs_gpio,
+				"usp-tfs-gpio");
+		if (ret) {
+			dev_err(&pdev->dev, "Unable request tfs gpio");
+			goto err;
+		}
+		gpio_direction_output(sirfport->tfs_gpio, 1);
+	}
+usp_no_flow_control:
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
+		sirfport->is_marco = true;
 
 	if (of_property_read_u32(pdev->dev.of_node,
 			"fifosize",
