@@ -45,15 +45,21 @@ static int sirf_inner_jack_status_check(void)
 	struct snd_soc_codec *codec = hp_jack_gpios[0].jack->codec;
 	struct snd_soc_card *card = codec->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
+	int hp_report = 0;
 
 	if (gpio_is_valid(sinner_card->gpio_hp_detect))
 		spk_out = gpio_get_value(sinner_card->gpio_hp_detect);
 
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
 		gpio_direction_output(sinner_card->gpio_hp_pa, !spk_out);
+
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_direction_output(sinner_card->gpio_spk_pa, spk_out);
-	return SND_JACK_HEADPHONE;
+
+	if (!spk_out)
+		hp_report |= SND_JACK_HEADPHONE;
+
+	return hp_report;
 }
 
 static int sirf_inner_init(struct snd_soc_pcm_runtime *rtd)
