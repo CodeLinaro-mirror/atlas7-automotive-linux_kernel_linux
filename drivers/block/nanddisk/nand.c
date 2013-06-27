@@ -15,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_fdt.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/clk.h>
@@ -28,6 +29,8 @@
 #include <linux/interrupt.h>
 #include <linux/semaphore.h>
 #include <linux/dmaengine.h>
+#include <linux/memblock.h>
+#include <linux/suspend.h>
 #include <linux/sirfsoc_dma.h>
 
 #include "nanddisk.h"
@@ -70,7 +73,7 @@ struct nanddisk_device {
 	unsigned boot_zone_log_sector_num;
 	unsigned nanddisk_code_start;
 	unsigned nanddisk_code_size;
-	unsigned uboot_commit_flag_sector;
+	unsigned uboot_commit_flag;
 
 	/* address map and irq resource */
 	struct ADDRMAP *addr_map_tbl;
@@ -102,55 +105,61 @@ struct nanddisk_device {
 
 static struct nanddisk_device   nand_dev;
 
-#undef MODULE_PARAM_PREFIX
-#define MODULE_PARAM_PREFIX
-
 /* param area in uboot is 2K */
 #define BOOT_IMAGE_SECURE_HEADER_SIZE 0x800
 
 #define UBOOT_MAX_SECTOR 1024
 #define UBOOT_MAX_LENGTH 0x80000
 
-static int __init param_set_nandinfo(const char *val, struct kernel_param *kp)
+static int __init sirf_fdt_handle_rsv_mem(unsigned long node, const char *uname,
+				int depth, void *data)
 {
-	static bool bootmem_reserved;
-	unsigned int ret;
+	__be32 *mem_info;
+	unsigned long len;
 
-	ret = kstrtoul(val, 0, (unsigned long *)kp->arg);
+	mem_info = of_get_flat_dt_prop(node,
+			"sirf,nanddisk-rsvmem-range", &len);
+	if (!mem_info || (len != 2 * sizeof(unsigned long)))
+		return 0;
 
-	if (!bootmem_reserved && (nand_dev.nandboot || nand_dev.nandinsert) &&
-		nand_dev.nanddisk_code_start && nand_dev.nanddisk_code_size) {
-		if (-EBUSY == reserve_bootmem(virt_to_phys(
-					 (void *)nand_dev.nanddisk_code_start),
-					 nand_dev.nanddisk_code_size,
-					 BOOTMEM_EXCLUSIVE)) {
-			pr_info("failed to reserve for nanddisk\n");
-		}
-		bootmem_reserved = true;
-	}
-	return 0;
+	nand_dev.nanddisk_code_start = be32_to_cpu(mem_info[0]);
+	nand_dev.nanddisk_code_size = be32_to_cpu(mem_info[1]);
+
+	if (memblock_reserve(nand_dev.nanddisk_code_start,
+			nand_dev.nanddisk_code_size))
+		pr_err("failed to reserve memory(0x%x bytes at 0x%x)\n",
+			nand_dev.nanddisk_code_size,
+			nand_dev.nanddisk_code_start);
+
+	pr_debug("get rsv memory 0x%x-0x%x\n", nand_dev.nanddisk_code_start,
+		nand_dev.nanddisk_code_size);
+
+	return 1;
 }
 
-module_param_call(nandboot, param_set_nandinfo, NULL,
-			&nand_dev.nandboot, 0);
-module_param_call(nandinsert, param_set_nandinfo, NULL,
-			&nand_dev.nandinsert, 0);
-module_param_call(nanddisk_start, param_set_nandinfo, NULL,
-			&nand_dev.nanddisk_code_start, 0);
-module_param_call(nanddisk_size, param_set_nandinfo, NULL,
-			&nand_dev.nanddisk_code_size, 0);
-module_param_call(bootzone_shadow_start, param_set_nandinfo, NULL,
-			&nand_dev.boot_zone_log_sector_start, 0);
-module_param_call(bootzone_shadow_num, param_set_nandinfo, NULL,
-			&nand_dev.boot_zone_log_sector_num, 0);
-module_param_call(uboot_commit_flag_sector, param_set_nandinfo, NULL,
-			&nand_dev.uboot_commit_flag_sector, 0);
+void  __init sirfsoc_nand_reserve_memblock(void)
+{
+	if (!of_scan_flat_dt(sirf_fdt_handle_rsv_mem, NULL))
+		pr_err("failed to find reserved memory.\n");
+}
+EXPORT_SYMBOL(sirfsoc_nand_reserve_memblock);
+
+void  __init sirfsoc_nand_nosave_memblock(void)
+{
+	register_nosave_region_late(
+		__phys_to_pfn(nand_dev.nanddisk_code_start),
+		__phys_to_pfn(nand_dev.nanddisk_code_start +
+				nand_dev.nanddisk_code_size));
+
+}
+EXPORT_SYMBOL(sirfsoc_nand_nosave_memblock);
 
 static void nanddisk_sem_get(void)
 {
 	disable_irq_nosync(nand_dev.irq);
 	down(&nand_dev.nanddisk_sem);
 }
+
 static void nanddisk_sem_put(void)
 {
 	up(&nand_dev.nanddisk_sem);
@@ -212,6 +221,9 @@ static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
 	unsigned async_status;
 	unsigned flag_wearlevel = 0;
 	unsigned i;
+	unsigned uboot_commit_flag_sector =
+		   nand_dev.uboot_commit_flag >> nand_dev.sector_size_shift;
+
 	if (nsect == 0)
 		return 0;
 
@@ -232,7 +244,7 @@ static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
 			memset(nand_dev.uboot_buf, 0, UBOOT_MAX_LENGTH);
 			memset(nand_dev.uboot_write_map, 0, UBOOT_MAX_SECTOR);
 		}
-		if (sector == nand_dev.uboot_commit_flag_sector) {
+		if (sector == uboot_commit_flag_sector) {
 			unsigned phy_sector_size =
 				nand_dev.nand_chip_info.
 				phy_bdev_info.byte_per_sector;
@@ -311,7 +323,8 @@ static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
 
 /* handle an I/O request */
 static int nanddisk_io_sort(unsigned sector, unsigned nsect, char *buffer,
-				int write) {
+				int write)
+{
 	unsigned cur_sec_num;
 
 	/* the part before boot zone shadow */
@@ -348,6 +361,7 @@ static int nanddisk_io_sort(unsigned sector, unsigned nsect, char *buffer,
 			sector, cur_sec_num, buffer, write))
 			return -1;
 	}
+
 	return 0;
 }
 
@@ -616,6 +630,19 @@ static int nanddisk_init(struct platform_device *pdev)
 		return -1;
 	}
 
+	nand_dev.sector_size_shift =
+	  blksize_bits(nand_dev.nand_chip_info.io_bdev_info.byte_per_sector);
+	dev_dbg(dev, "sector size shift=%d\n", nand_dev.sector_size_shift);
+	nand_dev.size = nand_dev.sectors_num << nand_dev.sector_size_shift;
+
+	nand_dev.boot_zone_log_sector_start = 1;
+	nand_dev.boot_zone_log_sector_num =
+		nand_dev.nanddisk_code_size >> nand_dev.sector_size_shift;
+	dev_dbg(dev, "bootzone shadow area: sector[%d,%d]\n",
+		nand_dev.boot_zone_log_sector_start,
+		nand_dev.boot_zone_log_sector_start +
+		nand_dev.boot_zone_log_sector_num);
+
 	/* enable async adapt mode */
 	async_mode.enable = 1;
 	async_mode.auto_adapt = 0;
@@ -786,10 +813,17 @@ static int nand_alloc_resource(struct platform_device *pdev)
 		nand_dev.addr_map_tbl[i].size);
 
 	/* firmware area */
+	if (of_property_read_u32(dn, "sirf,nanddisk-uboot-commit-flag",
+		&nand_dev.uboot_commit_flag)) {
+		dev_err(dev, "failed to get uboot commit flag!\n");
+		ret = -ENODEV;
+		goto err_exit;
+	}
+
 	i++;
-	nand_dev.addr_map_tbl[i].pa =
-		virt_to_phys((void *)nand_dev.nanddisk_code_start);
-	nand_dev.addr_map_tbl[i].va = (void *)nand_dev.nanddisk_code_start;
+	nand_dev.addr_map_tbl[i].pa = nand_dev.nanddisk_code_start;
+	nand_dev.addr_map_tbl[i].va =
+		(void *)phys_to_virt(nand_dev.nanddisk_code_start);
 	nand_dev.addr_map_tbl[i].size = nand_dev.nanddisk_code_size;
 	nand_dev.addr_map_tbl[i].flag = ADDR_MAP_FLAG_CACHE;
 	dev_dbg(dev, "get firmware va 0x%p, pa 0x%x, size 0x%x.\n",
@@ -844,23 +878,15 @@ static int nand_alloc_resource(struct platform_device *pdev)
 
 	dev_dbg(dev, "nand clk is %ld\n", clk_get_rate(nand_dev.nand_clk));
 
+	nand_dev.pfn_ioctrl =
+		(PFN_NANDDISK_IOCTRL)phys_to_virt(nand_dev.nanddisk_code_start);
+
 	dev_dbg(dev, "nanddisk area: ram[0x%x,0x%x]\n",
 		nand_dev.nanddisk_code_start,
 		nand_dev.nanddisk_code_start + nand_dev.nanddisk_code_size);
-	dev_dbg(dev, "bootzone shadow area: sector[%d,%d]\n",
-		nand_dev.boot_zone_log_sector_start,
-		nand_dev.boot_zone_log_sector_start +
-		nand_dev.boot_zone_log_sector_num);
 
-	if (!nand_dev.boot_zone_log_sector_start ||
-		!nand_dev.boot_zone_log_sector_num ||
-		!nand_dev.nanddisk_code_start ||
-		!nand_dev.nanddisk_code_size) {
-		dev_err(dev, "invalid nandinfo\n");
-		return -1;
-	}
-
-	nand_dev.pfn_ioctrl = (PFN_NANDDISK_IOCTRL)nand_dev.nanddisk_code_start;
+	nand_dev.nandboot = 1;
+	nand_dev.nandinsert = 1;
 
 	return 0;
 err_exit:
@@ -1006,11 +1032,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	dev_dbg(dev, "sector num is %d\n", nand_dev.sectors_num);
 
 	nand_dev.power = 1;
-
-	nand_dev.sector_size_shift =
-	  blksize_bits(nand_dev.nand_chip_info.io_bdev_info.byte_per_sector);
-	dev_dbg(dev, "sector size shift=%d\n", nand_dev.sector_size_shift);
-	nand_dev.size = nand_dev.sectors_num << nand_dev.sector_size_shift;
 
 	spin_lock_init(&nand_dev.lock);
 
