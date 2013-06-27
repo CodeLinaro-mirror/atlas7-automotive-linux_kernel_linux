@@ -722,6 +722,7 @@ static int nand_alloc_resource(struct platform_device *pdev)
 	dma_cap_mask_t dma_cap_mask;
 	int i, ret, addr_map_tbl_size;
 	int resource_index;
+	unsigned int value;
 
 	/* total other controller */
 	nand_dev.addr_entry_num = ARRAY_SIZE(other);
@@ -811,6 +812,19 @@ static int nand_alloc_resource(struct platform_device *pdev)
 		nand_dev.addr_map_tbl[i].va,
 		nand_dev.addr_map_tbl[i].pa,
 		nand_dev.addr_map_tbl[i].size);
+
+	/*
+	 * nand and sd0 share the same slot
+	 * 0x3: sd0
+	 * 0x7: sd0 boot partition
+	 */
+
+	value = readl(nand_dev.addr_map_tbl[i].va) & 0x7;
+	dev_dbg(dev, "value is 0x%x\n", value);
+	if (value == 0x3 || value == 0x7) {
+		ret = -ENODEV;
+		goto err_exit;
+	}
 
 	/* firmware area */
 	if (of_property_read_u32(dn, "sirf,nanddisk-uboot-commit-flag",
