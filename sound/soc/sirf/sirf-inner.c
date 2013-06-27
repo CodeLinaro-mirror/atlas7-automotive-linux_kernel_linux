@@ -20,7 +20,9 @@
 struct sirf_inner_card {
 	unsigned int            gpio_hp_pa;
 	unsigned int            gpio_spk_pa;
-
+	/*
+	 * Android platform uses switch gpio instead of jack.
+	 */
 #ifndef CONFIG_ANDROID
 	unsigned int            gpio_hp_detect;
 	struct snd_soc_jack     hp_jack;
