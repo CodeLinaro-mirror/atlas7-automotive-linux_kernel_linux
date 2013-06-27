@@ -617,6 +617,8 @@
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
 					wp-inverted;
+					broken-cd;
+					non-removable;
 					status = "disabled";
 					bus-width = <8>;
 					clocks = <&clks 36>;

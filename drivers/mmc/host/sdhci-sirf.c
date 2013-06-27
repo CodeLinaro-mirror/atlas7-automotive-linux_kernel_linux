@@ -16,6 +16,8 @@
 #include <linux/pinctrl/consumer.h>
 #include "sdhci-pltfm.h"
 
+#define SDHCI_CLK_DELAY_SETTING	0x4C
+
 struct sdhci_sirf_priv {
 	struct clk *clk;
 	int gpio_cd;
@@ -28,8 +30,17 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	return clk_get_rate(priv->clk);
 }
 
+static void sdhci_sirf_platform_resume(struct sdhci_host *host)
+{
+	/* restore controller setting */
+	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
+	sdhci_writeb(host, 0xE, SDHCI_TIMEOUT_CONTROL);
+
+}
+
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
+	.platform_resume = sdhci_sirf_platform_resume,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
@@ -37,6 +48,7 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 	.quirks = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
 		SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK |
 		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
+		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
 
@@ -80,6 +92,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	pltfm_host->priv = priv;
 
 	sdhci_get_of_property(pdev);
+	mmc_of_parse(host->mmc);
 
 	clk_prepare_enable(priv->clk);
 
@@ -99,6 +112,8 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 			goto err_request_cd;
 		}
 	}
+
+	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
 
 	return 0;
 
