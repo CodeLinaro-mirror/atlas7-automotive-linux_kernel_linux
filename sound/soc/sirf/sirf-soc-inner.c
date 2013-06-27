@@ -24,18 +24,13 @@
 #include "sirf-audio.h"
 #include "sirf-pcm.h"
 
-#define SYS_PWR_BASE          0x3000
-#define PWRC_PDN_CTRL          0x0
-#define SYS_PWRC_PDN_CTRL		(SYS_PWR_BASE + PWRC_PDN_CTRL)
-
-#define AUDIO_POWER_EN_BIT     (0xE)
-
 struct sirf_soc_inner_audio {
 	void __iomem            *base;
 	unsigned int            irq;
 	unsigned int            playing;
 	struct clk              *clk;
 	spinlock_t              lock;
+	u32			sys_pwrc_reg_base;
 };
 
 static int sirf_inner_control(struct snd_kcontrol *kcontrol,
@@ -181,8 +176,11 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-					SYS_PWRC_PDN_CTRL) | (1 << AUDIO_POWER_EN_BIT),
-				SYS_PWRC_PDN_CTRL);
+			(sinner_audio->sys_pwrc_reg_base +
+			PWRC_PDN_CTRL_OFFSET))
+			| (1 << AUDIO_POWER_EN_BIT),
+			sinner_audio->sys_pwrc_reg_base +
+			PWRC_PDN_CTRL_OFFSET);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
 				IC_CODEC_CLK_EN | IC_POR,
@@ -450,6 +448,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	u32 rx_dma_ch, tx_dma_ch;
 	struct sirf_soc_inner_audio *sinner_audio;
 	struct resource *mem_res;
+	struct device_node *dn = NULL;
 
 	sinner_audio = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
@@ -470,6 +469,19 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to audio playback dma channel\n");
 		return ret;
 	}
+
+	dn = of_find_compatible_node(dn, NULL, "sirf,prima2-pwrc");
+	if (!dn) {
+		dev_err(&pdev->dev, "Failed to get sirf,prima2-pwrc  node!\n");
+		return -ENODEV;
+	}
+
+	ret = of_property_read_u32(dn, "reg", &sinner_audio->sys_pwrc_reg_base);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed tp get pwrc register base address\n");
+		return -EINVAL;
+	}
+
 	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
 
