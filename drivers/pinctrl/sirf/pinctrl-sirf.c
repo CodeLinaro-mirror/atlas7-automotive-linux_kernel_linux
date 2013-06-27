@@ -306,13 +306,13 @@ static int sirfsoc_gpio_of_xlate(struct gpio_chip *gc,
        u32 *flags)
 {
        if (gpiospec->args[0] > SIRFSOC_GPIO_NO_OF_BANKS * SIRFSOC_GPIO_BANK_SIZE)
-               return -EINVAL;
+		return -EINVAL;
 
        if (gc != &sgpio_bank[gpiospec->args[0] / SIRFSOC_GPIO_BANK_SIZE].chip.gc)
-               return -EINVAL;
+		return -EINVAL;
 
        if (flags)
-               *flags = gpiospec->args[1];
+		*flags = gpiospec->args[1];
 
        return gpiospec->args[0] % SIRFSOC_GPIO_BANK_SIZE;
 }
@@ -829,6 +829,22 @@ static void sirfsoc_gpio_set_pulldown(const u32 *pulldowns)
 	}
 }
 
+static void sirfsoc_gpio_disable_pull(u32 *pullups, u32 *pulldowns)
+{
+	int i, n;
+	unsigned long *p = (unsigned long *)pullups;
+	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++)
+		p[i] |= pulldowns[i];
+	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
+		for_each_clear_bit(n, p + i, BITS_PER_LONG) {
+			u32 offset = SIRFSOC_GPIO_CTRL(i, n);
+			u32 val = readl(sgpio_bank[i].chip.regs + offset);
+			val &= ~SIRFSOC_GPIO_CTL_PULL_MASK;
+			writel(val, sgpio_bank[i].chip.regs + offset);
+		}
+	}
+}
+
 static int sirfsoc_gpio_probe(struct device_node *np)
 {
 	int i, err = 0;
@@ -836,6 +852,9 @@ static int sirfsoc_gpio_probe(struct device_node *np)
 	void *regs;
 	struct platform_device *pdev;
 	bool is_marco = false;
+
+	int haspullups = 0;
+	int haspulldowns = 0;
 
 	u32 pullups[SIRFSOC_GPIO_NO_OF_BANKS], pulldowns[SIRFSOC_GPIO_NO_OF_BANKS];
 
@@ -903,12 +922,19 @@ static int sirfsoc_gpio_probe(struct device_node *np)
 	}
 
 	if (!of_property_read_u32_array(np, "sirf,pullups", pullups,
-		SIRFSOC_GPIO_NO_OF_BANKS))
+		SIRFSOC_GPIO_NO_OF_BANKS)) {
 		sirfsoc_gpio_set_pullup(pullups);
+		haspullups = 1;
+	}
 
 	if (!of_property_read_u32_array(np, "sirf,pulldowns", pulldowns,
-		SIRFSOC_GPIO_NO_OF_BANKS))
+		SIRFSOC_GPIO_NO_OF_BANKS)) {
 		sirfsoc_gpio_set_pulldown(pulldowns);
+		haspulldowns = 1;
+	}
+
+	if (haspullups && haspulldowns)
+		sirfsoc_gpio_disable_pull(pullups, pulldowns);
 
 	return 0;
 
