@@ -118,6 +118,7 @@
 				compatible = "sirf,prima2-usp-uart";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp1_pins_a>;
+				hw_flow_ctrl;
 				rfs-gpios = <&gpio 15 0>;
 				tfs-gpios = <&gpio 46 0>;
 			};
