@@ -95,23 +95,10 @@ int ts_linear_scale(int *x, int *y, int swap_xy)
 	*y = (cal.param[5] + cal.param[3] * xtemp +
 			cal.param[4] * ytemp) / cal.param[6];
 
-	/*if (cpu_is_prima2_BX()) {*/
-	if (of_machine_is_compatible("sirf,prima2-cb")) {
+	if (cal.param[7] && cal.param[8]) {
 		/* screen size and touch mapping */
-		*x = *x * 0xFFF / 0x320;
-		*y = *y * 0xFFF / 0x1E0;
-	/*} else if (cpu_is_prima2_A1()) {*/
-		/* 800*480 */
-		/**x = *x * 0x3FFF / 0x320;
-		*y = *y * 0x3FFF / 0x1E0;*/
-	} else if (of_machine_is_compatible("sirf,atlas6-cb")) {
-		/* 800*480 */
-		*x = *x * 0x3FFF / 0x320;
-		*y = *y * 0x3FFF / 0x1E0;
-	} else if (of_machine_is_compatible("sirf,atlas6-lc")) {
-		/* 800*600 */
-		*x = *x * 0x3FFF / 0x320;
-		*y = *y * 0x3FFF / 0x258;
+		*x = *x * 0x3FFF / cal.param[7];
+		*y = *y * 0x3FFF / cal.param[8];
 	}
 
 	if (swap_xy) {
