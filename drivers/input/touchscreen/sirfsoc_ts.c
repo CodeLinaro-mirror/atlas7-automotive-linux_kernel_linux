@@ -357,31 +357,16 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		goto out2;
 	}
 
-	np = of_parse_phandle(pdev->dev.of_node, "default-parameter", 0);
-	if (!np) {
-		dev_err(&pdev->dev, "sirfsoc ts: Fail to get ts parameter!\n");
-		ret = -EINVAL;
-		goto out2;
-	}
+	/*the value about touch accuracy*/
+	ts->debounce_rep = 0x01;
+	ts->debounce_max = 0x03;
+	ts->debounce_tol = 0x30;
 
-	ret = of_property_read_u32(np, "x_min", &ts->x_min);
-	ret |= of_property_read_u32(np, "x_max", &ts->x_max);
-	ret |= of_property_read_u32(np, "y_min", &ts->y_min);
-	ret |= of_property_read_u32(np, "y_max", &ts->y_max);
-	ret |= of_property_read_u32(np, "debounce_rep", &ts->debounce_rep);
-	ret |= of_property_read_u32(np, "debounce_max", &ts->debounce_max);
-	ret |= of_property_read_u32(np, "debounce_tol", &ts->debounce_tol);
-	ret |= of_property_read_u32(np, "interval", &ts->interval);
+	/*the touch report interval*/
+	ts->interval = 10;
 
-	if (!ret) {
-		input_set_abs_params(input_dev, ABS_X,
-				ts->x_min, ts->x_max, 0, 0);
-		input_set_abs_params(input_dev, ABS_Y,
-				ts->y_min, ts->y_max, 0, 0);
-	} else {
-		input_set_abs_params(input_dev, ABS_X, 0, 0x3FF, 0, 0);
-		input_set_abs_params(input_dev, ABS_Y, 0, 0x3FF, 0, 0);
-	}
+	input_set_abs_params(input_dev, ABS_X, 0, 0x3FFF, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, 0x3FFF, 0, 0);
 
 	return 0;
 
