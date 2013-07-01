@@ -6,8 +6,12 @@ fifosize: Uart hardware rx/tx fifo size
 clocks: Uart clock frequency
 sirf,uart-dma-rx-channel: Uart rx dma channel number
 sirf,uart-dma-tx-channel: Uart tx dma channel number
+rfs-gpios: Usp urfs gpio pin
+tfs-gpios: Usp utfs gpio pin
+sirf,usp-dma-rx-channel: Usp rx dma channel number
+sirf,usp-dma-tx-channel: Usp tx dma channel number
 
-example:
+uart example:
 uart0: uart@b0050000 {
 			cell-index = <0>;
 			compatible = "sirf,prima2-uart";
@@ -17,4 +21,15 @@ uart0: uart@b0050000 {
 			clocks = <&clks 13>;
 			sirf,uart-dma-rx-channel = <21>;
 			sirf,uart-dma-tx-channel = <2>;
+};
+usp-uart example:
+usp1: usp@b0090000 {
+			cell-index = <1>;
+			compatible = "sirf,prima2-usp";
+			reg = <0xb0090000 0x10000>;
+			interrupts = <21>;
+			fifosize = <128>;
+			clocks = <&clks 29>;
+			sirf,usp-dma-rx-channel = <14>;
+			sirf,usp-dma-tx-channel = <15>;
 };
