@@ -255,6 +255,8 @@
 				interrupts = <21>;
 				fifosize = <128>;
 				clocks = <&clks 29>;
+				sirf,usp-dma-rx-channel = <14>;
+				sirf,usp-dma-tx-channel = <15>;
 			};
 
 			dmac0: dma-controller@b00b0000 {
