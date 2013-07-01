@@ -1438,11 +1438,28 @@ int sirfsoc_uart_probe(struct platform_device *pdev)
 
 	if (of_find_property(pdev->dev.of_node, "hw_flow_ctrl", NULL))
 		sirfport->hw_flow_ctrl = 1;
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart"))
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart")) {
 		sirfport->uart_reg->uart_type = sirf_real_uart;
+		if (of_property_read_u32(pdev->dev.of_node,
+				"sirf,uart-dma-rx-channel",
+				&sirfport->rx_dma_no))
+			sirfport->rx_dma_no = -1;
+		if (of_property_read_u32(pdev->dev.of_node,
+				"sirf,uart-dma-tx-channel",
+				&sirfport->tx_dma_no))
+			sirfport->tx_dma_no = -1;
+	}
 	if (of_device_is_compatible(pdev->dev.of_node,
 					"sirf,prima2-usp-uart")) {
 		sirfport->uart_reg->uart_type =	sirf_usp_uart;
+		if (of_property_read_u32(pdev->dev.of_node,
+				"sirf,usp-dma-rx-channel",
+				&sirfport->rx_dma_no))
+			sirfport->rx_dma_no = -1;
+		if (of_property_read_u32(pdev->dev.of_node,
+				"sirf,usp-dma-tx-channel",
+				&sirfport->tx_dma_no))
+			sirfport->tx_dma_no = -1;
 		if (!sirfport->hw_flow_ctrl)
 			goto usp_no_flow_control;
 		if (of_find_property(pdev->dev.of_node, "rfs-gpios", NULL))
@@ -1491,14 +1508,6 @@ usp_no_flow_control:
 		goto err;
 	}
 
-	if (of_property_read_u32(pdev->dev.of_node,
-				"sirf,uart-dma-rx-channel",
-				&sirfport->rx_dma_no))
-		sirfport->rx_dma_no = -1;
-	if (of_property_read_u32(pdev->dev.of_node,
-				"sirf,uart-dma-tx-channel",
-				&sirfport->tx_dma_no))
-		sirfport->tx_dma_no = -1;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "Insufficient resources.\n");
