@@ -699,19 +699,36 @@
 			#size-cells = <1>;
 			ranges = <0xb8000000 0xb8000000 0x40000>;
 
-			usbphy: usbphy@b8010200 {
+			usbphy0: usbphy0@b8000200 {
+				compatible = "usbphy,ci13611a-prima2";
+				reg = <0xb8000200 0x100>;
+				clocks = <&clks 39>;
+			};
+
+			usbcontroller0: usbcontroller0@b8000000 {
+				compatible = "chipidea,ci13611a-prima2";
+				reg = <0xb8000000 0x200>;
+				interrupts = <10>;
+				clocks = <&clks 40>;
+				resets = <&rstc 8>;
+				usbphy,ci13611a-prima2 = <&usbphy0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&usb0_utmi_drvbus_pins_a>;
+			};
+
+			usbphy1: usbphy1@b8010200 {
 				compatible = "usbphy,ci13611a-prima2";
 				reg = <0xb8010200 0x100>;
 				clocks = <&clks 39>;
 			};
 
-			usbcontroller: usbcontroller@b8010000 {
+			usbcontroller1: usbcontroller1@b8010000 {
 				compatible = "chipidea,ci13611a-prima2";
 				reg = <0xb8010000 0x200>;
 				interrupts = <11>;
 				clocks = <&clks 41>;
 				resets = <&rstc 9>;
-				usbphy,ci13611a-prima2 = <&usbphy>;
+				usbphy,ci13611a-prima2 = <&usbphy1>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&usb1_utmi_drvbus_pins_a>;
 			};
