@@ -1354,11 +1354,15 @@ static int sirfsocfb_setcolreg(unsigned regno, unsigned red, unsigned green,
 	if (layer != LCD_PRIMARY)
 		return 0;
 
-	if (info->fix.visual == FB_VISUAL_TRUECOLOR)
+	if (info->fix.visual == FB_VISUAL_TRUECOLOR) {
+		if (regno >= 16)
+			return -EINVAL;
+
 		((u32 *)(info->pseudo_palette))[regno] =
 			(red << info->var.red.offset)	  |
 			(green << info->var.green.offset) |
 			(blue << info->var.blue.offset);
+	}
 
 	return 0;
 }
