@@ -165,7 +165,7 @@ static int sirf_phy_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id sirf_phy_dt_ids[] = {
-	{ .compatible = "sirf,ci13xxx-usbphy", },
+	{ .compatible = "usbphy,ci13611a-prima2", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sirf_phy_dt_ids);

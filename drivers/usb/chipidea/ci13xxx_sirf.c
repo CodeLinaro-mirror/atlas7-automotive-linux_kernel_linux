@@ -27,26 +27,32 @@
 #define USB1_MODE_SEL		BIT(2)
 #define pdev_to_phy(pdev)	((struct usb_phy *)platform_get_drvdata(pdev))
 
-static int sirfsoc_vbus_gpio;
-
 struct ci13xxx_sirf_data {
 	struct platform_device	*ci_pdev;
 	struct clk		*clk;
+	struct device           *dev;
+	int			vbus;
 };
 
-static inline int ci13xxx_sirf_drive_vbus(int value)
+static inline int
+ci13xxx_sirf_drive_vbus(struct ci13xxx *ci, int value)
 {
-	return gpio_direction_output(sirfsoc_vbus_gpio, value ? 0 : 1);
+	struct ci13xxx_sirf_data *data = container_of(&ci->dev,
+					struct ci13xxx_sirf_data, dev);
+	if (data->vbus)
+		return gpio_direction_output(data->vbus, value ? 0 : 1);
+
+	return 0;
 }
 
 static void ci13xxx_sirf_notify_event(struct ci13xxx *ci, unsigned event)
 {
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
-		ci13xxx_sirf_drive_vbus(1);
+		ci13xxx_sirf_drive_vbus(ci, 1);
 		break;
 	case CI13XXX_CONTROLLER_STOPPED_EVENT:
-		ci13xxx_sirf_drive_vbus(0);
+		ci13xxx_sirf_drive_vbus(ci, 0);
 		break;
 	default:
 		dev_info(ci->dev, "Unknown Event\n");
@@ -102,17 +108,16 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 			"Failed to reset device, err=%d\n", ret);
 
 	/* 3. vbus configuration */
-	sirfsoc_vbus_gpio = of_get_named_gpio(pdev->dev.of_node,
+	data->vbus = of_get_named_gpio(pdev->dev.of_node,
 							"vbus-gpios", 0);
-	if (sirfsoc_vbus_gpio < 0) {
-		dev_err(&pdev->dev, "Can't get vbus gpio from DT\n");
-		ret = -ENODEV;
-		goto err;
+	if (data->vbus < 0) {
+		dev_info(&pdev->dev, "Can't get vbus gpio from DT\n");
+		data->vbus = 0;
 	}
-	ret = gpio_request(sirfsoc_vbus_gpio, "ci13xxx_sirf");
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to get gpio control\n");
-		goto err;
+	if (data->vbus) {
+		ret = gpio_request(data->vbus, "ci13xxx_sirf");
+		if (ret)
+			dev_info(&pdev->dev, "Failed to get gpio control\n");
 	}
 
 	/* 4. rsc control */
@@ -145,7 +150,8 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 	}
 
 	/* 6. get phy for controller */
-	phy_np = of_parse_phandle(pdev->dev.of_node, "sirf,ci13xxx-usbphy", 0);
+	phy_np = of_parse_phandle(pdev->dev.of_node,
+					"usbphy,ci13611a-prima2", 0);
 	if (!phy_np) {
 		dev_err(&pdev->dev, "Failed to get phy device node\n");
 		ret = -ENODEV;
@@ -176,6 +182,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, plat_ci);
+	data->dev = &plat_ci->dev;
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -201,7 +208,7 @@ static int ci13xxx_sirf_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ci13xxx_sirf_dt_ids[] = {
-	{ .compatible = "sirf,ci13xxx-usbcontroller", },
+	{ .compatible = "chipidea,ci13611a-prima2", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ci13xxx_sirf_dt_ids);
