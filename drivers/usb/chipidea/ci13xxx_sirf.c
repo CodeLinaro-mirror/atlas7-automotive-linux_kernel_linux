@@ -28,17 +28,18 @@
 #define pdev_to_phy(pdev)	((struct usb_phy *)platform_get_drvdata(pdev))
 
 struct ci13xxx_sirf_data {
-	struct platform_device	*ci_pdev;
+	struct platform_device	*plat_ci;
 	struct clk		*clk;
-	struct device           *dev;
 	int			vbus;
 };
 
 static inline int
 ci13xxx_sirf_drive_vbus(struct ci13xxx *ci, int value)
 {
-	struct ci13xxx_sirf_data *data = container_of(&ci->dev,
-					struct ci13xxx_sirf_data, dev);
+	struct platform_device *pdev = container_of(ci->dev->parent,
+						struct platform_device, dev);
+	struct ci13xxx_sirf_data *data = platform_get_drvdata(pdev);
+
 	if (data->vbus)
 		return gpio_direction_output(data->vbus, value ? 0 : 1);
 
@@ -86,6 +87,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to allocate ci13xxx_sirf_data!\n");
 		return -ENOMEM;
 	}
+	platform_set_drvdata(pdev, data);
 
 	/* 1. set usb controller clock */
 	data->clk = devm_clk_get(&pdev->dev, NULL);
@@ -180,9 +182,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ci13xxx_add_device failed!\n");
 		return PTR_ERR(plat_ci);
 	}
-
-	platform_set_drvdata(pdev, plat_ci);
-	data->dev = &plat_ci->dev;
+	data->plat_ci = plat_ci;
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -200,7 +200,7 @@ static int ci13xxx_sirf_remove(struct platform_device *pdev)
 	struct ci13xxx_sirf_data *data = platform_get_drvdata(pdev);
 
 	pm_runtime_disable(&pdev->dev);
-	ci13xxx_remove_device(data->ci_pdev);
+	ci13xxx_remove_device(data->plat_ci);
 
 	clk_disable_unprepare(data->clk);
 
