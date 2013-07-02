@@ -39,8 +39,7 @@ static ctl_table ts_proc_calibration_table[] = {
 	.maxlen = sizeof(cal.param),
 	.mode = 0666,
 	.proc_handler = &proc_dointvec,
-	},
-	{
+	}, {
 	.procname = "cali_mode",
 	.data = &cal.cali_mode,
 	.maxlen = sizeof(int),
@@ -114,16 +113,16 @@ static int __init ts_linear_init(void)
 {
 	ts_sysctl_header = register_sysctl_table(ts_dev_root);
 	/* Use default values for calibrate*/
-		cal.param[0] = -3966;
-		cal.param[1] = -8;
-		cal.param[2] = 54124960;
-		cal.param[3] = -19;
-		cal.param[4] = 2601;
-		cal.param[5] = -2492944;
-		cal.param[6] = 65536;
-		cal.param[7] = 800;
-		cal.param[8] = 480;
-		cal.cali_mode = 0;
+	cal.param[0] = -3966;
+	cal.param[1] = -8;
+	cal.param[2] = 54124960;
+	cal.param[3] = -19;
+	cal.param[4] = 2601;
+	cal.param[5] = -2492944;
+	cal.param[6] = 65536;
+	cal.param[7] = 800;
+	cal.param[8] = 480;
+	cal.cali_mode = 0;
 
 	return 0;
 }

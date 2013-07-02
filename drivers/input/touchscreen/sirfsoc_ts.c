@@ -37,8 +37,6 @@ enum sirfsoc_ts_filter {
 };
 
 struct sirfsoc_ts {
-	int				x_min, x_max;
-	int				y_min, y_max;
 	int				x, y;
 	char				phys[32];
 	int				read_cnt;
@@ -58,7 +56,7 @@ struct sirfsoc_ts {
 	struct input_dev		*input;
 };
 
-static int get_pendown_state(struct sirfsoc_ts *ts)
+static int sirfsoc_ts_get_pendown(struct sirfsoc_ts *ts)
 {
 	return sirfsoc_adc_read_reg(ADC_COORD) & PEN_DOWN;
 }
@@ -246,7 +244,7 @@ static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 	struct input_dev *input = ts->input;
 
 	ts->press_hold_cnt = 0;
-	while (get_pendown_state(ts)) {
+	while (sirfsoc_ts_get_pendown(ts)) {
 		if (!sirfsoc_ts_read_state(ts))
 			sirfsoc_ts_report_state(ts);
 		ts->press_hold_cnt++;
@@ -263,10 +261,10 @@ static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 
 static irqreturn_t sirfsoc_ts_hard_irq(int irq, void *handle)
 {
-	int val;
+	int adc_intr;
 
-	val = sirfsoc_adc_read_reg(ADC_INTR);
-	if (val & PEN_INTR)
+	adc_intr = sirfsoc_adc_read_reg(ADC_INTR);
+	if (adc_intr & PEN_INTR)
 		sirfsoc_adc_write_reg(PEN_INTR | PEN_INTR_EN | DATA_INTR_EN,
 			ADC_INTR);
 
@@ -276,12 +274,11 @@ static irqreturn_t sirfsoc_ts_hard_irq(int irq, void *handle)
 static int sirfsoc_ts_probe(struct platform_device *pdev)
 {
 	struct input_dev		*input_dev;
-	struct device_node		*np;
 	struct sirfsoc_ts		*ts;
-	int				ret = 0;
-	int				val;
-	int				i = 0;
+	int				ret;
+	int				i;
 	int				irq;
+
 	const unsigned int codes[] = {
 		KEY_HOME, KEY_MENU, KEY_BACK, KEY_SEARCH,
 	};
@@ -333,10 +330,9 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	sirfsoc_adc_write_reg(ADC_PRP_MODE3 | ADC_RTOUCH(1) |
 		ADC_DEL_PRE(2) | ADC_DEL_DIS(5), ADC_CONTROL2);
 
-	val = sirfsoc_adc_read_reg(ADC_INTR);
 
 	/* Clear interrupts and enable PEN INTR */
-	sirfsoc_adc_write_reg(val | PEN_INTR | DATA_INTR |
+	sirfsoc_adc_write_reg(sirfsoc_adc_read_reg(ADC_INTR) | PEN_INTR | DATA_INTR |
 		PEN_INTR_EN | DATA_INTR_EN, ADC_INTR);
 
 
