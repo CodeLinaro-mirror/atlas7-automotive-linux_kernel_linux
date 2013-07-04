@@ -13,6 +13,9 @@
 #include <linux/delay.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/videodev2.h>
+#include <linux/interrupt.h>
+#include <linux/workqueue.h>
+#include <linux/gpio.h>
 
 #include <media/soc_camera.h>
 #include <media/ch7102.h>
@@ -22,6 +25,31 @@
 #define WIDTH  1280
 #define HEIGHT	720
 
+/* GPIO1,10 used as HPT interrupt */
+#define GPIO_INTR 42
+/* page selection register: register 00 */
+#define PG_SEL	0x00
+#define PAGE1	0x00
+#define PAGE2	0x01
+#define PAGE3	0x02
+#define PAGE4	0x03
+#define PAGE5	0x04
+#define PAGE6	0x05
+#define PAGE7	0x06
+#define PAGE8	0x07
+#define PAGE9	0x08
+#define PAGE10	0x09
+#define PAGE11	0x0A
+#define PAGE12	0x0B
+
+/* chip id :register 0xFE of page 12 */
+#define CHIPID	0xFE
+/* general status: register 0x05 of page 2 */
+#define STATUS	0x05
+/* chip control: register 0x19 of page 10 */
+#define CONTROL	0x19
+
+
 /*
  * structure
  */
@@ -30,7 +58,6 @@ struct ch7102_priv {
 	struct v4l2_subdev		subdev;
 	struct ch7102_video_info	*info;
 	u32				preset;
-	u32				revision;
 };
 
 /*
@@ -49,6 +76,22 @@ static struct ch7102_priv *to_ch7102(const struct i2c_client *client)
 static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u8 value = 0;
+
+	if (enable) {
+		/*	select page 10 */
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+		value = i2c_smbus_read_byte_data(client, CONTROL);
+		/*	enable output	*/
+		value |= 0x80;
+		i2c_smbus_write_byte_data(client, CONTROL, value);
+	} else {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+		value = i2c_smbus_read_byte_data(client, CONTROL);
+		/*	set output to tri-state	*/
+		value &= ~0x80;
+		i2c_smbus_write_byte_data(client, CONTROL, value);
+	}
 
 	return 0;
 }
@@ -58,10 +101,12 @@ static int ch7102_g_chip_ident(struct v4l2_subdev *sd,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ch7102_priv *priv = to_ch7102(client);
+	/*	select page 12	*/
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE12);
+	id->ident = i2c_smbus_read_byte_data(client, CHIPID);
 
-	id->ident = 10;
-	id->revision = priv->revision;
-
+	dev_info(&client->dev,
+			 "ch7102 Product ID %0x\n", id);
 	return 0;
 }
 
@@ -224,6 +269,34 @@ static struct v4l2_subdev_ops ch7102_subdev_ops = {
 };
 
 static struct i2c_client *ch7102_client;
+struct workqueue_struct *gwkq;
+struct work_struct gwk;
+
+static irqreturn_t ch7102_irq_handler(int irq, void *data)
+{
+	queue_work(gwkq, &gwk);
+	return IRQ_HANDLED;
+}
+
+void hpdwork(struct work_struct *work)
+{
+	if (gpio_get_value(GPIO_INTR)) {
+		if (ch7102_client) {
+			char *event_string = "HOTPLUG=1";
+			char *envp[] = {event_string, NULL};
+			kobject_uevent_env(&ch7102_client->dev.kobj,
+				KOBJ_ADD, envp);
+		}
+	} else {
+		if (ch7102_client) {
+			char *event_string = "HOTPLUG=0";
+			char *envp[] = {event_string, NULL};
+			kobject_uevent_env(&ch7102_client->dev.kobj,
+				KOBJ_REMOVE, envp);
+		}
+	}
+
+}
 
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
@@ -233,6 +306,8 @@ static int ch7102_probe(struct i2c_client *client,
 	struct i2c_adapter             *adapter =
 		to_i2c_adapter(client->dev.parent);
 	struct soc_camera_subdev_desc   *ssdd = soc_camera_i2c_to_desc(client);
+	int ret;
+	u8 id;
 
 	if (!ssdd || !ssdd->drv_priv) {
 		dev_err(&client->dev, "ch7102: missing platform data!\n");
@@ -257,6 +332,27 @@ static int ch7102_probe(struct i2c_client *client,
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ch7102_subdev_ops);
 
 	ch7102_client = client;
+
+	hpdwork(NULL);
+	devm_gpio_request(&client->dev, GPIO_INTR, "sirfsoc_hdmi_rec_intr");
+
+	client->irq = gpio_to_irq(GPIO_INTR);
+	gwkq = create_singlethread_workqueue("hdmi");
+	if (gwkq == NULL) {
+		dev_err(&client->dev,
+			"%s: create_singlethread_workqueue failed.\n",
+			__func__);
+		return 0;
+	}
+
+	INIT_WORK(&gwk, (work_func_t)&hpdwork);
+	ret = devm_request_irq(&client->dev, client->irq, ch7102_irq_handler,
+				IRQF_SHARED | IRQF_TRIGGER_RISING |
+				IRQF_TRIGGER_FALLING, "SIRFSOC-HDMI", client);
+	if (ret != 0) {
+		dev_err(&client->dev, "%s: request_irq failed.\n", __func__);
+		return ret;
+	}
 
 	return ch7102_video_probe(client);
 }
