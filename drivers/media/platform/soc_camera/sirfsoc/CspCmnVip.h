@@ -163,7 +163,7 @@ typedef enum _LCD_PIXELFORMAT_
 
 #define     VIP_CTRL_CCIR656_EN        0x01000000
 #define     VIP_CTRL_FID               0x02000000   /* FID */
-
+#define     VIP_CTRL_SINGLE_MODE       0x04000000
 
 /* Interrupt enable and interrupt control register */
 #define     VIP_INTMASK_ALL            0x00000007
