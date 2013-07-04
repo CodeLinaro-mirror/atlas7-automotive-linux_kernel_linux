@@ -257,6 +257,9 @@ static void sirfsoc_camera_callback (void *pdata) {
 
 	        dmaengine_submit(rx_desc);
 	        dma_async_issue_pending(pcdev->dma_chan);
+
+		if (pcdev->pdata->sirfsoc_camera_single)
+			pcdev->vip_funcs.pfnStart(0);
 	}
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
@@ -439,6 +442,7 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 			dev_info(icd->pdev, "%s: this is a HDMI receiver device\n",
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 1;
+			pdata->sirfsoc_camera_single = 1;
 		} else {
 			dev_info(icd->pdev, "%s: unsupported device\n",
 				__func__);
@@ -461,6 +465,8 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 		params->uiFlag |= VIP_CTRL_VSYNC_CTRL;
 	if (pdata->sirfsoc_camera_ccir656_en)
 		params->uiFlag |= VIP_CTRL_CCIR656_EN;
+	if (pdata->sirfsoc_camera_single)
+		params->uiFlag |= VIP_CTRL_SINGLE_MODE;
 
 	/* Vip multiplex USB0 for atlas6 */
 #ifdef CONFIG_ARCH_ATLAS6

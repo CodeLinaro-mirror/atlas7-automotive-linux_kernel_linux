@@ -383,6 +383,11 @@ static VOID __VipSoc_SetParms(VOID)
     {
         RegCamCtrl.CCIR656_EN = 1;
     }
+	if (gsVipConfig.VipSetting.uiFlag & VIP_CTRL_SINGLE_MODE) {
+		RegCamCtrl.SINGLE = 1;
+	} else {
+		RegCamCtrl.SINGLE = 0;
+	}
 #ifdef CONFIG_ARCH_ATLAS6
     if (gsVipConfig.VipSetting.uiFlag & VIP_CTRL_PAD_MUX_UPLI)
     {

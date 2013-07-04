@@ -49,6 +49,7 @@ struct sirfsoc_camera_platform_data {
 	unsigned long sirfsoc_camera_vsync_en:1;
 	unsigned long sirfsoc_camera_ccir656_en:1;
 	unsigned long sirfsoc_camera_interlaced:1;
+	unsigned long sirfsoc_camera_single:1;
 };
 
 struct sirfsoc_camera_dev {
