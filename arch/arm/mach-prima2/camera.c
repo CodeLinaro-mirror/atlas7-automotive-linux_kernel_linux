@@ -42,7 +42,7 @@ struct soc_camera_desc camera_desc = {
 };
 
 static struct i2c_board_info hdmireceiver_i2c_ch7102 = {
-		I2C_BOARD_INFO("ch7102", (0x10 >> 1)),
+		I2C_BOARD_INFO("ch7102", (0xF0 >> 1)),
 };
 
 static struct ch7102_video_info ch7102_info = {
@@ -52,7 +52,7 @@ static struct ch7102_video_info ch7102_info = {
 struct soc_camera_desc camera_desc1 = {
 	.host_desc = {
 		.bus_id = 0,
-		.i2c_adapter_id = 0,
+		.i2c_adapter_id = 1,
 		.board_info = &hdmireceiver_i2c_ch7102,
 	},
 

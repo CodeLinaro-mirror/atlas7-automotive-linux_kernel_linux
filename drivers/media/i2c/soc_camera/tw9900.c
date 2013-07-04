@@ -522,6 +522,19 @@ static int tw9900_s_stream(struct v4l2_subdev *sd, int enable)
 		i2c_smbus_write_byte_data(client, 0x09, 0x1F);
 	}
 
+	if (enable) {
+		value = i2c_smbus_read_byte_data(client, OPFORM);
+		/*	enable all output	*/
+		value &= 0xF8;
+		i2c_smbus_write_byte_data(client, value, OPFORM);
+	} else {
+		value = i2c_smbus_read_byte_data(client, OPFORM);
+		/*	set all output to tri-state	*/
+		value |= 0x07;
+		i2c_smbus_write_byte_data(client, value, OPFORM);
+	}
+
+
 	return 0;
 #if 0
 	if (!enable) {
