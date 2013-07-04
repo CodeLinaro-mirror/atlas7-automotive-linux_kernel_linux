@@ -205,7 +205,7 @@
 				clocks = <&clks 26>;
 			};
 
-			audio@b0040000 {
+			audio: audio@b0040000 {
 				compatible = "sirf,prima2-audio";
 				reg = <0xb0040000 0x10000>;
 				interrupts = <35>;

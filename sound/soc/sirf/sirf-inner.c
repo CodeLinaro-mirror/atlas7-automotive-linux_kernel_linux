@@ -204,9 +204,9 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	sirf_inner_dai_links[0].platform_of_node =
 		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_inner_dai_links[0].cpu_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,prima2-audio");
+		of_parse_phandle(pdev->dev.of_node, "sirf,inner-platform", 0);
 	sirf_inner_dai_links[0].codec_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,prima2-audio");
+		of_parse_phandle(pdev->dev.of_node, "sirf,inner-codec", 0);
 	sinner_card->gpio_spk_pa = of_get_named_gpio(pdev->dev.of_node,
 			"spk-pa-gpios", 0);
 	sinner_card->gpio_hp_pa =  of_get_named_gpio(pdev->dev.of_node,

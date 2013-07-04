@@ -19,6 +19,8 @@
 	};
 	sound {
 		compatible = "sirf,sirf-inner";
+		sirf,inner-codec = <&audio>;
+		sirf,inner-platform = <&audio>;
 		hp-pa-gpios = <&gpio 56 0>;
 		hp-switch-gpios = <&gpio 14 0>;
 	};

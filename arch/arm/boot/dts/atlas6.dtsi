@@ -187,7 +187,7 @@
 				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
 			};
 
-			audio@b0040000 {
+			audio: audio@b0040000 {
 				compatible = "sirf,atlas6-audio";
 				reg = <0xb0040000 0x10000>;
 				interrupts = <35>;
