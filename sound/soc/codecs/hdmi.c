@@ -62,10 +62,17 @@ static int hdmi_codec_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id hdmi_audio_codec_ids[] = {
+	{ .compatible = "hdmi-audio-codec", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, hdmi_audio_codec_ids);
+
 static struct platform_driver hdmi_codec_driver = {
 	.driver		= {
 		.name	= DRV_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = hdmi_audio_codec_ids,
 	},
 
 	.probe		= hdmi_codec_probe,
