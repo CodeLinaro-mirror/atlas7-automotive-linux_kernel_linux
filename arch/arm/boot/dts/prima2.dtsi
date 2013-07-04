@@ -45,6 +45,10 @@
 			arm,filter-ranges = <0 0x40000000>;
 		};
 
+		pcm {
+			compatible = "sirf,pcm-audio";
+		};
+
 		intc: interrupt-controller@80020000 {
 			#interrupt-cells = <1>;
 			interrupt-controller;
@@ -205,6 +209,8 @@
 				compatible = "sirf,prima2-audio";
 				reg = <0xb0040000 0x10000>;
 				interrupts = <35>;
+				sirf,inner-audio-dma-rx-channel = <19>;
+				sirf,inner-audio-dma-tx-channel = <24>;
 				clocks = <&clks 27>;
 			};
 

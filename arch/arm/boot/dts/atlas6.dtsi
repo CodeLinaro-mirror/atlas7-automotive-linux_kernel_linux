@@ -188,7 +188,7 @@
 			};
 
 			audio@b0040000 {
-				compatible = "sirf,prima2-audio";
+				compatible = "sirf,atlas6-audio";
 				reg = <0xb0040000 0x10000>;
 				interrupts = <35>;
 				sirf,inner-audio-dma-rx-channel = <19>;

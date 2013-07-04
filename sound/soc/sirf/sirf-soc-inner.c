@@ -24,6 +24,22 @@
 #include "sirf-audio.h"
 #include "sirf-pcm.h"
 
+struct sirf_soc_inner_audio_reg_bits {
+	u32 dig_mic_en_bits;
+	u32 dig_mic_freq_bits;
+	u32 adc14b_12_bits;
+	u32 firdac_hsl_en_bits;
+	u32 firdac_hsr_en_bits;
+	u32 firdac_lout_en_bits;
+	u32 por_bits;
+	u32 codec_clk_en_bits;
+	u32 hp_3db_boost_bits;
+	u32 adc_left_gain_shift;
+	u32 adc_right_gain_shift;
+	u32 adc_gain_mask;
+	u32 mic_max_gain;
+};
+
 struct sirf_soc_inner_audio {
 	void __iomem            *base;
 	unsigned int            irq;
@@ -31,6 +47,15 @@ struct sirf_soc_inner_audio {
 	struct clk              *clk;
 	spinlock_t              lock;
 	u32			sys_pwrc_reg_base;
+	struct sirf_soc_inner_audio_reg_bits *reg_bits;
+};
+
+static struct sirf_soc_inner_audio_reg_bits sirf_soc_inner_audio_reg_bits_prima2 = {
+	20, 21, 22, 23, 24, 25, 26, 27, 28, 15, 10, 0x1f, 0x19,
+};
+
+static struct sirf_soc_inner_audio_reg_bits sirf_soc_inner_audio_reg_bits_atlas6 = {
+	22, 23, 24, 25, 26, 27, 28, 29, 30, 16, 10, 0x3f, 0x39,
 };
 
 static int sirf_inner_control(struct snd_kcontrol *kcontrol,
@@ -74,7 +99,8 @@ static int sirf_inner_snd_speaker_set(struct snd_kcontrol *kcontrol,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
-				IC_FIRDAC_LOUT_EN, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+				(1 << sinner_audio->reg_bits->firdac_lout_en_bits),
+				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) |
 					IC_SPEN), sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
@@ -83,7 +109,7 @@ static int sirf_inner_snd_speaker_set(struct snd_kcontrol *kcontrol,
 					& ~(IC_SPEN | IC_SPSELR)),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				& ~IC_FIRDAC_LOUT_EN,
+				& ~(1 << sinner_audio->reg_bits->firdac_lout_en_bits),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	}
 
@@ -122,7 +148,7 @@ static int sirf_inner_snd_headphone_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static struct snd_kcontrol_new snd_sirf_inner_volume_controls[] = {
+static struct snd_kcontrol_new snd_sirf_inner_volume_controls_atlas6[] = {
 	SOC_DOUBLE("Speaker Volume", AUDIO_IC_CODEC_CTRL0, 21, 14,
 			0x7F, 0),
 	SOC_DOUBLE("Capture Volume", AUDIO_IC_CODEC_CTRL1, 16, 10,
@@ -135,13 +161,32 @@ static struct snd_kcontrol_new snd_sirf_inner_volume_controls[] = {
 			sirf_inner_snd_headphone_set),
 };
 
+static struct snd_kcontrol_new snd_sirf_inner_volume_controls_prima2[] = {
+	SOC_DOUBLE("Speaker Volume", AUDIO_IC_CODEC_CTRL0, 21, 14,
+			0x7F, 0),
+	SOC_DOUBLE("Capture Volume", AUDIO_IC_CODEC_CTRL1, 15, 10,
+			0x1F, 0),
+	SOC_DOUBLE("Capture Switch", AUDIO_IC_CODEC_CTRL1, 0, 1,
+			1, 0),
+	SOC_SINGLE_BOOL_EXT("Speaker Switch", 0, sirf_inner_snd_speaker_get,
+			sirf_inner_snd_speaker_set),
+	SOC_SINGLE_BOOL_EXT("Headphone Switch", 0, sirf_inner_snd_headphone_get,
+			sirf_inner_snd_headphone_set),
+};
+
 static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	struct sirf_soc_inner_audio *sinner_audio = snd_soc_dai_get_drvdata(dai);
+	u32 adc_gain_mask = sinner_audio->reg_bits->adc_gain_mask;
+	u32 adc_left_gain_shift = sinner_audio->reg_bits->adc_left_gain_shift;
+	u32 adc_right_gain_shift = sinner_audio->reg_bits->adc_right_gain_shift;
+	u32 mic_max_gain = sinner_audio->reg_bits->mic_max_gain;
+
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-					| IC_CODEC_CLK_EN | IC_POR),
+					| (1 << sinner_audio->reg_bits->codec_clk_en_bits) |
+					(1 << sinner_audio->reg_bits->por_bits)),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_HSINVEN)
@@ -154,8 +199,9 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 				IC_LDACEN | IC_HPRSELR | IC_HPLSELL,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
-		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
-					IC_FIRDAC_HSL_EN | IC_FIRDAC_HSR_EN),
+		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
+					(1 << sinner_audio->reg_bits->firdac_hsl_en_bits) |
+					(1 << sinner_audio->reg_bits->firdac_hsr_en_bits),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 
 		usleep_range(300, 1000);
@@ -183,31 +229,32 @@ static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
 			PWRC_PDN_CTRL_OFFSET);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) |
-				IC_CODEC_CLK_EN | IC_POR,
-				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+			(1 << sinner_audio->reg_bits->codec_clk_en_bits) |
+			(1 << sinner_audio->reg_bits->por_bits),
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 		msleep(50);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_PWR) |
-				MICBIASEN, sinner_audio->base + AUDIO_IC_CODEC_PWR);
+			MICBIASEN, sinner_audio->base + AUDIO_IC_CODEC_PWR);
 		usleep_range(300, 1000);
 
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				| IC_MICINREN | IC_MICINLEN,
-				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+			| IC_MICINREN | IC_MICINLEN,
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 		usleep_range(100, 200);
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) | IC_RADCEN |
-				IC_LADCEN, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+			IC_LADCEN, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 		usleep_range(100, 200);
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) | IC_MICIN1SEL
-					| IC_MICDIFSEL) & (~IC_MICIN2SEL),
-				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+			| IC_MICDIFSEL) & (~IC_MICIN2SEL),
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 
 		writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1) &
-					~(IC_ADC_GAIN_MASK << IC_ADC_LEFT_GAIN_SHIFT) &
-					~(IC_ADC_GAIN_MASK << IC_ADC_RIGHT_GAIN_SHIFT)) |
-				(IC_MIC_MAX_GAIN << IC_ADC_LEFT_GAIN_SHIFT) |
-				(IC_MIC_MAX_GAIN << IC_ADC_RIGHT_GAIN_SHIFT),
-				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+			~(adc_gain_mask << adc_left_gain_shift) &
+			~(adc_gain_mask << adc_right_gain_shift)) |
+			(mic_max_gain << adc_left_gain_shift) |
+			(mic_max_gain << adc_right_gain_shift),
+			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	}
 	return 0;
 }
@@ -248,7 +295,7 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 				& ~(IC_SPEN | IC_SPSELR | IC_HSLEN)),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 			writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				& ~IC_FIRDAC_LOUT_EN,
+				& ~(1 << sinner_audio->reg_bits->firdac_lout_en_bits),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 			writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0)
 				& ~(IC_HSLEN | IC_HSREN | IC_HPRSELR | IC_HPLSELL),
@@ -278,7 +325,7 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
 			writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				|IC_FIRDAC_LOUT_EN,
+				| (1 << sinner_audio->reg_bits->firdac_lout_en_bits),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 
 			writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0)
@@ -342,8 +389,16 @@ EXPORT_SYMBOL_GPL(sirf_inner_codec_dai);
 
 static int sirf_inner_codec_probe(struct snd_soc_codec *codec)
 {
-	return snd_soc_add_codec_controls(codec, snd_sirf_inner_volume_controls,
-			ARRAY_SIZE(snd_sirf_inner_volume_controls));
+	if (of_device_is_compatible(codec->dev->of_node, "sirf,prima2-audio"))
+		return snd_soc_add_codec_controls(codec,
+			snd_sirf_inner_volume_controls_prima2,
+			ARRAY_SIZE(snd_sirf_inner_volume_controls_prima2));
+	if (of_device_is_compatible(codec->dev->of_node, "sirf,atlas6-audio"))
+		return snd_soc_add_codec_controls(codec,
+			snd_sirf_inner_volume_controls_atlas6,
+			ARRAY_SIZE(snd_sirf_inner_volume_controls_atlas6));
+
+	return -EINVAL;
 }
 
 static int sirf_inner_codec_remove(struct snd_soc_codec *codec)
@@ -442,6 +497,13 @@ static const struct snd_soc_component_driver sirf_soc_inner_component = {
 	.name		= "sirf-soc-inner",
 };
 
+static const struct of_device_id sirf_soc_inner_of_match[] = {
+	{ .compatible = "sirf,prima2-audio", .data = &sirf_soc_inner_audio_reg_bits_prima2 },
+	{ .compatible = "sirf,atlas6-audio", .data = &sirf_soc_inner_audio_reg_bits_atlas6 },
+	{}
+};
+MODULE_DEVICE_TABLE(of, sirf_soc_inner_of_match);
+
 static int sirf_soc_inner_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -449,6 +511,9 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	struct sirf_soc_inner_audio *sinner_audio;
 	struct resource *mem_res;
 	struct device_node *dn = NULL;
+	const struct of_device_id *match;
+
+	match = of_match_node(sirf_soc_inner_of_match, pdev->dev.of_node);
 
 	sinner_audio = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
@@ -518,12 +583,14 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		goto err_com_unreg;
 	}
 
+	sinner_audio->reg_bits = (struct sirf_soc_inner_audio_reg_bits *)match->data;
+
 	spin_lock_init(&sinner_audio->lock);
 	writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				| IC_CODEC_CLK_EN),
+				| (1 << sinner_audio->reg_bits->codec_clk_en_bits)),
 			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-			| IC_ADC14B_12),
+			| (1 << sinner_audio->reg_bits->adc14b_12_bits)),
 			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPFREQ,
 			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
@@ -567,27 +634,21 @@ static int sirf_soc_inner_resume(struct platform_device *pdev)
 	clk_prepare_enable(sinner_audio->clk);
 
 	writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				| IC_CODEC_CLK_EN),
-			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+		| (1 << sinner_audio->reg_bits->codec_clk_en_bits)),
+		sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	writel((readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1)
-				| IC_ADC14B_12),
-			sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+		| (1 << sinner_audio->reg_bits->adc14b_12_bits)),
+		sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPFREQ,
-			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+		sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPEN,
-			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+		sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 	return 0;
 }
 #else
 #define sirf_soc_inner_suspend NULL
 #define sirf_soc_inner_resume NULL
 #endif
-
-static const struct of_device_id sirf_soc_inner_of_match[] = {
-	{ .compatible = "sirf,prima2-audio", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, sirf_soc_inner_of_match);
 
 static struct platform_driver sirf_soc_inner_driver = {
 	.driver = {
