@@ -33,8 +33,8 @@
 		compatible = "sirf,sirf-bt-sco";
 		codec-clock-frame-master = <1>;
 	};
-	sirf-hdmi-codec {
-		compatible = "sirf,hdmi-codec";
+	hdmi-audio-codec {
+		compatible = "hdmi-audio-codec";
 	};
 	sirf-hdmi {
 		compatible = "sirf,hdmi-card";
