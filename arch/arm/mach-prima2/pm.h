@@ -12,6 +12,7 @@
 #define SIRFSOC_PWR_SLEEPFORCE		0x01
 
 #define SIRFSOC_SLEEP_MODE_MASK         0x3
+#define SIRFSOC_HIBERNATION_MODE	0x0
 #define SIRFSOC_DEEP_SLEEP_MODE         0x1
 
 #define SIRFSOC_PWRC_PDN_CTRL           0x0
@@ -20,6 +21,8 @@
 #define SIRFSOC_PWRC_PIN_STATUS         0x14
 #define SIRFSOC_PWRC_SCRATCH_PAD1       0x18
 #define SIRFSOC_PWRC_SCRATCH_PAD2       0x1C
+
+#define SIRFSOC_START_PSAVING_BIT	0x0
 
 #ifndef __ASSEMBLY__
 extern int sirfsoc_prima2_finish_suspend(unsigned long);

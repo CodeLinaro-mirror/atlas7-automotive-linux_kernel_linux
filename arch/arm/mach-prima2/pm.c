@@ -49,6 +49,16 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 		SIRFSOC_PWRC_PDN_CTRL);
 }
 
+void sirfsoc_pm_power_off(void)
+{
+	sirfsoc_set_sleep_mode(SIRFSOC_HIBERNATION_MODE);
+	sirfsoc_rtc_iobrg_writel(
+			(sirfsoc_rtc_iobrg_readl(
+			sirfsoc_pwrc_base + SIRFSOC_PWRC_PDN_CTRL) |
+			1 << SIRFSOC_START_PSAVING_BIT),
+			sirfsoc_pwrc_base + SIRFSOC_PWRC_PDN_CTRL);
+}
+
 static int sirfsoc_pre_suspend_power_off(void)
 {
 	u32 wakeup_entry = virt_to_phys(cpu_resume);
@@ -153,5 +163,6 @@ int __init sirfsoc_pm_init(void)
 	sirfsoc_of_pwrc_init();
 	sirfsoc_memc_init();
 	suspend_set_ops(&sirfsoc_pm_ops);
+	pm_power_off = sirfsoc_pm_power_off;
 	return 0;
 }
