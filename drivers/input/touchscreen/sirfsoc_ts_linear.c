@@ -69,19 +69,13 @@ static ctl_table ts_dev_root[] = {
 
 static struct ctl_table_header *ts_sysctl_header;
 
-int ts_linear_scale(int *x, int *y, int swap_xy)
+int ts_linear_scale(int *x, int *y)
 {
 	int xtemp, ytemp;
 
 	/* return in calibration mode */
-	if (cal.cali_mode == 1) {
-		if (swap_xy) {
-			int tmp = *x;
-			*x = *y;
-			*y = tmp;
-		}
+	if (cal.cali_mode == 1)
 		return 0;
-	}
 
 	xtemp = *x;
 	ytemp = *y;
@@ -100,11 +94,6 @@ int ts_linear_scale(int *x, int *y, int swap_xy)
 		*y = *y * 0x3FFF / cal.param[8];
 	}
 
-	if (swap_xy) {
-		int tmp = *x;
-		*x = *y;
-		*y = tmp;
-	}
 	return 0;
 }
 EXPORT_SYMBOL(ts_linear_scale);

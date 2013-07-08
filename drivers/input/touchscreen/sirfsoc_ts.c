@@ -228,7 +228,7 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 		ts->reported_y = ts->y;
 	}
 
-	ts_linear_scale(&ts->x, &ts->y, 0);
+	ts_linear_scale(&ts->x, &ts->y);
 
 	input_report_abs(ts->input, ABS_X, ts->x);
 	input_report_abs(ts->input, ABS_Y, ts->y);

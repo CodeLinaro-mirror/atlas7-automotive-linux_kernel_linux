@@ -7,6 +7,6 @@
 #ifndef __SIRFSOC_TS_CALIBRATE_H__
 #define __SIRFSOC_TS_CALIBRATE_H__
 
-extern int ts_linear_scale(int *x, int *y, int swap_xy);
+extern int ts_linear_scale(int *x, int *y);
 
 #endif
