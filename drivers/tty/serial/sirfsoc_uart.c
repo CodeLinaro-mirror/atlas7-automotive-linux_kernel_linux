@@ -1339,16 +1339,25 @@ sirfsoc_uart_console_setup(struct console *co, char *options)
 	unsigned int parity = 'n';
 	unsigned int flow = 'n';
 	struct uart_port *port = &sirfsoc_uart_ports[co->index].port;
+	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
+	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
 	if (co->index < 0 || co->index >= SIRFSOC_UART_NR)
 		return -EINVAL;
 
 	if (!port->mapbase)
 		return -ENODEV;
 
+	/* enable usp in mode1 register */
+	if (sirfport->uart_reg->uart_type == sirf_usp_uart)
+		wr_regl(port, ureg->sirfsoc_mode1, SIRFSOC_USP_EN |
+				SIRFSOC_USP_ENDIAN_CTRL_LSBF);
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 	port->cons = co;
 
+	/* default console tx/rx transfer using io mode */
+	sirfport->rx_dma_no = -1;
+	sirfport->tx_dma_no = -1;
 	return uart_set_options(port, co, baud, parity, bits, flow);
 }
 
