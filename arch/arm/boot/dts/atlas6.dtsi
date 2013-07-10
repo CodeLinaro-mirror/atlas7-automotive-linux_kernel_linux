@@ -719,19 +719,19 @@
 			ranges = <0xb8000000 0xb8000000 0x40000>;
 
 			usbphy: usbphy@b8010200 {
-				compatible = "sirf,ci13xxx-usbphy";
+				compatible = "usbphy,ci13611a-prima2";
 				reg = <0xb8010200 0x100>;
 				clocks = <&clks 39>;
 			};
 
 			usbcontroller: usbcontroller@b8010000 {
-				compatible = "sirf,ci13xxx-usbcontroller";
+				compatible = "chipidea,ci13611a-prima2";
 				reg = <0xb8010000 0x200>;
 				interrupts = <11>;
 				clocks = <&clks 41>;
 				resets = <&rstc 9>;
 				vbus-gpios = <&gpio 0 14>;
-				sirf,ci13xxx-usbphy = <&usbphy>;
+				usbphy,ci13611a-prima2 = <&usbphy>;
 			};
 
 			security@b00f0000 {
