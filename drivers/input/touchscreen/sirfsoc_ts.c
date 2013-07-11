@@ -51,7 +51,6 @@ struct sirfsoc_ts {
 	int				debounce_max;
 	int				debounce_tol;
 	int				debounce_rep;
-	int				interval;
 	struct delayed_work		report_work;
 
 	struct input_dev		*input;
@@ -251,8 +250,6 @@ static void sirfsoc_ts_report_work(struct work_struct *work)
 			sirfsoc_ts_report_state(ts);
 
 		ts->press_hold_cnt++;
-		if (ts->interval)
-			msleep(ts->interval);
 		schedule_delayed_work(&ts->report_work, msecs_to_jiffies(10));
 	} else {
 		ts->press_hold_cnt = 0;
@@ -366,9 +363,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	ts->debounce_rep = 0x01;
 	ts->debounce_max = 0x03;
 	ts->debounce_tol = 0x30;
-
-	/*the touch report interval*/
-	ts->interval = 10;
 
 	input_set_abs_params(input_dev, ABS_X, 0, 0x3FFF, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, 0x3FFF, 0, 0);
