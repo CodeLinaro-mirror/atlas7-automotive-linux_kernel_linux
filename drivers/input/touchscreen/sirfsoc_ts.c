@@ -52,6 +52,7 @@ struct sirfsoc_ts {
 	int				debounce_tol;
 	int				debounce_rep;
 	int				interval;
+	struct delayed_work		report_work;
 
 	struct input_dev		*input;
 };
@@ -238,29 +239,32 @@ static void sirfsoc_ts_report_state(struct sirfsoc_ts *ts)
 	input_sync(ts->input);
 }
 
-static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
+static void sirfsoc_ts_report_work(struct work_struct *work)
 {
-	struct sirfsoc_ts *ts = (struct sirfsoc_ts *)handle;
+	struct delayed_work *dw = container_of(work, struct delayed_work, work);
+	struct sirfsoc_ts *ts = container_of(dw,
+				struct sirfsoc_ts, report_work);
 	struct input_dev *input = ts->input;
 
-	ts->press_hold_cnt = 0;
-	while (sirfsoc_ts_get_pendown(ts)) {
+	if (sirfsoc_ts_get_pendown(ts)) {
 		if (!sirfsoc_ts_read_state(ts))
 			sirfsoc_ts_report_state(ts);
+
 		ts->press_hold_cnt++;
 		if (ts->interval)
 			msleep(ts->interval);
+		schedule_delayed_work(&ts->report_work, msecs_to_jiffies(10));
+	} else {
+		ts->press_hold_cnt = 0;
+		input_report_key(input, BTN_TOUCH, 0);
+		input_report_abs(input, ABS_PRESSURE, 0);
+		input_sync(input);
 	}
-
-	input_report_key(input, BTN_TOUCH, 0);
-	input_report_abs(input, ABS_PRESSURE, 0);
-	input_sync(input);
-
-	return IRQ_HANDLED;
 }
 
 static irqreturn_t sirfsoc_ts_hard_irq(int irq, void *handle)
 {
+	struct sirfsoc_ts *ts = (struct sirfsoc_ts *)handle;
 	int adc_intr;
 
 	adc_intr = sirfsoc_adc_read_reg(ADC_INTR);
@@ -268,7 +272,9 @@ static irqreturn_t sirfsoc_ts_hard_irq(int irq, void *handle)
 		sirfsoc_adc_write_reg(PEN_INTR | PEN_INTR_EN | DATA_INTR_EN,
 			ADC_INTR);
 
-	return IRQ_WAKE_THREAD;
+	schedule_delayed_work(&ts->report_work, msecs_to_jiffies(10));
+
+	return IRQ_HANDLED;
 }
 
 static int sirfsoc_ts_probe(struct platform_device *pdev)
@@ -297,6 +303,8 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out1;
 	}
+
+	INIT_DELAYED_WORK(&ts->report_work, sirfsoc_ts_report_work);
 
 	snprintf(ts->phys, sizeof("SIRFSOC-TS"), "SIRFSOC-TS");
 	input_dev->name = "sirfsoc_touchscreen";
@@ -343,15 +351,16 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		goto out2;
 	}
 
-	ret = devm_request_threaded_irq(&pdev->dev, irq, sirfsoc_ts_hard_irq,
-		sirfsoc_ts_thread_irq, IRQF_ONESHOT,
-		DRIVER_NAME, ts);
+	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_ts_hard_irq,
+		IRQF_ONESHOT, DRIVER_NAME, ts);
 
 	if (ret < 0) {
 		dev_err(&pdev->dev, "sirfsoc ts: regist irq handler failed!\n");
 		ret = -ENODEV;
 		goto out2;
 	}
+	/*touch is not pressed down*/
+	ts->press_hold_cnt = 0;
 
 	/*the value about touch accuracy*/
 	ts->debounce_rep = 0x01;
@@ -376,6 +385,8 @@ out1:
 static int sirfsoc_ts_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_ts *ts = platform_get_drvdata(pdev);
+
+	cancel_delayed_work_sync(&ts->report_work);
 
 	input_unregister_device(ts->input);
 
