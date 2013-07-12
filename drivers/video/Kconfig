@@ -39,6 +39,11 @@ config VIDEOMODE_HELPERS
 config HDMI
 	bool
 
+config VIDEO_CODEC_SIRF
+        tristate "video codec support"
+	depends on ARCH_SIRF
+	default y
+
 menuconfig FB
 	tristate "Support for frame buffer devices"
 	---help---
