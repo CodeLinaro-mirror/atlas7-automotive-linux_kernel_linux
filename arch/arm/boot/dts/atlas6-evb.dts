@@ -166,7 +166,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
 				/*layer enable info,default only enable layer1 */
-				layer-ctrl = <0x0000000b>;
+				layer-ctrl = <0x0000000f>;
 			};
 		};
 	};
