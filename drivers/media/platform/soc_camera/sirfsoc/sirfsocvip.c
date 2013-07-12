@@ -297,7 +297,6 @@ static int sirfsoc_camera_start_dma(struct sirfsoc_camera_dev *pcdev)
 	dma_async_issue_pending(pcdev->dma_chan);
 
 	pcdev->vip_funcs.pfnStart(0);
-
 	return 0;
 }
 
@@ -438,6 +437,7 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 			dev_info(icd->pdev, "%s: this is a tvdecoder device\n",
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 1;
+			pdata->sirfsoc_camera_single = 0;
 		} else if (icd->devnum == 1) {
 			dev_info(icd->pdev, "%s: this is a HDMI receiver device\n",
 				__func__);
@@ -1044,6 +1044,7 @@ static struct sirfsoc_camera_platform_data sirfsoc_platform_camera_data = {
 	.sirfsoc_camera_vsync_en = 0,
 	.sirfsoc_camera_ccir656_en = 0,
 	.sirfsoc_camera_interlaced = 1,
+	.sirfsoc_camera_single = 0,
 };
 
 void  __init sirfsoc_vip_reserve_memblock(void)
