@@ -192,7 +192,7 @@ static int ch7102_video_probe(struct i2c_client *client)
 {
 	struct ch7102_priv *priv = to_ch7102(client);
 	int ret;
-
+	u8 value = 0;
 	/*
 	 * ch7102 only use 8 bits bus width
 	 */
@@ -204,6 +204,12 @@ static int ch7102_video_probe(struct i2c_client *client)
 	ret = ch7102_s_power(&priv->subdev, 1);
 	if (ret < 0)
 		return ret;
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+	value = i2c_smbus_read_byte_data(client, CONTROL);
+	/*	set output to tri-state	*/
+	value &= ~0x80;
+	i2c_smbus_write_byte_data(client, CONTROL, value);
 
 	/* the preset is just set here and comment, will enable later*/
 	/*

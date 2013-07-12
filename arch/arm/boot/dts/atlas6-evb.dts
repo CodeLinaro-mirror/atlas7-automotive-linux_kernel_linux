@@ -133,6 +133,15 @@
 					reg = <0x40>;
 				};
 			};
+			i2c1: i2c@b00f0000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2c1_pins_a>;
+				ch7102@f0 {
+					compatible = "sirf,ch7102";
+					reg = <0xf0>;
+				};
+			};
 			pci-iobg {
 				sd0: sdhci@56000000 {
 					status = "okay";

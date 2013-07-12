@@ -526,14 +526,13 @@ static int tw9900_s_stream(struct v4l2_subdev *sd, int enable)
 		value = i2c_smbus_read_byte_data(client, OPFORM);
 		/*	enable all output	*/
 		value &= 0xF8;
-		i2c_smbus_write_byte_data(client, value, OPFORM);
+		i2c_smbus_write_byte_data(client, OPFORM, value);
 	} else {
 		value = i2c_smbus_read_byte_data(client, OPFORM);
 		/*	set all output to tri-state	*/
 		value |= 0x07;
-		i2c_smbus_write_byte_data(client, value, OPFORM);
+		i2c_smbus_write_byte_data(client, OPFORM, value);
 	}
-
 
 	return 0;
 #if 0
@@ -857,7 +856,7 @@ static int tw9900_video_probe(struct i2c_client *client)
 	struct tw9900_priv *priv = to_tw9900(client);
 	s32 id;
 	int ret;
-
+	u8 value = 0;
 	/*
 	 * tw9900 only use 8 or 16 bit bus width
 	 */
@@ -871,6 +870,10 @@ static int tw9900_video_probe(struct i2c_client *client)
 	if (ret < 0)
 		return ret;
 
+	value = i2c_smbus_read_byte_data(client, OPFORM);
+	/* set all output to tri-state first */
+	value |= 0x07;
+	i2c_smbus_write_byte_data(client, OPFORM, value);
 #if 0
 	/*
 	 * check and show Product ID
