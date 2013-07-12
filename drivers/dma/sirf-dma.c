@@ -823,6 +823,29 @@ static int sirfsoc_dma_remove(struct platform_device *op)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_dma_pm_suspend(struct device *dev)
+{
+	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(sdma->clk);
+	return 0;
+}
+
+static int sirfsoc_dma_pm_resume(struct device *dev)
+{
+	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
+
+	clk_prepare_enable(sdma->clk);
+	return 0;
+}
+
+static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_dma_pm_suspend, sirfsoc_dma_pm_resume)
+};
+
+#endif
+
 static struct of_device_id sirfsoc_dma_match[] = {
 	{ .compatible = "sirf,prima2-dmac", },
 	{ .compatible = "sirf,marco-dmac", },
@@ -835,6 +858,9 @@ static struct platform_driver sirfsoc_dma_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &sirfsoc_dma_pm_ops,
+#endif
 		.of_match_table	= sirfsoc_dma_match,
 	},
 };
