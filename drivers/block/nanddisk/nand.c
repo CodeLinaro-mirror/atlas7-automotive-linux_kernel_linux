@@ -610,20 +610,12 @@ static int nanddisk_init(struct platform_device *pdev)
 	nand_dev.bytes_per_block =
 		nand_dev.nand_chip_info.phy_bdev_info.byte_per_sector
 		* nand_dev.nand_chip_info.phy_bdev_info.sector_per_block;
-	dev_dbg(dev, "NAND_IOCTRL_GET_CHIPINFO success\r\n");
-	dev_dbg(dev, "category=0x%x\r\n",
-		nand_dev.nand_chip_info.chip_category);
-	dev_dbg(dev, "io sector info:\r\n");
-	dev_dbg(dev, "block_num=0x%x\r\n",
-		nand_dev.nand_chip_info.io_bdev_info.block_num);
-	dev_dbg(dev, "sector_per_block=0x%x\r\n",
-		nand_dev.nand_chip_info.io_bdev_info.sector_per_block);
-	dev_dbg(dev, "byte_per_sector=0x%x\r\n",
-		nand_dev.nand_chip_info.io_bdev_info.byte_per_sector);
-	dev_dbg(dev, "reserved_block_percent=0x%x\r\n",
-		nand_dev.nand_chip_info.reserved_block_percent);
-	dev_dbg(dev, "actived=0x%x\r\n",
-		nand_dev.nand_chip_info.actived);
+
+	dev_info(dev, "find valid nand chip.\n");
+	dev_info(dev, "page size %d, %d page per block, total %d block.\n",
+		nand_dev.nand_chip_info.phy_bdev_info.byte_per_sector,
+		nand_dev.nand_chip_info.phy_bdev_info.sector_per_block,
+		nand_dev.nand_chip_info.phy_bdev_info.block_num);
 
 	if (!nand_dev.nand_chip_info.actived) {
 		dev_err(dev, "err: nanddisk not actived.\r\n");
