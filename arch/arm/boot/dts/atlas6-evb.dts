@@ -67,7 +67,7 @@
 		peri-iobg {
 			gpio: pinctrl@b0120000 {
 				sirf,pullups = <0 0 0 0 0>;
-				sirf,pulldowns = <0 0 0 0 0>;
+				sirf,pulldowns = <0 0x00100000 0 0 0>;
 			};
 			uart@b0050000 {
 				pinctrl-names = "default";
