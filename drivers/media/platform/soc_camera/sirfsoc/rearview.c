@@ -278,11 +278,8 @@ static int rearview_freeze(void)
 	pr_debug("%s: rv_started %d\n", __func__, rv_started);
 
 	if (rv_started) {
-		free_irq(rearview_env.vip_irq, &rearview_env);
-		rearview_env.vip_funcs->pfnStop();
-		dmaengine_terminate_all(rearview_env.dma_chan);
-		rearview_env.vip_funcs->pfnTerminate();
-		rearview_env.restore_vip_context(rearview_env.data);
+		rearview_stop();
+		rv_started = 0;
 	}
 	return 0;
 }
@@ -293,14 +290,10 @@ static int rearview_restore(void)
 
 	pr_debug("%s: rv_started %d\n", __func__, rv_started);
 
-	if (rv_started) {
-		spin_lock_irqsave(&rv.lock, flags);
-		rv.active = ACTIVE_HIBER;
-		spin_unlock_irqrestore(&rv.lock, flags);
-		wake_up_interruptible(&rearview_event);
-	} else {
-		__deinit_fbdev();
-	}
+	spin_lock_irqsave(&rv.lock, flags);
+	rv.active = ACTIVE_HIBER;
+	spin_unlock_irqrestore(&rv.lock, flags);
+	wake_up_interruptible(&rearview_event);
 
 	return 0;
 }
@@ -308,6 +301,18 @@ static int rearview_restore(void)
 static int rearview_suspend(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (rv_started) {
+		free_irq(rearview_env.vip_irq, &rearview_env);
+		rearview_env.vip_funcs->pfnStop();
+		dmaengine_terminate_all(rearview_env.dma_chan);
+		rearview_env.vip_funcs->pfnTerminate();
+		clk_disable_unprepare(rearview_env.vip_clk);
+		rearview_env.restore_vip_context(rearview_env.data);
+		memset(rearview_env.fbi->screen_base, 0,
+			rearview_env.fbi->fix.smem_len);
+	}
+
 	return 0;
 }
 
@@ -450,7 +455,7 @@ int rearview_thread(void *data)
 	unsigned long flags;
 	int need_break;
 	struct sirfsoc_camera_dev *pcdev = data;
-	int state = 1;
+	int state = ACTIVE_INT;
 
 	pr_info("%s\n", __func__);
 
@@ -485,20 +490,30 @@ int rearview_thread(void *data)
 		DEFINE_WAIT(wait);
 		pr_debug("%s\n", "thread loop 1");
 
-		if (state == ACTIVE_INT || state == ACTIVE_SLEEP) {
-			int rv = gpio_get_value(rearview_env.gpio);
+		if (state == ACTIVE_INT || state == ACTIVE_HIBER) {
+			int st = gpio_get_value(rearview_env.gpio);
 
-			if (rv && rv_started == 0) {
+			if (st && rv_started == 0) {
 				rearview_start(false);
 				rv_started = 1;
 			}
 
-			if (!rv && rv_started == 1) {
+			if (!st && rv_started == 1) {
 				rearview_stop();
 				rv_started = 0;
 			}
-		} else if (state == ACTIVE_HIBER) {
-			rearview_start(true);
+		} else if (state == ACTIVE_SLEEP) {
+			int st = gpio_get_value(rearview_env.gpio);
+
+			if (st) {
+				rearview_start(false);
+				rv_started = 1;
+			} else {
+				if (rv_started) {
+					__deinit_fbdev();
+					rv_started = 0;
+				}
+			}
 		}
 
 		while (1) {
