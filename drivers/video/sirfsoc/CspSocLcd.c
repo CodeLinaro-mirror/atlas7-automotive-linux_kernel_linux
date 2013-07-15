@@ -1744,10 +1744,7 @@ BOOL LcdSoc_Wakeup(VOID)
         __LcdSoc_MoveCursor();
     }
     
-    if (gsLcdConfig.eTopLayer != gsPanelInfo.eMaxLayer)
-    {
         __LcdSoc_SetTopLayer();
-    }
     
     if (gsLcdConfig.bGammaEnable)
     {
