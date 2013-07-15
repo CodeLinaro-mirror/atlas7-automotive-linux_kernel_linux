@@ -66,6 +66,7 @@ static struct sirfsoc_decoder_ops *rearview_decoder_ops;
 
 static phys_addr_t sirf_vip_phy_base;
 static phys_addr_t sirf_vip_phy_size;
+static int brestart;
 
 static inline int need_launch_rearview(void)
 {
@@ -205,6 +206,9 @@ out:
 	return ret;
 }
 
+static int sirfsoc_camera_start_dma(
+	struct sirfsoc_camera_dev *pcdev, int resetfifo);
+
 static void sirfsoc_camera_callback (void *pdata) {
 	struct videobuf_buffer *vb = NULL;
 	struct sirfsoc_camera_dev *pcdev = (struct sirfsoc_camera_dev*)pdata;
@@ -214,6 +218,13 @@ static void sirfsoc_camera_callback (void *pdata) {
 	spin_lock_irqsave(&pcdev->lock, flags);
 
 	if (!pcdev) {
+		spin_unlock_irqrestore(&pcdev->lock, flags);
+		return;
+	}
+
+	if (brestart) {
+		sirfsoc_camera_start_dma(pcdev, 1);
+		brestart = 0;
 		spin_unlock_irqrestore(&pcdev->lock, flags);
 		return;
 	}
@@ -265,7 +276,8 @@ static void sirfsoc_camera_callback (void *pdata) {
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 }
 
-static int sirfsoc_camera_start_dma(struct sirfsoc_camera_dev *pcdev)
+static int sirfsoc_camera_start_dma(
+	struct sirfsoc_camera_dev *pcdev, int resetfifo)
 {
 	struct videobuf_buffer *vb = pcdev->active;
 	struct dma_async_tx_descriptor *rx_desc;
@@ -278,9 +290,8 @@ static int sirfsoc_camera_start_dma(struct sirfsoc_camera_dev *pcdev)
 	}
 
 	vb->state = VIDEOBUF_ACTIVE;
-
-	pcdev->vip_funcs.pfnStop();
-	mdelay(1);
+	if (resetfifo)
+		pcdev->vip_funcs.pfnStop();
 
 	pcdev->dma_xt->sgl[0].size = vb->size/vb->height; /* transfer size in byte*/
 	pcdev->dma_xt->sgl[0].icg = 0;
@@ -297,6 +308,7 @@ static int sirfsoc_camera_start_dma(struct sirfsoc_camera_dev *pcdev)
 	dma_async_issue_pending(pcdev->dma_chan);
 
 	pcdev->vip_funcs.pfnStart(0);
+
 	return 0;
 }
 
@@ -313,7 +325,7 @@ static void sirfsoc_camera_videobuf_queue(struct videobuf_queue *vq,
 	list_add_tail(&vb->queue, &pcdev->capture);
 	if (!pcdev->active) {
 		pcdev->active = vb;
-		sirfsoc_camera_start_dma(pcdev);
+		sirfsoc_camera_start_dma(pcdev, 1);
 	}
 }
 
@@ -442,7 +454,7 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 			dev_info(icd->pdev, "%s: this is a HDMI receiver device\n",
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 1;
-			pdata->sirfsoc_camera_single = 1;
+			pdata->sirfsoc_camera_single = 0;
 		} else {
 			dev_info(icd->pdev, "%s: unsupported device\n",
 				__func__);
@@ -877,6 +889,7 @@ static struct soc_camera_host sirfsoc_soc_camera_host = {
 	.ops			= &sirfsoc_soc_camera_host_ops,
 };
 
+
 static irqreturn_t sirfsoc_camera_irq(int irq, void *data)
 {
 	struct sirfsoc_camera_dev *pcdev = data;
@@ -889,7 +902,8 @@ static irqreturn_t sirfsoc_camera_irq(int irq, void *data)
 		dev_dbg(pcdev->dev, "sensor interrupt happens\n");
 	}
 	if (status & VIP_INTMASK_FIFO_OFLOW) {
-		dev_err(pcdev->dev, "FIFO overflow interrupt happens\n");
+		/* dev_info(pcdev->dev, "FIFO overflow interrupt happens\n"); */
+		brestart = 1;
 	}
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(pcdev->dev, "FIFO underflow interrupt happens\n");
@@ -945,7 +959,7 @@ static void sirfsoc_vip_restore_context(void *data)
 		/*TODO, how to restart camera */
 
 	if (pcdev->active)
-		sirfsoc_camera_start_dma(pcdev);
+		sirfsoc_camera_start_dma(pcdev, 1);
 
 	send_sig(SIGCONT, pcdev->task, 0);
 }
