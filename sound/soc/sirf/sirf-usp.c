@@ -396,9 +396,11 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 
 	susp = devm_kzalloc(&pdev->dev, sizeof(struct sirf_usp),
 			GFP_KERNEL);
-	if (susp == NULL)
+	if (!susp)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, susp);
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"sirf,usp-dma-rx-channel", &rx_dma_ch);
 	if (ret < 0) {
@@ -425,7 +427,9 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		return PTR_ERR(susp->clk);
 	}
 	clk_prepare_enable(susp->clk);
+
 	sirf_usp_controller_init(susp);
+
 	ret = snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);
 	if (ret) {

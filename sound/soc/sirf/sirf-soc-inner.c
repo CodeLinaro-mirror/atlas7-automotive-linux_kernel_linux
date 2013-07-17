@@ -42,7 +42,6 @@ struct sirf_soc_inner_audio_reg_bits {
 
 struct sirf_soc_inner_audio {
 	void __iomem            *base;
-	unsigned int            irq;
 	unsigned int            playing;
 	struct clk              *clk;
 	spinlock_t              lock;
@@ -88,9 +87,8 @@ static int sirf_inner_snd_speaker_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	unsigned long flags;
 
-	spin_lock_irqsave(&sinner_audio->lock, flags);
+	spin_lock(&sinner_audio->lock);
 	sirf_inner_control(kcontrol, ucontrol, 0, "Speaker Out");
 
 	if (ucontrol->value.integer.value[0]) {
@@ -113,7 +111,7 @@ static int sirf_inner_snd_speaker_set(struct snd_kcontrol *kcontrol,
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	}
 
-	spin_unlock_irqrestore(&sinner_audio->lock, flags);
+	spin_unlock(&sinner_audio->lock);
 
 	return 0;
 }
@@ -130,9 +128,8 @@ static int sirf_inner_snd_headphone_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
-	unsigned long flags;
 
-	spin_lock_irqsave(&sinner_audio->lock, flags);
+	spin_lock(&sinner_audio->lock);
 	sirf_inner_control(kcontrol, ucontrol, 0, "Headphone Out");
 	if (ucontrol->value.integer.value[0])
 		writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0)
@@ -144,7 +141,7 @@ static int sirf_inner_snd_headphone_set(struct snd_kcontrol *kcontrol,
 				& ~(IC_HSLEN | IC_HSREN | IC_HPRSELR
 					| IC_HPLSELL),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
-	spin_unlock_irqrestore(&sinner_audio->lock, flags);
+	spin_unlock(&sinner_audio->lock);
 	return 0;
 }
 
@@ -278,15 +275,13 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 {
 	struct sirf_soc_inner_audio *sinner_audio = snd_soc_dai_get_drvdata(dai);
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
-	unsigned long irqs;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		local_irq_save(irqs);
+		spin_lock(&sinner_audio->lock);
 		if (playback) {
-			spin_lock(&sinner_audio->lock);
 			writel(readl(sinner_audio->base + AUDIO_CTRL_IC_CODEC_TX_CTRL)
 				& ~IC_TX_ENABLE,
 				sinner_audio->base + AUDIO_CTRL_IC_CODEC_TX_CTRL);
@@ -300,20 +295,18 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 			writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0)
 				& ~(IC_HSLEN | IC_HSREN | IC_HPRSELR | IC_HPLSELL),
 				sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
-			spin_unlock(&sinner_audio->lock);
 		} else {
 			writel(readl(sinner_audio->base + AUDIO_CTRL_IC_CODEC_RX_CTRL)
 				& ~IC_RX_ENABLE,
 				sinner_audio->base + AUDIO_CTRL_IC_CODEC_RX_CTRL);
 		}
-		local_irq_restore(irqs);
+		spin_unlock(&sinner_audio->lock);
 		break;
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		local_irq_save(irqs);
+		spin_lock(&sinner_audio->lock);
 		if (playback) {
-			spin_lock(&sinner_audio->lock);
 			writel(0, sinner_audio->base + AUDIO_CTRL_IC_TXFIFO_INT_MSK);
 			writel(AUDIO_FIFO_START,
 				sinner_audio->base + AUDIO_CTRL_IC_TXFIFO_OP);
@@ -335,7 +328,6 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 				| IC_HPRSELR | IC_HPLSELL,
 				sinner_audio->base
 				+ AUDIO_IC_CODEC_CTRL0);
-			spin_unlock(&sinner_audio->lock);
 		} else {
 			/* unmask rx fifo interrupt */
 			writel(0, sinner_audio->base
@@ -352,7 +344,7 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 				writel(IC_RX_ENABLE, sinner_audio->base
 					+ AUDIO_CTRL_IC_CODEC_RX_CTRL);
 		}
-		local_irq_restore(irqs);
+		spin_unlock(&sinner_audio->lock);
 		break;
 	default:
 		return -EINVAL;
@@ -562,12 +554,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(sinner_audio->clk);
 
-	sinner_audio->irq = platform_get_irq(pdev, 0);
-	if (sinner_audio->irq < 0) {
-		dev_err(&pdev->dev, "Get irq failed.\n");
-		ret = -ENXIO;
-		goto err_clk_put;
-	}
 	ret = snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
 		&sirf_soc_inner_dai, 1);
 	if (ret) {
