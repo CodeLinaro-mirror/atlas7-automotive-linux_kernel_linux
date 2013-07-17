@@ -14,7 +14,6 @@
 #include <linux/pwm.h>
 #include <linux/delay.h>
 #include <linux/reset.h>
-#include <linux/pinctrl/consumer.h>
 
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
@@ -28,7 +27,6 @@ struct sirf_i2s {
 	struct pwm_device	*mclk_pwm;
 	u32			i2s_ctrl;
 	spinlock_t		lock;
-	struct pinctrl		*p;
 	int			master_mode;
 };
 
