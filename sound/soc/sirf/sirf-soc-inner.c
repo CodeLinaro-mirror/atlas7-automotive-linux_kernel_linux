@@ -261,7 +261,6 @@ static void sirf_inner_codec_shutdown(struct snd_pcm_substream *substream,
 {
 }
 
-
 static int sirf_inner_codec_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct snd_soc_dai *dai)
@@ -526,6 +525,8 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to audio playback dma channel\n");
 		return ret;
 	}
+	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
+	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
 
 	dn = of_find_compatible_node(dn, NULL, "sirf,prima2-pwrc");
 	if (!dn) {
@@ -538,9 +539,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed tp get pwrc register base address\n");
 		return -EINVAL;
 	}
-
-	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
-	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sinner_audio->base = devm_ioremap_resource(&pdev->dev, mem_res);
@@ -606,16 +604,15 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 static int sirf_soc_inner_suspend(struct platform_device *pdev,
 		pm_message_t msg)
 {
-	struct sirf_soc_inner_audio *sinner_audio;
-	sinner_audio = platform_get_drvdata(pdev);
+	struct sirf_soc_inner_audio *sinner_audio = platform_get_drvdata(pdev);
+
 	clk_disable_unprepare(sinner_audio->clk);
 	return 0;
 }
 
 static int sirf_soc_inner_resume(struct platform_device *pdev)
 {
-	struct sirf_soc_inner_audio *sinner_audio;
-	sinner_audio = platform_get_drvdata(pdev);
+	struct sirf_soc_inner_audio *sinner_audio = platform_get_drvdata(pdev);
 
 	clk_prepare_enable(sinner_audio->clk);
 

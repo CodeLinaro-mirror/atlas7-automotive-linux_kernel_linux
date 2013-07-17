@@ -80,7 +80,6 @@ static int sirf_hdmi_card_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	snd_soc_unregister_card(card);
-	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 static const struct of_device_id sirf_hdmi_card_of_match[] = {
