@@ -322,10 +322,13 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 
 	si2s = devm_kzalloc(&pdev->dev, sizeof(struct sirf_i2s),
 			GFP_KERNEL);
-	if (si2s == NULL)
+	if (!si2s)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, si2s);
+
 	spin_lock_init(&si2s->lock);
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"sirf,i2s-dma-rx-channel", &rx_dma_ch);
 	if (ret < 0) {
@@ -338,14 +341,6 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
 		return ret;
 	}
-
-	si2s->p = pinctrl_get_select_default(&pdev->dev);
-	ret = IS_ERR(si2s->p);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable get pins resource\n");
-		return ret;
-	}
-
 	sirf_i2s_dai_dma_data[0].dma_req = tx_dma_ch;
 	sirf_i2s_dai_dma_data[1].dma_req = rx_dma_ch;
 
@@ -366,7 +361,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* i2s bus uses PWM to generate MCLK */
+	/* i2s bus uses an internal PWM to generate MCLK */
 	si2s->mclk_pwm = devm_pwm_get(&pdev->dev, NULL);
 	if (IS_ERR(si2s->mclk_pwm)) {
 		dev_err(&pdev->dev, "unable to request PWM\n");
@@ -386,7 +381,6 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 err_clk_put:
 	clk_disable_unprepare(si2s->clk);
 err:
-	pinctrl_put(si2s->p);
 	return ret;
 }
 
@@ -397,7 +391,6 @@ static int sirf_i2s_remove(struct platform_device *pdev)
 	pwm_disable(si2s->mclk_pwm);
 	snd_soc_unregister_component(&pdev->dev);
 	clk_disable_unprepare(si2s->clk);
-	pinctrl_put(si2s->p);
 
 	return 0;
 }
