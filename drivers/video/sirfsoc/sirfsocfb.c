@@ -28,6 +28,7 @@
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -1648,7 +1649,7 @@ static void get_layer_ctrl_info(struct sirfsocfb *fb, int layer_ctrl)
 		fb->layer_info[i].valid = ((layer_ctrl>>i)&0x1);
 }
 
-static int remap_frame_buffers(struct platform_device *dev,
+static int remap_frame_buffers(struct platform_device *pdev,
 			       struct sirfsocfb *fb)
 {
 	int i, ret = 0;
@@ -1676,10 +1677,24 @@ static int remap_frame_buffers(struct platform_device *dev,
 			fb->fb[i].fix.smem_len = (fb->panel->bpp / 8) *
 				fb->panel->mode.xres * fb->panel->mode.yres * 2;
 
-		fb->fb[i].fix.smem_start = sirf_fb_phy_base + layer_mem_offset;
-		layer_mem_offset += fb->fb[i].fix.smem_len;
+		if (i == LCD_PRIMARY) {
+			unsigned int size;
+			dma_addr_t map_dma;
 
-		fb->fb[i].screen_base = phys_to_virt(fb->fb[i].fix.smem_start);
+			size = PAGE_ALIGN(fb->fb[i].fix.smem_len);
+			fb->fb[i].screen_base =
+				dma_alloc_writecombine(&pdev->dev,
+					size, &map_dma, GFP_KERNEL);
+			fb->fb[i].fix.smem_start = map_dma;
+
+		} else {
+			fb->fb[i].fix.smem_start = sirf_fb_phy_base +
+				layer_mem_offset;
+			layer_mem_offset += PAGE_ALIGN(fb->fb[i].fix.smem_len);
+			fb->fb[i].screen_base =
+				ioremap_wc(fb->fb[i].fix.smem_start,
+					fb->fb[i].fix.smem_len);
+		}
 
 		if (fb->fb[i].screen_base == NULL) {
 			FB_ERR_MSG("L%d IO remap failed!\n", i);
@@ -1799,9 +1814,9 @@ static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
 
 void  __init sirfsoc_fb_reserve_memblock(void)
 {
-	sirf_fb_phy_size = 30 * SZ_1M;
+	sirf_fb_phy_size = 25 * SZ_1M;
 	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, PAGE_SIZE);
-	memblock_reserve(sirf_fb_phy_base, sirf_fb_phy_size);
+	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);
 
