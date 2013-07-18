@@ -75,7 +75,7 @@ struct sirfsoc_dma_chan {
 
 struct sirfsoc_dma_regs {
 	u32				ctrl[SIRFSOC_DMA_CHANNELS];
-	u32				interrput_en;
+	u32				interrupt_en;
 };
 
 struct sirfsoc_dma {
@@ -109,7 +109,6 @@ static inline struct sirfsoc_dma *dma_chan_to_sirfsoc_dma(struct dma_chan *c)
 static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 {
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(&schan->chan);
-	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
 	int cid = schan->chan.chan_id;
 	struct sirfsoc_dma_desc *sdesc = NULL;
 
@@ -849,7 +848,7 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 			save->ctrl[ch] = readl_relaxed(sdma->base +
 				ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
 	}
-	save->interrput_en = readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN);
+	save->interrupt_en = readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN);
 	clk_disable_unprepare(sdma->clk);
 	return 0;
 }
@@ -863,7 +862,7 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 	int ch;
 
 	clk_prepare_enable(sdma->clk);
-	writel_relaxed(save->interrput_en, sdma->base + SIRFSOC_DMA_INT_EN);
+	writel_relaxed(save->interrupt_en, sdma->base + SIRFSOC_DMA_INT_EN);
 	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
 		schan = &sdma->channels[ch];
 		if (list_empty(&schan->active))
