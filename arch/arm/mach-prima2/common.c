@@ -22,6 +22,7 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_fb_reserve_memblock();
 	sirfsoc_vip_reserve_memblock();
 	sirfsoc_nand_reserve_memblock();
+	sirfsoc_video_codec_reserve_memblock();
 }
 
 static void __init sirfsoc_init_mach(void)

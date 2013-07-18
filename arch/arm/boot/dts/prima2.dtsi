@@ -147,9 +147,10 @@
 
 			multimedia@a0000000 {
 				compatible = "sirf,prima2-video-codec";
-				reg = <0xa0000000 0x8000000>;
+				reg = <0xa0000000 0x10000>;
 				interrupts = <5>;
 				clocks = <&clks 33>;
+				reset-bit = <4>;
 			};
 		};
 

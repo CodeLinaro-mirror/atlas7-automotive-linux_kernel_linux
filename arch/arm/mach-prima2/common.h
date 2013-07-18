@@ -43,6 +43,14 @@ static inline void sirfsoc_vip_reserve_memblock(void)
 }
 #endif
 
+#ifdef CONFIG_VIDEO_CODEC_SIRF
+extern void sirfsoc_video_codec_reserve_memblock(void);
+#else
+static inline void sirfsoc_video_codec_reverve_memblock(void)
+{
+}
+#endif
+
 #ifdef CONFIG_NANDDISK
 extern void sirfsoc_nand_reserve_memblock(void);
 extern void sirfsoc_nand_nosave_memblock(void);
