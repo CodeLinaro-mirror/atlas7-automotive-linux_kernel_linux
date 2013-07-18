@@ -140,7 +140,7 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 
 	cycle = dividend & 0xFFFFFFFFUL;
 
-	return cycle < 1 ? cycle : 1;
+	return cycle > 1 ? cycle : 1;
 }
 
 /*
