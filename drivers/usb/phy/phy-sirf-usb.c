@@ -50,6 +50,15 @@ static void sirf_phy_shutdown(struct usb_phy *phy)
 
 static int sirf_phy_suspend(struct usb_phy *phy, int suspend)
 {
+	struct sirf_phy *sirf_phy = to_sirf_phy(phy);
+
+	if (suspend) {
+		clk_disable_unprepare(sirf_phy->clk);
+	} else {
+		clk_prepare_enable(sirf_phy->clk);
+		sirf_phy_por(phy->io_priv);
+	}
+
 	return 0;
 }
 
