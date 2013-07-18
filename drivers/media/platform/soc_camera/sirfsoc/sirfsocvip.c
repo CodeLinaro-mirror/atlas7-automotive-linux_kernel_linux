@@ -966,70 +966,16 @@ static void sirfsoc_vip_restore_context(void *data)
 
 int sirfsoc_camera_init(struct device *cam_device)
 {
-	struct sirfsoc_camera_platform_data *pdata = cam_device->platform_data;
-	static int GPIO_Cam_Reset, GPIO_Cam_Power;
-	int ret = 0;
-
-	if (GPIO_Cam_Power == 0) {
-		ret = devm_gpio_request(cam_device, pdata->power_gpio, "camera power control");
-		if (ret) {
-			dev_err(cam_device, "failed to request GPIO%d\n",
-							pdata->power_gpio);
-			goto out;
-		}
-		if (gpio_is_valid(pdata->vip_power_gpio)) {
-			ret = devm_gpio_request(cam_device, pdata->vip_power_gpio,
-							"vip power control");
-			if (ret) {
-				dev_err(cam_device, "failed to request GPIO%d\n",
-							pdata->vip_power_gpio);
-				goto out;
-			}
-		}
-		GPIO_Cam_Power++;
-	}
-
-	if (GPIO_Cam_Reset == 0 && gpio_is_valid(pdata->reset_gpio)) {
-		ret = devm_gpio_request(cam_device, pdata->reset_gpio, "camera reset control");
-		if (ret) {
-			dev_err(cam_device, "failed to request GPIO%d\n",
-							pdata->reset_gpio);
-			goto out;
-		}
-		GPIO_Cam_Reset++;
-	}
-
-	return ret;
-
-out:
-	GPIO_Cam_Power = 0;
-	GPIO_Cam_Reset = 0;
-	return ret;
+	return 0;
 }
 
 int sirfsoc_camera_power(struct device *cam_device, int on)
 {
-	struct sirfsoc_camera_platform_data *pdata = cam_device->platform_data;
-
-	gpio_direction_output(pdata->power_gpio, on ? 1 : 0);
-	if (gpio_is_valid(pdata->vip_power_gpio))
-		gpio_direction_output(pdata->vip_power_gpio, !!on);
-
 	return 0;
 }
 
 int sirfsoc_camera_reset(struct device *cam_device)
 {
-	struct sirfsoc_camera_platform_data *pdata = cam_device->platform_data;
-
-	if (gpio_is_valid(pdata->reset_gpio)) {
-		gpio_direction_output(pdata->reset_gpio, 0);
-		msleep(20);
-		gpio_direction_output(pdata->reset_gpio, 1);
-		/* Wait 20 ms until the reset is done */
-		msleep(20);
-	}
-
 	return 0;
 }
 
@@ -1114,12 +1060,6 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		goto exit_free_irq;
 	}
 
-	sirfsoc_platform_camera_data.vip_power_gpio =
-		of_get_named_gpio(pdev->dev.of_node, "vip-power-gpio", 0);
-	sirfsoc_platform_camera_data.power_gpio =
-		of_get_named_gpio(pdev->dev.of_node, "power-gpio", 0);
-	sirfsoc_platform_camera_data.reset_gpio =
-		of_get_named_gpio(pdev->dev.of_node, "reset-gpio", 0);
 	pdev->dev.platform_data = &sirfsoc_platform_camera_data;
 
 	pcdev->res = res;
