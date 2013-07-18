@@ -73,6 +73,11 @@ struct sirfsoc_dma_chan {
 	int				mode;
 };
 
+struct sirfsoc_dma_regs {
+	u32				ctrl[SIRFSOC_DMA_CHANNELS];
+	u32				interrput_en;
+};
+
 struct sirfsoc_dma {
 	struct dma_device		dma;
 	struct tasklet_struct		tasklet;
@@ -81,6 +86,7 @@ struct sirfsoc_dma {
 	int				irq;
 	struct clk			*clk;
 	bool				is_marco;
+	struct sirfsoc_dma_regs		dma_regs_save;
 };
 
 #define DRV_NAME	"sirfsoc_dma"
@@ -103,6 +109,7 @@ static inline struct sirfsoc_dma *dma_chan_to_sirfsoc_dma(struct dma_chan *c)
 static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 {
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(&schan->chan);
+	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
 	int cid = schan->chan.chan_id;
 	struct sirfsoc_dma_desc *sdesc = NULL;
 
@@ -827,7 +834,22 @@ static int sirfsoc_dma_remove(struct platform_device *op)
 static int sirfsoc_dma_pm_suspend(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
-
+	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
+	struct sirfsoc_dma_desc *sdesc = NULL;
+	struct sirfsoc_dma_chan *schan;
+	int ch;
+	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
+		schan = &sdma->channels[ch];
+		if (list_empty(&schan->active))
+			continue;
+		sdesc = list_first_entry(&schan->active,
+			struct sirfsoc_dma_desc,
+			node);
+		if (sdesc)
+			save->ctrl[ch] = readl_relaxed(sdma->base +
+				ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
+	}
+	save->interrput_en = readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN);
 	clk_disable_unprepare(sdma->clk);
 	return 0;
 }
@@ -835,8 +857,33 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 static int sirfsoc_dma_pm_resume(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
+	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
+	struct sirfsoc_dma_desc *sdesc = NULL;
+	struct sirfsoc_dma_chan *schan;
+	int ch;
 
 	clk_prepare_enable(sdma->clk);
+	writel_relaxed(save->interrput_en, sdma->base + SIRFSOC_DMA_INT_EN);
+	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
+		schan = &sdma->channels[ch];
+		if (list_empty(&schan->active))
+			continue;
+		sdesc = list_first_entry(&schan->active,
+			struct sirfsoc_dma_desc,
+			node);
+		if (sdesc) {
+			writel_relaxed(sdesc->width,
+				sdma->base + SIRFSOC_DMA_WIDTH_0 + ch * 4);
+			writel_relaxed(sdesc->xlen,
+				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_XLEN);
+			writel_relaxed(sdesc->ylen,
+				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_YLEN);
+			writel_relaxed(save->ctrl[ch],
+				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
+			writel_relaxed(sdesc->addr >> 2,
+				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_ADDR);
+		}
+	}
 	return 0;
 }
 
