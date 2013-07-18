@@ -30,6 +30,7 @@ struct sirf_i2s {
 	spinlock_t		lock;
 	struct pinctrl		*p;
 	int			master_mode;
+	bool			working;
 };
 
 static struct sirf_pcm_dma_data sirf_i2s_dai_dma_data[2] = {
@@ -50,6 +51,7 @@ static int sirf_i2s_startup(struct snd_pcm_substream *substream,
 	if (si2s->master_mode)
 		pwm_enable(si2s->mclk_pwm);
 	clk_prepare_enable(si2s->clk);
+	si2s->working = true;
 
 	device_reset(dai->dev);
 	snd_soc_dai_set_dma_data(dai, substream,
@@ -64,6 +66,7 @@ static void sirf_i2s_shutdown(struct snd_pcm_substream *substream,
 	if (si2s->master_mode)
 		pwm_disable(si2s->mclk_pwm);
 	clk_disable_unprepare(si2s->clk);
+	si2s->working = false;
 }
 
 static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
@@ -279,7 +282,8 @@ static int sirf_i2s_suspend(struct platform_device *pdev,
 	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
 
 	si2s->i2s_ctrl = readl(si2s->base+AUDIO_CTRL_I2S_CTRL);
-
+	if (!(si2s->working))
+		return 0;
 	clk_disable_unprepare(si2s->clk);
 
 	if (si2s->master_mode)
@@ -290,6 +294,8 @@ static int sirf_i2s_suspend(struct platform_device *pdev,
 static int sirf_i2s_resume(struct platform_device *pdev)
 {
 	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
+	if (!(si2s->working))
+		return 0;
 	if (si2s->master_mode)
 		pwm_enable(si2s->mclk_pwm);
 	clk_prepare_enable(si2s->clk);
