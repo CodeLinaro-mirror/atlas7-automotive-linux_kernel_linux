@@ -1760,6 +1760,20 @@ static void udc_stop(struct ci13xxx *ci)
 	memset(&ci->gadget, 0, sizeof(ci->gadget));
 }
 
+static int udc_suspend(struct ci13xxx *ci)
+{
+	_gadget_stop_activity(&ci->gadget);
+	return 0;
+}
+
+static int udc_resume(struct ci13xxx *ci)
+{
+	hw_device_reset(ci, USBMODE_CM_DC);
+	ci13xxx_start(&ci->gadget, ci->driver);
+	usb_gadget_connect(&ci->gadget);
+	return 0;
+}
+
 /**
  * ci_hdrc_gadget_init - initialize device related bits
  * ci: the controller
@@ -1779,6 +1793,8 @@ int ci_hdrc_gadget_init(struct ci13xxx *ci)
 
 	rdrv->start	= udc_start;
 	rdrv->stop	= udc_stop;
+	rdrv->suspend	= udc_suspend;
+	rdrv->resume	= udc_resume;
 	rdrv->irq	= udc_irq;
 	rdrv->name	= "gadget";
 	ci->roles[CI_ROLE_GADGET] = rdrv;

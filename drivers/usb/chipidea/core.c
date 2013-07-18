@@ -478,11 +478,45 @@ static int ci_hdrc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int ci_hdrc_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ci13xxx *ci = platform_get_drvdata(pdev);
+	return ci_role_suspend(ci);
+}
+
+static int ci_hdrc_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ci13xxx *ci = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = ci_role_resume(ci);
+	if (ret) {
+		dev_err(dev, "Failed to resume %s\n",
+					ci_role(ci)->name);
+		return ret;
+	}
+	if (ci->is_otg)
+		hw_write(ci, OP_OTGSC, OTGSC_IDIE, OTGSC_IDIE);
+	return 0;
+}
+
+static const struct dev_pm_ops ci_hdrc_pm_ops = {
+	.suspend	= ci_hdrc_suspend,
+	.resume		= ci_hdrc_resume,
+};
+#endif
+
 static struct platform_driver ci_hdrc_driver = {
 	.probe	= ci_hdrc_probe,
 	.remove	= ci_hdrc_remove,
 	.driver	= {
 		.name	= "ci_hdrc",
+#ifdef CONFIG_PM
+		.pm = &ci_hdrc_pm_ops,
+#endif
 	},
 };
 
