@@ -16,6 +16,8 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
+#include <linux/i2c-dev.h>
+#include <linux/hwmon-sysfs.h>
 
 #include <media/soc_camera.h>
 #include <media/ch7102.h>
@@ -25,8 +27,8 @@
 #define WIDTH  1280
 #define HEIGHT	720
 
-/* GPIO1,10 used as HPT interrupt */
-#define GPIO_INTR 42
+/* GPIO0,0 used as HPT interrupt */
+#define GPIO_INTR 0
 /* page selection register: register 00 */
 #define PG_SEL	0x00
 #define PAGE1	0x00
@@ -106,7 +108,7 @@ static int ch7102_g_chip_ident(struct v4l2_subdev *sd,
 	id->ident = i2c_smbus_read_byte_data(client, CHIPID);
 
 	dev_info(&client->dev,
-			 "ch7102 Product ID %0x\n", id);
+			 "ch7102 Product ID %0x\n", id->ident);
 	return 0;
 }
 
@@ -284,12 +286,29 @@ static irqreturn_t ch7102_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static ssize_t sysfs_hdmi_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	if (!ch7102_client)
+		return -ENODEV;
+	return sprintf(buf, "sirfsoc hdmi-input\n");
+}
+
 void hpdwork(struct work_struct *work)
 {
+	struct device_attribute attribute;
+
+	attribute.show = sysfs_hdmi_show;
+	sysfs_attr_init(&attribute.attr);
+	attribute.attr.name = ".hdmi-input";
+	attribute.attr.mode = S_IRUGO;
+
 	if (gpio_get_value(GPIO_INTR)) {
 		if (ch7102_client) {
 			char *event_string = "HOTPLUG=1";
 			char *envp[] = {event_string, NULL};
+
+			device_create_file(&ch7102_client->dev, &attribute);
 			kobject_uevent_env(&ch7102_client->dev.kobj,
 				KOBJ_ADD, envp);
 		}
@@ -297,6 +316,8 @@ void hpdwork(struct work_struct *work)
 		if (ch7102_client) {
 			char *event_string = "HOTPLUG=0";
 			char *envp[] = {event_string, NULL};
+
+			device_remove_file(&ch7102_client->dev, &attribute);
 			kobject_uevent_env(&ch7102_client->dev.kobj,
 				KOBJ_REMOVE, envp);
 		}
@@ -312,6 +333,7 @@ static int ch7102_probe(struct i2c_client *client,
 	struct i2c_adapter             *adapter =
 		to_i2c_adapter(client->dev.parent);
 	struct soc_camera_subdev_desc   *ssdd = soc_camera_i2c_to_desc(client);
+
 	int ret;
 	u8 id;
 
@@ -334,13 +356,17 @@ static int ch7102_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	priv->info   = info;
-
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ch7102_subdev_ops);
 
 	ch7102_client = client;
-
 	hpdwork(NULL);
-	devm_gpio_request(&client->dev, GPIO_INTR, "sirfsoc_hdmi_rec_intr");
+	ret = devm_gpio_request(&client->dev,
+		GPIO_INTR, "sirfsoc_hdmi_rec_intr");
+	if (ret) {
+		dev_err(&client->dev,
+			"%s: request gpio %x failed", __func__, GPIO_INTR);
+		return -EINVAL;
+	}
 
 	client->irq = gpio_to_irq(GPIO_INTR);
 	gwkq = create_singlethread_workqueue("hdmi");
@@ -348,7 +374,7 @@ static int ch7102_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 			"%s: create_singlethread_workqueue failed.\n",
 			__func__);
-		return 0;
+		return -ENOMEM;
 	}
 
 	INIT_WORK(&gwk, (work_func_t)&hpdwork);
@@ -357,10 +383,14 @@ static int ch7102_probe(struct i2c_client *client,
 				IRQF_TRIGGER_FALLING, "SIRFSOC-HDMI", client);
 	if (ret != 0) {
 		dev_err(&client->dev, "%s: request_irq failed.\n", __func__);
-		return ret;
+		goto error_release_workqueue;
 	}
 
 	return ch7102_video_probe(client);
+
+error_release_workqueue:
+	destroy_workqueue(gwkq);
+	return ret;
 }
 
 static int ch7102_remove(struct i2c_client *client)
