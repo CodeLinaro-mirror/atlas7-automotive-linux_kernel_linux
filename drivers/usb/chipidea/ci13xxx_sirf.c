@@ -26,10 +26,12 @@
 #define RSC_USB_UART_SHARE	0x0
 #define USB1_MODE_SEL		BIT(2)
 #define pdev_to_phy(pdev)	((struct usb_phy *)platform_get_drvdata(pdev))
+#define PORTSC_PHCD		BIT(23)
 
 struct ci13xxx_sirf_data {
 	struct platform_device	*plat_ci;
 	struct clk		*clk;
+	struct usb_phy		*phy;
 	int			vbus;
 };
 
@@ -173,6 +175,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 	}
 	usb_phy_init(phy);
 	ci13xxx_sirf_platdata.phy = phy;
+	data->phy = phy;
 
 	/* 7. register to ci13xxx core */
 	plat_ci = ci13xxx_add_device(&pdev->dev,
@@ -207,6 +210,54 @@ static int ci13xxx_sirf_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int ci13xxx_sirf_suspend(struct device *dev)
+{
+	struct ci13xxx_sirf_data *data =
+		platform_get_drvdata(to_platform_device(dev));
+	struct ci13xxx *ci = platform_get_drvdata(data->plat_ci);
+
+	hw_write(ci, OP_PORTSC, PORTSC_PHCD, 1);
+
+	if (data->phy)
+		usb_phy_set_suspend(data->phy, 1);
+
+	clk_disable_unprepare(data->clk);
+
+	return 0;
+}
+
+static int ci13xxx_sirf_resume(struct device *dev)
+{
+	struct ci13xxx_sirf_data *data =
+		platform_get_drvdata(to_platform_device(dev));
+	struct ci13xxx *ci = platform_get_drvdata(data->plat_ci);
+	int ret;
+
+	ret = clk_prepare_enable(data->clk);
+	if (ret) {
+		dev_err(dev,
+			"Failed to prepare or enable clock, err=%d\n", ret);
+		return ret;
+	}
+
+	if (hw_read(ci, OP_PORTSC, PORTSC_PHCD)) {
+		hw_write(ci, OP_PORTSC, PORTSC_PHCD, 0);
+		mdelay(10);
+	}
+
+	if (data->phy)
+		usb_phy_set_suspend(data->phy, 0);
+
+	return ret;
+}
+
+static const struct dev_pm_ops ci13xxx_sirf_pm_ops = {
+	.suspend	= ci13xxx_sirf_suspend,
+	.resume		= ci13xxx_sirf_resume,
+};
+#endif
+
 static const struct of_device_id ci13xxx_sirf_dt_ids[] = {
 	{ .compatible = "chipidea,ci13611a-prima2", },
 	{ /* sentinel */ }
@@ -220,6 +271,9 @@ static struct platform_driver ci13xxx_sirf_driver = {
 		.name = "sirf-usbcontroller",
 		.owner = THIS_MODULE,
 		.of_match_table = ci13xxx_sirf_dt_ids,
+#ifdef CONFIG_PM
+		.pm = &ci13xxx_sirf_pm_ops,
+#endif
 	 },
 };
 module_platform_driver(ci13xxx_sirf_driver);
