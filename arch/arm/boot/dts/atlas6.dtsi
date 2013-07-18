@@ -98,8 +98,6 @@
 				interrupts = <30>;
 				clocks = <&clks 34>;
 				display=<&display>;
-				/* later transfer to pwm */
-				bl-gpios = <&gpio 7 0>;
 				default-panel = <&panel0>;
 				resets = <&rstc 5>;
 				power-vcc  = <0x000d0008>;
