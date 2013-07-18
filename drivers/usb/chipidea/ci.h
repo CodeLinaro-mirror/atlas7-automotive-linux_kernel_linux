@@ -76,6 +76,8 @@ enum ci_role {
 struct ci_role_driver {
 	int		(*start)(struct ci13xxx *);
 	void		(*stop)(struct ci13xxx *);
+	int		(*suspend)(struct ci13xxx *);
+	int		(*resume)(struct ci13xxx *);
 	irqreturn_t	(*irq)(struct ci13xxx *);
 	const char	*name;
 };
@@ -173,6 +175,32 @@ static inline struct ci_role_driver *ci_role(struct ci13xxx *ci)
 {
 	BUG_ON(ci->role >= CI_ROLE_END || !ci->roles[ci->role]);
 	return ci->roles[ci->role];
+}
+
+static inline int ci_role_suspend(struct ci13xxx *ci)
+{
+	enum ci_role role = ci->role;
+
+	if (role >= CI_ROLE_END)
+		return -EINVAL;
+
+	if (!ci->roles[role] || !ci->roles[role]->suspend)
+		return -ENXIO;
+
+	return ci->roles[role]->suspend(ci);
+}
+
+static inline int ci_role_resume(struct ci13xxx *ci)
+{
+	enum ci_role role = ci->role;
+
+	if (role >= CI_ROLE_END)
+		return -EINVAL;
+
+	if (!ci->roles[role] || !ci->roles[role]->resume)
+		return -ENXIO;
+
+	return ci->roles[role]->resume(ci);
 }
 
 static inline int ci_role_start(struct ci13xxx *ci, enum ci_role role)
