@@ -6,7 +6,6 @@
  * Licensed under GPLv2 or later.
  */
 #include <linux/module.h>
-#include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <sound/soc.h>
