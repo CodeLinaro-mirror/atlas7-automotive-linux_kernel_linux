@@ -1835,6 +1835,7 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	struct pinctrl *p;
 	int i, ret = 0;
 	int    layer_ctrl;
+	int bl_gpio;
 	LCD_PANEL_INFO panel_info;
 
 	FB_FUN_MSG("+sirfsocfb_probe\n");
@@ -1960,6 +1961,17 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	}
 
 	get_layer_ctrl_info(fb, layer_ctrl);
+
+	/* later bl should be managed by pwm */
+	bl_gpio = of_get_named_gpio(pdev->dev.of_node, "bl-gpios", 0);
+	if (gpio_is_valid(bl_gpio)) {
+		ret = devm_gpio_request(&pdev->dev,
+			bl_gpio, "sirfsoc_backlight");
+		if (ret)
+			dev_err(&pdev->dev, "request backlight gpio failed\n");
+		else
+			gpio_direction_output(bl_gpio, 1);
+	}
 
 	vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpios", 0);
 	if (gpio_is_valid(vcc_gpio)) {
