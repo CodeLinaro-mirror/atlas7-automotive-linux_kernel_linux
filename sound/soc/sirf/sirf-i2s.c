@@ -7,7 +7,6 @@
  */
 #include <linux/module.h>
 #include <linux/io.h>
-#include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/clk.h>
@@ -78,30 +77,30 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 		if (playback) {
 			/* First start the FIFO, then enable the tx/rx */
 			writel(AUDIO_FIFO_RESET,
-				si2s->base+AUDIO_CTRL_EXT_TXFIFO1_OP);
+				si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
 			mdelay(1);
 			writel(AUDIO_FIFO_START,
-				si2s->base+AUDIO_CTRL_EXT_TXFIFO1_OP);
+				si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
 			mdelay(1);
 
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
 				| I2S_TX_ENABLE | I2S_DOUT_OE |
 				(si2s->master_mode == 1 ? I2S_MCLK_EN : 0),
-				si2s->base+AUDIO_CTRL_I2S_TX_RX_EN);
+				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 
 		} else {
 			/* First start the FIFO, then enable the tx/rx */
 			writel(AUDIO_FIFO_RESET,
-				si2s->base+AUDIO_CTRL_RXFIFO_OP);
+				si2s->base + AUDIO_CTRL_RXFIFO_OP);
 			mdelay(1);
 			writel(AUDIO_FIFO_START,
-				si2s->base+AUDIO_CTRL_RXFIFO_OP);
+				si2s->base + AUDIO_CTRL_RXFIFO_OP);
 			mdelay(1);
 
 			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
 				| I2S_RX_ENABLE |
 				(si2s->master_mode == 1 ? I2S_MCLK_EN : 0),
-				si2s->base+AUDIO_CTRL_I2S_TX_RX_EN);
+				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 		}
 
 		spin_unlock(&si2s->lock);
@@ -112,18 +111,18 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 		spin_lock(&si2s->lock);
 
 		if (playback) {
-			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
+			writel(readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN)
 				& ~(I2S_TX_ENABLE | I2S_MCLK_EN),
 				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 			/* First disable the tx/rx, then stop the FIFO */
-			writel(0, si2s->base+AUDIO_CTRL_EXT_TXFIFO1_OP);
+			writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
 		} else {
-			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
+			writel(readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN)
 				& ~(I2S_RX_ENABLE | I2S_MCLK_EN),
 				si2s->base+AUDIO_CTRL_I2S_TX_RX_EN);
 
 			/* First disable the tx/rx, then stop the FIFO */
-			writel(0, si2s->base+AUDIO_CTRL_RXFIFO_OP);
+			writel(0, si2s->base + AUDIO_CTRL_RXFIFO_OP);
 		}
 
 		spin_unlock(&si2s->lock);
@@ -139,19 +138,12 @@ static int sirf_i2s_prepare(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	u32 ctrl = readl(si2s->base+AUDIO_CTRL_I2S_CTRL);
+	u32 ctrl = readl(si2s->base + AUDIO_CTRL_I2S_CTRL);
 
-	/*
-	 * NOTE: It must not be a case of 2 channel input and 6 channel output.
-	 * Both the directions must be configured for same number of channels.
-	 * Anyways, in case of TSC2100 codec, which supports only 2 channels,
-	 * it will not be the case of different channel numbers in
-	 * different directions.
-	 */
 	if (runtime->channels == 2)
-		ctrl &= ~I2S_SIX_CHANNELS;	/* 2 channels */
+		ctrl &= ~I2S_SIX_CHANNELS;
 	else
-		ctrl |= I2S_SIX_CHANNELS;	/* 6 channels */
+		ctrl |= I2S_SIX_CHANNELS;
 
 	writel(ctrl, si2s->base+AUDIO_CTRL_I2S_CTRL);
 
@@ -184,7 +176,7 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	frame_len = left_len * 2;
-	i2s_ctrl &= (~(I2S_L_CHAN_LEN_MASK | I2S_FRAME_LEN_MASK));
+	i2s_ctrl &= ~(I2S_L_CHAN_LEN_MASK | I2S_FRAME_LEN_MASK);
 	/* Fill the actual len - 1 */
 	i2s_ctrl |= ((frame_len - 1) << 9) | ((left_len - 1) << 4)
 		| (0 << 15) | (3 << 24);
