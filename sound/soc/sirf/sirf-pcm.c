@@ -158,7 +158,7 @@ static int sirf_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 static int sirf_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_pcm *pcm = rtd->pcm;
-	int ret = 0;
+	int ret;
 
 	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
 		ret = sirf_pcm_preallocate_dma_buffer(pcm,
@@ -174,11 +174,10 @@ static int sirf_pcm_new(struct snd_soc_pcm_runtime *rtd)
 			goto out;
 	}
 
-out:
-	/* free preallocated buffers in case of error */
-	if (ret)
-		sirf_pcm_free_dma_buffers(pcm);
+	return 0;
 
+out:
+	sirf_pcm_free_dma_buffers(pcm);
 	return ret;
 }
 
