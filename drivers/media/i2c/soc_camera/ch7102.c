@@ -346,6 +346,14 @@ static int ch7102_probe(struct i2c_client *client,
 		return -EIO;
 	}
 
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE12);
+	if (i2c_smbus_read_byte_data(client, CHIPID) < 0) {
+		dev_err(&client->dev,
+		"%s:read ch7102 chip id failed\n",
+		__func__);
+		return -EIO;
+	}
+
 	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
