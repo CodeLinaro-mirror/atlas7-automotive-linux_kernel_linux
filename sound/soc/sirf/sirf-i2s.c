@@ -33,8 +33,7 @@ struct sirf_i2s {
 static struct sirf_pcm_dma_data sirf_i2s_dai_dma_data[2] = {
 	{
 		.name = "Audio Playback",
-	},
-	{
+	}, {
 		.name = "Audio Capture",
 	}
 };
@@ -142,11 +141,13 @@ static int sirf_i2s_prepare(struct snd_pcm_substream *substream,
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
 	u32 ctrl = readl(si2s->base+AUDIO_CTRL_I2S_CTRL);
 
-	/* NOTE: It must not be a case of 2 channel input and 6 channel output.
+	/*
+	 * NOTE: It must not be a case of 2 channel input and 6 channel output.
 	 * Both the directions must be configured for same number of channels.
 	 * Anyways, in case of TSC2100 codec, which supports only 2 channels,
 	 * it will not be the case of different channel numbers in
-	 * different directions. */
+	 * different directions.
+	 */
 	if (runtime->channels == 2)
 		ctrl &= ~I2S_SIX_CHANNELS;	/* 2 channels */
 	else
@@ -185,8 +186,8 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	frame_len = left_len * 2;
 	i2s_ctrl &= (~(I2S_L_CHAN_LEN_MASK | I2S_FRAME_LEN_MASK));
 	/* Fill the actual len - 1 */
-	i2s_ctrl |= ((frame_len - 1)<<9) | ((left_len - 1)<<4)
-		| (0<<15) | (3<<24);
+	i2s_ctrl |= ((frame_len - 1) << 9) | ((left_len - 1) << 4)
+		| (0 << 15) | (3 << 24);
 	writel(i2s_ctrl, si2s->base + AUDIO_CTRL_I2S_CTRL);
 	return 0;
 }
@@ -214,9 +215,9 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 	/* interface format */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
-		writel(readl(si2s->base+AUDIO_CTRL_MODE_SEL)
+		writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
 			| I2S_MODE,
-			si2s->base+AUDIO_CTRL_MODE_SEL);
+			si2s->base + AUDIO_CTRL_MODE_SEL);
 		break;
 	default:
 		dev_err(dai->dev, "Only I2S format supported\n");
