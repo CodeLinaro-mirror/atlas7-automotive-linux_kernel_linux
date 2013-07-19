@@ -16,8 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
-#include <linux/i2c-dev.h>
-#include <linux/hwmon-sysfs.h>
+#include <linux/device.h>
 
 #include <media/soc_camera.h>
 #include <media/ch7102.h>
@@ -280,6 +279,7 @@ static struct i2c_client *ch7102_client;
 struct workqueue_struct *gwkq;
 struct work_struct gwk;
 
+
 static irqreturn_t ch7102_irq_handler(int irq, void *data)
 {
 	queue_work(gwkq, &gwk);
@@ -294,21 +294,16 @@ static ssize_t sysfs_hdmi_show(struct device *dev,
 	return sprintf(buf, "sirfsoc hdmi-input\n");
 }
 
+static DEVICE_ATTR(hdmi, S_IRUGO, sysfs_hdmi_show, NULL);
+
 void hpdwork(struct work_struct *work)
 {
-	struct device_attribute attribute;
-
-	attribute.show = sysfs_hdmi_show;
-	sysfs_attr_init(&attribute.attr);
-	attribute.attr.name = ".hdmi-input";
-	attribute.attr.mode = S_IRUGO;
-
 	if (gpio_get_value(GPIO_INTR)) {
 		if (ch7102_client) {
 			char *event_string = "HOTPLUG=1";
 			char *envp[] = {event_string, NULL};
 
-			device_create_file(&ch7102_client->dev, &attribute);
+			device_create_file(&ch7102_client->dev, &dev_attr_hdmi);
 			kobject_uevent_env(&ch7102_client->dev.kobj,
 				KOBJ_ADD, envp);
 		}
@@ -317,7 +312,7 @@ void hpdwork(struct work_struct *work)
 			char *event_string = "HOTPLUG=0";
 			char *envp[] = {event_string, NULL};
 
-			device_remove_file(&ch7102_client->dev, &attribute);
+			device_remove_file(&ch7102_client->dev, &dev_attr_hdmi);
 			kobject_uevent_env(&ch7102_client->dev.kobj,
 				KOBJ_REMOVE, envp);
 		}
