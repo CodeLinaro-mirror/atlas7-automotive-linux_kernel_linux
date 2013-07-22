@@ -163,7 +163,8 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	unsigned int val = assert ? SIRFUART_AFC_CTRL_RX_THD : 0x0;
 	unsigned int current_val;
 
-	if (!sirfport->hw_flow_ctrl)
+	if (!sirfport->hw_flow_ctrl ||
+			!sirfport->ms_enabled)
 		return;
 	if (sirfport->uart_reg->uart_type == sirf_real_uart) {
 		current_val = rd_regl(port, ureg->sirfsoc_afc_ctrl) & ~0xFF;
