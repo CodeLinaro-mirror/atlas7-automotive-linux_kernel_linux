@@ -389,6 +389,11 @@ struct sirfsoc_baudrate_to_regv {
 	unsigned int reg_val;
 };
 
+enum sirfsoc_tx_state {
+	TX_DMA_IDLE,
+	TX_DMA_RUNNING,
+	TX_DMA_PAUSE,
+};
 struct sirfsoc_uart_port {
 	unsigned char			hw_flow_ctrl;
 	unsigned char			ms_enabled;
@@ -417,7 +422,7 @@ struct sirfsoc_uart_port {
 	unsigned int			rx_io_count;
 	unsigned long			transfer_size;
 	struct dma_interleaved_template *dma_xt;
-	unsigned int			tx_dma_running;
+	enum sirfsoc_tx_state		tx_dma_state;
 	unsigned int			rfs_gpio;
 	unsigned int			tfs_gpio;
 };
