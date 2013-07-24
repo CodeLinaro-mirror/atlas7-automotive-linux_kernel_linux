@@ -1603,8 +1603,10 @@ static irqreturn_t udc_irq(struct ci13xxx *ci)
 
 	if (intr) {
 		/* order defines priority - do NOT change it */
-		if (USBi_URI & intr)
+		if (USBi_URI & intr) {
 			isr_reset_handler(ci);
+			usb_gadget_set_state(&ci->gadget, USB_STATE_DEFAULT);
+		}
 
 		if (USBi_PCI & intr) {
 			ci->gadget.speed = hw_port_is_high_speed(ci) ?
@@ -1626,6 +1628,8 @@ static irqreturn_t udc_irq(struct ci13xxx *ci)
 				ci->suspended = 1;
 				spin_unlock(&ci->lock);
 				ci->driver->suspend(&ci->gadget);
+				usb_gadget_set_state(&ci->gadget,
+							USB_STATE_SUSPENDED);
 				spin_lock(&ci->lock);
 			}
 		}
