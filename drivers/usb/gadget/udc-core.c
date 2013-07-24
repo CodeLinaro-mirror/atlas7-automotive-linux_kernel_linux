@@ -104,8 +104,22 @@ EXPORT_SYMBOL_GPL(usb_gadget_unmap_request);
 static void usb_gadget_state_work(struct work_struct *work)
 {
 	struct usb_gadget *gadget = work_to_gadget(work);
+	struct usb_udc *udc = NULL;
 
 	sysfs_notify(&gadget->dev.kobj, NULL, "state");
+
+	mutex_lock(&udc_lock);
+	list_for_each_entry(udc, &udc_list, list)
+	if (udc->gadget == gadget)
+		goto found;
+
+	dev_err(gadget->dev.parent, "gadget not registered.\n");
+	mutex_unlock(&udc_lock);
+	return;
+
+found:
+	mutex_unlock(&udc_lock);
+	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 }
 
 void usb_gadget_set_state(struct usb_gadget *gadget,
@@ -542,6 +556,15 @@ static int usb_udc_uevent(struct device *dev, struct kobj_uevent_env *env)
 				udc->driver->function);
 		if (ret) {
 			dev_err(dev, "failed to add uevent USB_UDC_DRIVER\n");
+			return ret;
+		}
+	}
+
+	if (udc->gadget) {
+		ret = add_uevent_var(env, "USB_UDC_STATE=%s",
+				usb_state_string(udc->gadget->state));
+		if (ret) {
+			dev_err(dev, "failed to add uevent USB_UDC_STATE\n");
 			return ret;
 		}
 	}
