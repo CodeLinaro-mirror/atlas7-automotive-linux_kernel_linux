@@ -844,9 +844,8 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 		sdesc = list_first_entry(&schan->active,
 			struct sirfsoc_dma_desc,
 			node);
-		if (sdesc)
-			save->ctrl[ch] = readl_relaxed(sdma->base +
-				ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
+		save->ctrl[ch] = readl_relaxed(sdma->base +
+			ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
 	}
 	save->interrupt_en = readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN);
 	clk_disable_unprepare(sdma->clk);
@@ -870,18 +869,16 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 		sdesc = list_first_entry(&schan->active,
 			struct sirfsoc_dma_desc,
 			node);
-		if (sdesc) {
-			writel_relaxed(sdesc->width,
-				sdma->base + SIRFSOC_DMA_WIDTH_0 + ch * 4);
-			writel_relaxed(sdesc->xlen,
-				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_XLEN);
-			writel_relaxed(sdesc->ylen,
-				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_YLEN);
-			writel_relaxed(save->ctrl[ch],
-				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
-			writel_relaxed(sdesc->addr >> 2,
-				sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_ADDR);
-		}
+		writel_relaxed(sdesc->width,
+			sdma->base + SIRFSOC_DMA_WIDTH_0 + ch * 4);
+		writel_relaxed(sdesc->xlen,
+			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_XLEN);
+		writel_relaxed(sdesc->ylen,
+			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_YLEN);
+		writel_relaxed(save->ctrl[ch],
+			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
+		writel_relaxed(sdesc->addr >> 2,
+			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_ADDR);
 	}
 	return 0;
 }
