@@ -92,8 +92,8 @@ struct sirfsoc_int_status {
 };
 
 enum sirfsoc_uart_type {
-	sirf_real_uart,
-	sirf_usp_uart,
+	SIRF_REAL_UART,
+	SIRF_USP_UART,
 };
 
 struct sirfsoc_uart_register {
