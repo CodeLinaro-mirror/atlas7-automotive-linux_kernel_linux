@@ -253,8 +253,7 @@ static int ci13xxx_sirf_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops ci13xxx_sirf_pm_ops = {
-	.suspend	= ci13xxx_sirf_suspend,
-	.resume		= ci13xxx_sirf_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(ci13xxx_sirf_suspend, ci13xxx_sirf_resume)
 };
 #endif
 
