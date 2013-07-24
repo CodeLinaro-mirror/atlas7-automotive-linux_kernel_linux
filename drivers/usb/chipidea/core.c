@@ -504,8 +504,7 @@ static int ci_hdrc_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops ci_hdrc_pm_ops = {
-	.suspend	= ci_hdrc_suspend,
-	.resume		= ci_hdrc_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(ci_hdrc_suspend, ci_hdrc_resume)
 };
 #endif
 
