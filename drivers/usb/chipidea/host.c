@@ -97,7 +97,7 @@ static int host_resume(struct ci13xxx *ci)
 	struct usb_hcd *hcd = ci->hcd;
 
 	hw_device_reset(ci, USBMODE_CM_HC);
-	ehci_resume(hcd, false);
+	ehci_resume(hcd, true);
 
 	return 0;
 }
