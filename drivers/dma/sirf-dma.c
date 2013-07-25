@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/slab.h>
@@ -91,6 +92,8 @@ struct sirfsoc_dma {
 
 #define DRV_NAME	"sirfsoc_dma"
 
+static int sirfsoc_dma_runtime_suspend(struct device *dev);
+
 /* Convert struct dma_chan to struct sirfsoc_dma_chan */
 static inline
 struct sirfsoc_dma_chan *dma_chan_to_sirfsoc_dma_chan(struct dma_chan *c)
@@ -119,6 +122,7 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 
 	sdesc = list_first_entry(&schan->queued, struct sirfsoc_dma_desc,
 		node);
+
 	/* Move the first queued descriptor to active list */
 	list_move_tail(&sdesc->node, &schan->active);
 
@@ -453,6 +457,8 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 	LIST_HEAD(descs);
 	int i;
 
+	pm_runtime_get_sync(sdma->dma.dev);
+
 	/* Alloc descriptors for this channel */
 	for (i = 0; i < SIRFSOC_DMA_DESCRIPTORS; i++) {
 		sdesc = kzalloc(sizeof(*sdesc), GFP_KERNEL);
@@ -485,6 +491,7 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 static void sirfsoc_dma_free_chan_resources(struct dma_chan *chan)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_desc *sdesc, *tmp;
 	unsigned long flags;
 	LIST_HEAD(descs);
@@ -505,6 +512,8 @@ static void sirfsoc_dma_free_chan_resources(struct dma_chan *chan)
 	/* Free descriptors */
 	list_for_each_entry_safe(sdesc, tmp, &descs, node)
 		kfree(sdesc);
+
+	pm_runtime_put(sdma->dma.dev);
 }
 
 /* Send pending descriptor to hardware */
@@ -798,14 +807,14 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 
 	tasklet_init(&sdma->tasklet, sirfsoc_dma_tasklet, (unsigned long)sdma);
 
-	clk_prepare_enable(sdma->clk);
-
 	/* Register DMA engine */
 	dev_set_drvdata(dev, sdma);
+
 	ret = dma_async_device_register(dma);
 	if (ret)
 		goto free_irq;
 
+	pm_runtime_enable(&op->dev);
 	dev_info(dev, "initialized SIRFSOC DMAC driver\n");
 
 	return 0;
@@ -822,21 +831,53 @@ static int sirfsoc_dma_remove(struct platform_device *op)
 	struct device *dev = &op->dev;
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(sdma->clk);
 	dma_async_device_unregister(&sdma->dma);
 	free_irq(sdma->irq, sdma);
 	irq_dispose_mapping(sdma->irq);
+	pm_runtime_disable(&op->dev);
+	if (!pm_runtime_status_suspended(&op->dev))
+		sirfsoc_dma_runtime_suspend(&op->dev);
+
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_dma_runtime_suspend(struct device *dev)
+{
+	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(sdma->clk);
+	return 0;
+}
+
+static int sirfsoc_dma_runtime_resume(struct device *dev)
+{
+	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(sdma->clk);
+	if (ret < 0) {
+		dev_err(dev, "clk_enable failed: %d\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
 static int sirfsoc_dma_pm_suspend(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
-	struct sirfsoc_dma_desc *sdesc = NULL;
+	struct sirfsoc_dma_desc *sdesc;
 	struct sirfsoc_dma_chan *schan;
 	int ch;
+	int ret;
+
+	/* Enable clock before accessing register */
+	if (pm_runtime_status_suspended(dev)) {
+		ret = sirfsoc_dma_runtime_resume(dev);
+		if (ret < 0)
+			return ret;
+	}
+
 	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
 		schan = &sdma->channels[ch];
 		if (list_empty(&schan->active))
@@ -848,7 +889,10 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 			ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
 	}
 	save->interrupt_en = readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN);
-	clk_disable_unprepare(sdma->clk);
+
+	/* Disable clock */
+	sirfsoc_dma_runtime_suspend(dev);
+
 	return 0;
 }
 
@@ -856,11 +900,16 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
-	struct sirfsoc_dma_desc *sdesc = NULL;
+	struct sirfsoc_dma_desc *sdesc;
 	struct sirfsoc_dma_chan *schan;
 	int ch;
+	int ret;
 
-	clk_prepare_enable(sdma->clk);
+	/* Enable clock before accessing register */
+	ret = sirfsoc_dma_runtime_resume(dev);
+	if (ret < 0)
+		return ret;
+
 	writel_relaxed(save->interrupt_en, sdma->base + SIRFSOC_DMA_INT_EN);
 	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
 		schan = &sdma->channels[ch];
@@ -880,14 +929,17 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 		writel_relaxed(sdesc->addr >> 2,
 			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_ADDR);
 	}
+
+	/* Disable clock */
+	sirfsoc_dma_runtime_suspend(dev);
+
 	return 0;
 }
 
 static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
+	SET_RUNTIME_PM_OPS(sirfsoc_dma_runtime_suspend, sirfsoc_dma_runtime_resume, NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_dma_pm_suspend, sirfsoc_dma_pm_resume)
 };
-
-#endif
 
 static struct of_device_id sirfsoc_dma_match[] = {
 	{ .compatible = "sirf,prima2-dmac", },
@@ -901,9 +953,7 @@ static struct platform_driver sirfsoc_dma_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM_SLEEP
 		.pm = &sirfsoc_dma_pm_ops,
-#endif
 		.of_match_table	= sirfsoc_dma_match,
 	},
 };
