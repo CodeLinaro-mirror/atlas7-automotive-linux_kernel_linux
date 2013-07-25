@@ -74,7 +74,6 @@
 /* USBMODE */
 #define USBMODE_CM            (0x03UL <<  0)
 #define USBMODE_CM_DC         (0x02UL <<  0)
-#define USBMODE_CM_HC         (0x03UL <<  0)
 #define USBMODE_SLOM          BIT(3)
 #define USBMODE_CI_SDIS       BIT(4)
 
