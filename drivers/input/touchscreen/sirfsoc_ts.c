@@ -390,11 +390,10 @@ static int sirfsoc_ts_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int sirfsoc_ts_suspend(struct device *device)
 {
-	if (of_machine_is_compatible("sirf,atlas6"))
-		sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
-			& ~(1 << PWR_WAKEEN_TSC_SHIFT),
-			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
+		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
+		& ~(1 << PWR_WAKEEN_TSC_SHIFT),
+		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
 	return 0;
 }
