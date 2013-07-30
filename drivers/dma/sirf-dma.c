@@ -931,7 +931,8 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 	}
 
 	/* Disable clock */
-	sirfsoc_dma_runtime_suspend(dev);
+	if (pm_runtime_status_suspended(dev))
+		sirfsoc_dma_runtime_suspend(dev);
 
 	return 0;
 }
