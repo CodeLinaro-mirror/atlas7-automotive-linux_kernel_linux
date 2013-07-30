@@ -871,13 +871,20 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 	int ch;
 	int ret;
 
-	/* Enable clock before accessing register */
+	/*
+	 * if we were runtime-suspended before, resume to enable clock
+	 * before accessing register
+	 */
 	if (pm_runtime_status_suspended(dev)) {
 		ret = sirfsoc_dma_runtime_resume(dev);
 		if (ret < 0)
 			return ret;
 	}
 
+	/*
+	 * DMA controller will lose all registers while suspending
+	 * so we need to save registers for active channels
+	 */
 	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
 		schan = &sdma->channels[ch];
 		if (list_empty(&schan->active))
@@ -930,7 +937,7 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_ADDR);
 	}
 
-	/* Disable clock */
+	/* if we were runtime-suspended before, suspend again*/
 	if (pm_runtime_status_suspended(dev))
 		sirfsoc_dma_runtime_suspend(dev);
 
