@@ -87,7 +87,7 @@ struct sirfsoc_dma {
 	int				irq;
 	struct clk			*clk;
 	bool				is_marco;
-	struct sirfsoc_dma_regs		dma_regs_save;
+	struct sirfsoc_dma_regs		regs_save;
 };
 
 #define DRV_NAME	"sirfsoc_dma"
@@ -917,7 +917,7 @@ static int sirfsoc_dma_runtime_resume(struct device *dev)
 static int sirfsoc_dma_pm_suspend(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
-	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
+	struct sirfsoc_dma_regs *save = &sdma->regs_save;
 	struct sirfsoc_dma_desc *sdesc;
 	struct sirfsoc_dma_chan *schan;
 	int ch;
@@ -958,7 +958,7 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 static int sirfsoc_dma_pm_resume(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
-	struct sirfsoc_dma_regs *save = &sdma->dma_regs_save;
+	struct sirfsoc_dma_regs *save = &sdma->regs_save;
 	struct sirfsoc_dma_desc *sdesc;
 	struct sirfsoc_dma_chan *schan;
 	int ch;
