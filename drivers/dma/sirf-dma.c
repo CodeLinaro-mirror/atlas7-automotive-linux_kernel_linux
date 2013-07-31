@@ -122,7 +122,6 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 
 	sdesc = list_first_entry(&schan->queued, struct sirfsoc_dma_desc,
 		node);
-
 	/* Move the first queued descriptor to active list */
 	list_move_tail(&sdesc->node, &schan->active);
 
@@ -149,7 +148,6 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 		writel((1 << cid) | 1 << (cid + 16) |
 			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
 			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
-
 		schan->happened_cyclic = schan->completed_cyclic = 0;
 	}
 }
@@ -539,17 +537,19 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	unsigned long flags;
 	enum dma_status ret;
-	struct sirfsoc_dma_desc *sdesc = NULL;
+	struct sirfsoc_dma_desc *sdesc;
 	int cid = schan->chan.chan_id;
 	unsigned long dma_pos;
 	unsigned long dma_request_bytes;
 	unsigned long residue;
+
+	spin_lock_irqsave(&schan->lock, flags);
+
 	sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
 			node);
 	dma_request_bytes = (sdesc->xlen + 1) * (sdesc->ylen + 1) *
 		(sdesc->width * SIRFSOC_DMA_WORD_LEN);
 
-	spin_lock_irqsave(&schan->lock, flags);
 	ret = dma_cookie_status(chan, cookie, txstate);
 	dma_pos = readl_relaxed(sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR)
 		<< 2;
