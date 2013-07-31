@@ -634,25 +634,34 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	unsigned long flags, void *context)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+	struct sirfsoc_dma_desc *first_sdesc;
 	struct sirfsoc_dma_desc *sdesc;
+	struct list_head *l;
 	unsigned long iflags;
+	struct scatterlist *sg;
+	int desc_cnt = 0, i;
 	int ret;
 
 	/*
-	 * the hardware doesn't support sg, so we limit sg_len to 1 to
-	 * support single mode
+	 * the hardware doesn't support sg, here we use software list
+	 * to simulate sg, so make sure we have enough desc nodes
 	 */
-	if (sg_len == 1 && (sg_dma_len(sgl) < 2048 * SIRFSOC_DMA_WORD_LEN)) {
-		dma_addr_t addr = sg_dma_address(sgl);
-		unsigned int len = sg_dma_len(sgl);
+	spin_lock_irqsave(&schan->lock, iflags);
+	list_for_each(l, &schan->free)
+		desc_cnt++;
+	if (desc_cnt < sg_len) {
+		spin_unlock_irqrestore(&schan->lock, iflags);
+		pr_err("sirfsoc DMA channel busy\n");
+		ret = -EBUSY;
+		goto err;
+	}
 
-		/* Get free descriptor */
-		spin_lock_irqsave(&schan->lock, iflags);
-		if (!list_empty(&schan->free)) {
-			spin_unlock_irqrestore(&schan->lock, iflags);
-			ret = -EBUSY;
-			goto err;
-		}
+	first_sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
+			node);
+
+	for_each_sg(sgl, sg, sg_len, i) {
+		dma_addr_t addr = sg_dma_address(sg);
+		unsigned int len = sg_dma_len(sg);
 
 		sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
 			node);
@@ -666,15 +675,10 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		sdesc->ylen = 0;
 
 		list_add_tail(&sdesc->node, &schan->prepared);
-		spin_unlock_irqrestore(&schan->lock, iflags);
-
-		return &sdesc->desc;
-	} else {
-		pr_err("sirfsoc DMA Invalid xfer\n");
-		ret = -EINVAL;
-		goto err;
 	}
+	spin_unlock_irqrestore(&schan->lock, iflags);
 
+	return &first_sdesc->desc;
 err:
 	return ERR_PTR(ret);
 }
