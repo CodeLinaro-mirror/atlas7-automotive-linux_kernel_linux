@@ -629,6 +629,57 @@ err_dir:
 }
 
 static struct dma_async_tx_descriptor *
+sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
+	unsigned int sg_len, enum dma_transfer_direction direction,
+	unsigned long flags, void *context)
+{
+	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+	struct sirfsoc_dma_desc *sdesc;
+	unsigned long iflags;
+	int ret;
+
+	/*
+	 * the hardware doesn't support sg, so we limit sg_len to 1 to
+	 * support single mode
+	 */
+	if (sg_len == 1 && (sg_dma_len(sgl) < 2048 * SIRFSOC_DMA_WORD_LEN)) {
+		dma_addr_t addr = sg_dma_address(sgl);
+		unsigned int len = sg_dma_len(sgl);
+
+		/* Get free descriptor */
+		spin_lock_irqsave(&schan->lock, iflags);
+		if (!list_empty(&schan->free)) {
+			spin_unlock_irqrestore(&schan->lock, iflags);
+			ret = -EBUSY;
+			goto err;
+		}
+
+		sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
+			node);
+		list_del(&sdesc->node);
+
+		sdesc->addr = addr;
+		sdesc->dir = (direction == DMA_MEM_TO_DEV ? 1 : 0);
+		sdesc->cyclic = 0;
+		sdesc->xlen = len / SIRFSOC_DMA_WORD_LEN;
+		sdesc->width = sdesc->xlen;
+		sdesc->ylen = 0;
+
+		list_add_tail(&sdesc->node, &schan->prepared);
+		spin_unlock_irqrestore(&schan->lock, iflags);
+
+		return &sdesc->desc;
+	} else {
+		pr_err("sirfsoc DMA Invalid xfer\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+err:
+	return ERR_PTR(ret);
+}
+
+static struct dma_async_tx_descriptor *
 sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	size_t buf_len, size_t period_len,
 	enum dma_transfer_direction direction, unsigned long flags, void *context)
@@ -781,6 +832,7 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	dma->device_control = sirfsoc_dma_control;
 	dma->device_tx_status = sirfsoc_dma_tx_status;
 	dma->device_prep_interleaved_dma = sirfsoc_dma_prep_interleaved;
+	dma->device_prep_slave_sg = sirfsoc_dma_prep_slave_sg;
 	dma->device_prep_dma_cyclic = sirfsoc_dma_prep_cyclic;
 
 	INIT_LIST_HEAD(&dma->channels);
