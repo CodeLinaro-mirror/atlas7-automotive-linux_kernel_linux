@@ -174,6 +174,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 		if (!sdesc->cyclic) {
 			/* Execute queued descriptors */
 			list_splice_tail_init(&schan->active, &schan->completed);
+			dma_cookie_complete(&sdesc->desc);
 			if (!list_empty(&schan->queued))
 				sirfsoc_dma_execute(schan);
 		} else
@@ -191,7 +192,6 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 /* process completed descriptors */
 static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 {
-	dma_cookie_t last_cookie = 0;
 	struct sirfsoc_dma_chan *schan;
 	struct sirfsoc_dma_desc *sdesc;
 	struct dma_async_tx_descriptor *desc;
@@ -216,14 +216,12 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 				if (desc->callback)
 					desc->callback(desc->callback_param);
 
-				last_cookie = desc->cookie;
 				dma_run_dependencies(desc);
 			}
 
 			/* Free descriptors */
 			spin_lock_irqsave(&schan->lock, flags);
 			list_splice_tail_init(&list, &schan->free);
-			schan->chan.completed_cookie = last_cookie;
 			spin_unlock_irqrestore(&schan->lock, flags);
 		} else {
 			if (list_empty(&schan->active)) {
@@ -544,12 +542,18 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 	unsigned long residue;
 
 	spin_lock_irqsave(&schan->lock, flags);
-
-	sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
-			node);
-	dma_request_bytes = (sdesc->xlen + 1) * (sdesc->ylen + 1) *
-		(sdesc->width * SIRFSOC_DMA_WORD_LEN);
-
+	if (list_empty(&schan->active)) {
+		ret = dma_cookie_status(chan, cookie, txstate);
+		dma_set_residue(txstate, 0);
+		return ret;
+	}
+	sdesc = list_first_entry(&schan->active,
+				struct sirfsoc_dma_desc, node);
+	if (sdesc->cyclic)
+		dma_request_bytes = (sdesc->xlen + 1) * (sdesc->ylen + 1) *
+			(sdesc->width * SIRFSOC_DMA_WORD_LEN);
+	else
+		dma_request_bytes = sdesc->xlen * SIRFSOC_DMA_WORD_LEN;
 	ret = dma_cookie_status(chan, cookie, txstate);
 	dma_pos = readl_relaxed(sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR)
 		<< 2;
