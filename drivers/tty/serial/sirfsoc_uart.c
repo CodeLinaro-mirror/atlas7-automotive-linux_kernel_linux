@@ -51,6 +51,7 @@ static struct uart_driver sirfsoc_uart_drv;
 
 static void sirfsoc_tx_dma_complete_callback(void *param);
 static void sirfsoc_uart_start_next_rx_dma(struct uart_port *port);
+static void sirfsoc_rx_dma_complete_callback(void *param);
 static const struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
 	{4000000, 2359296},
 	{3500000, 1310721},
@@ -512,42 +513,63 @@ static void sirfsoc_tx_dma_complete_callback(void *param)
 	spin_unlock_irqrestore(&sirfport->tx_lock, flags);
 }
 
+static void sirfsoc_insert_rx_buf_to_tty(
+		struct sirfsoc_uart_port *sirfport, int count)
+{
+	struct uart_port *port = &sirfport->port;
+	struct tty_port *tport = &port->state->port;
+	int inserted;
+
+	inserted = tty_insert_flip_string(tport,
+		sirfport->rx_dma_items[sirfport->rx_completed].xmit.buf, count);
+	port->icount.rx += inserted;
+	tty_flip_buffer_push(tport);
+}
+
+static void sirfsoc_rx_submit_one_dma_desc(struct uart_port *port, int index)
+{
+	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
+
+	sirfport->rx_dma_items[index].xmit.tail =
+		sirfport->rx_dma_items[index].xmit.head = 0;
+	sirfport->rx_dma_items[index].desc =
+		dmaengine_prep_slave_single(sirfport->rx_dma_chan,
+		sirfport->rx_dma_items[index].dma_addr, SIRFSOC_RX_DMA_BUF_SIZE,
+		DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
+	if (!sirfport->rx_dma_items[index].desc) {
+		dev_err(port->dev, "DMA slave single fail\n");
+		return;
+	}
+	sirfport->rx_dma_items[index].desc->callback =
+		sirfsoc_rx_dma_complete_callback;
+	sirfport->rx_dma_items[index].desc->callback_param = sirfport;
+	sirfport->rx_dma_items[index].cookie =
+		dmaengine_submit(sirfport->rx_dma_items[index].desc);
+	dma_async_issue_pending(sirfport->rx_dma_chan);
+}
+
 static void sirfsoc_rx_tmo_process_tl(unsigned long param)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)param;
 	struct uart_port *port = &sirfport->port;
-	struct tty_port *tport = &port->state->port;
 	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
 	struct sirfsoc_int_en *uint_en = &sirfport->uart_reg->uart_int_en;
 	struct sirfsoc_int_status *uint_st = &sirfport->uart_reg->uart_int_st;
 	unsigned int count;
-	unsigned int inserted;
 	unsigned long flags;
 
-	count = CIRC_CNT(sirfport->rx_dma_buf.head,
-			sirfport->rx_dma_buf.tail, SIRFSOC_RX_DMA_BUF_SIZE);
-	if (count >= SIRFSOC_RX_DMA_BUF_SIZE/2 && (sirfport->rx_dma_buf.tail ==
-			SIRFSOC_RX_DMA_BUF_SIZE/2)) {
-		inserted = tty_insert_flip_string(tport,
-				sirfport->rx_dma_buf.buf +
-				sirfport->rx_dma_buf.tail,
-				SIRFSOC_RX_DMA_BUF_SIZE/2);
-		port->icount.rx += inserted;
-		count -= inserted;
-		sirfport->rx_dma_buf.tail = 0;
-		tty_flip_buffer_push(tport);
-	}
-	if (count > 0) {
-		inserted = tty_insert_flip_string(tport,
-				sirfport->rx_dma_buf.buf +
-				sirfport->rx_dma_buf.tail, count);
-		port->icount.rx += inserted;
-		tty_flip_buffer_push(tport);
-	}
-	sirfport->rx_dma_buf.tail = sirfport->rx_dma_buf.head = 0;
-
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
-
+	while (sirfport->rx_completed != sirfport->rx_issued) {
+		sirfsoc_insert_rx_buf_to_tty(sirfport,
+					SIRFSOC_RX_DMA_BUF_SIZE);
+		sirfsoc_rx_submit_one_dma_desc(port, sirfport->rx_completed++);
+		sirfport->rx_completed %= SIRFSOC_RX_LOOP_BUF_CNT;
+	}
+	count = CIRC_CNT(sirfport->rx_dma_items[sirfport->rx_issued].xmit.head,
+		sirfport->rx_dma_items[sirfport->rx_issued].xmit.tail,
+		SIRFSOC_RX_DMA_BUF_SIZE);
+	if (count > 0)
+		sirfsoc_insert_rx_buf_to_tty(sirfport, count);
 	wr_regl(port, ureg->sirfsoc_rx_dma_io_ctrl,
 			rd_regl(port, ureg->sirfsoc_rx_dma_io_ctrl) |
 			SIRFUART_IO_MODE);
@@ -591,12 +613,11 @@ static void sirfsoc_uart_handle_rx_tmo(struct sirfsoc_uart_port *sirfport)
 	struct dma_tx_state tx_state;
 	spin_lock(&sirfport->rx_lock);
 
-	sirfport->rx_dma_rdy = 0;
 	dmaengine_tx_status(sirfport->rx_dma_chan,
-				sirfport->rx_dma_cookie, &tx_state);
+		sirfport->rx_dma_items[sirfport->rx_issued].cookie, &tx_state);
 	dmaengine_terminate_all(sirfport->rx_dma_chan);
-	sirfport->rx_dma_buf.head =
-				SIRFSOC_RX_DMA_BUF_SIZE - tx_state.residue;
+	sirfport->rx_dma_items[sirfport->rx_issued].xmit.head =
+		SIRFSOC_RX_DMA_BUF_SIZE - tx_state.residue;
 	if (!sirfport->is_marco)
 		wr_regl(port, ureg->sirfsoc_int_en_reg,
 			rd_regl(port, ureg->sirfsoc_int_en_reg) &
@@ -718,89 +739,23 @@ static void sirfsoc_rx_dma_complete_tl(unsigned long param)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)param;
 	struct uart_port *port = &sirfport->port;
-	struct tty_port *tport = &port->state->port;
-	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
-	struct sirfsoc_int_en *uint_en = &sirfport->uart_reg->uart_int_en;
-	int inserted;
 	unsigned long flags;
-
-	while (sirfport->rx_dma_rdy) {
-		if (sirfport->rx_dma_buf.tail == 0) {
-			inserted = tty_insert_flip_string(tport,
-					sirfport->rx_dma_buf.buf,
-					SIRFSOC_RX_DMA_BUF_SIZE/2);
-			port->icount.rx += inserted;
-			spin_lock_irqsave(&sirfport->rx_lock, flags);
-			sirfport->rx_dma_rdy &= ~LOOP_DMA_BUFA_FILL;
-			sirfport->rx_dma_buf.tail = SIRFSOC_RX_DMA_BUF_SIZE/2;
-			if (sirfport->rx_dma_rdy)
-				dmaengine_device_control(sirfport->rx_dma_chan,
-								DMA_RESUME, 1);
-			spin_unlock_irqrestore(&sirfport->rx_lock, flags);
-		} else {
-			inserted = tty_insert_flip_string(tport,
-					sirfport->rx_dma_buf.buf +
-					sirfport->rx_dma_buf.tail,
-					SIRFSOC_RX_DMA_BUF_SIZE/2);
-			port->icount.rx += inserted;
-			spin_lock_irqsave(&sirfport->rx_lock, flags);
-			sirfport->rx_dma_rdy &= ~LOOP_DMA_BUFB_FILL;
-			sirfport->rx_dma_buf.tail = 0;
-			if (sirfport->rx_dma_rdy)
-				dmaengine_device_control(sirfport->rx_dma_chan,
-								DMA_RESUME, 2);
-			spin_unlock_irqrestore(&sirfport->rx_lock, flags);
-		}
-		tty_flip_buffer_push(tport);
-	}
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
-	if (!sirfport->is_marco)
-		wr_regl(port, ureg->sirfsoc_int_en_reg,
-			rd_regl(port, ureg->sirfsoc_int_en_reg) |
-			(uint_en->sirfsoc_rx_timeout_en));
-	else
-		wr_regl(port, ureg->sirfsoc_int_en_reg,
-				uint_en->sirfsoc_rx_timeout_en);
+	while (sirfport->rx_completed != sirfport->rx_issued) {
+		sirfsoc_insert_rx_buf_to_tty(sirfport,
+					SIRFSOC_RX_DMA_BUF_SIZE);
+		sirfsoc_rx_submit_one_dma_desc(port, sirfport->rx_completed++);
+		sirfport->rx_completed %= SIRFSOC_RX_LOOP_BUF_CNT;
+	}
 	spin_unlock_irqrestore(&sirfport->rx_lock, flags);
 }
 
 static void sirfsoc_rx_dma_complete_callback(void *param)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)param;
-	struct uart_port *port = &sirfport->port;
-	struct dma_tx_state tx_state;
-	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
-	struct sirfsoc_int_en *uint_en = &sirfport->uart_reg->uart_int_en;
-	struct sirfsoc_int_status *uint_st = &sirfport->uart_reg->uart_int_st;
 	spin_lock(&sirfport->rx_lock);
-
-	if (!sirfport->is_marco)
-		wr_regl(port, ureg->sirfsoc_int_en_reg,
-			rd_regl(port, ureg->sirfsoc_int_en_reg) &
-			~(uint_en->sirfsoc_rx_timeout_en));
-	else
-		wr_regl(port, SIRFUART_INT_EN_CLR,
-				uint_en->sirfsoc_rx_timeout_en);
-	wr_regl(port, ureg->sirfsoc_int_st_reg,
-			uint_st->sirfsoc_rx_timeout);
-	dmaengine_tx_status(sirfport->rx_dma_chan, sirfport->rx_dma_cookie,
-			&tx_state);
-	sirfport->rx_dma_buf.head = SIRFSOC_RX_DMA_BUF_SIZE - tx_state.residue;
-
-	if (sirfport->rx_dma_buf.head >= SIRFSOC_RX_DMA_BUF_SIZE/2) {
-		dmaengine_device_control(sirfport->rx_dma_chan, DMA_PAUSE, 1);
-		if (!sirfport->rx_dma_rdy)
-			dmaengine_device_control(sirfport->rx_dma_chan,
-					DMA_RESUME, 2);
-		sirfport->rx_dma_rdy |= LOOP_DMA_BUFA_FILL;
-	} else {
-		dmaengine_device_control(sirfport->rx_dma_chan, DMA_PAUSE, 2);
-		if (!sirfport->rx_dma_rdy)
-			dmaengine_device_control(sirfport->rx_dma_chan,
-					DMA_RESUME, 1);
-		sirfport->rx_dma_rdy |= LOOP_DMA_BUFB_FILL;
-	}
-
+	sirfport->rx_issued++;
+	sirfport->rx_issued %= SIRFSOC_RX_LOOP_BUF_CNT;
 	spin_unlock(&sirfport->rx_lock);
 	tasklet_schedule(&sirfport->rx_dma_complete_tasklet);
 }
@@ -812,30 +767,17 @@ static void sirfsoc_uart_start_next_rx_dma(struct uart_port *port)
 	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
 	struct sirfsoc_int_en *uint_en = &sirfport->uart_reg->uart_int_en;
 	unsigned long flags;
+	int i;
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
 	sirfport->rx_io_count = 0;
 	wr_regl(port, ureg->sirfsoc_rx_dma_io_ctrl,
 		rd_regl(port, ureg->sirfsoc_rx_dma_io_ctrl) &
 		~SIRFUART_IO_MODE);
-	sirfport->rx_dma_buf.tail = sirfport->rx_dma_buf.head = 0;
-	sirfport->rx_dma_rdy = 0;
-	sirfport->rx_dma_desc = dmaengine_prep_dma_cyclic(
-			sirfport->rx_dma_chan, sirfport->rx_dma_addr,
-			SIRFSOC_RX_DMA_BUF_SIZE, SIRFSOC_RX_DMA_BUF_SIZE/2,
-			DMA_DEV_TO_MEM,
-			DMA_PREP_INTERRUPT);
-	if (!sirfport->rx_dma_desc) {
-		dev_err(port->dev, "DMA slave single fail\n");
-		spin_unlock_irqrestore(&sirfport->rx_lock, flags);
-		return;
-	}
-
-	sirfport->rx_dma_desc->callback = sirfsoc_rx_dma_complete_callback;
-	sirfport->rx_dma_desc->callback_param = sirfport;
-	sirfport->rx_dma_cookie = dmaengine_submit(sirfport->rx_dma_desc);
-	dma_async_issue_pending(sirfport->rx_dma_chan);
-	dmaengine_device_control(sirfport->rx_dma_chan, DMA_PAUSE, 2);
-
+	spin_unlock_irqrestore(&sirfport->rx_lock, flags);
+	for (i = 0; i < SIRFSOC_RX_LOOP_BUF_CNT; i++)
+		sirfsoc_rx_submit_one_dma_desc(port, i);
+	sirfport->rx_completed = sirfport->rx_issued = 0;
+	spin_lock_irqsave(&sirfport->rx_lock, flags);
 	if (!sirfport->is_marco)
 		wr_regl(port, ureg->sirfsoc_int_en_reg,
 				rd_regl(port, ureg->sirfsoc_int_en_reg) |
@@ -1142,44 +1084,41 @@ static unsigned int sirfsoc_uart_init_rx_dma(struct uart_port *port)
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	dma_cap_mask_t dma_mask;
 	unsigned int ret;
-	struct dma_slave_config dma_cfg;
+	unsigned int i, j;
 
 	dma_cap_zero(dma_mask);
-	dma_cap_set(DMA_CYCLIC, dma_mask);
+	dma_cap_set(DMA_INTERLEAVE, dma_mask);
 	sirfport->rx_dma_chan = dma_request_channel(dma_mask,
 					(dma_filter_fn)sirfsoc_dma_filter_id,
 					(void *)sirfport->rx_dma_no);
 	if (!sirfport->rx_dma_chan) {
 		dev_err(port->dev, "Uart Request Dma Channel Fail %d\n",
 				sirfport->rx_dma_no);
-		return -EPROBE_DEFER;
+		ret = -EPROBE_DEFER;
+		goto request_err;
 	}
-	sirfport->rx_dma_buf.buf = dma_alloc_coherent(port->dev,
-					SIRFSOC_RX_DMA_BUF_SIZE,
-					&sirfport->rx_dma_addr, GFP_KERNEL);
-	if (!sirfport->rx_dma_buf.buf) {
-		dev_err(port->dev, "Uart Alloc Coherent Fail\n");
-		dma_release_channel(sirfport->rx_dma_chan);
-		return -ENOMEM;
-	}
-	sirfport->rx_dma_buf.tail = sirfport->rx_dma_buf.head = 0;
-	dma_cfg.direction = DMA_DEV_TO_MEM;
-	dma_cfg.dst_addr = sirfport->rx_dma_addr;
-	dma_cfg.dst_addr_width = DMA_SLAVE_BUSWIDTH_8_BYTES;
-	dma_cfg.dst_maxburst = 1;
-	dma_cfg.src_maxburst = 2;
-	dma_cfg.slave_id = sirfport->rx_dma_no;
-	ret = dmaengine_slave_config(sirfport->rx_dma_chan, &dma_cfg);
-	if (ret < 0) {
-		uart_dbg("Uart Dmaengine Slave Confige Fail\n");
-		dma_free_coherent(port->dev, SIRFSOC_RX_DMA_BUF_SIZE,
-					sirfport->rx_dma_buf.buf,
-					sirfport->rx_dma_addr);
-		dma_release_channel(sirfport->rx_dma_chan);
-		return ret;
+	for (i = 0; i < SIRFSOC_RX_LOOP_BUF_CNT; i++) {
+		sirfport->rx_dma_items[i].xmit.buf =
+			dma_alloc_coherent(port->dev, SIRFSOC_RX_DMA_BUF_SIZE,
+			&sirfport->rx_dma_items[i].dma_addr, GFP_KERNEL);
+		if (!sirfport->rx_dma_items[i].xmit.buf) {
+			dev_err(port->dev, "Uart alloc bufa failed\n");
+			ret = -ENOMEM;
+			goto alloc_coherent_err;
+		}
+		sirfport->rx_dma_items[i].xmit.head =
+			sirfport->rx_dma_items[i].xmit.tail = 0;
 	}
 
 	return 0;
+alloc_coherent_err:
+	for (j = 0; j < i; j++)
+		dma_free_coherent(port->dev, SIRFSOC_RX_DMA_BUF_SIZE,
+				sirfport->rx_dma_items[j].xmit.buf,
+				sirfport->rx_dma_items[j].dma_addr);
+	dma_release_channel(sirfport->rx_dma_chan);
+request_err:
+	return ret;
 }
 
 static void sirfsoc_uart_uninit_tx_dma(struct sirfsoc_uart_port *sirfport)
@@ -1191,11 +1130,14 @@ static void sirfsoc_uart_uninit_tx_dma(struct sirfsoc_uart_port *sirfport)
 
 static void sirfsoc_uart_uninit_rx_dma(struct sirfsoc_uart_port *sirfport)
 {
+	int i;
 	struct uart_port *port = &sirfport->port;
 	dmaengine_terminate_all(sirfport->rx_dma_chan);
-	dma_free_coherent(port->dev, SIRFSOC_RX_DMA_BUF_SIZE,
-			sirfport->rx_dma_buf.buf, sirfport->rx_dma_addr);
 	dma_release_channel(sirfport->rx_dma_chan);
+	for (i = 0; i < SIRFSOC_RX_LOOP_BUF_CNT; i++)
+		dma_free_coherent(port->dev, SIRFSOC_RX_DMA_BUF_SIZE,
+				sirfport->rx_dma_items[i].xmit.buf,
+				sirfport->rx_dma_items[i].dma_addr);
 }
 
 static int sirfsoc_uart_startup(struct uart_port *port)
@@ -1237,7 +1179,9 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 	wr_regl(port, ureg->sirfsoc_rx_fifo_ctrl, SIRFUART_FIFO_THD(port));
 
 	if (sirfport->rx_dma_no != -1) {
-		sirfsoc_uart_init_rx_dma(port);
+		ret = sirfsoc_uart_init_rx_dma(port);
+		if (ret)
+			goto irq_err;
 		wr_regl(port, ureg->sirfsoc_rx_fifo_level_chk,
 				SIRFUART_RX_FIFO_CHK_SC(port->line, 0x4) |
 				SIRFUART_RX_FIFO_CHK_LC(port->line, 0xe) |

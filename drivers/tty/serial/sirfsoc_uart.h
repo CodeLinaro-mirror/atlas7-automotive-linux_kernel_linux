@@ -383,6 +383,9 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFUART_RX_FIFO_CHK_SC SIRFUART_TX_FIFO_CHK_SC
 #define	SIRFUART_RX_FIFO_CHK_LC SIRFUART_TX_FIFO_CHK_LC
 #define SIRFUART_RX_FIFO_CHK_HC SIRFUART_TX_FIFO_CHK_HC
+/* Indicate how many buffers used */
+#define SIRFSOC_RX_LOOP_BUF_CNT		2
+
 /* For Fast Baud Rate Calculation */
 struct sirfsoc_baudrate_to_regv {
 	unsigned int baud_rate;
@@ -394,6 +397,14 @@ enum sirfsoc_tx_state {
 	TX_DMA_RUNNING,
 	TX_DMA_PAUSE,
 };
+
+struct sirfsoc_loop_buffer {
+	struct circ_buf			xmit;
+	dma_cookie_t			cookie;
+	struct dma_async_tx_descriptor	*desc;
+	dma_addr_t			dma_addr;
+};
+
 struct sirfsoc_uart_port {
 	unsigned char			hw_flow_ctrl;
 	unsigned char			ms_enabled;
@@ -408,13 +419,8 @@ struct sirfsoc_uart_port {
 	int				tx_dma_no;
 	struct dma_chan			*rx_dma_chan;
 	struct dma_chan			*tx_dma_chan;
-	struct circ_buf			rx_dma_buf;
-	dma_addr_t			rx_dma_addr;
 	dma_addr_t			tx_dma_addr;
 	struct dma_async_tx_descriptor	*tx_dma_desc;
-	struct dma_async_tx_descriptor	*rx_dma_desc;
-	dma_cookie_t			rx_dma_cookie;
-	int				rx_dma_rdy;
 	spinlock_t			rx_lock;
 	spinlock_t			tx_lock;
 	struct tasklet_struct		rx_dma_complete_tasklet;
@@ -425,6 +431,10 @@ struct sirfsoc_uart_port {
 	enum sirfsoc_tx_state		tx_dma_state;
 	unsigned int			rfs_gpio;
 	unsigned int			tfs_gpio;
+
+	struct sirfsoc_loop_buffer	rx_dma_items[SIRFSOC_RX_LOOP_BUF_CNT];
+	int				rx_completed;
+	int				rx_issued;
 };
 
 /* Hardware Flow Control */
