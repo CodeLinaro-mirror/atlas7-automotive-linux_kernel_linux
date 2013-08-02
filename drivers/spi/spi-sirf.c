@@ -161,7 +161,8 @@ struct sirfsoc_spi {
 	/* rx & tx DMA channels */
 	struct dma_chan *rx_chan;
 	struct dma_chan *tx_chan;
-	struct dma_interleaved_template *dma_xt;
+	dma_addr_t src_start;
+	dma_addr_t dst_start;
 	int word_width; /* in bytes */
 
 	int chipselect[0];
@@ -342,23 +343,21 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 
 	if (IS_DMA_VALID(t)) {
 		struct dma_async_tx_descriptor *rx_desc, *tx_desc;
-		sspi->dma_xt->sgl[0].size = t->len * sspi->word_width;
-		sspi->dma_xt->sgl[0].icg = 0;
-		sspi->dma_xt->frame_size = 1;
-		sspi->dma_xt->numf = 1;
-		sspi->dma_xt->dst_start = dma_map_single(&spi->dev, t->rx_buf, t->len, DMA_FROM_DEVICE);
-		sspi->dma_xt->dir = DMA_DEV_TO_MEM;
+		unsigned int size = t->len * sspi->word_width;
 
-		rx_desc = sspi->rx_chan->device->device_prep_interleaved_dma(sspi->rx_chan,
-			sspi->dma_xt, 0);
+		sspi->dst_start = dma_map_single(&spi->dev, t->rx_buf, t->len, DMA_FROM_DEVICE);
+		rx_desc = dmaengine_prep_slave_single(sspi->rx_chan,
+			sspi->dst_start, size, DMA_DEV_TO_MEM,
+			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		rx_desc->callback = spi_sirfsoc_dma_fini_callback;
 		rx_desc->callback_param = sspi;
 
-		sspi->dma_xt->src_start = dma_map_single(&spi->dev, (void *)t->tx_buf, t->len,
+		sspi->src_start = dma_map_single(&spi->dev, (void *)t->tx_buf, t->len,
 			DMA_TO_DEVICE);
-		sspi->dma_xt->dir = DMA_MEM_TO_DEV;
-		tx_desc = sspi->tx_chan->device->device_prep_interleaved_dma(sspi->tx_chan,
-			sspi->dma_xt, 0);
+		tx_desc = dmaengine_prep_slave_single(sspi->tx_chan,
+			sspi->src_start, size, DMA_MEM_TO_DEV,
+			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+
 		dmaengine_submit(tx_desc);
 		dmaengine_submit(rx_desc);
 		dma_async_issue_pending(sspi->tx_chan);
@@ -387,8 +386,8 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	}
 
 	if (IS_DMA_VALID(t)) {
-		dma_unmap_single(&spi->dev, sspi->dma_xt->src_start, t->len, DMA_TO_DEVICE);
-		dma_unmap_single(&spi->dev, sspi->dma_xt->dst_start, t->len, DMA_FROM_DEVICE);
+		dma_unmap_single(&spi->dev, sspi->src_start, t->len, DMA_TO_DEVICE);
+		dma_unmap_single(&spi->dev, sspi->dst_start, t->len, DMA_FROM_DEVICE);
 	}
 
 	/* TX, RX FIFO stop */
@@ -585,18 +584,11 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
 
-	sspi->dma_xt = kzalloc(sizeof(struct dma_interleaved_template) +
-		sizeof(struct data_chunk), GFP_KERNEL);
-	if (!sspi->dma_xt) {
-		ret = -ENOMEM;
-		goto free_master;
-	}
-
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
 		dev_err(&pdev->dev, "Unable to get IO resource\n");
 		ret = -ENODEV;
-		goto free_dma_xt;
+		goto free_master;
 	}
 	master->num_chipselect = num_cs;
 
@@ -705,8 +697,6 @@ free_tx_dma:
 	dma_release_channel(sspi->tx_chan);
 free_rx_dma:
 	dma_release_channel(sspi->rx_chan);
-free_dma_xt:
-	kfree(sspi->dma_xt);
 free_master:
 	spi_master_put(master);
 err_cs:
@@ -727,7 +717,6 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 		if (sspi->chipselect[i] > 0)
 			gpio_free(sspi->chipselect[i]);
 	}
-	kfree(sspi->dma_xt);
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
 	dma_release_channel(sspi->rx_chan);
