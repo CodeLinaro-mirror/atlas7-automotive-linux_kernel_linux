@@ -276,49 +276,6 @@ static struct v4l2_subdev_ops ch7102_subdev_ops = {
 };
 
 static struct i2c_client *ch7102_client;
-struct workqueue_struct *gwkq;
-struct work_struct gwk;
-
-
-static irqreturn_t ch7102_irq_handler(int irq, void *data)
-{
-	queue_work(gwkq, &gwk);
-	return IRQ_HANDLED;
-}
-
-static ssize_t sysfs_hdmi_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	if (!ch7102_client)
-		return -ENODEV;
-	return sprintf(buf, "sirfsoc hdmi-input\n");
-}
-
-static DEVICE_ATTR(hdmi, S_IRUGO, sysfs_hdmi_show, NULL);
-
-void hpdwork(struct work_struct *work)
-{
-	if (gpio_get_value(GPIO_INTR)) {
-		if (ch7102_client) {
-			char *event_string = "HOTPLUG=1";
-			char *envp[] = {event_string, NULL};
-
-			device_create_file(&ch7102_client->dev, &dev_attr_hdmi);
-			kobject_uevent_env(&ch7102_client->dev.kobj,
-				KOBJ_ADD, envp);
-		}
-	} else {
-		if (ch7102_client) {
-			char *event_string = "HOTPLUG=0";
-			char *envp[] = {event_string, NULL};
-
-			device_remove_file(&ch7102_client->dev, &dev_attr_hdmi);
-			kobject_uevent_env(&ch7102_client->dev.kobj,
-				KOBJ_REMOVE, envp);
-		}
-	}
-
-}
 
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
@@ -330,7 +287,6 @@ static int ch7102_probe(struct i2c_client *client,
 	struct soc_camera_subdev_desc   *ssdd = soc_camera_i2c_to_desc(client);
 
 	int ret;
-	u8 id;
 
 	if (!ssdd || !ssdd->drv_priv) {
 		dev_err(&client->dev, "ch7102: missing platform data!\n");
@@ -362,38 +318,8 @@ static int ch7102_probe(struct i2c_client *client,
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ch7102_subdev_ops);
 
 	ch7102_client = client;
-	hpdwork(NULL);
-	ret = devm_gpio_request(&client->dev,
-		GPIO_INTR, "sirfsoc_hdmi_rec_intr");
-	if (ret) {
-		dev_err(&client->dev,
-			"%s: request gpio %x failed", __func__, GPIO_INTR);
-		return -EINVAL;
-	}
-
-	client->irq = gpio_to_irq(GPIO_INTR);
-	gwkq = create_singlethread_workqueue("hdmi");
-	if (gwkq == NULL) {
-		dev_err(&client->dev,
-			"%s: create_singlethread_workqueue failed.\n",
-			__func__);
-		return -ENOMEM;
-	}
-
-	INIT_WORK(&gwk, (work_func_t)&hpdwork);
-	ret = devm_request_irq(&client->dev, client->irq, ch7102_irq_handler,
-				IRQF_SHARED | IRQF_TRIGGER_RISING |
-				IRQF_TRIGGER_FALLING, "SIRFSOC-HDMI", client);
-	if (ret != 0) {
-		dev_err(&client->dev, "%s: request_irq failed.\n", __func__);
-		goto error_release_workqueue;
-	}
 
 	return ch7102_video_probe(client);
-
-error_release_workqueue:
-	destroy_workqueue(gwkq);
-	return ret;
 }
 
 static int ch7102_remove(struct i2c_client *client)
