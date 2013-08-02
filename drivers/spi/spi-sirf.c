@@ -125,20 +125,18 @@
 #define SIRFSOC_SPI_FIFO_THD(x)		(((x) & 0xFF) << 2)
 
 /*
- * Only if the rx/tx buffer and transfer bytes are aligned, we use DMA;
- * Todo:
- * alloc dummy buffer for empty tx/rx and add make DMA support all
- * tranfer cases
+ * only if the rx/tx buffer and transfer size are 4-bytes aligned, we use dma
+ * due to the limitation of dma controller
  */
 
 #define ALIGNED(x) (!((u32)x & 0x3))
-#define IS_DMA_VALID(x) (x && ALIGNED(x->tx_buf) && x->tx_buf && \
-	ALIGNED(x->rx_buf) && x->rx_buf && \
-	ALIGNED(x->len * sspi->word_width) && x->len)
+#define IS_DMA_VALID(x) (x && ALIGNED(x->tx_buf) && ALIGNED(x->rx_buf) && \
+	ALIGNED(x->len * sspi->word_width) && (x->len < 2 * PAGE_SIZE))
 
 struct sirfsoc_spi {
 	struct spi_bitbang bitbang;
-	struct completion done;
+	struct completion rx_done;
+	struct completion tx_done;
 
 	void __iomem *base;
 	u32 ctrl_freq;  /* SPI controller clock speed */
@@ -163,6 +161,7 @@ struct sirfsoc_spi {
 	struct dma_chan *tx_chan;
 	dma_addr_t src_start;
 	dma_addr_t dst_start;
+	void *dummypage;
 	int word_width; /* in bytes */
 
 	int chipselect[0];
@@ -266,7 +265,7 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 	/* Error Conditions */
 	if (spi_stat & SIRFSOC_SPI_RX_OFLOW ||
 			spi_stat & SIRFSOC_SPI_TX_UFLOW) {
-		complete(&sspi->done);
+		complete(&sspi->rx_done);
 		writel(0x0, sspi->base + SIRFSOC_SPI_INT_EN);
 	}
 
@@ -286,7 +285,7 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 
 	/* Received all words */
 	if ((sspi->left_rx_cnt == 0) && (sspi->left_tx_cnt == 0)) {
-		complete(&sspi->done);
+		complete(&sspi->rx_done);
 		writel(0x0, sspi->base + SIRFSOC_SPI_INT_EN);
 	}
 	return IRQ_HANDLED;
@@ -294,13 +293,9 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 
 static void spi_sirfsoc_dma_fini_callback(void *data)
 {
-	struct sirfsoc_spi *sspi = data;
+	struct completion *dma_complete = data;
 
-	sspi->left_rx_cnt = 0;
-
-	writel(0, sspi->base + SIRFSOC_SPI_INT_EN);
-
-	complete(&sspi->done);
+	complete(dma_complete);
 }
 
 static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
@@ -309,10 +304,11 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	int timeout = t->len * 10;
 	sspi = spi_master_get_devdata(spi->master);
 
-	sspi->tx = t->tx_buf;
-	sspi->rx = t->rx_buf;
+	sspi->tx = t->tx_buf ? t->tx_buf : sspi->dummypage;
+	sspi->rx = t->rx_buf ? t->rx_buf : sspi->dummypage;
 	sspi->left_tx_cnt = sspi->left_rx_cnt = t->len;
-	INIT_COMPLETION(sspi->done);
+	INIT_COMPLETION(sspi->rx_done);
+	INIT_COMPLETION(sspi->tx_done);
 
 	writel(SIRFSOC_SPI_INT_MASK_ALL, sspi->base + SIRFSOC_SPI_INT_STATUS);
 
@@ -345,26 +341,24 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 		struct dma_async_tx_descriptor *rx_desc, *tx_desc;
 		unsigned int size = t->len * sspi->word_width;
 
-		sspi->dst_start = dma_map_single(&spi->dev, t->rx_buf, t->len, DMA_FROM_DEVICE);
+		sspi->dst_start = dma_map_single(&spi->dev, sspi->rx, t->len, DMA_FROM_DEVICE);
 		rx_desc = dmaengine_prep_slave_single(sspi->rx_chan,
 			sspi->dst_start, size, DMA_DEV_TO_MEM,
 			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		rx_desc->callback = spi_sirfsoc_dma_fini_callback;
-		rx_desc->callback_param = sspi;
+		rx_desc->callback_param = &sspi->rx_done;
 
-		sspi->src_start = dma_map_single(&spi->dev, (void *)t->tx_buf, t->len,
-			DMA_TO_DEVICE);
+		sspi->src_start = dma_map_single(&spi->dev, (void *)sspi->tx, t->len, DMA_TO_DEVICE);
 		tx_desc = dmaengine_prep_slave_single(sspi->tx_chan,
 			sspi->src_start, size, DMA_MEM_TO_DEV,
 			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+		tx_desc->callback = spi_sirfsoc_dma_fini_callback;
+		tx_desc->callback_param = &sspi->tx_done;
 
 		dmaengine_submit(tx_desc);
 		dmaengine_submit(rx_desc);
 		dma_async_issue_pending(sspi->tx_chan);
 		dma_async_issue_pending(sspi->rx_chan);
-
-		writel(SIRFSOC_SPI_RX_OFLOW_INT_EN | SIRFSOC_SPI_TX_UFLOW_INT_EN,
-			sspi->base + SIRFSOC_SPI_INT_EN);
 	} else {
 		/* Send the first word to trigger the whole tx/rx process */
 		sspi->tx_word(sspi);
@@ -377,10 +371,23 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 
 	writel(SIRFSOC_SPI_RX_EN | SIRFSOC_SPI_TX_EN, sspi->base + SIRFSOC_SPI_TX_RX_EN);
 
-	if (wait_for_completion_timeout(&sspi->done, timeout) == 0) {
+	if (!IS_DMA_VALID(t)) { /* for PIO */
+		if (wait_for_completion_timeout(&sspi->rx_done, timeout) == 0)
+			dev_err(&spi->dev, "transfer timeout\n");
+	} else if (wait_for_completion_timeout(&sspi->rx_done, timeout) == 0) {
 		dev_err(&spi->dev, "transfer timeout\n");
-		if (IS_DMA_VALID(t)) {
-			dmaengine_terminate_all(sspi->rx_chan);
+		dmaengine_terminate_all(sspi->rx_chan);
+	} else
+		sspi->left_rx_cnt = 0;
+
+	/*
+	 * we only wait tx-done event if transferring by DMA. for PIO,
+	 * we get rx data by writing tx data, so if rx is done, tx has
+	 * done earlier
+	 */
+	if (IS_DMA_VALID(t)) {
+		if (wait_for_completion_timeout(&sspi->tx_done, timeout) == 0) {
+			dev_err(&spi->dev, "transfer timeout\n");
 			dmaengine_terminate_all(sspi->tx_chan);
 		}
 	}
@@ -671,7 +678,8 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	clk_prepare_enable(sspi->clk);
 	sspi->ctrl_freq = clk_get_rate(sspi->clk);
 
-	init_completion(&sspi->done);
+	init_completion(&sspi->rx_done);
+	init_completion(&sspi->tx_done);
 
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_TXFIFO_OP);
@@ -680,14 +688,19 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	/* We are not using dummy delay between command and data */
 	writel(0, sspi->base + SIRFSOC_SPI_DUMMY_DELAY_CTL);
 
+	sspi->dummypage = kmalloc(2 * PAGE_SIZE, GFP_KERNEL);
+	if (!sspi->dummypage)
+		goto free_clk;
+
 	ret = spi_bitbang_start(&sspi->bitbang);
 	if (ret)
-		goto free_clk;
+		goto free_dummypage;
 
 	dev_info(&pdev->dev, "registerred, bus number = %d\n", master->bus_num);
 
 	return 0;
-
+free_dummypage:
+	kfree(sspi->dummypage);
 free_clk:
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
@@ -717,6 +730,7 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 		if (sspi->chipselect[i] > 0)
 			gpio_free(sspi->chipselect[i]);
 	}
+	kfree(sspi->dummypage);
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
 	dma_release_channel(sspi->rx_chan);
