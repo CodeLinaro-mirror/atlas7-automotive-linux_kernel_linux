@@ -21,8 +21,10 @@
 #define SIRFSOC_PWRC_PIN_STATUS         0x14
 #define SIRFSOC_PWRC_SCRATCH_PAD1       0x18
 #define SIRFSOC_PWRC_SCRATCH_PAD2       0x1C
+#define SIRFSOC_BOOT_STATUS		0x20
 
 #define SIRFSOC_START_PSAVING_BIT	0x0
+#define SIRFSOC_BOOT_STATUS_BITS	4
 
 #ifndef __ASSEMBLY__
 extern int sirfsoc_prima2_finish_suspend(unsigned long);
