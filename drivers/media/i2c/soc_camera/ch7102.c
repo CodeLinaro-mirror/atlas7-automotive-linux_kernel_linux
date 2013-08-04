@@ -22,6 +22,9 @@
 #include <media/ch7102.h>
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-subdev.h>
+#include <linux/platform_device.h>
+#include <linux/extcon/extcon-gpio.h>
+#include <linux/of_gpio.h>
 
 #define WIDTH  1280
 #define HEIGHT	720
@@ -276,6 +279,54 @@ static struct v4l2_subdev_ops ch7102_subdev_ops = {
 };
 
 static struct i2c_client *ch7102_client;
+static struct platform_device *pextcon_dev;
+struct gpio_extcon_platform_data hdmi_extcon_data = {
+	.name = "hdmi-input",
+	.gpio = 0,
+	.debounce = 0,
+	.irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.state_on = NULL,
+	.state_off = NULL,
+};
+
+static struct platform_device *sirfsoc_hdmi_extcon_init(void)
+{
+	struct platform_device *pdev;
+	struct gpio_extcon_platform_data *pextcon_data = &hdmi_extcon_data;
+	int err = -ENOMEM;
+	struct device_node *np = NULL;
+	int gpio;
+
+	np = of_find_compatible_node(NULL, NULL, "sirf,ch7102");
+	if (!np)
+		goto err_out;
+
+	gpio = of_get_named_gpio(np, "hp-hdmiinput-gpios", 0);
+	if (!gpio_is_valid(gpio))
+		goto err_out;
+	else
+		hdmi_extcon_data.gpio = gpio;
+
+	pdev = platform_device_alloc("extcon-gpio", 0);
+	if (!pdev)
+		goto err_out;
+
+	err = platform_device_add_data(pdev,
+		pextcon_data, sizeof(*pextcon_data));
+	if (err)
+		goto err_out1;
+
+	err = platform_device_add(pdev);
+	if (err)
+		goto err_out1;
+
+	return pdev;
+
+err_out1:
+	platform_device_put(pdev);
+err_out:
+	return NULL;
+}
 
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
@@ -318,12 +369,15 @@ static int ch7102_probe(struct i2c_client *client,
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ch7102_subdev_ops);
 
 	ch7102_client = client;
+	pextcon_dev = sirfsoc_hdmi_extcon_init();
 
 	return ch7102_video_probe(client);
 }
 
 static int ch7102_remove(struct i2c_client *client)
 {
+	platform_device_unregister(pextcon_dev);
+
 	return 0;
 }
 
