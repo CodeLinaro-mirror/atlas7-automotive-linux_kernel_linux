@@ -63,15 +63,15 @@
 #define SIRFSOC_SPI_TRAN_DAT_FORMAT_12	(1 << 26)
 #define SIRFSOC_SPI_TRAN_DAT_FORMAT_16	(2 << 26)
 #define SIRFSOC_SPI_TRAN_DAT_FORMAT_32	(3 << 26)
-#define SIRFSOC_SPI_CMD_BYTE_NUM(x)	((x & 3) << 28)
-#define SIRFSOC_SPI_ENA_AUTO_CLR	BIT(30)
-#define SIRFSOC_SPI_MUL_DAT_MODE	BIT(31)
+#define SIRFSOC_SPI_CMD_BYTE_NUM(x)		((x & 3) << 28)
+#define SIRFSOC_SPI_ENA_AUTO_CLR		BIT(30)
+#define SIRFSOC_SPI_MUL_DAT_MODE		BIT(31)
 
 /* Interrupt Enable */
-#define SIRFSOC_SPI_RX_DONE_INT_EN	BIT(0)
-#define SIRFSOC_SPI_TX_DONE_INT_EN	BIT(1)
-#define SIRFSOC_SPI_RX_OFLOW_INT_EN	BIT(2)
-#define SIRFSOC_SPI_TX_UFLOW_INT_EN	BIT(3)
+#define SIRFSOC_SPI_RX_DONE_INT_EN		BIT(0)
+#define SIRFSOC_SPI_TX_DONE_INT_EN		BIT(1)
+#define SIRFSOC_SPI_RX_OFLOW_INT_EN		BIT(2)
+#define SIRFSOC_SPI_TX_UFLOW_INT_EN		BIT(3)
 #define SIRFSOC_SPI_RX_IO_DMA_INT_EN	BIT(4)
 #define SIRFSOC_SPI_TX_IO_DMA_INT_EN	BIT(5)
 #define SIRFSOC_SPI_RXFIFO_FULL_INT_EN	BIT(6)
@@ -747,7 +747,7 @@ static int spi_sirfsoc_suspend(struct device *dev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
-	clk_disable_unprepare(sspi->clk);
+	clk_disable(sspi->clk);
 	return 0;
 }
 
@@ -757,7 +757,7 @@ static int spi_sirfsoc_resume(struct device *dev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
-	clk_prepare_enable(sspi->clk);
+	clk_enable(sspi->clk);
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_TXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_START, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
