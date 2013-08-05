@@ -19,7 +19,6 @@
 #include <linux/of_gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
@@ -141,7 +140,6 @@ struct sirfsoc_spi {
 	void __iomem *base;
 	u32 ctrl_freq;  /* SPI controller clock speed */
 	struct clk *clk;
-	struct pinctrl *p;
 
 	/* rx & tx bufs from the spi_transfer */
 	const void *tx;
@@ -488,9 +486,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		sspi->word_width = 4;
 		break;
 	default:
-		dev_err(&spi->dev, "Bits per word %d not supported\n",
-		       bits_per_word);
-		return -EINVAL;
+		BUG();
 	}
 
 	if (!(spi->mode & SPI_CS_HIGH))
@@ -665,15 +661,10 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 		goto free_rx_dma;
 	}
 
-	sspi->p = pinctrl_get_select_default(&pdev->dev);
-	ret = IS_ERR(sspi->p);
-	if (ret)
-		goto free_tx_dma;
-
 	sspi->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
 		ret = PTR_ERR(sspi->clk);
-		goto free_pin;
+		goto free_tx_dma;
 	}
 	clk_prepare_enable(sspi->clk);
 	sspi->ctrl_freq = clk_get_rate(sspi->clk);
@@ -704,8 +695,6 @@ free_dummypage:
 free_clk:
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
-free_pin:
-	pinctrl_put(sspi->p);
 free_tx_dma:
 	dma_release_channel(sspi->tx_chan);
 free_rx_dma:
@@ -735,7 +724,6 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 	clk_put(sspi->clk);
 	dma_release_channel(sspi->rx_chan);
 	dma_release_channel(sspi->tx_chan);
-	pinctrl_put(sspi->p);
 	spi_master_put(master);
 	return 0;
 }

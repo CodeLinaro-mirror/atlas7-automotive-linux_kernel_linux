@@ -9,7 +9,6 @@
 #include <linux/clocksource.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/irqchip.h>
 #include <asm/sizes.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -17,7 +16,7 @@
 #include <linux/of_platform.h>
 #include "common.h"
 
-void __init sirfsoc_reserve(void)
+static void __init sirfsoc_reserve(void)
 {
 	sirfsoc_fb_reserve_memblock();
 	sirfsoc_vip_reserve_memblock();
@@ -63,7 +62,6 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.nr_irqs	= 128,
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= irqchip_init,
 	.init_time	= sirfsoc_init_time,
 	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
@@ -83,7 +81,6 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.nr_irqs	= 128,
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= irqchip_init,
 	.init_time	= sirfsoc_init_time,
 	.init_machine   = sirfsoc_init_mach,
 	.dma_zone_size	= SZ_256M,
@@ -104,7 +101,6 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= irqchip_init,
 	.init_time	= sirfsoc_init_time,
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,

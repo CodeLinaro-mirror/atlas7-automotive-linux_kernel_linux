@@ -28,7 +28,7 @@
 #define pdev_to_phy(pdev)	((struct usb_phy *)platform_get_drvdata(pdev))
 #define PORTSC_PHCD		BIT(23)
 
-struct ci13xxx_sirf_data {
+struct ci_hdrc_sirf_data {
 	struct platform_device	*plat_ci;
 	struct clk		*clk;
 	struct usb_phy		*phy;
@@ -36,11 +36,11 @@ struct ci13xxx_sirf_data {
 };
 
 static inline int
-ci13xxx_sirf_drive_vbus(struct ci13xxx *ci, int value)
+ci_hdrc_sirf_drive_vbus(struct ci_hdrc *ci, int value)
 {
 	struct platform_device *pdev = container_of(ci->dev->parent,
 						struct platform_device, dev);
-	struct ci13xxx_sirf_data *data = platform_get_drvdata(pdev);
+	struct ci_hdrc_sirf_data *data = platform_get_drvdata(pdev);
 
 	if (data->vbus)
 		return gpio_direction_output(data->vbus, value ? 0 : 1);
@@ -48,14 +48,14 @@ ci13xxx_sirf_drive_vbus(struct ci13xxx *ci, int value)
 	return 0;
 }
 
-static void ci13xxx_sirf_notify_event(struct ci13xxx *ci, unsigned event)
+static void ci_hdrc_sirf_notify_event(struct ci_hdrc *ci, unsigned event)
 {
 	switch (event) {
-	case CI13XXX_CONTROLLER_RESET_EVENT:
-		ci13xxx_sirf_drive_vbus(ci, 1);
+	case CI_HDRC_CONTROLLER_RESET_EVENT:
+		ci_hdrc_sirf_drive_vbus(ci, 1);
 		break;
-	case CI13XXX_CONTROLLER_STOPPED_EVENT:
-		ci13xxx_sirf_drive_vbus(ci, 0);
+	case CI_HDRC_CONTROLLER_STOPPED_EVENT:
+		ci_hdrc_sirf_drive_vbus(ci, 0);
 		break;
 	default:
 		dev_info(ci->dev, "Unknown Event\n");
@@ -63,11 +63,11 @@ static void ci13xxx_sirf_notify_event(struct ci13xxx *ci, unsigned event)
 	}
 }
 
-static struct ci13xxx_platform_data ci13xxx_sirf_platdata = {
-	.name			= "ci13xxx_sirf",
-	.flags			= CI13XXX_DISABLE_STREAMING,
+static struct ci_hdrc_platform_data ci_hdrc_sirf_platdata = {
+	.name			= "ci_hdrc_sirf",
+	.flags			= CI_HDRC_DISABLE_STREAMING,
 	.capoffset		= DEF_CAPOFFSET,
-	.notify_event		= ci13xxx_sirf_notify_event,
+	.notify_event		= ci_hdrc_sirf_notify_event,
 };
 
 static struct of_device_id rsc_ids[] = {
@@ -75,18 +75,18 @@ static struct of_device_id rsc_ids[] = {
 	{ /* sentinel */ }
 };
 
-static int ci13xxx_sirf_probe(struct platform_device *pdev)
+static int ci_hdrc_sirf_probe(struct platform_device *pdev)
 {
 	struct platform_device *plat_ci, *phy_pdev;
 	struct device_node *rsc_np, *phy_np;
-	struct ci13xxx_sirf_data *data;
+	struct ci_hdrc_sirf_data *data;
 	struct usb_phy *phy;
 	void __iomem *rsc_vbase;
 	int ret;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data) {
-		dev_err(&pdev->dev, "Failed to allocate ci13xxx_sirf_data!\n");
+		dev_err(&pdev->dev, "Failed to allocate ci_hdrc_sirf_data!\n");
 		return -ENOMEM;
 	}
 	platform_set_drvdata(pdev, data);
@@ -119,7 +119,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		data->vbus = 0;
 	}
 	if (data->vbus) {
-		ret = gpio_request(data->vbus, "ci13xxx_sirf");
+		ret = gpio_request(data->vbus, "ci_hdrc_sirf");
 		if (ret)
 			dev_info(&pdev->dev, "Failed to get gpio control\n");
 	}
@@ -174,15 +174,15 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		goto err;
 	}
 	usb_phy_init(phy);
-	ci13xxx_sirf_platdata.phy = phy;
+	ci_hdrc_sirf_platdata.phy = phy;
 	data->phy = phy;
 
-	/* 7. register to ci13xxx core */
-	plat_ci = ci13xxx_add_device(&pdev->dev,
+	/* 7. register to ci_hdrc core */
+	plat_ci = ci_hdrc_add_device(&pdev->dev,
 				pdev->resource, pdev->num_resources,
-				&ci13xxx_sirf_platdata);
+				&ci_hdrc_sirf_platdata);
 	if (IS_ERR(plat_ci)) {
-		dev_err(&pdev->dev, "ci13xxx_add_device failed!\n");
+		dev_err(&pdev->dev, "ci_hdrc_add_device failed!\n");
 		return PTR_ERR(plat_ci);
 	}
 	data->plat_ci = plat_ci;
@@ -198,12 +198,12 @@ err:
 	return ret;
 }
 
-static int ci13xxx_sirf_remove(struct platform_device *pdev)
+static int ci_hdrc_sirf_remove(struct platform_device *pdev)
 {
-	struct ci13xxx_sirf_data *data = platform_get_drvdata(pdev);
+	struct ci_hdrc_sirf_data *data = platform_get_drvdata(pdev);
 
 	pm_runtime_disable(&pdev->dev);
-	ci13xxx_remove_device(data->plat_ci);
+	ci_hdrc_remove_device(data->plat_ci);
 
 	clk_disable_unprepare(data->clk);
 
@@ -211,11 +211,11 @@ static int ci13xxx_sirf_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int ci13xxx_sirf_suspend(struct device *dev)
+static int ci_hdrc_sirf_suspend(struct device *dev)
 {
-	struct ci13xxx_sirf_data *data =
+	struct ci_hdrc_sirf_data *data =
 		platform_get_drvdata(to_platform_device(dev));
-	struct ci13xxx *ci = platform_get_drvdata(data->plat_ci);
+	struct ci_hdrc *ci = platform_get_drvdata(data->plat_ci);
 
 	hw_write(ci, OP_PORTSC, PORTSC_PHCD, 1);
 
@@ -227,11 +227,11 @@ static int ci13xxx_sirf_suspend(struct device *dev)
 	return 0;
 }
 
-static int ci13xxx_sirf_resume(struct device *dev)
+static int ci_hdrc_sirf_resume(struct device *dev)
 {
-	struct ci13xxx_sirf_data *data =
+	struct ci_hdrc_sirf_data *data =
 		platform_get_drvdata(to_platform_device(dev));
-	struct ci13xxx *ci = platform_get_drvdata(data->plat_ci);
+	struct ci_hdrc *ci = platform_get_drvdata(data->plat_ci);
 	int ret;
 
 	ret = clk_prepare_enable(data->clk);
@@ -252,32 +252,32 @@ static int ci13xxx_sirf_resume(struct device *dev)
 	return ret;
 }
 
-static const struct dev_pm_ops ci13xxx_sirf_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(ci13xxx_sirf_suspend, ci13xxx_sirf_resume)
+static const struct dev_pm_ops ci_hdrc_sirf_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ci_hdrc_sirf_suspend, ci_hdrc_sirf_resume)
 };
 #endif
 
-static const struct of_device_id ci13xxx_sirf_dt_ids[] = {
+static const struct of_device_id ci_hdrc_sirf_dt_ids[] = {
 	{ .compatible = "chipidea,ci13611a-prima2", },
 	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, ci13xxx_sirf_dt_ids);
+MODULE_DEVICE_TABLE(of, ci_hdrc_sirf_dt_ids);
 
-static struct platform_driver ci13xxx_sirf_driver = {
-	.probe = ci13xxx_sirf_probe,
-	.remove = ci13xxx_sirf_remove,
+static struct platform_driver ci_hdrc_sirf_driver = {
+	.probe = ci_hdrc_sirf_probe,
+	.remove = ci_hdrc_sirf_remove,
 	.driver = {
 		.name = "sirf-usbcontroller",
 		.owner = THIS_MODULE,
-		.of_match_table = ci13xxx_sirf_dt_ids,
+		.of_match_table = ci_hdrc_sirf_dt_ids,
 #ifdef CONFIG_PM
-		.pm = &ci13xxx_sirf_pm_ops,
+		.pm = &ci_hdrc_sirf_pm_ops,
 #endif
 	 },
 };
-module_platform_driver(ci13xxx_sirf_driver);
+module_platform_driver(ci_hdrc_sirf_driver);
 
-MODULE_ALIAS("platform:sirf-ci13xxx-usbcontroller");
+MODULE_ALIAS("platform:sirf-ci_hdrc_-usbcontroller");
 MODULE_AUTHOR("Rong Wang <Rong.Wang@csr.com>");
-MODULE_DESCRIPTION("CI13XXX SiRF USB Binding");
+MODULE_DESCRIPTION("CI_HDRC SiRF USB Binding");
 MODULE_LICENSE("GPL v2");

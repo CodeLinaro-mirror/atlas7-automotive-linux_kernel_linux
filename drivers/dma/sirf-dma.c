@@ -542,6 +542,7 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 	unsigned long residue;
 
 	spin_lock_irqsave(&schan->lock, flags);
+
 	if (list_empty(&schan->active)) {
 		ret = dma_cookie_status(chan, cookie, txstate);
 		dma_set_residue(txstate, 0);
@@ -554,11 +555,13 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 			(sdesc->width * SIRFSOC_DMA_WORD_LEN);
 	else
 		dma_request_bytes = sdesc->xlen * SIRFSOC_DMA_WORD_LEN;
+
 	ret = dma_cookie_status(chan, cookie, txstate);
 	dma_pos = readl_relaxed(sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR)
 		<< 2;
 	residue = dma_request_bytes - (dma_pos - sdesc->addr);
 	dma_set_residue(txstate, residue);
+
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	return ret;

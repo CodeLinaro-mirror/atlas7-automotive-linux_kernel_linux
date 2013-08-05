@@ -10,6 +10,8 @@
 #define __MACH_PRIMA2_COMMON_H__
 
 #include <linux/init.h>
+#include <linux/reboot.h>
+
 #include <asm/mach/time.h>
 #include <asm/exception.h>
 
@@ -25,7 +27,7 @@ extern void __init sirfsoc_of_irq_init(void);
 extern void __init sirfsoc_atlas6_of_clk_init(void);
 extern void __init sirfsoc_prima2_of_clk_init(void);
 extern void __init sirfsoc_marco_of_clk_init(void);
-extern void sirfsoc_restart(char, const char *);
+extern void sirfsoc_restart(enum reboot_mode, const char *);
 extern asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs);
 #ifdef CONFIG_FB_SIRF
 extern void sirfsoc_fb_reserve_memblock(void);

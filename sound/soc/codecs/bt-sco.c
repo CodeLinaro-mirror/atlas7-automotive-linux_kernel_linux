@@ -46,14 +46,6 @@ static int bt_sco_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
-static const struct of_device_id bt_sco_of_match[] = {
-	{ .compatible = "bt-sco", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, bt_sco_of_match);
-#endif
-
 static struct platform_device_id bt_sco_driver_ids[] = {
 	{
 		.name		= "dfbmcs320",
@@ -66,9 +58,6 @@ static struct platform_driver bt_sco_driver = {
 	.driver = {
 		.name = "bt-sco",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
-		.of_match_table = bt_sco_of_match,
-#endif
 	},
 	.probe = bt_sco_probe,
 	.remove = bt_sco_remove,

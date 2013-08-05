@@ -27,13 +27,13 @@ struct sirfsoc_pwrc_drvdata {
 
 static irqreturn_t sirfsoc_pwrc_isr(int irq, void *dev_id)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv =
-			(struct sirfsoc_pwrc_drvdata *)dev_id;
+	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_id;
 	u32 int_status;
-	int_status = sirfsoc_rtc_iobrg_readl(
-			pwrcdrv->pwrc_base + PWRC_INT_STATUS);
-	sirfsoc_rtc_iobrg_writel(int_status & (~PWRC_ON_KEY_BIT),
-			pwrcdrv->pwrc_base + PWRC_INT_STATUS);
+
+	int_status = sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base +
+							PWRC_INT_STATUS);
+	sirfsoc_rtc_iobrg_writel(int_status & ~PWRC_ON_KEY_BIT,
+				 pwrcdrv->pwrc_base + PWRC_INT_STATUS);
 
 	/*
 	 * For a typical Linux system, we report KEY_SUSPEND to trigger apm-power.c
@@ -58,25 +58,27 @@ MODULE_DEVICE_TABLE(of, sirfsoc_pwrc_of_match);
 
 static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 {
-	int ret, irq;
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = NULL;
 	struct device_node *np = pdev->dev.of_node;
+	struct sirfsoc_pwrc_drvdata *pwrcdrv;
+	int irq;
+	int error;
 
-	pwrcdrv = devm_kzalloc(&pdev->dev,
-		sizeof(struct sirfsoc_pwrc_drvdata), GFP_KERNEL);
+	pwrcdrv = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_pwrc_drvdata),
+			       GFP_KERNEL);
 	if (!pwrcdrv) {
-		dev_info(&pdev->dev, "kzalloc fail!\n");
+		dev_info(&pdev->dev, "Not enough memory for the device data\n");
 		return -ENOMEM;
 	}
 
 	/*
-	 * we can't use of_iomap because pwrc is not mapped in memory, the so-called base
-	 * address is only offset in rtciobrg
+	 * we can't use of_iomap because pwrc is not mapped in memory,
+	 * the so-called base address is only offset in rtciobrg
 	 */
-	ret = of_property_read_u32(np, "reg", &pwrcdrv->pwrc_base);
-	if (ret) {
-		dev_err(&pdev->dev, "unable to find base address of pwrc node in dtb\n");
-		return ret;
+	error = of_property_read_u32(np, "reg", &pwrcdrv->pwrc_base);
+	if (error) {
+		dev_err(&pdev->dev,
+			"unable to find base address of pwrc node in dtb\n");
+		return error;
 	}
 
 	pwrcdrv->input = devm_input_allocate_device(&pdev->dev);
@@ -85,34 +87,32 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 
 	pwrcdrv->input->name = "sirfsoc pwrckey";
 	pwrcdrv->input->phys = "pwrc/input0";
-
-	platform_set_drvdata(pdev, pwrcdrv);
+	pwrcdrv->input->evbit[0] = BIT_MASK(EV_PWR);
 
 	irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, irq,
-			sirfsoc_pwrc_isr, IRQF_SHARED,
-			"sirfsoc_pwrc_int", pwrcdrv);
-	if (ret) {
-		dev_err(&pdev->dev, "pwrc: Unable to claim irq %d; error %d\n",
-			irq, ret);
-		return ret;
+	error = devm_request_irq(&pdev->dev, irq,
+				 sirfsoc_pwrc_isr, IRQF_SHARED,
+				 "sirfsoc_pwrc_int", pwrcdrv);
+	if (error) {
+		dev_err(&pdev->dev, "unable to claim irq %d, error: %d\n",
+			irq, error);
+		return error;
 	}
 
 	sirfsoc_rtc_iobrg_writel(
-		sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base + PWRC_INT_MASK)
-		| PWRC_ON_KEY_BIT, pwrcdrv->pwrc_base + PWRC_INT_MASK);
+		sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base + PWRC_INT_MASK) |
+			PWRC_ON_KEY_BIT,
+		pwrcdrv->pwrc_base + PWRC_INT_MASK);
 
-	pwrcdrv->input->evbit[0] = BIT_MASK(EV_PWR) | BIT_MASK(EV_KEY);
-	set_bit(KEY_POWER, pwrcdrv->input->keybit);
-
-	ret = input_register_device(pwrcdrv->input);
-	if (ret) {
+	error = input_register_device(pwrcdrv->input);
+	if (error) {
 		dev_err(&pdev->dev,
-			"pwrc: Unable to register input device,error: %d\n",
-			ret);
-		return ret;
+			"unable to register input device, error: %d\n",
+			error);
+		return error;
 	}
 
+	platform_set_drvdata(pdev, pwrcdrv);
 	device_init_wakeup(&pdev->dev, 1);
 
 	return 0;

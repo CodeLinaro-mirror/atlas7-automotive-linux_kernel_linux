@@ -14,6 +14,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/reset-controller.h>
+#include <linux/reboot.h>
 
 #define SIRFSOC_RSTBIT_NUM	64
 
@@ -93,7 +94,7 @@ void __init sirfsoc_of_rstc_init(void)
 
 #define SIRFSOC_SYS_RST_BIT  BIT(31)
 
-void sirfsoc_restart(char mode, const char *cmd)
+void sirfsoc_restart(enum reboot_mode mode, const char *cmd)
 {
 	writel(SIRFSOC_SYS_RST_BIT, sirfsoc_rstc_base);
 }

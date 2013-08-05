@@ -571,16 +571,16 @@
                                                 sirf,function = "pulse_count";
                                         };
                                 };
-				cko0_pins_a: cko0@0 {
-					cko0 {
-						sirf,pins = "cko0grp";
-						sirf,function = "cko0";
+                                cko0_pins_a: cko0@0 {
+                                        cko0 {
+                                                sirf,pins = "cko0grp";
+                                                sirf,function = "cko0";
                                         };
                                 };
-				cko1_pins_a: cko1@0 {
-					cko1 {
-						sirf,pins = "cko1grp";
-						sirf,function = "cko1";
+                                cko1_pins_a: cko1@0 {
+                                        cko1 {
+                                                sirf,pins = "cko1grp";
+                                                sirf,function = "cko1";
                                         };
                                 };
 			};
