@@ -427,7 +427,6 @@ struct sirfsoc_uart_port {
 	struct tasklet_struct		rx_tmo_process_tasklet;
 	unsigned int			rx_io_count;
 	unsigned long			transfer_size;
-	struct dma_interleaved_template *dma_xt;
 	enum sirfsoc_tx_state		tx_dma_state;
 	unsigned int			rfs_gpio;
 	unsigned int			tfs_gpio;

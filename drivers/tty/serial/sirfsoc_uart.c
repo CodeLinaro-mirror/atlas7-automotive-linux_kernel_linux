@@ -291,15 +291,9 @@ static void sirfsoc_uart_tx_with_dma(struct sirfsoc_uart_port *sirfport)
 		sirfport->tx_dma_addr = dma_map_single(port->dev,
 					xmit->buf + xmit->tail,
 					tran_size, DMA_TO_DEVICE);
-		sirfport->dma_xt->dir = DMA_MEM_TO_DEV;
-		sirfport->dma_xt->src_start = sirfport->tx_dma_addr;
-		sirfport->dma_xt->numf = 1;
-		sirfport->dma_xt->frame_size = 1;
-		sirfport->dma_xt->sgl[0].size = tran_size;
-		sirfport->dma_xt->sgl[0].icg = 0;
-		sirfport->tx_dma_desc = dmaengine_prep_interleaved_dma(
-					sirfport->tx_dma_chan,
-					sirfport->dma_xt, DMA_PREP_INTERRUPT);
+		sirfport->tx_dma_desc = dmaengine_prep_slave_single(
+				sirfport->tx_dma_chan, sirfport->tx_dma_addr,
+				tran_size, DMA_MEM_TO_DEV, DMA_PREP_INTERRUPT);
 		if (!sirfport->tx_dma_desc) {
 			dev_err(port->dev, "DMA prep slave single fail\n");
 			return;
@@ -1059,9 +1053,12 @@ static unsigned int sirfsoc_uart_init_tx_dma(struct uart_port *port)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	dma_cap_mask_t dma_mask;
+	struct dma_slave_config tx_slv_cfg = {
+		.dst_maxburst = 2,
+	};
 
 	dma_cap_zero(dma_mask);
-	dma_cap_set(DMA_INTERLEAVE, dma_mask);
+	dma_cap_set(DMA_SLAVE, dma_mask);
 	sirfport->tx_dma_chan = dma_request_channel(dma_mask,
 		(dma_filter_fn)sirfsoc_dma_filter_id,
 		(void *)sirfport->tx_dma_no);
@@ -1070,11 +1067,7 @@ static unsigned int sirfsoc_uart_init_tx_dma(struct uart_port *port)
 					sirfport->tx_dma_no);
 		return  -EPROBE_DEFER;
 	}
-	sirfport->dma_xt = kzalloc(sizeof(sirfport->dma_xt), GFP_KERNEL);
-	if (!sirfport->dma_xt) {
-		dma_release_channel(sirfport->tx_dma_chan);
-		return -ENOMEM;
-	}
+	dmaengine_slave_config(sirfport->tx_dma_chan, &tx_slv_cfg);
 
 	return 0;
 }
@@ -1128,7 +1121,6 @@ request_err:
 static void sirfsoc_uart_uninit_tx_dma(struct sirfsoc_uart_port *sirfport)
 {
 	dmaengine_terminate_all(sirfport->tx_dma_chan);
-	kfree(sirfport->dma_xt);
 	dma_release_channel(sirfport->tx_dma_chan);
 }
 
