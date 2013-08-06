@@ -27,7 +27,6 @@
 
 #include <media/soc_camera.h>
 #include <media/tw9900.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-subdev.h>
 #include "../../platform/soc_camera/sirfsoc/sirfsoc_decoder_op.h"
 
@@ -593,18 +592,6 @@ static int tw9900_s_std(struct v4l2_subdev *sd, v4l2_std_id norm)
 	return 0;
 }
 
-static int tw9900_g_chip_ident(struct v4l2_subdev *sd,
-			       struct v4l2_dbg_chip_ident *id)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct tw9900_priv *priv = to_tw9900(client);
-
-	id->ident = V4L2_IDENT_TW9910 - 10;
-	id->revision = priv->revision;
-
-	return 0;
-}
-
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int tw9900_g_register(struct v4l2_subdev *sd,
 			     struct v4l2_dbg_register *reg)
@@ -646,7 +633,7 @@ static int tw9900_s_power(struct v4l2_subdev *sd, int on)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
 
-	return soc_camera_set_power(&client->dev, ssdd, on);
+	return soc_camera_set_power(&client->dev, ssdd, NULL, on);
 }
 
 static int tw9900_set_frame(struct v4l2_subdev *sd, u32 *width, u32 *height)
@@ -904,7 +891,6 @@ done:
 }
 
 static struct v4l2_subdev_core_ops tw9900_subdev_core_ops = {
-	.g_chip_ident	= tw9900_g_chip_ident,
 	.s_std		= tw9900_s_std,
 	.g_std		= tw9900_g_std,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
@@ -1090,6 +1076,7 @@ static int tw9900_probe(struct i2c_client *client,
 	struct i2c_adapter             *adapter =
 		to_i2c_adapter(client->dev.parent);
 	struct soc_camera_subdev_desc   *ssdd = soc_camera_i2c_to_desc(client);
+	int ret;
 
 	if (!ssdd || !ssdd->drv_priv) {
 		dev_err(&client->dev, "TW9900: missing platform data!\n");

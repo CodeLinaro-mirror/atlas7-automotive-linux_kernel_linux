@@ -20,7 +20,6 @@
 
 #include <media/soc_camera.h>
 #include <media/ch7102.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-subdev.h>
 #include <linux/platform_device.h>
 #include <linux/extcon/extcon-gpio.h>
@@ -100,26 +99,12 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
-static int ch7102_g_chip_ident(struct v4l2_subdev *sd,
-			       struct v4l2_dbg_chip_ident *id)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ch7102_priv *priv = to_ch7102(client);
-	/*	select page 12	*/
-	i2c_smbus_write_byte_data(client, PG_SEL, PAGE12);
-	id->ident = i2c_smbus_read_byte_data(client, CHIPID);
-
-	dev_info(&client->dev,
-			 "ch7102 Product ID %0x\n", id->ident);
-	return 0;
-}
-
 static int ch7102_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
 
-	return soc_camera_set_power(&client->dev, ssdd, on);
+	return soc_camera_set_power(&client->dev, ssdd, NULL, on);
 }
 
 static int ch7102_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
@@ -224,7 +209,6 @@ static int ch7102_video_probe(struct i2c_client *client)
 }
 
 static struct v4l2_subdev_core_ops ch7102_subdev_core_ops = {
-	.g_chip_ident	= ch7102_g_chip_ident,
 	.s_power	= ch7102_s_power,
 };
 
@@ -370,7 +354,6 @@ static int ch7102_probe(struct i2c_client *client,
 
 	ch7102_client = client;
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
-
 	return ch7102_video_probe(client);
 }
 
