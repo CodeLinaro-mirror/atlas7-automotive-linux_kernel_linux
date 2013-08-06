@@ -31,18 +31,6 @@
 
 #include "sirfsoc_uart.h"
 
-#define SIRFUART_DEBUG
-#if defined(SIRFUART_DEBUG)
-#define uart_dbg(fmt, arg...)\
-	pr_info(fmt, ##arg)
-#else
-#define uart_dbg(fmt, arg...)\
-({\
-	if (0)\
-		pr_info(fmt, ##arg);\
-	0;\
-})
-#endif
 static unsigned int
 sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count);
 static unsigned int
@@ -386,7 +374,7 @@ static irqreturn_t sirfsoc_cts_handler(int irq, void *dev_id)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)dev_id;
 	struct uart_port *port = &sirfport->port;
-	if (gpio_is_valid(sirfport->rfs_gpio))
+	if (gpio_is_valid(sirfport->rfs_gpio) && sirfport->ms_enabled)
 		uart_handle_cts_change(port,
 				!gpio_get_value(sirfport->rfs_gpio));
 	return IRQ_HANDLED;
@@ -948,7 +936,8 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 			port->ignore_status_mask |=
 				uint_en->sirfsoc_frm_err_en;
 		if (termios->c_cflag & PARENB)
-			uart_dbg("USP-UART not support parity err\n");
+			dev_warn(port->dev,
+					"USP-UART not support parity err\n");
 	}
 	if (termios->c_iflag & IGNBRK) {
 		port->ignore_status_mask |=
@@ -1079,7 +1068,7 @@ static unsigned int sirfsoc_uart_init_rx_dma(struct uart_port *port)
 	int ret;
 	int i, j;
 	struct dma_slave_config slv_cfg = {
-		.src_maxburst = 1,
+		.src_maxburst = 2,
 	};
 
 	dma_cap_zero(dma_mask);
@@ -1177,7 +1166,7 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 	if (sirfport->rx_dma_no != -1) {
 		ret = sirfsoc_uart_init_rx_dma(port);
 		if (ret)
-			goto irq_err;
+			goto init_rx_err;
 		wr_regl(port, ureg->sirfsoc_rx_fifo_level_chk,
 				SIRFUART_RX_FIFO_CHK_SC(port->line, 0x4) |
 				SIRFUART_RX_FIFO_CHK_LC(port->line, 0xe) |
@@ -1194,14 +1183,21 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 	sirfport->ms_enabled = 0;
 	if (sirfport->uart_reg->uart_type == SIRF_USP_UART &&
 				sirfport->hw_flow_ctrl) {
-		if (request_irq(gpio_to_irq(sirfport->rfs_gpio),
+		set_irq_flags(gpio_to_irq(sirfport->rfs_gpio),
+				IRQF_VALID | IRQF_NOAUTOEN);
+		ret = request_irq(gpio_to_irq(sirfport->rfs_gpio),
 				sirfsoc_cts_handler, IRQF_TRIGGER_FALLING |
-				IRQF_TRIGGER_RISING, "usp_cts_irq", sirfport))
-			uart_dbg("usp: %s request gpio irq fail\n", __func__);
-		else
-			disable_irq(gpio_to_irq(sirfport->rfs_gpio));
+				IRQF_TRIGGER_RISING, "usp_cts_irq", sirfport);
+		if (ret != 0) {
+			dev_err(port->dev, "UART-USP:request gpio irq fail\n");
+			goto init_rx_err;
+		}
 	}
 	enable_irq(port->irq);
+
+	return 0;
+init_rx_err:
+	free_irq(port->irq, sirfport);
 irq_err:
 	return ret;
 }
