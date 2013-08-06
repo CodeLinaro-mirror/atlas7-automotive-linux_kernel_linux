@@ -1085,9 +1085,12 @@ static unsigned int sirfsoc_uart_init_rx_dma(struct uart_port *port)
 	dma_cap_mask_t dma_mask;
 	int ret;
 	int i, j;
+	struct dma_slave_config slv_cfg = {
+		.src_maxburst = 1,
+	};
 
 	dma_cap_zero(dma_mask);
-	dma_cap_set(DMA_INTERLEAVE, dma_mask);
+	dma_cap_set(DMA_SLAVE, dma_mask);
 	sirfport->rx_dma_chan = dma_request_channel(dma_mask,
 					(dma_filter_fn)sirfsoc_dma_filter_id,
 					(void *)sirfport->rx_dma_no);
@@ -1109,6 +1112,7 @@ static unsigned int sirfsoc_uart_init_rx_dma(struct uart_port *port)
 		sirfport->rx_dma_items[i].xmit.head =
 			sirfport->rx_dma_items[i].xmit.tail = 0;
 	}
+	dmaengine_slave_config(sirfport->rx_dma_chan, &slv_cfg);
 
 	return 0;
 alloc_coherent_err:
