@@ -1083,8 +1083,8 @@ static unsigned int sirfsoc_uart_init_rx_dma(struct uart_port *port)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	dma_cap_mask_t dma_mask;
-	unsigned int ret;
-	unsigned int i, j;
+	int ret;
+	int i, j;
 
 	dma_cap_zero(dma_mask);
 	dma_cap_set(DMA_INTERLEAVE, dma_mask);
