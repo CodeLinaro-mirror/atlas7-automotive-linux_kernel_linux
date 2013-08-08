@@ -1360,7 +1360,7 @@ static struct of_device_id sirfsoc_uart_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_uart_ids);
 
-int sirfsoc_uart_probe(struct platform_device *pdev)
+static int sirfsoc_uart_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport;
 	struct uart_port *port;
