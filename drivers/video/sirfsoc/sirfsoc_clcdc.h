@@ -128,5 +128,7 @@ struct sirfsocfb{
 
 	struct workqueue_struct	*flip_wq;
 	struct work_struct work;
+	ktime_t vsync_timestamp;
+	struct work_struct vsync_work;
 };
 #endif

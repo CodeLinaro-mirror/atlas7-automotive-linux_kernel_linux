@@ -346,6 +346,24 @@ static void layer_frame_irq(struct work_struct *data)
 	}
 }
 
+static int send_vsync_timestamp(struct work_struct *data)
+{
+	struct sirfsocfb *fb;
+	struct device *dev;
+	char buf[64];
+	char *envp[2];
+
+	fb = container_of(data, struct sirfsocfb, vsync_work);
+	dev = &fb->dev->dev;
+	snprintf(buf, sizeof(buf), "TIMESTAMP=%llu",
+		ktime_to_ns(fb->vsync_timestamp));
+	envp[0] = buf;
+	envp[1] = NULL;
+	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+
+	return 0;
+}
+
 static int set_par(struct fb_info *info)
 {
 	struct sirfsocfb *fb = (struct sirfsocfb *)info->par;
@@ -825,10 +843,10 @@ static void sirfsocfb_set_layers(struct sirfsocfb *fb, struct sirfsocfb_layers_p
 				sSetData.sRectDst.top = param->layer_info[dirty_index].dst_rect.top;
 				sSetData.sRectDst.right = param->layer_info[dirty_index].dst_rect.right;
 				sSetData.sRectDst.bottom = param->layer_info[dirty_index].dst_rect.bottom;
-				/* Now we disable overlay source alpha and global alpha default though its format is RGBA.
-				 * Add it in future if this feature is required.
-				 */
+
 				sSetData.bPremultiAlpha = 1;
+				if (sSetData.eLcdFormat == LCD_PIXELFORMAT_8888)
+					sSetData.bSourceAlpha = 1;
 
 				if (!fb->lcd_func.pfnSetParameters(&sSetData)) {
 					FB_ERR_MSG("Set parameters failed!\n");
@@ -1452,6 +1470,8 @@ static irqreturn_t sirfsocfb_irq_handler(int irq, void *data)
 	/* handle vsync interrupt */
 	if (intr_status & (1 << LCD_INTERRUPT_VSYNC)) {
 		queue_work(fb->flip_wq, &fb->work);
+		fb->vsync_timestamp = ktime_get();
+		schedule_work(&fb->vsync_work);
 		ret = IRQ_HANDLED;
 	}
 
@@ -1479,6 +1499,7 @@ static int sirfsocfb_irq_init(struct sirfsocfb *fb)
 		return 1;
 	}
 	INIT_WORK(&fb->work, layer_frame_irq);
+	INIT_WORK(&fb->vsync_work, send_vsync_timestamp);
 
 	return 0;
 }
@@ -1686,7 +1707,6 @@ static int remap_frame_buffers(struct platform_device *pdev,
 				dma_alloc_writecombine(&pdev->dev,
 					size, &map_dma, GFP_KERNEL);
 			fb->fb[i].fix.smem_start = map_dma;
-
 		} else {
 			fb->fb[i].fix.smem_start = sirf_fb_phy_base +
 				layer_mem_offset;
