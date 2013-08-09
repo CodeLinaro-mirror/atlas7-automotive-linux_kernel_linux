@@ -1493,7 +1493,7 @@ out:
 	return ret;
 }
 
-static int ci_udc_vbus_draw(struct usb_gadget *_gadget, unsigned ma)
+static int ci_udc_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 {
 	struct ci_hdrc *ci = container_of(_gadget, struct ci_hdrc, gadget);
 
@@ -1793,7 +1793,7 @@ static int udc_start(struct ci_hdrc *ci)
 			ci->transceiver = NULL;
 	}
 
-	if (ci->platdata->flags & CI13XXX_REQUIRE_TRANSCEIVER) {
+	if (ci->platdata->flags & CI_HDRC_REQUIRE_TRANSCEIVER) {
 		if (IS_ERR_OR_NULL(ci->transceiver)) {
 			retval = ci->transceiver ?
 				PTR_ERR(ci->transceiver) : -ENODEV;
@@ -1878,7 +1878,7 @@ static int udc_suspend(struct ci_hdrc *ci)
 static int udc_resume(struct ci_hdrc *ci)
 {
 	hw_device_reset(ci, USBMODE_CM_DC);
-	ci_hdrc_start(&ci->gadget, ci->driver);
+	ci_udc_start(&ci->gadget, ci->driver);
 	usb_gadget_connect(&ci->gadget);
 	return 0;
 }
