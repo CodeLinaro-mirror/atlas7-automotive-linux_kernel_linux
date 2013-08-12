@@ -153,6 +153,17 @@ static irqreturn_t i2c_sirfsoc_irq(int irq, void *dev_id)
 		else
 			dev_err(&siic->adapter.dev, "I2C error\n");
 
+		/*
+		 * Fixme:
+		 * don't know why we need a reset here in earlier stage,
+		 * but this really is able to make i2c more stable after
+		 * we access nonexistence devices
+		 */
+		writel(readl(siic->base + SIRFSOC_I2C_CTRL) | SIRFSOC_I2C_RESET,
+				siic->base + SIRFSOC_I2C_CTRL);
+		while (readl(siic->base + SIRFSOC_I2C_CTRL) & SIRFSOC_I2C_RESET)
+			cpu_relax();
+
 		complete(&siic->done);
 	} else if (i2c_stat & SIRFSOC_I2C_STAT_CMD_DONE) {
 		/* CMD buffer execution complete */
