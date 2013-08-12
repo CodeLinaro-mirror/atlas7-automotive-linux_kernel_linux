@@ -126,6 +126,7 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins_a>;
+				clock-frequency = <40000>;
 				lcd@40 {
 					compatible = "sirf,lcd";
 					reg = <0x40>;
