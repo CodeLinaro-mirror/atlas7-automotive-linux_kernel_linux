@@ -83,7 +83,6 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 			.line		= 2,
 		},
 	},
-#ifdef CONFIG_SERIAL_USP_SIRFSOC
 	[3] = {
 		.port = {
 			.iotype		= UPIO_MEM,
@@ -98,7 +97,6 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 			.line		= 4,
 		},
 	},
-#endif
 };
 
 static inline struct sirfsoc_uart_port *to_sirfport(struct uart_port *port)
@@ -1357,9 +1355,7 @@ static struct uart_driver sirfsoc_uart_drv = {
 static struct of_device_id sirfsoc_uart_ids[] = {
 	{ .compatible = "sirf,prima2-uart", .data = &sirfsoc_uart,},
 	{ .compatible = "sirf,marco-uart", .data = &sirfsoc_uart},
-#ifdef CONFIG_SERIAL_USP_SIRFSOC
 	{ .compatible = "sirf,prima2-usp-uart", .data = &sirfsoc_usp},
-#endif
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_uart_ids);
