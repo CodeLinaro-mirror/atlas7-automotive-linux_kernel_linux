@@ -207,6 +207,12 @@ static int i2c_sirfsoc_xfer_msg(struct sirfsoc_i2c *siic, struct i2c_msg *msg)
 
 	i2c_sirfsoc_set_address(siic, msg);
 
+	/*
+	 * clear meaningless interrupt status caused by set_ext_reg
+	 */
+	writel(SIRFSOC_I2C_STAT_ERR | SIRFSOC_I2C_STAT_CMD_DONE,
+			siic->base + SIRFSOC_I2C_STATUS);
+
 	writel(regval | SIRFSOC_I2C_CMD_DONE_EN | SIRFSOC_I2C_ERR_INT_EN,
 		siic->base + SIRFSOC_I2C_CTRL);
 	i2c_sirfsoc_queue_cmd(siic);
