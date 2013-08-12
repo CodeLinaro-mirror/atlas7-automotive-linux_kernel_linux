@@ -149,7 +149,7 @@ static irqreturn_t i2c_sirfsoc_irq(int irq, void *dev_id)
 		writel(SIRFSOC_I2C_STAT_ERR, siic->base + SIRFSOC_I2C_STATUS);
 
 		if (i2c_stat & SIRFSOC_I2C_STAT_NACK)
-			dev_err(&siic->adapter.dev, "ACK not received\n");
+			dev_dbg(&siic->adapter.dev, "ACK not received\n");
 		else
 			dev_err(&siic->adapter.dev, "I2C error\n");
 
