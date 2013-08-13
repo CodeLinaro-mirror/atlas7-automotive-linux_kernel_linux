@@ -349,7 +349,7 @@ static void sirfsoc_uart_disable_ms(struct uart_port *port)
 		disable_irq(gpio_to_irq(sirfport->rfs_gpio));
 }
 
-static irqreturn_t sirfsoc_cts_handler(int irq, void *dev_id)
+static irqreturn_t sirfsoc_uart_usp_cts_handler(int irq, void *dev_id)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)dev_id;
 	struct uart_port *port = &sirfport->port;
@@ -1160,7 +1160,7 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 		set_irq_flags(gpio_to_irq(sirfport->rfs_gpio),
 				IRQF_VALID | IRQF_NOAUTOEN);
 		ret = request_irq(gpio_to_irq(sirfport->rfs_gpio),
-				sirfsoc_cts_handler, IRQF_TRIGGER_FALLING |
+				sirfsoc_uart_usp_cts_handler, IRQF_TRIGGER_FALLING |
 				IRQF_TRIGGER_RISING, "usp_cts_irq", sirfport);
 		if (ret != 0) {
 			dev_err(port->dev, "UART-USP:request gpio irq fail\n");
