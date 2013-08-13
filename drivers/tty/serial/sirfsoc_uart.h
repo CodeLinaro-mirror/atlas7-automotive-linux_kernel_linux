@@ -406,8 +406,8 @@ struct sirfsoc_loop_buffer {
 };
 
 struct sirfsoc_uart_port {
-	unsigned char			hw_flow_ctrl;
-	unsigned char			ms_enabled;
+	bool				hw_flow_ctrl;
+	bool				ms_enabled;
 
 	struct uart_port		port;
 	struct clk			*clk;

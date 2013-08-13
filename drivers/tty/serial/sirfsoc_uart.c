@@ -338,7 +338,7 @@ static void sirfsoc_uart_disable_ms(struct uart_port *port)
 
 	if (!sirfport->hw_flow_ctrl)
 		return;
-	sirfport->ms_enabled = 0;
+	sirfport->ms_enabled = false;
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
 		wr_regl(port, ureg->sirfsoc_afc_ctrl,
 				rd_regl(port, ureg->sirfsoc_afc_ctrl) & ~0x3FF);
@@ -372,7 +372,7 @@ static void sirfsoc_uart_enable_ms(struct uart_port *port)
 
 	if (!sirfport->hw_flow_ctrl)
 		return;
-	sirfport->ms_enabled = 1;
+	sirfport->ms_enabled = true;
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
 		wr_regl(port, ureg->sirfsoc_afc_ctrl,
 				rd_regl(port, ureg->sirfsoc_afc_ctrl) |
@@ -1164,7 +1164,7 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 				SIRFUART_TX_FIFO_CHK_LC(port->line, 0xe) |
 				SIRFUART_TX_FIFO_CHK_HC(port->line, 0x4));
 	}
-	sirfport->ms_enabled = 0;
+	sirfport->ms_enabled = false;
 	if (sirfport->uart_reg->uart_type == SIRF_USP_UART &&
 				sirfport->hw_flow_ctrl) {
 		set_irq_flags(gpio_to_irq(sirfport->rfs_gpio),
@@ -1370,8 +1370,8 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 	port->private_data = sirfport;
 	sirfport->uart_reg = (struct sirfsoc_uart_register *)match->data;
 
-	if (of_property_read_bool(pdev->dev.of_node, "hw_flow_ctrl"))
-		sirfport->hw_flow_ctrl = 1;
+	sirfport->hw_flow_ctrl = of_property_read_bool(pdev->dev.of_node,
+		"hw_flow_ctrl");
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart")) {
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
 		if (of_property_read_u32(pdev->dev.of_node,
