@@ -37,9 +37,9 @@ static unsigned int
 sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count);
 static struct uart_driver sirfsoc_uart_drv;
 
-static void sirfsoc_tx_dma_complete_callback(void *param);
+static void sirfsoc_uart_tx_dma_complete_callback(void *param);
 static void sirfsoc_uart_start_next_rx_dma(struct uart_port *port);
-static void sirfsoc_rx_dma_complete_callback(void *param);
+static void sirfsoc_uart_rx_dma_complete_callback(void *param);
 static const struct sirfsoc_baudrate_to_regv baudrate_to_regv[] = {
 	{4000000, 2359296},
 	{3500000, 1310721},
@@ -196,11 +196,6 @@ static void sirfsoc_uart_stop_tx(struct uart_port *port)
 	}
 }
 
-/*
- * uart tx transfer owns dma channel, while data size less than 4 or data
- * address is not 4 bytes align using pio mode transfer; while data size more
- * than 4 bytes and data start address is 4 bytes align using dma mode.
- */
 static void sirfsoc_uart_tx_with_dma(struct sirfsoc_uart_port *sirfport)
 {
 	struct uart_port *port = &sirfport->port;
@@ -230,62 +225,54 @@ static void sirfsoc_uart_tx_with_dma(struct sirfsoc_uart_port *sirfport)
 		wr_regl(port, SIRFUART_INT_EN_CLR,
 				uint_en->sirfsoc_txfifo_empty_en);
 	/*
-	 * while data address is not 4 bytes algined using pio mode
-	 * transfer no more than 4 bytes adjust its address to 4 bytes align;
-	 * after while data size l more than 4 bytes using dma to transfer
-	 * (l - l%4) bytes, if (l%4 != 0) transfer it in io again.
+	 * DMA requires buffer address and buffer length are both aligned with
+	 * 4 bytes, so we use PIO for
+	 * 1. if address is not aligned with 4bytes, use PIO for the first 1~3
+	 * bytes, and move to DMA for the left part aligned with 4bytes
+	 * 2. if buffer length is not aligned with 4bytes, use DMA for aligned
+	 * part first, move to PIO for the left 1~3 bytes
 	 */
 	if (tran_size < 4 || BYTES_TO_ALIGN(tran_start)) {
-		/* tx transfer mode switch into pio mode */
 		wr_regl(port, ureg->sirfsoc_tx_fifo_op, SIRFUART_FIFO_STOP);
 		wr_regl(port, ureg->sirfsoc_tx_dma_io_ctrl,
-				rd_regl(port, ureg->sirfsoc_tx_dma_io_ctrl)|
-				SIRFUART_IO_MODE);
-		/*
-		 * while data start address is not 4 bytes align, so transfer
-		 * BYTES_TO_ALIGN(tran_start) with pio mode to make data
-		 * address be 4 bytes align.
-		 */
+			rd_regl(port, ureg->sirfsoc_tx_dma_io_ctrl)|
+			SIRFUART_IO_MODE);
 		if (BYTES_TO_ALIGN(tran_start)) {
 			pio_tx_size = sirfsoc_uart_pio_tx_chars(sirfport,
-						BYTES_TO_ALIGN(tran_start));
+				BYTES_TO_ALIGN(tran_start));
 			tran_size -= pio_tx_size;
 		}
-		/*
-		 * data start address is 4 bytes align but data size no more
-		 * than 4 bytes using pio mode.
-		 */
 		if (tran_size < 4)
 			sirfsoc_uart_pio_tx_chars(sirfport, tran_size);
 		if (!sirfport->is_marco)
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
-					rd_regl(port, ureg->sirfsoc_int_en_reg)|
-					uint_en->sirfsoc_txfifo_empty_en);
+				rd_regl(port, ureg->sirfsoc_int_en_reg)|
+				uint_en->sirfsoc_txfifo_empty_en);
 		else
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
-					uint_en->sirfsoc_txfifo_empty_en);
+				uint_en->sirfsoc_txfifo_empty_en);
 		wr_regl(port, ureg->sirfsoc_tx_fifo_op, SIRFUART_FIFO_START);
 	} else {
 		/* tx transfer mode switch into dma mode */
 		wr_regl(port, ureg->sirfsoc_tx_fifo_op, SIRFUART_FIFO_STOP);
 		wr_regl(port, ureg->sirfsoc_tx_dma_io_ctrl,
-				rd_regl(port, ureg->sirfsoc_tx_dma_io_ctrl)&
-				~SIRFUART_IO_MODE);
+			rd_regl(port, ureg->sirfsoc_tx_dma_io_ctrl)&
+			~SIRFUART_IO_MODE);
 		wr_regl(port, ureg->sirfsoc_tx_fifo_op, SIRFUART_FIFO_START);
 		tran_size &= ~(0x3);
-		/* submit tx dma task into dmaengine */
+
 		sirfport->tx_dma_addr = dma_map_single(port->dev,
-					xmit->buf + xmit->tail,
-					tran_size, DMA_TO_DEVICE);
+			xmit->buf + xmit->tail,
+			tran_size, DMA_TO_DEVICE);
 		sirfport->tx_dma_desc = dmaengine_prep_slave_single(
-				sirfport->tx_dma_chan, sirfport->tx_dma_addr,
-				tran_size, DMA_MEM_TO_DEV, DMA_PREP_INTERRUPT);
+			sirfport->tx_dma_chan, sirfport->tx_dma_addr,
+			tran_size, DMA_MEM_TO_DEV, DMA_PREP_INTERRUPT);
 		if (!sirfport->tx_dma_desc) {
 			dev_err(port->dev, "DMA prep slave single fail\n");
 			return;
 		}
 		sirfport->tx_dma_desc->callback =
-					sirfsoc_tx_dma_complete_callback;
+			sirfsoc_uart_tx_dma_complete_callback;
 		sirfport->tx_dma_desc->callback_param = (void *)sirfport;
 		sirfport->transfer_size = tran_size;
 
@@ -472,7 +459,7 @@ sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 	return num_tx;
 }
 
-static void sirfsoc_tx_dma_complete_callback(void *param)
+static void sirfsoc_uart_tx_dma_complete_callback(void *param)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)param;
 	struct uart_port *port = &sirfport->port;
@@ -493,7 +480,7 @@ static void sirfsoc_tx_dma_complete_callback(void *param)
 	spin_unlock_irqrestore(&sirfport->tx_lock, flags);
 }
 
-static void sirfsoc_insert_rx_buf_to_tty(
+static void sirfsoc_uart_insert_rx_buf_to_tty(
 		struct sirfsoc_uart_port *sirfport, int count)
 {
 	struct uart_port *port = &sirfport->port;
@@ -521,7 +508,7 @@ static void sirfsoc_rx_submit_one_dma_desc(struct uart_port *port, int index)
 		return;
 	}
 	sirfport->rx_dma_items[index].desc->callback =
-		sirfsoc_rx_dma_complete_callback;
+		sirfsoc_uart_rx_dma_complete_callback;
 	sirfport->rx_dma_items[index].desc->callback_param = sirfport;
 	sirfport->rx_dma_items[index].cookie =
 		dmaengine_submit(sirfport->rx_dma_items[index].desc);
@@ -540,7 +527,7 @@ static void sirfsoc_rx_tmo_process_tl(unsigned long param)
 
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
 	while (sirfport->rx_completed != sirfport->rx_issued) {
-		sirfsoc_insert_rx_buf_to_tty(sirfport,
+		sirfsoc_uart_insert_rx_buf_to_tty(sirfport,
 					SIRFSOC_RX_DMA_BUF_SIZE);
 		sirfsoc_rx_submit_one_dma_desc(port, sirfport->rx_completed++);
 		sirfport->rx_completed %= SIRFSOC_RX_LOOP_BUF_CNT;
@@ -549,7 +536,7 @@ static void sirfsoc_rx_tmo_process_tl(unsigned long param)
 		sirfport->rx_dma_items[sirfport->rx_issued].xmit.tail,
 		SIRFSOC_RX_DMA_BUF_SIZE);
 	if (count > 0)
-		sirfsoc_insert_rx_buf_to_tty(sirfport, count);
+		sirfsoc_uart_insert_rx_buf_to_tty(sirfport, count);
 	wr_regl(port, ureg->sirfsoc_rx_dma_io_ctrl,
 			rd_regl(port, ureg->sirfsoc_rx_dma_io_ctrl) |
 			SIRFUART_IO_MODE);
@@ -715,14 +702,14 @@ recv_char:
 	return IRQ_HANDLED;
 }
 
-static void sirfsoc_rx_dma_complete_tl(unsigned long param)
+static void sirfsoc_uart_rx_dma_complete_tl(unsigned long param)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)param;
 	struct uart_port *port = &sirfport->port;
 	unsigned long flags;
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
 	while (sirfport->rx_completed != sirfport->rx_issued) {
-		sirfsoc_insert_rx_buf_to_tty(sirfport,
+		sirfsoc_uart_insert_rx_buf_to_tty(sirfport,
 					SIRFSOC_RX_DMA_BUF_SIZE);
 		sirfsoc_rx_submit_one_dma_desc(port, sirfport->rx_completed++);
 		sirfport->rx_completed %= SIRFSOC_RX_LOOP_BUF_CNT;
@@ -730,7 +717,7 @@ static void sirfsoc_rx_dma_complete_tl(unsigned long param)
 	spin_unlock_irqrestore(&sirfport->rx_lock, flags);
 }
 
-static void sirfsoc_rx_dma_complete_callback(void *param)
+static void sirfsoc_uart_rx_dma_complete_callback(void *param)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)param;
 	spin_lock(&sirfport->rx_lock);
@@ -1465,7 +1452,7 @@ usp_no_flow_control:
 	spin_lock_init(&sirfport->rx_lock);
 	spin_lock_init(&sirfport->tx_lock);
 	tasklet_init(&sirfport->rx_dma_complete_tasklet,
-			sirfsoc_rx_dma_complete_tl, (unsigned long)sirfport);
+			sirfsoc_uart_rx_dma_complete_tl, (unsigned long)sirfport);
 	tasklet_init(&sirfport->rx_tmo_process_tasklet,
 			sirfsoc_rx_tmo_process_tl, (unsigned long)sirfport);
 	port->mapbase = res->start;
