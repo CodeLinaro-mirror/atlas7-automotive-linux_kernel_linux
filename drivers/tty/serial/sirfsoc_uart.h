@@ -410,7 +410,6 @@ struct sirfsoc_uart_port {
 	unsigned char			ms_enabled;
 
 	struct uart_port		port;
-	struct pinctrl			*p;
 	struct clk			*clk;
 	/* for SiRFmarco, there are SET/CLR for UART_INT_EN */
 	bool				is_marco;
