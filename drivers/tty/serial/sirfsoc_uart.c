@@ -1361,7 +1361,7 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 	sirfport->uart_reg = (struct sirfsoc_uart_register *)match->data;
 
 	sirfport->hw_flow_ctrl = of_property_read_bool(pdev->dev.of_node,
-		"hw_flow_ctrl");
+		"sirf,uart-has-rtscts");
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart")) {
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
 		if (of_property_read_u32(pdev->dev.of_node,
