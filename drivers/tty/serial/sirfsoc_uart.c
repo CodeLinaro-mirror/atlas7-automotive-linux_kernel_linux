@@ -118,8 +118,7 @@ static unsigned int sirfsoc_uart_get_mctrl(struct uart_port *port)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
 	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
-	if (!sirfport->hw_flow_ctrl ||
-			!sirfport->ms_enabled)
+	if (!sirfport->hw_flow_ctrl || !sirfport->ms_enabled)
 		goto cts_asserted;
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
 		if (!(rd_regl(port, ureg->sirfsoc_afc_ctrl) &
@@ -127,9 +126,7 @@ static unsigned int sirfsoc_uart_get_mctrl(struct uart_port *port)
 			goto cts_asserted;
 		else
 			goto cts_deasserted;
-	}
-
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART) {
+	} else {
 		if (!gpio_get_value(sirfport->rfs_gpio))
 			goto cts_asserted;
 		else
@@ -156,8 +153,7 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		current_val = rd_regl(port, ureg->sirfsoc_afc_ctrl) & ~0xFF;
 		val |= current_val;
 		wr_regl(port, ureg->sirfsoc_afc_ctrl, val);
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART) {
+	} else {
 		if (!val)
 			gpio_set_value(sirfport->tfs_gpio, 1);
 		else
@@ -349,8 +345,7 @@ static void sirfsoc_uart_disable_ms(struct uart_port *port)
 		else
 			wr_regl(port, SIRFUART_INT_EN_CLR,
 					uint_en->sirfsoc_cts_en);
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART)
+	} else
 		disable_irq(gpio_to_irq(sirfport->rfs_gpio));
 }
 
@@ -384,8 +379,7 @@ static void sirfsoc_uart_enable_ms(struct uart_port *port)
 		else
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
 					uint_en->sirfsoc_cts_en);
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART)
+	} else
 		enable_irq(gpio_to_irq(sirfport->rfs_gpio));
 }
 
@@ -890,8 +884,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (termios->c_iflag & INPCK)
 			port->read_status_mask |= uint_en->sirfsoc_frm_err_en |
 				uint_en->sirfsoc_parity_err_en;
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART) {
+	} else {
 		if (termios->c_iflag & INPCK)
 			port->read_status_mask |= uint_en->sirfsoc_frm_err_en;
 	}
@@ -914,8 +907,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 				config_reg |= SIRFUART_STICK_BIT_EVEN;
 			}
 		}
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART) {
+	} else {
 		if (termios->c_iflag & IGNPAR)
 			port->ignore_status_mask |=
 				uint_en->sirfsoc_frm_err_en;
@@ -952,8 +944,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 			clk_div_reg = sirfsoc_uart_calc_sample_div(baud_rate,
 					ioclk_rate, &set_baud);
 		wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART) {
+	} else {
 		clk_div_reg = sirfsoc_usp_calc_sample_div(baud_rate,
 				ioclk_rate, &sample_div_reg);
 		sample_div_reg--;
@@ -978,8 +969,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
 		config_reg |= SIRFUART_RECV_TIMEOUT(port, rx_time_out);
 		wr_regl(port, ureg->sirfsoc_line_ctrl, config_reg);
-	}
-	if (sirfport->uart_reg->uart_type == SIRF_USP_UART) {
+	} else {
 		/*tx frame ctrl*/
 		len_val = (data_bit_len - 1) << 0;
 		len_val |= (data_bit_len + 1 + stop_bit_len - 1) << 16;
@@ -1383,8 +1373,7 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 				&sirfport->tx_dma_no))
 			sirfport->tx_dma_no = -1;
 	}
-	if (of_device_is_compatible(pdev->dev.of_node,
-					"sirf,prima2-usp-uart")) {
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-usp-uart")) {
 		sirfport->uart_reg->uart_type =	SIRF_USP_UART;
 		if (of_property_read_u32(pdev->dev.of_node,
 				"sirf,usp-dma-rx-channel",
