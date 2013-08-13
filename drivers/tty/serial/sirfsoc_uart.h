@@ -427,8 +427,8 @@ struct sirfsoc_uart_port {
 	unsigned int			rx_io_count;
 	unsigned long			transfer_size;
 	enum sirfsoc_tx_state		tx_dma_state;
-	unsigned int			rfs_gpio;
-	unsigned int			tfs_gpio;
+	unsigned int			cts_gpio;
+	unsigned int			rts_gpio;
 
 	struct sirfsoc_loop_buffer	rx_dma_items[SIRFSOC_RX_LOOP_BUF_CNT];
 	int				rx_completed;

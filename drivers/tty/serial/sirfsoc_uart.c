@@ -127,7 +127,7 @@ static unsigned int sirfsoc_uart_get_mctrl(struct uart_port *port)
 		else
 			goto cts_deasserted;
 	} else {
-		if (!gpio_get_value(sirfport->rfs_gpio))
+		if (!gpio_get_value(sirfport->cts_gpio))
 			goto cts_asserted;
 		else
 			goto cts_deasserted;
@@ -155,9 +155,9 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		wr_regl(port, ureg->sirfsoc_afc_ctrl, val);
 	} else {
 		if (!val)
-			gpio_set_value(sirfport->tfs_gpio, 1);
+			gpio_set_value(sirfport->rts_gpio, 1);
 		else
-			gpio_set_value(sirfport->tfs_gpio, 0);
+			gpio_set_value(sirfport->rts_gpio, 0);
 	}
 }
 
@@ -346,16 +346,16 @@ static void sirfsoc_uart_disable_ms(struct uart_port *port)
 			wr_regl(port, SIRFUART_INT_EN_CLR,
 					uint_en->sirfsoc_cts_en);
 	} else
-		disable_irq(gpio_to_irq(sirfport->rfs_gpio));
+		disable_irq(gpio_to_irq(sirfport->cts_gpio));
 }
 
 static irqreturn_t sirfsoc_uart_usp_cts_handler(int irq, void *dev_id)
 {
 	struct sirfsoc_uart_port *sirfport = (struct sirfsoc_uart_port *)dev_id;
 	struct uart_port *port = &sirfport->port;
-	if (gpio_is_valid(sirfport->rfs_gpio) && sirfport->ms_enabled)
+	if (gpio_is_valid(sirfport->cts_gpio) && sirfport->ms_enabled)
 		uart_handle_cts_change(port,
-				!gpio_get_value(sirfport->rfs_gpio));
+				!gpio_get_value(sirfport->cts_gpio));
 	return IRQ_HANDLED;
 }
 
@@ -380,7 +380,7 @@ static void sirfsoc_uart_enable_ms(struct uart_port *port)
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
 					uint_en->sirfsoc_cts_en);
 	} else
-		enable_irq(gpio_to_irq(sirfport->rfs_gpio));
+		enable_irq(gpio_to_irq(sirfport->cts_gpio));
 }
 
 static void sirfsoc_uart_break_ctl(struct uart_port *port, int break_state)
@@ -1157,9 +1157,9 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 	sirfport->ms_enabled = false;
 	if (sirfport->uart_reg->uart_type == SIRF_USP_UART &&
 				sirfport->hw_flow_ctrl) {
-		set_irq_flags(gpio_to_irq(sirfport->rfs_gpio),
+		set_irq_flags(gpio_to_irq(sirfport->cts_gpio),
 				IRQF_VALID | IRQF_NOAUTOEN);
-		ret = request_irq(gpio_to_irq(sirfport->rfs_gpio),
+		ret = request_irq(gpio_to_irq(sirfport->cts_gpio),
 				sirfsoc_uart_usp_cts_handler, IRQF_TRIGGER_FALLING |
 				IRQF_TRIGGER_RISING, "usp_cts_irq", sirfport);
 		if (ret != 0) {
@@ -1190,8 +1190,8 @@ static void sirfsoc_uart_shutdown(struct uart_port *port)
 		sirfsoc_uart_disable_ms(port);
 	if (sirfport->uart_reg->uart_type == SIRF_USP_UART &&
 			sirfport->hw_flow_ctrl) {
-		gpio_set_value(sirfport->tfs_gpio, 1);
-		free_irq(gpio_to_irq(sirfport->rfs_gpio), sirfport);
+		gpio_set_value(sirfport->rts_gpio, 1);
+		free_irq(gpio_to_irq(sirfport->cts_gpio), sirfport);
 	}
 	if (sirfport->rx_dma_no != -1)
 		sirfsoc_uart_uninit_rx_dma(sirfport);
@@ -1385,38 +1385,38 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 			sirfport->tx_dma_no = -1;
 		if (!sirfport->hw_flow_ctrl)
 			goto usp_no_flow_control;
-		if (of_find_property(pdev->dev.of_node, "rfs-gpios", NULL))
-			sirfport->rfs_gpio = of_get_named_gpio(
-					pdev->dev.of_node, "rfs-gpios", 0);
+		if (of_find_property(pdev->dev.of_node, "cts-gpios", NULL))
+			sirfport->cts_gpio = of_get_named_gpio(
+					pdev->dev.of_node, "cts-gpios", 0);
 		else
-			sirfport->rfs_gpio = -1;
-		if (of_find_property(pdev->dev.of_node, "tfs-gpios", NULL))
-			sirfport->tfs_gpio = of_get_named_gpio(
-					pdev->dev.of_node, "tfs-gpios", 0);
+			sirfport->cts_gpio = -1;
+		if (of_find_property(pdev->dev.of_node, "rts-gpios", NULL))
+			sirfport->rts_gpio = of_get_named_gpio(
+					pdev->dev.of_node, "rts-gpios", 0);
 		else
-			sirfport->tfs_gpio = -1;
+			sirfport->rts_gpio = -1;
 
-		if ((!gpio_is_valid(sirfport->rfs_gpio) ||
-			 !gpio_is_valid(sirfport->tfs_gpio))) {
+		if ((!gpio_is_valid(sirfport->cts_gpio) ||
+			 !gpio_is_valid(sirfport->rts_gpio))) {
 			ret = -EINVAL;
 			dev_err(&pdev->dev,
-				"Usp flow control must have rfs and tfs gpio");
+				"Usp flow control must have cts and rts gpio");
 			goto err;
 		}
-		ret = devm_gpio_request(&pdev->dev, sirfport->rfs_gpio,
-				"usp-rfs-gpio");
+		ret = devm_gpio_request(&pdev->dev, sirfport->cts_gpio,
+				"usp-cts-gpio");
 		if (ret) {
-			dev_err(&pdev->dev, "Unable request rfs gpio");
+			dev_err(&pdev->dev, "Unable request cts gpio");
 			goto err;
 		}
-		gpio_direction_input(sirfport->rfs_gpio);
-		ret = devm_gpio_request(&pdev->dev, sirfport->tfs_gpio,
-				"usp-tfs-gpio");
+		gpio_direction_input(sirfport->cts_gpio);
+		ret = devm_gpio_request(&pdev->dev, sirfport->rts_gpio,
+				"usp-rts-gpio");
 		if (ret) {
-			dev_err(&pdev->dev, "Unable request tfs gpio");
+			dev_err(&pdev->dev, "Unable request rts gpio");
 			goto err;
 		}
-		gpio_direction_output(sirfport->tfs_gpio, 1);
+		gpio_direction_output(sirfport->rts_gpio, 1);
 	}
 usp_no_flow_control:
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))

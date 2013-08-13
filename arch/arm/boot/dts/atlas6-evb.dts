@@ -111,16 +111,16 @@
 				compatible = "sirf,prima2-usp-pcm", "sirf,prima2-usp";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_pins_a>;
-				rfs-gpios = <&gpio 55 0>;
-				tfs-gpios = <&gpio 54 0>;
+				cts-gpios = <&gpio 55 0>;
+				rts-gpios = <&gpio 54 0>;
 			};
 			usp@b0090000 {
 				compatible = "sirf,prima2-usp-uart";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp1_pins_a>;
 				hw_flow_ctrl;
-				rfs-gpios = <&gpio 15 0>;
-				tfs-gpios = <&gpio 46 0>;
+				cts-gpios = <&gpio 15 0>;
+				rts-gpios = <&gpio 46 0>;
 			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
