@@ -110,7 +110,6 @@
 				/* later transfer to pwm */
 				bl-gpios = <&gpio 7 0>;
 				vcc-gpios = <&gpio 4 0>;
-				default-panel = <&panel0>;
 				resets = <&rstc 5>;
 				power-vdd  = <0x00180017>;
 				power-vee  = <0x00160015>;
