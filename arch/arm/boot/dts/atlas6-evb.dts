@@ -108,7 +108,7 @@
 				pinctrl-0 = <&spi1_pins_a>;
 			};
 			usp@b0080000 {
-				compatible = "sirf,prima2-usp-pcm", "sirf,prima2-usp", "sirf,prima2-usp-uart";
+				compatible = "sirf,prima2-usp-pcm", "sirf,prima2-usp";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_pins_a>;
 				rfs-gpios = <&gpio 55 0>;
