@@ -1370,7 +1370,7 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 	port->private_data = sirfport;
 	sirfport->uart_reg = (struct sirfsoc_uart_register *)match->data;
 
-	if (of_find_property(pdev->dev.of_node, "hw_flow_ctrl", NULL))
+	if (of_property_read_bool(pdev->dev.of_node, "hw_flow_ctrl"))
 		sirfport->hw_flow_ctrl = 1;
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart")) {
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
