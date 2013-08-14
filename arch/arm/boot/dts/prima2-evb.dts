@@ -35,9 +35,19 @@
 				};
 			};
 
+			uart@b0050000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&uart0_pins_a>;
+				sirf,uart-has-rtscts;
+			};
 			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
+			};
+			uart@b0070000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&uart2_pins_a>;
+				sirf,uart-has-rtscts;
 			};
 			vip@b00C0000 {
 				status = "okay";
