@@ -72,7 +72,7 @@
 			uart@b0050000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart0_pins_a>;
-				hw_flow_ctrl;
+				sirf,uart-has-rtscts;
 			};
 			uart@b0060000 {
 				pinctrl-names = "default";
@@ -81,7 +81,7 @@
 			uart@b0070000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart2_pins_a>;
-				hw_flow_ctrl;
+				sirf,uart-has-rtscts;
 			};
 			i2s@b0040000 {
 				pinctrl-names = "default";
