@@ -49,6 +49,18 @@
 				pinctrl-0 = <&uart2_pins_a>;
 				sirf,uart-has-rtscts;
 			};
+			usp@b0080000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp0_pins_a>;
+			};
+			usp@b0090000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp1_pins_a>;
+			};
+			usp@b00a0000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp2_pins_a>;
+			};
 			vip@b00C0000 {
 				status = "okay";
 				pinctrl-names = "default";
