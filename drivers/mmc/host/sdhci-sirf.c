@@ -30,17 +30,8 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	return clk_get_rate(priv->clk);
 }
 
-static void sdhci_sirf_platform_resume(struct sdhci_host *host)
-{
-	/* restore controller setting */
-	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
-	sdhci_writeb(host, 0xE, SDHCI_TIMEOUT_CONTROL);
-
-}
-
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
-	.platform_resume = sdhci_sirf_platform_resume,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
@@ -171,7 +162,13 @@ static int sdhci_sirf_resume(struct device *dev)
 		return ret;
 	}
 
-	return sdhci_resume_host(host);
+	ret = sdhci_resume_host(host);
+
+	/* restore sirf hacked regs after resume, since lose in suspend */
+	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
+	sdhci_writeb(host, 0xE, SDHCI_TIMEOUT_CONTROL);
+
+	return ret;
 }
 
 static SIMPLE_DEV_PM_OPS(sdhci_sirf_pm_ops, sdhci_sirf_suspend, sdhci_sirf_resume);
