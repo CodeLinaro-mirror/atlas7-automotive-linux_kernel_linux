@@ -146,8 +146,7 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	unsigned int val = assert ? SIRFUART_AFC_CTRL_RX_THD : 0x0;
 	unsigned int current_val;
 
-	if (!sirfport->hw_flow_ctrl ||
-			!sirfport->ms_enabled)
+	if (!sirfport->hw_flow_ctrl || !sirfport->ms_enabled)
 		return;
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
 		current_val = rd_regl(port, ureg->sirfsoc_afc_ctrl) & ~0xFF;
@@ -397,7 +396,6 @@ static void sirfsoc_uart_break_ctl(struct uart_port *port, int break_state)
 	}
 }
 
-/* cpu responsible for fetching "max_rx_count" bytes from hardware rxfifo */
 static unsigned int
 sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count)
 {
@@ -428,7 +426,6 @@ sirfsoc_uart_pio_rx_chars(struct uart_port *port, unsigned int max_rx_count)
 	return rx_count;
 }
 
-/* cpu responsible for put "count" bytes into hardware txfifo */
 static unsigned int
 sirfsoc_uart_pio_tx_chars(struct sirfsoc_uart_port *sirfport, int count)
 {
@@ -1461,7 +1458,7 @@ usp_no_flow_control:
 	sirfport->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sirfport->clk)) {
 		ret = PTR_ERR(sirfport->clk);
-		goto clk_err;
+		goto err;
 	}
 	clk_prepare_enable(sirfport->clk);
 	port->uartclk = clk_get_rate(sirfport->clk);
@@ -1481,8 +1478,6 @@ usp_no_flow_control:
 port_err:
 	clk_disable_unprepare(sirfport->clk);
 	clk_put(sirfport->clk);
-clk_err:
-	platform_set_drvdata(pdev, NULL);
 err:
 	return ret;
 }
@@ -1491,7 +1486,6 @@ static int sirfsoc_uart_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport = platform_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
-	platform_set_drvdata(pdev, NULL);
 	clk_disable_unprepare(sirfport->clk);
 	clk_put(sirfport->clk);
 	uart_remove_one_port(&sirfsoc_uart_drv, port);
