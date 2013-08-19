@@ -1153,12 +1153,12 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 	}
 	sirfport->ms_enabled = false;
 	if (sirfport->uart_reg->uart_type == SIRF_USP_UART &&
-				sirfport->hw_flow_ctrl) {
+		sirfport->hw_flow_ctrl) {
 		set_irq_flags(gpio_to_irq(sirfport->cts_gpio),
-				IRQF_VALID | IRQF_NOAUTOEN);
+			IRQF_VALID | IRQF_NOAUTOEN);
 		ret = request_irq(gpio_to_irq(sirfport->cts_gpio),
-				sirfsoc_uart_usp_cts_handler, IRQF_TRIGGER_FALLING |
-				IRQF_TRIGGER_RISING, "usp_cts_irq", sirfport);
+			sirfsoc_uart_usp_cts_handler, IRQF_TRIGGER_FALLING |
+			IRQF_TRIGGER_RISING, "usp_cts_irq", sirfport);
 		if (ret != 0) {
 			dev_err(port->dev, "UART-USP:request gpio irq fail\n");
 			goto init_rx_err;
