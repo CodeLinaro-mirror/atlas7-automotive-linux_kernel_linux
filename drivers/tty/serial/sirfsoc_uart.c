@@ -1120,20 +1120,21 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 							index, port->irq);
 		goto irq_err;
 	}
+
 	/* initial hardware settings */
 	wr_regl(port, ureg->sirfsoc_tx_dma_io_ctrl,
-				rd_regl(port, ureg->sirfsoc_tx_dma_io_ctrl) |
-				SIRFUART_IO_MODE);
+		rd_regl(port, ureg->sirfsoc_tx_dma_io_ctrl) |
+		SIRFUART_IO_MODE);
 	wr_regl(port, ureg->sirfsoc_rx_dma_io_ctrl,
-				rd_regl(port, ureg->sirfsoc_rx_dma_io_ctrl) |
-				SIRFUART_IO_MODE);
+		rd_regl(port, ureg->sirfsoc_rx_dma_io_ctrl) |
+		SIRFUART_IO_MODE);
 	wr_regl(port, ureg->sirfsoc_tx_dma_io_len, 0);
 	wr_regl(port, ureg->sirfsoc_rx_dma_io_len, 0);
 	wr_regl(port, ureg->sirfsoc_tx_rx_en, SIRFUART_RX_EN | SIRFUART_TX_EN);
 	if (sirfport->uart_reg->uart_type == SIRF_USP_UART)
 		wr_regl(port, ureg->sirfsoc_mode1,
-				SIRFSOC_USP_ENDIAN_CTRL_LSBF |
-				SIRFSOC_USP_EN);
+			SIRFSOC_USP_ENDIAN_CTRL_LSBF |
+			SIRFSOC_USP_EN);
 	wr_regl(port, ureg->sirfsoc_tx_fifo_op, SIRFUART_FIFO_RESET);
 	wr_regl(port, ureg->sirfsoc_tx_fifo_op, 0);
 	wr_regl(port, ureg->sirfsoc_rx_fifo_op, SIRFUART_FIFO_RESET);
@@ -1171,6 +1172,7 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 			goto init_rx_err;
 		}
 	}
+
 	enable_irq(port->irq);
 
 	return 0;
