@@ -78,6 +78,12 @@
 					compatible = "sirf,ch7102";
 					reg = <0xf0>;
 				};
+				ft5x06@38{
+					compatible = "sirf,ft5x06";
+                                        interrupts = <34>;
+                                        reg = <0x38>;
+                                };
+
 			};
                         tsc {
                                 compatible = "sirf,prima2-tsc";
