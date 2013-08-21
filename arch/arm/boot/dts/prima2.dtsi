@@ -257,8 +257,8 @@
 				interrupts = <20>;
 				fifosize = <128>;
 				clocks = <&clks 28>;
-				sirf,uart-dma-rx-channel = <17>;
-				sirf,uart-dma-tx-channel = <18>;
+				sirf,usp-dma-rx-channel = <17>;
+				sirf,usp-dma-tx-channel = <18>;
 			};
 
 			usp1: usp@b0090000 {
@@ -268,8 +268,8 @@
 				interrupts = <21>;
 				fifosize = <128>;
 				clocks = <&clks 29>;
-				sirf,uart-dma-rx-channel = <14>;
-				sirf,uart-dma-tx-channel = <15>;
+				sirf,usp-dma-rx-channel = <14>;
+				sirf,usp-dma-tx-channel = <15>;
 			};
 
 			usp2: usp@b00a0000 {
@@ -279,8 +279,8 @@
 				interrupts = <22>;
 				fifosize = <128>;
 				clocks = <&clks 30>;
-				sirf,uart-dma-rx-channel = <10>;
-				sirf,uart-dma-tx-channel = <11>;
+				sirf,usp-dma-rx-channel = <10>;
+				sirf,usp-dma-tx-channel = <11>;
 			};
 
 			dmac0: dma-controller@b00b0000 {
