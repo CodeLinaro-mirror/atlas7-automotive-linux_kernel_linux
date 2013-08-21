@@ -75,3 +75,4 @@ obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_ADC_SIRFSOC)       += sirfsoc_adc.o
 obj-$(CONFIG_TOUCHSCREEN_SIRFSOC)       += sirfsoc_touch.o
+obj-$(CONFIG_TOUCHSCREEN_FT5X06)       += ft5x06_ts.o
