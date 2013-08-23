@@ -107,6 +107,11 @@
 					compatible = "sirf,ch7102";
 					reg = <0xf0>;
 				};
+				tangoc-ts@5c{
+					compatible = "sirf,tangoc-ts";
+					interrupts = <34>;
+					reg = <0x5c>;
+				};
 				ft5x06@38{
 					compatible = "sirf,ft5x06";
                                         interrupts = <34>;
