@@ -490,6 +490,7 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 	if (list_empty(&schan->active)) {
 		ret = dma_cookie_status(chan, cookie, txstate);
 		dma_set_residue(txstate, 0);
+		spin_unlock_irqrestore(&schan->lock, flags);
 		return ret;
 	}
 	sdesc = list_first_entry(&schan->active,
