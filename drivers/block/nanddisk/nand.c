@@ -37,7 +37,6 @@
 
 /* device info */
 struct nanddisk_device {
-
 	/* os disk info */
 	int major_num;
 	unsigned sector_size_shift;
@@ -150,7 +149,6 @@ void  __init sirfsoc_nand_nosave_memblock(void)
 		__phys_to_pfn(nand_dev.nanddisk_code_start),
 		__phys_to_pfn(nand_dev.nanddisk_code_start +
 				nand_dev.nanddisk_code_size));
-
 }
 EXPORT_SYMBOL(sirfsoc_nand_nosave_memblock);
 
@@ -690,20 +688,56 @@ static void nand_free_resource(void)
  * nandddisk module include nand controller and other controllers,
  * all of these controllers are managed by nanddisk module.
  */
-struct nanddisk_resource {
-	char *compatible;
+
+struct arch_other_res {
+	char *res_compatible;
 	int index;
 };
-static struct nanddisk_resource other[] = {
-	{"sirf,prima2-intc", 0},
-	{"sirf,prima2-rsc", 0},
-	{"sirf,prima2-tick", 0},
-	{"sirf,atlas6-clkc", 0},
-	{"sirf,prima2-uart", 1},
-	{"sirf,atlas6-pinctrl", 0},
-	{"sirf,prima2-dmac", 0},
-	{"sirf,prima2-rstc", 0},
-	{"sirf,prima2-efuse", 0}
+
+struct arch_nanddisk_resource {
+	const char *arch_compatible;
+	unsigned char res_num;
+	unsigned int sd0_boot_mode_mask;
+	unsigned int sd0_boot_mode_value;
+	unsigned int sd0_bootp_mode_value;
+	struct arch_other_res arch_ores[15];
+};
+
+static struct arch_nanddisk_resource arch_nres[] = {
+	{
+		"sirf,prima2",
+		10,
+		0xf, 0xd, 0xe,
+		{
+			{"sirf,prima2-intc", 0},
+			{"sirf,prima2-rsc", 0},
+			{"sirf,prima2-tick", 0},
+			{"sirf,prima2-clkc", 0},
+			{"sirf,prima2-uart", 1},
+			{"sirf,prima2-pinctrl", 0},
+			{"sirf,prima2-dmac", 0},
+			{"sirf,prima2-rstc", 0},
+			{"sirf,prima2-efuse", 0},
+			{"sirf,prima2-pl310-cache", 0}
+		}
+	},
+	{
+		"sirf,atlas6",
+		9,
+		0x7, 0x3, 0x7,
+		{
+			{"sirf,prima2-intc", 0},
+			{"sirf,prima2-rsc", 0},
+			{"sirf,prima2-tick", 0},
+			{"sirf,atlas6-clkc", 0},
+			{"sirf,prima2-uart", 1},
+			{"sirf,atlas6-pinctrl", 0},
+			{"sirf,prima2-dmac", 0},
+			{"sirf,prima2-rstc", 0},
+			{"sirf,prima2-efuse", 0}
+		},
+	}
+
 };
 
 static int nand_alloc_resource(struct platform_device *pdev)
@@ -715,9 +749,30 @@ static int nand_alloc_resource(struct platform_device *pdev)
 	int i, ret, addr_map_tbl_size;
 	int resource_index;
 	unsigned int value;
+	struct arch_nanddisk_resource *arch_nres_used;
+
+	arch_nres_used = &arch_nres[0];
+	i = 0;
+	while (i < ARRAY_SIZE(arch_nres)) {
+		dn = of_find_compatible_node(NULL, NULL,
+			arch_nres_used->arch_compatible);
+		if (dn)
+			break;
+		arch_nres_used++;
+		i++;
+	}
+
+	if (!dn) {
+		dev_info(dev, "no suitable nand controller!!\n");
+		ret = -ENODEV;
+		goto err_exit;
+	}
+
+	dev_info(dev, "find nand controller(%s).\n",
+		 arch_nres_used->arch_compatible);
 
 	/* total other controller */
-	nand_dev.addr_entry_num = ARRAY_SIZE(other);
+	nand_dev.addr_entry_num = arch_nres_used->res_num;
 	/* add nand controller */
 	nand_dev.addr_entry_num += 1;
 	/* add 2 item, ram and zero-end */
@@ -733,16 +788,16 @@ static int nand_alloc_resource(struct platform_device *pdev)
 
 	/* get resouce from other controller */
 	i = 0;
-	while (i < ARRAY_SIZE(other)) {
+	while (i < arch_nres_used->res_num) {
 		dn = NULL;
-		resource_index = other[i].index;
+		resource_index = arch_nres_used->arch_ores[i].index;
 		/* when it is not the first node */
 		do {
 			dn = of_find_compatible_node(dn, NULL,
-				other[i].compatible);
+				arch_nres_used->arch_ores[i].res_compatible);
 			if (!dn) {
 				dev_err(dev, "failed to get %s node!\n",
-						other[i].compatible);
+					arch_nres_used->arch_ores[i].res_compatible);
 				ret = -ENODEV;
 				goto err_exit;
 			}
@@ -807,13 +862,14 @@ static int nand_alloc_resource(struct platform_device *pdev)
 
 	/*
 	 * nand and sd0 share the same slot
-	 * 0x3: sd0
-	 * 0x7: sd0 boot partition
+	 * nand can be used when sd0 absent
 	 */
 
-	value = readl(nand_dev.addr_map_tbl[i].va) & 0x7;
-	dev_dbg(dev, "value is 0x%x\n", value);
-	if (value == 0x3 || value == 0x7) {
+	value = readl(nand_dev.addr_map_tbl[i].va) &
+			arch_nres_used->sd0_boot_mode_mask;
+	if (value == arch_nres_used->sd0_boot_mode_value ||
+		value == arch_nres_used->sd0_bootp_mode_value) {
+		dev_info(dev, "no nand chip.\n");
 		ret = -ENODEV;
 		goto err_exit;
 	}
