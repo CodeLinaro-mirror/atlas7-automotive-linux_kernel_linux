@@ -6,8 +6,8 @@ fifosize: Uart hardware rx/tx fifo size
 clocks: Uart clock frequency
 sirf,uart-dma-rx-channel: Uart rx dma channel number
 sirf,uart-dma-tx-channel: Uart tx dma channel number
-rfs-gpios: Usp urfs gpio pin
-tfs-gpios: Usp utfs gpio pin
+cts-gpios: Usp cts gpio pin
+rts-gpios: Usp rts gpio pin
 sirf,usp-dma-rx-channel: Usp rx dma channel number
 sirf,usp-dma-tx-channel: Usp tx dma channel number
 

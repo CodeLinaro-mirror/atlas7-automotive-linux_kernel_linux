@@ -112,7 +112,6 @@
 				/* later transfer to pwm */
 				bl-gpios = <&gpio 7 0>;
 				vcc-gpios = <&gpio 4 0>;
-				default-panel = <&panel0>;
 				resets = <&rstc 5>;
 				power-vdd  = <0x00180017>;
 				power-vee  = <0x00160015>;
@@ -224,6 +223,8 @@
 				interrupts = <17>;
 				fifosize = <128>;
 				clocks = <&clks 13>;
+				sirf,uart-dma-rx-channel = <21>;
+				sirf,uart-dma-tx-channel = <2>;
 			};
 
 			uart1: uart@b0060000 {
@@ -242,6 +243,8 @@
 				interrupts = <19>;
 				fifosize = <128>;
 				clocks = <&clks 15>;
+				sirf,uart-dma-rx-channel = <6>;
+				sirf,uart-dma-tx-channel = <7>;
 			};
 
 			usp0: usp@b0080000 {
@@ -249,7 +252,10 @@
 				compatible = "sirf,prima2-usp";
 				reg = <0xb0080000 0x10000>;
 				interrupts = <20>;
+				fifosize = <128>;
 				clocks = <&clks 28>;
+				sirf,uart-dma-rx-channel = <17>;
+				sirf,uart-dma-tx-channel = <18>;
 			};
 
 			usp1: usp@b0090000 {
@@ -257,7 +263,10 @@
 				compatible = "sirf,prima2-usp";
 				reg = <0xb0090000 0x10000>;
 				interrupts = <21>;
+				fifosize = <128>;
 				clocks = <&clks 29>;
+				sirf,uart-dma-rx-channel = <14>;
+				sirf,uart-dma-tx-channel = <15>;
 			};
 
 			usp2: usp@b00a0000 {
@@ -265,7 +274,10 @@
 				compatible = "sirf,prima2-usp";
 				reg = <0xb00a0000 0x10000>;
 				interrupts = <22>;
+				fifosize = <128>;
 				clocks = <&clks 30>;
+				sirf,uart-dma-rx-channel = <10>;
+				sirf,uart-dma-tx-channel = <11>;
 			};
 
 			dmac0: dma-controller@b00b0000 {
@@ -386,6 +398,12 @@
 					uart {
 						sirf,pins = "uart0grp";
 						sirf,function = "uart0";
+					};
+				};
+				uart0_noflow_pins_a: uart0@1 {
+					uart {
+						sirf,pins = "uart0_nostreamctrlgrp";
+						sirf,function = "uart0_nostreamctrl";
 					};
 				};
 				uart1_pins_a: uart1@0 {

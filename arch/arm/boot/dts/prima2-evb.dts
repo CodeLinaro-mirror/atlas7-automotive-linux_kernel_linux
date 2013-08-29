@@ -35,9 +35,31 @@
 				};
 			};
 
+			uart@b0050000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&uart0_pins_a>;
+				sirf,uart-has-rtscts;
+			};
 			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
+			};
+			uart@b0070000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&uart2_pins_a>;
+				sirf,uart-has-rtscts;
+			};
+			usp@b0080000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp0_pins_a>;
+			};
+			usp@b0090000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp1_pins_a>;
+			};
+			usp@b00a0000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&usp2_pins_a>;
 			};
 			vip@b00C0000 {
 				status = "okay";
@@ -45,6 +67,7 @@
 				pinctrl-0 = <&vip_pins_a>;
 				power-gpio = <&gpio 9 0>;
 				reset-gpio = <&gpio 12 0>;
+				rearview-gpio = <&gpio 31 0>;
 			};
 			spi@b00d0000 {
 				status = "okay";
@@ -57,8 +80,14 @@
 				};
 			};
 			spi@b0170000 {
+				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&spi1_pins_a>;
+				spi@0 {
+					compatible = "spidev";
+					reg = <0>;
+					spi-max-frequency = <1000000>;
+				};
 			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
@@ -78,6 +107,12 @@
 					compatible = "sirf,ch7102";
 					reg = <0xf0>;
 				};
+				ft5x06@38{
+					compatible = "sirf,ft5x06";
+                                        interrupts = <34>;
+                                        reg = <0x38>;
+                                };
+
 			};
                         tsc {
                                 compatible = "sirf,prima2-tsc";
@@ -91,6 +126,7 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
+				default-panel = <&panel0>;
 				/*layer enable info,default only enable layer1 */
 				layer-ctrl = <0x000000f>;
 		      };
@@ -114,18 +150,18 @@
 				timing = <0xA8>;
 			};
 			panel1: panel@1 {
-				panel-name = "Toshiba WVGA";
-				hactive = <800>;
-				vactive = <480>;
-				left-margin = <69>;
-				right-margin = <167>;
-				upper-margin = <33>;
-				lower-margin = <11>;
-				hsync-len = <20>;
-				vsync-len = <1>;
-				pixclock = <33000000>;
+				panel-name = "Innolux WSVGA";
+				hactive = <1024>;
+				vactive = <600>;
+				left-margin = <28>;
+				right-margin = <288>;
+				upper-margin = <8>;
+				lower-margin = <24>;
+				hsync-len = <4>;
+				vsync-len = <3>;
+				pixclock = <51200000>;
 				sync = <3>;
-				timing = <0xA8>;
+				timing = <0xA0>;
 			};
 			panel2: panel@2 {
 				panel-name = "Innolux WSVGA";

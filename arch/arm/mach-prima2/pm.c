@@ -16,8 +16,10 @@
 #include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
+#include <linux/proc_fs.h>
 #include <asm/suspend.h>
 #include <asm/hardware/cache-l2x0.h>
+#include <asm/uaccess.h>
 
 #include "pm.h"
 
@@ -28,6 +30,7 @@
 u32 sirfsoc_pwrc_base;
 void __iomem *sirfsoc_memc_base;
 static int (*sirfsoc_finish_suspend)(unsigned long);
+struct proc_dir_entry *pr_entry;
 
 static void sirfsoc_set_wakeup_source(void)
 {
@@ -105,6 +108,54 @@ static const struct of_device_id pwrc_ids[] = {
 	{}
 };
 
+ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
+		char __user *buf, size_t size, loff_t *ppos)
+{
+	int i;
+	u32 boot_stat = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
+		SIRFSOC_BOOT_STATUS);
+	if (size < SIRFSOC_BOOT_STATUS_BITS) {
+		pr_info("boot status mask bits is %d, but read size is %d\n",
+			SIRFSOC_BOOT_STATUS_BITS, size);
+		pr_info("read failed\n");
+		return 0;
+	}
+
+	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
+		buf[i] = ((boot_stat >> i) & 0x1) + 0x30;
+
+	return size;
+}
+
+ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
+		const char __user *buf, size_t size, loff_t *ppos)
+{
+	u32 boot_stat = 0;
+	char data[SIRFSOC_BOOT_STATUS_BITS];
+	int i;
+
+	if (size < SIRFSOC_BOOT_STATUS_BITS) {
+		pr_info("boot status mask bits is %d, but write size is %d\n",
+			SIRFSOC_BOOT_STATUS_BITS, size);
+		pr_info("write failed\n");
+		return 0;
+	}
+
+	copy_from_user(data, buf, SIRFSOC_BOOT_STATUS_BITS);
+
+	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
+		boot_stat |= (((data[i] - 0x30) & 0x1) << i);
+	sirfsoc_rtc_iobrg_writel(boot_stat,
+		sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
+
+	return size;
+}
+
+static const struct file_operations sirfsoc_boot_stat_proc_fops = {
+	.read		= sirfsoc_boot_stat_proc_read,
+	.write		= sirfsoc_boot_stat_proc_write,
+};
+
 static int __init sirfsoc_of_pwrc_init(void)
 {
 	struct device_node *np;
@@ -124,6 +175,12 @@ static int __init sirfsoc_of_pwrc_init(void)
 		panic("unable to find base address of pwrc node in dtb\n");
 
 	of_node_put(np);
+
+	proc_create_data("boot_status",
+			S_IRUSR | S_IWUSR ,
+			NULL,
+			&sirfsoc_boot_stat_proc_fops,
+			NULL);
 
 	return 0;
 }

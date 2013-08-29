@@ -277,10 +277,13 @@ static int rearview_freeze(void)
 {
 	pr_debug("%s: rv_started %d\n", __func__, rv_started);
 
+	disable_irq(rearview_env.irq);
+
 	if (rv_started) {
 		rearview_stop();
 		rv_started = 0;
 	}
+
 	return 0;
 }
 
@@ -289,6 +292,8 @@ static int rearview_restore(void)
 	unsigned long flags;
 
 	pr_debug("%s: rv_started %d\n", __func__, rv_started);
+
+	enable_irq(rearview_env.irq);
 
 	spin_lock_irqsave(&rv.lock, flags);
 	rv.active = ACTIVE_HIBER;
