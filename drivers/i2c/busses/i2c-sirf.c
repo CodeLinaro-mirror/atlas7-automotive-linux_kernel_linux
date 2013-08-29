@@ -154,10 +154,9 @@ static irqreturn_t i2c_sirfsoc_irq(int irq, void *dev_id)
 			dev_err(&siic->adapter.dev, "I2C error\n");
 
 		/*
-		 * Fixme:
-		 * don't know why we need a reset here in earlier stage,
-		 * but this really is able to make i2c more stable after
-		 * we access nonexistence devices
+		 * Due to hardware ANOMALY, we need to reset I2C earlier after
+		 * we get NOACK while accessing non-existing clients, otherwise
+		 * we will get errors even we access existing clients later
 		 */
 		writel(readl(siic->base + SIRFSOC_I2C_CTRL) | SIRFSOC_I2C_RESET,
 				siic->base + SIRFSOC_I2C_CTRL);
@@ -335,6 +334,7 @@ static int i2c_sirfsoc_probe(struct platform_device *pdev)
 
 	adap->algo = &i2c_sirfsoc_algo;
 	adap->algo_data = siic;
+	adap->retries = 3;
 
 	adap->dev.of_node = pdev->dev.of_node;
 	adap->dev.parent = &pdev->dev;
