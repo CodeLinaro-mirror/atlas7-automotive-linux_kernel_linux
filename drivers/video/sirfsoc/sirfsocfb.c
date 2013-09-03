@@ -127,6 +127,20 @@ static ssize_t layer_oflow_show(struct device *dev,
 
 static DEVICE_ATTR(layer_fifo_overflow, S_IRUGO, layer_oflow_show, NULL);
 
+static ssize_t vsync_timestamp_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct sirfsocfb *fb = dev_get_drvdata(dev);
+	FB_FUN_MSG("vsync_timestamp_show\n");
+
+	ret = scnprintf(buf, PAGE_SIZE, "%llu\n",
+		ktime_to_ns(fb->vsync_timestamp));
+	return ret;
+}
+
+static DEVICE_ATTR(vsync_timestamp, S_IRUGO, vsync_timestamp_show, NULL);
+
 /**************** HELPER FUNCTIONS ****************/
 static inline int sirfsocfb_get_layer(struct fb_info *info)
 {
@@ -350,17 +364,10 @@ static int send_vsync_timestamp(struct work_struct *data)
 {
 	struct sirfsocfb *fb;
 	struct device *dev;
-	char buf[64];
-	char *envp[2];
-
 	fb = container_of(data, struct sirfsocfb, vsync_work);
 	dev = &fb->dev->dev;
-	snprintf(buf, sizeof(buf), "TIMESTAMP=%llu",
-		ktime_to_ns(fb->vsync_timestamp));
-	envp[0] = buf;
-	envp[1] = NULL;
-	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
 
+	sysfs_notify(&dev->kobj, NULL, "vsync_timestamp");
 	return 0;
 }
 
@@ -2125,8 +2132,11 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 
 	ret = device_create_file(&pdev->dev, &dev_attr_layer_fifo_overflow);
 	if (ret)
-		goto err_remove_dev_file;
+		goto err_remove_fifo_underflow_file;
 
+	ret = device_create_file(&pdev->dev, &dev_attr_vsync_timestamp);
+	if (ret)
+		goto err_remove_fifo_overflow_file;
 
 	/* default alpha 0xFF */
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
@@ -2153,7 +2163,10 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 
 	FB_FUN_MSG("-sirfsocfb_probe\n");
 	return;
-err_remove_dev_file:
+err_remove_fifo_overflow_file:
+	device_remove_file(&pdev->dev,
+		&dev_attr_layer_fifo_overflow);
+err_remove_fifo_underflow_file:
 	device_remove_file(&pdev->dev,
 		&dev_attr_layer_fifo_underflow);
 err_unregister:
@@ -2198,6 +2211,7 @@ static int sirfsocfb_remove(struct platform_device *pdev)
 	fb->init_enabled = 0;
 	device_remove_file(&pdev->dev, &dev_attr_layer_fifo_overflow);
 	device_remove_file(&pdev->dev, &dev_attr_layer_fifo_underflow);
+	device_remove_file(&pdev->dev, &dev_attr_vsync_timestamp);
 	sirfsocfb_irq_deinit(fb);
 
 	clk_disable(fb->clk);
