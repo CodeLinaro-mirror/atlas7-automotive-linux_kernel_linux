@@ -70,8 +70,7 @@
 			};
 			uart@b0070000 {
 				pinctrl-names = "default";
-				pinctrl-0 = <&uart2_pins_a>;
-				sirf,uart-has-rtscts;
+				pinctrl-0 = <&uart2_noflow_pins_a>;
 			};
 			usp@b0080000 {
 				pinctrl-names = "default";
