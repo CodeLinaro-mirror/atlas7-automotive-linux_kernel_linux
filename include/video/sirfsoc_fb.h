@@ -144,7 +144,7 @@ struct sirfsocfb_layers_parms {
 #define BLT_DI_FIELD_BOT	0x00000010 /* bottom field reserved. useless now */
 
 #define BLT_FIELDS_MIX		0x00000020 /* lines for even or odd fields are mixed */
-
+#define BLT_DOUBLE_FRATE	0x00000040 /* frame rate will be doubled if deinterlace is enabled */
 #define BLT_NOT_WAIT_COMPLETE	0x01000000 /* not wait blt to complete */
 
 struct sirfsocfb_bltparms{

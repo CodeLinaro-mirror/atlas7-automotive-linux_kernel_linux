@@ -654,6 +654,7 @@ BOOL __VppSoc_SetParames(VOID)
             reg_VPP_CTRL.DOUBLE_FRATE = 1;
             reg_VPP_CTRL.SEQ_TYPE = E_VPP_SEQ_TYPE_IIPO;
             reg_VPP_CTRL.DI_FIELD_BOT = (psInterlace->bTopDi)?1:0;
+            reg_VPP_CTRL.TOP_FIELD_FIRST = (psInterlace->bOutputTopFirst) ? 1 : 0;
             reg_VPP_CTRL.HW_DI_MODE = convertDi2HWDi(psInterlace->eDeintMode);          
         }
         else
