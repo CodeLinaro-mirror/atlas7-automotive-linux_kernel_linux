@@ -1094,12 +1094,24 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 			VPP_DI_WEAVE, input_top_first, field_offset);
 		break;
 	case BLT_DI_3MEDIAN:
-		fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE, TRUE, TRUE,
-			VPP_DI_3MEDIAN, input_top_first, field_offset);
+		if (parms->flag & BLT_DOUBLE_FRATE)
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_DOUBLE,
+				!input_top_first, input_top_first,
+				VPP_DI_3MEDIAN, input_top_first, field_offset);
+		else
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE,
+				TRUE, TRUE,
+				VPP_DI_3MEDIAN, input_top_first, field_offset);
 		break;
 	case BLT_DI_VMRI:
-		fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE, TRUE, TRUE,
-			VPP_DI_VMRI, input_top_first, field_offset);
+		if (parms->flag & BLT_DOUBLE_FRATE)
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_DOUBLE,
+				!input_top_first, input_top_first,
+				VPP_DI_VMRI, input_top_first, field_offset);
+		else
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE,
+				TRUE, TRUE,
+				VPP_DI_VMRI, input_top_first, field_offset);
 		break;
 	case BLT_DI_INTRA_FIELD_SPATIAL:
 	default:
