@@ -86,6 +86,12 @@
 			};
 		};
 
+		memc-monitor {
+			compatible = "sirf,prima2-memcmon";
+			reg = <0x90002000 0x200>;
+			interrupts = <4>;
+		};
+
 		disp-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
