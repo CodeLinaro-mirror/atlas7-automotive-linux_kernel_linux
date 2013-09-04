@@ -186,6 +186,8 @@ enum sirfsocfb_feature_layer {
 #define SIRFSOCFB_SET_LAYERS	_IOW('S', 0xF, struct sirfsocfb_layers_parms)
 #define SIRFSOCFB_ENABLE_FEATURE_LAYER	_IOW('S', 0x10, int)
 #define SIRFSOCFB_DISABLE_FEATURE_LAYER	_IO('S', 0x10)
+#define SIRFSOCFB_SET_GAMMA_TABLE	_IOW('S', 0x11, __u16[256 * 3])
+#define SIRFSOCFB_GET_GAMMA_TABLE	_IOR('S', 0x11, __u16[256 * 3])
 
 
 /* LCD interrupt handler defines */

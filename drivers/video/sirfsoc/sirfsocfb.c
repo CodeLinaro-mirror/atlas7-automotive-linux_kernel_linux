@@ -902,6 +902,22 @@ int sirfsocfb_disable_feature_layer(struct sirfsocfb *fb, int layer)
 	return 0;
 }
 
+static int sirfsocfb_set_gamma_table(struct sirfsocfb *fb,
+	int layer, unsigned short *lut)
+{
+	fb->lcd_func.pfnSetGammaRamp(lut);
+
+	return 0;
+}
+
+static int sirfsocfb_get_gamma_table(struct sirfsocfb *fb,
+	int layer, unsigned short *lut)
+{
+	fb->lcd_func.pfnGetGammaRamp(lut);
+
+	return 0;
+}
+
 #define ALIGN_SIZE(size, align) ((size + align - 1) & ~(align - 1))
 
 static int __get_lcd_fmt(int fmt, int *is_yuv)
@@ -1222,6 +1238,7 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		struct sirfsocfb_flush_cache_addr flush_cache_addr;
 		struct sirfsocfb_layers_parms layers;
 		int feature_layer;
+		u16 *gamma_table;
 	} data;
 	int ret = 0;
 
@@ -1350,6 +1367,26 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case SIRFSOCFB_DISABLE_FEATURE_LAYER:
 		sirfsocfb_disable_feature_layer(fb, layer);
+		break;
+	case SIRFSOCFB_SET_GAMMA_TABLE:
+		data.gamma_table = memdup_user((void __user *)arg,
+			256 * 3 * sizeof(u16));
+		if (IS_ERR(data.gamma_table))
+			return PTR_ERR(data.gamma_table);
+		sirfsocfb_set_gamma_table(fb, layer, data.gamma_table);
+		kfree(data.gamma_table);
+		break;
+	case SIRFSOCFB_GET_GAMMA_TABLE:
+		data.gamma_table = kmalloc(256 * 3 * sizeof(u16), GFP_KERNEL);
+		if (!data.gamma_table)
+			return -ENOMEM;
+		sirfsocfb_get_gamma_table(fb, layer, data.gamma_table);
+		if (copy_to_user((void __user *)arg, data.gamma_table,
+				256 * 3 * sizeof(u16))) {
+			kfree(data.gamma_table);
+			return -EFAULT;
+		}
+		kfree(data.gamma_table);
 		break;
 	case SIRFSOCFB_DUMP_REGISTER:
 		fb->lcd_func.pfnPrintRegister();
