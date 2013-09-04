@@ -127,6 +127,20 @@ static ssize_t layer_oflow_show(struct device *dev,
 
 static DEVICE_ATTR(layer_fifo_overflow, S_IRUGO, layer_oflow_show, NULL);
 
+static ssize_t vsync_timestamp_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct sirfsocfb *fb = dev_get_drvdata(dev);
+	FB_FUN_MSG("vsync_timestamp_show\n");
+
+	ret = scnprintf(buf, PAGE_SIZE, "%llu\n",
+		ktime_to_ns(fb->vsync_timestamp));
+	return ret;
+}
+
+static DEVICE_ATTR(vsync_timestamp, S_IRUGO, vsync_timestamp_show, NULL);
+
 /**************** HELPER FUNCTIONS ****************/
 static inline int sirfsocfb_get_layer(struct fb_info *info)
 {
@@ -350,17 +364,10 @@ static int send_vsync_timestamp(struct work_struct *data)
 {
 	struct sirfsocfb *fb;
 	struct device *dev;
-	char buf[64];
-	char *envp[2];
-
 	fb = container_of(data, struct sirfsocfb, vsync_work);
 	dev = &fb->dev->dev;
-	snprintf(buf, sizeof(buf), "TIMESTAMP=%llu",
-		ktime_to_ns(fb->vsync_timestamp));
-	envp[0] = buf;
-	envp[1] = NULL;
-	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
 
+	sysfs_notify(&dev->kobj, NULL, "vsync_timestamp");
 	return 0;
 }
 
@@ -902,6 +909,22 @@ int sirfsocfb_disable_feature_layer(struct sirfsocfb *fb, int layer)
 	return 0;
 }
 
+static int sirfsocfb_set_gamma_table(struct sirfsocfb *fb,
+	int layer, unsigned short *lut)
+{
+	fb->lcd_func.pfnSetGammaRamp(lut);
+
+	return 0;
+}
+
+static int sirfsocfb_get_gamma_table(struct sirfsocfb *fb,
+	int layer, unsigned short *lut)
+{
+	fb->lcd_func.pfnGetGammaRamp(lut);
+
+	return 0;
+}
+
 #define ALIGN_SIZE(size, align) ((size + align - 1) & ~(align - 1))
 
 static int __get_lcd_fmt(int fmt, int *is_yuv)
@@ -1078,12 +1101,24 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 			VPP_DI_WEAVE, input_top_first, field_offset);
 		break;
 	case BLT_DI_3MEDIAN:
-		fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE, TRUE, TRUE,
-			VPP_DI_3MEDIAN, input_top_first, field_offset);
+		if (parms->flag & BLT_DOUBLE_FRATE)
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_DOUBLE,
+				!input_top_first, input_top_first,
+				VPP_DI_3MEDIAN, input_top_first, field_offset);
+		else
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE,
+				TRUE, TRUE,
+				VPP_DI_3MEDIAN, input_top_first, field_offset);
 		break;
 	case BLT_DI_VMRI:
-		fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE, TRUE, TRUE,
-			VPP_DI_VMRI, input_top_first, field_offset);
+		if (parms->flag & BLT_DOUBLE_FRATE)
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_DOUBLE,
+				!input_top_first, input_top_first,
+				VPP_DI_VMRI, input_top_first, field_offset);
+		else
+			fb->vpp_func->pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE,
+				TRUE, TRUE,
+				VPP_DI_VMRI, input_top_first, field_offset);
 		break;
 	case BLT_DI_INTRA_FIELD_SPATIAL:
 	default:
@@ -1222,6 +1257,7 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		struct sirfsocfb_flush_cache_addr flush_cache_addr;
 		struct sirfsocfb_layers_parms layers;
 		int feature_layer;
+		u16 *gamma_table;
 	} data;
 	int ret = 0;
 
@@ -1350,6 +1386,26 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case SIRFSOCFB_DISABLE_FEATURE_LAYER:
 		sirfsocfb_disable_feature_layer(fb, layer);
+		break;
+	case SIRFSOCFB_SET_GAMMA_TABLE:
+		data.gamma_table = memdup_user((void __user *)arg,
+			256 * 3 * sizeof(u16));
+		if (IS_ERR(data.gamma_table))
+			return PTR_ERR(data.gamma_table);
+		sirfsocfb_set_gamma_table(fb, layer, data.gamma_table);
+		kfree(data.gamma_table);
+		break;
+	case SIRFSOCFB_GET_GAMMA_TABLE:
+		data.gamma_table = kmalloc(256 * 3 * sizeof(u16), GFP_KERNEL);
+		if (!data.gamma_table)
+			return -ENOMEM;
+		sirfsocfb_get_gamma_table(fb, layer, data.gamma_table);
+		if (copy_to_user((void __user *)arg, data.gamma_table,
+				256 * 3 * sizeof(u16))) {
+			kfree(data.gamma_table);
+			return -EFAULT;
+		}
+		kfree(data.gamma_table);
 		break;
 	case SIRFSOCFB_DUMP_REGISTER:
 		fb->lcd_func.pfnPrintRegister();
@@ -2076,8 +2132,11 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 
 	ret = device_create_file(&pdev->dev, &dev_attr_layer_fifo_overflow);
 	if (ret)
-		goto err_remove_dev_file;
+		goto err_remove_fifo_underflow_file;
 
+	ret = device_create_file(&pdev->dev, &dev_attr_vsync_timestamp);
+	if (ret)
+		goto err_remove_fifo_overflow_file;
 
 	/* default alpha 0xFF */
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
@@ -2104,7 +2163,10 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 
 	FB_FUN_MSG("-sirfsocfb_probe\n");
 	return;
-err_remove_dev_file:
+err_remove_fifo_overflow_file:
+	device_remove_file(&pdev->dev,
+		&dev_attr_layer_fifo_overflow);
+err_remove_fifo_underflow_file:
 	device_remove_file(&pdev->dev,
 		&dev_attr_layer_fifo_underflow);
 err_unregister:
@@ -2149,6 +2211,7 @@ static int sirfsocfb_remove(struct platform_device *pdev)
 	fb->init_enabled = 0;
 	device_remove_file(&pdev->dev, &dev_attr_layer_fifo_overflow);
 	device_remove_file(&pdev->dev, &dev_attr_layer_fifo_underflow);
+	device_remove_file(&pdev->dev, &dev_attr_vsync_timestamp);
 	sirfsocfb_irq_deinit(fb);
 
 	clk_disable(fb->clk);

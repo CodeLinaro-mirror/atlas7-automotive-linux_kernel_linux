@@ -144,7 +144,7 @@ struct sirfsocfb_layers_parms {
 #define BLT_DI_FIELD_BOT	0x00000010 /* bottom field reserved. useless now */
 
 #define BLT_FIELDS_MIX		0x00000020 /* lines for even or odd fields are mixed */
-
+#define BLT_DOUBLE_FRATE	0x00000040 /* frame rate will be doubled if deinterlace is enabled */
 #define BLT_NOT_WAIT_COMPLETE	0x01000000 /* not wait blt to complete */
 
 struct sirfsocfb_bltparms{
@@ -186,6 +186,8 @@ enum sirfsocfb_feature_layer {
 #define SIRFSOCFB_SET_LAYERS	_IOW('S', 0xF, struct sirfsocfb_layers_parms)
 #define SIRFSOCFB_ENABLE_FEATURE_LAYER	_IOW('S', 0x10, int)
 #define SIRFSOCFB_DISABLE_FEATURE_LAYER	_IO('S', 0x10)
+#define SIRFSOCFB_SET_GAMMA_TABLE	_IOW('S', 0x11, __u16[256 * 3])
+#define SIRFSOCFB_GET_GAMMA_TABLE	_IOR('S', 0x11, __u16[256 * 3])
 
 
 /* LCD interrupt handler defines */

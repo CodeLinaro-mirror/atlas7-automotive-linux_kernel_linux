@@ -203,8 +203,13 @@
 			nand@b0030000 {
 				compatible = "sirf,prima2-nand";
 				reg = <0xb0030000 0x10000>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&nand_pins_a>;
+				sirf,nand-dma-channel = <8>;
 				interrupts = <41>;
 				clocks = <&clks 26>;
+				sirf,nanddisk-uboot-commit-flag = <0x200000>;
+				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
 			};
 
 			audio: audio@b0040000 {
@@ -254,8 +259,8 @@
 				interrupts = <20>;
 				fifosize = <128>;
 				clocks = <&clks 28>;
-				sirf,uart-dma-rx-channel = <17>;
-				sirf,uart-dma-tx-channel = <18>;
+				sirf,usp-dma-rx-channel = <17>;
+				sirf,usp-dma-tx-channel = <18>;
 			};
 
 			usp1: usp@b0090000 {
@@ -265,8 +270,8 @@
 				interrupts = <21>;
 				fifosize = <128>;
 				clocks = <&clks 29>;
-				sirf,uart-dma-rx-channel = <14>;
-				sirf,uart-dma-tx-channel = <15>;
+				sirf,usp-dma-rx-channel = <14>;
+				sirf,usp-dma-tx-channel = <15>;
 			};
 
 			usp2: usp@b00a0000 {
@@ -276,8 +281,8 @@
 				interrupts = <22>;
 				fifosize = <128>;
 				clocks = <&clks 30>;
-				sirf,uart-dma-rx-channel = <10>;
-				sirf,uart-dma-tx-channel = <11>;
+				sirf,usp-dma-rx-channel = <10>;
+				sirf,usp-dma-tx-channel = <11>;
 			};
 
 			dmac0: dma-controller@b00b0000 {
@@ -472,6 +477,12 @@
                                                 sirf,function = "pwm3";
                                         };
                                 };
+				pwm4_pins_a: pwm4@0 {
+                                        pwm {
+                                                sirf,pins = "pwm4grp";
+                                                sirf,function = "pwm4";
+                                        };
+                                };
                                 gps_pins_a: gps@0 {
                                         gps {
                                                 sirf,pins = "gpsgrp";
@@ -544,16 +555,40 @@
                                                 sirf,function = "usp0";
                                         };
                                 };
+				usp0_uart_nostreamctrl_pins_a: usp0@1 {
+                                        usp0 {
+                                                sirf,pins =
+							"usp0_uart_nostreamctrl_grp";
+                                                sirf,function =
+							"usp0_uart_nostreamctrl";
+                                        };
+                                };
                                 usp1_pins_a: usp1@0 {
                                         usp1 {
                                                 sirf,pins = "usp1grp";
                                                 sirf,function = "usp1";
                                         };
                                 };
+				usp1_uart_nostreamctrl_pins_a: usp1@1 {
+                                        usp1 {
+                                                sirf,pins =
+							"usp1_uart_nostreamctrl_grp";
+                                                sirf,function =
+							"usp1_uart_nostreamctrl";
+                                        };
+                                };
                                 usp2_pins_a: usp2@0 {
                                         usp2 {
                                                 sirf,pins = "usp2grp";
                                                 sirf,function = "usp2";
+                                        };
+                                };
+				usp2_uart_nostreamctrl_pins_a: usp2@1 {
+                                        usp2 {
+                                                sirf,pins =
+							"usp2_uart_nostreamctrl_grp";
+                                                sirf,function =
+							"usp2_uart_nostreamctrl";
                                         };
                                 };
                                 usb0_utmi_drvbus_pins_a: usb0_utmi_drvbus@0 {
@@ -594,10 +629,19 @@
                                 };
 			};
 
-			pwm@b0130000 {
+			pwm: pwm@b0130000 {
 				compatible = "sirf,prima2-pwm";
+				#pwm-cells = <4>;
 				reg = <0xb0130000 0x10000>;
-				clocks = <&clks 21>;
+				clocks = <&clks 21>, <&clks 0>, <&clks 1>, <&clks 2>, <&clks 3>, <&clks 4>;
+				clock-names = "pwmc", "rtc", "osc", "pll1", "pll2", "pll3";
+				pinctrl-names = "pwm0", "pwm1", "pwm2", "pwm3", "pwm4", "pwm5";
+				pinctrl-0 = <&pwm0_pins_a>;
+				pinctrl-1 = <&pwm1_pins_a>;
+				pinctrl-2 = <&pwm2_pins_a>;
+				pinctrl-3 = <&pwm3_pins_a>;
+				pinctrl-4 = <&pwm4_pins_a>;
+				pinctrl-5 = <&cko1_pins_a>;
 			};
 
 			efusesys@b0140000 {

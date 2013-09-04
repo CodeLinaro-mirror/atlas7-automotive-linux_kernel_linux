@@ -17,69 +17,22 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 
+#include <linux/extcon.h>
+#include <linux/extcon/extcon-gpio.h>
+
 struct sirf_inner_card {
 	unsigned int            gpio_hp_pa;
 	unsigned int            gpio_spk_pa;
 	/*
 	 * Android platform uses switch gpio instead of jack.
 	 */
-#ifndef CONFIG_ANDROID
-	unsigned int            gpio_hp_detect;
-	struct snd_soc_jack     hp_jack;
-#endif
 };
 
-#ifndef CONFIG_ANDROID
-static int sirf_inner_jack_status_check(void);
-
-static struct snd_soc_jack_gpio hp_jack_gpios[] = {
-	{
-		.name = "hpdet-gpio",
-		.report = SND_JACK_HEADPHONE,
-		.debounce_time = 200,
-		.jack_status_check = sirf_inner_jack_status_check,
-	},
+#define SIRF_JACK_GPIO_DEBOUNCE_TIME	200 /* in ms */
+struct sirf_inner_extcon_info {
+	struct platform_device pdev;
+	struct gpio_extcon_platform_data extcon_data;
 };
-
-static int sirf_inner_jack_status_check(void)
-{
-	int spk_out = 0;
-	struct snd_soc_codec *codec = hp_jack_gpios[0].jack->codec;
-	struct snd_soc_card *card = codec->card;
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	int hp_report = 0;
-
-	if (gpio_is_valid(sinner_card->gpio_hp_detect))
-		spk_out = gpio_get_value(sinner_card->gpio_hp_detect);
-
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_direction_output(sinner_card->gpio_hp_pa, !spk_out);
-
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_direction_output(sinner_card->gpio_spk_pa, spk_out);
-
-	if (!spk_out)
-		hp_report |= SND_JACK_HEADPHONE;
-
-	return hp_report;
-}
-
-static int sirf_inner_init(struct snd_soc_pcm_runtime *rtd)
-{
-	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_card *card = codec->card;
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	int ret;
-	hp_jack_gpios[0].gpio = sinner_card->gpio_hp_detect;
-	ret = snd_soc_jack_new(codec, "Headphone Jack", SND_JACK_HEADPHONE,
-			&sinner_card->hp_jack);
-	if (ret)
-		return ret;
-	return snd_soc_jack_add_gpios(&sinner_card->hp_jack,
-			ARRAY_SIZE(hp_jack_gpios),
-			hp_jack_gpios);
-}
-#endif
 
 /* Digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link sirf_inner_dai_links[] = {
@@ -87,9 +40,6 @@ static struct snd_soc_dai_link sirf_inner_dai_links[] = {
 		.name = "SiRF inner",
 		.stream_name = "SiRF inner",
 		.codec_dai_name = "sirf-soc-inner",
-#ifndef CONFIG_ANDROID
-		.init = sirf_inner_init,
-#endif
 	},
 };
 
@@ -196,6 +146,15 @@ static int sirf_inner_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_sirf_inner_card;
 	struct sirf_inner_card *sinner_card;
+	struct sirf_inner_extcon_info *extcon_info;
+	int ret;
+
+	extcon_info = devm_kzalloc(&pdev->dev,
+			sizeof(struct sirf_inner_extcon_info),
+			GFP_KERNEL);
+	if (extcon_info == NULL)
+		return -ENOMEM;
+
 	sinner_card = devm_kzalloc(&pdev->dev, sizeof(struct sirf_inner_card),
 			GFP_KERNEL);
 	if (sinner_card == NULL)
@@ -211,10 +170,6 @@ static int sirf_inner_probe(struct platform_device *pdev)
 			"spk-pa-gpios", 0);
 	sinner_card->gpio_hp_pa =  of_get_named_gpio(pdev->dev.of_node,
 			"hp-pa-gpios", 0);
-#ifndef CONFIG_ANDROID
-	sinner_card->gpio_hp_detect = of_get_named_gpio(pdev->dev.of_node,
-			"hp-switch-gpios", 0);
-#endif
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_request(sinner_card->gpio_spk_pa, "SPA_PA_SD");
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
@@ -228,7 +183,24 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
 
-	return snd_soc_register_card(card);
+	ret = snd_soc_register_card(card);
+	if (ret < 0)
+		return ret;
+
+	extcon_info->extcon_data.name = "h2w";
+	extcon_info->extcon_data.debounce = SIRF_JACK_GPIO_DEBOUNCE_TIME;
+	extcon_info->extcon_data.irq_flags =
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED;
+	extcon_info->extcon_data.state_on = "0";
+	extcon_info->extcon_data.state_off = "1";
+	extcon_info->extcon_data.gpio = of_get_named_gpio(pdev->dev.of_node,
+			"hp-switch-gpios", 0);
+
+	extcon_info->pdev.name = "extcon-gpio";
+	extcon_info->pdev.id = pdev->id;
+	extcon_info->pdev.dev.platform_data = &extcon_info->extcon_data;
+
+	return platform_device_register(&extcon_info->pdev);
 }
 
 static int sirf_inner_remove(struct platform_device *pdev)
