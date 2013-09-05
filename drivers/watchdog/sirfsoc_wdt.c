@@ -87,7 +87,7 @@ static int sirfsoc_wdt_updatetimeout(struct watchdog_device *wdd)
 
 static int sirfsoc_wdt_enable(struct watchdog_device *wdd)
 {
-	void __iomem * wdt_base = watchdog_get_drvdata(wdd);
+	void __iomem *wdt_base = watchdog_get_drvdata(wdd);
 	sirfsoc_wdt_updatetimeout(wdd);
 
 	/*
