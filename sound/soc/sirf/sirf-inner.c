@@ -15,23 +15,20 @@
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
-#include <sound/jack.h>
 
 #include <linux/extcon.h>
 #include <linux/extcon/extcon-gpio.h>
-
-struct sirf_inner_card {
-	unsigned int            gpio_hp_pa;
-	unsigned int            gpio_spk_pa;
-	/*
-	 * Android platform uses switch gpio instead of jack.
-	 */
-};
 
 #define SIRF_JACK_GPIO_DEBOUNCE_TIME	200 /* in ms */
 struct sirf_inner_extcon_info {
 	struct platform_device pdev;
 	struct gpio_extcon_platform_data extcon_data;
+};
+
+struct sirf_inner_card {
+	unsigned int            gpio_hp_pa;
+	unsigned int            gpio_spk_pa;
+	struct sirf_inner_extcon_info	extcon_info;
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
@@ -146,14 +143,7 @@ static int sirf_inner_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_sirf_inner_card;
 	struct sirf_inner_card *sinner_card;
-	struct sirf_inner_extcon_info *extcon_info;
 	int ret;
-
-	extcon_info = devm_kzalloc(&pdev->dev,
-			sizeof(struct sirf_inner_extcon_info),
-			GFP_KERNEL);
-	if (extcon_info == NULL)
-		return -ENOMEM;
 
 	sinner_card = devm_kzalloc(&pdev->dev, sizeof(struct sirf_inner_card),
 			GFP_KERNEL);
@@ -187,20 +177,23 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	extcon_info->extcon_data.name = "h2w";
-	extcon_info->extcon_data.debounce = SIRF_JACK_GPIO_DEBOUNCE_TIME;
-	extcon_info->extcon_data.irq_flags =
+	sinner_card->extcon_info.extcon_data.name = "h2w";
+	sinner_card->extcon_info.extcon_data.debounce =
+		SIRF_JACK_GPIO_DEBOUNCE_TIME;
+	sinner_card->extcon_info.extcon_data.irq_flags =
 		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED;
-	extcon_info->extcon_data.state_on = "0";
-	extcon_info->extcon_data.state_off = "1";
-	extcon_info->extcon_data.gpio = of_get_named_gpio(pdev->dev.of_node,
-			"hp-switch-gpios", 0);
+	sinner_card->extcon_info.extcon_data.state_on = "0";
+	sinner_card->extcon_info.extcon_data.state_off = "1";
+	sinner_card->extcon_info.extcon_data.gpio =
+		of_get_named_gpio(pdev->dev.of_node,
+		"hp-switch-gpios", 0);
 
-	extcon_info->pdev.name = "extcon-gpio";
-	extcon_info->pdev.id = pdev->id;
-	extcon_info->pdev.dev.platform_data = &extcon_info->extcon_data;
+	sinner_card->extcon_info.pdev.name = "extcon-gpio";
+	sinner_card->extcon_info.pdev.id = pdev->id;
+	sinner_card->extcon_info.pdev.dev.platform_data =
+		&sinner_card->extcon_info.extcon_data;
 
-	return platform_device_register(&extcon_info->pdev);
+	return platform_device_register(&sinner_card->extcon_info.pdev);
 }
 
 static int sirf_inner_remove(struct platform_device *pdev)
@@ -217,6 +210,27 @@ static int sirf_inner_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int sirf_inner_resume(struct device *dev)
+{
+	struct snd_soc_card *card = dev_get_drvdata(dev);
+	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
+	struct extcon_dev *edev;
+	int state;
+
+	edev = extcon_get_extcon_dev(sinner_card->extcon_info.extcon_data.name);
+	state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
+	extcon_set_state(edev, state);
+
+	return 0;
+}
+
+static const struct dev_pm_ops sirf_inner_pm_ops = {
+	.resume = sirf_inner_resume,
+	.restore = sirf_inner_resume,
+};
+#endif
+
 static const struct of_device_id sirf_inner_of_match[] = {
 	{.compatible = "sirf,sirf-inner", },
 	{ },
@@ -227,6 +241,9 @@ static struct platform_driver sirf_inner_driver = {
 	.driver = {
 		.name = "sirf-inner",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm = &sirf_inner_pm_ops,
+#endif
 		.of_match_table = sirf_inner_of_match,
 	},
 	.probe = sirf_inner_probe,
