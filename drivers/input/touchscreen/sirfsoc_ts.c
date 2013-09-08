@@ -427,8 +427,7 @@ static void sirfsoc_ts_shutdown(struct platform_device *dev)
 }
 
 static const struct dev_pm_ops sirfsoc_ts_pm_ops = {
-	.resume = sirfsoc_ts_resume,
-	.suspend = sirfsoc_ts_suspend,
+	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_ts_suspend, sirfsoc_ts_resume)
 };
 
 static const struct of_device_id tsc_sirfsoc_of_match[] = {

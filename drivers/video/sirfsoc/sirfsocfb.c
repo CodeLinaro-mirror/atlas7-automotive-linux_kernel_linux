@@ -35,6 +35,7 @@
 #include <linux/of_i2c.h>
 #include <linux/of_gpio.h>
 #include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/memblock.h>
 #include <linux/reset.h>
@@ -44,6 +45,10 @@
 
 #include "CspCmnLcd.h"
 #include "CspCmnVpp.h"
+
+#ifdef CONFIG_SIRF_BLE
+#include "CspCmnBle.h"
+#endif
 
 #include "sirfsoc_clcdc.h"
 
@@ -1145,6 +1150,81 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 	return 0;
 }
 
+#ifdef CONFIG_SIRF_BLE
+
+#define MEM_INFO_ARRAY_SIZE 5
+static BLE2DMEMINFO mem_src_info[MEM_INFO_ARRAY_SIZE];
+static BLE2DMEMINFO mem_dst_info[MEM_INFO_ARRAY_SIZE];
+static int cur_mem_info = -1;
+
+static int sirfsocfb_blt_ble(struct sirfsocfb *fb, int layer,
+	struct sirfsocfb_bltparms_ble *parms)
+{
+	BLE2DBLTINFO blt_info;
+
+	cur_mem_info++;
+
+	if (cur_mem_info >= MEM_INFO_ARRAY_SIZE)
+		cur_mem_info = 0;
+
+	memset(&blt_info, 0, sizeof(blt_info));
+	blt_info.ROP3 = parms->rop3;
+	blt_info.FillColor = parms->fill_color;
+	blt_info.ColorKey = parms->color_key;
+	blt_info.GlobalAlpha = parms->global_alpha;
+	blt_info.AlphaBlendFunc = parms->blend_func;
+	blt_info.NumClipRect = parms->num_rects;
+	blt_info.pBleClipRect = parms->rects;
+	blt_info.BlitFlags = (parms->flags & ~BLE_BLT_WAIT_COMPLETE);
+
+	blt_info.pDstMemInfo = &mem_dst_info[cur_mem_info];
+	blt_info.pDstMemInfo->ulOffset = parms->dst_offset;
+	blt_info.DstStride = parms->dst_stride;
+	blt_info.DstX = parms->dstx;
+	blt_info.DstY = parms->dsty;
+	blt_info.DstSizeX = parms->dst_sizex;
+	blt_info.DstSizeY = parms->dst_sizey;
+	blt_info.DstFormat = parms->dst_fmt;
+	blt_info.DstSurfWidth = parms->dst_width;
+	blt_info.DstSurfHeight = parms->dst_height;
+
+	blt_info.bPatExist = FALSE;
+	blt_info.bSrcExist = FALSE;
+
+	if (parms->src_offset > 0) {
+		blt_info.pSrcMemInfo = &mem_src_info[cur_mem_info];
+		blt_info.pSrcMemInfo->ulOffset = parms->src_offset;
+		blt_info.SrcStride = parms->src_stride;
+		blt_info.SrcX = parms->srcx;
+		blt_info.SrcY = parms->srcy;
+		blt_info.SrcSizeX = parms->src_sizex;
+		blt_info.SrcSizeY = parms->src_sizey;
+		blt_info.SrcFormat = parms->src_fmt;
+		blt_info.SrcSurfWidth = parms->src_width;
+		blt_info.SrcSurfHeight = parms->src_height;
+		blt_info.bSrcExist = TRUE;
+	}
+
+	if (parms->flags & BLE_BLT_WAIT_COMPLETE)
+		blt_info.bNeedSyncLast = TRUE;
+
+	fb->ble_func.pfnBitBlt(fb->ble_context, &blt_info);
+
+	return 0;
+}
+
+static int sirfsocfb_blt_ble_complete(struct sirfsocfb *fb, int layer,
+	int wait)
+{
+	if (cur_mem_info == -1)
+		return 0;
+	else
+		return fb->ble_func.pfnQueryBltStatus(fb->ble_context,
+			&mem_dst_info[cur_mem_info], wait);
+}
+
+#endif
+
 /**************** FRAMEBUFFER OPERATIONS ****************/
 static int sirfsocfb_check_var(struct fb_var_screeninfo *var,
 			       struct fb_info *info)
@@ -1254,10 +1334,12 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		int bufidx;
 		struct sirfsocfb_createlayer create;
 		struct sirfsocfb_bltparms    blt;
+		struct sirfsocfb_bltparms_ble blt_ble;
 		struct sirfsocfb_flush_cache_addr flush_cache_addr;
 		struct sirfsocfb_layers_parms layers;
 		int feature_layer;
 		u16 *gamma_table;
+		int wait;
 	} data;
 	int ret = 0;
 
@@ -1346,6 +1428,21 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (sirfsocfb_blt_yuv2rgb(fb, layer, &data.blt))
 			return -EFAULT;
 		break;
+#ifdef CONFIG_SIRF_BLE
+	case SIRFSOCFB_BLT_BLE:
+		if (copy_from_user(&data.blt_ble, (void __user *)arg,
+				   sizeof(struct sirfsocfb_bltparms_ble)))
+			return -EFAULT;
+		if (sirfsocfb_blt_ble(fb, layer, &data.blt_ble))
+			return -EFAULT;
+		break;
+	case SIRFSOCFB_BLT_BLE_COMPLETE:
+		if (copy_from_user(&data.wait, (void __user *)arg,
+				   sizeof(int)))
+			return -EFAULT;
+		return sirfsocfb_blt_ble_complete(fb, layer, data.wait);
+		break;
+#endif
 	case SIRFSOCFB_ENABLE_LAYER:
 		sirfsocfb_layer_enable(fb, layer);
 		break;
@@ -1601,7 +1698,11 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 		/* layer supports panning? */
 		fb->fb[layer].fix.ypanstep = 1;
 		fb->fb[layer].fix.ywrapstep = 0;
+#ifdef CONFIG_SIRF_BLE
+		fb->fb[layer].fix.accel = FB_ACCEL_BLE;
+#else
 		fb->fb[layer].fix.accel = FB_ACCEL_NONE;
+#endif
 
 		var.xres = fb->panel->mode.xres;
 		var.yres = fb->panel->mode.yres;
@@ -1888,6 +1989,98 @@ static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
 
 }
 
+#ifdef CONFIG_SIRF_BLE
+static irqreturn_t sirfsocfb_ble_irq_handler(int irq, void *data)
+{
+	struct sirfsocfb *fb = (struct sirfsocfb *)data;
+
+	fb->ble_func.pfnInterruptRoutine(fb->ble_context);
+
+	return IRQ_HANDLED;
+}
+
+static int sirfsocfb_setup_ble(struct sirfsocfb *fb)
+{
+	struct platform_device *pdev = fb->dev;
+	BLE2DINITMEMINFO mem_info;
+	int ret;
+	struct device_node *np;
+	const struct of_device_id sirfsoc_ble_tbl[] = {
+		{ .compatible = "sirf,atlas6-ble"},
+		{/* end */},
+	};
+
+	np = of_find_matching_node(NULL, sirfsoc_ble_tbl);
+	if (!np) {
+		dev_err(&pdev->dev, "Fail to get ble device node!\n");
+		ret = -ENODEV;
+		goto err;
+	}
+	fb->ble_base = of_iomap(np, 0);
+	if (!fb->ble_base) {
+		dev_err(&pdev->dev, "Fail to map ble regs\n");
+		ret = -ENOMEM;
+		goto err_put;
+	}
+
+	fb->ble_clk = of_clk_get_by_name(np, NULL);
+	if (IS_ERR(fb->ble_clk)) {
+		dev_err(&pdev->dev, "Fail to get ble clock!\n");
+		ret = -EINVAL;
+		goto err_unmap;
+	}
+
+	fb->ble_mem_base = dma_alloc_coherent(&pdev->dev,
+		SZ_1M, &fb->ble_mem_offset, GFP_KERNEL);
+	if (!fb->ble_mem_base) {
+		FB_ERR_MSG("Fail to allocate ble dma mem!\n");
+		ret = -ENOMEM;
+		goto err_unmap;
+	}
+	fb->ble_mem_size = SZ_1M;
+
+	fb->ble_irq = irq_of_parse_and_map(np, 0);
+	if (!fb->ble_irq) {
+		FB_ERR_MSG("Fail to get ble irq!\n");
+		ret = -EINVAL;
+		goto err_free;
+	}
+
+	BleSoc_GetFuncTable(&fb->ble_func);
+	clk_prepare_enable(fb->ble_clk);
+
+	mem_info.RegBase = (unsigned int)fb->ble_base;
+	mem_info.MemBase = (unsigned int)fb->ble_mem_base;
+	mem_info.MemOffset = (unsigned int)fb->ble_mem_offset;
+	mem_info.MemSize = fb->ble_mem_size;
+
+	fb->ble_func.pfnInitialize(&fb->ble_context, &mem_info);
+
+	if (request_irq(fb->ble_irq, sirfsocfb_ble_irq_handler, 0,
+		"SIRFSOC-BLE", fb)) {
+		FB_ERR_MSG("Fail to request ble irq\n");
+		ret = -EINVAL;
+		goto err_disable_clk;
+	}
+
+	of_node_put(np);
+
+	return 0;
+
+err_disable_clk:
+	clk_disable(fb->ble_clk);
+err_free:
+	dma_free_coherent(&pdev->dev, SZ_1M,
+		fb->ble_mem_base, fb->ble_mem_offset);
+err_unmap:
+	iounmap(fb->ble_base);
+err_put:
+	of_node_put(np);
+err:
+	return ret;
+}
+#endif
+
 void  __init sirfsoc_fb_reserve_memblock(void)
 {
 	sirf_fb_phy_size = 25 * SZ_1M;
@@ -1911,7 +2104,6 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	struct pinctrl *p;
 	int i, ret = 0;
 	int    layer_ctrl;
-	int bl_gpio;
 	LCD_PANEL_INFO panel_info;
 
 	FB_FUN_MSG("+sirfsocfb_probe\n");
@@ -2038,17 +2230,6 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 
 	get_layer_ctrl_info(fb, layer_ctrl);
 
-	/* later bl should be managed by pwm */
-	bl_gpio = of_get_named_gpio(pdev->dev.of_node, "bl-gpios", 0);
-	if (gpio_is_valid(bl_gpio)) {
-		ret = devm_gpio_request(&pdev->dev,
-			bl_gpio, "sirfsoc_backlight");
-		if (ret)
-			dev_err(&pdev->dev, "request backlight gpio failed\n");
-		else
-			gpio_direction_output(bl_gpio, 1);
-	}
-
 	vcc_gpio = of_get_named_gpio(pdev->dev.of_node, "vcc-gpios", 0);
 	if (gpio_is_valid(vcc_gpio)) {
 		ret = devm_gpio_request(&pdev->dev, vcc_gpio, "sirfsoc_vcc");
@@ -2137,6 +2318,10 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	ret = device_create_file(&pdev->dev, &dev_attr_vsync_timestamp);
 	if (ret)
 		goto err_remove_fifo_overflow_file;
+
+#ifdef CONFIG_SIRF_BLE
+	sirfsocfb_setup_ble(fb);
+#endif
 
 	/* default alpha 0xFF */
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)

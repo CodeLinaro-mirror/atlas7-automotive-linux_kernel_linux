@@ -126,6 +126,17 @@ struct sirfsocfb{
 	void __iomem *vpp_base;
 	struct clk 		*vpp_clk;
 
+#ifdef CONFIG_SIRF_BLE
+	void __iomem *ble_base;
+	struct clk *ble_clk;
+	int ble_irq;
+	void  *ble_mem_base;
+	dma_addr_t ble_mem_offset;
+	unsigned int ble_mem_size;
+	BLE_FUNCTIONTABLE ble_func;
+	void *ble_context;
+#endif
+
 	struct workqueue_struct	*flip_wq;
 	struct work_struct work;
 	ktime_t vsync_timestamp;

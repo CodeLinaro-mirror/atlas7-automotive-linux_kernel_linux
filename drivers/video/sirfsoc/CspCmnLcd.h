@@ -52,6 +52,7 @@ typedef unsigned char	UINT8;
 typedef unsigned char	BYTE;
 typedef signed char		INT8;
 typedef char			CHAR;
+typedef unsigned char       UCHAR;
 typedef unsigned short	UINT16;
 typedef signed short	INT16;
 typedef unsigned int	UINT32;
@@ -59,6 +60,8 @@ typedef signed int		INT32;
 typedef void            VOID;
 typedef unsigned int	DWORD;
 typedef double			DOUBLE;
+typedef unsigned long       ULONG;
+typedef long                LONG;
 
 typedef	enum _BOOL_
 {

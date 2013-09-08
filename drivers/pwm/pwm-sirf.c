@@ -181,7 +181,7 @@ static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 	if (pwm->hwpwm != SIRF_PWM_BKS_CHL)
 		return;
 
-	/* 
+	/*
 	 * The bklscaling mode is used to support back light scaling function.
 	 * Set 16 groups parameters look table is used by LCD driver.
 	 * Every group includes one wait state (number of pre-clock for high
@@ -259,6 +259,7 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 			writel(step_value, spwm->base + PWM_TR_STEP(pwm->hwpwm));
 			writel(step_hold, spwm->base + PWM_STEP_HOLD(pwm->hwpwm));
+		} else {
 			period_high--;
 			period_low--;
 		}
@@ -269,7 +270,6 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
-	sirf_pwm_get_cfg_from_user(chip, pwm);
 
 	return 0;
 }
@@ -281,7 +281,8 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	unsigned int cycle, high, low;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
-	sirf_pwm_config(chip, pwm, spwm->duty_ns[pwm->hwpwm], pwm->period);
+	sirf_pwm_get_cfg_from_user(chip, pwm);
+
 	/* disable preclock */
 	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
 	val &= ~(1 << pwm->hwpwm);
@@ -336,6 +337,8 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	}
 
 	writel(val, spwm->base + PWM_OE);
+
+	sirf_pwm_config(chip, pwm, spwm->duty_ns[pwm->hwpwm], pwm->period);
 
 	return 0;
 }

@@ -29,25 +29,32 @@
 #define SIRFSOC_WDT_DEFAULT_TIMEOUT	30		/* 30 secs */
 
 
-static unsigned int default_timeout = SIRFSOC_WDT_DEFAULT_TIMEOUT;
-module_param(default_timeout, uint, 0);
-MODULE_PARM_DESC(default_timeout, "Default watchdog timeout (in seconds)");
+static unsigned int timeout = SIRFSOC_WDT_DEFAULT_TIMEOUT;
+static bool nowayout = WATCHDOG_NOWAYOUT;
+
+module_param(timeout, uint, 0);
+module_param(nowayout, bool, 0);
+
+MODULE_PARM_DESC(timeout, "Default watchdog timeout (in seconds)");
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
+			__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
 
 static unsigned int sirfsoc_wdt_gettimeleft(struct watchdog_device *wdd)
 {
 	u32 counter, match;
+	void __iomem *wdt_base;
 	int time_left;
 
-	counter = readl(watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_COUNTER_LO);
-	match = readl(watchdog_get_drvdata(wdd) +
+	wdt_base = watchdog_get_drvdata(wdd);
+	counter = readl(wdt_base + SIRFSOC_TIMER_COUNTER_LO);
+	match = readl(wdt_base +
 		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
 
-	if (match >= counter) {
+	if (match >= counter)
 		time_left = match-counter;
-	} else {
+	else
 		/* rollover */
 		time_left = (0xffffffffUL - counter) + match;
-	}
 
 	return time_left / CLOCK_TICK_RATE;
 }
@@ -55,22 +62,24 @@ static unsigned int sirfsoc_wdt_gettimeleft(struct watchdog_device *wdd)
 static int sirfsoc_wdt_updatetimeout(struct watchdog_device *wdd)
 {
 	u32 counter, timeout_ticks;
+	void __iomem *wdt_base;
 
 	timeout_ticks = wdd->timeout * CLOCK_TICK_RATE;
+	wdt_base = watchdog_get_drvdata(wdd);
 
 	/* Enable the latch before reading the LATCH_LO register */
-	writel(1, watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_LATCH);
+	writel(1, wdt_base + SIRFSOC_TIMER_LATCH);
 
 	/* Set the TO value */
-	counter = readl(watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_LATCHED_LO);
+	counter = readl(wdt_base + SIRFSOC_TIMER_LATCHED_LO);
 
-	if ((0xffffffffUL - counter) >= timeout_ticks) {
+	if ((0xffffffffUL - counter) >= timeout_ticks)
 		counter += timeout_ticks;
-	} else {
+	else
 		/* Rollover */
 		counter = timeout_ticks - (0xffffffffUL - counter);
-	}
-	writel(counter, watchdog_get_drvdata(wdd) +
+
+	writel(counter, wdt_base +
 		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
 
 	return 0;
@@ -78,36 +87,35 @@ static int sirfsoc_wdt_updatetimeout(struct watchdog_device *wdd)
 
 static int sirfsoc_wdt_enable(struct watchdog_device *wdd)
 {
+	void __iomem *wdt_base = watchdog_get_drvdata(wdd);
 	sirfsoc_wdt_updatetimeout(wdd);
 
 	/*
 	 * NOTE: If interrupt is not enabled
 	 * then WD-Reset doesn't get generated at all.
 	 */
-	writel(readl(watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_INT_EN)
+	writel(readl(wdt_base + SIRFSOC_TIMER_INT_EN)
 		| (1 << SIRFSOC_TIMER_WDT_INDEX),
-		watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_INT_EN);
-	writel(1, watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_WATCHDOG_EN);
+		wdt_base + SIRFSOC_TIMER_INT_EN);
+	writel(1, wdt_base + SIRFSOC_TIMER_WATCHDOG_EN);
 
 	return 0;
 }
 
 static int sirfsoc_wdt_disable(struct watchdog_device *wdd)
 {
-	writel(0, watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_WATCHDOG_EN);
-	writel(readl(watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_INT_EN)
+	void __iomem *wdt_base = watchdog_get_drvdata(wdd);
+
+	writel(0, wdt_base + SIRFSOC_TIMER_WATCHDOG_EN);
+	writel(readl(wdt_base + SIRFSOC_TIMER_INT_EN)
 		& (~(1 << SIRFSOC_TIMER_WDT_INDEX)),
-		watchdog_get_drvdata(wdd) + SIRFSOC_TIMER_INT_EN);
+		wdt_base + SIRFSOC_TIMER_INT_EN);
 
 	return 0;
 }
 
 static int sirfsoc_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 {
-	if (to < SIRFSOC_WDT_MIN_TIMEOUT)
-		to = SIRFSOC_WDT_MIN_TIMEOUT;
-	if (to > SIRFSOC_WDT_MAX_TIMEOUT)
-		to = SIRFSOC_WDT_MAX_TIMEOUT;
 	wdd->timeout = to;
 	sirfsoc_wdt_updatetimeout(wdd);
 
@@ -161,7 +169,8 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 	}
 	watchdog_set_drvdata(&sirfsoc_wdd, base);
 
-	sirfsoc_wdd.timeout = default_timeout;
+	watchdog_init_timeout(&sirfsoc_wdd, timeout, &pdev->dev);
+	watchdog_set_nowayout(&sirfsoc_wdd, nowayout);
 
 	ret = watchdog_register_device(&sirfsoc_wdd);
 	if (!!ret)
@@ -246,5 +255,4 @@ module_platform_driver(sirfsoc_wdt_driver);
 MODULE_DESCRIPTION("SiRF SoC watchdog driver");
 MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS_MISCDEV(WATCHDOG_MINOR);
 MODULE_ALIAS("platform:sirfsoc-wdt");

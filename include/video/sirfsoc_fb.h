@@ -95,10 +95,10 @@ typedef void (*PFN_SET_BASE) (void *, int, unsigned int, int);
 typedef int (*PFN_CREATE_LAYER) (void *);
 
 struct sirfsocfb_rect {
-	__u32 left;
-	__u32 top;
-	__u32 right;
-	__u32 bottom;
+	int left;
+	int top;
+	int right;
+	int bottom;
 };
 
 struct sirfsocfb_surf {
@@ -154,6 +154,61 @@ struct sirfsocfb_bltparms{
 	__u32  reserved;	/* for potiential extension */
 };
 
+enum {
+	BLE_BLT_ARGB8888,
+	BLE_BLT_ABGR8888,
+	BLE_BLT_RGB565,
+};
+
+enum {
+	BLE_BLT_ALPHA_OP_NON_PREMULTIPLIED = 1,
+	BLE_BLT_ALPHA_OP_PREMULTIPLIED     = 2
+};
+
+#define BLE_BLT_DISABLE_ALL		0x00000000	/* disable all additional controls */
+#define BLE_BLT_TRANSPARENT_ENABLE	0x00000001	/* enable transparent blt   */
+#define BLE_BLT_GLOBAL_ALPHA		0x00000002	/* enable standard global alpha */
+#define BLE_BLT_PERPIXEL_ALPHA		0x00000004	/* enable per-pixel alpha bleding */
+#define BLE_BLT_ROT_90			0x00000020	/* apply 90 degree rotation to the blt */
+#define BLE_BLT_ROT_180			0x00000040	/* apply 180 degree rotation to the blt */
+#define BLE_BLT_ROT_270			0x00000080	/* apply 270 degree rotation to the blt */
+#define BLE_BLT_FLIP_H			0x00000100	/* apply mirror in horizontal */
+#define BLE_BLT_FLIP_V			0x00000200	/* apply mirror in vertical     */
+#define BLE_BLT_SRC_COLORKEY		0x00000400	/* Source color Key  enabled    */
+#define BLE_BLT_DST_COLORKEY		0x00000800	/* Destination color Key enabled */
+#define BLE_BLT_COLOR_FILL		0x00001000	/* color fill enabled */
+#define BLE_BLT_WAIT_COMPLETE		0x00100000	/* wait blt to complete */
+
+#define FB_ACCEL_BLE	0xFF	/* CSR BLE */
+
+#define BLE_RECTS_NUM_MAX		4
+struct sirfsocfb_bltparms_ble {
+	__u32 rop3;			/* rop3 code  */
+	__u32 fill_color;		/* fill color */
+	__u32 color_key;		/* color key in argb8888 fromat */
+	__u8  global_alpha;		/* global alpha blending */
+	__u8  blend_func;		/* per-pixel alpha-blending function */
+	__u32 num_rects;
+	struct sirfsocfb_rect rects[BLE_RECTS_NUM_MAX];
+	__u32 flags;			/* additional blit control information */
+
+	__u32 dst_offset;          	/* destination memory */
+	__u32 dst_stride;		/* the number of bytes from pixel 0,0 to 0,1 */
+	__u32 dstx, dsty;		/* pixel offset from start of dest surface to start of blt rectangle */
+	__u32 dst_sizex, dst_sizey;	/* blt size */
+	__u32 dst_fmt;			/* dest format */
+	__u32 dst_width;		/* size of dest surface in pixels */
+	__u32 dst_height;		/* size of dest surface in pixels */
+
+	__u32 src_offset;		/* source mem, (source fields are also used for patterns) */
+	__u32 src_stride;		/* signed stride, the number of bytes from pixel 0,0 to 0,1 */
+	__u32 srcx, srcy;		/* pixel offset from start of surface to start of source rectangle */
+	__u32 src_sizex, src_sizey;     /* source rectangle size or pattern size in pixels */
+	__u32 src_fmt;			/* source format */
+	__u32 src_width;		/* size of source surface in pixels */
+	__u32 src_height;		/* size of source surface in pixels */
+};
+
 enum sirfsocfb_feature_layer {
 	NORMAL_LAYER = -1,
 	REARVIEW_FEATURE_LAYER,
@@ -182,6 +237,8 @@ enum sirfsocfb_feature_layer {
 #define SIRFSOCFB_FLUSH_CACHE  _IOW('S', 0x9, struct sirfsocfb_flush_cache_addr)
 #define SIRFSOCFB_DUMP_REGISTER	_IO('S', 0xa)
 #define SIRFSOCFB_BLT_YUV2RGB	_IOWR('S', 0xB, struct sirfsocfb_bltparms)
+#define SIRFSOCFB_BLT_BLE _IOW('S', 0xc, struct sirfsocfb_bltparms_ble)
+#define SIRFSOCFB_BLT_BLE_COMPLETE _IOR('S', 0xc, int)
 #define SIRFSOCFB_DUMP_HDMI_REGISTER	_IO('S', 0xD)
 #define SIRFSOCFB_SET_LAYERS	_IOW('S', 0xF, struct sirfsocfb_layers_parms)
 #define SIRFSOCFB_ENABLE_FEATURE_LAYER	_IOW('S', 0x10, int)

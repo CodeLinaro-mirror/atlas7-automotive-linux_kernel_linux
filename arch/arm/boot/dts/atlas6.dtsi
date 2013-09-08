@@ -86,6 +86,12 @@
 			};
 		};
 
+		memc-monitor {
+			compatible = "sirf,prima2-memcmon";
+			reg = <0x90002000 0x200>;
+			interrupts = <4>;
+		};
+
 		disp-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
@@ -125,6 +131,21 @@
 				reg = <0x98000000 0x8000000>;
 				interrupts = <6>;
 				clocks = <&clks 32>;
+			};
+		};
+
+		graphics2d-iobg {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0xa0000000 0xa0000000 0x8000000>;
+
+			ble@a0000000 {
+				compatible = "sirf,atlas6-ble";
+				reg = <0xa0000000 0x2000>;
+				interrupts = <5>;
+				clocks = <&clks 33>;
+				reset-bit = <&rstc 4>;
 			};
 		};
 
