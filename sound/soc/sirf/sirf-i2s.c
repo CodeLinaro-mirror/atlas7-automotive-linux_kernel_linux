@@ -9,6 +9,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/pwm.h>
 #include <linux/delay.h>
@@ -27,7 +28,6 @@ struct sirf_i2s {
 	u32			i2s_ctrl;
 	spinlock_t		lock;
 	int			master_mode;
-	bool			working;
 };
 
 static struct sirf_pcm_dma_data sirf_i2s_dai_dma_data[2] = {
@@ -41,15 +41,7 @@ static struct sirf_pcm_dma_data sirf_i2s_dai_dma_data[2] = {
 static int sirf_i2s_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-
-	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-
-	if (si2s->master_mode)
-		pwm_enable(si2s->mclk_pwm);
-	clk_prepare_enable(si2s->clk);
-	si2s->working = true;
-
-	device_reset(dai->dev);
+	pm_runtime_get_sync(dai->dev);
 	snd_soc_dai_set_dma_data(dai, substream,
 		&sirf_i2s_dai_dma_data[substream->stream]);
 	return 0;
@@ -58,11 +50,7 @@ static int sirf_i2s_startup(struct snd_pcm_substream *substream,
 static void sirf_i2s_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	if (si2s->master_mode)
-		pwm_disable(si2s->mclk_pwm);
-	clk_disable_unprepare(si2s->clk);
-	si2s->working = false;
+	pm_runtime_put(dai->dev);
 }
 
 static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
@@ -265,45 +253,61 @@ static struct snd_soc_dai_driver sirf_i2s_dai = {
 	},
 	.ops = &sirfsoc_i2s_dai_ops,
 };
-
-#ifdef CONFIG_PM
-static int sirf_i2s_suspend(struct platform_device *pdev,
-		pm_message_t state)
+#ifdef CONFIG_PM_RUNTIME
+static int sirf_i2s_runtime_suspend(struct device *dev)
 {
-	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
-
-	si2s->i2s_ctrl = readl(si2s->base+AUDIO_CTRL_I2S_CTRL);
-	if (!(si2s->working))
-		return 0;
+	struct sirf_i2s *si2s = dev_get_drvdata(dev);
 	clk_disable_unprepare(si2s->clk);
 
 	if (si2s->master_mode)
 		pwm_disable(si2s->mclk_pwm);
+
 	return 0;
 }
 
-static int sirf_i2s_resume(struct platform_device *pdev)
+static int sirf_i2s_runtime_resume(struct device *dev)
 {
-	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
-	if (!(si2s->working))
-		return 0;
+	struct sirf_i2s *si2s = dev_get_drvdata(dev);
 	if (si2s->master_mode)
 		pwm_enable(si2s->mclk_pwm);
 	clk_prepare_enable(si2s->clk);
+	device_reset(dev);
+	return 0;
+}
+#else
+#define sirf_i2s_runtime_suspend NULL
+#define sirf_i2s_runtime_resume NULL
+#endif
+#ifdef CONFIG_PM
+static int sirf_i2s_suspend(struct device *dev)
+{
+	struct sirf_i2s *si2s = dev_get_drvdata(dev);
 
-	device_reset(&pdev->dev);
-	writel(readl(si2s->base+AUDIO_CTRL_MODE_SEL)
-			| I2S_MODE,
-			si2s->base+AUDIO_CTRL_MODE_SEL);
-	writel(si2s->i2s_ctrl, si2s->base+AUDIO_CTRL_I2S_CTRL);
-	writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_INT_MSK);
-	writel(0, si2s->base + AUDIO_CTRL_RXFIFO_INT_MSK);
+	if (!pm_runtime_status_suspended(dev)) {
+		si2s->i2s_ctrl = readl(si2s->base+AUDIO_CTRL_I2S_CTRL);
+		sirf_i2s_runtime_suspend(dev);
+	}
+	return 0;
+}
+
+static int sirf_i2s_resume(struct device *dev)
+{
+	struct sirf_i2s *si2s = dev_get_drvdata(dev);
+	if (!pm_runtime_status_suspended(dev)) {
+		sirf_i2s_runtime_resume(dev);
+		writel(readl(si2s->base+AUDIO_CTRL_MODE_SEL)
+				| I2S_MODE,
+				si2s->base+AUDIO_CTRL_MODE_SEL);
+		writel(si2s->i2s_ctrl, si2s->base+AUDIO_CTRL_I2S_CTRL);
+		writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_INT_MSK);
+		writel(0, si2s->base + AUDIO_CTRL_RXFIFO_INT_MSK);
+	}
 
 	return 0;
 }
 #else
-#define sirf_usp_pcm_suspend NULL
-#define sirf_usp_pcm_resume NULL
+#define sirf_i2s_suspend NULL
+#define sirf_i2s_resume NULL
 #endif
 
 static const struct snd_soc_component_driver sirf_i2s_component = {
@@ -363,32 +367,27 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	if (IS_ERR(si2s->mclk_pwm)) {
 		dev_err(&pdev->dev, "unable to request PWM\n");
 		ret = PTR_ERR(si2s->mclk_pwm);
-		goto err_clk_put;
+		goto err;
 	}
 
 	ret = snd_soc_register_component(&pdev->dev, &sirf_i2s_component,
 			&sirf_i2s_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
-		goto err_clk_put;
+		goto err;
 	}
 
+	pm_runtime_enable(&pdev->dev);
 	return 0;
 
-err_clk_put:
-	clk_disable_unprepare(si2s->clk);
 err:
 	return ret;
 }
 
 static int sirf_i2s_remove(struct platform_device *pdev)
 {
-	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
-
-	pwm_disable(si2s->mclk_pwm);
 	snd_soc_unregister_component(&pdev->dev);
-	clk_disable_unprepare(si2s->clk);
-
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
@@ -398,16 +397,20 @@ static const struct of_device_id sirf_i2s_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sirf_i2s_of_match);
 
+static const struct dev_pm_ops sirf_i2s_pm_ops = {
+	SET_RUNTIME_PM_OPS(sirf_i2s_runtime_suspend, sirf_i2s_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_i2s_suspend, sirf_i2s_resume)
+};
+
 static struct platform_driver sirf_i2s_driver = {
 	.driver = {
 		.name = "sirf-i2s",
 		.owner = THIS_MODULE,
 		.of_match_table = sirf_i2s_of_match,
+		.pm = &sirf_i2s_pm_ops,
 	},
 	.probe = sirf_i2s_probe,
 	.remove = sirf_i2s_remove,
-	.suspend = sirf_i2s_suspend,
-	.resume = sirf_i2s_resume,
 };
 
 module_platform_driver(sirf_i2s_driver);
