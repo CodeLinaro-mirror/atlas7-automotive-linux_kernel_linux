@@ -28,24 +28,6 @@
 	sirf-backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm 3 50000 50000 0>;
-		sirf-pwm-step-mode;
-		sirf-pwm-step-mode-params = <30 10000000>;
-		sirf-pwm-bklscaling-params = <50000 3125
-					50000 6250
-					50000 9375
-					50000 12500
-					50000 15625
-					50000 18750
-					50000 21875
-					50000 25000
-					50000 28125
-					50000 31250
-					50000 34375
-					50000 37500
-					50000 40625
-					50000 43750
-					50000 46875
-					50000 50000>;
 		brightness-levels = <0 4 16 32 64 96 254 255>;
 		default-brightness-level = <6>;
 	};
