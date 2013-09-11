@@ -42,7 +42,7 @@
 	sirf-backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm 3 50000 50000 0>;
-		brightness-levels = <0 4 16 32 64 96 254 255>;
+		brightness-levels = <0 48 56 64 96 112 128 255>;
 		default-brightness-level = <6>;
 	};
 	axi {
