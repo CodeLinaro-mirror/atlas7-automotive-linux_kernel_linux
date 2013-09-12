@@ -100,6 +100,7 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long *parent_rate)
 {
+	u64 dividend;
 	unsigned long fin, nf, nr, od;
 
 	/*
@@ -121,7 +122,10 @@ static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		nr = BIT(6);
 	od = 1;
 
-	return fin * nf / (nr * od);
+	dividend = (u64)fin * nf;
+
+	do_div(dividend, nr * od);
+	return dividend;
 }
 
 static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
