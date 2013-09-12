@@ -6,8 +6,10 @@
  * Licensed under GPLv2 or later.
  */
 #include <linux/module.h>
+#include <linux/io.h>
 #include <linux/of.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 #include <sound/soc.h>
 
 #include "sirf-usp.h"
@@ -33,6 +35,7 @@ static struct sirf_pcm_dma_data sirf_usp_pcm_dai_dma_data[2] = {
 		.name = "Audio Capture",
 	}
 };
+
 static void sirf_usp_tx_fifo_op(struct sirf_usp *susp, int cmd)
 {
 	switch (cmd) {
@@ -89,19 +92,19 @@ static inline void sirf_usp_rx_disable(struct sirf_usp *susp)
 			susp->base + USP_TX_RX_ENABLE);
 }
 
-static int sirf_usp_pcm_dai_startup(struct snd_pcm_substream *substream,
+static int sirf_usp_pcm_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
-	int playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
-	if (playback)
-		sirf_usp_tx_fifo_op(susp, FIFO_RESET);
-	else
-		sirf_usp_rx_fifo_op(susp, FIFO_RESET);
-
+	pm_runtime_get_sync(dai->dev);
 	snd_soc_dai_set_dma_data(dai, substream,
 			&sirf_usp_pcm_dai_dma_data[substream->stream]);
 	return 0;
+}
+
+static void sirf_usp_pcm_shutdown(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	pm_runtime_put(dai->dev);
 }
 
 static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
@@ -137,6 +140,8 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (playback) {
 			sirf_usp_tx_fifo_op(susp, FIFO_RESET);
 			sirf_usp_tx_fifo_op(susp, FIFO_START);
@@ -148,34 +153,7 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
-		if (playback) {
-			sirf_usp_tx_disable(susp);
-			sirf_usp_tx_fifo_op(susp, FIFO_STOP);
-		} else {
-			sirf_usp_rx_disable(susp);
-			sirf_usp_rx_fifo_op(susp, FIFO_STOP);
-		}
-		break;
-	case SNDRV_PCM_TRIGGER_RESUME:
-		if (playback) {
-			sirf_usp_tx_fifo_op(susp, FIFO_RESET);
-			sirf_usp_tx_fifo_op(susp, FIFO_START);
-			sirf_usp_tx_enable(susp);
-		} else {
-			sirf_usp_rx_fifo_op(susp, FIFO_RESET);
-			sirf_usp_rx_fifo_op(susp, FIFO_START);
-			sirf_usp_rx_enable(susp);
-		}
-		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		if (playback) {
-			sirf_usp_tx_disable(susp);
-			sirf_usp_tx_fifo_op(susp, FIFO_STOP);
-		} else {
-			sirf_usp_rx_disable(susp);
-			sirf_usp_rx_fifo_op(susp, FIFO_STOP);
-		}
-		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (playback) {
 			sirf_usp_tx_disable(susp);
@@ -183,15 +161,6 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 		} else {
 			sirf_usp_rx_disable(susp);
 			sirf_usp_rx_fifo_op(susp, FIFO_STOP);
-		}
-		break;
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (playback) {
-			sirf_usp_tx_fifo_op(susp, FIFO_START);
-			sirf_usp_tx_enable(susp);
-		} else {
-			sirf_usp_rx_fifo_op(susp, FIFO_START);
-			sirf_usp_rx_enable(susp);
 		}
 		break;
 	}
@@ -204,23 +173,24 @@ static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
 
 	u32 clk_rate = clk_get_rate(susp->clk);
-	u32 clk_div = (clk_rate/(2*rate)) - 1;
-	u32 clk_div_hi = (clk_div & 0xC00)>>10;
+	u32 clk_div = (clk_rate / (2 * rate)) - 1;
+	u32 clk_div_hi = (clk_div & 0xC00) >> 10;
 	u32 clk_div_lo = (clk_div & 0x3FF);
 
-	writel((clk_div_lo<<21) | readl(susp->base + USP_MODE2),
+	writel((clk_div_lo << 21) | readl(susp->base + USP_MODE2),
 		susp->base + USP_MODE2);
-	writel((clk_div_hi<<30) | readl(susp->base + USP_TX_FRAME_CTRL),
+	writel((clk_div_hi << 30) | readl(susp->base + USP_TX_FRAME_CTRL),
 		susp->base + USP_TX_FRAME_CTRL);
 
 	return 0;
 }
 
 static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
-	.startup        = sirf_usp_pcm_dai_startup,
-	.trigger  = sirf_usp_pcm_trigger,
+	.startup = sirf_usp_pcm_startup,
+	.trigger = sirf_usp_pcm_trigger,
 	.set_fmt = sirf_usp_pcm_set_dai_fmt,
 	.set_clkdiv = sirf_usp_pcm_divider,
+	.shutdown = sirf_usp_pcm_shutdown,
 };
 
 static struct snd_soc_dai_driver sirf_usp_pcm_dai = {
@@ -271,22 +241,22 @@ static void sirf_usp_controller_init(struct sirf_usp *susp)
 	writel(0, susp->base + USP_RX_DMA_IO_LEN);
 
 	/* Configure RX Frame Control */
-	val = (AUDIO_WORD_SIZE*2 - 1)<<USP_RXC_DATA_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE*2 - 1)<<USP_RXC_FRAME_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE*2 - 1)<<USP_RXC_SHIFTER_LEN_OFFSET;
+	val = (AUDIO_WORD_SIZE * 2 - 1) << USP_RXC_DATA_LEN_OFFSET;
+	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_RXC_FRAME_LEN_OFFSET;
+	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_RXC_SHIFTER_LEN_OFFSET;
 	val |= USP_SINGLE_SYNC_MODE;
 	writel(val, susp->base + USP_RX_FRAME_CTRL);
 
 	/* Configure TX Frame Control */
-	val = (AUDIO_WORD_SIZE*2 - 1)<<USP_TXC_DATA_LEN_OFFSET;
-	val |= 0<<USP_TXC_SYNC_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE*2 - 1)<<USP_TXC_FRAME_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE*2 - 1)<<USP_TXC_SHIFTER_LEN_OFFSET;
+	val = (AUDIO_WORD_SIZE * 2 - 1) << USP_TXC_DATA_LEN_OFFSET;
+	val |= 0 << USP_TXC_SYNC_LEN_OFFSET;
+	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_TXC_FRAME_LEN_OFFSET;
+	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_TXC_SHIFTER_LEN_OFFSET;
 	val |= USP_TXC_SLAVE_CLK_SAMPLE;
 	writel(val, susp->base + USP_TX_FRAME_CTRL);
 
 	/* Configure Mode2 register */
-	val = (1<<USP_RXD_DELAY_LEN_OFFSET) | (0<<USP_TXD_DELAY_LEN_OFFSET);
+	val = (1 << USP_RXD_DELAY_LEN_OFFSET) | (0 << USP_TXD_DELAY_LEN_OFFSET);
 	val &= ~USP_ENA_CTRL_MODE;
 	val &= ~USP_FRAME_CTRL_MODE;
 	val &= ~USP_TFS_SOURCE_MODE;
@@ -320,7 +290,7 @@ static void sirf_usp_controller_init(struct sirf_usp *susp)
 		susp->base + USP_RX_FIFO_CTRL);
 
 	/* Congiure RX FIFO Level Check register */
-	writel(RX_FIFO_SC(0x04)|RX_FIFO_LC(0x0E)|RX_FIFO_HC(0x1B),
+	writel(RX_FIFO_SC(0x04) | RX_FIFO_LC(0x0E) | RX_FIFO_HC(0x1B),
 		susp->base + USP_RX_FIFO_LEVEL_CHK);
 
 	/* Configure TX DMA IO Control register*/
@@ -332,7 +302,7 @@ static void sirf_usp_controller_init(struct sirf_usp *susp)
 		susp->base + USP_TX_FIFO_CTRL);
 
 	/* Congiure TX FIFO Level Check register */
-	writel(TX_FIFO_SC(0x1B)|TX_FIFO_LC(0x0E)|TX_FIFO_HC(0x04),
+	writel(TX_FIFO_SC(0x1B) | TX_FIFO_LC(0x0E) | TX_FIFO_HC(0x04),
 		susp->base + USP_TX_FIFO_LEVEL_CHK);
 
 	/* Configure RX FIFO */
@@ -347,34 +317,53 @@ static void sirf_usp_controller_init(struct sirf_usp *susp)
 static void sirf_usp_controller_uninit(struct sirf_usp *susp)
 {
 	/* Disable RX/TX */
-	writel(0, susp->base+USP_INT_ENABLE);
+	writel(0, susp->base + USP_INT_ENABLE);
 	writel(0, susp->base + USP_TX_RX_ENABLE);
 }
 
-#ifdef CONFIG_PM
-static int sirf_usp_pcm_suspend(struct platform_device *pdev,
-	pm_message_t state)
+#ifdef CONFIG_PM_RUNTIME
+static int sirf_usp_pcm_runtime_suspend(struct device *dev)
 {
-	struct sirf_usp *susp = platform_get_drvdata(pdev);
-
-	susp->mode1_reg = readl(susp->base + USP_MODE1);
-	susp->mode2_reg = readl(susp->base + USP_MODE2);
+	struct sirf_usp *susp = dev_get_drvdata(dev);
 	sirf_usp_controller_uninit(susp);
 	clk_disable_unprepare(susp->clk);
-
 	return 0;
 }
 
-static int sirf_usp_pcm_resume(struct platform_device *pdev)
+static int sirf_usp_pcm_runtime_resume(struct device *dev)
 {
-	struct sirf_usp *susp = platform_get_drvdata(pdev);
-
+	struct sirf_usp *susp = dev_get_drvdata(dev);
 	clk_prepare_enable(susp->clk);
 	sirf_usp_controller_init(susp);
+	return 0;
+}
+#else
+#define sirf_usp_pcm_runtime_suspend NULL
+#define sirf_usp_pcm_runtime_resume NULL
+#endif
 
-	writel(susp->mode1_reg, susp->base + USP_MODE1);
-	writel(susp->mode2_reg, susp->base + USP_MODE2);
+#ifdef CONFIG_PM
+static int sirf_usp_pcm_suspend(struct device *dev)
+{
+	struct sirf_usp *susp = dev_get_drvdata(dev);
 
+	if (!pm_runtime_status_suspended(dev)) {
+		susp->mode1_reg = readl(susp->base + USP_MODE1);
+		susp->mode2_reg = readl(susp->base + USP_MODE2);
+		sirf_usp_pcm_runtime_suspend(dev);
+	}
+	return 0;
+}
+
+static int sirf_usp_pcm_resume(struct device *dev)
+{
+	struct sirf_usp *susp = dev_get_drvdata(dev);
+
+	if (!pm_runtime_status_suspended(dev)) {
+		sirf_usp_pcm_runtime_resume(dev);
+		writel(susp->mode1_reg, susp->base + USP_MODE1);
+		writel(susp->mode2_reg, susp->base + USP_MODE2);
+	}
 	return 0;
 }
 #else
@@ -420,37 +409,30 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	if (susp->base == NULL)
 		return -ENOMEM;
 
-	susp->clk = clk_get(&pdev->dev, NULL);
+	susp->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(susp->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(susp->clk);
 	}
 	clk_prepare_enable(susp->clk);
 
-	sirf_usp_controller_init(susp);
-
 	ret = snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
-		goto err_clk_put;
+		goto err;
 	}
-
+	pm_runtime_enable(&pdev->dev);
 	return 0;
 
-err_clk_put:
-	clk_disable_unprepare(susp->clk);
-	clk_put(susp->clk);
+err:
 	return ret;
 }
 
 static int sirf_usp_pcm_remove(struct platform_device *pdev)
 {
-	struct sirf_usp *susp = platform_get_drvdata(pdev);
 	snd_soc_unregister_component(&pdev->dev);
-	sirf_usp_controller_uninit(susp);
-	clk_disable_unprepare(susp->clk);
-	clk_put(susp->clk);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -461,16 +443,20 @@ static const struct of_device_id sirf_usp_pcm_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sirf_usp_pcm_of_match);
 
+static const struct dev_pm_ops sirf_usp_pcm_pm_ops = {
+	SET_RUNTIME_PM_OPS(sirf_usp_pcm_runtime_suspend, sirf_usp_pcm_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_usp_pcm_suspend, sirf_usp_pcm_resume)
+};
+
 static struct platform_driver sirf_usp_pcm_driver = {
 	.driver = {
 		.name = "sirf-usp-pcm",
 		.owner = THIS_MODULE,
 		.of_match_table = sirf_usp_pcm_of_match,
+		.pm = &sirf_usp_pcm_pm_ops,
 	},
 	.probe = sirf_usp_pcm_probe,
 	.remove = sirf_usp_pcm_remove,
-	.suspend = sirf_usp_pcm_suspend,
-	.resume = sirf_usp_pcm_resume,
 };
 
 module_platform_driver(sirf_usp_pcm_driver);

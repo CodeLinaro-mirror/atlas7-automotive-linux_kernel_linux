@@ -189,8 +189,10 @@ VOID __BleSoc_ReleaseRingBufSpace(BLE2DCONTEXT *pBle2DContext, UINT32 SubmitSize
     pBle2DContext->Mode.CmdMode.pRingBufWtPtr       += SubmitSize;
 
     RingBufWrPtr = ((UINT32)pBle2DContext->Mode.CmdMode.pRingBufWtPtr - pBle2DContext->Mode.CmdMode.RingBuf.RingBufVirtual)/4;
-
-
+   /*
+	add wmb to make sure all the commands have already write
+	in the ringbuffer before ble run */
+	wmb();
     if(RingBufWrPtr < pBle2DContext->Mode.CmdMode.RingBuf.RingBufSizeInDW)
     {
         WriteBleRegister(pBle2DContext,RB_WR_PTR, RingBufWrPtr);

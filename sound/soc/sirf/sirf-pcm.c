@@ -44,10 +44,24 @@ static int sirf_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct sirf_pcm_dma_data *dma_data;
+	int ret;
+
 	substream->runtime->hw = sirf_pcm_hardware;
 	snd_soc_set_runtime_hwparams(substream, &sirf_pcm_hardware);
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	ret = snd_pcm_hw_constraint_step(substream->runtime, 0,
+					 SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 32);
+	if (ret < 0)
+		return ret;
+	ret = snd_pcm_hw_constraint_step(substream->runtime, 0,
+					 SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 32);
+	if (ret < 0)
+		return ret;
+	ret = snd_pcm_hw_constraint_integer(substream->runtime,
+					    SNDRV_PCM_HW_PARAM_PERIODS);
+	if (ret < 0)
+		return ret;
 
 	return snd_dmaengine_pcm_open_request_chan(substream,
 			(dma_filter_fn)sirfsoc_dma_filter_id,
@@ -155,10 +169,18 @@ static int sirf_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 	return 0;
 }
 
+static u64 sirf_pcm_dmamask = DMA_BIT_MASK(32);
+
 static int sirf_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_pcm *pcm = rtd->pcm;
+	struct snd_card *card = rtd->card->snd_card;
 	int ret;
+
+	if (!card->dev->dma_mask)
+		card->dev->dma_mask = &sirf_pcm_dmamask;
+	if (!card->dev->coherent_dma_mask)
+		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
 		ret = sirf_pcm_preallocate_dma_buffer(pcm,

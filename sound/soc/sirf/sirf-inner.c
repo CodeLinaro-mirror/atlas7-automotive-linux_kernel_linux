@@ -23,12 +23,62 @@
 struct sirf_inner_extcon_info {
 	struct platform_device pdev;
 	struct gpio_extcon_platform_data extcon_data;
+	int last_state;
+	int state_changed;
 };
 
 struct sirf_inner_card {
 	unsigned int            gpio_hp_pa;
 	unsigned int            gpio_spk_pa;
+	struct platform_device	*sirf_inner_device;
 	struct sirf_inner_extcon_info	extcon_info;
+};
+
+static int sirf_inner_hp_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *ctrl, int event)
+{
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
+	int on = !SND_SOC_DAPM_EVENT_OFF(event);
+	if (gpio_is_valid(sinner_card->gpio_hp_pa))
+		gpio_direction_output(sinner_card->gpio_hp_pa, on);
+	return 0;
+}
+
+static int sirf_inner_spk_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *ctrl, int event)
+{
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
+	int on = !SND_SOC_DAPM_EVENT_OFF(event);
+
+	if (sinner_card->extcon_info.state_changed) {
+		sinner_card->extcon_info.state_changed = 0;
+		if (!sinner_card->extcon_info.last_state)
+			gpio_direction_output(sinner_card->gpio_spk_pa, 0);
+		else
+			gpio_direction_output(sinner_card->gpio_spk_pa, 1);
+	} else {
+		if (gpio_is_valid(sinner_card->gpio_spk_pa))
+			gpio_direction_output(sinner_card->gpio_spk_pa, on);
+	}
+
+	return 0;
+}
+static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Hp", sirf_inner_hp_event),
+	SND_SOC_DAPM_SPK("Ext Spk", sirf_inner_spk_event),
+	SND_SOC_DAPM_MIC("Ext Mic", NULL),
+};
+
+static const struct snd_soc_dapm_route intercon[] = {
+	{"Hp", NULL, "HPOUTL"},
+	{"Hp", NULL, "HPOUTR"},
+	{"Ext Spk", NULL, "SPKOUT"},
+	{"MICIN1", NULL, "Mic Bias"},
+	{"Mic Bias", NULL, "Ext Mic"},
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
@@ -40,103 +90,16 @@ static struct snd_soc_dai_link sirf_inner_dai_links[] = {
 	},
 };
 
-static int sirf_inner_headphone_out_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	int hp_out = 0;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		hp_out = gpio_get_value(sinner_card->gpio_hp_pa);
-
-	*ucontrol->value.integer.value = hp_out;
-	return 0;
-}
-
-static int sirf_inner_headphone_out_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	int is_hp_out = ucontrol->value.integer.value[0];
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_direction_output(sinner_card->gpio_hp_pa, is_hp_out);
-
-	return 0;
-}
-
-static int sirf_inner_speaker_out_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	int spk_out = 0;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		spk_out = gpio_get_value(sinner_card->gpio_spk_pa);
-
-	*ucontrol->value.integer.value = spk_out;
-	return 0;
-}
-
-static int sirf_inner_speaker_out_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	int is_spk_out = ucontrol->value.integer.value[0];
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_direction_output(sinner_card->gpio_spk_pa, is_spk_out);
-	return 0;
-}
-
-static int sirf_inner_speaker_out_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	return 0;
-}
-
-static int sirf_inner_headphone_out_info(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_info *uinfo)
-{
-	return 0;
-}
-
-static struct snd_kcontrol_new snd_sirf_inner_out_route_controls[] = {
-	{
-		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name           =       "Speaker Out",
-		.index          =       0,
-		.access         =       SNDRV_CTL_ELEM_ACCESS_READWRITE,
-		.info           =	sirf_inner_speaker_out_info,
-		.get            =       sirf_inner_speaker_out_get,
-		.put            =       sirf_inner_speaker_out_put,
-	}, {
-		.iface          =       SNDRV_CTL_ELEM_IFACE_MIXER,
-		.name           =       "Headphone Out",
-		.index          =       0,
-		.access         =       SNDRV_CTL_ELEM_ACCESS_READWRITE,
-		.info           =	sirf_inner_headphone_out_info,
-		.get            =       sirf_inner_headphone_out_get,
-		.put            =       sirf_inner_headphone_out_put,
-	},
-};
-
 /* Audio machine driver */
 static struct snd_soc_card snd_soc_sirf_inner_card = {
 	.name = "SiRF inner",
 	.owner = THIS_MODULE,
 	.dai_link = sirf_inner_dai_links,
 	.num_links = ARRAY_SIZE(sirf_inner_dai_links),
-	.controls = snd_sirf_inner_out_route_controls,
-	.num_controls = ARRAY_SIZE(snd_sirf_inner_out_route_controls),
+	.dapm_widgets = sirf_inner_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(sirf_inner_dapm_widgets),
+	.dapm_routes = intercon,
+	.num_dapm_routes = ARRAY_SIZE(intercon),
 };
 
 static int sirf_inner_probe(struct platform_device *pdev)
@@ -148,6 +111,10 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	sinner_card = devm_kzalloc(&pdev->dev, sizeof(struct sirf_inner_card),
 			GFP_KERNEL);
 	if (sinner_card == NULL)
+		return -ENOMEM;
+
+	sinner_card->sirf_inner_device = platform_device_alloc("soc-audio", -1);
+	if (!sinner_card->sirf_inner_device)
 		return -ENOMEM;
 
 	sirf_inner_dai_links[0].platform_of_node =
@@ -173,9 +140,14 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
 
-	ret = snd_soc_register_card(card);
-	if (ret < 0)
+	platform_set_drvdata(sinner_card->sirf_inner_device,
+			&snd_soc_sirf_inner_card);
+
+	ret =  platform_device_add(sinner_card->sirf_inner_device);
+	if (ret) {
+		platform_device_put(sinner_card->sirf_inner_device);
 		return ret;
+	}
 
 	sinner_card->extcon_info.extcon_data.name = "h2w";
 	sinner_card->extcon_info.extcon_data.debounce =
@@ -206,7 +178,7 @@ static int sirf_inner_remove(struct platform_device *pdev)
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_free(sinner_card->gpio_spk_pa);
 
-	snd_soc_unregister_card(card);
+	platform_device_put(sinner_card->sirf_inner_device);
 	return 0;
 }
 
@@ -220,14 +192,25 @@ static int sirf_inner_resume(struct device *dev)
 
 	edev = extcon_get_extcon_dev(sinner_card->extcon_info.extcon_data.name);
 	state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
-	extcon_set_state(edev, state);
+	if (state != sinner_card->extcon_info.last_state) {
+		sinner_card->extcon_info.state_changed = 1;
+		sinner_card->extcon_info.last_state = state;
+		extcon_set_state(edev, state);
+	}
+	return 0;
+}
 
+static int sirf_inner_suspend(struct device *dev)
+{
+	struct snd_soc_card *card = dev_get_drvdata(dev);
+	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
+	sinner_card->extcon_info.last_state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
+	gpio_direction_output(sinner_card->gpio_spk_pa, 0);
 	return 0;
 }
 
 static const struct dev_pm_ops sirf_inner_pm_ops = {
-	.resume = sirf_inner_resume,
-	.restore = sirf_inner_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_inner_suspend, sirf_inner_resume)
 };
 #endif
 

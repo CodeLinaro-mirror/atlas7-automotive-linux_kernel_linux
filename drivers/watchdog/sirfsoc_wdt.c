@@ -153,14 +153,7 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 	int ret;
 	void __iomem *base;
 
-	/* reserve static register mappings */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "sirfsoc wdt: could not get mem resources\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (!base) {
 		dev_err(&pdev->dev, "sirfsoc wdt: could not remap the mem\n");
