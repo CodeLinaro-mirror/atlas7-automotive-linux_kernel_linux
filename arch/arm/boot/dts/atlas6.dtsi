@@ -27,6 +27,11 @@
 			timebase-frequency = <0>;
 			bus-frequency = <0>;
 			clock-frequency = <0>;
+			cpufreq_tbl = < 800000
+				600000
+				400000
+				200000 >;
+			cpufreq_transition_latency = <150000>;
 		};
 	};
 
