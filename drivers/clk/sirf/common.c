@@ -10,6 +10,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/clk-private.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 #include <linux/of_address.h>
@@ -162,6 +163,30 @@ static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		cpu_relax();
 
 	return 0;
+}
+
+static long cpu_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+	unsigned long *parent_rate)
+{
+	/*
+	 * SiRF SoC has not cpu clock control,
+	 * So bypass to it's parent pll.
+	 */
+	struct clk *parent_clk = clk_get_parent(hw->clk);
+	struct clk *pll_parent_clk = clk_get_parent(parent_clk);
+	unsigned long pll_parent_rate = clk_get_rate(pll_parent_clk);
+	return pll_clk_round_rate(parent_clk->hw, rate, &pll_parent_rate);
+}
+
+static unsigned long cpu_clk_recalc_rate(struct clk_hw *hw,
+	unsigned long parent_rate)
+{
+	/*
+	 * SiRF SoC has not cpu clock control,
+	 * So return the parent pll rate.
+	 */
+	struct clk *parent_clk = clk_get_parent(hw->clk);
+	return parent_clk->rate;
 }
 
 static struct clk_ops std_pll_ops = {
@@ -381,6 +406,42 @@ static int dmn_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static int cpu_clk_set_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate)
+{
+	int ret1, ret2;
+	struct clk *cur_parent;
+
+	if (rate == clk_get_rate(clk_pll1.hw.clk)) {
+		ret1 = clk_set_parent(hw->clk, clk_pll1.hw.clk);
+		return ret1;
+	}
+
+	if (rate == clk_get_rate(clk_pll2.hw.clk)) {
+		ret1 = clk_set_parent(hw->clk, clk_pll2.hw.clk);
+		return ret1;
+	}
+
+	if (rate == clk_get_rate(clk_pll3.hw.clk)) {
+		ret1 = clk_set_parent(hw->clk, clk_pll3.hw.clk);
+		return ret1;
+	}
+
+	cur_parent = clk_get_parent(hw->clk);
+
+	/* switch to tmp pll before setting parent clock's rate */
+	if (cur_parent ==  clk_pll1.hw.clk) {
+		ret1 = clk_set_parent(hw->clk, clk_pll2.hw.clk);
+		BUG_ON(ret1);
+	}
+
+	ret2 = clk_set_rate(clk_pll1.hw.clk, rate);
+
+	ret1 = clk_set_parent(hw->clk, clk_pll1.hw.clk);
+
+	return ret2 ? ret2 : ret1;
+}
+
 static struct clk_ops msi_ops = {
 	.set_rate = dmn_clk_set_rate,
 	.round_rate = dmn_clk_round_rate,
@@ -435,6 +496,9 @@ static struct clk_dmn clk_io = {
 static struct clk_ops cpu_ops = {
 	.set_parent = dmn_clk_set_parent,
 	.get_parent = dmn_clk_get_parent,
+	.set_rate = cpu_clk_set_rate,
+	.round_rate = cpu_clk_round_rate,
+	.recalc_rate = cpu_clk_recalc_rate,
 };
 
 static struct clk_init_data clk_cpu_init = {
