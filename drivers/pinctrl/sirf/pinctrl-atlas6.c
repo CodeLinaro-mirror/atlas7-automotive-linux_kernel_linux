@@ -139,6 +139,7 @@ static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
 static const struct sirfsoc_padmux lcd_16bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_16bits_sirfsoc_muxmask),
 	.muxmask = lcd_16bits_sirfsoc_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(4),
 	.funcval = 0,
 };
@@ -164,6 +165,7 @@ static const struct sirfsoc_muxmask lcd_18bits_muxmask[] = {
 static const struct sirfsoc_padmux lcd_18bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_18bits_muxmask),
 	.muxmask = lcd_18bits_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(4) | BIT(15),
 	.funcval = 0,
 };
@@ -189,6 +191,7 @@ static const struct sirfsoc_muxmask lcd_24bits_muxmask[] = {
 static const struct sirfsoc_padmux lcd_24bits_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcd_24bits_muxmask),
 	.muxmask = lcd_24bits_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(4) | BIT(15),
 	.funcval = 0,
 };
@@ -214,6 +217,7 @@ static const struct sirfsoc_muxmask lcdrom_muxmask[] = {
 static const struct sirfsoc_padmux lcdrom_padmux = {
 	.muxmask_counts = ARRAY_SIZE(lcdrom_muxmask),
 	.muxmask = lcdrom_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(4),
 	.funcval = BIT(4),
 };
@@ -237,6 +241,7 @@ static const struct sirfsoc_muxmask uart0_muxmask[] = {
 static const struct sirfsoc_padmux uart0_padmux = {
 	.muxmask_counts = ARRAY_SIZE(uart0_muxmask),
 	.muxmask = uart0_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(9),
 	.funcval = BIT(9),
 };
@@ -284,6 +289,7 @@ static const struct sirfsoc_muxmask uart2_muxmask[] = {
 static const struct sirfsoc_padmux uart2_padmux = {
 	.muxmask_counts = ARRAY_SIZE(uart2_muxmask),
 	.muxmask = uart2_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(10),
 	.funcval = BIT(10),
 };
@@ -317,6 +323,7 @@ static const struct sirfsoc_muxmask sdmmc3_muxmask[] = {
 static const struct sirfsoc_padmux sdmmc3_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc3_muxmask),
 	.muxmask = sdmmc3_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(7),
 	.funcval = 0,
 };
@@ -336,6 +343,7 @@ static const struct sirfsoc_muxmask spi0_muxmask[] = {
 static const struct sirfsoc_padmux spi0_padmux = {
 	.muxmask_counts = ARRAY_SIZE(spi0_muxmask),
 	.muxmask = spi0_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(7),
 	.funcval = BIT(7),
 };
@@ -352,6 +360,7 @@ static const struct sirfsoc_muxmask cko1_muxmask[] = {
 static const struct sirfsoc_padmux cko1_padmux = {
 	.muxmask_counts = ARRAY_SIZE(cko1_muxmask),
 	.muxmask = cko1_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(3),
 	.funcval = 0,
 };
@@ -371,6 +380,7 @@ static const struct sirfsoc_muxmask i2s_muxmask[] = {
 static const struct sirfsoc_padmux i2s_padmux = {
 	.muxmask_counts = ARRAY_SIZE(i2s_muxmask),
 	.muxmask = i2s_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(3),
 	.funcval = BIT(3),
 };
@@ -390,6 +400,7 @@ static const struct sirfsoc_muxmask i2s_no_din_muxmask[] = {
 static const struct sirfsoc_padmux i2s_no_din_padmux = {
 	.muxmask_counts = ARRAY_SIZE(i2s_no_din_muxmask),
 	.muxmask = i2s_no_din_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(3),
 	.funcval = BIT(3),
 };
@@ -409,6 +420,7 @@ static const struct sirfsoc_muxmask i2s_6chn_muxmask[] = {
 static const struct sirfsoc_padmux i2s_6chn_padmux = {
 	.muxmask_counts = ARRAY_SIZE(i2s_6chn_muxmask),
 	.muxmask = i2s_6chn_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(1) | BIT(3) | BIT(9),
 	.funcval = BIT(1) | BIT(3) | BIT(9),
 };
@@ -439,6 +451,7 @@ static const struct sirfsoc_muxmask spi1_muxmask[] = {
 static const struct sirfsoc_padmux spi1_padmux = {
 	.muxmask_counts = ARRAY_SIZE(spi1_muxmask),
 	.muxmask = spi1_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(16),
 	.funcval = 0,
 };
@@ -455,6 +468,7 @@ static const struct sirfsoc_muxmask sdmmc1_muxmask[] = {
 static const struct sirfsoc_padmux sdmmc1_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc1_muxmask),
 	.muxmask = sdmmc1_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(5),
 	.funcval = BIT(5),
 };
@@ -471,6 +485,7 @@ static const struct sirfsoc_muxmask gps_muxmask[] = {
 static const struct sirfsoc_padmux gps_padmux = {
 	.muxmask_counts = ARRAY_SIZE(gps_muxmask),
 	.muxmask = gps_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(13),
 	.funcval = 0,
 };
@@ -487,6 +502,7 @@ static const struct sirfsoc_muxmask sdmmc5_muxmask[] = {
 static const struct sirfsoc_padmux sdmmc5_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc5_muxmask),
 	.muxmask = sdmmc5_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(13),
 	.funcval = BIT(13),
 };
@@ -503,6 +519,7 @@ static const struct sirfsoc_muxmask usp0_muxmask[] = {
 static const struct sirfsoc_padmux usp0_padmux = {
 	.muxmask_counts = ARRAY_SIZE(usp0_muxmask),
 	.muxmask = usp0_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(1) | BIT(2) | BIT(9),
 	.funcval = 0,
 };
@@ -535,6 +552,7 @@ static const struct sirfsoc_muxmask usp1_muxmask[] = {
 static const struct sirfsoc_padmux usp1_padmux = {
 	.muxmask_counts = ARRAY_SIZE(usp1_muxmask),
 	.muxmask = usp1_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(16),
 	.funcval = BIT(16),
 };
@@ -554,6 +572,7 @@ static const struct sirfsoc_muxmask nand_muxmask[] = {
 static const struct sirfsoc_padmux nand_padmux = {
 	.muxmask_counts = ARRAY_SIZE(nand_muxmask),
 	.muxmask = nand_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(5) | BIT(19),
 	.funcval = 0,
 };
@@ -570,6 +589,7 @@ static const struct sirfsoc_muxmask sdmmc0_muxmask[] = {
 static const struct sirfsoc_padmux sdmmc0_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc0_muxmask),
 	.muxmask = sdmmc0_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(5) | BIT(19),
 	.funcval = BIT(19),
 };
@@ -586,6 +606,7 @@ static const struct sirfsoc_muxmask sdmmc2_muxmask[] = {
 static const struct sirfsoc_padmux sdmmc2_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc2_muxmask),
 	.muxmask = sdmmc2_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(11),
 	.funcval = 0,
 };
@@ -602,6 +623,7 @@ static const struct sirfsoc_muxmask sdmmc2_nowp_muxmask[] = {
 static const struct sirfsoc_padmux sdmmc2_nowp_padmux = {
 	.muxmask_counts = ARRAY_SIZE(sdmmc2_nowp_muxmask),
 	.muxmask = sdmmc2_nowp_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(11),
 	.funcval = 0,
 };
@@ -634,6 +656,7 @@ static const struct sirfsoc_muxmask vip_muxmask[] = {
 static const struct sirfsoc_padmux vip_padmux = {
 	.muxmask_counts = ARRAY_SIZE(vip_muxmask),
 	.muxmask = vip_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(18),
 	.funcval = BIT(18),
 };
@@ -654,6 +677,7 @@ static const struct sirfsoc_muxmask vip_noupli_muxmask[] = {
 static const struct sirfsoc_padmux vip_noupli_padmux = {
 	.muxmask_counts = ARRAY_SIZE(vip_noupli_muxmask),
 	.muxmask = vip_noupli_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(15),
 	.funcval = BIT(15),
 };
@@ -684,6 +708,7 @@ static const struct sirfsoc_muxmask i2c1_muxmask[] = {
 static const struct sirfsoc_padmux i2c1_padmux = {
 	.muxmask_counts = ARRAY_SIZE(i2c1_muxmask),
 	.muxmask = i2c1_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(16),
 	.funcval = 0,
 };
@@ -700,6 +725,7 @@ static const struct sirfsoc_muxmask pwm0_muxmask[] = {
 static const struct sirfsoc_padmux pwm0_padmux = {
 	.muxmask_counts = ARRAY_SIZE(pwm0_muxmask),
 	.muxmask = pwm0_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(12),
 	.funcval = 0,
 };
@@ -772,6 +798,7 @@ static const struct sirfsoc_muxmask warm_rst_muxmask[] = {
 static const struct sirfsoc_padmux warm_rst_padmux = {
 	.muxmask_counts = ARRAY_SIZE(warm_rst_muxmask),
 	.muxmask = warm_rst_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(4),
 	.funcval = 0,
 };
@@ -789,6 +816,7 @@ static const struct sirfsoc_muxmask usb0_upli_drvbus_muxmask[] = {
 static const struct sirfsoc_padmux usb0_upli_drvbus_padmux = {
 	.muxmask_counts = ARRAY_SIZE(usb0_upli_drvbus_muxmask),
 	.muxmask = usb0_upli_drvbus_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(18),
 	.funcval = 0,
 };
@@ -805,6 +833,7 @@ static const struct sirfsoc_muxmask usb1_utmi_drvbus_muxmask[] = {
 static const struct sirfsoc_padmux usb1_utmi_drvbus_padmux = {
 	.muxmask_counts = ARRAY_SIZE(usb1_utmi_drvbus_muxmask),
 	.muxmask = usb1_utmi_drvbus_muxmask,
+	.ctrlreg = SIRFSOC_RSC_PIN_MUX,
 	.funcmask = BIT(11),
 	.funcval = BIT(11), /* refer to PAD_UTMI_DRVVBUS1_ENABLE */
 };
