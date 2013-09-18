@@ -14,13 +14,27 @@
 #include <linux/cpufreq.h>
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <linux/cpu.h>
+#include <linux/opp.h>
+
+#define SIRFSOC_MAX_VOLTAGE	1200000
 
 static struct {
-	struct clk		*cpu_clk;
-	struct cpufreq_freqs	freqs;
-	struct cpufreq_frequency_table *freq_tbl;
-	unsigned int transition_latency;
+	struct clk			*cpu_clk;
+	struct device			*cpu_dev;
+	struct cpufreq_freqs		freqs;
+	struct cpufreq_frequency_table	*freq_tbl;
+	unsigned int			transition_latency;
+	struct regulator		*regulator;
 } sirf_cpufreq;
+
+static void update_voltage(int min_uV, int max_uV)
+{
+	if (sirf_cpufreq.regulator == NULL)
+		return;
+
+	regulator_set_voltage(sirf_cpufreq.regulator, min_uV, max_uV);
+}
 
 static int sirf_verify_speed(struct cpufreq_policy *policy)
 {
@@ -39,6 +53,8 @@ static int sirf_target(struct cpufreq_policy *policy,
 			  unsigned int target_freq,
 			  unsigned int relation)
 {
+	unsigned long freq, volt = 0;
+	struct opp *opp;
 	unsigned int index, old_index;
 
 	if (!sirf_cpufreq.freq_tbl)
@@ -64,7 +80,28 @@ static int sirf_target(struct cpufreq_policy *policy,
 	cpufreq_notify_transition(policy, &sirf_cpufreq.freqs,
 			CPUFREQ_PRECHANGE);
 
+	freq = sirf_cpufreq.freqs.new * 1000;
+	rcu_read_lock();
+	opp = opp_find_freq_ceil(sirf_cpufreq.cpu_dev, &freq);
+	if (IS_ERR(opp)) {
+		rcu_read_unlock();
+		dev_err(sirf_cpufreq.cpu_dev, "%s: unable to find MPU OPP for %d\n",
+				__func__, sirf_cpufreq.freqs.new);
+		return -EINVAL;
+	}
+
+	volt = opp_get_voltage(opp);
+	rcu_read_unlock();
+	/* control regulator: voltage up */
+	if ((sirf_cpufreq.freqs.new > sirf_cpufreq.freqs.old) &&
+		volt)
+		update_voltage(volt, SIRFSOC_MAX_VOLTAGE);
 	clk_set_rate(sirf_cpufreq.cpu_clk, sirf_cpufreq.freqs.new * 1000);
+
+	/* control regulator: voltage down */
+	if ((sirf_cpufreq.freqs.new < sirf_cpufreq.freqs.old) &&
+		volt)
+		update_voltage(volt, SIRFSOC_MAX_VOLTAGE);
 
 	cpufreq_notify_transition(policy, &sirf_cpufreq.freqs,
 			CPUFREQ_POSTCHANGE);
@@ -100,10 +137,9 @@ static struct cpufreq_driver sirf_driver = {
 static int __init sirf_cpufreq_init(void)
 {
 	struct device_node *np;
-	const struct property *prop;
-	struct cpufreq_frequency_table *freq_tbl;
-	const __be32 *val;
-	int cnt, i, ret;
+	int ret;
+
+	sirf_cpufreq.cpu_dev = get_cpu_device(0);
 
 	np = of_find_node_by_path("/cpus/cpu@0");
 	if (!np) {
@@ -111,60 +147,48 @@ static int __init sirf_cpufreq_init(void)
 		return -ENODEV;
 	}
 
+	sirf_cpufreq.cpu_dev->of_node = np;
+
 	if (of_property_read_u32(np, "cpufreq_transition_latency",
 				&sirf_cpufreq.transition_latency))
 		sirf_cpufreq.transition_latency = CPUFREQ_ETERNAL;
 
-	prop = of_find_property(np, "cpufreq_tbl", NULL);
-	if (!prop || !prop->value) {
-		pr_err("Invalid cpufreq_tbl");
-		ret = -ENODEV;
+	ret = of_init_opp_table(sirf_cpufreq.cpu_dev);
+	if (ret) {
+		pr_err("Failed init opp table.\n");
 		goto out_put_node;
 	}
 
-	cnt = prop->length / sizeof(u32);
-	val = prop->value;
-
-	freq_tbl = kzalloc(sizeof(*freq_tbl) * (cnt + 1), GFP_KERNEL);
-	if (!freq_tbl) {
-		ret = -ENOMEM;
+	ret = opp_init_cpufreq_table(sirf_cpufreq.cpu_dev,
+		&sirf_cpufreq.freq_tbl);
+	if (ret) {
+		pr_err("Failed init opp cpufreq table.\n");
 		goto out_put_node;
 	}
-
-	for (i = 0; i < cnt; i++) {
-		freq_tbl[i].index = i;
-		freq_tbl[i].frequency = be32_to_cpup(val++);
-	}
-
-	freq_tbl[i].index = i;
-	freq_tbl[i].frequency = CPUFREQ_TABLE_END;
-
-	sirf_cpufreq.freq_tbl = freq_tbl;
-
-	of_node_put(np);
 
 	sirf_cpufreq.cpu_clk = clk_get_sys("cpu", NULL);
 	if (IS_ERR(sirf_cpufreq.cpu_clk)) {
 		pr_err("Get cpu clock failed.\n");
 		ret = PTR_ERR(sirf_cpufreq.cpu_clk);
-		goto out_put_mem;
+		goto out_free_opp;
 	}
+
+	sirf_cpufreq.regulator = regulator_get(NULL, "vcore");
+	if (IS_ERR(sirf_cpufreq.regulator))
+		sirf_cpufreq.regulator = NULL;
 
 	ret =  cpufreq_register_driver(&sirf_driver);
 	if (!ret)
-		return 0;
+		goto out_put_node;
 
 	pr_err("failed register driver: %d\n", ret);
 	clk_put(sirf_cpufreq.cpu_clk);
 
-out_put_mem:
-	kfree(freq_tbl);
-	return ret;
-
+out_free_opp:
+	opp_free_cpufreq_table(sirf_cpufreq.cpu_dev, &sirf_cpufreq.freq_tbl);
 out_put_node:
 	of_node_put(np);
 	return ret;
-
 }
 late_initcall(sirf_cpufreq_init);
 

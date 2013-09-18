@@ -27,10 +27,13 @@
 			timebase-frequency = <0>;
 			bus-frequency = <0>;
 			clock-frequency = <0>;
-			cpufreq_tbl = < 800000
-				664000
-				400000
-				200000 >;
+			operating-points = <
+				/* kHz    uV */
+				200000  1025000
+				400000  1025000
+				664000  1050000
+				800000  1100000
+			>;
 			cpufreq_transition_latency = <150000>;
 		};
 	};
