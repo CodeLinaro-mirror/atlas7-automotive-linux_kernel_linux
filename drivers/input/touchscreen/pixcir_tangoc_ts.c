@@ -128,30 +128,30 @@ static int pixcir_ts_probe(struct i2c_client *client,
 {
 	int ret;
 	struct pixcir_ts_data *ts;
-	struct input_dev *input_dev = input_allocate_device();
+	struct input_dev *input_dev;
 	u8 addr = 0;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
-		return -EIO;
+		return -ENODEV;
 
-	if (!client->irq) {
-		dev_err(&client->dev, "no IRQ?\n");
-		return -EINVAL;
-	}
 	ts = devm_kzalloc(&client->dev, sizeof(*ts), GFP_KERNEL);
 	if (!ts) {
-		ret = -ENOMEM;
-		goto err_free_mem;
+		return -ENOMEM;
 	}
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
+
+	input_dev = input_allocate_device();
 	if (!input_dev) {
 		ret = -ENOMEM;
 		goto err_free_mem;
 	}
+
+	/* if the client exists, this i2c transfer should be ok */
 	ret = i2c_master_send(ts->client, &addr, 1);
 	if (ret != 1)
 		goto err_free_mem;
+
 	i2c_set_clientdata(client, ts);
 	input_set_drvdata(input_dev, ts);
 	input_dev->name = "tangoc-touchscreen";
@@ -197,14 +197,12 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	if (ret) {
 		dev_err(&client->dev, "Unable to register %s input device\n",
 			input_dev->name);
-		goto err_free_irq;
+		goto err_free_mem;
 	}
 	device_init_wakeup(&client->dev, 1);
 
 	return 0;
 
-err_free_irq:
-	free_irq(gpio_to_irq(client->irq), ts);
 err_free_mem:
 	input_free_device(input_dev);
 	return ret;
@@ -214,8 +212,6 @@ static int pixcir_ts_remove(struct i2c_client *client)
 {
 	struct pixcir_ts_data *ts = i2c_get_clientdata(client);
 	device_init_wakeup(&client->dev, 0);
-	free_irq(gpio_to_irq(client->irq), ts);
-
 	input_unregister_device(ts->input_dev);
 	return 0;
 }
