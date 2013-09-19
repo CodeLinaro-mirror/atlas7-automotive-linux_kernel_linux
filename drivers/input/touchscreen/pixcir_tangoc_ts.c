@@ -1,23 +1,19 @@
 /*
-* PIXCIR-TangoC 5 points touch controller Driver
+* Pixcir Tango C series 5 points touch controller Driver
 *
-* Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+* Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
 *
 * Licensed under GPLv2 or later.
 */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
-#include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/types.h>
-#include <linux/uaccess.h>
 
 #define TOUCHSCREEN_MINX 0
 #define TOUCHSCREEN_MAXX 1024
@@ -138,9 +134,8 @@ static int pixcir_ts_probe(struct i2c_client *client,
 		return -ENODEV;
 
 	ts = devm_kzalloc(&client->dev, sizeof(*ts), GFP_KERNEL);
-	if (!ts) {
+	if (!ts)
 		return -ENOMEM;
-	}
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
 
@@ -244,4 +239,4 @@ module_i2c_driver(pixcir_ts_driver);
 
 MODULE_AUTHOR("Lisai Wang <Lisai.Wang@csr.com>, Guoying Zhang <Guoying.Zhang@csr.com>");
 MODULE_DESCRIPTION("PIXCIR-TangoC 5 points touch controller Driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
