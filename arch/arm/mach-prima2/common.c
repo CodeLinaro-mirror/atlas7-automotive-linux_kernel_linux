@@ -41,8 +41,7 @@ static void __init sirfsoc_init_late(void)
 static __init void sirfsoc_init_time(void)
 {
 	/* initialize clocking early, we want to set the OS timer */
-	sirfsoc_prima2_of_clk_init();
-	sirfsoc_atlas6_of_clk_init();
+	sirfsoc_of_clk_init();
 	clocksource_of_init();
 }
 

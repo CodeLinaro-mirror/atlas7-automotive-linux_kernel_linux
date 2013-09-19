@@ -1,22 +1,10 @@
 /*
- * Clock tree for CSR SiRFprimaII
+ * common clks module for all SiRF SoCs
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
  * Licensed under GPLv2 or later.
  */
-
-#include <linux/module.h>
-#include <linux/bitops.h>
-#include <linux/io.h>
-#include <linux/clk.h>
-#include <linux/clk-private.h>
-#include <linux/clkdev.h>
-#include <linux/clk-provider.h>
-#include <linux/of_address.h>
-#include <linux/syscore_ops.h>
-
-static void *sirfsoc_clk_vbase, *sirfsoc_rsc_vbase;
 
 #define KHZ     1000
 #define MHZ     (KHZ * KHZ)
@@ -1024,9 +1012,4 @@ static struct clk_std clk_usb1 = {
 	},
 };
 
-static struct of_device_id rsc_ids[] = {
-	{ .compatible = "sirf,prima2-rsc" },
-	{},
-};
 
-static struct clk_onecell_data clk_data;
