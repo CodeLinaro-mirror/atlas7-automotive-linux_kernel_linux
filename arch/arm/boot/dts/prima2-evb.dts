@@ -113,7 +113,7 @@
 					reg = <0xf0>;
 				};
 				tangoc-ts@5c{
-					compatible = "sirf,tangoc-ts";
+					compatible = "pixcir,tangoc-ts";
 					interrupts = <34>;
 					reg = <0x5c>;
 				};
