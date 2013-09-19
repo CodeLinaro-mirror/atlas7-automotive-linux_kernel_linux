@@ -225,7 +225,7 @@ static const struct i2c_device_id pixcir_ts_id[] = {
 	{ }
 };
 
-MODULE_DEVICE_TABLE(i2c, st1572_ts_id);
+MODULE_DEVICE_TABLE(i2c, pixcir_ts_id);
 
 static struct i2c_driver pixcir_ts_driver = {
 	.driver = {
