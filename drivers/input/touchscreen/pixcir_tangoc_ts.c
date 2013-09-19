@@ -11,6 +11,7 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
@@ -40,6 +41,7 @@ struct pixcir_ts_touch_data {
 struct pixcir_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	unsigned int touch_pin;
 	struct pixcir_ts_touch_data touch_data;
 };
 
@@ -104,7 +106,7 @@ static int pixcir_ts_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 
 	if (device_may_wakeup(&client->dev))
-		enable_irq_wake(gpio_to_irq(client->irq));
+		enable_irq_wake(client->irq);
 
 	return 0;
 }
@@ -114,7 +116,7 @@ static int pixcir_ts_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 
 	if (device_may_wakeup(&client->dev))
-		disable_irq_wake(gpio_to_irq(client->irq));
+		disable_irq_wake(client->irq);
 
 	return 0;
 }
@@ -126,10 +128,11 @@ static SIMPLE_DEV_PM_OPS(pixcir_dev_pm_ops,
 static int pixcir_ts_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	int ret;
 	struct pixcir_ts_data *ts;
 	struct input_dev *input_dev;
-	u8 addr = 0;
+	struct device_node *np = client->dev.of_node;
+	u8 tmp = 0;
+	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
@@ -141,6 +144,13 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
 
+	ts->touch_pin = of_get_named_gpio(np, "touch-gpio", 0);
+	if (!gpio_is_valid(ts->touch_pin)) {
+		dev_err(&client->dev, "invalid touch_pin supplied\n");
+		return -EINVAL;
+	}
+	client->irq = gpio_to_irq(ts->touch_pin);
+
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		ret = -ENOMEM;
@@ -148,7 +158,7 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	}
 
 	/* if the client exists, this i2c transfer should be ok */
-	ret = i2c_master_send(ts->client, &addr, 1);
+	ret = i2c_master_send(ts->client, &tmp, 1);
 	if (ret != 1)
 		goto err_free_mem;
 
@@ -176,21 +186,15 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID,
 			0, TRACKING_ID_MAX, 0, 0);
 
-	ret = gpio_request(client->irq, "pixcir_tangoc");
-	if (ret < 0)
-		dev_err(&client->dev, "ERROR = %d\n", ret);
-	gpio_direction_input(client->irq);
-
-	if (client->irq)
-		ret = devm_request_threaded_irq(&client->dev,
-				gpio_to_irq(client->irq),
-				NULL, pixcir_ts_irq_handler,
-				IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
-				client->name, ts);
-		if (ret) {
-			dev_err(&client->dev, "\nFailed to register interrupt\n");
-			goto err_free_mem;
-		}
+	ret = devm_request_threaded_irq(&client->dev,
+		client->irq,
+		NULL, pixcir_ts_irq_handler,
+		IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
+		client->name, ts);
+	if (ret) {
+		dev_err(&client->dev, "\nFailed to register interrupt\n");
+		goto err_free_mem;
+	}
 
 	ts->input_dev = input_dev;
 	ret = input_register_device(ts->input_dev);
