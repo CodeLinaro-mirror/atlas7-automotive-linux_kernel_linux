@@ -146,16 +146,14 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	}
 	client->irq = gpio_to_irq(ts->touch_pin);
 
-	input_dev = input_allocate_device();
-	if (!input_dev) {
-		ret = -ENOMEM;
-		goto err_free_mem;
-	}
+	input_dev = devm_input_allocate_device(&client->dev);
+	if (!input_dev)
+		return -ENOMEM;
 
 	/* if the client exists, this i2c transfer should be ok */
 	ret = i2c_master_send(ts->client, &tmp, 1);
 	if (ret != 1)
-		goto err_free_mem;
+		return -ENODEV;
 
 	i2c_set_clientdata(client, ts);
 	input_set_drvdata(input_dev, ts);
@@ -188,7 +186,7 @@ static int pixcir_ts_probe(struct i2c_client *client,
 		client->name, ts);
 	if (ret) {
 		dev_err(&client->dev, "\nFailed to register interrupt\n");
-		goto err_free_mem;
+		return ret;
 	}
 
 	ts->input_dev = input_dev;
@@ -196,22 +194,16 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	if (ret) {
 		dev_err(&client->dev, "Unable to register %s input device\n",
 			input_dev->name);
-		goto err_free_mem;
+		return ret;
 	}
 	device_init_wakeup(&client->dev, 1);
 
 	return 0;
-
-err_free_mem:
-	input_free_device(input_dev);
-	return ret;
 }
 
 static int pixcir_ts_remove(struct i2c_client *client)
 {
-	struct pixcir_ts_data *ts = i2c_get_clientdata(client);
 	device_init_wakeup(&client->dev, 0);
-	input_unregister_device(ts->input_dev);
 	return 0;
 }
 
