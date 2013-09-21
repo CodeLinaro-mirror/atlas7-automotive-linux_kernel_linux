@@ -149,6 +149,7 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	input_dev = devm_input_allocate_device(&client->dev);
 	if (!input_dev)
 		return -ENOMEM;
+	ts->input_dev = input_dev;
 
 	/* if the client exists, this i2c transfer should be ok */
 	ret = i2c_master_send(ts->client, &tmp, 1);
@@ -189,13 +190,13 @@ static int pixcir_ts_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	ts->input_dev = input_dev;
 	ret = input_register_device(ts->input_dev);
 	if (ret) {
 		dev_err(&client->dev, "Unable to register %s input device\n",
 			input_dev->name);
 		return ret;
 	}
+
 	device_init_wakeup(&client->dev, 1);
 
 	return 0;
