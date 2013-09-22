@@ -50,11 +50,7 @@ static unsigned int sirfsoc_wdt_gettimeleft(struct watchdog_device *wdd)
 	match = readl(wdt_base +
 		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
 
-	if (match >= counter)
-		time_left = match-counter;
-	else
-		/* rollover */
-		time_left = (0xffffffffUL - counter) + match;
+	time_left = match - counter;
 
 	return time_left / CLOCK_TICK_RATE;
 }
@@ -73,11 +69,7 @@ static int sirfsoc_wdt_updatetimeout(struct watchdog_device *wdd)
 	/* Set the TO value */
 	counter = readl(wdt_base + SIRFSOC_TIMER_LATCHED_LO);
 
-	if ((0xffffffffUL - counter) >= timeout_ticks)
-		counter += timeout_ticks;
-	else
-		/* Rollover */
-		counter = timeout_ticks - (0xffffffffUL - counter);
+	counter += timeout_ticks;
 
 	writel(counter, wdt_base +
 		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
@@ -225,7 +217,7 @@ static const struct dev_pm_ops sirfsoc_wdt_pm_ops = {
 };
 
 static const struct of_device_id sirfsoc_wdt_of_match[] = {
-	{ .compatible = "sirf,prima2-wdt"},
+	{ .compatible = "sirf,prima2-tick"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_wdt_of_match);
