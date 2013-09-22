@@ -110,7 +110,6 @@
 				interrupts = <30>;
 				clocks = <&clks 34>;
 				display=<&display>;
-				default-panel = <&panel0>;
 				resets = <&rstc 5>;
 				power-vcc  = <0x000d0008>;
 				power-vdd  = <0x000b0006>;
