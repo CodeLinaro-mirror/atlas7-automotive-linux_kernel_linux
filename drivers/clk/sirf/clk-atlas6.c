@@ -135,6 +135,4 @@ void __init atlas6_clk_init(void)
 
 	clk_data.clks = atlas6_clks;
 	clk_data.clk_num = maxclk;
-
-	printk("%s\n", __func__);
 }
