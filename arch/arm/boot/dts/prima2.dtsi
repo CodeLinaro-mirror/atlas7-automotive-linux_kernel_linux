@@ -112,8 +112,6 @@
 				interrupts = <30>;
 				clocks = <&clks 34>;
 				display = <&display>;
-				/* later transfer to pwm */
-				bl-gpios = <&gpio 7 0>;
 				vcc-gpios = <&gpio 4 0>;
 				resets = <&rstc 5>;
 				power-vdd  = <0x00180017>;
