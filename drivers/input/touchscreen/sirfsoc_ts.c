@@ -28,6 +28,7 @@
 #define PWR_WAKEEN_TSC_SHIFT 23
 #define PWR_WAKEEN_TS_SHIFT 5
 #define SIRFSOC_PWRC_TRIGGER_EN 0x8
+#define PWRC_SCRATCH_PAD11 0x40
 #define SIRFSOC_PWRC_BASE 0x3000
 
 enum sirfsoc_ts_filter {
@@ -406,6 +407,10 @@ static int sirfsoc_ts_resume(struct device *device)
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
 		| (1 << PWR_WAKEEN_TS_SHIFT),
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+
+	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(SIRFSOC_PWRC_BASE +
+		PWRC_SCRATCH_PAD11) | 0x3,
+		SIRFSOC_PWRC_BASE + PWRC_SCRATCH_PAD11);
 
 	device_reset(device);
 
