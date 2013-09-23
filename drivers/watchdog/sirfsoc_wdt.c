@@ -146,33 +146,21 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(&pdev->dev, res);
-	if (!base) {
+	if (IS_ERR(base)) {
 		dev_err(&pdev->dev, "sirfsoc wdt: could not remap the mem\n");
-		ret = -EADDRNOTAVAIL;
-		goto out;
+		return PTR_ERR(base);
 	}
+
 	watchdog_set_drvdata(&sirfsoc_wdd, base);
 
 	watchdog_init_timeout(&sirfsoc_wdd, timeout, &pdev->dev);
 	watchdog_set_nowayout(&sirfsoc_wdd, nowayout);
 
 	ret = watchdog_register_device(&sirfsoc_wdd);
-	if (!!ret)
-		goto out;
+	if (ret)
+		return ret;
 
 	platform_set_drvdata(pdev, &sirfsoc_wdd);
-
-	return 0;
-
-out:
-	return ret;
-}
-
-static int sirfsoc_wdt_remove(struct platform_device *pdev)
-{
-	struct watchdog_device *wdd = platform_get_drvdata(pdev);
-
-	sirfsoc_wdt_disable(wdd);
 
 	return 0;
 }
@@ -182,6 +170,12 @@ static void sirfsoc_wdt_shutdown(struct platform_device *pdev)
 	struct watchdog_device *wdd = platform_get_drvdata(pdev);
 
 	sirfsoc_wdt_disable(wdd);
+}
+
+static int sirfsoc_wdt_remove(struct platform_device *pdev)
+{
+	sirfsoc_wdt_shutdown(pdev);
+	return 0;
 }
 
 #ifdef	CONFIG_PM
@@ -210,10 +204,8 @@ static int sirfsoc_wdt_resume(struct device *dev)
 #define	sirfsoc_wdt_resume		NULL
 #endif
 
-static const struct dev_pm_ops sirfsoc_wdt_pm_ops = {
-	.suspend = sirfsoc_wdt_suspend,
-	.resume = sirfsoc_wdt_resume,
-};
+static SIMPLE_DEV_PM_OPS(sirfsoc_wdt_pm_ops,
+		sirfsoc_wdt_suspend, sirfsoc_wdt_resume);
 
 static const struct of_device_id sirfsoc_wdt_of_match[] = {
 	{ .compatible = "sirf,prima2-tick"},
@@ -225,9 +217,7 @@ static struct platform_driver sirfsoc_wdt_driver = {
 	.driver = {
 		.name = "sirfsoc-wdt",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
 		.pm = &sirfsoc_wdt_pm_ops,
-#endif
 		.of_match_table	= of_match_ptr(sirfsoc_wdt_of_match),
 	},
 	.probe = sirfsoc_wdt_probe,
