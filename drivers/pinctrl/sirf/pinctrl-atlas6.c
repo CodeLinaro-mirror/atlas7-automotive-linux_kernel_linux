@@ -122,6 +122,9 @@ static const struct pinctrl_pin_desc sirfsoc_pads[] = {
 	PINCTRL_PIN(100, "ac97_dout"),
 	PINCTRL_PIN(101, "ac97_din"),
 	PINCTRL_PIN(102, "x_rtc_io"),
+
+	PINCTRL_PIN(103, "x_usb1_dp"),
+	PINCTRL_PIN(104, "x_usb1_dn"),
 };
 
 static const struct sirfsoc_muxmask lcd_16bits_sirfsoc_muxmask[] = {
@@ -840,6 +843,24 @@ static const struct sirfsoc_padmux usb1_utmi_drvbus_padmux = {
 
 static const unsigned usb1_utmi_drvbus_pins[] = { 28 };
 
+static const struct sirfsoc_padmux usb1_dp_dn_padmux = {
+	.muxmask_counts = 0,
+	.ctrlreg = SIRFSOC_RSC_USB_UART_SHARE,
+	.funcmask = BIT(2),
+	.funcval = BIT(2),
+};
+
+static const unsigned usb1_dp_dn_pins[] = { 103, 104 };
+
+static const struct sirfsoc_padmux uart1_route_io_usb1_padmux = {
+	.muxmask_counts = 0,
+	.ctrlreg = SIRFSOC_RSC_USB_UART_SHARE,
+	.funcmask = BIT(2),
+	.funcval = 0,
+};
+
+static const unsigned uart1_route_io_usb1_pins[] = { 103, 104 };
+
 static const struct sirfsoc_muxmask pulse_count_muxmask[] = {
 	{
 		.group = 0,
@@ -888,6 +909,8 @@ static const struct sirfsoc_pin_group sirfsoc_pin_groups[] = {
 	SIRFSOC_PIN_GROUP("sdmmc5grp", sdmmc5_pins),
 	SIRFSOC_PIN_GROUP("usb0_upli_drvbusgrp", usb0_upli_drvbus_pins),
 	SIRFSOC_PIN_GROUP("usb1_utmi_drvbusgrp", usb1_utmi_drvbus_pins),
+	SIRFSOC_PIN_GROUP("usb1_dp_dngrp", usb1_dp_dn_pins),
+	SIRFSOC_PIN_GROUP("uart1_route_io_usb1grp", uart1_route_io_usb1_pins),
 	SIRFSOC_PIN_GROUP("pulse_countgrp", pulse_count_pins),
 	SIRFSOC_PIN_GROUP("i2sgrp", i2s_pins),
 	SIRFSOC_PIN_GROUP("i2s_no_dingrp", i2s_no_din_pins),
@@ -932,6 +955,8 @@ static const char * const sdmmc5grp[] = { "sdmmc5grp" };
 static const char * const sdmmc2_nowpgrp[] = { "sdmmc2_nowpgrp" };
 static const char * const usb0_upli_drvbusgrp[] = { "usb0_upli_drvbusgrp" };
 static const char * const usb1_utmi_drvbusgrp[] = { "usb1_utmi_drvbusgrp" };
+static const char * const usb1_dp_dngrp[] = { "usb1_dp_dngrp" };
+static const char * const uart1_route_io_usb1grp[] = { "uart1_route_io_usb1grp" };
 static const char * const pulse_countgrp[] = { "pulse_countgrp" };
 static const char * const i2sgrp[] = { "i2sgrp" };
 static const char * const i2s_no_dingrp[] = { "i2s_no_dingrp" };
@@ -978,6 +1003,8 @@ static const struct sirfsoc_pmx_func sirfsoc_pmx_functions[] = {
 	SIRFSOC_PMX_FUNCTION("sdmmc2_nowp", sdmmc2_nowpgrp, sdmmc2_nowp_padmux),
 	SIRFSOC_PMX_FUNCTION("usb0_upli_drvbus", usb0_upli_drvbusgrp, usb0_upli_drvbus_padmux),
 	SIRFSOC_PMX_FUNCTION("usb1_utmi_drvbus", usb1_utmi_drvbusgrp, usb1_utmi_drvbus_padmux),
+	SIRFSOC_PMX_FUNCTION("usb1_dp_dn", usb1_dp_dngrp, usb1_dp_dn_padmux),
+	SIRFSOC_PMX_FUNCTION("uart1_route_io_usb1", uart1_route_io_usb1grp, uart1_route_io_usb1_padmux),
 	SIRFSOC_PMX_FUNCTION("pulse_count", pulse_countgrp, pulse_count_padmux),
 	SIRFSOC_PMX_FUNCTION("i2s", i2sgrp, i2s_padmux),
 	SIRFSOC_PMX_FUNCTION("i2s_no_din", i2s_no_dingrp, i2s_no_din_padmux),
