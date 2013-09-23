@@ -136,6 +136,7 @@ void __init sirfsoc_prima2_of_clk_init(void)
 	clk_register_clkdev(prima2_clks[cpu], NULL, "cpu");
 	clk_register_clkdev(prima2_clks[io],  NULL, "io");
 	clk_register_clkdev(prima2_clks[mem],  NULL, "mem");
+	clk_register_clkdev(prima2_clks[mem],  NULL, "osc");
 
 	clk_data.clks = prima2_clks;
 	clk_data.clk_num = maxclk;

@@ -137,6 +137,7 @@ void __init sirfsoc_atlas6_of_clk_init(void)
 	clk_register_clkdev(atlas6_clks[cpu], NULL, "cpu");
 	clk_register_clkdev(atlas6_clks[io],  NULL, "io");
 	clk_register_clkdev(atlas6_clks[mem],  NULL, "mem");
+	clk_register_clkdev(atlas6_clks[mem],  NULL, "osc");
 
 	clk_data.clks = atlas6_clks;
 	clk_data.clk_num = maxclk;
