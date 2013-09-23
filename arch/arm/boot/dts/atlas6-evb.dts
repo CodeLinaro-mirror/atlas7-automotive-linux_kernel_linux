@@ -197,4 +197,17 @@
 			};
 		};
 	};
+	vcore: regulator-gpio {
+		compatible = "regulator-gpio";
+		regulator-min-microvolt = <1035000>;
+		regulator-max-microvolt = <1150000>;
+		regulator-name = "vcore";
+		regulator-type = "voltage";
+
+		enable-at-boot;
+
+		states = <1035000 0x1
+			  1150000 0x0>;
+		gpios = <&gpio 102 0>;
+	};
 };
