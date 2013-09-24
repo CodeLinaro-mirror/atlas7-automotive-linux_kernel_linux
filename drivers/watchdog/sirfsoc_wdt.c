@@ -146,10 +146,8 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(base)) {
-		dev_err(&pdev->dev, "sirfsoc wdt: could not remap the mem\n");
+	if (IS_ERR(base))
 		return PTR_ERR(base);
-	}
 
 	watchdog_set_drvdata(&sirfsoc_wdd, base);
 
