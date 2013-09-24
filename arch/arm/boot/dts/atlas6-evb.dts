@@ -159,6 +159,7 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
+				avail-panels = <&panel0 &panel1>;
 				default-panel = <&panel0>;
 				/*layer enable info,default only enable layer1 */
 				layer-ctrl = <0x0000000f>;
