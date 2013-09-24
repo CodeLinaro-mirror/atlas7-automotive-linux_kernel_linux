@@ -171,11 +171,20 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
 {
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
+	u32 clk_rate, clk_div, clk_div_hi, clk_div_lo;
 
-	u32 clk_rate = clk_get_rate(susp->clk);
-	u32 clk_div = (clk_rate / (2 * rate)) - 1;
-	u32 clk_div_hi = (clk_div & 0xC00) >> 10;
-	u32 clk_div_lo = (clk_div & 0x3FF);
+	if (div_id != SIRF_USP_DIV_MCLK)
+		return -EINVAL;
+
+	clk_rate = clk_get_rate(susp->clk);
+	if (clk_rate < rate * 2) {
+		dev_err(dai->dev, "Can't get rate(%d) by need.\n", rate);
+		return -EINVAL;
+	}
+
+	clk_div = (clk_rate / (2 * rate)) - 1;
+	clk_div_hi = (clk_div & 0xC00) >> 10;
+	clk_div_lo = (clk_div & 0x3FF);
 
 	writel((clk_div_lo << 21) | readl(susp->base + USP_MODE2),
 		susp->base + USP_MODE2);
