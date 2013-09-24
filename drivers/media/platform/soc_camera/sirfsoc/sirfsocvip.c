@@ -1010,7 +1010,7 @@ static struct sirfsoc_camera_platform_data sirfsoc_platform_camera_data = {
 void  __init sirfsoc_vip_reserve_memblock(void)
 {
 	sirf_vip_phy_size = 12 * SZ_1M;
-	sirf_vip_phy_base = memblock_alloc(sirf_vip_phy_size, PAGE_SIZE);
+	sirf_vip_phy_base = memblock_alloc(sirf_vip_phy_size, SZ_1M);
 	memblock_remove(sirf_vip_phy_base, sirf_vip_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_vip_reserve_memblock);
