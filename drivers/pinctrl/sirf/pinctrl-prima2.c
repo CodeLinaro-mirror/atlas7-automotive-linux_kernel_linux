@@ -814,14 +814,23 @@ static const struct sirfsoc_padmux usb1_utmi_drvbus_padmux = {
 
 static const unsigned usb1_utmi_drvbus_pins[] = { 59 };
 
-static const struct sirfsoc_padmux usb1_mode_sel_padmux = {
+static const struct sirfsoc_padmux usb1_dp_dn_padmux = {
 	.muxmask_counts = 0,
 	.ctrlreg = SIRFSOC_RSC_USB_UART_SHARE,
 	.funcmask = BIT(2),
 	.funcval = BIT(2),
 };
 
-static const unsigned usb1_mode_sel_pins[] = { 115, 116 };
+static const unsigned usb1_dp_dn_pins[] = { 115, 116 };
+
+static const struct sirfsoc_padmux uart1_route_io_usb1_padmux = {
+	.muxmask_counts = 0,
+	.ctrlreg = SIRFSOC_RSC_USB_UART_SHARE,
+	.funcmask = BIT(2),
+	.funcval = 0,
+};
+
+static const unsigned uart1_route_io_usb1_pins[] = { 115, 116 };
 
 static const struct sirfsoc_muxmask pulse_count_muxmask[] = {
 	{
@@ -875,7 +884,8 @@ static const struct sirfsoc_pin_group sirfsoc_pin_groups[] = {
 	SIRFSOC_PIN_GROUP("sdmmc5grp", sdmmc5_pins),
 	SIRFSOC_PIN_GROUP("usb0_utmi_drvbusgrp", usb0_utmi_drvbus_pins),
 	SIRFSOC_PIN_GROUP("usb1_utmi_drvbusgrp", usb1_utmi_drvbus_pins),
-	SIRFSOC_PIN_GROUP("usb1_model_selgrp", usb1_mode_sel_pins),
+	SIRFSOC_PIN_GROUP("usb1_dp_dngrp", usb1_dp_dn_pins),
+	SIRFSOC_PIN_GROUP("uart1_route_io_usb1grp", uart1_route_io_usb1_pins),
 	SIRFSOC_PIN_GROUP("pulse_countgrp", pulse_count_pins),
 	SIRFSOC_PIN_GROUP("i2sgrp", i2s_pins),
 	SIRFSOC_PIN_GROUP("ac97grp", ac97_pins),
@@ -922,7 +932,8 @@ static const char * const sdmmc4grp[] = { "sdmmc4grp" };
 static const char * const sdmmc5grp[] = { "sdmmc5grp" };
 static const char * const usb0_utmi_drvbusgrp[] = { "usb0_utmi_drvbusgrp" };
 static const char * const usb1_utmi_drvbusgrp[] = { "usb1_utmi_drvbusgrp" };
-static const char * const usb1_mode_selgrp[] = { "usb1_mode_selgrp" };
+static const char * const usb1_dp_dngrp[] = { "usb1_dp_dngrp" };
+static const char * const uart1_route_io_usb1grp[] = { "uart1_route_io_usb1grp" };
 static const char * const pulse_countgrp[] = { "pulse_countgrp" };
 static const char * const i2sgrp[] = { "i2sgrp" };
 static const char * const ac97grp[] = { "ac97grp" };
@@ -969,7 +980,8 @@ static const struct sirfsoc_pmx_func sirfsoc_pmx_functions[] = {
 	SIRFSOC_PMX_FUNCTION("sdmmc5", sdmmc5grp, sdmmc5_padmux),
 	SIRFSOC_PMX_FUNCTION("usb0_utmi_drvbus", usb0_utmi_drvbusgrp, usb0_utmi_drvbus_padmux),
 	SIRFSOC_PMX_FUNCTION("usb1_utmi_drvbus", usb1_utmi_drvbusgrp, usb1_utmi_drvbus_padmux),
-	SIRFSOC_PMX_FUNCTION("usb1_mode_sel", usb1_mode_selgrp, usb1_mode_sel_padmux),
+	SIRFSOC_PMX_FUNCTION("usb1_dp_dn", usb1_dp_dngrp, usb1_dp_dn_padmux),
+	SIRFSOC_PMX_FUNCTION("uart1_route_io_usb1", uart1_route_io_usb1grp, uart1_route_io_usb1_padmux),
 	SIRFSOC_PMX_FUNCTION("pulse_count", pulse_countgrp, pulse_count_padmux),
 	SIRFSOC_PMX_FUNCTION("i2s", i2sgrp, i2s_padmux),
 	SIRFSOC_PMX_FUNCTION("ac97", ac97grp, ac97_padmux),
