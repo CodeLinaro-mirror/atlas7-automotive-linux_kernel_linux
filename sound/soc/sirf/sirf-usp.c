@@ -112,21 +112,24 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 {
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
 	u32 val = readl(susp->base + USP_MODE2);
+	u32 val1 = readl(susp->base + USP_MODE1);
 
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		dev_info(dai->dev, "USP master mode is not supported.\n");
-		return -EINVAL;
+		val1 &= ~USP_CLOCK_MODE_SLAVE;
+		val &= ~USP_TFS_CLK_SLAVE_MODE;
+		val &= ~USP_RFS_CLK_SLAVE_MODE;
+		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		writel(readl(susp->base + USP_MODE1)
-			| USP_CLOCK_MODE_SLAVE, susp->base + USP_MODE1);
-		val |= (USP_TFS_CLK_SLAVE_MODE);
-		val |= (USP_RFS_CLK_SLAVE_MODE);
+		val1 |= USP_CLOCK_MODE_SLAVE;
+		val |= USP_TFS_CLK_SLAVE_MODE;
+		val |= USP_RFS_CLK_SLAVE_MODE;
 		break;
 	default:
 		return -EINVAL;
 	}
+	writel(val1, susp->base + USP_MODE1);
 	writel(val, susp->base + USP_MODE2);
 
 	return 0;
