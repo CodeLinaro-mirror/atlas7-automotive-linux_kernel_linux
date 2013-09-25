@@ -427,7 +427,10 @@ static void rearview_init(void)
 
 	blt_params.dst.width = info->var.xres;
 	blt_params.dst.height = info->var.yres;
-	blt_params.dst.fmt = FORMAT_RGB_565;
+	if (info->var.bits_per_pixel == 16)
+		blt_params.dst.fmt = FORMAT_RGB_565;
+	else if (info->var.bits_per_pixel == 32)
+		blt_params.dst.fmt = FORMAT_BGRA_8888;
 	blt_params.dst.rect.left = 0;
 	blt_params.dst.rect.top = 0;
 	blt_params.dst.rect.right = info->var.xres;
