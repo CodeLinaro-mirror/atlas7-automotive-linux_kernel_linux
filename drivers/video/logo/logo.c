@@ -102,8 +102,11 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		logo = &logo_m32r_clut224;
 #endif
 #ifdef CONFIG_LOGO_SIRF_CLUT224
-		if(of_machine_is_compatible("sirf,prima2")) {
-			logo = &logo_prima2_clut224;
+		if (of_machine_is_compatible("sirf,prima2")) {
+			if (of_machine_is_compatible("sirf,prima2-wsvga"))
+				logo = &logo_prima2_wsvga_clut224;
+			else
+				logo = &logo_prima2_clut224;
 		} else {
 			logo = &logo_atlas6_clut224;
 		}

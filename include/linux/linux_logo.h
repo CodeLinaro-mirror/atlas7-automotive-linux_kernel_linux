@@ -48,6 +48,7 @@ extern const struct linux_logo logo_superh_clut224;
 extern const struct linux_logo logo_m32r_clut224;
 extern const struct linux_logo logo_spe_clut224;
 extern const struct linux_logo logo_prima2_clut224;
+extern const struct linux_logo logo_prima2_wsvga_clut224;
 extern const struct linux_logo logo_atlas6_clut224;
 
 extern const struct linux_logo *fb_find_logo(int depth);
