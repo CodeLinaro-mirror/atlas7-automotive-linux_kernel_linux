@@ -128,7 +128,6 @@
                                 compatible = "sirf,prima2-tsc";
                                 interrupts = <33>;
                                 reset-bit = <32>;
-                                default-parameter = <&touch>;
                         };
 		};
                 disp-iobg {
