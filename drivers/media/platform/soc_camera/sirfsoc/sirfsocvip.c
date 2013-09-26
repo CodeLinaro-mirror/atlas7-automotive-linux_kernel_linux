@@ -33,6 +33,7 @@
 #include <linux/dmaengine.h>
 #include <linux/sirfsoc_dma.h>
 #include <linux/slab.h>
+#include <linux/pm_qos.h>
 
 #include <asm/dma.h>
 
@@ -67,6 +68,8 @@ static struct sirfsoc_decoder_ops *rearview_decoder_ops;
 static phys_addr_t sirf_vip_phy_base;
 static phys_addr_t sirf_vip_phy_size;
 static int brestart;
+
+static struct pm_qos_request qos_cpufreq_min_req;
 
 static inline int need_launch_rearview(void)
 {
@@ -366,6 +369,8 @@ static int sirfsoc_camera_activate(struct sirfsoc_camera_dev *pcdev)
 	int ret;
 
 	clk_prepare_enable(pcdev->clk);
+	pm_qos_update_request(&qos_cpufreq_min_req,
+		PM_QOS_CPU_FREQ_MAX_DEFAULT_VALUE);
 
 	if (pcdev->pdata && pcdev->pdata->init) {
 		dev_dbg(pcdev->dev, "%s: camera init\n", __func__);
@@ -420,6 +425,7 @@ static void sirfsoc_camera_deactivate(struct sirfsoc_camera_dev *pcdev)
 		pcdev->pdata->release(pcdev->dev);
 
 	clk_disable_unprepare(pcdev->clk);
+	pm_qos_update_request(&qos_cpufreq_min_req, PM_QOS_DEFAULT_VALUE);
 }
 
 /* The following two functions absolutely depend on the fact, that
@@ -1207,6 +1213,8 @@ exit:
 
 static int sirfsoc_camera_probe(struct platform_device *pdev)
 {
+	pm_qos_add_request(&qos_cpufreq_min_req, PM_QOS_CPU_FREQ_MIN,
+			PM_QOS_DEFAULT_VALUE);
 	async_schedule(sirfsoc_camera_probe_async, pdev);
 	return 0;
 }
@@ -1217,6 +1225,8 @@ static int sirfsoc_camera_remove(struct platform_device *pdev)
 	struct sirfsoc_camera_dev *pcdev = soc_host->priv;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
+
+	pm_qos_remove_request(&qos_cpufreq_min_req);
 
 	if (rearview_task) {
 		kthread_stop(rearview_task);
