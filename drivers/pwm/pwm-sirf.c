@@ -433,6 +433,15 @@ static int sirf_pwm_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+	struct pwm_device *pwm = NULL;
+	unsigned int i;
+
+	for (i = 0; i < spwm->chip.npwm; i++) {
+		pwm = &spwm->chip.pwms[i];
+		if (pwm->label)
+			sirf_pwm_disable(&spwm->chip, pwm);
+	}
+
 	clk_disable_unprepare(spwm->clk);
 	return 0;
 }
@@ -441,7 +450,17 @@ static int sirf_pwm_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+	struct pwm_device *pwm = NULL;
+	unsigned int i;
+
 	clk_prepare_enable(spwm->clk);
+
+	for (i = 0; i < spwm->chip.npwm; i++) {
+		pwm = &spwm->chip.pwms[i];
+		if (pwm->label)
+			sirf_pwm_enable(&spwm->chip, pwm);
+	}
+
 	return 0;
 }
 #else
