@@ -162,9 +162,8 @@ struct sirfsoc_spi {
 	dma_addr_t dst_start;
 	void *dummypage;
 	int word_width; /* in bytes */
-
-	int chipselect[0];
 	bool	tx_by_cmd;
+	int chipselect[0];
 };
 
 static void spi_sirfsoc_rx_word_u8(struct sirfsoc_spi *sspi)
@@ -627,12 +626,6 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
 
-	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		ret = -ENODEV;
-		goto free_master;
-	}
 	master->num_chipselect = num_cs;
 
 	for (i = 0; i < master->num_chipselect; i++) {
@@ -659,6 +652,7 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 		}
 	}
 
+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sspi->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (IS_ERR(sspi->base)) {
 		ret = PTR_ERR(sspi->base);
@@ -682,6 +676,8 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	sspi->bitbang.master->setup = spi_sirfsoc_setup;
 	master->bus_num = pdev->id;
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST | SPI_CS_HIGH;
+	master->bits_per_word_mask = SPI_BPW_MASK(8) | SPI_BPW_MASK(12) |
+					SPI_BPW_MASK(16) | SPI_BPW_MASK(32);
 	sspi->bitbang.master->dev.of_node = pdev->dev.of_node;
 
 	/* request DMA channels */
@@ -692,12 +688,14 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 		(void *)rx_dma_ch);
 	if (!sspi->rx_chan) {
 		dev_err(&pdev->dev, "can not allocate rx dma channel\n");
+		ret = -ENODEV;
 		goto free_master;
 	}
 	sspi->tx_chan = dma_request_channel(dma_cap_mask, (dma_filter_fn)sirfsoc_dma_filter_id,
 		(void *)tx_dma_ch);
 	if (!sspi->tx_chan) {
 		dev_err(&pdev->dev, "can not allocate tx dma channel\n");
+		ret = -ENODEV;
 		goto free_rx_dma;
 	}
 
@@ -720,8 +718,10 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	writel(0, sspi->base + SIRFSOC_SPI_DUMMY_DELAY_CTL);
 
 	sspi->dummypage = kmalloc(2 * PAGE_SIZE, GFP_KERNEL);
-	if (!sspi->dummypage)
+	if (!sspi->dummypage) {
+		ret = -ENOMEM;
 		goto free_clk;
+	}
 
 	ret = spi_bitbang_start(&sspi->bitbang);
 	if (ret)
@@ -771,8 +771,7 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int spi_sirfsoc_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct spi_master *master = platform_get_drvdata(pdev);
+	struct spi_master *master = dev_get_drvdata(dev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
 	clk_disable(sspi->clk);
@@ -781,8 +780,7 @@ static int spi_sirfsoc_suspend(struct device *dev)
 
 static int spi_sirfsoc_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct spi_master *master = platform_get_drvdata(pdev);
+	struct spi_master *master = dev_get_drvdata(dev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
 
 	clk_enable(sspi->clk);
