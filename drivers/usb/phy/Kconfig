@@ -205,6 +205,7 @@ config USB_MXS_PHY
 config USB_SIRF_PHY
 	tristate "SiRF USB PHY support"
 	depends on ARCH_SIRF
+	select USB_PHY
 	help
 	  Say Y here if you want to build SiRF USB OTG transciever
 	  driver in kernel (including Prima and Atlas series). This driver
