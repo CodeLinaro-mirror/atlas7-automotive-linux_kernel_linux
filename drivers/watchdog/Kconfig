@@ -391,6 +391,9 @@ config SIRFSOC_WATCHDOG
 	  Support for CSR SiRFprimaII and SiRFatlasVI watchdog. When
 	  the watchdog triggers the system will be reset.
 
+	  To compile this driver as a module, choose M here: the
+	  module will be called sirfsoc_wdt
+
 # AVR32 Architecture
 
 config AT32AP700X_WDT

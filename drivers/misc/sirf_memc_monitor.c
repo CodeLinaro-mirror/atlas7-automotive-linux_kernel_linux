@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/io.h>
 #include <linux/proc_fs.h>
@@ -22,6 +23,8 @@
 
 #define DRIVER_NAME "sirf_memc_monitor"
 #define PROC_NUMBUF 50
+#define GFXFREQ_ADAPT_MS 1000
+#define GFX_DCOUNT_REF 15000000
 
 static struct proc_dir_entry *proc_root;
 static const char proc_root_name[] = "sirf_memcmon";
@@ -36,6 +39,19 @@ static const char port_name[PORT_NUM][10] = {
 	{"SUBAXI"},
 };
 
+static void sirfsoc_memcmon_port_enable(u32 __iomem *control, int port)
+{
+	u32 control_val = ioread32(control);
+	control_val |= 1 << port;
+	iowrite32(control_val, control);
+}
+
+static void sirfsoc_memcmon_port_disable(u32 __iomem *control, int port)
+{
+	u32 control_val = ioread32(control);
+	control_val &= ~(1 << port);
+	iowrite32(control_val, control);
+}
 
 static u64 sirfsoc_memcmon_scale_read(u32 __iomem *select, u32 __iomem *reg)
 {
@@ -105,6 +121,11 @@ static void sirfsoc_bwmon_start(struct sirfsoc_memcmon *memcmon)
 	u32 control_val = ioread32(&memcmon->bw_regs->control);
 	control_val |= 0x1ff;
 	iowrite32(control_val, &memcmon->bw_regs->control);
+	if (memcmon->gfxfreq_auto) {
+		queue_delayed_work(memcmon->bw_wq,
+				&memcmon->gfxfreq_dwork,
+				msecs_to_jiffies(GFXFREQ_ADAPT_MS));
+	}
 }
 
 static void sirfsoc_bwmon_stop(struct sirfsoc_memcmon *memcmon)
@@ -223,6 +244,74 @@ static const struct file_operations sirfsoc_bwinfo_fops = {
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
+};
+
+static void sirfsoc_gfxfreq_adapt(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct sirfsoc_memcmon *memcmon = container_of(dwork,
+			struct sirfsoc_memcmon, gfxfreq_dwork);
+	unsigned long cur_rate = clk_get_rate(memcmon->gfx_clk);
+
+	sirfsoc_memcmon_port_disable(&memcmon->bw_regs->control, MONITOR_GFX);
+	sirfsoc_bwmon_get_port_info(memcmon, MONITOR_GFX);
+	if (cur_rate == memcmon->gfx_rate &&
+			memcmon->bw_info[MONITOR_GFX].rdat < GFX_DCOUNT_REF &&
+			memcmon->bw_info[MONITOR_GFX].wdat < GFX_DCOUNT_REF)
+		clk_set_rate(memcmon->gfx_clk, memcmon->gfx_rate >> 1);
+	else if ((cur_rate == memcmon->gfx_rate >> 1) &&
+			memcmon->bw_info[MONITOR_GFX].rdat > GFX_DCOUNT_REF &&
+			memcmon->bw_info[MONITOR_GFX].wdat > GFX_DCOUNT_REF)
+		clk_set_rate(memcmon->gfx_clk, memcmon->gfx_rate);
+
+	sirfsoc_memcmon_port_enable(&memcmon->bw_regs->control, MONITOR_GFX);
+
+	if (memcmon->bw_on && memcmon->gfxfreq_auto)
+		queue_delayed_work(memcmon->bw_wq, &memcmon->gfxfreq_dwork,
+			msecs_to_jiffies(GFXFREQ_ADAPT_MS));
+	else
+		clk_set_rate(memcmon->gfx_clk, memcmon->gfx_rate);
+}
+
+static ssize_t sirfsoc_gfxfreq_auto_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
+	char buffer[PROC_NUMBUF];
+	size_t len;
+
+	if (!memcmon)
+		return -ESRCH;
+	len = snprintf(buffer, sizeof(buffer), "%d\n", memcmon->gfxfreq_auto);
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static ssize_t sirfsoc_gfxfreq_auto_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
+	int gfxfreq_auto;
+
+	if (!memcmon)
+		return -ESRCH;
+
+	if (!access_ok(VERIFY_READ, buf, count))
+		goto out;
+
+	sscanf(buf, "%d", &gfxfreq_auto);
+	if (gfxfreq_auto > 0)
+		memcmon->gfxfreq_auto = 1;
+	else
+		memcmon->gfxfreq_auto = 0;
+out:
+	return count;
+}
+
+static const struct file_operations sirfsoc_gfxfreq_auto_fops = {
+	.owner		= THIS_MODULE,
+	.read		= sirfsoc_gfxfreq_auto_read,
+	.write		= sirfsoc_gfxfreq_auto_write,
+	.llseek		= generic_file_llseek,
 };
 
 static void sirfsoc_latmon_get_port_info(struct sirfsoc_memcmon *memcmon,
@@ -650,6 +739,11 @@ static struct proc_table sirfsoc_memcmon_pt[] = {
 		.fops	= &sirfsoc_bwinfo_fops,
 	},
 	{
+		.name	= "gfxfreq_auto",
+		.mode	= S_IRWXUGO,
+		.fops	= &sirfsoc_gfxfreq_auto_fops,
+	},
+	{
 		.name	= "latmon",
 		.mode	= S_IRWXUGO,
 		.fops	= &sirfsoc_latmon_fops,
@@ -703,7 +797,6 @@ static void sirfsoc_memcmon_bw_init(struct bandwidth_regs *bw_regs)
 		iowrite32(0xffff0000, &bw_regs->config_id);
 		iowrite32(0x1 << 3 | 0x1 << 12, &bw_regs->config_size);
 	}
-
 }
 
 static void sirfsoc_memcmon_lat_init(struct latency_regs *lat_regs)
@@ -897,12 +990,30 @@ static int sirfsoc_memcmon_probe(struct platform_device *pdev)
 	if (sirfsoc_memcmon_proc_init(memcmon))
 		return -ENOMEM;
 
-	return 0;
+	memcmon->bw_wq = create_workqueue("bw_wq");
+	if (!memcmon->bw_wq) {
+		dev_err(&pdev->dev, "create workqueue failed!\n");
+		return -ENOMEM;
+	}
+	INIT_DELAYED_WORK(&memcmon->gfxfreq_dwork, sirfsoc_gfxfreq_adapt);
 
+	memcmon->gfx_clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(memcmon->gfx_clk)) {
+		dev_err(&pdev->dev, "get gfx_clk failed!\n");
+		return PTR_ERR(memcmon->gfx_clk);
+	}
+	memcmon->gfx_rate = clk_get_rate(memcmon->gfx_clk);
+
+	return 0;
 }
 
 static int sirfsoc_memcmon_remove(struct platform_device *pdev)
 {
+	struct sirfsoc_memcmon *memcmon = platform_get_drvdata(pdev);
+	cancel_delayed_work_sync(&memcmon->gfxfreq_dwork);
+	destroy_workqueue(memcmon->bw_wq);
+	clk_set_rate(memcmon->gfx_clk, memcmon->gfx_rate);
+	clk_put(memcmon->gfx_clk);
 	remove_proc_subtree(proc_root_name, NULL);
 	return 0;
 }

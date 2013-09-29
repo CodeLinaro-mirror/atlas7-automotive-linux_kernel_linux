@@ -131,7 +131,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c1_pins_a>;
 				ch7102@f0 {
-					compatible = "sirf,ch7102";
+					compatible = "chrontel,ch7102";
 					hp-hdmiinput-gpios = <&gpio 0 0>;
 					reg = <0xf0>;
 				};
@@ -159,27 +159,56 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
+				avail-panels = <&panel0 &panel1>;
+				default-panel = <&panel0>;
 				/*layer enable info,default only enable layer1 */
 				layer-ctrl = <0x0000000f>;
 			};
 		};
 	};
 	display: display@0 {
-	    panels {
-		panel0: panel@0 {
-			panel-name = "Innolux TFT";
-			hactive = <800>;
-			vactive = <480>;
-			left-margin = <20>;
-			right-margin = <234>;
-			upper-margin = <3>;
-			lower-margin = <41>;
-			hsync-len = <3>;
-			vsync-len = <2>;
-			pixclock = <33264000>;
-			sync = <3>;
-			timing = <0x88>;
+		panels {
+			panel0: panel@0 {
+				panel-name = "Innolux TFT";
+				hactive = <800>;
+				vactive = <480>;
+				left-margin = <20>;
+				right-margin = <234>;
+				upper-margin = <3>;
+				lower-margin = <41>;
+				hsync-len = <3>;
+				vsync-len = <2>;
+				pixclock = <33264000>;
+				sync = <3>;
+				timing = <0x88>;
 			};
-	    };
+			panel1: panel@1 {
+				panel-name = "Innolux WSVGA";
+				hactive = <1024>;
+				vactive = <600>;
+				left-margin = <28>;
+				right-margin = <288>;
+				upper-margin = <8>;
+				lower-margin = <24>;
+				hsync-len = <4>;
+				vsync-len = <3>;
+				pixclock = <51200000>;
+				sync = <3>;
+				timing = <0xA0>;
+			};
+		};
+	};
+	vcore: regulator-gpio {
+		compatible = "regulator-gpio";
+		regulator-min-microvolt = <1035000>;
+		regulator-max-microvolt = <1150000>;
+		regulator-name = "vcore";
+		regulator-type = "voltage";
+
+		enable-at-boot;
+
+		states = <1035000 0x1
+			  1150000 0x0>;
+		gpios = <&gpio 102 0>;
 	};
 };

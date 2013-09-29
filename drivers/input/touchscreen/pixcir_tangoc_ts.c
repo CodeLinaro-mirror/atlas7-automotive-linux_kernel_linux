@@ -1,22 +1,19 @@
 /*
-* PIXCIR-TangoC 5 points touch controller Driver
+* Pixcir Tango C series 5 points touch controller Driver
 *
-* Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+* Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
 *
 * Licensed under GPLv2 or later.
 */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
-#include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/types.h>
-#include <linux/uaccess.h>
 
 #define TOUCHSCREEN_MINX 0
 #define TOUCHSCREEN_MAXX 1024
@@ -40,6 +37,7 @@ struct pixcir_ts_touch_data {
 struct pixcir_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	unsigned int touch_pin;
 	struct pixcir_ts_touch_data touch_data;
 };
 
@@ -104,7 +102,7 @@ static int pixcir_ts_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 
 	if (device_may_wakeup(&client->dev))
-		enable_irq_wake(gpio_to_irq(client->irq));
+		enable_irq_wake(client->irq);
 
 	return 0;
 }
@@ -114,7 +112,7 @@ static int pixcir_ts_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 
 	if (device_may_wakeup(&client->dev))
-		disable_irq_wake(gpio_to_irq(client->irq));
+		disable_irq_wake(client->irq);
 
 	return 0;
 }
@@ -126,32 +124,39 @@ static SIMPLE_DEV_PM_OPS(pixcir_dev_pm_ops,
 static int pixcir_ts_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	int ret;
 	struct pixcir_ts_data *ts;
-	struct input_dev *input_dev = input_allocate_device();
-	u8 addr = 0;
+	struct input_dev *input_dev;
+	struct device_node *np = client->dev.of_node;
+	u8 tmp = 0;
+	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
-		return -EIO;
+		return -ENODEV;
 
-	if (!client->irq) {
-		dev_err(&client->dev, "no IRQ?\n");
-		return -EINVAL;
-	}
 	ts = devm_kzalloc(&client->dev, sizeof(*ts), GFP_KERNEL);
-	if (!ts) {
-		ret = -ENOMEM;
-		goto err_free_mem;
-	}
+	if (!ts)
+		return -ENOMEM;
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
-	if (!input_dev) {
-		ret = -ENOMEM;
-		goto err_free_mem;
+
+	ts->touch_pin = of_get_named_gpio(np, "touch-gpio", 0);
+	if (!gpio_is_valid(ts->touch_pin)) {
+		dev_err(&client->dev, "invalid touch_pin supplied\n");
+		return -EINVAL;
 	}
-	ret = i2c_master_send(ts->client, &addr, 1);
+	gpio_direction_input(ts->touch_pin);
+	client->irq = gpio_to_irq(ts->touch_pin);
+
+	input_dev = devm_input_allocate_device(&client->dev);
+	if (!input_dev)
+		return -ENOMEM;
+	ts->input_dev = input_dev;
+
+	/* if the client exists, this i2c transfer should be ok */
+	ret = i2c_master_send(ts->client, &tmp, 1);
 	if (ret != 1)
-		goto err_free_mem;
+		return -ENODEV;
+
 	i2c_set_clientdata(client, ts);
 	input_set_drvdata(input_dev, ts);
 	input_dev->name = "tangoc-touchscreen";
@@ -176,47 +181,31 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID,
 			0, TRACKING_ID_MAX, 0, 0);
 
-	ret = gpio_request(client->irq, "pixcir_tangoc");
-	if (ret < 0)
-		dev_err(&client->dev, "ERROR = %d\n", ret);
-	gpio_direction_input(client->irq);
+	ret = devm_request_threaded_irq(&client->dev,
+		client->irq,
+		NULL, pixcir_ts_irq_handler,
+		IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
+		client->name, ts);
+	if (ret) {
+		dev_err(&client->dev, "\nFailed to register interrupt\n");
+		return ret;
+	}
 
-	if (client->irq)
-		ret = devm_request_threaded_irq(&client->dev,
-				gpio_to_irq(client->irq),
-				NULL, pixcir_ts_irq_handler,
-				IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
-				client->name, ts);
-		if (ret) {
-			dev_err(&client->dev, "\nFailed to register interrupt\n");
-			goto err_free_mem;
-		}
-
-	ts->input_dev = input_dev;
 	ret = input_register_device(ts->input_dev);
 	if (ret) {
 		dev_err(&client->dev, "Unable to register %s input device\n",
 			input_dev->name);
-		goto err_free_irq;
+		return ret;
 	}
+
 	device_init_wakeup(&client->dev, 1);
 
 	return 0;
-
-err_free_irq:
-	free_irq(gpio_to_irq(client->irq), ts);
-err_free_mem:
-	input_free_device(input_dev);
-	return ret;
 }
 
 static int pixcir_ts_remove(struct i2c_client *client)
 {
-	struct pixcir_ts_data *ts = i2c_get_clientdata(client);
 	device_init_wakeup(&client->dev, 0);
-	free_irq(gpio_to_irq(client->irq), ts);
-
-	input_unregister_device(ts->input_dev);
 	return 0;
 }
 
@@ -225,7 +214,7 @@ static const struct i2c_device_id pixcir_ts_id[] = {
 	{ }
 };
 
-MODULE_DEVICE_TABLE(i2c, st1572_ts_id);
+MODULE_DEVICE_TABLE(i2c, pixcir_ts_id);
 
 static struct i2c_driver pixcir_ts_driver = {
 	.driver = {
@@ -244,4 +233,4 @@ module_i2c_driver(pixcir_ts_driver);
 
 MODULE_AUTHOR("Lisai Wang <Lisai.Wang@csr.com>, Guoying Zhang <Guoying.Zhang@csr.com>");
 MODULE_DESCRIPTION("PIXCIR-TangoC 5 points touch controller Driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

@@ -112,21 +112,24 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 {
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
 	u32 val = readl(susp->base + USP_MODE2);
+	u32 val1 = readl(susp->base + USP_MODE1);
 
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		dev_info(dai->dev, "USP master mode is not supported.\n");
-		return -EINVAL;
+		val1 &= ~USP_CLOCK_MODE_SLAVE;
+		val &= ~USP_TFS_CLK_SLAVE_MODE;
+		val &= ~USP_RFS_CLK_SLAVE_MODE;
+		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		writel(readl(susp->base + USP_MODE1)
-			| USP_CLOCK_MODE_SLAVE, susp->base + USP_MODE1);
-		val |= (USP_TFS_CLK_SLAVE_MODE);
-		val |= (USP_RFS_CLK_SLAVE_MODE);
+		val1 |= USP_CLOCK_MODE_SLAVE;
+		val |= USP_TFS_CLK_SLAVE_MODE;
+		val |= USP_RFS_CLK_SLAVE_MODE;
 		break;
 	default:
 		return -EINVAL;
 	}
+	writel(val1, susp->base + USP_MODE1);
 	writel(val, susp->base + USP_MODE2);
 
 	return 0;
@@ -171,11 +174,20 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
 {
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
+	u32 clk_rate, clk_div, clk_div_hi, clk_div_lo;
 
-	u32 clk_rate = clk_get_rate(susp->clk);
-	u32 clk_div = (clk_rate / (2 * rate)) - 1;
-	u32 clk_div_hi = (clk_div & 0xC00) >> 10;
-	u32 clk_div_lo = (clk_div & 0x3FF);
+	if (div_id != SIRF_USP_DIV_MCLK)
+		return -EINVAL;
+
+	clk_rate = clk_get_rate(susp->clk);
+	if (clk_rate < rate * 2) {
+		dev_err(dai->dev, "Can't get rate(%d) by need.\n", rate);
+		return -EINVAL;
+	}
+
+	clk_div = (clk_rate / (2 * rate)) - 1;
+	clk_div_hi = (clk_div & 0xC00) >> 10;
+	clk_div_lo = (clk_div & 0x3FF);
 
 	writel((clk_div_lo << 21) | readl(susp->base + USP_MODE2),
 		susp->base + USP_MODE2);

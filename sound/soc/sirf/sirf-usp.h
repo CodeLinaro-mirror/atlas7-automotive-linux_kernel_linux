@@ -273,4 +273,5 @@
 
 #define USP_TX_RX_FIFO_WIDTH_DWORD    2
 
+#define SIRF_USP_DIV_MCLK	0 
 #endif

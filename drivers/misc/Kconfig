@@ -538,6 +538,8 @@ config SIRF_MEMC_MONITOR
 config CSR_RFKILL
 	tristate "CSR Synergy for Linux platform RFKILL power on/off management"
 	depends on RFKILL_GPIO
+	select CONFIG_WIRELESS_EXT
+	select CONFIG_WEXT_PRIV
 	help
 	  This option enables CSR Synergy for Linux platfrom's Bluetooth and WLAN
 	  power on and off mangement.

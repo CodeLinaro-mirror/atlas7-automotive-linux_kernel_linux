@@ -109,16 +109,16 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c1_pins_a>;
 				ch7102@f0{
-					compatible = "sirf,ch7102";
+					compatible = "chrontel,ch7102";
 					reg = <0xf0>;
 				};
 				tangoc-ts@5c{
-					compatible = "sirf,tangoc-ts";
-					interrupts = <34>;
+					compatible = "pixcir,tangoc-ts";
+					touch-gpio = <&gpio 34 0>;
 					reg = <0x5c>;
 				};
 				ft5x06@38{
-					compatible = "sirf,ft5x06";
+					compatible = "focaltech,ft5x06";
                                         interrupts = <34>;
                                         reg = <0x38>;
                                 };
@@ -128,7 +128,6 @@
                                 compatible = "sirf,prima2-tsc";
                                 interrupts = <33>;
                                 reset-bit = <32>;
-                                default-parameter = <&touch>;
                         };
 		};
                 disp-iobg {
@@ -136,6 +135,7 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
+				avail-panels = <&panel0 &panel1>;
 				default-panel = <&panel0>;
 				/*layer enable info,default only enable layer1 */
 				layer-ctrl = <0x000000f>;
@@ -173,31 +173,6 @@
 				sync = <3>;
 				timing = <0xA0>;
 			};
-			panel2: panel@2 {
-				panel-name = "Innolux WSVGA";
-				hactive = <1024>;
-				vactive = <600>;
-				left-margin = <28>;
-				right-margin = <288>;
-				upper-margin = <8>;
-				lower-margin = <24>;
-				hsync-len = <4>;
-				vsync-len = <3>;
-				pixclock = <51200000>;
-				sync = <3>;
-				timing = <0xA0>;
-			};
 		};
 	};
-        touch: touch@0 {
-                x_min = <0x0>;
-                x_max = <0xfff>;
-                y_min = <0x0>;
-                y_max = <0xfff>;
-                debounce_rep = <0x01>;
-                debounce_max = <0x03>;
-                debounce_tol = <0x30>;
-                interval = <10>;
-        };
-
 };

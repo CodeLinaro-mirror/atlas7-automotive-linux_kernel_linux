@@ -7,7 +7,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/miscdevice.h>
 #include <linux/watchdog.h>
 #include <linux/platform_device.h>
 #include <linux/moduleparam.h>
@@ -50,11 +49,7 @@ static unsigned int sirfsoc_wdt_gettimeleft(struct watchdog_device *wdd)
 	match = readl(wdt_base +
 		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
 
-	if (match >= counter)
-		time_left = match-counter;
-	else
-		/* rollover */
-		time_left = (0xffffffffUL - counter) + match;
+	time_left = match - counter;
 
 	return time_left / CLOCK_TICK_RATE;
 }
@@ -73,11 +68,7 @@ static int sirfsoc_wdt_updatetimeout(struct watchdog_device *wdd)
 	/* Set the TO value */
 	counter = readl(wdt_base + SIRFSOC_TIMER_LATCHED_LO);
 
-	if ((0xffffffffUL - counter) >= timeout_ticks)
-		counter += timeout_ticks;
-	else
-		/* Rollover */
-		counter = timeout_ticks - (0xffffffffUL - counter);
+	counter += timeout_ticks;
 
 	writel(counter, wdt_base +
 		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
@@ -155,33 +146,19 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(&pdev->dev, res);
-	if (!base) {
-		dev_err(&pdev->dev, "sirfsoc wdt: could not remap the mem\n");
-		ret = -EADDRNOTAVAIL;
-		goto out;
-	}
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
 	watchdog_set_drvdata(&sirfsoc_wdd, base);
 
 	watchdog_init_timeout(&sirfsoc_wdd, timeout, &pdev->dev);
 	watchdog_set_nowayout(&sirfsoc_wdd, nowayout);
 
 	ret = watchdog_register_device(&sirfsoc_wdd);
-	if (!!ret)
-		goto out;
+	if (ret)
+		return ret;
 
 	platform_set_drvdata(pdev, &sirfsoc_wdd);
-
-	return 0;
-
-out:
-	return ret;
-}
-
-static int sirfsoc_wdt_remove(struct platform_device *pdev)
-{
-	struct watchdog_device *wdd = platform_get_drvdata(pdev);
-
-	sirfsoc_wdt_disable(wdd);
 
 	return 0;
 }
@@ -191,6 +168,12 @@ static void sirfsoc_wdt_shutdown(struct platform_device *pdev)
 	struct watchdog_device *wdd = platform_get_drvdata(pdev);
 
 	sirfsoc_wdt_disable(wdd);
+}
+
+static int sirfsoc_wdt_remove(struct platform_device *pdev)
+{
+	sirfsoc_wdt_shutdown(pdev);
+	return 0;
 }
 
 #ifdef	CONFIG_PM
@@ -219,13 +202,11 @@ static int sirfsoc_wdt_resume(struct device *dev)
 #define	sirfsoc_wdt_resume		NULL
 #endif
 
-static const struct dev_pm_ops sirfsoc_wdt_pm_ops = {
-	.suspend = sirfsoc_wdt_suspend,
-	.resume = sirfsoc_wdt_resume,
-};
+static SIMPLE_DEV_PM_OPS(sirfsoc_wdt_pm_ops,
+		sirfsoc_wdt_suspend, sirfsoc_wdt_resume);
 
 static const struct of_device_id sirfsoc_wdt_of_match[] = {
-	{ .compatible = "sirf,prima2-wdt"},
+	{ .compatible = "sirf,prima2-tick"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_wdt_of_match);
@@ -234,9 +215,7 @@ static struct platform_driver sirfsoc_wdt_driver = {
 	.driver = {
 		.name = "sirfsoc-wdt",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
 		.pm = &sirfsoc_wdt_pm_ops,
-#endif
 		.of_match_table	= of_match_ptr(sirfsoc_wdt_of_match),
 	},
 	.probe = sirfsoc_wdt_probe,

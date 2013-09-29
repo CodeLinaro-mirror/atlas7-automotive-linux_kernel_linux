@@ -2084,7 +2084,7 @@ err:
 void  __init sirfsoc_fb_reserve_memblock(void)
 {
 	sirf_fb_phy_size = 25 * SZ_1M;
-	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, PAGE_SIZE);
+	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, SZ_1M);
 	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);

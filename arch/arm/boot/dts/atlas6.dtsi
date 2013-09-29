@@ -27,6 +27,14 @@
 			timebase-frequency = <0>;
 			bus-frequency = <0>;
 			clock-frequency = <0>;
+			operating-points = <
+				/* kHz    uV */
+				200000  1025000
+				400000  1025000
+				600000  1050000
+				800000  1100000
+			>;
+			cpufreq_transition_latency = <150000>;
 		};
 	};
 
@@ -70,6 +78,11 @@
 				compatible = "sirf,prima2-rsc";
 				reg = <0x88020000 0x1000>;
 			};
+
+			cphifbg@88030000 {
+				compatible = "sirf,prima2-cphifbg";
+				reg = <0x88030000 0x1000>;
+			};
 		};
 
 		mem-iobg {
@@ -80,16 +93,17 @@
 
 			memory-controller@90000000 {
 				compatible = "sirf,prima2-memc";
-				reg = <0x90000000 0x10000>;
+				reg = <0x90000000 0x2000>;
 				interrupts = <27>;
 				clocks = <&clks 5>;
 			};
-		};
 
-		memc-monitor {
-			compatible = "sirf,prima2-memcmon";
-			reg = <0x90002000 0x200>;
-			interrupts = <4>;
+			memc-monitor {
+				compatible = "sirf,prima2-memcmon";
+				reg = <0x90002000 0x200>;
+				interrupts = <4>;
+				clocks = <&clks 32>;
+			};
 		};
 
 		disp-iobg {
@@ -104,7 +118,6 @@
 				interrupts = <30>;
 				clocks = <&clks 34>;
 				display=<&display>;
-				default-panel = <&panel0>;
 				resets = <&rstc 5>;
 				power-vcc  = <0x000d0008>;
 				power-vdd  = <0x000b0006>;
@@ -181,17 +194,12 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0xb0000000 0xb0000000 0x180000>,
-				<0x56000000 0x56000000 0x1b00000>;
+			       <0x56000000 0x56000000 0x1b00000>;
 
 			timer@b0020000 {
 				compatible = "sirf,prima2-tick";
 				reg = <0xb0020000 0x1000>;
 				interrupts = <0>;
-			};
-
-			wdt@b0020000 {
-				compatible = "sirf,prima2-wdt";
-				reg = <0xb0020000 0x1000>;
 			};
 
 			nand@b0030000 {

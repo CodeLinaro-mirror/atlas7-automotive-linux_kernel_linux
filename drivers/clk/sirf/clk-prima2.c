@@ -1,5 +1,24 @@
+/*
+ * Clock tree for CSR SiRFprimaII
+ *
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/module.h>
+#include <linux/bitops.h>
+#include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/clk-private.h>
+#include <linux/clkdev.h>
+#include <linux/clk-provider.h>
+#include <linux/of_address.h>
+#include <linux/syscore_ops.h>
+
+#include "clk.h"
 #include "prima2.h"
-#include "common.c"
+#include "clk-common.c"
 
 static struct clk_dmn clk_mmc01 = {
 	.regofs = SIRFSOC_CLKC_MMC_CFG,
@@ -93,35 +112,11 @@ static __initdata struct clk_hw *prima2_clk_hw_array[maxclk] = {
 	&clk_usb1.hw,
 };
 
-static struct of_device_id prima2_clkc_ids[] = {
-	{ .compatible = "sirf,prima2-clkc" },
-	{},
-};
-
 static struct clk *prima2_clks[maxclk];
 
-void __init sirfsoc_prima2_of_clk_init(void)
+void __init prima2_clk_init(void)
 {
-	struct device_node *np;
 	int i;
-
-	np = of_find_matching_node(NULL, rsc_ids);
-	if (!np)
-		panic("unable to find compatible rsc node in dtb\n");
-
-	sirfsoc_rsc_vbase = of_iomap(np, 0);
-	if (!sirfsoc_rsc_vbase)
-		panic("unable to map rsc registers\n");
-
-	of_node_put(np);
-
-	np = of_find_matching_node(NULL, prima2_clkc_ids);
-	if (!np)
-		return;
-
-	sirfsoc_clk_vbase = of_iomap(np, 0);
-	if (!sirfsoc_clk_vbase)
-		panic("unable to map clkc registers\n");
 
 	/* These are always available (RTC and 26MHz OSC)*/
 	prima2_clks[rtc] = clk_register_fixed_rate(NULL, "rtc", NULL,
@@ -136,13 +131,8 @@ void __init sirfsoc_prima2_of_clk_init(void)
 	clk_register_clkdev(prima2_clks[cpu], NULL, "cpu");
 	clk_register_clkdev(prima2_clks[io],  NULL, "io");
 	clk_register_clkdev(prima2_clks[mem],  NULL, "mem");
+	clk_register_clkdev(prima2_clks[mem],  NULL, "osc");
 
 	clk_data.clks = prima2_clks;
 	clk_data.clk_num = maxclk;
-
-	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
-
-	/* enable all clocks for testing */
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN0);
-	clkc_writel(0xFFFFFFFF, SIRFSOC_CLKC_CLK_EN1);
 }

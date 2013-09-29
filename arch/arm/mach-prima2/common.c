@@ -21,7 +21,8 @@ static void __init sirfsoc_reserve(void)
 	sirfsoc_fb_reserve_memblock();
 	sirfsoc_vip_reserve_memblock();
 	sirfsoc_nand_reserve_memblock();
-	sirfsoc_video_codec_reserve_memblock();
+	if (of_machine_is_compatible("sirf,prima2"))
+		sirfsoc_video_codec_reserve_memblock();
 }
 
 static void __init sirfsoc_init_mach(void)
@@ -40,8 +41,7 @@ static void __init sirfsoc_init_late(void)
 static __init void sirfsoc_init_time(void)
 {
 	/* initialize clocking early, we want to set the OS timer */
-	sirfsoc_prima2_of_clk_init();
-	sirfsoc_atlas6_of_clk_init();
+	sirfsoc_of_clk_init();
 	clocksource_of_init();
 }
 
