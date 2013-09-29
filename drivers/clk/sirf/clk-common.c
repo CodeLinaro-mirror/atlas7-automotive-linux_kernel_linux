@@ -9,6 +9,10 @@
 #define KHZ     1000
 #define MHZ     (KHZ * KHZ)
 
+static void *sirfsoc_clk_vbase;
+static void *sirfsoc_rsc_vbase;
+static struct clk_onecell_data clk_data;
+
 /*
  * SiRFprimaII clock controller
  * - 2 oscillators: osc-26MHz, rtc-32.768KHz
