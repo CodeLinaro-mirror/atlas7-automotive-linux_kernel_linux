@@ -453,7 +453,7 @@ static const struct dev_pm_ops sirf_pwm_pm_ops = {
 	.suspend = sirf_pwm_suspend,
 	.resume = sirf_pwm_resume,
 	.restore = sirf_pwm_resume,
-}
+};
 
 static const struct of_device_id sirf_pwm_of_match[] = {
 	{ .compatible = "sirf,prima2-pwm", },
