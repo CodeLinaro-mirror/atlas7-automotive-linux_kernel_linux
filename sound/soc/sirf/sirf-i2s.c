@@ -248,6 +248,7 @@ static struct snd_soc_dai_driver sirf_i2s_dai = {
 	},
 	.ops = &sirfsoc_i2s_dai_ops,
 };
+
 #ifdef CONFIG_PM_RUNTIME
 static int sirf_i2s_runtime_suspend(struct device *dev)
 {
@@ -269,11 +270,9 @@ static int sirf_i2s_runtime_resume(struct device *dev)
 	device_reset(dev);
 	return 0;
 }
-#else
-#define sirf_i2s_runtime_suspend NULL
-#define sirf_i2s_runtime_resume NULL
 #endif
-#ifdef CONFIG_PM
+
+#ifdef CONFIG_PM_SLEEP
 static int sirf_i2s_suspend(struct device *dev)
 {
 	struct sirf_i2s *si2s = dev_get_drvdata(dev);
@@ -300,9 +299,6 @@ static int sirf_i2s_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define sirf_i2s_suspend NULL
-#define sirf_i2s_resume NULL
 #endif
 
 static const struct snd_soc_component_driver sirf_i2s_component = {
