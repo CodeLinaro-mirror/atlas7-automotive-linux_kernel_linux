@@ -182,7 +182,7 @@ static int sirf_inner_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_inner_resume(struct device *dev)
 {
 	struct snd_soc_card *card = dev_get_drvdata(dev);
@@ -208,10 +208,6 @@ static int sirf_inner_suspend(struct device *dev)
 	gpio_direction_output(sinner_card->gpio_spk_pa, 0);
 	return 0;
 }
-
-static const struct dev_pm_ops sirf_inner_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(sirf_inner_suspend, sirf_inner_resume)
-};
 #endif
 
 static const struct of_device_id sirf_inner_of_match[] = {
@@ -220,13 +216,15 @@ static const struct of_device_id sirf_inner_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sirf_inner_of_match);
 
+static const struct dev_pm_ops sirf_inner_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_inner_suspend, sirf_inner_resume)
+};
+
 static struct platform_driver sirf_inner_driver = {
 	.driver = {
 		.name = "sirf-inner",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
 		.pm = &sirf_inner_pm_ops,
-#endif
 		.of_match_table = sirf_inner_of_match,
 	},
 	.probe = sirf_inner_probe,
