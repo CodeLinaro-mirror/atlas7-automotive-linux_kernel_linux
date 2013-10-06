@@ -296,7 +296,6 @@ static int pwm_backlight_resume(struct device *dev)
 	backlight_update_status(bl);
 	return 0;
 }
-#endif
 
 static const struct dev_pm_ops pwm_backlight_pm_ops = {
 	.suspend = pwm_backlight_suspend,
@@ -304,12 +303,15 @@ static const struct dev_pm_ops pwm_backlight_pm_ops = {
 	.poweroff = pwm_backlight_suspend,
 	.restore = pwm_backlight_resume,
 };
+#endif
 
 static struct platform_driver pwm_backlight_driver = {
 	.driver		= {
 		.name		= "pwm-backlight",
 		.owner		= THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
 		.pm		= &pwm_backlight_pm_ops,
+#endif
 		.of_match_table	= of_match_ptr(pwm_backlight_of_match),
 	},
 	.probe		= pwm_backlight_probe,
