@@ -1,5 +1,5 @@
 /*
- * SiRD pcm dma data struct
+ * SiRF pcm dma data struct
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
