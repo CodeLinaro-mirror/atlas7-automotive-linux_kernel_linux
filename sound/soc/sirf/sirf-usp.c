@@ -349,12 +349,9 @@ static int sirf_usp_pcm_runtime_resume(struct device *dev)
 	sirf_usp_controller_init(susp);
 	return 0;
 }
-#else
-#define sirf_usp_pcm_runtime_suspend NULL
-#define sirf_usp_pcm_runtime_resume NULL
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_usp_pcm_suspend(struct device *dev)
 {
 	struct sirf_usp *susp = dev_get_drvdata(dev);
@@ -378,9 +375,6 @@ static int sirf_usp_pcm_resume(struct device *dev)
 	}
 	return 0;
 }
-#else
-#define sirf_usp_pcm_suspend NULL
-#define sirf_usp_pcm_resume NULL
 #endif
 
 static const struct snd_soc_component_driver sirf_usp_component = {
