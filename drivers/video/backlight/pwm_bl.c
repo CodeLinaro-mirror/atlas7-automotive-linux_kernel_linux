@@ -299,9 +299,10 @@ static int pwm_backlight_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops pwm_backlight_pm_ops = {
-        .suspend = pwm_backlight_suspend,
-        .resume = pwm_backlight_resume,
-        .restore = pwm_backlight_resume,
+	.suspend = pwm_backlight_suspend,
+	.resume = pwm_backlight_resume,
+	.poweroff = pwm_backlight_suspend,
+	.restore = pwm_backlight_resume,
 };
 
 static struct platform_driver pwm_backlight_driver = {
