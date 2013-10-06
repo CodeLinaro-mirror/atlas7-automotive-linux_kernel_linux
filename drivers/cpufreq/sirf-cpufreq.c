@@ -179,7 +179,7 @@ static int __init sirf_cpufreq_init(void)
 
 	ret =  cpufreq_register_driver(&sirf_driver);
 	if (!ret)
-		goto out_put_node;
+		goto out_free_opp;
 
 	pr_err("failed register driver: %d\n", ret);
 	clk_put(sirf_cpufreq.cpu_clk);
