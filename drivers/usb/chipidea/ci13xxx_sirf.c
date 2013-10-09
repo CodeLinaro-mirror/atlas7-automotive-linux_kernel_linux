@@ -23,29 +23,22 @@
 #include <linux/usb/chipidea.h>
 #include "ci.h"
 
-#define RSC_USB_UART_SHARE	0x0
-#define USB1_MODE_SEL		BIT(2)
-#define pdev_to_phy(pdev)	((struct usb_phy *)platform_get_drvdata(pdev))
 #define PORTSC_PHCD		BIT(23)
 
 struct ci13xxx_sirf_data {
-	struct platform_device	*plat_ci;
+	struct platform_device	*ci13xxx_pdev;
 	struct clk		*clk;
-	struct usb_phy		*phy;
-	int			vbus;
+	int			gpio_vbus;
 };
 
-static inline int
+static inline void
 ci13xxx_sirf_drive_vbus(struct ci13xxx *ci, int value)
 {
-	struct platform_device *pdev = container_of(ci->dev->parent,
-						struct platform_device, dev);
-	struct ci13xxx_sirf_data *data = platform_get_drvdata(pdev);
+	struct ci13xxx_sirf_data *data =
+		platform_get_drvdata(to_platform_device(ci->dev->parent));
 
-	if (data->vbus)
-		return gpio_direction_output(data->vbus, value ? 0 : 1);
-
-	return 0;
+	if (gpio_is_valid(data->gpio_vbus))
+		gpio_direction_output(data->gpio_vbus, value ? 0 : 1);
 }
 
 static void ci13xxx_sirf_notify_event(struct ci13xxx *ci, unsigned event)
@@ -70,18 +63,9 @@ static struct ci13xxx_platform_data ci13xxx_sirf_platdata = {
 	.notify_event		= ci13xxx_sirf_notify_event,
 };
 
-static struct of_device_id rsc_ids[] = {
-	{ .compatible = "sirf,prima2-rsc", },
-	{ /* sentinel */ }
-};
-
 static int ci13xxx_sirf_probe(struct platform_device *pdev)
 {
-	struct platform_device *plat_ci, *phy_pdev;
-	struct device_node *rsc_np, *phy_np;
 	struct ci13xxx_sirf_data *data;
-	struct usb_phy *phy;
-	void __iomem *rsc_vbase;
 	int ret;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
@@ -112,85 +96,48 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 			"Failed to reset device, err=%d\n", ret);
 
 	/* 3. vbus configuration */
-	data->vbus = of_get_named_gpio(pdev->dev.of_node,
+	data->gpio_vbus = of_get_named_gpio(pdev->dev.of_node,
 							"vbus-gpios", 0);
-	if (data->vbus < 0) {
-		dev_info(&pdev->dev, "Can't get vbus gpio from DT\n");
-		data->vbus = 0;
-	}
-	if (data->vbus) {
-		ret = gpio_request(data->vbus, "ci13xxx_sirf");
+	if (gpio_is_valid(data->gpio_vbus))
+		ret = gpio_request(data->gpio_vbus, "ci13xxx_sirf");
 		if (ret)
 			dev_info(&pdev->dev, "Failed to get gpio control\n");
 	}
 
-	/* 4. rsc control */
-	rsc_np = of_find_matching_node(NULL, rsc_ids);
-	if (!rsc_np) {
-		dev_err(&pdev->dev, "Failed to get rsc device node\n");
-		ret = -ENODEV;
+	/* 4. set device dma mask */
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to set coherent dma mask\n");
 		goto err;
 	}
-	rsc_vbase = of_iomap(rsc_np, 0);
-	if (!rsc_vbase) {
-		dev_err(&pdev->dev, "Failed to iomap rsc memory\n");
-		ret = -ENOMEM;
-		goto err;
-	}
-	writel(readl(rsc_vbase + RSC_USB_UART_SHARE) | USB1_MODE_SEL,
-					rsc_vbase + RSC_USB_UART_SHARE);
+	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 
-	/* 5. set device dma mask */
-	if (!pdev->dev.dma_mask) {
-		pdev->dev.dma_mask = devm_kzalloc(&pdev->dev,
-				      sizeof(*pdev->dev.dma_mask), GFP_KERNEL);
-		if (!pdev->dev.dma_mask) {
-			dev_err(&pdev->dev, "Failed to alloc dma_mask!\n");
-			ret = -ENOMEM;
-			goto err;
-		}
-		*pdev->dev.dma_mask = DMA_BIT_MASK(32);
-		dma_set_coherent_mask(&pdev->dev, *pdev->dev.dma_mask);
-	}
-
-	/* 6. get phy for controller */
-	phy_np = of_parse_phandle(pdev->dev.of_node,
-					"usbphy,ci13611a-prima2", 0);
-	if (!phy_np) {
-		dev_err(&pdev->dev, "Failed to get phy device node\n");
-		ret = -ENODEV;
+	/* 5. get phy for controller */
+	ci13xxx_sirf_platdata.phy = devm_usb_get_phy_by_phandle(&pdev->dev,
+								"usbphy", 0);
+	if (IS_ERR(ci13xxx_sirf_platdata.phy)) {
+		dev_err(&pdev->dev, "Failed to get transceiver\n");
+		ret = PTR_ERR(ci13xxx_sirf_platdata.phy);
 		goto err;
 	}
-	phy_pdev = of_find_device_by_node(phy_np);
-	if (!phy_pdev) {
-		dev_err(&pdev->dev, "Failed to get phy platform device\n");
-		ret = -ENODEV;
+	ret = usb_phy_init(ci13xxx_sirf_platdata.phy);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to init transceiver\n");
 		goto err;
 	}
-	phy = pdev_to_phy(phy_pdev);
-	if (!phy || !try_module_get(phy_pdev->dev.driver->owner)) {
-		dev_err(&pdev->dev, "Failed to get phy control\n");
-		ret = -ENODEV;
-		goto err;
-	}
-	usb_phy_init(phy);
-	ci13xxx_sirf_platdata.phy = phy;
-	data->phy = phy;
 
 	/* 7. register to ci13xxx core */
-	plat_ci = ci13xxx_add_device(&pdev->dev,
+	data->ci13xxx_pdev = ci13xxx_add_device(&pdev->dev,
 				pdev->resource, pdev->num_resources,
 				&ci13xxx_sirf_platdata);
-	if (IS_ERR(plat_ci)) {
+	if (IS_ERR(data->ci13xxx_pdev)) {
 		dev_err(&pdev->dev, "ci13xxx_add_device failed!\n");
-		return PTR_ERR(plat_ci);
+		return PTR_ERR(data->ci13xxx_pdev);
 	}
-	data->plat_ci = plat_ci;
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
-	dev_info(&pdev->dev, "Ready\n");
 	return 0;
 
 err:
@@ -203,7 +150,7 @@ static int ci13xxx_sirf_remove(struct platform_device *pdev)
 	struct ci13xxx_sirf_data *data = platform_get_drvdata(pdev);
 
 	pm_runtime_disable(&pdev->dev);
-	ci13xxx_remove_device(data->plat_ci);
+	ci13xxx_remove_device(data->ci13xxx_pdev);
 
 	clk_disable_unprepare(data->clk);
 
@@ -215,12 +162,13 @@ static int ci13xxx_sirf_suspend(struct device *dev)
 {
 	struct ci13xxx_sirf_data *data =
 		platform_get_drvdata(to_platform_device(dev));
-	struct ci13xxx *ci = platform_get_drvdata(data->plat_ci);
+	struct ci13xxx *ci = platform_get_drvdata(data->ci13xxx_pdev);
+	struct ci13xxx_platform_data *platdata = ci->platdata;
 
 	hw_write(ci, OP_PORTSC, PORTSC_PHCD, 1);
 
-	if (data->phy)
-		usb_phy_set_suspend(data->phy, 1);
+	if (platdata->phy)
+		usb_phy_set_suspend(platdata->phy, 1);
 
 	clk_disable_unprepare(data->clk);
 
@@ -231,7 +179,8 @@ static int ci13xxx_sirf_resume(struct device *dev)
 {
 	struct ci13xxx_sirf_data *data =
 		platform_get_drvdata(to_platform_device(dev));
-	struct ci13xxx *ci = platform_get_drvdata(data->plat_ci);
+	struct ci13xxx *ci = platform_get_drvdata(data->ci13xxx_pdev);
+	struct ci13xxx_platform_data *platdata = ci->platdata;
 	int ret;
 
 	ret = clk_prepare_enable(data->clk);
@@ -246,8 +195,8 @@ static int ci13xxx_sirf_resume(struct device *dev)
 		mdelay(10);
 	}
 
-	if (data->phy)
-		usb_phy_set_suspend(data->phy, 0);
+	if (platdata->phy)
+		usb_phy_set_suspend(platdata->phy, 0);
 
 	return ret;
 }

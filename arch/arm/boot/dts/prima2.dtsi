@@ -795,7 +795,7 @@
 			ranges = <0xb8000000 0xb8000000 0x40000>;
 
 			usbphy0: usbphy0@b8000200 {
-				compatible = "usbphy,ci13611a-prima2";
+				compatible = "sirf,prima2-usbphy";
 				reg = <0xb8000200 0x100>;
 				clocks = <&clks 39>;
 			};
@@ -806,13 +806,13 @@
 				interrupts = <10>;
 				clocks = <&clks 40>;
 				resets = <&rstc 8>;
-				usbphy,ci13611a-prima2 = <&usbphy0>;
+				usbphy = <&usbphy0>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&usb0_utmi_drvbus_pins_a>;
 			};
 
 			usbphy1: usbphy1@b8010200 {
-				compatible = "usbphy,ci13611a-prima2";
+				compatible = "sirf,prima2-usbphy";
 				reg = <0xb8010200 0x100>;
 				clocks = <&clks 39>;
 			};
@@ -823,7 +823,7 @@
 				interrupts = <11>;
 				clocks = <&clks 41>;
 				resets = <&rstc 9>;
-				usbphy,ci13611a-prima2 = <&usbphy1>;
+				usbphy = <&usbphy1>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&usb1_utmi_drvbus_pins_a &usb1_dp_dn_pins_a>;
 			};
