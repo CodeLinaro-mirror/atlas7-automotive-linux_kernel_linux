@@ -117,8 +117,20 @@ static void sirfsoc_bwmon_get_port_info(
 
 static void sirfsoc_bwmon_start(struct sirfsoc_memcmon *memcmon)
 {
+	int i;
+	u32 control_val;
+	u32 config_size;
+	config_size = ioread32(&memcmon->bw_regs->config_size);
+	config_size &= ~(0xf | 0x1f << 8);
+	config_size |= memcmon->bw_master_size & 0xf;
+	config_size |= (memcmon->bw_master_len & 0x1f) << 8;
+	for (i = 0; i < PORT_NUM; i++) {
+		iowrite32(i, &memcmon->bw_regs->select);
+		iowrite32(0xffff0000, &memcmon->bw_regs->config_id);
+		iowrite32(config_size, &memcmon->bw_regs->config_size);
+	}
 	/* Enable all ports */
-	u32 control_val = ioread32(&memcmon->bw_regs->control);
+	control_val = ioread32(&memcmon->bw_regs->control);
 	control_val |= 0x1ff;
 	iowrite32(control_val, &memcmon->bw_regs->control);
 	if (memcmon->gfxfreq_auto) {
@@ -145,7 +157,10 @@ static ssize_t sirfsoc_bwmon_read(struct file *file,
 
 	if (!memcmon)
 		return -ESRCH;
-	len = snprintf(buffer, sizeof(buffer), "%d\n", memcmon->bw_on);
+	len = snprintf(buffer, sizeof(buffer), "%d %d %d\n",
+			memcmon->bw_on,
+			memcmon->bw_master_size,
+			memcmon->bw_master_len);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
@@ -155,7 +170,8 @@ static ssize_t sirfsoc_bwmon_write(struct file *file, const char __user *buf,
 	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
 	char buffer[PROC_NUMBUF];
 	int bw_on;
-	int err;
+	int bw_master_size, bw_master_len;
+	int rt;
 	int i;
 
 	if (!memcmon)
@@ -163,16 +179,23 @@ static ssize_t sirfsoc_bwmon_write(struct file *file, const char __user *buf,
 	memset(buffer, 0, sizeof(buffer));
 	if (count > sizeof(buffer) - 1)
 		count = sizeof(buffer) - 1;
-	if (copy_from_user(buffer, buf, count)) {
-		err = -EFAULT;
-		goto out;
+	if (copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	rt = sscanf(buffer, "%d %d %d\n",
+			&bw_on, &bw_master_size, &bw_master_len);
+
+	if (rt < 3) {
+		pr_warn("Please input 3 params as:\n"
+			"param1: 0 - off, 1 - on\n"
+			"param2: master size\n"
+			"param3: master len\n");
+		return -EINVAL;
 	}
 
-	err = kstrtoint(strstrip(buffer), 0, &bw_on);
-	if (err)
-		goto out;
-
 	if ((bw_on == 1) && (memcmon->bw_on == 0)) {
+		memcmon->bw_master_size = bw_master_size;
+		memcmon->bw_master_len = bw_master_len;
 		sirfsoc_bwmon_start(memcmon);
 		memcmon->bw_on = 1;
 	}
@@ -183,8 +206,7 @@ static ssize_t sirfsoc_bwmon_write(struct file *file, const char __user *buf,
 			sirfsoc_bwmon_get_port_info(memcmon, i);
 	}
 
-out:
-	return err < 0 ? err : count;
+	return count;
 }
 
 static const struct file_operations sirfsoc_bwmon_fops = {

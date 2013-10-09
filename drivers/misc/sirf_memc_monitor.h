@@ -119,6 +119,8 @@ struct sirfsoc_memcmon {
 	u32 __iomem *version;
 	struct device *dev;
 	int bw_on;
+	int bw_master_size; /* bit[3:0] of BW_CONFIG_SIZE */
+	int bw_master_len; /* bit[12:8] of BW_CONFIG_SIZE */
 	struct workqueue_struct *bw_wq;
 	struct delayed_work gfxfreq_dwork;
 	int gfxfreq_auto;
