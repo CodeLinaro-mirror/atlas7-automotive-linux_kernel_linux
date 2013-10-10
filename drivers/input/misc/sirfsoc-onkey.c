@@ -138,6 +138,12 @@ static int pwrc_resume(struct device *dev)
 		pwrcdrv->pwrc_base + PWRC_INT_MASK) | PWRC_ON_KEY_BIT,
 		pwrcdrv->pwrc_base + PWRC_INT_MASK);
 
+#ifdef CONFIG_ANDROID
+	input_report_key(pwrcdrv->input, KEY_MENU, 1);
+	input_report_key(pwrcdrv->input, KEY_MENU, 0);
+	input_sync(pwrcdrv->input);
+#endif
+
 	return 0;
 }
 #endif
