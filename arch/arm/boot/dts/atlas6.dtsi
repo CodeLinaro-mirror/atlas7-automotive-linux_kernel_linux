@@ -232,7 +232,6 @@
 				clocks = <&clks 27>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2s_pins_a>;
-				pwms = <&pwm 6 41 20 4>;
 				resets = <&rstc 5>;
 			};
 
