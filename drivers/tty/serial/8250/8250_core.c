@@ -323,6 +323,11 @@ static const struct serial8250_config uart_config[] = {
 		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
 		.flags		= UART_CAP_FIFO | UART_CAP_AFE,
 	},
+	[PORT_CSR_COACH] = {
+		.name		= "Csr COACH",
+		.fifo_size	= 8,
+		.tx_loadsz	= 8,
+	},
 };
 
 /* Uart divisor latch read */
@@ -526,6 +531,11 @@ static void serial8250_clear_fifos(struct uart_8250_port *p)
 		serial_out(p, UART_FCR, UART_FCR_ENABLE_FIFO |
 			       UART_FCR_CLEAR_RCVR | UART_FCR_CLEAR_XMIT);
 		serial_out(p, UART_FCR, 0);
+	} else if (p->port.type == PORT_CSR_COACH) {
+		serial_out(p, 0x8, 0x40);
+		serial_out(p, 0x9, 0x40);
+		serial_out(p, 0x8, 0x87);
+		serial_out(p, 0x9, 0x81);
 	}
 }
 
@@ -1301,7 +1311,10 @@ static void serial8250_start_tx(struct uart_port *port)
 	} else if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
 		serial_port_out(port, UART_IER, up->ier);
-
+		if (port->type == PORT_CSR_COACH) {
+			serial_port_out(port, 0x8, 0x87);
+			serial_port_out(port, 0x9, 0x81);
+		}
 		if (up->bugs & UART_BUG_TXEN) {
 			unsigned char lsr;
 			lsr = serial_in(up, UART_LSR);
@@ -1355,11 +1368,18 @@ serial8250_rx_chars(struct uart_8250_port *up, unsigned char lsr)
 	unsigned char ch;
 	int max_count = 256;
 	char flag;
+	unsigned int rxready, rxfifogap;
 
 	do {
-		if (likely(lsr & UART_LSR_DR))
-			ch = serial_in(up, UART_RX);
-		else
+		if (up->port.type == PORT_CSR_COACH) {
+			rxfifogap = (readl(port->membase + 0x30) >> 8) & 0xf;
+			if (rxfifogap == 8)
+				break;
+			ch = serial_in(up, 0xb);
+		} else {
+			if (likely(lsr & UART_LSR_DR))
+				ch = serial_in(up, UART_RX);
+			else
 			/*
 			 * Intel 82571 has a Serial Over Lan device that will
 			 * set UART_LSR_BI without setting UART_LSR_DR when
@@ -1367,7 +1387,8 @@ serial8250_rx_chars(struct uart_8250_port *up, unsigned char lsr)
 			 * receive buffer without UART_LSR_DR bit set, we
 			 * just force the read character to be 0
 			 */
-			ch = 0;
+				ch = 0;
+		}
 
 		flag = TTY_NORMAL;
 		port->icount.rx++;
@@ -1414,7 +1435,12 @@ serial8250_rx_chars(struct uart_8250_port *up, unsigned char lsr)
 
 ignore_char:
 		lsr = serial_in(up, UART_LSR);
-	} while ((lsr & (UART_LSR_DR | UART_LSR_BI)) && (max_count-- > 0));
+		if (up->port.type == PORT_CSR_COACH) {
+			rxfifogap = (readl(port->membase + 0x30) >> 8) & 0xf;
+			rxready = (rxfifogap != 8) || (lsr & UART_LSR_BI);
+		} else
+			rxready = lsr & (UART_LSR_DR | UART_LSR_BI);
+	} while (rxready && (max_count-- > 0));
 	spin_unlock(&port->lock);
 	tty_flip_buffer_push(&port->state->port);
 	spin_lock(&port->lock);
@@ -1427,9 +1453,12 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 	struct uart_port *port = &up->port;
 	struct circ_buf *xmit = &port->state->xmit;
 	int count;
+	int offset;
+
+	offset = (port->type == PORT_CSR_COACH) ? 0xb : UART_TX;
 
 	if (port->x_char) {
-		serial_out(up, UART_TX, port->x_char);
+		serial_out(up, offset, port->x_char);
 		port->icount.tx++;
 		port->x_char = 0;
 		return;
@@ -1443,9 +1472,18 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 		return;
 	}
 
-	count = up->tx_loadsz;
+
+	if (port->type == PORT_CSR_COACH) {
+		/*count = UART_GetXFifoFreeSpace(port);*/
+		count = readl(port->membase + 0x30) & 0xf;
+		count = (count < 8) ? count : 8;
+		if (count <= 0)
+			pr_err("somehow xfer buffer is full. that shouldn't happen there");
+	} else
+		count = up->tx_loadsz;
+
 	do {
-		serial_out(up, UART_TX, xmit->buf[xmit->tail]);
+		serial_out(up, offset, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		port->icount.tx++;
 		if (uart_circ_empty(xmit))
@@ -1859,6 +1897,14 @@ static void wait_for_xmitr(struct uart_8250_port *up, int bits)
 {
 	unsigned int status, tmout = 10000;
 
+	if (up->port.type == PORT_CSR_COACH) {
+		u32 *addr = (u32 *)up->port.private_data;
+		if (addr && (*addr == 0)) {
+			touch_nmi_watchdog();
+			return;
+		}
+	}
+
 	/* Wait up to 10ms for the character(s) to be sent. */
 	for (;;) {
 		status = serial_in(up, UART_LSR);
@@ -1896,6 +1942,11 @@ static int serial8250_get_poll_char(struct uart_port *port)
 {
 	unsigned char lsr = serial_port_in(port, UART_LSR);
 
+	if (port->type == PORT_CSR_COACH) {
+		while ((readl(port->membase + 0x30) & 0xf00) == 0x800)
+			;
+		return serial_port_in(port, 0xb);
+	}
 	if (!(lsr & UART_LSR_DR))
 		return NO_POLL_CHAR;
 
@@ -2446,6 +2497,11 @@ serial8250_do_set_termios(struct uart_port *port, struct ktermios *termios,
 		if (fcr & UART_FCR_ENABLE_FIFO)
 			serial_port_out(port, UART_FCR, UART_FCR_ENABLE_FIFO);
 		serial_port_out(port, UART_FCR, fcr);		/* set fcr */
+	} else if (port->type == PORT_CSR_COACH) {
+		serial_port_out(port, 0x8, 0x40);
+		serial_port_out(port, 0x9, 0x40);
+		serial_port_out(port, 0x8, 0x87);
+		serial_port_out(port, 0x9, 0x81);
 	}
 	serial8250_set_mctrl(port, port->mctrl);
 	spin_unlock_irqrestore(&port->lock, flags);
