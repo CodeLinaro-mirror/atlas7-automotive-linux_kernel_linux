@@ -11,9 +11,9 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "sirf-usp.h"
-#include "sirf-pcm.h"
 
 #define FIFO_RESET  0
 #define FIFO_START	1
@@ -28,13 +28,7 @@ struct sirf_usp {
 	u32 mode2_reg;
 };
 
-static struct sirf_pcm_dma_data sirf_usp_pcm_dai_dma_data[2] = {
-	{
-		.name = "Audio Playback",
-	}, {
-		.name = "Audio Capture",
-	}
-};
+static struct snd_dmaengine_dai_dma_data dma_data[2];
 
 static void sirf_usp_tx_fifo_op(struct sirf_usp *susp, int cmd)
 {
@@ -92,12 +86,17 @@ static inline void sirf_usp_rx_disable(struct sirf_usp *susp)
 			susp->base + USP_TX_RX_ENABLE);
 }
 
+static int sirf_usp_pcm_dai_probe(struct snd_soc_dai *dai)
+{
+	dai->playback_dma_data = &dma_data[0];
+	dai->capture_dma_data = &dma_data[1];
+	return 0;
+}
+
 static int sirf_usp_pcm_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	pm_runtime_get_sync(dai->dev);
-	snd_soc_dai_set_dma_data(dai, substream,
-			&sirf_usp_pcm_dai_dma_data[substream->stream]);
 	return 0;
 }
 
@@ -206,6 +205,7 @@ static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
 };
 
 static struct snd_soc_dai_driver sirf_usp_pcm_dai = {
+	.probe = sirf_usp_pcm_dai_probe,
 	.name		= "sirf-usp-pcm",
 	.id			= 0,
 	.playback = {
@@ -407,8 +407,9 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
 		return ret;
 	}
-	sirf_usp_pcm_dai_dma_data[0].dma_req = tx_dma_ch;
-	sirf_usp_pcm_dai_dma_data[1].dma_req = rx_dma_ch;
+
+	dma_data[0].filter_data = (void *)tx_dma_ch;
+	dma_data[1].filter_data = (void *)rx_dma_ch;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	susp->base = devm_ioremap_resource(&pdev->dev, mem_res);

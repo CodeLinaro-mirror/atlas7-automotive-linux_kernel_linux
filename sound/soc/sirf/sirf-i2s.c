@@ -15,8 +15,8 @@
 
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <sound/dmaengine_pcm.h>
 
-#include "sirf-pcm.h"
 #include "sirf-audio.h"
 
 struct sirf_i2s {
@@ -27,20 +27,19 @@ struct sirf_i2s {
 	spinlock_t		lock;
 };
 
-static struct sirf_pcm_dma_data sirf_i2s_dai_dma_data[2] = {
-	{
-		.name = "Audio Playback",
-	}, {
-		.name = "Audio Capture",
-	}
-};
+static struct snd_dmaengine_dai_dma_data dma_data[2];
+
+static int sirf_i2s_dai_probe(struct snd_soc_dai *dai)
+{
+	dai->playback_dma_data = &dma_data[0];
+	dai->capture_dma_data = &dma_data[1];
+	return 0;
+}
 
 static int sirf_i2s_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	pm_runtime_get_sync(dai->dev);
-	snd_soc_dai_set_dma_data(dai, substream,
-		&sirf_i2s_dai_dma_data[substream->stream]);
 	return 0;
 }
 
@@ -274,6 +273,7 @@ struct snd_soc_dai_ops sirfsoc_i2s_dai_ops = {
 };
 
 static struct snd_soc_dai_driver sirf_i2s_dai = {
+	.probe = sirf_i2s_dai_probe,
 	.name		= "sirf-i2s",
 	.id			= 0,
 	.playback = {
@@ -384,8 +384,9 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
 		return ret;
 	}
-	sirf_i2s_dai_dma_data[0].dma_req = tx_dma_ch;
-	sirf_i2s_dai_dma_data[1].dma_req = rx_dma_ch;
+
+	dma_data[0].filter_data = (void *)tx_dma_ch;
+	dma_data[1].filter_data = (void *)rx_dma_ch;
 
 	ret = of_address_to_resource(pdev->dev.of_node, 0, &mem_res);
 	if (ret < 0) {

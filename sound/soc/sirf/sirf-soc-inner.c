@@ -20,9 +20,9 @@
 #include <sound/pcm_params.h>
 #include <sound/initval.h>
 #include <sound/soc.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "sirf-audio.h"
-#include "sirf-pcm.h"
 
 struct sirf_soc_inner_audio_reg_bits {
 	u32 dig_mic_en_bits;
@@ -468,27 +468,17 @@ static struct snd_soc_codec_driver soc_codec_device_sirf_inner_codec = {
 	.idle_bias_off = true,
 };
 
-static struct sirf_pcm_dma_data sirf_soc_inner_dai_dma_data[2] = {
-	{
-		.name = "Audio Playback",
-	}, {
-		.name = "Audio Capture",
-	},
-};
+static struct snd_dmaengine_dai_dma_data dma_data[2];
 
-static int sirf_soc_inner_dai_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
+static int sirf_soc_inner_dai_probe(struct snd_soc_dai *dai)
 {
-	snd_soc_dai_set_dma_data(dai, substream,
-			&sirf_soc_inner_dai_dma_data[substream->stream]);
+	dai->playback_dma_data = &dma_data[0];
+	dai->capture_dma_data = &dma_data[1];
 	return 0;
 }
 
-static const struct snd_soc_dai_ops sirf_soc_inner_dai_ops = {
-	.startup        = sirf_soc_inner_dai_startup,
-};
-
 static struct snd_soc_dai_driver sirf_soc_inner_dai = {
+	.probe = sirf_soc_inner_dai_probe,
 	.name		= "sirf-soc-inner",
 	.id			= 0,
 	.playback = {
@@ -505,7 +495,6 @@ static struct snd_soc_dai_driver sirf_soc_inner_dai = {
 		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
-	.ops = &sirf_soc_inner_dai_ops,
 };
 
 static const struct snd_soc_component_driver sirf_soc_inner_component = {
@@ -549,8 +538,9 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to audio playback dma channel\n");
 		return ret;
 	}
-	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
-	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
+
+	dma_data[0].filter_data = (void *)tx_dma_ch;
+	dma_data[1].filter_data = (void *)rx_dma_ch;
 
 	dn = of_find_compatible_node(dn, NULL, "sirf,prima2-pwrc");
 	if (!dn) {
