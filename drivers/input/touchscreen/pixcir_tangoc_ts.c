@@ -147,6 +147,10 @@ static int pixcir_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "invalid touch_pin supplied\n");
 		return -EINVAL;
 	}
+	if (devm_gpio_request(&client->dev, ts->touch_pin, "touch-gpio")) {
+		dev_err(&client->dev, "request touch gpio failed\n");
+		return -EINVAL;
+	}
 	gpio_direction_input(ts->touch_pin);
 	client->irq = gpio_to_irq(ts->touch_pin);
 
