@@ -205,7 +205,8 @@ static int sirf_inner_suspend(struct device *dev)
 	struct snd_soc_card *card = dev_get_drvdata(dev);
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 	sinner_card->extcon_info.last_state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
-	gpio_direction_output(sinner_card->gpio_spk_pa, 0);
+	if (gpio_is_valid(sinner_card->gpio_spk_pa))
+		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
 	return 0;
 }
 #endif
