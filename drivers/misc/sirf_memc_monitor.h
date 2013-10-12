@@ -136,6 +136,10 @@ struct sirfsoc_memcmon {
 	struct bandwidth_info bw_info[PORT_NUM];
 	struct latency_info lat_info[PORT_NUM];
 	struct timeout_info to_info[MAX_TIMEOUT_INT];
+	struct timeval bwmon_start;
+	struct timeval bwmon_stop;
+	struct timeval latmon_start;
+	struct timeval latmon_stop;
 };
 
 #define EN_MASK			0xff

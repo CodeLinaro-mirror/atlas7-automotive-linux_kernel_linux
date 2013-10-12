@@ -39,6 +39,12 @@ static const char port_name[PORT_NUM][10] = {
 	{"SUBAXI"},
 };
 
+static long calc_elapse_time(struct timeval stop, struct timeval start)
+{
+	return (stop.tv_sec - start.tv_sec) * 1000 +
+		(stop.tv_usec - start.tv_usec) / 1000;
+}
+
 static void sirfsoc_memcmon_port_enable(u32 __iomem *control, int port)
 {
 	u32 control_val = ioread32(control);
@@ -138,6 +144,7 @@ static void sirfsoc_bwmon_start(struct sirfsoc_memcmon *memcmon)
 				&memcmon->gfxfreq_dwork,
 				msecs_to_jiffies(GFXFREQ_ADAPT_MS));
 	}
+	do_gettimeofday(&memcmon->bwmon_start);
 }
 
 static void sirfsoc_bwmon_stop(struct sirfsoc_memcmon *memcmon)
@@ -146,6 +153,7 @@ static void sirfsoc_bwmon_stop(struct sirfsoc_memcmon *memcmon)
 	u32 control_val = ioread32(&memcmon->bw_regs->control);
 	control_val &= ~0x1ff;
 	iowrite32(control_val, &memcmon->bw_regs->control);
+	do_gettimeofday(&memcmon->bwmon_stop);
 }
 
 static ssize_t sirfsoc_bwmon_read(struct file *file,
@@ -219,19 +227,23 @@ static const struct file_operations sirfsoc_bwmon_fops = {
 static int sirfsoc_bwinfo_proc_show(struct seq_file *m, void *v)
 {
 	int i;
+	long ms;
 	struct sirfsoc_memcmon *memcmon = m->private;
 
+	ms = calc_elapse_time(memcmon->bwmon_stop, memcmon->bwmon_start);
 	seq_printf(m, "Bandwidth Monitor @ %p\n"
 		"BW_CONTROL:\t\t%x\n"
 		"BW_SELECT:\t\t%x\n"
 		"BW_CONFIG_ID:\t\t%x\n"
 		"BW_CONFIG_SIZE:\t\t%x\n"
+		"elapsed time:\t\t%ldms\n"
 		,
 		memcmon->bw_regs,
 		ioread32(&memcmon->bw_regs->control),
 		ioread32(&memcmon->bw_regs->select),
 		ioread32(&memcmon->bw_regs->config_id),
-		ioread32(&memcmon->bw_regs->config_size)
+		ioread32(&memcmon->bw_regs->config_size),
+		ms
 		);
 
 	for (i = 0; i < PORT_NUM; i++) {
@@ -387,6 +399,7 @@ static void sirfsoc_latmon_start(struct sirfsoc_memcmon *memcmon)
 	control_val = ioread32(&memcmon->lat_regs->control);
 	control_val |= 0x1ff;
 	iowrite32(control_val, &memcmon->lat_regs->control);
+	do_gettimeofday(&memcmon->latmon_start);
 }
 
 static void sirfsoc_latmon_stop(struct sirfsoc_memcmon *memcmon)
@@ -395,6 +408,7 @@ static void sirfsoc_latmon_stop(struct sirfsoc_memcmon *memcmon)
 	u32 control_val = ioread32(&memcmon->lat_regs->control);
 	control_val &= ~0x1ff;
 	iowrite32(control_val, &memcmon->lat_regs->control);
+	do_gettimeofday(&memcmon->latmon_stop);
 }
 
 static ssize_t sirfsoc_latmon_read(struct file *file, char __user *buf,
@@ -468,17 +482,21 @@ static const struct file_operations sirfsoc_latmon_fops = {
 static int sirfsoc_latinfo_proc_show(struct seq_file *m, void *v)
 {
 	int i;
+	long ms;
 	struct sirfsoc_memcmon *memcmon = m->private;
 
+	ms = calc_elapse_time(memcmon->latmon_stop, memcmon->latmon_start);
 	seq_printf(m, "Latency Monitor @ %p\n"
 		"LAT_CONTROL:\t\t%x\n"
 		"LAT_SELECT:\t\t%x\n"
 		"LAT_THRESHOLD:\t\t%x\n"
+		"elapsed time:\t\t%ldms\n"
 		,
 		memcmon->lat_regs,
 		ioread32(&memcmon->lat_regs->control),
 		ioread32(&memcmon->lat_regs->select),
-		ioread32(&memcmon->lat_regs->threshold)
+		ioread32(&memcmon->lat_regs->threshold),
+		ms
 		);
 
 	for (i = 0; i < PORT_NUM; i++) {
