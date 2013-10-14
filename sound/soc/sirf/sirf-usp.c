@@ -26,6 +26,7 @@ struct sirf_usp {
 	struct clk *clk;
 	u32 mode1_reg;
 	u32 mode2_reg;
+	struct platform_device *sirf_pcm_pdev;
 };
 
 static struct snd_dmaengine_dai_dma_data dma_data[2];
@@ -393,6 +394,11 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	if (!susp)
 		return -ENOMEM;
 
+	susp->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
+			2, NULL, 0);
+	if (IS_ERR(susp->sirf_pcm_pdev))
+		return PTR_ERR(susp->sirf_pcm_pdev);
+
 	platform_set_drvdata(pdev, susp);
 
 	ret = of_property_read_u32(pdev->dev.of_node,
@@ -438,8 +444,10 @@ err:
 
 static int sirf_usp_pcm_remove(struct platform_device *pdev)
 {
+	struct sirf_usp *susp = platform_get_drvdata(pdev);
 	snd_soc_unregister_component(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	platform_device_unregister(susp->sirf_pcm_pdev);
 
 	return 0;
 }

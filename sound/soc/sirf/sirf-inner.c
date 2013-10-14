@@ -87,6 +87,7 @@ static struct snd_soc_dai_link sirf_inner_dai_links[] = {
 		.name = "SiRF inner",
 		.stream_name = "SiRF inner",
 		.codec_dai_name = "sirf-soc-inner",
+		.platform_name = "sirf-pcm-audio.1",
 	},
 };
 
@@ -117,8 +118,6 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	if (!sinner_card->sirf_inner_device)
 		return -ENOMEM;
 
-	sirf_inner_dai_links[0].platform_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_inner_dai_links[0].cpu_of_node =
 		of_parse_phandle(pdev->dev.of_node, "sirf,inner-platform", 0);
 	sirf_inner_dai_links[0].codec_of_node =

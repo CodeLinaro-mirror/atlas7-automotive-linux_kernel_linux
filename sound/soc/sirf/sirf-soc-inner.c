@@ -42,6 +42,7 @@ struct sirf_soc_inner_audio {
 	u32			sys_pwrc_reg_base;
 	struct sirf_soc_inner_audio_reg_bits *reg_bits;
 	u32			reg_ctrl0, reg_ctrl1;
+	struct platform_device	*sirf_pcm_pdev;
 };
 
 static struct sirf_soc_inner_audio_reg_bits sirf_soc_inner_audio_reg_bits_prima2 = {
@@ -523,6 +524,11 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
 	if (!sinner_audio)
 		return -ENOMEM;
+
+	sinner_audio->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
+			1, NULL, 0);
+	if (IS_ERR(sinner_audio->sirf_pcm_pdev))
+		return PTR_ERR(sinner_audio->sirf_pcm_pdev);
 
 	platform_set_drvdata(pdev, sinner_audio);
 
