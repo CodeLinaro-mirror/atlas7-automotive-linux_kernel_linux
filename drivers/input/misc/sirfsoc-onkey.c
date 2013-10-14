@@ -126,7 +126,7 @@ static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int pwrc_resume(struct device *dev)
+static int sirfsoc_pwrc_restore(struct device *dev)
 {
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
 	/*
@@ -138,9 +138,17 @@ static int pwrc_resume(struct device *dev)
 		pwrcdrv->pwrc_base + PWRC_INT_MASK) | PWRC_ON_KEY_BIT,
 		pwrcdrv->pwrc_base + PWRC_INT_MASK);
 
+	return 0;
+}
+
+static int sirfsoc_pwrc_resume(struct device *dev)
+{
+	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
+	sirfsoc_pwrc_restore(dev);
 #ifdef CONFIG_ANDROID
-	input_report_key(pwrcdrv->input, KEY_MENU, 1);
-	input_report_key(pwrcdrv->input, KEY_MENU, 0);
+	input_report_key(pwrcdrv->input, KEY_POWER, 1);
+	input_sync(pwrcdrv->input);
+	input_report_key(pwrcdrv->input, KEY_POWER, 0);
 	input_sync(pwrcdrv->input);
 #endif
 
@@ -148,7 +156,10 @@ static int pwrc_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(sirfsoc_pwrc_pm_ops, NULL, pwrc_resume);
+static const struct dev_pm_ops sirfsoc_pwrc_pm_ops = {
+	.resume = sirfsoc_pwrc_resume,
+	.restore = sirfsoc_pwrc_restore,
+};
 
 static struct platform_driver sirfsoc_pwrc_driver = {
 	.probe		= sirfsoc_pwrc_probe,
