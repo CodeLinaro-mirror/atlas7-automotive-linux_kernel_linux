@@ -25,6 +25,18 @@
 		hp-switch-gpios = <&gpio 14 0>;
 	};
 
+	bt {
+		compatible = "csr,bt-8311";
+		bt_gpio_power = <&gpio 45 0>;
+		bt_gpio_reset = <&gpio 3 0>;
+		pwms = <&pwm 1 0 0 3>;
+	};
+
+	wlan {
+		compatible = "csr,wlan-6030";
+		wlan_gpio_power = <&gpio 62 0>;
+	};
+
 	sirf-backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm 3 50000 50000 0>;
