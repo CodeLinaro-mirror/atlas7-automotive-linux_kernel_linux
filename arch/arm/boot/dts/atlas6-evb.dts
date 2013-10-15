@@ -135,6 +135,16 @@
 					hp-hdmiinput-gpios = <&gpio 0 0>;
 					reg = <0xf0>;
 				};
+				tangoc-ts@5c{
+					compatible = "pixcir,tangoc-ts";
+					touch-gpio = <&gpio 3 0>;
+					reg = <0x5c>;
+				};
+				ft5x06@38{
+					compatible = "focaltech,ft5x06";
+                                        interrupts = <3>;
+                                        reg = <0x38>;
+                                };
 			};
 			pci-iobg {
 				sd0: sdhci@56000000 {
