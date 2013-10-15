@@ -98,7 +98,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 	/* 3. vbus configuration */
 	data->gpio_vbus = of_get_named_gpio(pdev->dev.of_node,
 							"vbus-gpios", 0);
-	if (gpio_is_valid(data->gpio_vbus))
+	if (gpio_is_valid(data->gpio_vbus)) {
 		ret = gpio_request(data->gpio_vbus, "ci13xxx_sirf");
 		if (ret)
 			dev_info(&pdev->dev, "Failed to get gpio control\n");
@@ -126,7 +126,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* 7. register to ci13xxx core */
+	/* 6. register to ci13xxx core */
 	data->ci13xxx_pdev = ci13xxx_add_device(&pdev->dev,
 				pdev->resource, pdev->num_resources,
 				&ci13xxx_sirf_platdata);
