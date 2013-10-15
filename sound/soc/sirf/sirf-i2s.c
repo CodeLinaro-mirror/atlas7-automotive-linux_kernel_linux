@@ -25,6 +25,7 @@ struct sirf_i2s {
 	u32			i2s_ctrl;
 	u32			i2s_ctrl_tx_rx_en;
 	spinlock_t		lock;
+	struct platform_device	*sirf_pcm_pdev;
 };
 
 static struct snd_dmaengine_dai_dma_data dma_data[2];
@@ -368,6 +369,11 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	if (!si2s)
 		return -ENOMEM;
 
+	si2s->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
+			0, NULL, 0);
+	if (IS_ERR(si2s->sirf_pcm_pdev))
+		return PTR_ERR(si2s->sirf_pcm_pdev);
+
 	platform_set_drvdata(pdev, si2s);
 
 	spin_lock_init(&si2s->lock);
@@ -421,8 +427,11 @@ err:
 
 static int sirf_i2s_remove(struct platform_device *pdev)
 {
+	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
+
 	snd_soc_unregister_component(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	platform_device_unregister(si2s->sirf_pcm_pdev);
 	return 0;
 }
 

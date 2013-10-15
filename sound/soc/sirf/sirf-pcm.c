@@ -67,22 +67,32 @@ static int sirf_pcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id sirf_pcm_of_match[] = {
-	{ .compatible = "sirf,pcm-audio", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, sirf_pcm_of_match);
-
 static struct platform_driver sirf_pcm_driver = {
 	.driver = {
 		.name = "sirf-pcm-audio",
 		.owner = THIS_MODULE,
-		.of_match_table = sirf_pcm_of_match,
 	},
 	.probe = sirf_pcm_probe,
 	.remove = sirf_pcm_remove,
 };
-module_platform_driver(sirf_pcm_driver);
+
+static int __init sirf_pcm_init(void)
+{
+	int ret = 0;
+
+	ret = platform_driver_register(&sirf_pcm_driver);
+	if (ret)
+		pr_err("failed to register platform driver\n");
+	return ret;
+}
+
+static void __exit sirf_pcm_exit(void)
+{
+	platform_driver_unregister(&sirf_pcm_driver);
+}
+
+module_init(sirf_pcm_init);
+module_exit(sirf_pcm_exit);
 
 MODULE_DESCRIPTION("SiRF PCM audio interface driver");
 MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");

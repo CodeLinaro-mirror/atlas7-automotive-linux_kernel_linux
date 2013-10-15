@@ -41,6 +41,7 @@ static struct snd_soc_dai_link sirf_hdmi_dai_links[] = {
 		.name = "SiRF HDMI",
 		.stream_name = "SiRF HDMI",
 		.codec_dai_name = "hdmi-hifi",
+		.platform_name = "sirf-pcm-audio.0",
 		.ops = &sirf_hdmi_ops,
 	},
 };
@@ -57,8 +58,6 @@ static int sirf_hdmi_card_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &snd_soc_sirf_hdmi_card;
 	int ret;
 
-	sirf_hdmi_dai_links[0].platform_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_hdmi_dai_links[0].cpu_of_node =
 		of_find_compatible_node(NULL, NULL, "sirf,prima2-i2s");
 	sirf_hdmi_dai_links[0].codec_of_node =

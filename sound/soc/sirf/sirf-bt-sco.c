@@ -50,6 +50,7 @@ static struct snd_soc_dai_link sirf_bt_sco_dai_links[] = {
 		.name = "SiRF BT SCO",
 		.stream_name = "SiRF BT_SCO",
 		.codec_dai_name = "bt-sco-pcm",
+		.platform_name = "sirf-pcm-audio.2",
 		.ops = &sirf_bt_sco_ops,
 	},
 };
@@ -67,8 +68,6 @@ static int sirf_bt_sco_probe(struct platform_device *pdev)
 	int ret;
 	u32 codec_fmt = 0;
 
-	sirf_bt_sco_dai_links[0].platform_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_bt_sco_dai_links[0].cpu_of_node =
 		of_find_compatible_node(NULL, NULL, "sirf,prima2-usp-pcm");
 	sirf_bt_sco_dai_links[0].codec_of_node =
