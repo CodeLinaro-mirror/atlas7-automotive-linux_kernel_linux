@@ -20,6 +20,7 @@ obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_prima2_clut224.o
 obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_prima2_wsvga_clut224.o
 else
 obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_atlas6_clut224.o
+obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_atlas6_wsvga_clut224.o
 endif
 obj-$(CONFIG_SPU_BASE)			+= logo_spe_clut224.o
 

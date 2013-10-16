@@ -50,6 +50,7 @@ extern const struct linux_logo logo_spe_clut224;
 extern const struct linux_logo logo_prima2_clut224 __attribute__((weak));
 extern const struct linux_logo logo_prima2_wsvga_clut224 __attribute__((weak));
 extern const struct linux_logo logo_atlas6_clut224 __attribute__((weak));
+extern const struct linux_logo logo_atlas6_wsvga_clut224 __attribute__((weak));
 
 extern const struct linux_logo *fb_find_logo(int depth);
 #ifdef CONFIG_FB_LOGO_EXTRA
