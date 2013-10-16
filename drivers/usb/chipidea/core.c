@@ -271,11 +271,30 @@ static void ci_role_work(struct work_struct *work)
 	enum ci_role role = ci_otg_role(ci);
 
 	if (role != ci->role) {
+#ifdef CONFIG_ANDROID
+		if (ci->role == CI_ROLE_END) {
+			ci_role_start(ci, role);
+		} else if (ci->role == CI_ROLE_GADGET) {
+			ci_role_suspend(ci);
+			ci_role_start(ci, role);
+		} else {
+			ci_role_stop(ci);
+			if (ci->driver) {
+				ci->role = role;
+				ci_role_resume(ci);
+			} else if (!ci->gadget.name){
+				ci_role_start(ci, role);
+			} else {
+				ci->role = role;
+			}
+		}
+#else
 		dev_dbg(ci->dev, "switching from %s to %s\n",
 			ci_role(ci)->name, ci->roles[role]->name);
 
 		ci_role_stop(ci);
 		ci_role_start(ci, role);
+#endif
 	}
 
 	enable_irq(ci->irq);
