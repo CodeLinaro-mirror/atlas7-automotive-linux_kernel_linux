@@ -19,9 +19,9 @@
 
 void __init sirfsoc_reserve(void)
 {
+	sirfsoc_nand_reserve_memblock();
 	sirfsoc_fb_reserve_memblock();
 	sirfsoc_vip_reserve_memblock();
-	sirfsoc_nand_reserve_memblock();
 	if (of_machine_is_compatible("sirf,prima2"))
 		sirfsoc_video_codec_reserve_memblock();
 }
