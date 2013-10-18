@@ -36,6 +36,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_fdt.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/memblock.h>
 #include <linux/reset.h>
@@ -1832,18 +1833,13 @@ static int remap_frame_buffers(struct platform_device *pdev,
 {
 	int i, ret = 0;
 	unsigned layer_mem_offset = 0;
-	/*
-	 * allocate memory per defined, otherwise
-	 * according to actual needs.
-	 */
-	const unsigned layer_reserve_size[] = {
-		0,
-		16 * SZ_1M,
-		0,
-		2 * SZ_1M,
-	};
+	unsigned int layer_reserve_size[4];
 
 	FB_FUN_MSG("remap_frame_buffers\n");
+
+	/* allocate memory per defined, otherwise according to actual needs. */
+	of_property_read_u32_array(pdev->dev.of_node, "sirf,rsvmem_size", layer_reserve_size,
+				ARRAY_SIZE(layer_reserve_size));
 
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++) {
 		if (!fb->layer_info[i].valid)
@@ -2081,11 +2077,28 @@ err:
 }
 #endif
 
-void  __init sirfsoc_fb_reserve_memblock(void)
+static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node, const char *uname,
+				int depth, void *data)
 {
-	sirf_fb_phy_size = 25 * SZ_1M;
+	__be32 *mem_info;
+	unsigned long len;
+
+	mem_info = of_get_flat_dt_prop(node,
+			"sirf,rsvmem_size", &len);
+	if (!mem_info || (len != 4 * sizeof(unsigned long)))
+		return 0;
+
+	/* fb0 is allocated from dma */
+	sirf_fb_phy_size = be32_to_cpu(mem_info[1]) + be32_to_cpu(mem_info[2]) +
+		be32_to_cpu(mem_info[3]);
 	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, SZ_1M);
 	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
+}
+
+void  __init sirfsoc_fb_reserve_memblock(void)
+{
+	if (!of_scan_flat_dt(sirfsoc_fdt_handle_fb_rsv_mem, NULL))
+		pr_err("failed to get fb reserved memory from dt\n");
 }
 EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);
 
