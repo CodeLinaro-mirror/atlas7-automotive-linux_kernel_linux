@@ -133,7 +133,7 @@ serial_init(void)
 		writel(1, s1->membase + 0x28);
 		s1->irq = COACH_IRQ_NUM(irq);
 		s1->line = 0;
-		/*s1->type = PORT_CSR_COACH;*/
+		s1->type = PORT_CSR_COACH;
 		s1->uartclk = coach_get_cpu_hz();
 		s1->flags = 0;
 		s1->iotype = UPIO_MEM32;
@@ -161,7 +161,7 @@ serial_init(void)
 		writel(1, s2->membase + 0x28);
 		s2->irq = COACH_IRQ_NUM(irq);
 		s2->line = 1;
-		/*s2->type = PORT_CSR_COACH;*/
+		s2->type = PORT_CSR_COACH;
 		s2->uartclk = coach_get_cpu_hz();
 		s2->flags = 0;
 		s2->iotype = UPIO_MEM32;
