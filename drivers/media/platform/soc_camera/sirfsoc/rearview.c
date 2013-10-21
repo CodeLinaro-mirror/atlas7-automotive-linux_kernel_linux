@@ -41,7 +41,7 @@ static int prev_field = -1;	/* 0: odd field, 1: even field */
 static int cur_field = -1;	/* 0: odd field, 1: even field */
 static int cur_frame;	/* indicate index of the frame in the dma buffer */
 
-static int rv_started __nosavedata;
+static int rv_started;
 
 int rearview_has_started(void)
 {
