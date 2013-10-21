@@ -760,20 +760,39 @@
 			#size-cells = <1>;
 			ranges = <0xb8000000 0xb8000000 0x40000>;
 
-			usbphy: usbphy@b8010200 {
-				compatible = "usbphy,ci13611a-prima2";
-				reg = <0xb8010200 0x100>;
+			usbphy0: usbphy0@b8000200 {
+				compatible = "sirf,atlas6-usbphy";
+				reg = <0xb8000200 0x100>;
 				clocks = <&clks 39>;
+				phy_type = "ulpi";
+				pinctrl-names = "default";
+				pinctrl-0 = <&usb0_upli_drvbus_pins_a>;
 			};
 
-			usbcontroller: usbcontroller@b8010000 {
+			usbcontroller0: usbcontroller0@b8000000 {
+				compatible = "chipidea,ci13611a-prima2";
+				reg = <0xb8000000 0x200>;
+				interrupts = <10>;
+				clocks = <&clks 40>;
+				resets = <&rstc 8>;
+				usbphy = <&usbphy0>;
+			};
+
+			usbphy1: usbphy1@b8010200 {
+				compatible = "sirf,atlas6-usbphy";
+				reg = <0xb8010200 0x100>;
+				clocks = <&clks 39>;
+				phy_type = "utmi";
+				vbus-gpios = <&gpio 0 14>;
+			};
+
+			usbcontroller1: usbcontroller1@b8010000 {
 				compatible = "chipidea,ci13611a-prima2";
 				reg = <0xb8010000 0x200>;
 				interrupts = <11>;
 				clocks = <&clks 41>;
 				resets = <&rstc 9>;
-				vbus-gpios = <&gpio 0 14>;
-				usbphy,ci13611a-prima2 = <&usbphy>;
+				usbphy = <&usbphy1>;
 			};
 
 			security@b00f0000 {

@@ -12,7 +12,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/clk.h>
@@ -28,39 +27,12 @@
 struct ci13xxx_sirf_data {
 	struct platform_device	*ci13xxx_pdev;
 	struct clk		*clk;
-	int			gpio_vbus;
 };
-
-static inline void
-ci13xxx_sirf_drive_vbus(struct ci13xxx *ci, int value)
-{
-	struct ci13xxx_sirf_data *data =
-		platform_get_drvdata(to_platform_device(ci->dev->parent));
-
-	if (gpio_is_valid(data->gpio_vbus))
-		gpio_direction_output(data->gpio_vbus, value ? 0 : 1);
-}
-
-static void ci13xxx_sirf_notify_event(struct ci13xxx *ci, unsigned event)
-{
-	switch (event) {
-	case CI13XXX_CONTROLLER_RESET_EVENT:
-		ci13xxx_sirf_drive_vbus(ci, 1);
-		break;
-	case CI13XXX_CONTROLLER_STOPPED_EVENT:
-		ci13xxx_sirf_drive_vbus(ci, 0);
-		break;
-	default:
-		dev_info(ci->dev, "Unknown Event\n");
-		break;
-	}
-}
 
 static struct ci13xxx_platform_data ci13xxx_sirf_platdata = {
 	.name			= "ci13xxx_sirf",
 	.flags			= CI13XXX_DISABLE_STREAMING,
 	.capoffset		= DEF_CAPOFFSET,
-	.notify_event		= ci13xxx_sirf_notify_event,
 };
 
 static int ci13xxx_sirf_probe(struct platform_device *pdev)
@@ -95,16 +67,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev,
 			"Failed to reset device, err=%d\n", ret);
 
-	/* 3. vbus configuration */
-	data->gpio_vbus = of_get_named_gpio(pdev->dev.of_node,
-							"vbus-gpios", 0);
-	if (gpio_is_valid(data->gpio_vbus)) {
-		ret = gpio_request(data->gpio_vbus, "ci13xxx_sirf");
-		if (ret)
-			dev_info(&pdev->dev, "Failed to get gpio control\n");
-	}
-
-	/* 4. set device dma mask */
+	/* 3. set device dma mask */
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set coherent dma mask\n");
@@ -112,7 +75,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 	}
 	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 
-	/* 5. get phy for controller */
+	/* 4. get phy for controller */
 	ci13xxx_sirf_platdata.phy = devm_usb_get_phy_by_phandle(&pdev->dev,
 								"usbphy", 0);
 	if (IS_ERR(ci13xxx_sirf_platdata.phy)) {
@@ -126,7 +89,7 @@ static int ci13xxx_sirf_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* 6. register to ci13xxx core */
+	/* 5. register to ci13xxx core */
 	data->ci13xxx_pdev = ci13xxx_add_device(&pdev->dev,
 				pdev->resource, pdev->num_resources,
 				&ci13xxx_sirf_platdata);
@@ -226,7 +189,6 @@ static struct platform_driver ci13xxx_sirf_driver = {
 };
 module_platform_driver(ci13xxx_sirf_driver);
 
-MODULE_ALIAS("platform:sirf-ci13xxx-usbcontroller");
 MODULE_AUTHOR("Rong Wang <Rong.Wang@csr.com>");
 MODULE_DESCRIPTION("CI13XXX SiRF USB Binding");
 MODULE_LICENSE("GPL v2");

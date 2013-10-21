@@ -15,6 +15,10 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
+#include <linux/of_i2c.h>
+#include <linux/of_platform.h>
 
 struct sirf_phy {
 	struct usb_phy		phy;
@@ -114,6 +118,68 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	struct sirf_phy *sirf_phy;
 	int ret;
 
+	/*
+	 * PrimaII
+	 *	USB0/USB1 with UTMI interface (integrated PHY)
+	 * AtlasVI
+	 *	USB0 with ULPI interface (external PHY)
+	 *	USB1 with UTMI interface (integrated PHY) and gpio simulated VBus
+	 */
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas6-usbphy")) {
+		const char *phy_type;
+		phy_type = of_get_property(pdev->dev.of_node, "phy_type", NULL);
+		if (!phy_type) {
+			dev_err(&pdev->dev, "UTMI or ULPI ?\n");
+			return -ENODEV;
+		} else if (!strcasecmp(phy_type, "utmi")) {
+			int gpio_vbus;
+
+			gpio_vbus = of_get_named_gpio(pdev->dev.of_node, "vbus-gpios", 0);
+			if (gpio_is_valid(gpio_vbus)) {
+				ret = devm_gpio_request(&pdev->dev, gpio_vbus, "ci13xxx_sirf");
+				if (ret) {
+					dev_err(&pdev->dev, "Failed to request GPIO VBus\n");
+					return -ENODEV;
+				}
+				gpio_direction_output(ret, 1);
+			} else {
+				dev_err(&pdev->dev, "Invalid GPIO VBus\n");
+				return -ENODEV;
+			}
+		} else if (!strcasecmp(phy_type, "ulpi")) {
+			struct pinctrl *pinctrl;
+			struct i2c_client *phy_client;
+			struct device_node *np;
+
+			pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+			if (IS_ERR(pinctrl)) {
+				dev_err(&pdev->dev, "Failed to request pinctrl\n");
+				return PTR_ERR(pinctrl);
+			}
+
+			np = of_find_compatible_node(NULL, NULL, "sirf,phy");
+			if (!np) {
+				dev_err(&pdev->dev, "Fail to find PHY i2c node\n");
+				return -EINVAL;
+			}
+
+			phy_client = of_find_i2c_device_by_node(np);
+			if (!phy_client) {
+				dev_err(&pdev->dev, "Fail to get PHY i2c client\n");
+				return -EINVAL;
+			}
+
+			ret = i2c_smbus_write_byte_data(phy_client, 0x7, 0x1);
+			if (ret) {
+				dev_err(&pdev->dev, "Fail to write i2c client\n");
+				return -EINVAL;
+			}
+		} else {
+			dev_err(&pdev->dev, "Unknown PHY type!\n");
+			return -ENODEV;
+		}
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base))
@@ -175,6 +241,7 @@ static int sirf_phy_remove(struct platform_device *pdev)
 
 static const struct of_device_id sirf_phy_dt_ids[] = {
 	{ .compatible = "sirf,prima2-usbphy", },
+	{ .compatible = "sirf,atlas6-usbphy", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sirf_phy_dt_ids);
@@ -189,19 +256,8 @@ static struct platform_driver sirf_phy_driver = {
 	 },
 };
 
-static int __init sirf_phy_module_init(void)
-{
-	return platform_driver_register(&sirf_phy_driver);
-}
-postcore_initcall(sirf_phy_module_init);
+module_platform_driver(sirf_phy_driver);
 
-static void __exit sirf_phy_module_exit(void)
-{
-	platform_driver_unregister(&sirf_phy_driver);
-}
-module_exit(sirf_phy_module_exit);
-
-MODULE_ALIAS("platform:sirf-ci13xxx-usbphy");
 MODULE_AUTHOR("Rong Wang <Rong.Wang@csr.com>");
 MODULE_DESCRIPTION("SiRF CI13XXX USB PHY driver");
 MODULE_LICENSE("GPL v2");
