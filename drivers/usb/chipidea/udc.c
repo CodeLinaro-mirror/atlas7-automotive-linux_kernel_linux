@@ -1773,8 +1773,10 @@ static int udc_suspend(struct ci13xxx *ci)
 static int udc_resume(struct ci13xxx *ci)
 {
 	hw_device_reset(ci, USBMODE_CM_DC);
-	ci13xxx_start(&ci->gadget, ci->driver);
-	usb_gadget_connect(&ci->gadget);
+	if (ci->driver) {
+		ci13xxx_start(&ci->gadget, ci->driver);
+		usb_gadget_connect(&ci->gadget);
+	}
 	return 0;
 }
 
