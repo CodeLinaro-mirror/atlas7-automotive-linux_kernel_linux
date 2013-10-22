@@ -78,10 +78,6 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp1_uart_nostreamctrl_pins_a>;
 			};
-			usp@b00a0000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&usp2_pins_a>;
-			};
 			vip@b00C0000 {
 				status = "okay";
 				pinctrl-names = "default";
@@ -94,16 +90,6 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&spi0_pins_a>;
-				spi@0 {
-					compatible = "spidev";
-					reg = <0>;
-					spi-max-frequency = <1000000>;
-				};
-			};
-			spi@b0170000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&spi1_pins_a>;
 				spi@0 {
 					compatible = "spidev";
 					reg = <0>;
