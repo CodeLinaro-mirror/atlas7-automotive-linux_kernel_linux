@@ -9,6 +9,7 @@ config ARCH_SIRF
 	select PINCTRL_SIRF
 	select ARCH_HAS_CPUFREQ
 	select ARCH_HAS_OPP
+	select DMABOUNCE
 	help
 	  Support for CSR SiRFprimaII/Marco/Polo platforms
 
