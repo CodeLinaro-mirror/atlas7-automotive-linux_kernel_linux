@@ -2,7 +2,8 @@
 
 sirfsoc_fb-objs := sirfsocfb.o CspSocLcd.o CspSocLcdInit.o CspSocVpp.o
 
-ifdef CONFIG_SIRF_BLE
+ifeq ($(BOARD),atlas6cb)
+ccflags-y := -DSUPPORT_BLE
 sirfsoc_fb-objs += CspSocBle.o
 endif
 
