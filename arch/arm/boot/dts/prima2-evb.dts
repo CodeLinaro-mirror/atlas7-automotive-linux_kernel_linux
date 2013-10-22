@@ -55,6 +55,11 @@
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc1_pins_a>;
 				};
+				sd4: sdhci@56400000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc4_pins_a>;
+				};
 			};
 
 			uart@b0050000 {
