@@ -47,7 +47,7 @@
 #include "CspCmnLcd.h"
 #include "CspCmnVpp.h"
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 #include "CspCmnBle.h"
 #endif
 
@@ -1151,7 +1151,7 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 	return 0;
 }
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 
 #define MEM_INFO_ARRAY_SIZE 5
 static BLE2DMEMINFO mem_src_info[MEM_INFO_ARRAY_SIZE];
@@ -1429,7 +1429,7 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (sirfsocfb_blt_yuv2rgb(fb, layer, &data.blt))
 			return -EFAULT;
 		break;
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 	case SIRFSOCFB_BLT_BLE:
 		if (copy_from_user(&data.blt_ble, (void __user *)arg,
 				   sizeof(struct sirfsocfb_bltparms_ble)))
@@ -1699,7 +1699,7 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 		/* layer supports panning? */
 		fb->fb[layer].fix.ypanstep = 1;
 		fb->fb[layer].fix.ywrapstep = 0;
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 		fb->fb[layer].fix.accel = FB_ACCEL_BLE;
 #else
 		fb->fb[layer].fix.accel = FB_ACCEL_NONE;
@@ -1985,7 +1985,7 @@ static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
 
 }
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 static irqreturn_t sirfsocfb_ble_irq_handler(int irq, void *data)
 {
 	struct sirfsocfb *fb = (struct sirfsocfb *)data;
@@ -2332,7 +2332,7 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	if (ret)
 		goto err_remove_fifo_overflow_file;
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 	sirfsocfb_setup_ble(fb);
 #endif
 
