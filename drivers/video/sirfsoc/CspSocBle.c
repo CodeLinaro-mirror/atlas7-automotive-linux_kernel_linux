@@ -274,8 +274,7 @@ BLE2DERROR __BleSoc_WaitBltComplete(BLE2DCONTEXT *pBle2DContext, BLE2DMEMINFO *p
                             bPrint = FALSE;
                         }
                     }
-
-                    msleep(5);
+			usleep_range(1500, 2000);
                 }
             }
         }
@@ -301,7 +300,7 @@ BLE2DERROR __BleSoc_WaitBltComplete(BLE2DCONTEXT *pBle2DContext, BLE2DMEMINFO *p
                     {
                         break;
                     }
-                    msleep(5);
+			usleep_range(1500, 2000);
                 }
             }
         }
