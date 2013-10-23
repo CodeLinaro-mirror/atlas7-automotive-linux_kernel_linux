@@ -74,33 +74,6 @@ static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 	return pwm;
 }
 
-static int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	int hwpwm = pwm->hwpwm;
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-#define PIN_NAME_LEN	8
-	char pins[PIN_NAME_LEN];
-	int ret;
-
-	if (hwpwm >= SIRF_PWM_CHL_NUM) {
-		dev_err(chip->dev, "Not support pwm%d\n", hwpwm);
-		return -EINVAL;
-	}
-
-	if (hwpwm == SIRF_PWM_I2S_CHL)
-		return 0;
-
-	snprintf(pins, PIN_NAME_LEN, "pwm%d", hwpwm);
-	spwm->p[hwpwm] = pinctrl_get_select(chip->dev, pins);
-	ret = IS_ERR(spwm->p[hwpwm]);
-	if (ret) {
-		dev_err(chip->dev, "Get %s pin failed.\n", pins);
-		return ret;
-	}
-
-	return 0;
-}
-
 static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
@@ -364,7 +337,6 @@ static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 }
 
 static struct pwm_ops sirf_pwm_ops = {
-	.request = sirf_pwm_request,
 	.free = sirf_pwm_free,
 	.enable = sirf_pwm_enable,
 	.disable = sirf_pwm_disable,
