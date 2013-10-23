@@ -24,7 +24,8 @@
 #define SIRFSOC_BOOT_STATUS		0x20
 
 #define SIRFSOC_START_PSAVING_BIT	0x0
-#define SIRFSOC_BOOT_STATUS_BITS	4
+#define SIRFSOC_BOOT_STATUS_BITS	5
+#define RECOVERY_MODE			(1 << 4)
 
 #ifndef __ASSEMBLY__
 extern int sirfsoc_prima2_finish_suspend(unsigned long);
