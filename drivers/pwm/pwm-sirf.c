@@ -49,37 +49,6 @@ struct sirf_pwm {
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
-static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
-		const struct of_phandle_args *args)
-{
-	struct pwm_device *pwm;
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-
-	if (chip->of_pwm_n_cells < 4)
-		return ERR_PTR(-EINVAL);
-
-	if (args->args[0] >= chip->npwm)
-		return ERR_PTR(-EINVAL);
-
-	pwm = pwm_request_from_chip(chip, args->args[0], NULL);
-	if (IS_ERR(pwm))
-		return pwm;
-
-	pwm_set_period(pwm, args->args[1]);
-
-	spwm->duty_ns[pwm->hwpwm] = args->args[2];
-
-	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
-
-	return pwm;
-}
-
-static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	pinctrl_put(spwm->p[pwm->hwpwm]);
-}
-
 static u32 sirf_get_in_cycles_ps(struct pwm_chip *chip,
 		struct pwm_device *pwm)
 {
@@ -114,6 +83,44 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	cycle = dividend & 0xFFFFFFFFUL;
 
 	return cycle > 1 ? cycle : 1;
+}
+
+static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
+		const struct of_phandle_args *args)
+{
+	struct pwm_device *pwm;
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	unsigned int period;
+
+	if (chip->of_pwm_n_cells < 4)
+		return ERR_PTR(-EINVAL);
+
+	if (args->args[0] >= chip->npwm)
+		return ERR_PTR(-EINVAL);
+
+	pwm = pwm_request_from_chip(chip, args->args[0], NULL);
+	if (IS_ERR(pwm))
+		return pwm;
+
+	if (time_to_cycle(chip, pwm, args->args[1]) == 1)
+		period = NSEC_PER_SEC / sirf_get_in_cycles_ps(chip, pwm);
+	else
+		period = args->args[1];
+
+	dev_info(chip->dev, "pwm %d period is %d ns!\n", pwm->hwpwm, period);
+	pwm_set_period(pwm, period);
+
+	spwm->duty_ns[pwm->hwpwm] = args->args[2];
+
+	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
+
+	return pwm;
+}
+
+static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	pinctrl_put(spwm->p[pwm->hwpwm]);
 }
 
 /*
@@ -311,8 +318,6 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	writel(val, spwm->base + PWM_OE);
 
-	sirf_pwm_config(chip, pwm, spwm->duty_ns[pwm->hwpwm], pwm->period);
-
 	return 0;
 }
 
@@ -467,4 +472,5 @@ module_platform_driver(sirf_pwm_driver);
 
 MODULE_DESCRIPTION("SIRF serial SoC PWM device core driver");
 MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
+MODULE_AUTHOR("Huayi Li <huayi.li@csr.com>");
 MODULE_LICENSE("GPL v2");
