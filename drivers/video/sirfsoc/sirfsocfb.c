@@ -2093,6 +2093,8 @@ static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node, const char *
 		be32_to_cpu(mem_info[3]);
 	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, SZ_1M);
 	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
+
+	return 1;
 }
 
 void  __init sirfsoc_fb_reserve_memblock(void)
