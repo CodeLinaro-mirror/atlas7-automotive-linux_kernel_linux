@@ -107,7 +107,7 @@ static int bt_csr_probe(struct platform_device *pdev)
 		goto fail_reset;
 	}
 
-	pwm_config(rfkill->pwm, 0, 0);
+	pwm_config(rfkill->pwm, 0, rfkill->pwm->period);
 	pwm_enable(rfkill->pwm);
 
 
