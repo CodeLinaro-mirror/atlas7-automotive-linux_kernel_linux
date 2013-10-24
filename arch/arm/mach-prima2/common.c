@@ -22,8 +22,12 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_nand_reserve_memblock();
 	sirfsoc_fb_reserve_memblock();
 	sirfsoc_vip_reserve_memblock();
-	if (of_machine_is_compatible("sirf,prima2"))
-		sirfsoc_video_codec_reserve_memblock();
+}
+
+void __init prima2_reserve(void)
+{
+	sirfsoc_reserve();
+	sirfsoc_video_codec_reserve_memblock();
 }
 
 static void __init sirfsoc_init_mach(void)
@@ -80,7 +84,7 @@ static const char *prima2_dt_match[] __initdata = {
 
 DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
-	.reserve	= sirfsoc_reserve,
+	.reserve	= prima2_reserve,
 	.nr_irqs	= 128,
 	.map_io         = sirfsoc_map_io,
 	.init_irq	= irqchip_init,
