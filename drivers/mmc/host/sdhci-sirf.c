@@ -14,6 +14,7 @@
 #include <linux/of_gpio.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/dma-mapping.h>
 #include "sdhci-pltfm.h"
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
@@ -42,6 +43,18 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
+
+/*
+ * The following functions are needed for DMA bouncing.
+ * SiRFprimaII chip can address up to 256MByte, so all the devices
+ * connected to SiRFprimaII should have limited DMA window
+ */
+static int sirf_needs_bounce(struct device *dev, dma_addr_t dma_addr, size_t size)
+{
+	dev_dbg(dev, "%s: dma_addr %08x, size %08x\n",
+		__func__, dma_addr, size);
+	return (dma_addr + size - PHYS_OFFSET) >= SZ_256M;
+}
 
 static int sdhci_sirf_probe(struct platform_device *pdev)
 {
@@ -105,6 +118,13 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	}
 
 	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
+
+	if (of_machine_is_compatible("sirf,prima2")) {
+		if (pdev->dev.dma_mask)
+			*(pdev->dev.dma_mask) = (SZ_256M - 1) | PHYS_OFFSET;
+		pdev->dev.coherent_dma_mask = (SZ_256M - 1) | PHYS_OFFSET;
+		dmabounce_register_dev(&pdev->dev, 1024, 2048, sirf_needs_bounce);
+	}
 
 	return 0;
 
