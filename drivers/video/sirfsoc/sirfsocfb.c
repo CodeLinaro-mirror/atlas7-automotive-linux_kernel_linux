@@ -2507,6 +2507,13 @@ static int sirfsocfb_restore(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_NOT_MSG("LCD restore\n");
 
+#ifdef CONFIG_ANDROID
+	/* Clear fb0 to avoid wallpaper garbage after hibernation back */
+	if(fb->layer_info[LCD_PRIMARY].enabled)
+		memset(fb->fb[LCD_PRIMARY].screen_base, 0x0,
+			fb->fb[LCD_PRIMARY].fix.smem_len);
+#endif
+
 	clk_enable(fb->clk);
 	clk_enable(fb->vpp_clk);
 
