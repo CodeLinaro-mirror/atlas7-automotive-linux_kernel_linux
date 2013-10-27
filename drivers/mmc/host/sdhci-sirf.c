@@ -118,8 +118,8 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	if (of_machine_is_compatible("sirf,prima2")) {
 		if (pdev->dev.dma_mask)
-			*(pdev->dev.dma_mask) = (SZ_256M - 1) | PHYS_OFFSET;
-		pdev->dev.coherent_dma_mask = (SZ_256M - 1) | PHYS_OFFSET;
+			*(pdev->dev.dma_mask) = SZ_256M - 1;
+		pdev->dev.coherent_dma_mask = SZ_256M - 1;
 		dmabounce_register_dev(&pdev->dev, 1024, 2048, sdhci_sirf_needs_bounce);
 	}
 
