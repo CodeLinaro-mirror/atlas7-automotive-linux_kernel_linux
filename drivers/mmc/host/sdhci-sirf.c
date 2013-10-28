@@ -120,10 +120,16 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
 
 	if (of_machine_is_compatible("sirf,prima2")) {
-		if (pdev->dev.dma_mask)
-			*(pdev->dev.dma_mask) = SZ_256M - 1;
-		pdev->dev.coherent_dma_mask = SZ_256M - 1;
-		dmabounce_register_dev(&pdev->dev, 1024, 2048, sdhci_sirf_needs_bounce);
+		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(28));
+		if (!ret) {
+			pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+			dmabounce_register_dev(&pdev->dev, 1024, 2048,
+				sdhci_sirf_needs_bounce);
+		} else {
+			dev_err(&pdev->dev, "dma coherent mask: %d failed, ret: %d\n",
+				DMA_BIT_MASK(28), ret);
+			goto err_request_cd;
+		}
 	}
 
 	return 0;
