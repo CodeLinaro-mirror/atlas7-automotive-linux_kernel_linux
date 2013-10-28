@@ -981,7 +981,7 @@ static const char *std_clk_sys_parents[] = {
 };
 
 static struct clk_init_data clk_security_init = {
-	.name = "mf",
+	.name = "security",
 	.ops = &ios_ops,
 	.parent_names = std_clk_sys_parents,
 	.num_parents = ARRAY_SIZE(std_clk_sys_parents),
