@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * Licensed under GPLv2 or later.*
+ * Licensed under GPLv2 or later.
  */
 
 #include <linux/module.h>
@@ -617,12 +617,9 @@ static int sirf_inner_runtime_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define sirf_inner_runtime_suspend NULL
-#define sirf_inner_runtime_resume NULL
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_soc_inner_suspend(struct device *dev)
 {
 	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
@@ -650,9 +647,6 @@ static int sirf_soc_inner_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define sirf_soc_inner_suspend NULL
-#define sirf_soc_inner_resume NULL
 #endif
 
 static const struct dev_pm_ops sirf_inner_pm_ops = {
