@@ -720,6 +720,7 @@
 				sd4: sdhci@56400000 {
 					cell-index = <4>;
 					compatible = "sirf,prima2-sdhc";
+					broken-cd;
 					reg = <0x56400000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
