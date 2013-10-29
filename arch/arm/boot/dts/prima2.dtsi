@@ -682,7 +682,6 @@
 					cell-index = <0>;
 					compatible = "sirf,prima2-sdhc";
 					wp-inverted;
-					broken-cd;
 					non-removable;
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
