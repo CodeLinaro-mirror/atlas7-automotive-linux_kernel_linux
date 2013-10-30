@@ -402,6 +402,7 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 	spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
 	clk_put(spwm->clk);
+
 	return 0;
 }
 
@@ -410,45 +411,63 @@ static int sirf_pwm_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
-	struct pwm_device *pwm = NULL;
+
+	clk_disable_unprepare(spwm->clk);
+
+	return 0;
+}
+
+static void sirf_pwm_config_restore(struct sirf_pwm *spwm)
+{
 	unsigned int i;
+	struct pwm_device *pwm = NULL;
 
 	for (i = 0; i < spwm->chip.npwm; i++) {
 		pwm = &spwm->chip.pwms[i];
-		if (pwm->label)
-			sirf_pwm_disable(&spwm->chip, pwm);
+		/*
+		 * corner case: back from hibernation, state of pwm
+		 * is enabled, but not enabled in fact
+		 */
+		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
+		     test_bit(PWMF_ENABLED, &pwm->flags))
+			sirf_pwm_enable(&spwm->chip, pwm);
 	}
-
-	clk_disable_unprepare(spwm->clk);
-	return 0;
 }
 
 static int sirf_pwm_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
-	struct pwm_device *pwm = NULL;
-	unsigned int i;
 
 	clk_prepare_enable(spwm->clk);
 
-	for (i = 0; i < spwm->chip.npwm; i++) {
-		pwm = &spwm->chip.pwms[i];
-		if (pwm->label)
-			sirf_pwm_enable(&spwm->chip, pwm);
-	}
+	sirf_pwm_config_restore(spwm);
 
 	return 0;
 }
+
+static int sirf_pwm_restore(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+
+	/* back from hibernation, clock is already enabled */
+	sirf_pwm_config_restore(spwm);
+
+	return 0;
+}
+
 #else
 #define sirf_pwm_resume NULL
 #define sirf_pwm_suspend NULL
+#define sirf_pwm_restore NULL
 #endif
+
 
 static const struct dev_pm_ops sirf_pwm_pm_ops = {
 	.suspend = sirf_pwm_suspend,
 	.resume = sirf_pwm_resume,
-	.restore = sirf_pwm_resume,
+	.restore = sirf_pwm_restore,
 };
 
 static const struct of_device_id sirf_pwm_of_match[] = {
