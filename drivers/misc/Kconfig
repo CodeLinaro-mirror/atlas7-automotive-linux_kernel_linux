@@ -546,6 +546,14 @@ config CSR_RFKILL
 	  Say Yes if you are using CSR Synergy stack based on CSR Bluetooth or
 	  WLAN chip.
 
+config SIRF_MINIGPSRTC
+	tristate "SiRFSoC rtc alarm1 module for minigps"
+	depends on ARCH_SIRF
+	default m
+	help
+	  Support for SiRFSoC rtc alarm1 module, which is specially used for
+	  minigps running
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
