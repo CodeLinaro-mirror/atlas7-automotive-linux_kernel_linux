@@ -193,6 +193,26 @@ static int speaker_output_enable_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int charge_pump_event(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	u32 val;
+
+	val = snd_soc_read(codec, AUDIO_IC_CODEC_CTRL0);
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		val |= IC_CPEN;
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		val &= ~IC_CPEN;
+	default:
+		break;
+	}
+	snd_soc_write(codec, AUDIO_IC_CODEC_CTRL0, val);
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC("DAC left", NULL, AUDIO_IC_CODEC_CTRL0, 1, 0),
 	SND_SOC_DAPM_DAC("DAC right", NULL, AUDIO_IC_CODEC_CTRL0, 0, 0),
@@ -243,6 +263,10 @@ static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("LINEIN1"),
 	SND_SOC_DAPM_INPUT("LINEIN2"),
 
+	SND_SOC_DAPM_SUPPLY("Charge Pump", AUDIO_IC_CODEC_CTRL0,
+			29, 0, charge_pump_event,
+			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_SUPPLY("HSL Phase Opposite", AUDIO_IC_CODEC_CTRL0,
 			30, 0, NULL, 0),
 };
@@ -265,6 +289,8 @@ static const struct snd_soc_dapm_route sirf_inner_audio_map[] = {
 	{"Left dac to hp right amp", "Switch", "DAC right"},
 	{"DAC left", NULL, "Playback"},
 	{"DAC right", NULL, "Playback"},
+	{"DAC left", NULL, "Charge Pump"},
+	{"DAC right", NULL, "Charge Pump"},
 	{"DAC left", NULL, "HSL Phase Opposite"},
 	{"DAC right", NULL, "HSL Phase Opposite"},
 
@@ -562,10 +588,6 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	}
 
 	sinner_audio->reg_bits = (struct sirf_soc_inner_audio_reg_bits *)match->data;
-	/* Always open charge pump, if not, when the charge pump closed the
-	 * adc will not stable*/
-	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPFREQ,
-			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
 	spin_lock_init(&sinner_audio->lock);
 	return 0;
@@ -607,9 +629,6 @@ static int sirf_inner_runtime_resume(struct device *dev)
 	val |= (1 << sinner_audio->reg_bits->codec_clk_en_bits);
 	val &= ~(1 << sinner_audio->reg_bits->por_bits);
 	writel(val, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
-
-	writel(readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0) | IC_CPFREQ,
-			sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
 	msleep(20);
 	val |= (1 << sinner_audio->reg_bits->por_bits);
