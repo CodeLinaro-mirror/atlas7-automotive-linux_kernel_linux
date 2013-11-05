@@ -266,11 +266,11 @@ BLE2DERROR __BleSoc_WaitBltComplete(BLE2DCONTEXT *pBle2DContext, BLE2DMEMINFO *p
                         break;
                     }
 
-                    if(Counter > 100)
+                    if (Counter > 1000)
                     {
                         if(bPrint)
                         {
-                            BLE_MSG(("2dError:Wait Fence Back Timeout,DesiredSyncID = 0x%.8x,ReadID = 0x%.8x\n", pMemInfo->ulDesiredSyncID,CurrentSyncID));
+                            BLE_ERR(("2dError:Wait Fence Back Timeout,DesiredSyncID = 0x%.8x,ReadID = 0x%.8x\n", pMemInfo->ulDesiredSyncID,CurrentSyncID));
                             bPrint = FALSE;
                         }
                     }
