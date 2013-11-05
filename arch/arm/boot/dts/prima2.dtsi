@@ -109,7 +109,13 @@
 				compatible = "sirf,prima2-memcmon";
 				reg = <0x90002000 0x200>;
 				interrupts = <4>;
-				clocks = <&clks 32>;
+				clocks = <&clks 32>, <&clks 33>;
+				clock-names = "gfx", "mm";
+				mm-rdat-ref = <25000000>;
+				mm-wdat-ref = <8000000>;
+				mm-idle-freq = <25000000>;
+				mm-min-freq = <100000000>;
+				mm-max-freq = <200000000>;
 			};
 		};
 

@@ -126,6 +126,16 @@ struct sirfsoc_memcmon {
 	int gfxfreq_auto;
 	struct clk *gfx_clk;
 	unsigned long gfx_rate;
+	struct delayed_work vxdfreq_dwork;
+	int vxdfreq_auto;
+	int vxd_valid;
+	struct clk *mm_clk;
+	unsigned long mm_rate;
+	u32 mm_rdat_ref;
+	u32 mm_wdat_ref;
+	u32 mm_idle_freq;
+	u32 mm_min_freq;
+	u32 mm_max_freq;
 	int lat_on;
 	int addr_on;
 	int to_on;

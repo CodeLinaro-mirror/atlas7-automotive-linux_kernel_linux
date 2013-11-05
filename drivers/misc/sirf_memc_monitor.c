@@ -25,6 +25,7 @@
 #define PROC_NUMBUF 50
 #define GFXFREQ_ADAPT_MS 1000
 #define GFX_DCOUNT_REF 15000000
+#define VXDFREQ_ADAPT_MS 1000
 
 static struct proc_dir_entry *proc_root;
 static const char proc_root_name[] = "sirf_memcmon";
@@ -143,6 +144,11 @@ static void sirfsoc_bwmon_start(struct sirfsoc_memcmon *memcmon)
 		queue_delayed_work(memcmon->bw_wq,
 				&memcmon->gfxfreq_dwork,
 				msecs_to_jiffies(GFXFREQ_ADAPT_MS));
+	}
+	if (memcmon->vxd_valid && memcmon->vxdfreq_auto) {
+		queue_delayed_work(memcmon->bw_wq,
+				&memcmon->vxdfreq_dwork,
+				msecs_to_jiffies(VXDFREQ_ADAPT_MS));
 	}
 	do_gettimeofday(&memcmon->bwmon_start);
 }
@@ -345,6 +351,72 @@ static const struct file_operations sirfsoc_gfxfreq_auto_fops = {
 	.owner		= THIS_MODULE,
 	.read		= sirfsoc_gfxfreq_auto_read,
 	.write		= sirfsoc_gfxfreq_auto_write,
+	.llseek		= generic_file_llseek,
+};
+
+static void sirfsoc_vxdfreq_adapt(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct sirfsoc_memcmon *memcmon = container_of(dwork,
+			struct sirfsoc_memcmon, vxdfreq_dwork);
+	struct bandwidth_info *mm_info = &memcmon->bw_info[MONITOR_MEDIA];
+
+	sirfsoc_memcmon_port_disable(&memcmon->bw_regs->control,
+			MONITOR_MEDIA);
+	sirfsoc_bwmon_get_port_info(memcmon, MONITOR_MEDIA);
+
+	if (mm_info->rdat == 0 && mm_info->wdat == 0)
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_idle_freq);
+	else if (mm_info->rdat < memcmon->mm_rdat_ref &&
+			mm_info->wdat < memcmon->mm_wdat_ref)
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_min_freq);
+	else
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_max_freq);
+
+	sirfsoc_memcmon_port_enable(&memcmon->bw_regs->control, MONITOR_MEDIA);
+
+	if (memcmon->bw_on && memcmon->vxdfreq_auto)
+		queue_delayed_work(memcmon->bw_wq, &memcmon->vxdfreq_dwork,
+			msecs_to_jiffies(VXDFREQ_ADAPT_MS));
+	else
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_rate);
+}
+
+static ssize_t sirfsoc_vxdfreq_auto_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
+	char buffer[PROC_NUMBUF];
+	size_t len;
+
+	if (!memcmon)
+		return -ESRCH;
+	len = snprintf(buffer, sizeof(buffer), "%d\n", memcmon->vxdfreq_auto);
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static ssize_t sirfsoc_vxdfreq_auto_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
+	int vxdfreq_auto;
+
+	if (!memcmon)
+		return -ESRCH;
+
+	if (!access_ok(VERIFY_READ, buf, count))
+		goto out;
+
+	sscanf(buf, "%d", &vxdfreq_auto);
+	memcmon->vxdfreq_auto = !!vxdfreq_auto;
+out:
+	return count;
+}
+
+static const struct file_operations sirfsoc_vxdfreq_auto_fops = {
+	.owner		= THIS_MODULE,
+	.read		= sirfsoc_vxdfreq_auto_read,
+	.write		= sirfsoc_vxdfreq_auto_write,
 	.llseek		= generic_file_llseek,
 };
 
@@ -991,10 +1063,36 @@ static irqreturn_t sirfsoc_memcmon_irq(int irq, void *dev_id)
 		return IRQ_NONE;
 }
 
+static int sirfsoc_memcmon_prepare_vxd(struct sirfsoc_memcmon *memcmon)
+{
+		memcmon->mm_clk = clk_get(memcmon->dev, "mm");
+		if (IS_ERR(memcmon->mm_clk)) {
+			pr_err("get mm_clk failed!\n");
+			return PTR_ERR(memcmon->mm_clk);
+		}
+		proc_create_data("vxdfreq_auto", S_IRWXUGO, proc_root,
+				&sirfsoc_vxdfreq_auto_fops, memcmon);
+		memcmon->mm_rate = clk_get_rate(memcmon->mm_clk);
+		INIT_DELAYED_WORK(&memcmon->vxdfreq_dwork,
+				sirfsoc_vxdfreq_adapt);
+		of_property_read_u32(memcmon->dev->of_node, "mm-rdat-ref",
+				&memcmon->mm_rdat_ref);
+		of_property_read_u32(memcmon->dev->of_node, "mm-wdat-ref",
+				&memcmon->mm_wdat_ref);
+		of_property_read_u32(memcmon->dev->of_node, "mm-idle-freq",
+				&memcmon->mm_idle_freq);
+		of_property_read_u32(memcmon->dev->of_node, "mm-min-freq",
+				&memcmon->mm_min_freq);
+		of_property_read_u32(memcmon->dev->of_node, "mm-max-freq",
+				&memcmon->mm_max_freq);
+		return 0;
+}
+
 static int sirfsoc_memcmon_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_memcmon *memcmon;
 	struct resource *mem_res;
+	struct device_node *mm_node = NULL;
 	int irq;
 	int ret;
 
@@ -1037,12 +1135,18 @@ static int sirfsoc_memcmon_probe(struct platform_device *pdev)
 	}
 	INIT_DELAYED_WORK(&memcmon->gfxfreq_dwork, sirfsoc_gfxfreq_adapt);
 
-	memcmon->gfx_clk = clk_get(&pdev->dev, NULL);
+	memcmon->gfx_clk = clk_get(&pdev->dev, "gfx");
 	if (IS_ERR(memcmon->gfx_clk)) {
 		dev_err(&pdev->dev, "get gfx_clk failed!\n");
 		return PTR_ERR(memcmon->gfx_clk);
 	}
 	memcmon->gfx_rate = clk_get_rate(memcmon->gfx_clk);
+
+	mm_node = of_find_node_by_name(NULL, "multimedia");
+	if (mm_node) {
+		memcmon->vxd_valid = !sirfsoc_memcmon_prepare_vxd(memcmon);
+		of_node_put(mm_node);
+	}
 
 	return 0;
 }
@@ -1051,9 +1155,12 @@ static int sirfsoc_memcmon_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_memcmon *memcmon = platform_get_drvdata(pdev);
 	cancel_delayed_work_sync(&memcmon->gfxfreq_dwork);
+	cancel_delayed_work_sync(&memcmon->vxdfreq_dwork);
 	destroy_workqueue(memcmon->bw_wq);
 	clk_set_rate(memcmon->gfx_clk, memcmon->gfx_rate);
 	clk_put(memcmon->gfx_clk);
+	clk_set_rate(memcmon->mm_clk, memcmon->mm_rate);
+	clk_put(memcmon->mm_clk);
 	remove_proc_subtree(proc_root_name, NULL);
 	return 0;
 }
