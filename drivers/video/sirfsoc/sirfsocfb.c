@@ -2459,12 +2459,14 @@ static int sirfsocfb_suspend(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_suspend\n");
 
+#ifdef SUPPORT_BLE
 	disable_irq(fb->ble_irq);
+	fb->ble_func.pfnSleep();
+	clk_disable(fb->ble_clk);
+#endif
 	disable_irq(fb->irq);
 
-	fb->ble_func.pfnSleep();
 	fb->lcd_func.pfnSleep();
-	clk_disable(fb->ble_clk);
 	clk_disable(fb->clk);
 	clk_disable(fb->vpp_clk);
 
@@ -2477,15 +2479,17 @@ static int sirfsocfb_resume(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_resume\n");
 
+#ifdef SUPPORT_BLE
+	clk_enable(fb->ble_clk);
+	fb->ble_func.pfnWakeup();
+	enable_irq(fb->ble_irq);
+#endif
 	clk_enable(fb->clk);
 	clk_enable(fb->vpp_clk);
-	clk_enable(fb->ble_clk);
 
 	/* Check if LCD preinited by uboot */
 	fb->init_enabled = fb->lcd_func.pfnWakeup();
-	fb->ble_func.pfnWakeup();
 	enable_irq(fb->irq);
-	enable_irq(fb->ble_irq);
 	FB_NOT_MSG("LCD resumed\n");
 
 	return 0;
@@ -2497,12 +2501,14 @@ static int sirfsocfb_freeze(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_freeze\n");
 
+#ifdef SUPPORT_BLE
 	disable_irq(fb->ble_irq);
+	fb->ble_func.pfnSleep();
+	clk_disable(fb->ble_clk);
+#endif
 	disable_irq(fb->irq);
 
-	fb->ble_func.pfnSleep();
 	fb->lcd_func.pfnSleep();
-	clk_disable(fb->ble_clk);
 	clk_disable(fb->clk);
 	clk_disable(fb->vpp_clk);
 
@@ -2522,15 +2528,17 @@ static int sirfsocfb_restore(struct device *dev)
 			fb->fb[LCD_PRIMARY].fix.smem_len);
 #endif
 
+#ifdef SUPPORT_BLE
+	clk_enable(fb->ble_clk);
+	fb->ble_func.pfnWakeup();
+	enable_irq(fb->ble_irq);
+#endif
 	clk_enable(fb->clk);
 	clk_enable(fb->vpp_clk);
-	clk_enable(fb->ble_clk);
 
 	/* Check if LCD preinited by uboot */
 	fb->init_enabled = fb->lcd_func.pfnWakeup();
-	fb->ble_func.pfnWakeup();
 	enable_irq(fb->irq);
-	enable_irq(fb->ble_irq);
 
 	return 0;
 }
