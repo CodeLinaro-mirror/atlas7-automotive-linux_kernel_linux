@@ -58,8 +58,8 @@ static DEFINE_MUTEX(camera_lock);
 
 static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
-static uint rearview;
-module_param(rearview, uint, S_IRUGO);
+static bool rearview = true;
+module_param(rearview, bool, S_IRUGO);
 MODULE_PARM_DESC(rearview, "to launch rearview thread.");
 
 static struct task_struct *rearview_task;
@@ -71,12 +71,9 @@ static int brestart;
 
 static struct pm_qos_request qos_cpufreq_min_req;
 
-static inline int need_launch_rearview(void)
+static inline bool need_launch_rearview(void)
 {
-	if (rearview == 1)
-		return 1;
-
-	return 0;
+	return !rearview ? false : !rearview_decoder_ops->detect();
 }
 
 int sirfsoc_register_decoder_ops(struct sirfsoc_decoder_ops *decoder_ops)
