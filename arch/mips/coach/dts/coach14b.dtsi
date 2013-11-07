@@ -6,6 +6,7 @@
 	cpus {
 		cpu@0 {
 			compatible = "mips,mips4KEc";
+			linux-entry = <0x80100000>;
 		};
 	};
 
