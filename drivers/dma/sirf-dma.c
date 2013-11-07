@@ -915,7 +915,7 @@ static int sirfsoc_dma_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int sirfsoc_dma_pm_suspend(struct device *dev)
+static int sirfsoc_dma_pm_suspend_noirq(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 	struct sirfsoc_dma_regs *save = &sdma->regs_save;
@@ -956,7 +956,7 @@ static int sirfsoc_dma_pm_suspend(struct device *dev)
 	return 0;
 }
 
-static int sirfsoc_dma_pm_resume(struct device *dev)
+static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 {
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 	struct sirfsoc_dma_regs *save = &sdma->regs_save;
@@ -999,7 +999,8 @@ static int sirfsoc_dma_pm_resume(struct device *dev)
 
 static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
 	SET_RUNTIME_PM_OPS(sirfsoc_dma_runtime_suspend, sirfsoc_dma_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_dma_pm_suspend, sirfsoc_dma_pm_resume)
+	.suspend_noirq = sirfsoc_dma_pm_suspend_noirq,
+	.resume_noirq = sirfsoc_dma_pm_resume_noirq,
 };
 
 static struct of_device_id sirfsoc_dma_match[] = {
