@@ -143,15 +143,15 @@ static int sirfsoc_pwrc_restore(struct device *dev)
 
 static int sirfsoc_pwrc_resume(struct device *dev)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
-	sirfsoc_pwrc_restore(dev);
 #ifdef CONFIG_ANDROID
+	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
 	input_report_key(pwrcdrv->input, KEY_POWER, 1);
 	input_sync(pwrcdrv->input);
 	input_report_key(pwrcdrv->input, KEY_POWER, 0);
 	input_sync(pwrcdrv->input);
 #endif
 
+	sirfsoc_pwrc_restore(dev);
 	return 0;
 }
 #endif
@@ -175,6 +175,6 @@ static struct platform_driver sirfsoc_pwrc_driver = {
 module_platform_driver(sirfsoc_pwrc_driver);
 
 MODULE_LICENSE("GPLv2");
-MODULE_AUTHOR("Binghua Duan <Binghua.Duan@csr.com>, Xianglong Du <Xianglong.Du@csr.com>");
+MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_DESCRIPTION("CSR Prima2 PWRC Driver");
 MODULE_ALIAS("platform:sirfsoc-pwrc");
