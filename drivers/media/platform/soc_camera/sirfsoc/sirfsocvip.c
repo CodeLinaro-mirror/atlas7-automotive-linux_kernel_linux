@@ -438,7 +438,8 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 
 	mutex_lock(&camera_lock);
 
-	if (pcdev->icd) {
+	if (pcdev->icd || (pcdev->rearview_enabled != NULL &&
+			pcdev->rearview_enabled())) {
 		ret = -EBUSY;
 		goto err;
 	}
