@@ -18,6 +18,7 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/clk.h>
+#include <linux/of_dma.h>
 #include <linux/sirfsoc_dma.h>
 
 #include "dmaengine.h"
@@ -81,6 +82,7 @@ struct sirfsoc_dma_regs {
 
 struct sirfsoc_dma {
 	struct dma_device		dma;
+	dma_cap_mask_t			cap;
 	struct tasklet_struct		tasklet;
 	struct sirfsoc_dma_chan		channels[SIRFSOC_DMA_CHANNELS];
 	void __iomem			*base;
@@ -88,6 +90,11 @@ struct sirfsoc_dma {
 	struct clk			*clk;
 	bool				is_marco;
 	struct sirfsoc_dma_regs		regs_save;
+};
+
+struct sirfsoc_dma_filter_args {
+	struct sirfsoc_dma *sdma;
+	unsigned int chan_id;
 };
 
 #define DRV_NAME	"sirfsoc_dma"
@@ -699,6 +706,17 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	return &sdesc->desc;
 }
 
+static bool sirfsoc_dma_dt_filter(struct dma_chan *chan, void *param)
+{
+	struct sirfsoc_dma_filter_args *fargs = param;
+
+	if (chan->device != &fargs->sdma->dma)
+		return false;
+
+	return (chan->chan_id == fargs->chan_id);
+}
+
+
 /*
  * The DMA controller consists of 16 independent DMA channels.
  * Each channel is allocated to a different function
@@ -714,6 +732,24 @@ bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 	return false;
 }
 EXPORT_SYMBOL(sirfsoc_dma_filter_id);
+
+static struct dma_chan *of_dma_sirfsoc_xlate(struct of_phandle_args *dma_spec,
+	struct of_dma *ofdma)
+{
+	struct sirfsoc_dma *sdma = ofdma->of_dma_data;
+	struct sirfsoc_dma_filter_args fargs;
+
+	if (!sdma)
+		return NULL;
+
+	if (dma_spec->args_count != 1)
+		return NULL;
+
+	fargs.sdma = sdma;
+	fargs.chan_id = dma_spec->args[0];
+
+	return dma_request_channel(sdma->cap, sirfsoc_dma_dt_filter, &fargs);
+}
 
 static int sirfsoc_dma_probe(struct platform_device *op)
 {
@@ -820,11 +856,21 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	if (ret)
 		goto free_irq;
 
+	/* Device-tree DMA controller registration */
+	ret = of_dma_controller_register(dn, of_dma_sirfsoc_xlate, sdma);
+	if (ret) {
+		sdma->cap = dma->cap_mask;
+		dev_err(dev, "failed to register DMA controller\n");
+		goto unreg_dma_dev;
+	}
+
 	pm_runtime_enable(&op->dev);
 	dev_info(dev, "initialized SIRFSOC DMAC driver\n");
 
 	return 0;
 
+unreg_dma_dev:
+	dma_async_device_unregister(dma);
 free_irq:
 	free_irq(sdma->irq, sdma);
 irq_dispose:
@@ -837,6 +883,7 @@ static int sirfsoc_dma_remove(struct platform_device *op)
 	struct device *dev = &op->dev;
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 
+	of_dma_controller_free(op->dev.of_node);
 	dma_async_device_unregister(&sdma->dma);
 	free_irq(sdma->irq, sdma);
 	irq_dispose_mapping(sdma->irq);
