@@ -35,6 +35,8 @@ static void __init sirfsoc_init_mach(void)
 	sirfsoc_of_rstc_init();
 	of_platform_populate(NULL, of_default_bus_match_table,
 		NULL, NULL);
+
+	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
 }
 
 static void __init sirfsoc_init_late(void)

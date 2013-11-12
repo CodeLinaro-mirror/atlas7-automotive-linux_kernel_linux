@@ -13,6 +13,18 @@
 / {
 	model = "CSR SiRFatlas6 Evaluation Board";
 	compatible = "sirf,atlas6-cb", "sirf,atlas6";
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vcore>;
+			operating-points = <
+				/* kHz    uV */
+				200000  1035000
+				400000  1035000
+				600000  1150000
+				800000  1150000
+			>;
+		};
+	};
 
 	memory {
 		reg = <0x00000000 0x20000000>;
