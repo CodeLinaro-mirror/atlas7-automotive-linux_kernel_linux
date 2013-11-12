@@ -416,7 +416,7 @@ static struct platform_driver sirfsoc_rtc_driver = {
 		.name = "sirfsoc-rtc",
 		.owner = THIS_MODULE,
 		.pm = &sirfsoc_rtc_pm_ops,
-		.of_match_table = of_match_ptr(sirfsoc_rtc_of_match),
+		.of_match_table = sirfsoc_rtc_of_match,
 	},
 	.probe = sirfsoc_rtc_probe,
 	.remove = sirfsoc_rtc_remove,
