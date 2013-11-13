@@ -1030,6 +1030,16 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
+static void sirfsoc_uart_pm(struct uart_port *port, unsigned int state,
+			      unsigned int oldstate)
+{
+	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
+	if (!state)
+		clk_prepare_enable(sirfport->clk);
+	else
+		clk_disable_unprepare(sirfport->clk);
+}
+
 static unsigned int sirfsoc_uart_init_tx_dma(struct uart_port *port)
 {
 	struct sirfsoc_uart_port *sirfport = to_sirfport(port);
@@ -1261,6 +1271,7 @@ static struct uart_ops sirfsoc_uart_ops = {
 	.startup	= sirfsoc_uart_startup,
 	.shutdown	= sirfsoc_uart_shutdown,
 	.set_termios	= sirfsoc_uart_set_termios,
+	.pm		= sirfsoc_uart_pm,
 	.type		= sirfsoc_uart_type,
 	.release_port	= sirfsoc_uart_release_port,
 	.request_port	= sirfsoc_uart_request_port,
@@ -1483,7 +1494,6 @@ usp_no_flow_control:
 		ret = PTR_ERR(sirfport->clk);
 		goto err;
 	}
-	clk_prepare_enable(sirfport->clk);
 	port->uartclk = clk_get_rate(sirfport->clk);
 
 	port->ops = &sirfsoc_uart_ops;
@@ -1499,7 +1509,6 @@ usp_no_flow_control:
 	return 0;
 
 port_err:
-	clk_disable_unprepare(sirfport->clk);
 	clk_put(sirfport->clk);
 err:
 	return ret;
@@ -1509,7 +1518,6 @@ static int sirfsoc_uart_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport = platform_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
-	clk_disable_unprepare(sirfport->clk);
 	clk_put(sirfport->clk);
 	uart_remove_one_port(&sirfsoc_uart_drv, port);
 	return 0;
