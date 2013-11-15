@@ -24,13 +24,11 @@
 
 struct SCoachSharedParams *g_sharedParam = NULL;
 
-static void sharedparam_retrieve(void *sharedParamAddr)
+static void sharedparam_retrieve(u32 sharedParamAddr)
 {
-	g_sharedParam = (struct SCoachSharedParams *)readl(sharedParamAddr);
 	g_sharedParam = (struct SCoachSharedParams *)
-		CKSEG1ADDR((u32)g_sharedParam);
+		CKSEG1ADDR((u32)sharedParamAddr);
 
-	BUG_ON(g_sharedParam == NULL);
 }
 
 static void __init coach_ebase_setup(void)
@@ -46,6 +44,7 @@ static void __init coach_ebase_setup(void)
 	clear_c0_status(ST0_BEV);
 }
 
+
 void __init prom_init(void)
 {
 	/* Nullify Epc and ErrEpc */
@@ -53,28 +52,13 @@ void __init prom_init(void)
 		"mtc0 $0, $14\n"
 		"mtc0 $0, $30\n"
 	);
-#define CPU_SHARE_PARAM 0xB080200c
 
-	sharedparam_retrieve((void *)CPU_SHARE_PARAM);
+	sharedparam_retrieve(fw_arg1);
 
 	strlcpy(arcs_cmdline, (const char *)sharedparam_get_cmdline(),
 		COMMAND_LINE_SIZE);
 
 	board_ebase_setup = coach_ebase_setup;
-	/*
-	 * If DRAM size is bigger than 256MB -
-	 * we need special handling here for address space conversion
-	 */
-	if (sharedparam_get_system_mem_size() > 0x10000000) {
-		u32 upper_size =
-			sharedparam_get_system_mem_size() - 0x10000000;
-		void *upper_cached = (void *)ioremap
-			(COACH_PHYSMEM_UPPER_ALIAS_START, upper_size);
-		void *upper_uncached = (void *)ioremap_nocache
-			(COACH_PHYSMEM_UPPER_ALIAS_START, upper_size);
-
-		BUG_ON(upper_cached == 0 || upper_uncached == 0);
-	}
 }
 
 const char*
@@ -86,3 +70,4 @@ get_system_type(void)
 void prom_free_prom_memory(void)
 {
 }
+

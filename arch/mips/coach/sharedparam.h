@@ -28,6 +28,7 @@ enum EIpcSpinLock {
 };
 
 struct SCoachSharedParams {
+	u32 magic;
 	int version;
 	/* Used to detect struct mismatch, bumped on every change */
 	void *cmdline;                  /* Linux Boot Command Line*/
@@ -40,6 +41,7 @@ struct SCoachSharedParams {
 	u32 uart_port_num;
 	/* Which uart port to use - 1 ( Same as ThreadX) , 2 ( Separate port) */
 	u32 *uart_control_addr;      /* Address of UART control register */
+	u32 uart_clk;
 	void *system_mem_start;         /* Start memory address of the system */
 	u32 system_mem_size;         /* Size of the system memory */
 #ifdef USE_COACH_C2C
@@ -79,3 +81,5 @@ extern struct SCoachSharedParams *g_sharedParam;
 	(g_sharedParam->power_off)
 #define sharedparam_get_fcu_drv_shared_data() \
 	(phys_to_virt(g_sharedParam->fcu_drv_shared_data))
+#define sharedparam_get_uart_clk() \
+	(g_sharedParam->uart_clk)

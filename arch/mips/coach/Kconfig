@@ -22,8 +22,8 @@ config MIPS_COACH14B
 	select GENERIC_HARDIRQS_NO__DO_IRQ
 	select USE_OF
 
-config MIPS_COACH15
-	bool 'Coach 15'
+config MIPS_COACH16
+	bool 'Coach 16'
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_HAS_CPU_MIPS32_R2
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -35,10 +35,11 @@ config MIPS_COACH15
 	select CSRC_R4K
 	select DMA_NONCOHERENT
 	##
-	select CPU_HAS_PREFETCH
 	select SYNC_R4K
 	select RWSEM_GENERIC_SPINLOCK
 	select GENERIC_HARDIRQS_NO__DO_IRQ
+	select USE_OF
+	select IRQ_GIC
 
 endmenu
 

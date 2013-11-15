@@ -134,7 +134,7 @@ serial_init(void)
 		s1->irq = COACH_IRQ_NUM(irq);
 		s1->line = 0;
 		s1->type = PORT_CSR_COACH;
-		s1->uartclk = coach_get_cpu_hz();
+		s1->uartclk = sharedparam_get_uart_clk();
 		s1->flags = 0;
 		s1->iotype = UPIO_MEM32;
 		s1->regshift = 2;
@@ -162,7 +162,7 @@ serial_init(void)
 		s2->irq = COACH_IRQ_NUM(irq);
 		s2->line = 1;
 		s2->type = PORT_CSR_COACH;
-		s2->uartclk = coach_get_cpu_hz();
+		s2->uartclk = sharedparam_get_uart_clk();
 		s2->flags = 0;
 		s2->iotype = UPIO_MEM32;
 		s2->regshift = 2;

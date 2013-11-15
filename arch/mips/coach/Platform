@@ -12,6 +12,9 @@ coach_cflags_common     = -I$(coach_srctree)                                    
 cflags-$(CONFIG_MIPS_COACH14B)   += -I$(srctree)/arch/mips/include/asm/mach-coach/coach14 \
                                     $(coach_cflags_common)
 
+cflags-$(CONFIG_MIPS_COACH16)   += -I$(srctree)/arch/mips/include/asm/mach-coach/coach16 \
+                                    $(coach_cflags_common)
+
 load-$(CONFIG_MIPS_COACH) += 0xffffffff80100000
 all-$(CONFIG_MIPS_COACH)	:= vmlinux.bin
 

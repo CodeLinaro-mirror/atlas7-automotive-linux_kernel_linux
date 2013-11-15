@@ -11,28 +11,8 @@
 #include <asm/time.h>
 
 #include "sharedparam.h"
+#include "Cop.h"
 
-
-unsigned long __init coach_get_cpu_hz(void)
-{
-	unsigned long cpu_config;
-
-#define CPU_ADDR_CFG 0xb0802020
-#define CPU_CFG_BOOT_FREQ_MAP 0x3
-
-	cpu_config = readl((u32 *)CPU_ADDR_CFG);
-
-	switch (cpu_config & CPU_CFG_BOOT_FREQ_MAP) {
-	case 0: return 162*1000*1000;
-
-	case 1: return 216*1000*1000;
-	case 3: return 270*1000*1000;
-
-	case 2: return 297*1000*1000;
-	default:
-		panic("oops - wrong freq cfg map\n");
-	}
-}
 
 
 void

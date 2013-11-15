@@ -50,7 +50,7 @@ void __init plat_mem_setup(void)
 
 	/* Set up boot_mem_map */
 	boot_mem_map.nr_map = 1;
-	boot_mem_map.map[0].addr = sharedparam_get_mem_start();
+	boot_mem_map.map[0].addr = CPHYSADDR(sharedparam_get_mem_start());
 	boot_mem_map.map[0].size =
 		sharedparam_get_mem_end() - sharedparam_get_mem_start();
 	boot_mem_map.map[0].type = BOOT_MEM_RAM;

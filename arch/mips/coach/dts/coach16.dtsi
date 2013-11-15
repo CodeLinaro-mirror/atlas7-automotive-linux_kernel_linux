@@ -1,0 +1,52 @@
+/ {
+	compatible = "csr,coach16-soc";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	interrupt-parent = <&lih>;
+
+	cpus {
+		cpu@0 {
+			compatible = "mips,mips1004Kf";
+			linux-entry = <0x80100000>;
+		};
+	};
+
+	gic: gic@1fca0000 {
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		reg = <0x1fca0000 0x20000>;
+		compatible = "mips,global-intc";
+	};
+
+	dmac: dmac@18000000 {
+		reg = <0x18000000 0x4000>;
+		compatible = "csr,coach16-dmac";
+	};
+
+	lih: intc@10160000 {
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		reg = <0x10160000 0x70000>;
+		compatible = "csr,coach16-intc";
+	};
+
+	gpio: pinctrl@10220000 {
+		#gpio-cells = <3>;
+		reg = <0x10220000 0x11000>;
+		compatible = "csr,coach16-gpio";
+		gpio-controller;
+	};
+
+	uart0: uart@0 {
+		early-console;
+		reg = <0x10010140 0x2000>;
+		compatible = "csr,coach16-uart";
+		interrupts = <819>;
+	};
+
+	uart2: uart@2 {
+		reg = <0x10014000 0x2000>;
+		compatible = "sirf,prima2-uart";
+		interrupts = <851 852 853>;
+	};
+};
