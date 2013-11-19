@@ -140,7 +140,7 @@
 			ranges = <0x98000000 0x98000000 0x8000000>;
 
 			graphics@98000000 {
-				compatible = "powervr,sgx510";
+				compatible = "powervr,sgx520";
 				reg = <0x98000000 0x8000000>;
 				interrupts = <6>;
 				clocks = <&clks 32>;
