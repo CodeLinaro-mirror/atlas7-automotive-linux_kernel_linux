@@ -19,15 +19,27 @@
 #include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
 #include <linux/of_platform.h>
+#include <linux/workqueue.h>
 
 struct sirf_phy {
 	struct usb_phy		phy;
 	struct clk		*clk;
+	int			gpio_vbus;
+	struct delayed_work	work;
 };
 
 #define DRIVER_NAME	"sirf-usbphy"
 #define to_sirf_phy(p)	container_of((p), struct sirf_phy, phy)
 #define USBPHY_POR	BIT(27)
+
+static void sirf_vbus_pullup_work(struct work_struct *work)
+{
+	struct sirf_phy *sirf_phy =
+		container_of(work, struct sirf_phy, work.work);
+
+	if (gpio_is_valid(sirf_phy->gpio_vbus))
+		gpio_set_value(sirf_phy->gpio_vbus, 1);
+}
 
 static inline void sirf_phy_por(void __iomem *base)
 {
@@ -52,15 +64,18 @@ static void sirf_phy_shutdown(struct usb_phy *phy)
 	clk_disable_unprepare(sirf_phy->clk);
 }
 
-static int sirf_phy_suspend(struct usb_phy *phy, int suspend)
+static int sirf_phy_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct sirf_phy *sirf_phy = to_sirf_phy(phy);
 
 	if (suspend) {
+		if (gpio_is_valid(sirf_phy->gpio_vbus))
+			gpio_set_value(sirf_phy->gpio_vbus, 0);
 		clk_disable_unprepare(sirf_phy->clk);
 	} else {
 		clk_prepare_enable(sirf_phy->clk);
 		sirf_phy_por(phy->io_priv);
+		schedule_delayed_work(&sirf_phy->work, msecs_to_jiffies(100));
 	}
 
 	return 0;
@@ -117,6 +132,7 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	struct clk *clk;
 	struct sirf_phy *sirf_phy;
 	int ret;
+	int gpio_vbus = -1;
 
 	/*
 	 * PrimaII
@@ -132,8 +148,6 @@ static int sirf_phy_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "UTMI or ULPI ?\n");
 			return -ENODEV;
 		} else if (!strcasecmp(phy_type, "utmi")) {
-			int gpio_vbus;
-
 			gpio_vbus = of_get_named_gpio(pdev->dev.of_node, "vbus-gpios", 0);
 			if (gpio_is_valid(gpio_vbus)) {
 				ret = devm_gpio_request(&pdev->dev, gpio_vbus, "ci13xxx_sirf");
@@ -206,11 +220,12 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	}
 
 	sirf_phy->phy.io_priv		= base;
+	sirf_phy->gpio_vbus		= gpio_vbus;
 	sirf_phy->phy.dev		= &pdev->dev;
 	sirf_phy->phy.label		= DRIVER_NAME;
 	sirf_phy->phy.init		= sirf_phy_init;
 	sirf_phy->phy.shutdown		= sirf_phy_shutdown;
-	sirf_phy->phy.set_suspend	= sirf_phy_suspend;
+	sirf_phy->phy.set_suspend	= sirf_phy_set_suspend;
 	sirf_phy->phy.notify_connect	= sirf_phy_on_connect;
 	sirf_phy->phy.notify_disconnect	= sirf_phy_on_disconnect;
 
@@ -219,6 +234,7 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	sirf_phy->phy.otg->set_peripheral	= sirf_phy_set_peripheral;
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&sirf_phy->phy.notifier);
+	INIT_DELAYED_WORK(&sirf_phy->work, sirf_vbus_pullup_work);
 
 	sirf_phy->clk = clk;
 
@@ -235,6 +251,7 @@ static int sirf_phy_remove(struct platform_device *pdev)
 {
 	struct sirf_phy *sirf_phy = platform_get_drvdata(pdev);
 
+	cancel_delayed_work_sync(&sirf_phy->work);
 	usb_remove_phy(&sirf_phy->phy);
 	return 0;
 }
