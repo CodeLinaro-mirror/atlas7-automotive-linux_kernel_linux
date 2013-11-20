@@ -796,7 +796,6 @@
 				reg = <0xb8010200 0x100>;
 				clocks = <&clks 39>;
 				phy_type = "utmi";
-				vbus-gpios = <&gpio 0 14>;
 			};
 
 			usbcontroller1: usbcontroller1@b8010000 {

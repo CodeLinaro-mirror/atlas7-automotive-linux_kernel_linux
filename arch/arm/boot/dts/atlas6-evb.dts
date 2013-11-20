@@ -191,6 +191,11 @@
 				layer-ctrl = <0x0000000f>;
 			};
 		};
+		uus-iobg {
+			usbphy1: usbphy1@b8010200 {
+				vbus-gpios = <&gpio 14 0>;
+			};
+		};
 	};
 	display: display@0 {
 		panels {
