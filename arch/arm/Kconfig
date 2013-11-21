@@ -928,6 +928,16 @@ config SECURITY_MODE
 	help
 	  Enable this if Linux is running in security mode based on CSRVisor.
 
+config SPI32_IGROUP
+	hex "Interrupt Group Configuration for SPI 32~63"
+	depends on SECURITY_MODE
+	default 0xFFFFFFBB
+	help
+	  Interrupt Group Configuration for SPI 32~63. Interrupts higher than
+	  63 will be non-security interrupt; SGI(0-15) will be set by OS.
+	  0: The corresponding interrupt is Secure.
+	  1: The corresponding interrupt is Non-secure.
+
 endmenu
 
 #

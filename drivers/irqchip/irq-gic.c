@@ -383,6 +383,25 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 
 	writel_relaxed(0, base + GIC_DIST_CTRL);
 
+#ifdef CONFIG_SECURITY_MODE
+	/*
+	 * Set all global interrupts upper than 64 to be non-security
+	 */
+	for (i = 64; i < gic_irqs; i += 32)
+		writel_relaxed(0xffffffff, base + GIC_DIST_IGROUP + i * 4 / 32);
+
+	/*
+	 * Set SPI32~63 based on board configuration, some SPI can be secure
+	 */
+	writel_relaxed(CONFIG_SPI32_IGROUP, base + GIC_DIST_IGROUP + 32 * 4 / 32);
+
+	/*
+	 * Secure Linux will run in single core, so make all SGI non-secure
+	 * for IPI in non-secure Linux
+	 */
+	writel_relaxed(0xffffffff, base + GIC_DIST_IGROUP);
+#endif
+
 	/*
 	 * Set all global interrupts to be level triggered, active low.
 	 */
@@ -450,11 +469,16 @@ static void gic_cpu_init(struct gic_chip_data *gic)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4 / 4);
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
+
+#ifdef CONFIG_SECURITY_MODE
 	/*
 	 * NS enable:0x2, S enable:0x1, FIQ enable:0x8
 	 * Let security interrupts route to FIQ
 	 */
 	writel_relaxed(0xB, base + GIC_CPU_CTRL);
+#else
+	writel_relaxed(1, base + GIC_CPU_CTRL);
+#endif
 }
 
 void gic_cpu_if_down(void)
