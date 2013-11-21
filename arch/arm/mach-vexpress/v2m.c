@@ -24,6 +24,7 @@
 #include <linux/vexpress.h>
 #include <linux/clk-provider.h>
 #include <linux/clkdev.h>
+#include <linux/memblock.h>
 
 #include <asm/mach-types.h>
 #include <asm/sizes.h>
@@ -362,9 +363,16 @@ static void __init v2m_init(void)
 	ct_desc->init_tile();
 }
 
+void __init csrvisor_reserve(void)
+{
+#define CSRVISOR_PHY_BASE 0x80000000
+	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
+}
+
 MACHINE_START(VEXPRESS, "ARM-Versatile Express")
 	.atag_offset	= 0x100,
 	.smp		= smp_ops(vexpress_smp_ops),
+	.reserve        = csrvisor_reserve,
 	.map_io		= v2m_map_io,
 	.init_early	= v2m_init_early,
 	.init_irq	= v2m_init_irq,
