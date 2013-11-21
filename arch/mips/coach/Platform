@@ -1,0 +1,16 @@
+#
+# CSR/Zoran COACH boards
+#
+
+platform-$(CONFIG_MIPS_COACH)           += coach/
+coach_srctree		= $(srctree)/arch/mips/coach
+
+coach_cflags_common     = -I$(coach_srctree)                                    \
+                          -Wno-strict-prototypes -Wno-unknown-pragmas -DTOOLCHAIN_SOURCERY=0
+
+
+cflags-$(CONFIG_MIPS_COACH14B)   += -I$(srctree)/arch/mips/include/asm/mach-coach         \
+                                    $(coach_cflags_common)
+load-$(CONFIG_MIPS_COACH) += 0xffffffff80100000
+all-$(CONFIG_MIPS_COACH)	:= vmlinux.bin
+

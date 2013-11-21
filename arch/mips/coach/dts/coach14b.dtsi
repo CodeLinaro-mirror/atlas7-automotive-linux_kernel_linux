@@ -1,0 +1,32 @@
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "csr,coach14-soc";
+
+	cpus {
+		cpu@0 {
+			compatible = "mips,mips4KEc";
+		};
+	};
+
+	intc: intc@10800200 {
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		reg = <0x10800200 0x200>;
+		compatible = "csr,coach14-intc";
+		l2_irq = <118 128>;
+	};
+
+	uart0: uart@0 {
+		early-console;
+		reg = <0x10010140 0x2000>;
+		compatible = "csr,coach14-uart";
+		interrupts = <153>;
+	};
+
+	uart1: uart@1 {
+		reg = <0x10012140 0x2000>;
+		compatible = "csr,coach14-uart";
+		interrupts = <152>;
+	};
+};

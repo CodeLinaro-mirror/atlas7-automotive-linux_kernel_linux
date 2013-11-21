@@ -1,0 +1,9 @@
+/dts-v1/;
+
+/include/ "coach14b.dtsi"
+
+/ {
+	compatible = "csr,coach14-soc";
+	model = "CSR COACH14 soc";
+
+};

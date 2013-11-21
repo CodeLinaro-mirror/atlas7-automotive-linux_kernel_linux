@@ -1,0 +1,50 @@
+# This offers the choice of CPU variant.
+
+menu "CPU support"
+	depends on MIPS_COACH
+
+config MIPS_COACH14B
+	bool 'Coach 14B'
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_HAS_CPU_MIPS32_R2
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_HAS_EARLY_PRINTK
+	select IRQ_CPU
+	select BOOT_RAW
+	select CEVT_R4K
+	select CSRC_R4K
+	select DMA_NONCOHERENT
+	##
+	select CPU_HAS_PREFETCH
+	select SYNC_R4K
+	select RWSEM_GENERIC_SPINLOCK
+	select GENERIC_HARDIRQS_NO__DO_IRQ
+	select USE_OF
+
+config MIPS_COACH15
+	bool 'Coach 15'
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_HAS_CPU_MIPS32_R2
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_HAS_EARLY_PRINTK
+	select IRQ_CPU
+	select BOOT_RAW
+	select CEVT_R4K
+	select CSRC_R4K
+	select DMA_NONCOHERENT
+	##
+	select CPU_HAS_PREFETCH
+	select SYNC_R4K
+	select RWSEM_GENERIC_SPINLOCK
+	select GENERIC_HARDIRQS_NO__DO_IRQ
+
+endmenu
+
+# These features may be turned on and off.
+
+menu "Platform features"
+	depends on MIPS_COACH
+
+endmenu
