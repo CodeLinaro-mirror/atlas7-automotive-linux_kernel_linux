@@ -1001,6 +1001,10 @@ static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
 	SET_RUNTIME_PM_OPS(sirfsoc_dma_runtime_suspend, sirfsoc_dma_runtime_resume, NULL)
 	.suspend_noirq = sirfsoc_dma_pm_suspend_noirq,
 	.resume_noirq = sirfsoc_dma_pm_resume_noirq,
+	.freeze_noirq = sirfsoc_dma_pm_suspend_noirq,
+	.thaw_noirq = sirfsoc_dma_pm_resume_noirq,
+	.poweroff_noirq = sirfsoc_dma_pm_suspend_noirq,
+	.restore_noirq = sirfsoc_dma_pm_resume_noirq,
 };
 
 static struct of_device_id sirfsoc_dma_match[] = {
