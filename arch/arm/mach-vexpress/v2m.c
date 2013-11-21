@@ -34,6 +34,7 @@
 #include <asm/hardware/arm_timer.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/timer-sp.h>
+#include <asm/system_misc.h>
 
 #include <mach/ct-ca9x4.h>
 #include <mach/motherboard.h>
@@ -337,6 +338,19 @@ static void __init v2m_init_irq(void)
 	ct_desc->init_irq();
 }
 
+#ifdef CONFIG_SECURITY_MODE
+
+#define SWITCH_TO_NON_SECURE 0
+static void smc_switch_to_non_secure(void)
+{
+	__asm__ __volatile__(".arch_extension sec\n\t"
+		"mov r0, %0\n\t"
+		"smc #0\n\t" :
+		: "I"(SWITCH_TO_NON_SECURE)
+		: "r0", "memory");
+}
+#endif
+
 static void __init v2m_init(void)
 {
 	int i;
@@ -361,6 +375,10 @@ static void __init v2m_init(void)
 		amba_device_register(v2m_amba_devs[i], &iomem_resource);
 
 	ct_desc->init_tile();
+
+#ifdef CONFIG_SECURITY_MODE
+	arm_pm_idle = smc_switch_to_non_secure;
+#endif
 }
 
 void __init csrvisor_reserve(void)
