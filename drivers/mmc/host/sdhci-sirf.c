@@ -30,8 +30,14 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	return clk_get_rate(priv->clk);
 }
 
+static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host, unsigned short power)
+{
+       return SDHCI_POWER_300;
+}
+
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
+	.get_power_config  = sdhci_sirf_get_power_config,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
