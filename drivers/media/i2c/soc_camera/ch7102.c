@@ -297,7 +297,7 @@ static struct platform_device *sirfsoc_hdmi_extcon_init(void)
 	struct device_node *np = NULL;
 	int gpio;
 
-	np = of_find_compatible_node(NULL, NULL, "sirf,ch7102");
+	np = of_find_compatible_node(NULL, NULL, "chrontel,ch7102");
 	if (!np)
 		goto err_out;
 
