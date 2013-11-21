@@ -919,6 +919,17 @@ config ARCH_MULTI_CPU_AUTO
 
 endmenu
 
+menu "ARM Trustzone"
+
+config SECURITY_MODE
+	bool "Linux running in security mode"
+	depends on CPU_V7
+	default n
+	help
+	  Enable this if Linux is running in security mode based on CSRVisor.
+
+endmenu
+
 #
 # This is sorted alphabetically by mach-* pathname.  However, plat-*
 # Kconfigs may be included either alphabetically (according to the

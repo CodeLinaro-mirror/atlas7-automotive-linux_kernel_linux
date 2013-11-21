@@ -82,11 +82,19 @@
  */
 #if __LINUX_ARM_ARCH__ >= 6
 	.macro	disable_irq_notrace
+#ifdef CONFIG_SECURITY_MODE
+	cpsid	f
+#else
 	cpsid	i
+#endif
 	.endm
 
 	.macro	enable_irq_notrace
+#ifdef CONFIG_SECURITY_MODE
+	cpsie	f
+#else
 	cpsie	i
+#endif
 	.endm
 #else
 	.macro	disable_irq_notrace
