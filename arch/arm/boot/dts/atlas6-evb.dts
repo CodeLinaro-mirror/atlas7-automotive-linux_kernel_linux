@@ -124,14 +124,6 @@
 				cts-gpios = <&gpio 55 0>;
 				rts-gpios = <&gpio 54 0>;
 			};
-			usp@b0090000 {
-				compatible = "sirf,prima2-usp-uart";
-				pinctrl-names = "default";
-				pinctrl-0 = <&usp1_uart_nostreamctrl_pins_a>;
-				sirf,uart-has-rtscts;
-				cts-gpios = <&gpio 15 0>;
-				rts-gpios = <&gpio 46 0>;
-			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
 				pinctrl-names = "default";
