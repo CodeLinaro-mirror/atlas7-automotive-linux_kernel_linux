@@ -1257,6 +1257,15 @@ static int sirfsoc_cam_pm_suspend(struct device *dev)
 	if (rearview_task != NULL && pcdev->rearview_suspend)
 		pcdev->rearview_suspend();
 
+	if (pcdev->icd == NULL)
+		return 0;
+
+	disable_irq(pcdev->irq);
+	pcdev->vip_funcs.pfnStop();
+	dmaengine_terminate_all(pcdev->dma_chan);
+
+	sirfsoc_camera_deactivate(pcdev);
+
 	return 0;
 }
 
@@ -1270,6 +1279,18 @@ static int sirfsoc_cam_pm_resume(struct device *dev)
 	if (rearview_task != NULL && pcdev->rearview_resume)
 		pcdev->rearview_resume();
 
+	if (pcdev->icd == NULL || pcdev->rearview_enabled())
+		return 0;
+
+	sirfsoc_camera_activate(pcdev);
+
+	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
+	enable_irq(pcdev->irq);
+
+	/* Restart frame capture if active buffer exists */
+	if (pcdev->active)
+		sirfsoc_camera_start_dma(pcdev, 1);
+
 	return 0;
 }
 static int sirfsoc_cam_pm_freeze(struct device *dev)
@@ -1282,6 +1303,15 @@ static int sirfsoc_cam_pm_freeze(struct device *dev)
 	if (rearview_task != NULL && pcdev->rearview_freeze)
 		pcdev->rearview_freeze();
 
+	if (pcdev->icd == NULL)
+		return 0;
+
+	disable_irq(pcdev->irq);
+	pcdev->vip_funcs.pfnStop();
+	dmaengine_terminate_all(pcdev->dma_chan);
+
+	sirfsoc_camera_deactivate(pcdev);
+
 	return 0;
 }
 static int sirfsoc_cam_pm_restore(struct device *dev)
@@ -1293,6 +1323,18 @@ static int sirfsoc_cam_pm_restore(struct device *dev)
 
 	if (rearview_task != NULL && pcdev->rearview_restore)
 		pcdev->rearview_restore();
+
+	if (pcdev->icd == NULL || pcdev->rearview_enabled())
+		return 0;
+
+	sirfsoc_camera_activate(pcdev);
+
+	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
+	enable_irq(pcdev->irq);
+
+	/* Restart frame capture if active buffer exists */
+	if (pcdev->active)
+		sirfsoc_camera_start_dma(pcdev, 1);
 
 	return 0;
 }
