@@ -83,4 +83,8 @@ void __init vexpress_clk_init(void __iomem *sp810_base)
 				"v2m-timer0", "sp804"));
 	WARN_ON(clk_register_clkdev(vexpress_sp810_timerclken[1],
 				"v2m-timer1", "sp804"));
+	WARN_ON(clk_register_clkdev(vexpress_sp810_timerclken[2],
+				"v2m-timer2", "sp804"));
+	WARN_ON(clk_register_clkdev(vexpress_sp810_timerclken[3],
+				"v2m-timer3", "sp804"));
 }
