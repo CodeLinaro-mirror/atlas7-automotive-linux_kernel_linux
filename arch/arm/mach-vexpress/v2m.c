@@ -64,8 +64,13 @@ static void __init v2m_sp804_init(void __iomem *base, unsigned int irq)
 	if (WARN_ON(!base || irq == NO_IRQ))
 		return;
 
+#ifdef CONFIG_SECURITY_MODE
+	sp804_clocksource_init(base + TIMER_2_BASE, "v2m-timer3");
+	sp804_clockevents_init(base + TIMER_1_BASE, irq, "v2m-timer2");
+#else
 	sp804_clocksource_init(base + TIMER_2_BASE, "v2m-timer1");
 	sp804_clockevents_init(base + TIMER_1_BASE, irq, "v2m-timer0");
+#endif
 }
 
 
@@ -288,7 +293,11 @@ static struct amba_device *v2m_amba_devs[] __initdata = {
 static void __init v2m_timer_init(void)
 {
 	vexpress_clk_init(ioremap(V2M_SYSCTL, SZ_4K));
+#ifdef CONFIG_SECURITY_MODE
+	v2m_sp804_init(ioremap(V2M_TIMER23, SZ_4K), IRQ_V2M_TIMER2);
+#else
 	v2m_sp804_init(ioremap(V2M_TIMER01, SZ_4K), IRQ_V2M_TIMER0);
+#endif
 }
 
 static void __init v2m_init_early(void)
