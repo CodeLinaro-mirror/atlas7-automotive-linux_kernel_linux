@@ -59,7 +59,16 @@
 #include <linux/sizes.h>
 #include <linux/io.h>
 
+
+#ifndef CONFIG_SECURITY_MODE
+/*
+ * backend Linux is using uart1, so let frontend Linux only hold
+ * uart0 to avoid HW conflit
+ */
+#define UART_NR			1
+#else
 #define UART_NR			14
+#endif
 
 #define SERIAL_AMBA_MAJOR	204
 #define SERIAL_AMBA_MINOR	64
