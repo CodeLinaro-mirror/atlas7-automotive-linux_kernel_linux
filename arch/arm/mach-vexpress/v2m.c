@@ -57,6 +57,14 @@ static struct map_desc v2m_io_desc[] __initdata = {
 		.length		= SZ_128K,
 		.type		= MT_DEVICE,
 	},
+#ifndef CONFIG_SECURITY_MODE
+	{
+		.virtual	= 0xD0000000,
+		.pfn		= __phys_to_pfn(0x80000000),
+		.length		= SZ_128K,
+		.type		= MT_DEVICE,
+	},
+#endif
 };
 
 static void __init v2m_sp804_init(void __iomem *base, unsigned int irq)
@@ -392,8 +400,10 @@ static void __init v2m_init(void)
 
 void __init csrvisor_reserve(void)
 {
+#ifdef CONFIG_SECURITY_MODE
 #define CSRVISOR_PHY_BASE 0x80000000
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
+#endif
 }
 
 MACHINE_START(VEXPRESS, "ARM-Versatile Express")
