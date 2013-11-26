@@ -53,7 +53,6 @@ static int sirf_minigpsrtc_alarm_set(unsigned long count)
 {
 	unsigned long rtc_status_reg, rtc_alarm;
 
-	pr_info("Enter minigpsrtc set alarm function\n");
 	local_irq_disable();
 
 	rtc_status_reg = sirfsoc_rtc_iobrg_readl(sirf_sysrtc_base + RTC_STATUS);
@@ -120,7 +119,6 @@ static int sirf_minigpsrtc_cnt_read(unsigned long *count)
 	 * correctness. To work around sirfsoc RTC counter double sync logic
 	 * fail, read several times to make sure get stable value.
 	 */
-	pr_info("Enter minigpsrtc alarm count read function\n");
 	do {
 		*count = sirfsoc_rtc_iobrg_readl(sirf_sysrtc_base + RTC_CN);
 	} while (*count != sirfsoc_rtc_iobrg_readl(sirf_sysrtc_base + RTC_CN));
@@ -132,7 +130,6 @@ static int sirf_minigpsrtc_alm_read(unsigned long *rtc_alarm)
 {
 	local_irq_disable();
 
-	pr_info("Enter minigpsrtc alarm read function\n");
 	do {
 		*rtc_alarm =
 			sirfsoc_rtc_iobrg_readl(sirf_sysrtc_base + RTC_ALARM1);
@@ -147,8 +144,6 @@ static int sirf_minigpsrtc_alm_read(unsigned long *rtc_alarm)
 static long sirf_minigpsrtc_ioctl(struct file *filp, unsigned int cmd,
 						unsigned long arg)
 {
-	pr_info("Enter minigpsrtc ioctl function\n");
-
 	switch	(cmd) {
 	case SIRFSOC_MINIGPSRTC_ALM_SET:
 		return sirf_minigpsrtc_alarm_set(arg);
