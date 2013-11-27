@@ -22,7 +22,6 @@
 #include "sharedparam.h"
 #include "Cop.h"
 
-struct SCoachSharedParams *g_sharedParam = NULL;
 #define INTC_STATUS_OFFSET 0x10
 
 struct irq_reg *coach_get_irq_base(int idx)
