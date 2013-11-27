@@ -98,5 +98,15 @@ asmlinkage void plat_irq_dispatch(void)
 		spurious_interrupt();
 }
 
-
+static int  __init send_ack_from_cop(void)
+{
+	/*
+	 * This function is to avoid threadx panic
+	 * If Rpmsg is added, maybe you can delete it.
+	 */
+	pr_info("COACH: send ipi ack now");
+	coach_ack_ipi_on_cop();
+	return 0;
+}
+arch_initcall(send_ack_from_cop);
 
