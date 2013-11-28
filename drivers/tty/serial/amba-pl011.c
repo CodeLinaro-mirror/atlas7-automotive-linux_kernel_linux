@@ -1528,6 +1528,13 @@ static int pl011_startup(struct uart_port *port)
 	unsigned int cr;
 	int retval;
 
+#ifdef CONFIG_SECURITY_MODE
+	if (uap->port.line == 0) {
+		printk(KERN_ERR "UART0 is held by frontend Linux\n");
+		return -EBUSY;
+	}
+#endif
+
 	retval = pl011_hwinit(port);
 	if (retval)
 		goto clk_dis;
