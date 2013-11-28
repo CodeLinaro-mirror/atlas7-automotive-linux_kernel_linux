@@ -136,7 +136,7 @@ static void sp804_set_mode(enum clock_event_mode mode,
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
-		writel(clkevt_reload * 20, clkevt_base + TIMER_LOAD);
+		writel(clkevt_reload, clkevt_base + TIMER_LOAD);
 		ctrl |= TIMER_CTRL_PERIODIC | TIMER_CTRL_ENABLE;
 		break;
 
@@ -159,7 +159,7 @@ static int sp804_set_next_event(unsigned long next,
 {
 	unsigned long ctrl = readl(clkevt_base + TIMER_CTRL);
 
-	writel(next * 20, clkevt_base + TIMER_LOAD);
+	writel(next, clkevt_base + TIMER_LOAD);
 	writel(ctrl | TIMER_CTRL_ENABLE, clkevt_base + TIMER_CTRL);
 
 	return 0;
