@@ -98,7 +98,11 @@
 	.endm
 #else
 	.macro	disable_irq_notrace
+#ifdef CONFIG_SECURITY_MODE
+	msr	cpsr_c, #PSR_F_BIT | SVC_MODE
+#else
 	msr	cpsr_c, #PSR_I_BIT | SVC_MODE
+#endif
 	.endm
 
 	.macro	enable_irq_notrace
@@ -170,7 +174,11 @@
 	.endm
 
 	.macro restore_irqs, oldcpsr
+#ifdef CONFIG_SECURITY_MODE
+	tst	\oldcpsr, #PSR_F_BIT
+#else
 	tst	\oldcpsr, #PSR_I_BIT
+#endif
 	asm_trace_hardirqs_on_cond eq
 	restore_irqs_notrace \oldcpsr
 	.endm
