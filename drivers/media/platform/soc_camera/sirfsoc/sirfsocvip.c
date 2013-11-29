@@ -1279,7 +1279,8 @@ static int sirfsoc_cam_pm_resume(struct device *dev)
 	if (rearview_task != NULL && pcdev->rearview_resume)
 		pcdev->rearview_resume();
 
-	if (pcdev->icd == NULL || pcdev->rearview_enabled())
+	if (pcdev->icd == NULL || (pcdev->rearview_enabled != NULL &&
+					pcdev->rearview_enabled()))
 		return 0;
 
 	sirfsoc_camera_activate(pcdev);
@@ -1324,7 +1325,8 @@ static int sirfsoc_cam_pm_restore(struct device *dev)
 	if (rearview_task != NULL && pcdev->rearview_restore)
 		pcdev->rearview_restore();
 
-	if (pcdev->icd == NULL || pcdev->rearview_enabled())
+	if (pcdev->icd == NULL || (pcdev->rearview_enabled != NULL &&
+					pcdev->rearview_enabled()))
 		return 0;
 
 	sirfsoc_camera_activate(pcdev);
