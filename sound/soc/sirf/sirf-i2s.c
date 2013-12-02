@@ -208,7 +208,7 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 	case SND_SOC_DAIFMT_NB_NF:
 		break;
 	default:
-		dev_err(dai->dev, " Only normal bit clock, normal frame clock supported\n");
+		dev_err(dai->dev, "Only normal bit clock, normal frame clock supported\n");
 		return -EINVAL;
 	}
 
