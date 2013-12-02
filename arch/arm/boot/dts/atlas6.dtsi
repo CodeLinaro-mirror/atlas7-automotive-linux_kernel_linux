@@ -108,7 +108,7 @@
 
 		mem-fw {
 			compatible = "sirf,prima2-mem-fw";
-			rc-range = <0x14f8000 0x4000>;
+			rc-range = <0x7ff7000 0x4000>;
 			dqs-range = <0x7ffc000 0x1000>;
 		};
 
