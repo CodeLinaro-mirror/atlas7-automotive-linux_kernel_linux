@@ -33,6 +33,30 @@ static inline void sirfsoc_fb_reserve_memblock(void)
 }
 #endif
 
+#ifdef CONFIG_GPS_SIRFSOC
+extern void sirfsoc_gps_reserve_memblock(void);
+extern void sirfsoc_gps_nosave_memblock(void);
+#else
+static inline void sirfsoc_gps_reserve_memblock(void)
+{
+}
+static inline void sirfsoc_gps_nosave_memblock(void)
+{
+}
+#endif
+
+#ifdef CONFIG_TRIG_SIRFSOC
+extern void sirfsoc_pbb_reserve_memblock(void);
+extern void sirfsoc_pbb_nosave_memblock(void);
+#else
+static inline void sirfsoc_pbb_reserve_memblock(void)
+{
+}
+static inline void sirfsoc_pbb_nosave_memblock(void)
+{
+}
+#endif
+
 #ifdef CONFIG_VIDEO_SIRFSOC_VIP
 extern void sirfsoc_vip_reserve_memblock(void);
 #else

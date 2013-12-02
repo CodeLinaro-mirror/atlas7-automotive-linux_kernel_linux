@@ -69,6 +69,8 @@ void __init sirfsoc_reserve(void)
 {
 	sirfsoc_pre_reserve();
 	sirfsoc_nand_reserve_memblock();
+	sirfsoc_gps_reserve_memblock();
+	sirfsoc_pbb_reserve_memblock();
 	sirfsoc_fb_reserve_memblock();
 	sirfsoc_vip_reserve_memblock();
 }
@@ -91,6 +93,8 @@ static void __init sirfsoc_init_mach(void)
 static void __init sirfsoc_init_late(void)
 {
 	sirfsoc_pm_init();
+	sirfsoc_gps_nosave_memblock();
+	sirfsoc_pbb_nosave_memblock();
 	sirfsoc_nand_nosave_memblock();
 }
 
