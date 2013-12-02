@@ -714,6 +714,7 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56100000 0x100000>;
 					interrupts = <38>;
+					bus-width = <4>;
 					status = "disabled";
 					clocks = <&clks 36>;
 				};
