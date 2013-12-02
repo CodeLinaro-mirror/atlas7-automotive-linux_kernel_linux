@@ -6,4 +6,12 @@
 	compatible = "csr,coach14-soc";
 	model = "CSR COACH14 soc";
 
+	memory {
+		device_type = "memory";
+		reg = <0x100000 0x4000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200n8";
+	};
 };

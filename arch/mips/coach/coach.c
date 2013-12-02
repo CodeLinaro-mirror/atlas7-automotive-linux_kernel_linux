@@ -55,9 +55,6 @@ void __init prom_init(void)
 
 	sharedparam_retrieve(fw_arg1);
 
-	strlcpy(arcs_cmdline, (const char *)sharedparam_get_cmdline(),
-		COMMAND_LINE_SIZE);
-
 	board_ebase_setup = coach_ebase_setup;
 }
 
