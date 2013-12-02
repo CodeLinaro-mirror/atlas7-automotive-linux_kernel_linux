@@ -547,7 +547,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(sinner_audio->clk);
 
-	ret = snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
+	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
 		&sirf_soc_inner_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
@@ -591,7 +591,6 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(sinner_audio->clk);
 	snd_soc_unregister_codec(&(pdev->dev));
-	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
 }

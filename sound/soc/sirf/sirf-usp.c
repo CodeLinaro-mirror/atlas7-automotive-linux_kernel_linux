@@ -429,7 +429,7 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(susp->clk);
 
-	ret = snd_soc_register_component(&pdev->dev, &sirf_usp_component,
+	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
@@ -445,7 +445,6 @@ err:
 static int sirf_usp_pcm_remove(struct platform_device *pdev)
 {
 	struct sirf_usp *susp = platform_get_drvdata(pdev);
-	snd_soc_unregister_component(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	platform_device_unregister(susp->sirf_pcm_pdev);
 

@@ -411,7 +411,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = snd_soc_register_component(&pdev->dev, &sirf_i2s_component,
+	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_i2s_component,
 			&sirf_i2s_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
@@ -429,7 +429,6 @@ static int sirf_i2s_remove(struct platform_device *pdev)
 {
 	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
 
-	snd_soc_unregister_component(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	platform_device_unregister(si2s->sirf_pcm_pdev);
 	return 0;
