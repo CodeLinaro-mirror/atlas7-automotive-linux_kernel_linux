@@ -60,6 +60,17 @@
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc4_pins_a>;
 				};
+				sd5: sdhci@56500000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc5_pins_a>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					sdio_sirf@0 {
+						compatible = "sirf,trig_sdio";
+						reg = <0x0>;
+					};
+				};
 			};
 
 			uart@b0050000 {

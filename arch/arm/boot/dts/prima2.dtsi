@@ -194,13 +194,20 @@
 				compatible = "sirf,prima2-dspif";
 				reg = <0xa8000000 0x10000>;
 				interrupts = <9>;
+				resets = <&rstc 1>;
 			};
 
 			gps@a8010000 {
 				compatible = "sirf,prima2-gps";
 				reg = <0xa8010000 0x10000>;
 				interrupts = <7>;
-				clocks = <&clks 9>;
+				clocks = <&clks 9>, <&clks 10>, <&clks 12>;
+				clock-names = "gps", "mf", "cpu";
+				shutdown-gpios = <&gpio 6 0>;
+				grst-gpios = <&gpio 8 0>;
+				clk-out-gpios = <&gpio 61 0>;
+				lan-en-gpios = <&gpio 64 0>;
+				resets = <&rstc 2>;
 			};
 
 			dsp@a9000000 {
@@ -208,6 +215,7 @@
 				reg = <0xa9000000 0x1000000>;
 				interrupts = <8>;
 				clocks = <&clks 8>;
+				resets = <&rstc 0>;
 			};
 		};
 
@@ -750,9 +758,10 @@
 				sd5: sdhci@56500000 {
 					cell-index = <5>;
 					compatible = "sirf,prima2-sdhc";
+					loop-dma;
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
-					status = "disabled";
+					status = "okay";
 					clocks = <&clks 38>;
 				};
 
