@@ -584,6 +584,22 @@ config DEVPORT
 	depends on ISA || PCI
 	default y
 
+config GPS_SIRFSOC
+	tristate "SiRC SOC GPS module"
+	depends on ARCH_SIRF
+	default n
+	---help---
+	   Support for SIRFSOC GPS module. It provides operation interface for user
+	   space. If you say Y here, a device node "/dev/gps" will exist.
+	   However, to make GPS module work correctly, GPS RF must be configured through spi-gpio.
+	   So make sure spi-gpio module is enabled
+
+config TRIG_SIRFSOC
+	tristate "SiRF SOC TriG module"
+	depends on ARCH_SIRF
+	default n
+	---help---
+	  Support for SIRFSOC TriG module
 source "drivers/s390/char/Kconfig"
 
 config MSM_SMD_PKT
