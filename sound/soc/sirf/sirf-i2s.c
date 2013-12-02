@@ -37,19 +37,6 @@ static int sirf_i2s_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
-static int sirf_i2s_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	pm_runtime_get_sync(dai->dev);
-	return 0;
-}
-
-static void sirf_i2s_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	pm_runtime_put(dai->dev);
-}
-
 static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 		int cmd, struct snd_soc_dai *dai)
 {
@@ -265,8 +252,6 @@ static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id, int div)
 }
 
 struct snd_soc_dai_ops sirfsoc_i2s_dai_ops = {
-	.startup	= sirf_i2s_startup,
-	.shutdown	= sirf_i2s_shutdown,
 	.trigger	= sirf_i2s_trigger,
 	.hw_params	= sirf_i2s_hw_params,
 	.set_fmt	= sirf_i2s_set_dai_fmt,

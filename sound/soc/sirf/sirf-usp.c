@@ -94,19 +94,6 @@ static int sirf_usp_pcm_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
-static int sirf_usp_pcm_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	pm_runtime_get_sync(dai->dev);
-	return 0;
-}
-
-static void sirf_usp_pcm_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	pm_runtime_put(dai->dev);
-}
-
 static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
@@ -198,11 +185,9 @@ static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
 }
 
 static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
-	.startup = sirf_usp_pcm_startup,
 	.trigger = sirf_usp_pcm_trigger,
 	.set_fmt = sirf_usp_pcm_set_dai_fmt,
 	.set_clkdiv = sirf_usp_pcm_divider,
-	.shutdown = sirf_usp_pcm_shutdown,
 };
 
 static struct snd_soc_dai_driver sirf_usp_pcm_dai = {

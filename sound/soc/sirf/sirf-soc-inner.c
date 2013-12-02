@@ -280,21 +280,6 @@ static const struct snd_soc_dapm_route sirf_inner_audio_map[] = {
 	{"Mic input mode mux", "Differential", "MICIN1"},
 };
 
-static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	pm_runtime_get_sync(codec->dev);
-	return 0;
-}
-
-static void sirf_inner_codec_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	pm_runtime_put(codec->dev);
-}
-
 static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 		int cmd,
 		struct snd_soc_dai *dai)
@@ -369,8 +354,6 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 }
 
 struct snd_soc_dai_ops sirf_inner_codec_dai_ops = {
-	.startup = sirf_inner_codec_startup,
-	.shutdown = sirf_inner_codec_shutdown,
 	.trigger = sirf_inner_codec_trigger,
 };
 
