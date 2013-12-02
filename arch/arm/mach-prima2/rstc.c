@@ -40,10 +40,10 @@ static int sirfsoc_reset_module(struct reset_controller_dev *rcdev,
 		 * datasheet doesn't require explicit delay between the set and clear
 		 * of reset bit. it could be shorter if tests pass.
 		 */
-		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) | reset_bit,
+		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) | (1 << reset_bit),
 			sirfsoc_rstc_base + (reset_bit / 32) * 4);
 		msleep(10);
-		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) & ~reset_bit,
+		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) & (~(1 << reset_bit)),
 			sirfsoc_rstc_base + (reset_bit / 32) * 4);
 	} else {
 		/*
