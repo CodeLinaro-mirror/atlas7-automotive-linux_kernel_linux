@@ -12,13 +12,12 @@ CONFIG_CPUSETS=y
 # CONFIG_IPC_NS is not set
 # CONFIG_PID_NS is not set
 CONFIG_BLK_DEV_INITRD=y
-CONFIG_INITRAMFS_SOURCE="/home/barry/development/atlas6-3.x/rootfs/initramfs"
+CONFIG_INITRAMFS_SOURCE="arch/arm/mach-vexpress/initramfs_data.cpio.gz"
 CONFIG_INITRAMFS_COMPRESSION_GZIP=y
 # CONFIG_LBDAF is not set
 # CONFIG_BLK_DEV_BSG is not set
 # CONFIG_IOSCHED_DEADLINE is not set
 # CONFIG_IOSCHED_CFQ is not set
-CONFIG_SECURITY_MODE=y
 CONFIG_ARCH_VEXPRESS=y
 CONFIG_ARCH_VEXPRESS_CA9X4=y
 # CONFIG_CACHE_L2X0 is not set
