@@ -331,7 +331,10 @@ static int sirf_usp_pcm_runtime_suspend(struct device *dev)
 static int sirf_usp_pcm_runtime_resume(struct device *dev)
 {
 	struct sirf_usp *susp = dev_get_drvdata(dev);
-	clk_prepare_enable(susp->clk);
+	int ret;
+	ret = clk_prepare_enable(susp->clk);
+	if (ret)
+		return ret;
 	sirf_usp_controller_init(susp);
 	return 0;
 }
@@ -353,9 +356,12 @@ static int sirf_usp_pcm_suspend(struct device *dev)
 static int sirf_usp_pcm_resume(struct device *dev)
 {
 	struct sirf_usp *susp = dev_get_drvdata(dev);
+	int ret;
 
 	if (!pm_runtime_status_suspended(dev)) {
-		sirf_usp_pcm_runtime_resume(dev);
+		ret = sirf_usp_pcm_runtime_resume(dev);
+		if (ret)
+			return ret;
 		writel(susp->mode1_reg, susp->base + USP_MODE1);
 		writel(susp->mode2_reg, susp->base + USP_MODE2);
 	}
@@ -412,7 +418,12 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(susp->clk);
 	}
-	clk_prepare_enable(susp->clk);
+
+	ret = clk_prepare_enable(susp->clk);
+	if (ret) {
+		dev_err(&pdev->dev, "Enable clock failed.\n");
+		return ret;
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);

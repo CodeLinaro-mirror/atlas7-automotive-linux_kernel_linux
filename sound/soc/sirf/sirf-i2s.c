@@ -296,9 +296,12 @@ static int sirf_i2s_runtime_suspend(struct device *dev)
 static int sirf_i2s_runtime_resume(struct device *dev)
 {
 	struct sirf_i2s *si2s = dev_get_drvdata(dev);
-	clk_prepare_enable(si2s->clk);
-	device_reset(dev);
-	return 0;
+	int ret;
+	ret = clk_prepare_enable(si2s->clk);
+	if (ret)
+		return ret;
+	ret = device_reset(dev);
+	return ret;
 }
 #endif
 
@@ -319,8 +322,11 @@ static int sirf_i2s_suspend(struct device *dev)
 static int sirf_i2s_resume(struct device *dev)
 {
 	struct sirf_i2s *si2s = dev_get_drvdata(dev);
+	int ret;
 	if (!pm_runtime_status_suspended(dev)) {
-		sirf_i2s_runtime_resume(dev);
+		ret = sirf_i2s_runtime_resume(dev);
+		if (ret)
+			return ret;
 		writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
 				| I2S_MODE,
 				si2s->base + AUDIO_CTRL_MODE_SEL);

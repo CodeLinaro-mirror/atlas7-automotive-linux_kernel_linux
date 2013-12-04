@@ -528,7 +528,12 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(sinner_audio->clk);
 	}
-	clk_prepare_enable(sinner_audio->clk);
+
+	ret = clk_prepare_enable(sinner_audio->clk);
+	if (ret) {
+		dev_err(&pdev->dev, "Enable clock failed.\n");
+		return ret;
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
 		&sirf_soc_inner_dai, 1);
@@ -622,8 +627,11 @@ static int sirf_soc_inner_suspend(struct device *dev)
 static int sirf_soc_inner_resume(struct device *dev)
 {
 	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
+	int ret;
 
-	clk_prepare_enable(sinner_audio->clk);
+	ret = clk_prepare_enable(sinner_audio->clk);
+	if (ret)
+		return ret;
 
 	writel(sinner_audio->reg_ctrl0,
 		sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
