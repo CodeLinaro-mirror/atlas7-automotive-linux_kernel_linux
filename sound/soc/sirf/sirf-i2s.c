@@ -260,8 +260,8 @@ struct snd_soc_dai_ops sirfsoc_i2s_dai_ops = {
 
 static struct snd_soc_dai_driver sirf_i2s_dai = {
 	.probe = sirf_i2s_dai_probe,
-	.name		= "sirf-i2s",
-	.id			= 0,
+	.name = "sirf-i2s",
+	.id = 0,
 	.playback = {
 		.stream_name = "SiRF I2S Playback",
 		.channels_min = 2,
