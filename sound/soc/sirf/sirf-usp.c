@@ -27,6 +27,7 @@ struct sirf_usp {
 	u32 mode1_reg;
 	u32 mode2_reg;
 	struct platform_device *sirf_pcm_pdev;
+	int master;
 };
 
 static struct snd_dmaengine_dai_dma_data dma_data[2];
@@ -98,26 +99,40 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
-	u32 val = readl(susp->base + USP_MODE2);
-	u32 val1 = readl(susp->base + USP_MODE1);
 
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		val1 &= ~USP_CLOCK_MODE_SLAVE;
-		val &= ~USP_TFS_CLK_SLAVE_MODE;
-		val &= ~USP_RFS_CLK_SLAVE_MODE;
+		susp->master = 1;
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		val1 |= USP_CLOCK_MODE_SLAVE;
-		val |= USP_TFS_CLK_SLAVE_MODE;
-		val |= USP_RFS_CLK_SLAVE_MODE;
+		susp->master = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
-	writel(val1, susp->base + USP_MODE1);
-	writel(val, susp->base + USP_MODE2);
+
+	return 0;
+}
+
+static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
+{
+	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
+	u32 mode1 = readl(susp->base + USP_MODE1);
+	u32 mode2 = readl(susp->base + USP_MODE2);
+
+	if (susp->master) {
+		mode1 &= ~USP_CLOCK_MODE_SLAVE;
+		mode2 &= ~USP_TFS_CLK_SLAVE_MODE;
+		mode2 &= ~USP_RFS_CLK_SLAVE_MODE;
+	} else {
+		mode1 |= USP_CLOCK_MODE_SLAVE;
+		mode2 |= USP_TFS_CLK_SLAVE_MODE;
+		mode2 |= USP_RFS_CLK_SLAVE_MODE;
+	}
+	writel(mode1, susp->base + USP_MODE1);
+	writel(mode2, susp->base + USP_MODE2);
 
 	return 0;
 }
@@ -187,6 +202,7 @@ static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
 static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
 	.trigger = sirf_usp_pcm_trigger,
 	.set_fmt = sirf_usp_pcm_set_dai_fmt,
+	.hw_params = sirf_usp_pcm_hw_params,
 	.set_clkdiv = sirf_usp_pcm_divider,
 };
 
@@ -417,12 +433,6 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	if (IS_ERR(susp->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(susp->clk);
-	}
-
-	ret = clk_prepare_enable(susp->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "Enable clock failed.\n");
-		return ret;
 	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_usp_component,
