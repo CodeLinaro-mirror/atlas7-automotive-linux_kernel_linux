@@ -402,6 +402,8 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_i2s_component,
 			&sirf_i2s_dai, 1);
 	if (ret) {
@@ -409,7 +411,6 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	pm_runtime_enable(&pdev->dev);
 	return 0;
 
 err:

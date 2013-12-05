@@ -435,13 +435,14 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		return PTR_ERR(susp->clk);
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
 		goto err;
 	}
-	pm_runtime_enable(&pdev->dev);
 	return 0;
 
 err:
