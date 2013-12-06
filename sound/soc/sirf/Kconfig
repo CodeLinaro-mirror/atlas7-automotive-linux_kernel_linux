@@ -1,7 +1,7 @@
 config SND_SIRF_SOC
 	tristate "SoC Audio for the SiRF SoC chips"
 	depends on ARCH_SIRF && SND_SOC
-	select SND_DMAENGINE_PCM
+	select SND_SOC_GENERIC_DMAENGINE_PCM
 
 config SND_SIRF_SOC_INNER
 	tristate

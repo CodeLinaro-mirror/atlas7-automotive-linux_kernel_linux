@@ -54,6 +54,9 @@ static u32 sirfsoc_timer_reg_val[SIRFSOC_TIMER_REG_CNT];
 
 static void __iomem *sirfsoc_timer_base;
 
+static int is_suspended;
+static u32 last_timer_cnt;
+
 /* timer0 interrupt handler */
 static irqreturn_t sirfsoc_timer_interrupt(int irq, void *dev_id)
 {
@@ -125,6 +128,8 @@ static void sirfsoc_clocksource_suspend(struct clocksource *cs)
 
 	for (i = 0; i < SIRFSOC_TIMER_REG_CNT; i++)
 		sirfsoc_timer_reg_val[i] = readl_relaxed(sirfsoc_timer_base + sirfsoc_timer_reg_list[i]);
+	last_timer_cnt = sirfsoc_timer_read(NULL);
+	is_suspended = 1;
 }
 
 static void sirfsoc_clocksource_resume(struct clocksource *cs)
@@ -136,6 +141,7 @@ static void sirfsoc_clocksource_resume(struct clocksource *cs)
 
 	writel_relaxed(sirfsoc_timer_reg_val[SIRFSOC_TIMER_REG_CNT - 2], sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_LO);
 	writel_relaxed(sirfsoc_timer_reg_val[SIRFSOC_TIMER_REG_CNT - 1], sirfsoc_timer_base + SIRFSOC_TIMER_COUNTER_HI);
+	is_suspended = 0;
 }
 
 static struct clock_event_device sirfsoc_clockevent = {
@@ -167,7 +173,10 @@ static struct irqaction sirfsoc_timer_irq = {
 /* Overwrite weak default sched_clock with more precise one */
 static u32 notrace sirfsoc_read_sched_clock(void)
 {
-	return (u32)(sirfsoc_timer_read(NULL) & 0xffffffff);
+	if (unlikely(is_suspended))
+		return last_timer_cnt & 0xffffffff;
+	else
+		return (u32)(sirfsoc_timer_read(NULL) & 0xffffffff);
 }
 
 static void __init sirfsoc_clockevent_init(void)
@@ -210,6 +219,7 @@ static void __init sirfsoc_prima2_timer_init(struct device_node *np)
 
 	BUG_ON(setup_irq(sirfsoc_timer_irq.irq, &sirfsoc_timer_irq));
 
+	is_suspended = 0;
 	sirfsoc_clockevent_init();
 }
 CLOCKSOURCE_OF_DECLARE(sirfsoc_prima2_timer, "sirf,prima2-tick", sirfsoc_prima2_timer_init);

@@ -382,14 +382,17 @@ typedef struct
 **
 ** Debug Fuction Declare
 ****************************************************************************/
-#define BLEOutputMsg(fmt, args...) printk("BLE: " fmt, ##args)
-#define BLE_MSG(X)  BLEOutputMsg X
-#define BLE_ERR(X)  BLEOutputMsg X
-#if defined(DEBUG)
-#define BLE_DBG(X)  BLEOutputMsg X
-#else
-#define BLE_DBG(X)
+#ifndef BLE_DEBUG
+#define BLE_DEBUG 0
 #endif
+#define BLEOutputMsg(fmt, args...) printk("BLE: " fmt, ##args)
+
+#if BLE_DEBUG
+#define BLE_MSG(X)  BLEOutputMsg X
+#else
+#define BLE_MSG(X)
+#endif
+#define BLE_ERR(X)  BLEOutputMsg X
 
 #define BLE_MAX_DEBUG_MESSAGE_LEN 512
 

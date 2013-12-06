@@ -1040,6 +1040,28 @@ static int tw9900_op_start(int input)
 	return 0;
 }
 
+static int tw9900_op_detect(void)
+{
+	struct i2c_client *client = tw9900_client;
+	struct tw9900_priv *priv = to_tw9900(client);
+	s32 id;
+
+	id = i2c_smbus_read_byte_data(client, ID);
+	priv->revision = GET_REV(id);
+	id = GET_ID(id);
+
+	if (0x00 != id ||
+	    0x01 < priv->revision) {
+		dev_err(&client->dev,
+			"Product ID error %x:%x\n",
+			id, priv->revision);
+		return -ENODEV;
+	}
+
+	return 0;
+
+}
+
 static int tw9900_op_init(void)
 {
 	return 0;
@@ -1056,6 +1078,7 @@ static int tw9900_op_stop(void)
 }
 
 static struct sirfsoc_decoder_ops tw9900_decoder_ops = {
+	.detect = tw9900_op_detect,
 	.init = tw9900_op_init,
 	.deinit = tw9900_op_deinit,
 	.set_fmt = NULL,

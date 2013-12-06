@@ -87,6 +87,7 @@ static struct snd_soc_dai_link sirf_inner_dai_links[] = {
 		.name = "SiRF inner",
 		.stream_name = "SiRF inner",
 		.codec_dai_name = "sirf-soc-inner",
+		.platform_name = "sirf-pcm-audio.1",
 	},
 };
 
@@ -117,8 +118,6 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	if (!sinner_card->sirf_inner_device)
 		return -ENOMEM;
 
-	sirf_inner_dai_links[0].platform_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,pcm-audio");
 	sirf_inner_dai_links[0].cpu_of_node =
 		of_parse_phandle(pdev->dev.of_node, "sirf,inner-platform", 0);
 	sirf_inner_dai_links[0].codec_of_node =
@@ -182,7 +181,7 @@ static int sirf_inner_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_inner_resume(struct device *dev)
 {
 	struct snd_soc_card *card = dev_get_drvdata(dev);
@@ -205,13 +204,10 @@ static int sirf_inner_suspend(struct device *dev)
 	struct snd_soc_card *card = dev_get_drvdata(dev);
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 	sinner_card->extcon_info.last_state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
-	gpio_direction_output(sinner_card->gpio_spk_pa, 0);
+	if (gpio_is_valid(sinner_card->gpio_spk_pa))
+		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
 	return 0;
 }
-
-static const struct dev_pm_ops sirf_inner_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(sirf_inner_suspend, sirf_inner_resume)
-};
 #endif
 
 static const struct of_device_id sirf_inner_of_match[] = {
@@ -220,13 +216,15 @@ static const struct of_device_id sirf_inner_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sirf_inner_of_match);
 
+static const struct dev_pm_ops sirf_inner_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_inner_suspend, sirf_inner_resume)
+};
+
 static struct platform_driver sirf_inner_driver = {
 	.driver = {
 		.name = "sirf-inner",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
 		.pm = &sirf_inner_pm_ops,
-#endif
 		.of_match_table = sirf_inner_of_match,
 	},
 	.probe = sirf_inner_probe,

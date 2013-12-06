@@ -208,7 +208,12 @@ static int ci_role_show(struct seq_file *s, void *data)
 {
 	struct ci_hdrc *ci = s->private;
 
+#ifdef CONFIG_ANDROID
+	seq_printf(s, "%s\n",
+		ci->role == CI_ROLE_END ? "stop" : ci_role(ci)->name);
+#else
 	seq_printf(s, "%s\n", ci_role(ci)->name);
+#endif
 
 	return 0;
 }
@@ -224,6 +229,13 @@ static ssize_t ci_role_write(struct file *file, const char __user *ubuf,
 
 	if (copy_from_user(buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
+
+#ifdef CONFIG_ANDROID
+	if (!strncmp(buf, "stop", strlen("stop"))) {
+		ci_role_stop(ci);
+		return count;
+	}
+#endif
 
 	for (role = CI_ROLE_HOST; role < CI_ROLE_END; role++)
 		if (ci->roles[role] &&

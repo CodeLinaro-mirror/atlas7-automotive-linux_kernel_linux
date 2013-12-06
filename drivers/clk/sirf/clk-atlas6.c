@@ -64,7 +64,7 @@ enum atlas6_clk_index {
 	mf,     io,    cpu,   uart0, uart1, uart2, tsc,   i2c0,     i2c1,  spi0,
 	spi1,   pwmc,  efuse, pulse, dmac0, dmac1, nand,  audio,    usp0,  usp1,
 	usp2,   vip,   gfx,   gfx2d,    lcd,   vpp,   mmc01, mmc23,    mmc45, usbpll,
-	usb0,  usb1,  maxclk,
+	usb0,  usb1,   cphif, maxclk,
 };
 
 static __initdata struct clk_hw *atlas6_clk_hw_array[maxclk] = {
@@ -110,6 +110,7 @@ static __initdata struct clk_hw *atlas6_clk_hw_array[maxclk] = {
 	&usb_pll_clk_hw,
 	&clk_usb0.hw,
 	&clk_usb1.hw,
+	&clk_cphif.hw,
 };
 
 static struct clk *atlas6_clks[maxclk];

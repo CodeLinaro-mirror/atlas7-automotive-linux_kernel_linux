@@ -1900,8 +1900,10 @@ static int udc_suspend(struct ci_hdrc *ci)
 static int udc_resume(struct ci_hdrc *ci)
 {
 	hw_device_reset(ci, USBMODE_CM_DC);
-	ci_udc_start(&ci->gadget, ci->driver);
-	usb_gadget_connect(&ci->gadget);
+	if (ci->driver) {
+		ci_udc_start(&ci->gadget, ci->driver);
+		usb_gadget_connect(&ci->gadget);
+	}
 	return 0;
 }
 

@@ -13,6 +13,18 @@
 / {
 	model = "CSR SiRFatlas6 Evaluation Board";
 	compatible = "sirf,atlas6-cb", "sirf,atlas6";
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vcore>;
+			operating-points = <
+				/* kHz    uV */
+				200000  1035000
+				400000  1035000
+				600000  1150000
+				800000  1150000
+			>;
+		};
+	};
 
 	memory {
 		reg = <0x00000000 0x20000000>;
@@ -30,6 +42,8 @@
 		compatible = "csr,bt-8311";
 		bt_gpio_power = <&gpio 101 0>;
 		bt_gpio_reset = <&gpio 87 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm1_pins_a>;
 		pwms = <&pwm 1 0 0 3>;
 	};
 
@@ -53,6 +67,8 @@
 	};
 	sirf-backlight {
 		compatible = "pwm-backlight";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm3_pins_a>;
 		pwms = <&pwm 3 50000 50000 0>;
 		brightness-levels = <0 48 56 64 96 112 128 255>;
 		default-brightness-level = <6>;
@@ -108,21 +124,13 @@
 				cts-gpios = <&gpio 55 0>;
 				rts-gpios = <&gpio 54 0>;
 			};
-			usp@b0090000 {
-				compatible = "sirf,prima2-usp-uart";
-				pinctrl-names = "default";
-				pinctrl-0 = <&usp1_pins_a>;
-				hw_flow_ctrl;
-				cts-gpios = <&gpio 15 0>;
-				rts-gpios = <&gpio 46 0>;
-			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins_a>;
 				clock-frequency = <40000>;
 				lcd@40 {
-					compatible = "sirf,lcd";
+					compatible = "sirf,lcd", "sirf,phy";
 					reg = <0x40>;
 				};
 			};
@@ -135,6 +143,16 @@
 					hp-hdmiinput-gpios = <&gpio 0 0>;
 					reg = <0xf0>;
 				};
+				tangoc-ts@5c{
+					compatible = "pixcir,tangoc-ts";
+					touch-gpio = <&gpio 3 0>;
+					reg = <0x5c>;
+				};
+				ft5x06@38{
+					compatible = "focaltech,ft5x06";
+                                        interrupts = <3>;
+                                        reg = <0x38>;
+                                };
 			};
 			pci-iobg {
 				sd0: sdhci@56000000 {
@@ -163,6 +181,11 @@
 				default-panel = <&panel0>;
 				/*layer enable info,default only enable layer1 */
 				layer-ctrl = <0x0000000f>;
+			};
+		};
+		uus-iobg {
+			usbphy1: usbphy1@b8010200 {
+				vbus-gpios = <&gpio 14 0>;
 			};
 		};
 	};

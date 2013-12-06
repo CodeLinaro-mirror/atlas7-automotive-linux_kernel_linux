@@ -344,8 +344,7 @@ static int sirfsoc_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-
+#ifdef CONFIG_PM_SLEEP
 static int sirfsoc_rtc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -362,18 +361,11 @@ static int sirfsoc_rtc_suspend(struct device *dev)
 	return 0;
 }
 
-static int sirfsoc_rtc_freeze(struct device *dev)
-{
-	sirfsoc_rtc_suspend(dev);
-
-	return 0;
-}
-
-static int sirfsoc_rtc_thaw(struct device *dev)
+static int sirfsoc_rtc_resume(struct device *dev)
 {
 	u32 tmp;
-	struct sirfsoc_rtc_drv *rtcdrv;
-	rtcdrv = (struct sirfsoc_rtc_drv *)dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
 
 	/*
 	 * if resume from snapshot and the rtc power is losed,
@@ -416,14 +408,6 @@ static int sirfsoc_rtc_thaw(struct device *dev)
 	sirfsoc_rtc_iobrg_writel(rtcdrv->overflow_rtc,
 			rtcdrv->rtc_base + RTC_SW_VALUE);
 
-	return 0;
-}
-
-static int sirfsoc_rtc_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
-	sirfsoc_rtc_thaw(dev);
 	if (device_may_wakeup(&pdev->dev) && rtcdrv->irq_wake) {
 		disable_irq_wake(rtcdrv->irq);
 		rtcdrv->irq_wake = 0;
@@ -431,42 +415,16 @@ static int sirfsoc_rtc_resume(struct device *dev)
 
 	return 0;
 }
-
-static int sirfsoc_rtc_restore(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
-
-	if (device_may_wakeup(&pdev->dev) && rtcdrv->irq_wake) {
-		disable_irq_wake(rtcdrv->irq);
-		rtcdrv->irq_wake = 0;
-	}
-	return 0;
-}
-
-#else
-#define sirfsoc_rtc_suspend	NULL
-#define sirfsoc_rtc_resume	NULL
-#define sirfsoc_rtc_freeze	NULL
-#define sirfsoc_rtc_thaw	NULL
-#define sirfsoc_rtc_restore	NULL
 #endif
 
-static const struct dev_pm_ops sirfsoc_rtc_pm_ops = {
-	.suspend = sirfsoc_rtc_suspend,
-	.resume = sirfsoc_rtc_resume,
-	.freeze = sirfsoc_rtc_freeze,
-	.thaw = sirfsoc_rtc_thaw,
-	.restore = sirfsoc_rtc_restore,
-};
+static SIMPLE_DEV_PM_OPS(sirfsoc_rtc_pm_ops,
+		sirfsoc_rtc_suspend, sirfsoc_rtc_resume);
 
 static struct platform_driver sirfsoc_rtc_driver = {
 	.driver = {
 		.name = "sirfsoc-rtc",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
 		.pm = &sirfsoc_rtc_pm_ops,
-#endif
 		.of_match_table = of_match_ptr(sirfsoc_rtc_of_match),
 	},
 	.probe = sirfsoc_rtc_probe,

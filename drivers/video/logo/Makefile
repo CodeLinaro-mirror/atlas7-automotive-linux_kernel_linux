@@ -15,9 +15,13 @@ obj-$(CONFIG_LOGO_SUPERH_MONO)		+= logo_superh_mono.o
 obj-$(CONFIG_LOGO_SUPERH_VGA16)		+= logo_superh_vga16.o
 obj-$(CONFIG_LOGO_SUPERH_CLUT224)	+= logo_superh_clut224.o
 obj-$(CONFIG_LOGO_M32R_CLUT224)		+= logo_m32r_clut224.o
+ifeq ($(BOARD),prima2cb)
 obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_prima2_clut224.o
 obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_prima2_wsvga_clut224.o
+else
 obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_atlas6_clut224.o
+obj-$(CONFIG_LOGO_SIRF_CLUT224)       	+= logo_atlas6_wsvga_clut224.o
+endif
 obj-$(CONFIG_SPU_BASE)			+= logo_spe_clut224.o
 
 # How to generate logo's

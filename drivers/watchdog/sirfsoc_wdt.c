@@ -176,8 +176,7 @@ static int sirfsoc_wdt_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef	CONFIG_PM
-
+#ifdef	CONFIG_PM_SLEEP
 static int sirfsoc_wdt_suspend(struct device *dev)
 {
 	return 0;
@@ -196,10 +195,6 @@ static int sirfsoc_wdt_resume(struct device *dev)
 
 	return 0;
 }
-
-#else
-#define	sirfsoc_wdt_suspend		NULL
-#define	sirfsoc_wdt_resume		NULL
 #endif
 
 static SIMPLE_DEV_PM_OPS(sirfsoc_wdt_pm_ops,

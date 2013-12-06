@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/mmc/slot-gpio.h>
+#include <linux/dma-mapping.h>
 #include "sdhci-pltfm.h"
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
@@ -29,8 +30,14 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	return clk_get_rate(priv->clk);
 }
 
+static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host, unsigned short power)
+{
+       return SDHCI_POWER_300;
+}
+
 static struct sdhci_ops sdhci_sirf_ops = {
 	.get_max_clock	= sdhci_sirf_get_max_clk,
+	.get_power_config  = sdhci_sirf_get_power_config,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
@@ -41,6 +48,16 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
+
+/*
+ * The following functions are needed for DMA bouncing because SiRFprimaII SD
+ * controller can address up to 256MByte
+ */
+static int sdhci_sirf_needs_bounce(struct device *dev, dma_addr_t dma_addr,
+	size_t size)
+{
+	return (dma_addr + size) >= SZ_256M;
+}
 
 static int sdhci_sirf_probe(struct platform_device *pdev)
 {
@@ -61,9 +78,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		gpio_cd = of_get_named_gpio(pdev->dev.of_node, "cd-gpios", 0);
 	else
 		gpio_cd = -EINVAL;
-
-	if (of_get_property(pdev->dev.of_node, "broken-dma", NULL))
-		sdhci_sirf_pdata.quirks |= SDHCI_QUIRK_BROKEN_DMA;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata, sizeof(struct sdhci_sirf_priv));
 	if (IS_ERR(host))
@@ -99,6 +113,19 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	}
 
 	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
+
+	if (of_machine_is_compatible("sirf,prima2")) {
+		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(28));
+		if (!ret) {
+			pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+			dmabounce_register_dev(&pdev->dev, 1024, 2048,
+				sdhci_sirf_needs_bounce);
+		} else {
+			dev_err(&pdev->dev, "dma coherent mask: %d failed, ret: %d\n",
+				DMA_BIT_MASK(28), ret);
+			goto err_request_cd;
+		}
+	}
 
 	return 0;
 

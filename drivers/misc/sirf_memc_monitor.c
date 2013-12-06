@@ -25,6 +25,7 @@
 #define PROC_NUMBUF 50
 #define GFXFREQ_ADAPT_MS 1000
 #define GFX_DCOUNT_REF 15000000
+#define VXDFREQ_ADAPT_MS 1000
 
 static struct proc_dir_entry *proc_root;
 static const char proc_root_name[] = "sirf_memcmon";
@@ -38,6 +39,12 @@ static const char port_name[PORT_NUM][10] = {
 	{"UUSAXI"},
 	{"SUBAXI"},
 };
+
+static long calc_elapse_time(struct timeval stop, struct timeval start)
+{
+	return (stop.tv_sec - start.tv_sec) * 1000 +
+		(stop.tv_usec - start.tv_usec) / 1000;
+}
 
 static void sirfsoc_memcmon_port_enable(u32 __iomem *control, int port)
 {
@@ -117,8 +124,20 @@ static void sirfsoc_bwmon_get_port_info(
 
 static void sirfsoc_bwmon_start(struct sirfsoc_memcmon *memcmon)
 {
+	int i;
+	u32 control_val;
+	u32 config_size;
+	config_size = ioread32(&memcmon->bw_regs->config_size);
+	config_size &= ~(0xf | 0x1f << 8);
+	config_size |= memcmon->bw_master_size & 0xf;
+	config_size |= (memcmon->bw_master_len & 0x1f) << 8;
+	for (i = 0; i < PORT_NUM; i++) {
+		iowrite32(i, &memcmon->bw_regs->select);
+		iowrite32(0xffff0000, &memcmon->bw_regs->config_id);
+		iowrite32(config_size, &memcmon->bw_regs->config_size);
+	}
 	/* Enable all ports */
-	u32 control_val = ioread32(&memcmon->bw_regs->control);
+	control_val = ioread32(&memcmon->bw_regs->control);
 	control_val |= 0x1ff;
 	iowrite32(control_val, &memcmon->bw_regs->control);
 	if (memcmon->gfxfreq_auto) {
@@ -126,6 +145,12 @@ static void sirfsoc_bwmon_start(struct sirfsoc_memcmon *memcmon)
 				&memcmon->gfxfreq_dwork,
 				msecs_to_jiffies(GFXFREQ_ADAPT_MS));
 	}
+	if (memcmon->vxd_valid && memcmon->vxdfreq_auto) {
+		queue_delayed_work(memcmon->bw_wq,
+				&memcmon->vxdfreq_dwork,
+				msecs_to_jiffies(VXDFREQ_ADAPT_MS));
+	}
+	do_gettimeofday(&memcmon->bwmon_start);
 }
 
 static void sirfsoc_bwmon_stop(struct sirfsoc_memcmon *memcmon)
@@ -134,6 +159,7 @@ static void sirfsoc_bwmon_stop(struct sirfsoc_memcmon *memcmon)
 	u32 control_val = ioread32(&memcmon->bw_regs->control);
 	control_val &= ~0x1ff;
 	iowrite32(control_val, &memcmon->bw_regs->control);
+	do_gettimeofday(&memcmon->bwmon_stop);
 }
 
 static ssize_t sirfsoc_bwmon_read(struct file *file,
@@ -145,7 +171,10 @@ static ssize_t sirfsoc_bwmon_read(struct file *file,
 
 	if (!memcmon)
 		return -ESRCH;
-	len = snprintf(buffer, sizeof(buffer), "%d\n", memcmon->bw_on);
+	len = snprintf(buffer, sizeof(buffer), "%d %d %d\n",
+			memcmon->bw_on,
+			memcmon->bw_master_size,
+			memcmon->bw_master_len);
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
@@ -155,7 +184,8 @@ static ssize_t sirfsoc_bwmon_write(struct file *file, const char __user *buf,
 	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
 	char buffer[PROC_NUMBUF];
 	int bw_on;
-	int err;
+	int bw_master_size, bw_master_len;
+	int rt;
 	int i;
 
 	if (!memcmon)
@@ -163,16 +193,23 @@ static ssize_t sirfsoc_bwmon_write(struct file *file, const char __user *buf,
 	memset(buffer, 0, sizeof(buffer));
 	if (count > sizeof(buffer) - 1)
 		count = sizeof(buffer) - 1;
-	if (copy_from_user(buffer, buf, count)) {
-		err = -EFAULT;
-		goto out;
+	if (copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	rt = sscanf(buffer, "%d %d %d\n",
+			&bw_on, &bw_master_size, &bw_master_len);
+
+	if (rt < 3) {
+		pr_warn("Please input 3 params as:\n"
+			"param1: 0 - off, 1 - on\n"
+			"param2: master size\n"
+			"param3: master len\n");
+		return -EINVAL;
 	}
 
-	err = kstrtoint(strstrip(buffer), 0, &bw_on);
-	if (err)
-		goto out;
-
 	if ((bw_on == 1) && (memcmon->bw_on == 0)) {
+		memcmon->bw_master_size = bw_master_size;
+		memcmon->bw_master_len = bw_master_len;
 		sirfsoc_bwmon_start(memcmon);
 		memcmon->bw_on = 1;
 	}
@@ -183,8 +220,7 @@ static ssize_t sirfsoc_bwmon_write(struct file *file, const char __user *buf,
 			sirfsoc_bwmon_get_port_info(memcmon, i);
 	}
 
-out:
-	return err < 0 ? err : count;
+	return count;
 }
 
 static const struct file_operations sirfsoc_bwmon_fops = {
@@ -197,19 +233,23 @@ static const struct file_operations sirfsoc_bwmon_fops = {
 static int sirfsoc_bwinfo_proc_show(struct seq_file *m, void *v)
 {
 	int i;
+	long ms;
 	struct sirfsoc_memcmon *memcmon = m->private;
 
+	ms = calc_elapse_time(memcmon->bwmon_stop, memcmon->bwmon_start);
 	seq_printf(m, "Bandwidth Monitor @ %p\n"
 		"BW_CONTROL:\t\t%x\n"
 		"BW_SELECT:\t\t%x\n"
 		"BW_CONFIG_ID:\t\t%x\n"
 		"BW_CONFIG_SIZE:\t\t%x\n"
+		"elapsed time:\t\t%ldms\n"
 		,
 		memcmon->bw_regs,
 		ioread32(&memcmon->bw_regs->control),
 		ioread32(&memcmon->bw_regs->select),
 		ioread32(&memcmon->bw_regs->config_id),
-		ioread32(&memcmon->bw_regs->config_size)
+		ioread32(&memcmon->bw_regs->config_size),
+		ms
 		);
 
 	for (i = 0; i < PORT_NUM; i++) {
@@ -314,6 +354,72 @@ static const struct file_operations sirfsoc_gfxfreq_auto_fops = {
 	.llseek		= generic_file_llseek,
 };
 
+static void sirfsoc_vxdfreq_adapt(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct sirfsoc_memcmon *memcmon = container_of(dwork,
+			struct sirfsoc_memcmon, vxdfreq_dwork);
+	struct bandwidth_info *mm_info = &memcmon->bw_info[MONITOR_MEDIA];
+
+	sirfsoc_memcmon_port_disable(&memcmon->bw_regs->control,
+			MONITOR_MEDIA);
+	sirfsoc_bwmon_get_port_info(memcmon, MONITOR_MEDIA);
+
+	if (mm_info->rdat == 0 && mm_info->wdat == 0)
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_idle_freq);
+	else if (mm_info->rdat < memcmon->mm_rdat_ref &&
+			mm_info->wdat < memcmon->mm_wdat_ref)
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_min_freq);
+	else
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_max_freq);
+
+	sirfsoc_memcmon_port_enable(&memcmon->bw_regs->control, MONITOR_MEDIA);
+
+	if (memcmon->bw_on && memcmon->vxdfreq_auto)
+		queue_delayed_work(memcmon->bw_wq, &memcmon->vxdfreq_dwork,
+			msecs_to_jiffies(VXDFREQ_ADAPT_MS));
+	else
+		clk_set_rate(memcmon->mm_clk, memcmon->mm_rate);
+}
+
+static ssize_t sirfsoc_vxdfreq_auto_read(struct file *file,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
+	char buffer[PROC_NUMBUF];
+	size_t len;
+
+	if (!memcmon)
+		return -ESRCH;
+	len = snprintf(buffer, sizeof(buffer), "%d\n", memcmon->vxdfreq_auto);
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
+static ssize_t sirfsoc_vxdfreq_auto_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct sirfsoc_memcmon *memcmon = PDE_DATA(file_inode(file));
+	int vxdfreq_auto;
+
+	if (!memcmon)
+		return -ESRCH;
+
+	if (!access_ok(VERIFY_READ, buf, count))
+		goto out;
+
+	sscanf(buf, "%d", &vxdfreq_auto);
+	memcmon->vxdfreq_auto = !!vxdfreq_auto;
+out:
+	return count;
+}
+
+static const struct file_operations sirfsoc_vxdfreq_auto_fops = {
+	.owner		= THIS_MODULE,
+	.read		= sirfsoc_vxdfreq_auto_read,
+	.write		= sirfsoc_vxdfreq_auto_write,
+	.llseek		= generic_file_llseek,
+};
+
 static void sirfsoc_latmon_get_port_info(struct sirfsoc_memcmon *memcmon,
 		int port)
 {
@@ -365,6 +471,7 @@ static void sirfsoc_latmon_start(struct sirfsoc_memcmon *memcmon)
 	control_val = ioread32(&memcmon->lat_regs->control);
 	control_val |= 0x1ff;
 	iowrite32(control_val, &memcmon->lat_regs->control);
+	do_gettimeofday(&memcmon->latmon_start);
 }
 
 static void sirfsoc_latmon_stop(struct sirfsoc_memcmon *memcmon)
@@ -373,6 +480,7 @@ static void sirfsoc_latmon_stop(struct sirfsoc_memcmon *memcmon)
 	u32 control_val = ioread32(&memcmon->lat_regs->control);
 	control_val &= ~0x1ff;
 	iowrite32(control_val, &memcmon->lat_regs->control);
+	do_gettimeofday(&memcmon->latmon_stop);
 }
 
 static ssize_t sirfsoc_latmon_read(struct file *file, char __user *buf,
@@ -446,17 +554,21 @@ static const struct file_operations sirfsoc_latmon_fops = {
 static int sirfsoc_latinfo_proc_show(struct seq_file *m, void *v)
 {
 	int i;
+	long ms;
 	struct sirfsoc_memcmon *memcmon = m->private;
 
+	ms = calc_elapse_time(memcmon->latmon_stop, memcmon->latmon_start);
 	seq_printf(m, "Latency Monitor @ %p\n"
 		"LAT_CONTROL:\t\t%x\n"
 		"LAT_SELECT:\t\t%x\n"
 		"LAT_THRESHOLD:\t\t%x\n"
+		"elapsed time:\t\t%ldms\n"
 		,
 		memcmon->lat_regs,
 		ioread32(&memcmon->lat_regs->control),
 		ioread32(&memcmon->lat_regs->select),
-		ioread32(&memcmon->lat_regs->threshold)
+		ioread32(&memcmon->lat_regs->threshold),
+		ms
 		);
 
 	for (i = 0; i < PORT_NUM; i++) {
@@ -951,10 +1063,36 @@ static irqreturn_t sirfsoc_memcmon_irq(int irq, void *dev_id)
 		return IRQ_NONE;
 }
 
+static int sirfsoc_memcmon_prepare_vxd(struct sirfsoc_memcmon *memcmon)
+{
+		memcmon->mm_clk = clk_get(memcmon->dev, "mm");
+		if (IS_ERR(memcmon->mm_clk)) {
+			pr_err("get mm_clk failed!\n");
+			return PTR_ERR(memcmon->mm_clk);
+		}
+		proc_create_data("vxdfreq_auto", S_IRWXUGO, proc_root,
+				&sirfsoc_vxdfreq_auto_fops, memcmon);
+		memcmon->mm_rate = clk_get_rate(memcmon->mm_clk);
+		INIT_DELAYED_WORK(&memcmon->vxdfreq_dwork,
+				sirfsoc_vxdfreq_adapt);
+		of_property_read_u32(memcmon->dev->of_node, "mm-rdat-ref",
+				&memcmon->mm_rdat_ref);
+		of_property_read_u32(memcmon->dev->of_node, "mm-wdat-ref",
+				&memcmon->mm_wdat_ref);
+		of_property_read_u32(memcmon->dev->of_node, "mm-idle-freq",
+				&memcmon->mm_idle_freq);
+		of_property_read_u32(memcmon->dev->of_node, "mm-min-freq",
+				&memcmon->mm_min_freq);
+		of_property_read_u32(memcmon->dev->of_node, "mm-max-freq",
+				&memcmon->mm_max_freq);
+		return 0;
+}
+
 static int sirfsoc_memcmon_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_memcmon *memcmon;
 	struct resource *mem_res;
+	struct device_node *mm_node = NULL;
 	int irq;
 	int ret;
 
@@ -997,12 +1135,18 @@ static int sirfsoc_memcmon_probe(struct platform_device *pdev)
 	}
 	INIT_DELAYED_WORK(&memcmon->gfxfreq_dwork, sirfsoc_gfxfreq_adapt);
 
-	memcmon->gfx_clk = clk_get(&pdev->dev, NULL);
+	memcmon->gfx_clk = clk_get(&pdev->dev, "gfx");
 	if (IS_ERR(memcmon->gfx_clk)) {
 		dev_err(&pdev->dev, "get gfx_clk failed!\n");
 		return PTR_ERR(memcmon->gfx_clk);
 	}
 	memcmon->gfx_rate = clk_get_rate(memcmon->gfx_clk);
+
+	mm_node = of_find_node_by_name(NULL, "multimedia");
+	if (mm_node) {
+		memcmon->vxd_valid = !sirfsoc_memcmon_prepare_vxd(memcmon);
+		of_node_put(mm_node);
+	}
 
 	return 0;
 }
@@ -1011,9 +1155,12 @@ static int sirfsoc_memcmon_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_memcmon *memcmon = platform_get_drvdata(pdev);
 	cancel_delayed_work_sync(&memcmon->gfxfreq_dwork);
+	cancel_delayed_work_sync(&memcmon->vxdfreq_dwork);
 	destroy_workqueue(memcmon->bw_wq);
 	clk_set_rate(memcmon->gfx_clk, memcmon->gfx_rate);
 	clk_put(memcmon->gfx_clk);
+	clk_set_rate(memcmon->mm_clk, memcmon->mm_rate);
+	clk_put(memcmon->mm_clk);
 	remove_proc_subtree(proc_root_name, NULL);
 	return 0;
 }

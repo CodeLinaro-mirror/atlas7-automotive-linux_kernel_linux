@@ -312,15 +312,34 @@ int hw_device_reset(struct ci_hdrc *ci, u32 mode)
 int hw_wait_reg(struct ci_hdrc *ci, enum ci_hw_regs reg, u32 mask,
 				u32 value, unsigned int timeout_ms)
 {
-	unsigned long elapse = jiffies + msecs_to_jiffies(timeout_ms);
+	struct ci13xxx *ci = container_of(work, struct ci13xxx, work);
+	enum ci_role role = ci_otg_role(ci);
 
-	while (hw_read(ci, reg, mask) != value) {
-		if (time_after(jiffies, elapse)) {
-			dev_err(ci->dev, "timeout waiting for %08x in %d\n",
-					mask, reg);
-			return -ETIMEDOUT;
+	if (role != ci->role) {
+#ifdef CONFIG_ANDROID
+		if (ci->role == CI_ROLE_END) {
+			ci_role_start(ci, role);
+		} else if (ci->role == CI_ROLE_GADGET) {
+			ci_role_suspend(ci);
+			ci_role_start(ci, role);
+		} else {
+			ci_role_stop(ci);
+			if (ci->driver) {
+				ci->role = role;
+				ci_role_resume(ci);
+			} else if (!ci->gadget.name){
+				ci_role_start(ci, role);
+			} else {
+				ci->role = role;
+			}
 		}
-		msleep(20);
+#else
+		dev_dbg(ci->dev, "switching from %s to %s\n",
+			ci_role(ci)->name, ci->roles[role]->name);
+
+		ci_role_stop(ci);
+		ci_role_start(ci, role);
+#endif
 	}
 
 	return 0;

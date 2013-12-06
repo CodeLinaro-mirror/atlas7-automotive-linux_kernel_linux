@@ -126,7 +126,7 @@ struct sirfsocfb{
 	void __iomem *vpp_base;
 	struct clk 		*vpp_clk;
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 	void __iomem *ble_base;
 	struct clk *ble_clk;
 	int ble_irq;

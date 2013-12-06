@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/extcon/extcon-gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/sysfs.h>
 
 #define WIDTH  1280
 #define HEIGHT	720
@@ -51,6 +52,8 @@
 #define STATUS	0x05
 /* chip control: register 0x19 of page 10 */
 #define CONTROL	0x19
+/* Audio status info: register 0x16 0f page 2*/
+#define AUDIO_INFO	0x16
 
 
 /*
@@ -281,7 +284,7 @@ static struct platform_device *sirfsoc_hdmi_extcon_init(void)
 	struct device_node *np = NULL;
 	int gpio;
 
-	np = of_find_compatible_node(NULL, NULL, "sirf,ch7102");
+	np = of_find_compatible_node(NULL, NULL, "chrontel,ch7102");
 	if (!np)
 		goto err_out;
 
@@ -311,6 +314,25 @@ err_out1:
 err_out:
 	return NULL;
 }
+
+static int samplerate_table[] = {
+	44100, 44100, 48000, 32000, 22050, 44100, 24000, 44100,
+	88200, 768000, 96000, 44100, 176400, 44100, 192000, 44100
+};
+
+static ssize_t ch7102_audio_rate_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+	u8 value = 0;
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	value = i2c_smbus_read_byte_data(client, AUDIO_INFO);
+	value &= 0xf;
+	return sprintf(buf, "%d", samplerate_table[value]);
+}
+static DEVICE_ATTR(ch7102_audio_rate, S_IRUGO,
+		ch7102_audio_rate_show, NULL);
 
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
@@ -354,11 +376,21 @@ static int ch7102_probe(struct i2c_client *client,
 
 	ch7102_client = client;
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
+
+	ret = sysfs_create_file(&client->dev.kobj,
+		&dev_attr_ch7102_audio_rate.attr);
+	if (ret) {
+		dev_err(&client->dev,
+			"Failed to create audio sample rate sysfs file.\n");
+		return ret;
+	}
+
 	return ch7102_video_probe(client);
 }
 
 static int ch7102_remove(struct i2c_client *client)
 {
+	sysfs_remove_file(&client->dev.kobj, &dev_attr_ch7102_audio_rate.attr);
 	platform_device_unregister(pextcon_dev);
 
 	return 0;

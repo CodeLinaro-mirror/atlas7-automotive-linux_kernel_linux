@@ -49,64 +49,6 @@ struct sirf_pwm {
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
-static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
-		const struct of_phandle_args *args)
-{
-	struct pwm_device *pwm;
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-
-	if (chip->of_pwm_n_cells < 4)
-		return ERR_PTR(-EINVAL);
-
-	if (args->args[0] >= chip->npwm)
-		return ERR_PTR(-EINVAL);
-
-	pwm = pwm_request_from_chip(chip, args->args[0], NULL);
-	if (IS_ERR(pwm))
-		return pwm;
-
-	pwm_set_period(pwm, args->args[1]);
-
-	spwm->duty_ns[pwm->hwpwm] = args->args[2];
-
-	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
-
-	return pwm;
-}
-
-static int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	int hwpwm = pwm->hwpwm;
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-#define PIN_NAME_LEN	8
-	char pins[PIN_NAME_LEN];
-	int ret;
-
-	if (hwpwm >= SIRF_PWM_CHL_NUM) {
-		dev_err(chip->dev, "Not support pwm%d\n", hwpwm);
-		return -EINVAL;
-	}
-
-	if (hwpwm == SIRF_PWM_I2S_CHL)
-		return 0;
-
-	snprintf(pins, PIN_NAME_LEN, "pwm%d", hwpwm);
-	spwm->p[hwpwm] = pinctrl_get_select(chip->dev, pins);
-	ret = IS_ERR(spwm->p[hwpwm]);
-	if (ret) {
-		dev_err(chip->dev, "Get %s pin failed.\n", pins);
-		return ret;
-	}
-
-	return 0;
-}
-
-static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	pinctrl_put(spwm->p[pwm->hwpwm]);
-}
-
 static u32 sirf_get_in_cycles_ps(struct pwm_chip *chip,
 		struct pwm_device *pwm)
 {
@@ -141,6 +83,44 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	cycle = dividend & 0xFFFFFFFFUL;
 
 	return cycle > 1 ? cycle : 1;
+}
+
+static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
+		const struct of_phandle_args *args)
+{
+	struct pwm_device *pwm;
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	unsigned int period;
+
+	if (chip->of_pwm_n_cells < 4)
+		return ERR_PTR(-EINVAL);
+
+	if (args->args[0] >= chip->npwm)
+		return ERR_PTR(-EINVAL);
+
+	pwm = pwm_request_from_chip(chip, args->args[0], NULL);
+	if (IS_ERR(pwm))
+		return pwm;
+
+	if (time_to_cycle(chip, pwm, args->args[1]) == 1)
+		period = NSEC_PER_SEC / sirf_get_in_cycles_ps(chip, pwm);
+	else
+		period = args->args[1];
+
+	dev_info(chip->dev, "pwm %d period is %d ns!\n", pwm->hwpwm, period);
+	pwm_set_period(pwm, period);
+
+	spwm->duty_ns[pwm->hwpwm] = args->args[2];
+
+	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
+
+	return pwm;
+}
+
+static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	pinctrl_put(spwm->p[pwm->hwpwm]);
 }
 
 /*
@@ -338,8 +318,6 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	writel(val, spwm->base + PWM_OE);
 
-	sirf_pwm_config(chip, pwm, spwm->duty_ns[pwm->hwpwm], pwm->period);
-
 	return 0;
 }
 
@@ -364,7 +342,6 @@ static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 }
 
 static struct pwm_ops sirf_pwm_ops = {
-	.request = sirf_pwm_request,
 	.free = sirf_pwm_free,
 	.enable = sirf_pwm_enable,
 	.disable = sirf_pwm_disable,
@@ -425,28 +402,73 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 	spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
 	clk_put(spwm->clk);
+
 	return 0;
 }
 
 #ifdef CONFIG_PM
-static int sirf_pwm_suspend(struct platform_device *pdev,
-		pm_message_t state)
+static int sirf_pwm_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+
 	clk_disable_unprepare(spwm->clk);
+
 	return 0;
 }
 
-static int sirf_pwm_resume(struct platform_device *pdev)
+static void sirf_pwm_config_restore(struct sirf_pwm *spwm)
 {
+	unsigned int i;
+	struct pwm_device *pwm = NULL;
+
+	for (i = 0; i < spwm->chip.npwm; i++) {
+		pwm = &spwm->chip.pwms[i];
+		/*
+		 * corner case: back from hibernation, state of pwm
+		 * is enabled, but not enabled in fact
+		 */
+		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
+		     test_bit(PWMF_ENABLED, &pwm->flags))
+			sirf_pwm_enable(&spwm->chip, pwm);
+	}
+}
+
+static int sirf_pwm_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+
 	clk_prepare_enable(spwm->clk);
+
+	sirf_pwm_config_restore(spwm);
+
 	return 0;
 }
+
+static int sirf_pwm_restore(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+
+	/* back from hibernation, clock is already enabled */
+	sirf_pwm_config_restore(spwm);
+
+	return 0;
+}
+
 #else
 #define sirf_pwm_resume NULL
 #define sirf_pwm_suspend NULL
+#define sirf_pwm_restore NULL
 #endif
+
+
+static const struct dev_pm_ops sirf_pwm_pm_ops = {
+	.suspend = sirf_pwm_suspend,
+	.resume = sirf_pwm_resume,
+	.restore = sirf_pwm_restore,
+};
 
 static const struct of_device_id sirf_pwm_of_match[] = {
 	{ .compatible = "sirf,prima2-pwm", },
@@ -458,16 +480,16 @@ static struct platform_driver sirf_pwm_driver = {
 	.driver = {
 		.name = "prima2-pwm",
 		.owner = THIS_MODULE,
+		.pm = &sirf_pwm_pm_ops,
 		.of_match_table = sirf_pwm_of_match,
 	},
 	.probe = sirf_pwm_probe,
 	.remove = sirf_pwm_remove,
-	.suspend = sirf_pwm_suspend,
-	.resume = sirf_pwm_resume,
 };
 
 module_platform_driver(sirf_pwm_driver);
 
 MODULE_DESCRIPTION("SIRF serial SoC PWM device core driver");
 MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
+MODULE_AUTHOR("Huayi Li <huayi.li@csr.com>");
 MODULE_LICENSE("GPL v2");

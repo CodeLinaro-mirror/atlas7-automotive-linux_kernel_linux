@@ -263,4 +263,6 @@
 #define IC_RXPGAR		0x7B
 #define IC_RXPGAL		0x7B
 
+#define SIRF_I2S_EXT_CLK	0x0
+#define SIRF_I2S_PWM_CLK	0x1
 #endif /*__SIRF_INNER_AUDIO_CTRL_H*/

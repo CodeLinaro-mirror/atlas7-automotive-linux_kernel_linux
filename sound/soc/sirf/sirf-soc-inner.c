@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * Licensed under GPLv2 or later.*
+ * Licensed under GPLv2 or later.
  */
 
 #include <linux/module.h>
@@ -20,9 +20,9 @@
 #include <sound/pcm_params.h>
 #include <sound/initval.h>
 #include <sound/soc.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "sirf-audio.h"
-#include "sirf-pcm.h"
 
 struct sirf_soc_inner_audio_reg_bits {
 	u32 dig_mic_en_bits;
@@ -42,6 +42,7 @@ struct sirf_soc_inner_audio {
 	u32			sys_pwrc_reg_base;
 	struct sirf_soc_inner_audio_reg_bits *reg_bits;
 	u32			reg_ctrl0, reg_ctrl1;
+	struct platform_device	*sirf_pcm_pdev;
 };
 
 static struct sirf_soc_inner_audio_reg_bits sirf_soc_inner_audio_reg_bits_prima2 = {
@@ -192,26 +193,6 @@ static int speaker_output_enable_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int charge_pump_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
-{
-	struct snd_soc_codec *codec = w->codec;
-	u32 val;
-
-	val = snd_soc_read(codec, AUDIO_IC_CODEC_CTRL0);
-	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
-		val |= IC_CPEN;
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		val &= ~IC_CPEN;
-	default:
-		break;
-	}
-	snd_soc_write(codec, AUDIO_IC_CODEC_CTRL0, val);
-	return 0;
-}
-
 static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC("DAC left", NULL, AUDIO_IC_CODEC_CTRL0, 1, 0),
 	SND_SOC_DAPM_DAC("DAC right", NULL, AUDIO_IC_CODEC_CTRL0, 0, 0),
@@ -262,10 +243,6 @@ static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("LINEIN1"),
 	SND_SOC_DAPM_INPUT("LINEIN2"),
 
-	SND_SOC_DAPM_SUPPLY("Charge Pump", AUDIO_IC_CODEC_CTRL0,
-			29, 0, charge_pump_event,
-			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
 	SND_SOC_DAPM_SUPPLY("HSL Phase Opposite", AUDIO_IC_CODEC_CTRL0,
 			30, 0, NULL, 0),
 };
@@ -288,8 +265,6 @@ static const struct snd_soc_dapm_route sirf_inner_audio_map[] = {
 	{"Left dac to hp right amp", "Switch", "DAC right"},
 	{"DAC left", NULL, "Playback"},
 	{"DAC right", NULL, "Playback"},
-	{"DAC left", NULL, "Charge Pump"},
-	{"DAC right", NULL, "Charge Pump"},
 	{"DAC left", NULL, "HSL Phase Opposite"},
 	{"DAC right", NULL, "HSL Phase Opposite"},
 
@@ -304,21 +279,6 @@ static const struct snd_soc_dapm_route sirf_inner_audio_map[] = {
 	{"Mic input mode mux", "Single-ended", "MICIN1"},
 	{"Mic input mode mux", "Differential", "MICIN1"},
 };
-
-static int sirf_inner_codec_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	pm_runtime_get_sync(codec->dev);
-	return 0;
-}
-
-static void sirf_inner_codec_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	pm_runtime_put(codec->dev);
-}
 
 static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 		int cmd,
@@ -394,8 +354,6 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 }
 
 struct snd_soc_dai_ops sirf_inner_codec_dai_ops = {
-	.startup = sirf_inner_codec_startup,
-	.shutdown = sirf_inner_codec_shutdown,
 	.trigger = sirf_inner_codec_trigger,
 };
 
@@ -468,27 +426,17 @@ static struct snd_soc_codec_driver soc_codec_device_sirf_inner_codec = {
 	.idle_bias_off = true,
 };
 
-static struct sirf_pcm_dma_data sirf_soc_inner_dai_dma_data[2] = {
-	{
-		.name = "Audio Playback",
-	}, {
-		.name = "Audio Capture",
-	},
-};
+static struct snd_dmaengine_dai_dma_data dma_data[2];
 
-static int sirf_soc_inner_dai_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
+static int sirf_soc_inner_dai_probe(struct snd_soc_dai *dai)
 {
-	snd_soc_dai_set_dma_data(dai, substream,
-			&sirf_soc_inner_dai_dma_data[substream->stream]);
+	dai->playback_dma_data = &dma_data[0];
+	dai->capture_dma_data = &dma_data[1];
 	return 0;
 }
 
-static const struct snd_soc_dai_ops sirf_soc_inner_dai_ops = {
-	.startup        = sirf_soc_inner_dai_startup,
-};
-
 static struct snd_soc_dai_driver sirf_soc_inner_dai = {
+	.probe = sirf_soc_inner_dai_probe,
 	.name		= "sirf-soc-inner",
 	.id			= 0,
 	.playback = {
@@ -505,7 +453,6 @@ static struct snd_soc_dai_driver sirf_soc_inner_dai = {
 		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
-	.ops = &sirf_soc_inner_dai_ops,
 };
 
 static const struct snd_soc_component_driver sirf_soc_inner_component = {
@@ -527,6 +474,7 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	struct device_node *dn = NULL;
 	const struct of_device_id *match;
+	u32 val;
 
 	match = of_match_node(sirf_soc_inner_of_match, pdev->dev.of_node);
 
@@ -534,6 +482,11 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
 	if (!sinner_audio)
 		return -ENOMEM;
+
+	sinner_audio->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
+			1, NULL, 0);
+	if (IS_ERR(sinner_audio->sirf_pcm_pdev))
+		return PTR_ERR(sinner_audio->sirf_pcm_pdev);
 
 	platform_set_drvdata(pdev, sinner_audio);
 
@@ -549,8 +502,9 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to audio playback dma channel\n");
 		return ret;
 	}
-	sirf_soc_inner_dai_dma_data[0].dma_req = tx_dma_ch;
-	sirf_soc_inner_dai_dma_data[1].dma_req = rx_dma_ch;
+
+	dma_data[0].filter_data = (void *)tx_dma_ch;
+	dma_data[1].filter_data = (void *)rx_dma_ch;
 
 	dn = of_find_compatible_node(dn, NULL, "sirf,prima2-pwrc");
 	if (!dn) {
@@ -574,9 +528,14 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(sinner_audio->clk);
 	}
-	clk_prepare_enable(sinner_audio->clk);
 
-	ret = snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
+	ret = clk_prepare_enable(sinner_audio->clk);
+	if (ret) {
+		dev_err(&pdev->dev, "Enable clock failed.\n");
+		return ret;
+	}
+
+	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
 		&sirf_soc_inner_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
@@ -592,7 +551,18 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	}
 
 	sinner_audio->reg_bits = (struct sirf_soc_inner_audio_reg_bits *)match->data;
+	/*
+	 * Always open charge pump, if not, when the charge pump closed the
+	 * adc will not stable
+	 */
+	val = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+	val |= IC_CPFREQ;
+	writel(val, sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
 
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas6-audio")) {
+		val |= IC_CPEN;
+		writel(val, sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+	}
 	spin_lock_init(&sinner_audio->lock);
 	return 0;
 
@@ -609,7 +579,6 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(sinner_audio->clk);
 	snd_soc_unregister_codec(&(pdev->dev));
-	snd_soc_unregister_component(&pdev->dev);
 
 	return 0;
 }
@@ -640,12 +609,9 @@ static int sirf_inner_runtime_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define sirf_inner_runtime_suspend NULL
-#define sirf_inner_runtime_resume NULL
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_soc_inner_suspend(struct device *dev)
 {
 	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
@@ -661,8 +627,11 @@ static int sirf_soc_inner_suspend(struct device *dev)
 static int sirf_soc_inner_resume(struct device *dev)
 {
 	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
+	int ret;
 
-	clk_prepare_enable(sinner_audio->clk);
+	ret = clk_prepare_enable(sinner_audio->clk);
+	if (ret)
+		return ret;
 
 	writel(sinner_audio->reg_ctrl0,
 		sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
@@ -673,9 +642,6 @@ static int sirf_soc_inner_resume(struct device *dev)
 
 	return 0;
 }
-#else
-#define sirf_soc_inner_suspend NULL
-#define sirf_soc_inner_resume NULL
 #endif
 
 static const struct dev_pm_ops sirf_inner_pm_ops = {

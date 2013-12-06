@@ -11,9 +11,9 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "sirf-usp.h"
-#include "sirf-pcm.h"
 
 #define FIFO_RESET  0
 #define FIFO_START	1
@@ -26,15 +26,11 @@ struct sirf_usp {
 	struct clk *clk;
 	u32 mode1_reg;
 	u32 mode2_reg;
+	struct platform_device *sirf_pcm_pdev;
+	int master;
 };
 
-static struct sirf_pcm_dma_data sirf_usp_pcm_dai_dma_data[2] = {
-	{
-		.name = "Audio Playback",
-	}, {
-		.name = "Audio Capture",
-	}
-};
+static struct snd_dmaengine_dai_dma_data dma_data[2];
 
 static void sirf_usp_tx_fifo_op(struct sirf_usp *susp, int cmd)
 {
@@ -92,45 +88,51 @@ static inline void sirf_usp_rx_disable(struct sirf_usp *susp)
 			susp->base + USP_TX_RX_ENABLE);
 }
 
-static int sirf_usp_pcm_startup(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
+static int sirf_usp_pcm_dai_probe(struct snd_soc_dai *dai)
 {
-	pm_runtime_get_sync(dai->dev);
-	snd_soc_dai_set_dma_data(dai, substream,
-			&sirf_usp_pcm_dai_dma_data[substream->stream]);
+	dai->playback_dma_data = &dma_data[0];
+	dai->capture_dma_data = &dma_data[1];
 	return 0;
-}
-
-static void sirf_usp_pcm_shutdown(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	pm_runtime_put(dai->dev);
 }
 
 static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
-	u32 val = readl(susp->base + USP_MODE2);
-	u32 val1 = readl(susp->base + USP_MODE1);
 
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		val1 &= ~USP_CLOCK_MODE_SLAVE;
-		val &= ~USP_TFS_CLK_SLAVE_MODE;
-		val &= ~USP_RFS_CLK_SLAVE_MODE;
+		susp->master = 1;
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		val1 |= USP_CLOCK_MODE_SLAVE;
-		val |= USP_TFS_CLK_SLAVE_MODE;
-		val |= USP_RFS_CLK_SLAVE_MODE;
+		susp->master = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
-	writel(val1, susp->base + USP_MODE1);
-	writel(val, susp->base + USP_MODE2);
+
+	return 0;
+}
+
+static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
+{
+	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
+	u32 mode1 = readl(susp->base + USP_MODE1);
+	u32 mode2 = readl(susp->base + USP_MODE2);
+
+	if (susp->master) {
+		mode1 &= ~USP_CLOCK_MODE_SLAVE;
+		mode2 &= ~USP_TFS_CLK_SLAVE_MODE;
+		mode2 &= ~USP_RFS_CLK_SLAVE_MODE;
+	} else {
+		mode1 |= USP_CLOCK_MODE_SLAVE;
+		mode2 |= USP_TFS_CLK_SLAVE_MODE;
+		mode2 |= USP_RFS_CLK_SLAVE_MODE;
+	}
+	writel(mode1, susp->base + USP_MODE1);
+	writel(mode2, susp->base + USP_MODE2);
 
 	return 0;
 }
@@ -198,14 +200,14 @@ static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
 }
 
 static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
-	.startup = sirf_usp_pcm_startup,
 	.trigger = sirf_usp_pcm_trigger,
 	.set_fmt = sirf_usp_pcm_set_dai_fmt,
+	.hw_params = sirf_usp_pcm_hw_params,
 	.set_clkdiv = sirf_usp_pcm_divider,
-	.shutdown = sirf_usp_pcm_shutdown,
 };
 
 static struct snd_soc_dai_driver sirf_usp_pcm_dai = {
+	.probe = sirf_usp_pcm_dai_probe,
 	.name		= "sirf-usp-pcm",
 	.id			= 0,
 	.playback = {
@@ -345,16 +347,16 @@ static int sirf_usp_pcm_runtime_suspend(struct device *dev)
 static int sirf_usp_pcm_runtime_resume(struct device *dev)
 {
 	struct sirf_usp *susp = dev_get_drvdata(dev);
-	clk_prepare_enable(susp->clk);
+	int ret;
+	ret = clk_prepare_enable(susp->clk);
+	if (ret)
+		return ret;
 	sirf_usp_controller_init(susp);
 	return 0;
 }
-#else
-#define sirf_usp_pcm_runtime_suspend NULL
-#define sirf_usp_pcm_runtime_resume NULL
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_usp_pcm_suspend(struct device *dev)
 {
 	struct sirf_usp *susp = dev_get_drvdata(dev);
@@ -370,17 +372,17 @@ static int sirf_usp_pcm_suspend(struct device *dev)
 static int sirf_usp_pcm_resume(struct device *dev)
 {
 	struct sirf_usp *susp = dev_get_drvdata(dev);
+	int ret;
 
 	if (!pm_runtime_status_suspended(dev)) {
-		sirf_usp_pcm_runtime_resume(dev);
+		ret = sirf_usp_pcm_runtime_resume(dev);
+		if (ret)
+			return ret;
 		writel(susp->mode1_reg, susp->base + USP_MODE1);
 		writel(susp->mode2_reg, susp->base + USP_MODE2);
 	}
 	return 0;
 }
-#else
-#define sirf_usp_pcm_suspend NULL
-#define sirf_usp_pcm_resume NULL
 #endif
 
 static const struct snd_soc_component_driver sirf_usp_component = {
@@ -399,6 +401,11 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	if (!susp)
 		return -ENOMEM;
 
+	susp->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
+			2, NULL, 0);
+	if (IS_ERR(susp->sirf_pcm_pdev))
+		return PTR_ERR(susp->sirf_pcm_pdev);
+
 	platform_set_drvdata(pdev, susp);
 
 	ret = of_property_read_u32(pdev->dev.of_node,
@@ -413,8 +420,9 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
 		return ret;
 	}
-	sirf_usp_pcm_dai_dma_data[0].dma_req = tx_dma_ch;
-	sirf_usp_pcm_dai_dma_data[1].dma_req = rx_dma_ch;
+
+	dma_data[0].filter_data = (void *)tx_dma_ch;
+	dma_data[1].filter_data = (void *)rx_dma_ch;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	susp->base = devm_ioremap_resource(&pdev->dev, mem_res);
@@ -426,15 +434,15 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(susp->clk);
 	}
-	clk_prepare_enable(susp->clk);
 
-	ret = snd_soc_register_component(&pdev->dev, &sirf_usp_component,
+	pm_runtime_enable(&pdev->dev);
+
+	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
 		goto err;
 	}
-	pm_runtime_enable(&pdev->dev);
 	return 0;
 
 err:
@@ -443,8 +451,9 @@ err:
 
 static int sirf_usp_pcm_remove(struct platform_device *pdev)
 {
-	snd_soc_unregister_component(&pdev->dev);
+	struct sirf_usp *susp = platform_get_drvdata(pdev);
 	pm_runtime_disable(&pdev->dev);
+	platform_device_unregister(susp->sirf_pcm_pdev);
 
 	return 0;
 }

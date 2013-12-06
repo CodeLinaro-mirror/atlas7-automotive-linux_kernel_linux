@@ -107,6 +107,10 @@ static int bt_csr_probe(struct platform_device *pdev)
 		goto fail_reset;
 	}
 
+	pwm_config(rfkill->pwm, 0, rfkill->pwm->period);
+	pwm_enable(rfkill->pwm);
+
+
 	rfkill->rfkill_dev = rfkill_alloc("csrbt-8311", &pdev->dev,
 			RFKILL_TYPE_BLUETOOTH, &rfkill_gpio_ops, rfkill);
 	if (!rfkill->rfkill_dev) {

@@ -60,6 +60,7 @@ static asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *
 
 static int __init sirfsoc_irq_init(struct device_node *np, struct device_node *parent)
 {
+	int i;
 	void __iomem *base = of_iomap(np, 0);
 	if (!base)
 		panic("unable to map intc cpu registers\n");
@@ -75,6 +76,9 @@ static int __init sirfsoc_irq_init(struct device_node *np, struct device_node *p
 
 	writel_relaxed(0, base + SIRFSOC_INT_RISC_MASK0);
 	writel_relaxed(0, base + SIRFSOC_INT_RISC_MASK1);
+
+	for (i = 0; i < SIRFSOC_NUM_IRQS; i++)
+		irq_set_status_flags(i, IRQ_LEVEL);
 
 	set_handle_irq(sirfsoc_handle_irq);
 

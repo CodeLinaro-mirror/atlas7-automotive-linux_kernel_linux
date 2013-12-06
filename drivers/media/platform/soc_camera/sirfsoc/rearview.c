@@ -41,13 +41,12 @@ static int prev_field = -1;	/* 0: odd field, 1: even field */
 static int cur_field = -1;	/* 0: odd field, 1: even field */
 static int cur_frame;	/* indicate index of the frame in the dma buffer */
 
-static int rv_started __nosavedata;
+static atomic_t rv_started = ATOMIC_INIT(0);
 
-int rearview_has_started(void)
+static bool rearview_enabled(void)
 {
-	return rv_started;
+	return (atomic_read(&rv_started) != 0);
 }
-EXPORT_SYMBOL(rearview_has_started);
 
 static irqreturn_t rearview_switch_irq_handler(int irq, void *data)
 {
@@ -275,13 +274,13 @@ static void rearview_stop(void)
 
 static int rearview_freeze(void)
 {
-	pr_debug("%s: rv_started %d\n", __func__, rv_started);
+	pr_debug("%s: rv_started %d\n", __func__, atomic_read(&rv_started));
 
 	disable_irq(rearview_env.irq);
 
-	if (rv_started) {
+	if (atomic_read(&rv_started) > 0) {
 		rearview_stop();
-		rv_started = 0;
+		atomic_set(&rv_started, 0);
 	}
 
 	return 0;
@@ -291,7 +290,7 @@ static int rearview_restore(void)
 {
 	unsigned long flags;
 
-	pr_debug("%s: rv_started %d\n", __func__, rv_started);
+	pr_debug("%s: rv_started %d\n", __func__, atomic_read(&rv_started));
 
 	enable_irq(rearview_env.irq);
 
@@ -307,7 +306,7 @@ static int rearview_suspend(void)
 {
 	pr_debug("%s\n", __func__);
 
-	if (rv_started) {
+	if (atomic_read(&rv_started) > 0) {
 		free_irq(rearview_env.vip_irq, &rearview_env);
 		rearview_env.vip_funcs->pfnStop();
 		dmaengine_terminate_all(rearview_env.dma_chan);
@@ -446,9 +445,9 @@ static void rearview_deinit(void)
 {
 	pr_debug("%s\n", __func__);
 
-	if (rv_started == 1) {
+	if (atomic_read(&rv_started) > 0) {
 		rearview_stop();
-		rv_started = 0;
+		atomic_set(&rv_started, 0);
 	}
 
 	rearview_env.decoder_ops->deinit();
@@ -490,6 +489,7 @@ int rearview_thread(void *data)
 	pcdev->rearview_restore = rearview_restore;
 	pcdev->rearview_suspend = rearview_suspend;
 	pcdev->rearview_resume = rearview_resume;
+	pcdev->rearview_enabled = rearview_enabled;
 
 
 	rearview_init();
@@ -501,25 +501,25 @@ int rearview_thread(void *data)
 		if (state == ACTIVE_INT || state == ACTIVE_HIBER) {
 			int st = gpio_get_value(rearview_env.gpio);
 
-			if (st && rv_started == 0) {
+			if (st && atomic_read(&rv_started) == 0) {
 				rearview_start(false);
-				rv_started = 1;
+				atomic_set(&rv_started, 1);
 			}
 
-			if (!st && rv_started == 1) {
+			if (!st && atomic_read(&rv_started) > 0) {
 				rearview_stop();
-				rv_started = 0;
+				atomic_set(&rv_started, 0);
 			}
 		} else if (state == ACTIVE_SLEEP) {
 			int st = gpio_get_value(rearview_env.gpio);
 
 			if (st) {
 				rearview_start(false);
-				rv_started = 1;
+				atomic_set(&rv_started, 1);
 			} else {
-				if (rv_started) {
+				if (atomic_read(&rv_started) > 0) {
 					__deinit_fbdev();
-					rv_started = 0;
+					atomic_set(&rv_started, 0);
 				}
 			}
 		}

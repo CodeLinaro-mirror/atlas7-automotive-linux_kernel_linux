@@ -538,14 +538,22 @@ config SIRF_MEMC_MONITOR
 config CSR_RFKILL
 	tristate "CSR Synergy for Linux platform RFKILL power on/off management"
 	depends on RFKILL_GPIO
-	select CONFIG_WIRELESS_EXT
-	select CONFIG_WEXT_PRIV
+	select WIRELESS_EXT
+	select WEXT_PRIV
 	help
 	  This option enables CSR Synergy for Linux platfrom's Bluetooth and WLAN
 	  power on and off mangement.
 
 	  Say Yes if you are using CSR Synergy stack based on CSR Bluetooth or
 	  WLAN chip.
+
+config SIRF_MINIGPSRTC
+	tristate "SiRFSoC rtc alarm1 module for minigps"
+	depends on ARCH_SIRF
+	default m
+	help
+	  Support for SiRFSoC rtc alarm1 module, which is specially used for
+	  minigps running
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

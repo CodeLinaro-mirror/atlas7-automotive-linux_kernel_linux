@@ -2456,13 +2456,6 @@ config FB_SIRF
 	  Say Y here if you want to support the built-in frame buffer of
 	  the SiRF family of SoCs.
 
-config SIRF_BLE
-	bool "2D Blt Engine for SiRF's AtlasVI Soc"
-	depends on FB_SIRF && ARCH_SIRF
-	help
-	  The BLE block in AtlasVI can handle bitblt operation, support multiple RGB format,
-	  alpha blending, transparency by chroma key, rotation and rop3 (pattern surface involved)
-
 config FB_HYPERV
 	tristate "Microsoft Hyper-V Synthetic Video support"
 	depends on FB && HYPERV

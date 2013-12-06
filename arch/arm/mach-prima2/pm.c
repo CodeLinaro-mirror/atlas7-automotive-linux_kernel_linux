@@ -53,6 +53,7 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 	sleep_mode |= mode << 1;
 	sirfsoc_rtc_iobrg_writel(sleep_mode, sirfsoc_pwrc_base +
 		SIRFSOC_PWRC_PDN_CTRL);
+	sirfsoc_set_wakeup_source();
 }
 
 void sirfsoc_pm_power_off(void)

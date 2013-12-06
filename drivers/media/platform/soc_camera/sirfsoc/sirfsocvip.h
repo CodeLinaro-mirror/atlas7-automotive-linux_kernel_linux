@@ -100,5 +100,6 @@ struct sirfsoc_camera_dev {
 	int (*rearview_restore)(void);
 	int (*rearview_suspend)(void);
 	int (*rearview_resume)(void);
+	bool (*rearview_enabled)(void);
 };
 #endif

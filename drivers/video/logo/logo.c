@@ -108,7 +108,10 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 			else
 				logo = &logo_prima2_clut224;
 		} else {
-			logo = &logo_atlas6_clut224;
+			if (of_machine_is_compatible("sirf,atlas6-wsvga"))
+				logo = &logo_atlas6_wsvga_clut224;
+			else
+				logo = &logo_atlas6_clut224;
 		}
 #endif
 	}

@@ -682,6 +682,20 @@ static struct clk_ops ios_ops = {
 	.disable = std_clk_disable,
 };
 
+static struct clk_init_data clk_cphif_init = {
+	.name = "cphif",
+	.ops = &ios_ops,
+	.parent_names = std_clk_io_parents,
+	.num_parents = ARRAY_SIZE(std_clk_io_parents),
+};
+
+static struct clk_std clk_cphif = {
+	.enable_bit = 20,
+	.hw = {
+		.init = &clk_cphif_init,
+	},
+};
+
 static struct clk_init_data clk_dmac0_init = {
 	.name = "dmac0",
 	.ops = &ios_ops,
@@ -971,7 +985,7 @@ static const char *std_clk_sys_parents[] = {
 };
 
 static struct clk_init_data clk_security_init = {
-	.name = "mf",
+	.name = "security",
 	.ops = &ios_ops,
 	.parent_names = std_clk_sys_parents,
 	.num_parents = ARRAY_SIZE(std_clk_sys_parents),

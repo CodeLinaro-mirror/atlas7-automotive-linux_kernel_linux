@@ -119,11 +119,23 @@ struct sirfsoc_memcmon {
 	u32 __iomem *version;
 	struct device *dev;
 	int bw_on;
+	int bw_master_size; /* bit[3:0] of BW_CONFIG_SIZE */
+	int bw_master_len; /* bit[12:8] of BW_CONFIG_SIZE */
 	struct workqueue_struct *bw_wq;
 	struct delayed_work gfxfreq_dwork;
 	int gfxfreq_auto;
 	struct clk *gfx_clk;
 	unsigned long gfx_rate;
+	struct delayed_work vxdfreq_dwork;
+	int vxdfreq_auto;
+	int vxd_valid;
+	struct clk *mm_clk;
+	unsigned long mm_rate;
+	u32 mm_rdat_ref;
+	u32 mm_wdat_ref;
+	u32 mm_idle_freq;
+	u32 mm_min_freq;
+	u32 mm_max_freq;
 	int lat_on;
 	int addr_on;
 	int to_on;
@@ -134,6 +146,10 @@ struct sirfsoc_memcmon {
 	struct bandwidth_info bw_info[PORT_NUM];
 	struct latency_info lat_info[PORT_NUM];
 	struct timeout_info to_info[MAX_TIMEOUT_INT];
+	struct timeval bwmon_start;
+	struct timeval bwmon_stop;
+	struct timeval latmon_start;
+	struct timeval latmon_stop;
 };
 
 #define EN_MASK			0xff

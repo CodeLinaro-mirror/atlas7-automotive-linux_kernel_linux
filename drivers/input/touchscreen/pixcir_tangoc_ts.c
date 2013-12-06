@@ -79,10 +79,13 @@ static void  pixcir_ts_report_event(struct pixcir_ts_data *ts)
 					ABS_MT_TOUCH_MAJOR, TOUCH_MAJOR_MAX);
 			input_report_abs(ts->input_dev,
 					ABS_MT_WIDTH_MAJOR, WIDTH_MAJOR_MAX);
+			input_report_key(ts->input_dev, BTN_TOUCH, 1);
 			input_mt_sync(ts->input_dev);
 		}
-	} else
+	} else {
+		input_report_key(ts->input_dev, BTN_TOUCH, 0);
 		input_mt_sync(ts->input_dev);
+	}
 
 	input_sync(ts->input_dev);
 }
@@ -144,6 +147,10 @@ static int pixcir_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "invalid touch_pin supplied\n");
 		return -EINVAL;
 	}
+	if (devm_gpio_request(&client->dev, ts->touch_pin, "touch-gpio")) {
+		dev_err(&client->dev, "request touch gpio failed\n");
+		return -EINVAL;
+	}
 	gpio_direction_input(ts->touch_pin);
 	client->irq = gpio_to_irq(ts->touch_pin);
 
@@ -164,11 +171,13 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	input_dev->dev.parent = &client->dev;
 	set_bit(EV_SYN, input_dev->evbit);
 	set_bit(EV_ABS, input_dev->evbit);
+	set_bit(EV_KEY, input_dev->evbit);
 	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
 	set_bit(ABS_MT_WIDTH_MAJOR, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
 	set_bit(ABS_MT_TRACKING_ID, input_dev->absbit);
+	set_bit(BTN_TOUCH, input_dev->keybit);
 	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
 			TOUCHSCREEN_MINX, TOUCHSCREEN_MAXX, 0, 0);

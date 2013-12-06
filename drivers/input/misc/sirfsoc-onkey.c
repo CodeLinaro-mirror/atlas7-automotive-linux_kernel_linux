@@ -126,7 +126,7 @@ static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int pwrc_resume(struct device *dev)
+static int sirfsoc_pwrc_restore(struct device *dev)
 {
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
 	/*
@@ -140,9 +140,26 @@ static int pwrc_resume(struct device *dev)
 
 	return 0;
 }
+
+static int sirfsoc_pwrc_resume(struct device *dev)
+{
+#ifdef CONFIG_ANDROID
+	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
+	input_report_key(pwrcdrv->input, KEY_POWER, 1);
+	input_sync(pwrcdrv->input);
+	input_report_key(pwrcdrv->input, KEY_POWER, 0);
+	input_sync(pwrcdrv->input);
 #endif
 
-static SIMPLE_DEV_PM_OPS(sirfsoc_pwrc_pm_ops, NULL, pwrc_resume);
+	sirfsoc_pwrc_restore(dev);
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops sirfsoc_pwrc_pm_ops = {
+	.resume = sirfsoc_pwrc_resume,
+	.restore = sirfsoc_pwrc_restore,
+};
 
 static struct platform_driver sirfsoc_pwrc_driver = {
 	.probe		= sirfsoc_pwrc_probe,
@@ -158,6 +175,6 @@ static struct platform_driver sirfsoc_pwrc_driver = {
 module_platform_driver(sirfsoc_pwrc_driver);
 
 MODULE_LICENSE("GPLv2");
-MODULE_AUTHOR("Binghua Duan <Binghua.Duan@csr.com>, Xianglong Du <Xianglong.Du@csr.com>");
+MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_DESCRIPTION("CSR Prima2 PWRC Driver");
 MODULE_ALIAS("platform:sirfsoc-pwrc");

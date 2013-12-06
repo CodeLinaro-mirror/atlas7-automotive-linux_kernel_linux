@@ -29,6 +29,7 @@
 			timebase-frequency = <0>;
 			bus-frequency = <0>;
 			clock-frequency = <0>;
+			clocks = <&clks 12>;
 			operating-points = <
 				/* kHz    uV */
 				200000  1025000
@@ -36,7 +37,7 @@
 				664000  1050000
 				800000  1100000
 			>;
-			cpufreq_transition_latency = <150000>;
+			clock-latency = <150000>;
 		};
 	};
 
@@ -53,10 +54,6 @@
 			arm,tag-latency = <1 1 1>;
 			arm,data-latency = <1 1 1>;
 			arm,filter-ranges = <0 0x40000000>;
-		};
-
-		pcm {
-			compatible = "sirf,pcm-audio";
 		};
 
 		intc: interrupt-controller@80020000 {
@@ -82,6 +79,7 @@
 			rstc: reset-controller@88010000 {
 				compatible = "sirf,prima2-rstc";
 				reg = <0x88010000 0x1000>;
+				sirf,pwrc-base = <0x3000>;
 				#reset-cells = <1>;
 			};
 
@@ -93,6 +91,7 @@
 			cphifbg@88030000 {
 				compatible = "sirf,prima2-cphifbg";
 				reg = <0x88030000 0x1000>;
+				clocks = <&clks 42>;
 			};
 		};
 
@@ -113,8 +112,21 @@
 				compatible = "sirf,prima2-memcmon";
 				reg = <0x90002000 0x200>;
 				interrupts = <4>;
-				clocks = <&clks 32>;
+				clocks = <&clks 32>, <&clks 33>;
+				clock-names = "gfx", "mm";
+				mm-rdat-ref = <25000000>;
+				mm-wdat-ref = <8000000>;
+				mm-idle-freq = <25000000>;
+				mm-min-freq = <100000000>;
+				mm-max-freq = <200000000>;
 			};
+
+		};
+
+		mem-fw {
+			compatible = "sirf,prima2-mem-fw";
+			rc-range = <0x14f8000 0x4000>;
+			dqs-range = <0x7ffc000 0x1000>;
 		};
 
 		disp-iobg {
@@ -133,6 +145,7 @@
 				resets = <&rstc 5>;
 				power-vdd  = <0x00180017>;
 				power-vee  = <0x00160015>;
+				sirf,rsvmem_size = <0 0x3800000 0x500000 0x200000>;
 			};
 
 			vpp@90020000 {
@@ -304,6 +317,8 @@
 				reg = <0xb00b0000 0x10000>;
 				interrupts = <12>;
 				clocks = <&clks 24>;
+				#dma-cells = <1>;
+				#dma-channels = <16>;
 			};
 
 			dmac1: dma-controller@b0160000 {
@@ -312,6 +327,8 @@
 				reg = <0xb0160000 0x10000>;
 				interrupts = <13>;
 				clocks = <&clks 25>;
+				#dma-cells = <1>;
+				#dma-channels = <16>;
 			};
 
 			vip@b00C0000 {
@@ -329,8 +346,9 @@
 				interrupts = <15>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
-				sirf,spi-dma-rx-channel = <25>;
-				sirf,spi-dma-tx-channel = <20>;
+				dmas = <&dmac1 9>,
+				     <&dmac1 4>;
+				dma-names = "rx", "tx";
 				#address-cells = <1>;
 				#size-cells = <0>;
 				clocks = <&clks 19>;
@@ -344,8 +362,9 @@
 				interrupts = <16>;
 				sirf,spi-num-chipselects = <1>;
 				cs-gpios = <&gpio 0 0>;
-				sirf,spi-dma-rx-channel = <12>;
-				sirf,spi-dma-tx-channel = <13>;
+				dmas = <&dmac0 12>,
+				     <&dmac0 13>;
+				dma-names = "rx", "tx";
 				#address-cells = <1>;
 				#size-cells = <0>;
 				clocks = <&clks 20>;
@@ -616,6 +635,18 @@
                                                 sirf,function = "usb1_utmi_drvbus";
                                         };
                                 };
+                                usb1_dp_dn_pins_a: usb1_dp_dn@0 {
+                                        usb1_dp_dn {
+                                                sirf,pins = "usb1_dp_dngrp";
+                                                sirf,function = "usb1_dp_dn";
+                                        };
+                                };
+                                uart1_route_io_usb1_pins_a: uart1_route_io_usb1@0 {
+                                        uart1_route_io_usb1 {
+                                                sirf,pins = "uart1_route_io_usb1grp";
+                                                sirf,function = "uart1_route_io_usb1";
+                                        };
+                                };
                                 warm_rst_pins_a: warm_rst@0 {
                                         warm_rst {
                                                 sirf,pins = "warm_rstgrp";
@@ -648,13 +679,6 @@
 				reg = <0xb0130000 0x10000>;
 				clocks = <&clks 21>, <&clks 0>, <&clks 1>, <&clks 2>, <&clks 3>, <&clks 4>;
 				clock-names = "pwmc", "rtc", "osc", "pll1", "pll2", "pll3";
-				pinctrl-names = "pwm0", "pwm1", "pwm2", "pwm3", "pwm4", "pwm5";
-				pinctrl-0 = <&pwm0_pins_a>;
-				pinctrl-1 = <&pwm1_pins_a>;
-				pinctrl-2 = <&pwm2_pins_a>;
-				pinctrl-3 = <&pwm3_pins_a>;
-				pinctrl-4 = <&pwm4_pins_a>;
-				pinctrl-5 = <&cko1_pins_a>;
 			};
 
 			efusesys@b0140000 {
@@ -679,9 +703,7 @@
 				sd0: sdhci@56000000 {
 					cell-index = <0>;
 					compatible = "sirf,prima2-sdhc";
-					broken-dma;
 					wp-inverted;
-					broken-cd;
 					non-removable;
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
@@ -692,9 +714,9 @@
 				sd1: sdhci@56100000 {
 					cell-index = <1>;
 					compatible = "sirf,prima2-sdhc";
-					broken-dma;
 					reg = <0x56100000 0x100000>;
 					interrupts = <38>;
+					bus-width = <4>;
 					status = "disabled";
 					clocks = <&clks 36>;
 				};
@@ -702,7 +724,6 @@
 				sd2: sdhci@56200000 {
 					cell-index = <2>;
 					compatible = "sirf,prima2-sdhc";
-					broken-dma;
 					reg = <0x56200000 0x100000>;
 					interrupts = <23>;
 					status = "disabled";
@@ -712,7 +733,6 @@
 				sd3: sdhci@56300000 {
 					cell-index = <3>;
 					compatible = "sirf,prima2-sdhc";
-					broken-dma;
 					reg = <0x56300000 0x100000>;
 					interrupts = <23>;
 					status = "disabled";
@@ -722,7 +742,7 @@
 				sd4: sdhci@56400000 {
 					cell-index = <4>;
 					compatible = "sirf,prima2-sdhc";
-					broken-dma;
+					broken-cd;
 					reg = <0x56400000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
@@ -732,7 +752,6 @@
 				sd5: sdhci@56500000 {
 					cell-index = <5>;
 					compatible = "sirf,prima2-sdhc";
-					broken-dma;
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
@@ -770,6 +789,12 @@
 				interrupts = <52 53 54>;
 			};
 
+			minigpsrtc@2000 {
+				compatible = "sirf,prima2-minigpsrtc";
+				reg = <0x2000 0x1000>;
+				interrupts = <54>;
+			};
+
 			pwrc@3000 {
 				compatible = "sirf,prima2-pwrc";
 				reg = <0x3000 0x1000>;
@@ -784,7 +809,7 @@
 			ranges = <0xb8000000 0xb8000000 0x40000>;
 
 			usbphy0: usbphy0@b8000200 {
-				compatible = "usbphy,ci13611a-prima2";
+				compatible = "sirf,prima2-usbphy";
 				reg = <0xb8000200 0x100>;
 				clocks = <&clks 39>;
 			};
@@ -795,13 +820,13 @@
 				interrupts = <10>;
 				clocks = <&clks 40>;
 				resets = <&rstc 8>;
-				usbphy,ci13611a-prima2 = <&usbphy0>;
+				usbphy = <&usbphy0>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&usb0_utmi_drvbus_pins_a>;
 			};
 
 			usbphy1: usbphy1@b8010200 {
-				compatible = "usbphy,ci13611a-prima2";
+				compatible = "sirf,prima2-usbphy";
 				reg = <0xb8010200 0x100>;
 				clocks = <&clks 39>;
 			};
@@ -812,9 +837,9 @@
 				interrupts = <11>;
 				clocks = <&clks 41>;
 				resets = <&rstc 9>;
-				usbphy,ci13611a-prima2 = <&usbphy1>;
+				usbphy = <&usbphy1>;
 				pinctrl-names = "default";
-				pinctrl-0 = <&usb1_utmi_drvbus_pins_a>;
+				pinctrl-0 = <&usb1_utmi_drvbus_pins_a &usb1_dp_dn_pins_a>;
 			};
 
 			sata@b00f0000 {

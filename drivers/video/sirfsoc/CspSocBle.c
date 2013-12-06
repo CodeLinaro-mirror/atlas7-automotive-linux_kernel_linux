@@ -155,7 +155,7 @@ UINT32* __BleSoc_GetRingBufSpace(BLE2DCONTEXT *pBle2DContext, UINT32 SubmitSize)
 
             if(SubmitSize >= pBle2DContext->Mode.CmdMode.RingBufSizeLeftInDW)
             {
-                BLE_MSG(("2dError:Not Enough RingBuffer Space,RingBufSizeLeftInDW = 0x%.8x,SubmitSize = 0x%.8x\n", pBle2DContext->Mode.CmdMode.RingBufSizeLeftInDW,SubmitSize));
+                BLE_ERR(("2dError:Not Enough RingBuffer Space,RingBufSizeLeftInDW = 0x%.8x,SubmitSize = 0x%.8x\n", pBle2DContext->Mode.CmdMode.RingBufSizeLeftInDW,SubmitSize));
 		return NULL;
             }
         }
@@ -172,7 +172,7 @@ UINT32* __BleSoc_GetRingBufSpace(BLE2DCONTEXT *pBle2DContext, UINT32 SubmitSize)
 
             if(SubmitSize >= pBle2DContext->Mode.CmdMode.RingBufSizeLeftInDW)
             {
-                BLE_MSG(("2dError:Not Enough RingBuffer Space,RingBufSizeLeftInDW = 0x%.8x,SubmitSize = 0x%.8x\n", pBle2DContext->Mode.CmdMode.RingBufSizeLeftInDW,SubmitSize));
+                BLE_ERR(("2dError:Not Enough RingBuffer Space,RingBufSizeLeftInDW = 0x%.8x,SubmitSize = 0x%.8x\n", pBle2DContext->Mode.CmdMode.RingBufSizeLeftInDW,SubmitSize));
 		return NULL;
             }
         }
@@ -199,7 +199,7 @@ VOID __BleSoc_ReleaseRingBufSpace(BLE2DCONTEXT *pBle2DContext, UINT32 SubmitSize
     }
     else
     {
-        BLE_MSG(("RingBufWrPtr Out Range\n"));
+        BLE_ERR(("RingBufWrPtr Out Range\n"));
     }
 }
 
@@ -266,16 +266,15 @@ BLE2DERROR __BleSoc_WaitBltComplete(BLE2DCONTEXT *pBle2DContext, BLE2DMEMINFO *p
                         break;
                     }
 
-                    if(Counter > 100)
+                    if (Counter > 1000)
                     {
                         if(bPrint)
                         {
-                            BLE_MSG(("2dError:Wait Fence Back Timeout,DesiredSyncID = 0x%.8x,ReadID = 0x%.8x\n", pMemInfo->ulDesiredSyncID,CurrentSyncID));
+                            BLE_ERR(("2dError:Wait Fence Back Timeout,DesiredSyncID = 0x%.8x,ReadID = 0x%.8x\n", pMemInfo->ulDesiredSyncID,CurrentSyncID));
                             bPrint = FALSE;
                         }
                     }
-
-                    msleep(5);
+			usleep_range(1500, 2000);
                 }
             }
         }
@@ -301,7 +300,7 @@ BLE2DERROR __BleSoc_WaitBltComplete(BLE2DCONTEXT *pBle2DContext, BLE2DMEMINFO *p
                     {
                         break;
                     }
-                    msleep(5);
+			usleep_range(1500, 2000);
                 }
             }
         }
@@ -750,7 +749,7 @@ BLE2DERROR __Ble2D_Bitblt(BLE2DCONTEXT *pBle2DContext, BLE2DBLTINFO *pBltInfo, B
                 if(counter == 0xFFFFFF)
                 {
                     counter = 0;
-                    BLE_MSG(("Engine hang\n"));
+                    BLE_ERR(("Engine hang\n"));
                     break;
                 }
             }
@@ -783,7 +782,7 @@ BLE2DERROR __BleSoc_BitBlt(VOID *hContext, BLE2DBLTINFO *pBltInfo)
 
         if(__BleSoc_PatternSurfControl(pBle2DContext, pBltInfo,&pPatSurf) != BLE2D_OK)
         {
-            BLE_MSG(("Can't get available Pattern Surface\n"));
+            BLE_ERR(("Can't get available Pattern Surface\n"));
             return BLE2DERROR_GENERIC_ERROR;
         }
 
@@ -962,7 +961,7 @@ VOID BleSoc_Sleep()
         times++;
         if (times > 20)
         {
-            BLE_MSG(("Error: Blit engine is busy\n"));
+            BLE_ERR(("Error: Blit engine is busy\n"));
             break;
         }
    }
@@ -1085,7 +1084,7 @@ VOID  BleSoc_InterruptRoutine(VOID *hContext)
 
         if(temp > FenceId)
         {
-            BLE_MSG(("Error Last Fence ID = 0x%.8x, New Fence ID = 0x%.8x\n", temp, FenceId));
+            BLE_ERR(("Error Last Fence ID = 0x%.8x, New Fence ID = 0x%.8x\n", temp, FenceId));
             PrintRingBufInfo(pBleContext, 0);
         }
 

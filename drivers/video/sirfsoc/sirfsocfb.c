@@ -35,6 +35,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_fdt.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/memblock.h>
 #include <linux/reset.h>
@@ -45,7 +46,7 @@
 #include "CspCmnLcd.h"
 #include "CspCmnVpp.h"
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 #include "CspCmnBle.h"
 #endif
 
@@ -1149,7 +1150,7 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 	return 0;
 }
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 
 #define MEM_INFO_ARRAY_SIZE 5
 static BLE2DMEMINFO mem_src_info[MEM_INFO_ARRAY_SIZE];
@@ -1427,7 +1428,7 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (sirfsocfb_blt_yuv2rgb(fb, layer, &data.blt))
 			return -EFAULT;
 		break;
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 	case SIRFSOCFB_BLT_BLE:
 		if (copy_from_user(&data.blt_ble, (void __user *)arg,
 				   sizeof(struct sirfsocfb_bltparms_ble)))
@@ -1697,7 +1698,7 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 		/* layer supports panning? */
 		fb->fb[layer].fix.ypanstep = 1;
 		fb->fb[layer].fix.ywrapstep = 0;
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 		fb->fb[layer].fix.accel = FB_ACCEL_BLE;
 #else
 		fb->fb[layer].fix.accel = FB_ACCEL_NONE;
@@ -1831,18 +1832,13 @@ static int remap_frame_buffers(struct platform_device *pdev,
 {
 	int i, ret = 0;
 	unsigned layer_mem_offset = 0;
-	/*
-	 * allocate memory per defined, otherwise
-	 * according to actual needs.
-	 */
-	const unsigned layer_reserve_size[] = {
-		0,
-		16 * SZ_1M,
-		0,
-		2 * SZ_1M,
-	};
+	unsigned int layer_reserve_size[4];
 
 	FB_FUN_MSG("remap_frame_buffers\n");
+
+	/* allocate memory per defined, otherwise according to actual needs. */
+	of_property_read_u32_array(pdev->dev.of_node, "sirf,rsvmem_size", layer_reserve_size,
+				ARRAY_SIZE(layer_reserve_size));
 
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++) {
 		if (!fb->layer_info[i].valid)
@@ -1857,7 +1853,6 @@ static int remap_frame_buffers(struct platform_device *pdev,
 		if (i == LCD_PRIMARY) {
 			unsigned int size;
 			dma_addr_t map_dma;
-
 			size = PAGE_ALIGN(fb->fb[i].fix.smem_len);
 			fb->fb[i].screen_base =
 				dma_alloc_writecombine(&pdev->dev,
@@ -1988,7 +1983,7 @@ static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
 
 }
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 static irqreturn_t sirfsocfb_ble_irq_handler(int irq, void *data)
 {
 	struct sirfsocfb *fb = (struct sirfsocfb *)data;
@@ -2080,11 +2075,30 @@ err:
 }
 #endif
 
-void  __init sirfsoc_fb_reserve_memblock(void)
+static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node, const char *uname,
+				int depth, void *data)
 {
-	sirf_fb_phy_size = 25 * SZ_1M;
+	__be32 *mem_info;
+	unsigned long len;
+
+	mem_info = of_get_flat_dt_prop(node,
+			"sirf,rsvmem_size", &len);
+	if (!mem_info || (len != 4 * sizeof(unsigned long)))
+		return 0;
+
+	/* fb0 is allocated from dma */
+	sirf_fb_phy_size = be32_to_cpu(mem_info[1]) + be32_to_cpu(mem_info[2]) +
+		be32_to_cpu(mem_info[3]);
 	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, SZ_1M);
 	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
+
+	return 1;
+}
+
+void  __init sirfsoc_fb_reserve_memblock(void)
+{
+	if (!of_scan_flat_dt(sirfsoc_fdt_handle_fb_rsv_mem, NULL))
+		pr_err("failed to get fb reserved memory from dt\n");
 }
 EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);
 
@@ -2318,7 +2332,7 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	if (ret)
 		goto err_remove_fifo_overflow_file;
 
-#ifdef CONFIG_SIRF_BLE
+#ifdef SUPPORT_BLE
 	sirfsocfb_setup_ble(fb);
 #endif
 
@@ -2444,6 +2458,11 @@ static int sirfsocfb_suspend(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_suspend\n");
 
+#ifdef SUPPORT_BLE
+	disable_irq(fb->ble_irq);
+	fb->ble_func.pfnSleep();
+	clk_disable(fb->ble_clk);
+#endif
 	disable_irq(fb->irq);
 
 	fb->lcd_func.pfnSleep();
@@ -2459,6 +2478,11 @@ static int sirfsocfb_resume(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_resume\n");
 
+#ifdef SUPPORT_BLE
+	clk_enable(fb->ble_clk);
+	fb->ble_func.pfnWakeup();
+	enable_irq(fb->ble_irq);
+#endif
 	clk_enable(fb->clk);
 	clk_enable(fb->vpp_clk);
 
@@ -2476,6 +2500,11 @@ static int sirfsocfb_freeze(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_FUN_MSG("sirfsocfb_freeze\n");
 
+#ifdef SUPPORT_BLE
+	disable_irq(fb->ble_irq);
+	fb->ble_func.pfnSleep();
+	clk_disable(fb->ble_clk);
+#endif
 	disable_irq(fb->irq);
 
 	fb->lcd_func.pfnSleep();
@@ -2491,6 +2520,18 @@ static int sirfsocfb_restore(struct device *dev)
 	struct sirfsocfb *fb = platform_get_drvdata(pdev);
 	FB_NOT_MSG("LCD restore\n");
 
+#ifdef CONFIG_ANDROID
+	/* Clear fb0 to avoid wallpaper garbage after hibernation back */
+	if(fb->layer_info[LCD_PRIMARY].enabled)
+		memset(fb->fb[LCD_PRIMARY].screen_base, 0x0,
+			fb->fb[LCD_PRIMARY].fix.smem_len);
+#endif
+
+#ifdef SUPPORT_BLE
+	clk_enable(fb->ble_clk);
+	fb->ble_func.pfnWakeup();
+	enable_irq(fb->ble_irq);
+#endif
 	clk_enable(fb->clk);
 	clk_enable(fb->vpp_clk);
 

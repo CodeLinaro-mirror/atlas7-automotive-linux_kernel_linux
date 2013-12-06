@@ -15,10 +15,13 @@
 #include <linux/of_address.h>
 #include <linux/reset-controller.h>
 #include <linux/reboot.h>
+#include <linux/rtc/sirfsoc_rtciobrg.h>
+#include "pm.h"
 
 #define SIRFSOC_RSTBIT_NUM	64
 
 void __iomem *sirfsoc_rstc_base;
+static u32 sirfsoc_pwrc_base;
 static DEFINE_MUTEX(rstc_lock);
 
 static int sirfsoc_reset_module(struct reset_controller_dev *rcdev,
@@ -38,10 +41,10 @@ static int sirfsoc_reset_module(struct reset_controller_dev *rcdev,
 		 * datasheet doesn't require explicit delay between the set and clear
 		 * of reset bit. it could be shorter if tests pass.
 		 */
-		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) | reset_bit,
+		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) | (1 << reset_bit),
 			sirfsoc_rstc_base + (reset_bit / 32) * 4);
 		msleep(10);
-		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) & ~reset_bit,
+		writel(readl(sirfsoc_rstc_base + (reset_bit / 32) * 4) & (~(1 << reset_bit)),
 			sirfsoc_rstc_base + (reset_bit / 32) * 4);
 	} else {
 		/*
@@ -88,6 +91,9 @@ void __init sirfsoc_of_rstc_init(void)
 
 	sirfsoc_reset_controller.of_node = np;
 
+	if (of_property_read_u32(np, "sirf,pwrc-base", &sirfsoc_pwrc_base))
+		panic("unable to find pwrc-base offset\n");
+
 	if (IS_ENABLED(CONFIG_RESET_CONTROLLER))
 		reset_controller_register(&sirfsoc_reset_controller);
 }
@@ -96,5 +102,12 @@ void __init sirfsoc_of_rstc_init(void)
 
 void sirfsoc_restart(enum reboot_mode mode, const char *cmd)
 {
+	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
+		sirfsoc_rtc_iobrg_writel(
+			sirfsoc_rtc_iobrg_readl(
+			sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS)
+			| RECOVERY_MODE,
+			sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
+
 	writel(SIRFSOC_SYS_RST_BIT, sirfsoc_rstc_base);
 }
