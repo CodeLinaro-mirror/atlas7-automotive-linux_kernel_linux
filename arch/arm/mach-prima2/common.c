@@ -6,8 +6,6 @@
  * Licensed under GPLv2 or later.
  */
 
-#include <linux/clk-provider.h>
-#include <linux/clocksource.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/memblock.h>
@@ -59,7 +57,7 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *un
  *      2. SiRFsoc romcode page table,
  * so here reserve the space so as not to let kernel access.
  */
-void __init sirfsoc_pre_reserve()
+void __init sirfsoc_pre_reserve(void)
 {
         if (!of_scan_flat_dt(sirf_fdt_handle_pre_rsv_mem, NULL))
                 pr_err("failed to find reserved memory.\n");
@@ -94,13 +92,6 @@ static void __init sirfsoc_init_late(void)
 	sirfsoc_nand_nosave_memblock();
 }
 
-static __init void sirfsoc_init_time(void)
-{
-	/* initialize clocking early, we want to set the OS timer */
-	of_clk_init(NULL);
-	clocksource_of_init();
-}
-
 static __init void sirfsoc_map_io(void)
 {
 	sirfsoc_map_lluart();
@@ -117,7 +108,6 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.reserve	= sirfsoc_reserve,
 	.map_io         = sirfsoc_map_io,
-	.init_time	= sirfsoc_init_time,
 	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas6_dt_match,
@@ -135,7 +125,6 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.reserve	= prima2_reserve,
 	.map_io         = sirfsoc_map_io,
-	.init_time	= sirfsoc_init_time,
 	.init_machine   = sirfsoc_init_mach,
 	.dma_zone_size	= SZ_256M,
 	.init_late	= sirfsoc_init_late,
@@ -155,7 +144,6 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
-	.init_time	= sirfsoc_init_time,
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = marco_dt_match,

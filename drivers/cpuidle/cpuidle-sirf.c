@@ -17,7 +17,6 @@
 #include <asm/cpuidle.h>
 #include <linux/regulator/consumer.h>
 #include <linux/cpu.h>
-#include <linux/opp.h>
 
 #define SIRFSOC_MAX_VOLTAGE	1200000
 

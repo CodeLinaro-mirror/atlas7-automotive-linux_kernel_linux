@@ -1029,5 +1029,3 @@ static struct clk_std clk_usb1 = {
 		.init = &clk_usb1_init,
 	},
 };
-
-

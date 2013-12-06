@@ -103,7 +103,6 @@
 				interrupts = <4>;
 				clocks = <&clks 32>;
 			};
-
 		};
 
 		mem-fw {

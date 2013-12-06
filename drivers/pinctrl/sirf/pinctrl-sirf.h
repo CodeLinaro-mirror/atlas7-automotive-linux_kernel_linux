@@ -10,7 +10,6 @@
 #define __PINMUX_SIRF_H__
 
 #define SIRFSOC_NUM_PADS		622
-
 #define SIRFSOC_RSC_USB_UART_SHARE	0
 #define SIRFSOC_RSC_PIN_MUX		0x4
 

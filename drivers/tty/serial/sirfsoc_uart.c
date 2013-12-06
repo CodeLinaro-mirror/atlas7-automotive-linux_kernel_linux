@@ -524,7 +524,7 @@ static void sirfsoc_rx_tmo_process_tl(unsigned long param)
 	struct dma_tx_state tx_state;
 
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
-	while (DMA_SUCCESS == dmaengine_tx_status(sirfport->rx_dma_chan,
+	while (DMA_COMPLETE == dmaengine_tx_status(sirfport->rx_dma_chan,
 		sirfport->rx_dma_items[sirfport->rx_completed].cookie, &tx_state)) {
 		sirfsoc_uart_insert_rx_buf_to_tty(sirfport,
 					SIRFSOC_RX_DMA_BUF_SIZE);
@@ -710,7 +710,7 @@ static void sirfsoc_uart_rx_dma_complete_tl(unsigned long param)
 	unsigned long flags;
 	struct dma_tx_state tx_state;
 	spin_lock_irqsave(&sirfport->rx_lock, flags);
-	while (DMA_SUCCESS == dmaengine_tx_status(sirfport->rx_dma_chan,
+	while (DMA_COMPLETE == dmaengine_tx_status(sirfport->rx_dma_chan,
 			sirfport->rx_dma_items[sirfport->rx_completed].cookie, &tx_state)) {
 		sirfsoc_uart_insert_rx_buf_to_tty(sirfport,
 					SIRFSOC_RX_DMA_BUF_SIZE);
