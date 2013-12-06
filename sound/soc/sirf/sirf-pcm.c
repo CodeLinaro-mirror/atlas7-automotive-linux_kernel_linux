@@ -53,16 +53,10 @@ static const struct snd_dmaengine_pcm_config sirf_dmaengine_pcm_config = {
 
 static int sirf_pcm_probe(struct platform_device *pdev)
 {
-	return snd_dmaengine_pcm_register(&pdev->dev,
+	return devm_snd_dmaengine_pcm_register(&pdev->dev,
 		&sirf_dmaengine_pcm_config,
 		SND_DMAENGINE_PCM_FLAG_NO_DT |
 		SND_DMAENGINE_PCM_FLAG_COMPAT);
-}
-
-static int sirf_pcm_remove(struct platform_device *pdev)
-{
-	snd_dmaengine_pcm_unregister(&pdev->dev);
-	return 0;
 }
 
 static struct platform_driver sirf_pcm_driver = {
@@ -71,7 +65,6 @@ static struct platform_driver sirf_pcm_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = sirf_pcm_probe,
-	.remove = sirf_pcm_remove,
 };
 
 static int __init sirf_pcm_init(void)
