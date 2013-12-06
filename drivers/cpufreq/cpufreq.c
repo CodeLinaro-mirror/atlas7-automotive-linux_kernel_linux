@@ -2258,6 +2258,9 @@ static int cpu_freq_notify(struct notifier_block *b,
 
 static int __init cpufreq_core_init(void)
 {
+	int cpu;
+	int rc;
+
 	if (cpufreq_disabled())
 		return -ENODEV;
 
