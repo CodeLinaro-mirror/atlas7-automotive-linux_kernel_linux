@@ -11,12 +11,13 @@
 #include <linux/cpuidle.h>
 #include <linux/io.h>
 #include <linux/time.h>
-#include <asm/proc-fns.h>
 #include <linux/clk.h>
 #include <linux/err.h>
-#include <asm/cpuidle.h>
 #include <linux/regulator/consumer.h>
 #include <linux/cpu.h>
+#include <linux/pm_opp.h>
+#include <asm/proc-fns.h>
+#include <asm/cpuidle.h>
 
 #define SIRFSOC_MAX_VOLTAGE	1200000
 
@@ -39,7 +40,7 @@ static int sirf_enter_idle(struct cpuidle_device *dev,
 {
 	struct clk *parent_clk;
 	unsigned long volt_old = 0, volt_new, freq;
-	struct opp *opp;
+	struct dev_pm_opp *opp;
 
 	local_irq_disable();
 	parent_clk = clk_get_parent(sirf_cpuidle.cpu_clk);
@@ -50,13 +51,13 @@ static int sirf_enter_idle(struct cpuidle_device *dev,
 
 		freq = clk_get_rate(sirf_cpuidle.osc_clk);
 		rcu_read_lock();
-		opp = opp_find_freq_ceil(sirf_cpuidle.cpu_dev, &freq);
+		opp = dev_pm_opp_find_freq_ceil(sirf_cpuidle.cpu_dev, &freq);
 		if (IS_ERR(opp)) {
 			rcu_read_unlock();
 			return -EINVAL;
 		}
 
-		volt_new = opp_get_voltage(opp);
+		volt_new = dev_pm_opp_get_voltage(opp);
 		rcu_read_unlock();
 
 		regulator_set_voltage(sirf_cpuidle.vcore_regulator, volt_new,
