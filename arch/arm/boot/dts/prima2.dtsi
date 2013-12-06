@@ -242,8 +242,8 @@
 				compatible = "sirf,prima2-audio";
 				reg = <0xb0040000 0x10000>;
 				interrupts = <35>;
-				sirf,inner-audio-dma-rx-channel = <19>;
-				sirf,inner-audio-dma-tx-channel = <24>;
+				dmas = <&dmac1 3>, <&dmac1 8>;
+				dma-names = "rx", "tx";
 				clocks = <&clks 27>;
 			};
 
@@ -285,8 +285,8 @@
 				interrupts = <20>;
 				fifosize = <128>;
 				clocks = <&clks 28>;
-				sirf,usp-dma-rx-channel = <17>;
-				sirf,usp-dma-tx-channel = <18>;
+				dmas = <&dmac1 1>, <&dmac1 2>;
+				dma-names = "rx", "tx";
 			};
 
 			usp1: usp@b0090000 {

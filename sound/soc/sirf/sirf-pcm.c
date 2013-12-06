@@ -7,7 +7,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/sirfsoc_dma.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -34,22 +33,21 @@ static struct snd_pcm_hardware sirf_pcm_hardware = {
 	.periods_max            = 2,
 };
 
-static bool filter(struct dma_chan *chan, void *param)
+static struct dma_chan *sirf_pcm_request_chan(struct snd_soc_pcm_runtime *rtd,
+	struct snd_pcm_substream *substream)
 {
-	struct snd_dmaengine_dai_dma_data *dma_data = param;
+	struct snd_dmaengine_dai_dma_data *dma_data;
 
-	if (!sirfsoc_dma_filter_id(chan, dma_data->filter_data))
-		return false;
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
-	chan->private = dma_data->filter_data;
-
-	return true;
+	return dma_request_slave_channel(rtd->cpu_dai->dev,
+			dma_data->chan_name);
 }
 
 static const struct snd_dmaengine_pcm_config sirf_dmaengine_pcm_config = {
 	.pcm_hardware = &sirf_pcm_hardware,
 	.prepare_slave_config = snd_dmaengine_pcm_prepare_slave_config,
-	.compat_filter_fn = filter,
+	.compat_request_channel = sirf_pcm_request_chan,
 	.prealloc_buffer_size = 64 * 1024,
 };
 

@@ -392,7 +392,6 @@ static const struct snd_soc_component_driver sirf_usp_component = {
 static int sirf_usp_pcm_probe(struct platform_device *pdev)
 {
 	struct sirf_usp *susp;
-	u32 rx_dma_ch, tx_dma_ch;
 	int ret;
 	struct resource *mem_res;
 
@@ -408,21 +407,8 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, susp);
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"sirf,usp-dma-rx-channel", &rx_dma_ch);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to USP0 rx dma channel\n");
-		return ret;
-	}
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"sirf,usp-dma-tx-channel", &tx_dma_ch);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
-		return ret;
-	}
-
-	dma_data[0].filter_data = (void *)tx_dma_ch;
-	dma_data[1].filter_data = (void *)rx_dma_ch;
+	dma_data[0].chan_name = "tx";
+	dma_data[1].chan_name = "rx";
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	susp->base = devm_ioremap_resource(&pdev->dev, mem_res);

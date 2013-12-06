@@ -469,7 +469,6 @@ MODULE_DEVICE_TABLE(of, sirf_soc_inner_of_match);
 static int sirf_soc_inner_probe(struct platform_device *pdev)
 {
 	int ret;
-	u32 rx_dma_ch, tx_dma_ch;
 	struct sirf_soc_inner_audio *sinner_audio;
 	struct resource *mem_res;
 	struct device_node *dn = NULL;
@@ -490,21 +489,8 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sinner_audio);
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"sirf,inner-audio-dma-rx-channel", &rx_dma_ch);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to audio capture dma channel\n");
-		return ret;
-	}
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"sirf,inner-audio-dma-tx-channel", &tx_dma_ch);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to audio playback dma channel\n");
-		return ret;
-	}
-
-	dma_data[0].filter_data = (void *)tx_dma_ch;
-	dma_data[1].filter_data = (void *)rx_dma_ch;
+	dma_data[0].chan_name = "tx";
+	dma_data[1].chan_name = "rx";
 
 	dn = of_find_compatible_node(dn, NULL, "sirf,prima2-pwrc");
 	if (!dn) {
