@@ -65,13 +65,19 @@ int versatile_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * be there.
 	 */
 	write_pen_release(cpu_logical_map(cpu));
-
+#if 0
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing
 	 * the boot monitor to read the system wide flags register,
 	 * and branch to the address found there.
 	 */
 	arch_send_wakeup_ipi_mask(cpumask_of(cpu));
+#endif
+	/*
+	 * Send the secondary CPU SEV, thereby causing the boot monitor to read
+	 * the JUMPADDR and WAKEMAGIC, and branch to the address found there.
+	 */
+	dsb_sev();
 
 	timeout = jiffies + (1 * HZ);
 	while (time_before(jiffies, timeout)) {
