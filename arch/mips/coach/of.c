@@ -48,6 +48,7 @@ void __init plat_mem_setup(void)
 	 * parsed resulting in our memory appearing
 	 */
 	__dt_setup_arch(&__dtb_start);
+	of_scan_flat_dt(early_init_dt_scan_chosen, arcs_cmdline);
 
 }
 
