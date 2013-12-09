@@ -882,15 +882,15 @@ BOOL __BleSoc_GetInterruptStatus(BLE2DCONTEXT *pBle2DContext, UINT32 uiIntertupt
     return reg_int_status;
 }
 
-VOID __BleSoc_EnableClock()
+VOID __BleSoc_EnableClock(VOID)
 {
 }
 
-VOID __BleSoc_DisableClock()
+VOID __BleSoc_DisableClock(VOID)
 {
 }
 
-VOID __BleSoc_Reset()
+VOID __BleSoc_Reset(VOID)
 {
 }
 
@@ -934,7 +934,7 @@ VOID __BleSoc_Setup(VOID *pData)
 /*                      Function Table  Area                                 */
 /*****************************************************************************/
 
-BOOL BleSoc_IsBusy()
+BOOL BleSoc_IsBusy(VOID)
 {
     REG_ENG_STATUS    reg_eng_status;
 
@@ -943,7 +943,7 @@ BOOL BleSoc_IsBusy()
     return (reg_eng_status.Idle == 0);
 }
 
-VOID BleSoc_Wakeup()
+VOID BleSoc_Wakeup(VOID)
 {
     bFirstCmd	= TRUE;
    __BleSoc_Setup(pGBleContext);
@@ -951,7 +951,7 @@ VOID BleSoc_Wakeup()
    return;
 }
 
-VOID BleSoc_Sleep()
+VOID BleSoc_Sleep(VOID)
 {
    UINT32 times = 0;
 
@@ -1109,7 +1109,7 @@ VOID  BleSoc_InterruptRoutine(VOID *hContext)
     WriteBleRegister(pBleContext, INTERRUPT_ENABLE,IntrEnabled);
 }
 
-VOID BleSoc_PrintRegisters()
+VOID BleSoc_PrintRegisters(VOID)
 {
     UINT32 i = 0;
 
@@ -1119,17 +1119,17 @@ VOID BleSoc_PrintRegisters()
     }
 }
 
-VOID BleSoc_EnableClock()
+VOID BleSoc_EnableClock(VOID)
 {
      __BleSoc_EnableClock();
 }
 
-VOID BleSoc_DisableClock()
+VOID BleSoc_DisableClock(VOID)
 {
      __BleSoc_DisableClock();
 }
 
-VOID BleSoc_Reset()
+VOID BleSoc_Reset(VOID)
 {
      __BleSoc_Reset();
 }
