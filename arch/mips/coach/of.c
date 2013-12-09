@@ -16,6 +16,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
+#include <asm/prom.h>
 #include "sharedparam.h"
 #include "Cop.h"
 
