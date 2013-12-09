@@ -469,15 +469,11 @@ static void gic_cpu_init(struct gic_chip_data *gic)
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
 
-#ifdef CONFIG_SECURITY_MODE
 	/*
 	 * NS enable:0x2, S enable:0x1, FIQ enable:0x8
 	 * Let security interrupts route to FIQ
 	 */
 	writel_relaxed(0xB, base + GIC_CPU_CTRL);
-#else
-	writel_relaxed(1, base + GIC_CPU_CTRL);
-#endif
 }
 
 void gic_cpu_if_down(void)
