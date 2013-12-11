@@ -289,6 +289,17 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 		irqstat = readl_relaxed(cpu_base + GIC_CPU_INTACK);
 		irqnr = irqstat & ~0x1c00;
 
+#ifdef CONFIG_SECURITY_MODE
+		/*
+		 * in the qemu, sometimes we see we can read nt interrupt in t
+		 * this prints the irqnr, after that, system will die
+		 * Note: revert this in the real hardware
+		 */
+		if (irqnr < 32)
+			pr_err("QEMU BUG: get sgi/ppi irq in t mode, irqnr: %d\n", irqnr);
+		if ((irqnr >=32) && (irqnr < 64) && (BIT(irqnr- 32) & CONFIG_SPI32_IGROUP))
+			pr_err("QEMU BUG: get nt spi irq in t mode, irqnr: %d\n", irqnr);
+#endif
 		if (likely(irqnr > 15 && irqnr < 1021)) {
 			irqnr = irq_find_mapping(gic->domain, irqnr);
 			handle_IRQ(irqnr, regs);
@@ -416,10 +427,36 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	for (i = 32; i < gic_irqs; i += 4)
 		writel_relaxed(cpumask, base + GIC_DIST_TARGET + i * 4 / 4);
 
+#ifdef CONFIG_SECURITY_MODE
+	/*
+	 * NOTE: here to workaround some qemu bugs, revert this in the real
+	 * hardward
+	 * it seems there are some bugs in qemu which will save SGI/PPI
+	 * irqnr in stat, here we make SGI/PPI have lower priority
+	 */
+	for (i = 0; i < 32; i += 4)
+		writel_relaxed(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
+
+	/*
+	 * make security interrupt highest priority
+	 */
+	for (i = 32; i < 64; i += 4) {
+		u32 prio = 0xa0a0a0a0UL;
+		int j;
+		for (j = i; j < i + 4; j++) {
+			if (!(CONFIG_SPI32_IGROUP & BIT(j - 32)))
+				prio &= ~(0xFF << ((j & 0x3) * 8));
+		}
+		writel_relaxed(prio, base + GIC_DIST_PRI + i * 4 / 4);
+		if (prio != 0xa0a0a0a0UL)
+			pr_info("irq %d~%d priority set:%x\n", i, i + 3, prio);
+	}
+#endif
+
 	/*
 	 * Set priority on all global interrupts.
 	 */
-	for (i = 32; i < gic_irqs; i += 4)
+	for (i = 64; i < gic_irqs; i += 4)
 		writel_relaxed(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
 
 	/*
@@ -469,11 +506,15 @@ static void gic_cpu_init(struct gic_chip_data *gic)
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
 
+#ifdef CONFIG_SECURITY_MODE
 	/*
 	 * NS enable:0x2, S enable:0x1, FIQ enable:0x8
 	 * Let security interrupts route to FIQ
 	 */
 	writel_relaxed(0xB, base + GIC_CPU_CTRL);
+#else
+	writel_relaxed(0x1, base + GIC_CPU_CTRL);
+#endif
 }
 
 void gic_cpu_if_down(void)
