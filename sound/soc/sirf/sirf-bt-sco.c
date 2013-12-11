@@ -51,6 +51,7 @@ static struct snd_soc_dai_link sirf_bt_sco_dai_links[] = {
 		.stream_name = "SiRF BT_SCO",
 		.codec_dai_name = "bt-sco-pcm",
 		.platform_name = "sirf-pcm-audio.2",
+		.codec_name = "bt-sco",
 		.ops = &sirf_bt_sco_ops,
 	},
 };
@@ -70,8 +71,6 @@ static int sirf_bt_sco_probe(struct platform_device *pdev)
 
 	sirf_bt_sco_dai_links[0].cpu_of_node =
 		of_find_compatible_node(NULL, NULL, "sirf,prima2-usp-pcm");
-	sirf_bt_sco_dai_links[0].codec_of_node =
-		of_find_compatible_node(NULL, NULL, "bt-sco");
 	ret = of_property_read_u32(pdev->dev.of_node,
 		"codec-clock-frame-master",	&codec_fmt);
 	if (ret == 0 && codec_fmt != 0)

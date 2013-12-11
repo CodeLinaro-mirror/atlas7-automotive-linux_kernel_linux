@@ -52,9 +52,6 @@
 		wlan_gpio_power = <&gpio 89 0>;
 	};
 
-	bt-sco {
-		compatible = "bt-sco";
-	};
 	sirf-bt-sco {
 		compatible = "sirf,sirf-bt-sco";
 		codec-clock-frame-master = <1>;

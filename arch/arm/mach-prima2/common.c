@@ -84,6 +84,7 @@ static void __init sirfsoc_init_mach(void)
 		NULL, NULL);
 
 	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
+	platform_device_register_simple("bt-sco", -1, NULL, 0);
 }
 
 static void __init sirfsoc_init_late(void)
