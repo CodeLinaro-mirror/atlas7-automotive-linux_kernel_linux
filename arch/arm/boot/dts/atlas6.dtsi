@@ -238,7 +238,6 @@
 				clocks = <&clks 27>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2s_pins_a>;
-				resets = <&rstc 5>;
 			};
 
 			uart0: uart@b0050000 {
