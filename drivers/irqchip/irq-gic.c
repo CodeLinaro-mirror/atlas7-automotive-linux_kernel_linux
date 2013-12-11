@@ -312,6 +312,23 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 #endif
 			continue;
 		}
+
+#ifdef CONFIG_SECURITY_MODE
+		/*
+		 * if the pending interrupt is nt, give nt a chance to run
+		 * and clear the interrupt
+		 */
+		if (irqnr == 1022) {
+			pr_debug("the highest priority interrupt is NT\n");
+#define SWITCH_TO_NON_SECURE 0
+			__asm__ __volatile__(".arch_extension sec\n\t"
+				"mov r0, %0\n\t"
+				"smc #0\n\t" :
+				: "I"(SWITCH_TO_NON_SECURE)
+				: "r0", "memory");
+		}
+#endif
+
 		break;
 	} while (1);
 }
