@@ -13,26 +13,6 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 
-static struct snd_pcm_hardware sirf_pcm_hardware = {
-	.info                   = (SNDRV_PCM_INFO_MMAP
-			| SNDRV_PCM_INFO_MMAP_VALID
-			| SNDRV_PCM_INFO_INTERLEAVED
-			| SNDRV_PCM_INFO_BLOCK_TRANSFER
-			| SNDRV_PCM_INFO_RESUME
-			| SNDRV_PCM_INFO_PAUSE),
-	.formats                = (SNDRV_PCM_FMTBIT_S16_LE),
-	.rates                  = (SNDRV_PCM_RATE_48000),
-	.rate_min               = 512,
-	.rate_max               = 115200,
-	.channels_min           = 1,
-	.channels_max           = 2,
-	.buffer_bytes_max       = 64 * 1024,
-	.period_bytes_min       = 128,
-	.period_bytes_max       = 32 * 1024,
-	.periods_min            = 2,
-	.periods_max            = 2,
-};
-
 static struct dma_chan *sirf_pcm_request_chan(struct snd_soc_pcm_runtime *rtd,
 	struct snd_pcm_substream *substream)
 {
@@ -45,10 +25,8 @@ static struct dma_chan *sirf_pcm_request_chan(struct snd_soc_pcm_runtime *rtd,
 }
 
 static const struct snd_dmaengine_pcm_config sirf_dmaengine_pcm_config = {
-	.pcm_hardware = &sirf_pcm_hardware,
 	.prepare_slave_config = snd_dmaengine_pcm_prepare_slave_config,
 	.compat_request_channel = sirf_pcm_request_chan,
-	.prealloc_buffer_size = 64 * 1024,
 };
 
 static int sirf_pcm_probe(struct platform_device *pdev)
