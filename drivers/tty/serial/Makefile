@@ -18,7 +18,11 @@ obj-$(CONFIG_SERIAL_SUNSAB) += sunsab.o
 obj-$(CONFIG_SERIAL_8250) += 8250/
 
 obj-$(CONFIG_SERIAL_AMBA_PL010) += amba-pl010.o
+ifeq ($(CONFIG_SECURITY_MODE),y)
 obj-$(CONFIG_SERIAL_AMBA_PL011) += amba-pl011.o
+else
+obj-$(CONFIG_SERIAL_AMBA_PL011) += amba-pl011-qemu.o
+endif
 obj-$(CONFIG_SERIAL_CLPS711X) += clps711x.o
 obj-$(CONFIG_SERIAL_PXA) += pxa.o
 obj-$(CONFIG_SERIAL_PNX8XXX) += pnx8xxx_uart.o
