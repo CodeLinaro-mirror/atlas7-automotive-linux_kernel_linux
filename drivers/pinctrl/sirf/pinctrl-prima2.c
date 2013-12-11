@@ -500,7 +500,7 @@ static const unsigned usp0_pins[] = { 51, 52, 53, 54, 55 };
 static const struct sirfsoc_muxmask usp0_uart_nostreamctrl_muxmask[] = {
 	{
 		.group = 1,
-		.mask = BIT(20) | BIT(21),
+		.mask = BIT(20) | BIT(21) | BIT(22),
 	},
 };
 
@@ -509,7 +509,7 @@ static const struct sirfsoc_padmux usp0_uart_nostreamctrl_padmux = {
 	.muxmask = usp0_uart_nostreamctrl_muxmask,
 };
 
-static const unsigned usp0_uart_nostreamctrl_pins[] = { 52, 53 };
+static const unsigned usp0_uart_nostreamctrl_pins[] = { 52, 53, 54 };
 
 static const struct sirfsoc_muxmask usp1_muxmask[] = {
 	{
