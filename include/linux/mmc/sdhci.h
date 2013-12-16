@@ -95,6 +95,8 @@ struct sdhci_host {
 /* The system physically doesn't support 1.8v, even if the host does */
 #define SDHCI_QUIRK2_NO_1_8_V				(1<<2)
 #define SDHCI_QUIRK2_PRESET_VALUE_BROKEN		(1<<3)
+/* For better performance for SDMA controller, alloc a buffer for combined */
+#define SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER	(1<<4)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
@@ -155,6 +157,9 @@ struct sdhci_host {
 
 	dma_addr_t adma_addr;	/* Mapped ADMA descr. table */
 	dma_addr_t align_addr;	/* Mapped bounce buffer */
+
+	dma_addr_t dma_buffer;	/* combined dma buffer */
+	void *combined_dma_buffer;/* Mapped combined dma buffer */
 
 	struct tasklet_struct card_tasklet;	/* Tasklet structures */
 	struct tasklet_struct finish_tasklet;

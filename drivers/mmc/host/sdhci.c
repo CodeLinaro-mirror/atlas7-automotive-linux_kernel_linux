@@ -715,6 +715,40 @@ static void sdhci_set_transfer_irqs(struct sdhci_host *host)
 		sdhci_clear_set_irqs(host, dma_irqs, pio_irqs);
 }
 
+static inline void sdhci_sg_to_dma(struct sdhci_host *host, struct mmc_data *data)
+{
+        unsigned int len, i;
+        struct scatterlist *sg;
+        char *dmabuf = host->combined_dma_buffer;
+        char *sgbuf;
+
+        sg = data->sg;
+        len = data->sg_len;
+
+        for (i = 0; i < len; i++) {
+                sgbuf = sg_virt(&sg[i]);
+                memcpy(dmabuf, sgbuf, sg[i].length);
+                dmabuf += sg[i].length;
+        }
+}
+
+static inline void sdhci_dma_to_sg(struct sdhci_host *host, struct mmc_data *data)
+{
+        unsigned int len, i;
+        struct scatterlist *sg;
+        char *dmabuf = host->combined_dma_buffer;
+        char *sgbuf;
+
+        sg = data->sg;
+        len = data->sg_len;
+
+        for (i = 0; i < len; i++) {
+                sgbuf = sg_virt(&sg[i]);
+                memcpy(sgbuf, dmabuf, sg[i].length);
+                dmabuf += sg[i].length;
+        }
+}
+
 static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 {
 	u8 count;
@@ -825,22 +859,34 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 		} else {
 			int sg_cnt;
 
-			sg_cnt = dma_map_sg(mmc_dev(host->mmc),
-					data->sg, data->sg_len,
-					(data->flags & MMC_DATA_READ) ?
-						DMA_FROM_DEVICE :
-						DMA_TO_DEVICE);
-			if (sg_cnt == 0) {
-				/*
-				 * This only happens when someone fed
-				 * us an invalid request.
-				 */
-				WARN_ON(1);
-				host->flags &= ~SDHCI_REQ_USE_DMA;
-			} else {
-				WARN_ON(sg_cnt != 1);
-				sdhci_writel(host, sg_dma_address(data->sg),
+			/*
+			 * Transfer data from the SG list to
+			 * the DMA buffer.
+			 */
+			if (host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER) {
+				if (data->flags & MMC_DATA_WRITE)
+					sdhci_sg_to_dma(host, data);
+				sdhci_writel(host, host->dma_buffer,
 					SDHCI_DMA_ADDRESS);
+			} else {
+
+				sg_cnt = dma_map_sg(mmc_dev(host->mmc),
+						data->sg, data->sg_len,
+						(data->flags & MMC_DATA_READ) ?
+							DMA_FROM_DEVICE :
+							DMA_TO_DEVICE);
+				if (sg_cnt == 0) {
+					/*
+					 * This only happens when someone fed
+					 * us an invalid request.
+					 */
+					WARN_ON(1);
+					host->flags &= ~SDHCI_REQ_USE_DMA;
+				} else {
+					WARN_ON(sg_cnt != 1);
+						sdhci_writel(host, sg_dma_address(data->sg),
+							SDHCI_DMA_ADDRESS);
+				}
 			}
 		}
 	}
@@ -928,9 +974,11 @@ static void sdhci_finish_data(struct sdhci_host *host)
 		if (host->flags & SDHCI_USE_ADMA)
 			sdhci_adma_table_post(host, data);
 		else {
-			dma_unmap_sg(mmc_dev(host->mmc), data->sg,
-				data->sg_len, (data->flags & MMC_DATA_READ) ?
-					DMA_FROM_DEVICE : DMA_TO_DEVICE);
+			if (!(host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER)) {
+				dma_unmap_sg(mmc_dev(host->mmc), data->sg,
+					data->sg_len, (data->flags & MMC_DATA_READ) ?
+						DMA_FROM_DEVICE : DMA_TO_DEVICE);
+			}
 		}
 	}
 
@@ -2126,6 +2174,15 @@ static void sdhci_tasklet_finish(unsigned long param)
 	mrq = host->mrq;
 
 	/*
+	 * Transfer data from DMA buffer to
+	 * SG list.
+	 */
+	if ((host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER) &&
+		mrq->data && (mrq->data->flags & MMC_DATA_READ))
+			if (host->flags & SDHCI_REQ_USE_DMA)
+				sdhci_dma_to_sg(host, mrq->data);
+
+	/*
 	 * The controller needs a reset of internal state machines
 	 * upon error conditions.
 	 */
@@ -3116,7 +3173,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (host->flags & SDHCI_USE_ADMA)
 		mmc->max_segs = 128;
 	else if (host->flags & SDHCI_USE_SDMA)
-		mmc->max_segs = 1;
+		if (host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER)
+			mmc->max_segs = 128;
+		else
+			mmc->max_segs = 1;
 	else /* PIO */
 		mmc->max_segs = 128;
 
