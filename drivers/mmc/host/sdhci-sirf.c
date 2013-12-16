@@ -49,16 +49,6 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
 
-/*
- * The following functions are needed for DMA bouncing because SiRFprimaII SD
- * controller can address up to 256MByte
- */
-static int sdhci_sirf_needs_bounce(struct device *dev, dma_addr_t dma_addr,
-	size_t size)
-{
-	return (dma_addr + size) >= SZ_256M;
-}
-
 static int sdhci_sirf_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -119,18 +109,11 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
 
-	if (of_machine_is_compatible("sirf,prima2")) {
-		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(28));
-		if (!ret) {
-			pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-			dmabounce_register_dev(&pdev->dev, 1024, 2048,
-				sdhci_sirf_needs_bounce);
-		} else {
-			dev_err(&pdev->dev, "dma coherent mask: %d failed, ret: %d\n",
-				DMA_BIT_MASK(28), ret);
-			goto err_request_cd;
-		}
-	}
+	host->quirks2 = SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
+	host->combined_dma_buffer = dma_alloc_coherent(&pdev->dev,
+		SZ_1M, &host->dma_buffer, GFP_KERNEL | GFP_DMA);
+	if (!host->combined_dma_buffer)
+		goto err_request_cd;
 
 	return 0;
 
