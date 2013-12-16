@@ -29,6 +29,33 @@ struct sdhci_pltfm_host {
 	u16 xfer_mode_shadow;
 };
 
+/* CSR refine for trig */
+struct sdhci_sirf_priv {
+        struct clk *clk;
+        int gpio_cd;
+
+        /* structure members towards CSR hacked SDIO ctl for TriG */
+        int loopdma;
+        dma_addr_t loopdma_buf[2];
+        void *mem_buf[2];
+        dma_addr_t dma_mem;
+        unsigned int buffer_ready[2];
+        unsigned int buffer_err[2];
+        unsigned int buffer_crc_err;
+        unsigned int buffer_dma_int;
+};
+
+#define LOOPDMA_BUFF0_RDY_FLAG  (1 << 10)
+#define LOOPDMA_BUFF1_RDY_FLAG  (1 << 11)
+#define LOOPDMA_BUFF0_ERR_FLAG  (1 << 26)
+#define LOOPDMA_BUFF1_ERR_FLAG  (1 << 27)
+#define SD_SYS_LOOPDMA_ADDR0    0x60
+#define SD_SYS_LOOPDMA_ADDR1    0x64
+#define LOOP_DMA_EN             (1 << 5)
+#define LOOPDMA_INT_STATUS      0x30
+#define LOOPDMA_INT_DMA_END     (1 << 3)
+#define LOOPDMA_BUF_SIZE_SHIFT  9
+
 #ifdef CONFIG_MMC_SDHCI_BIG_ENDIAN_32BIT_BYTE_SWAPPER
 /*
  * These accessors are designed for big endian hosts doing I/O to

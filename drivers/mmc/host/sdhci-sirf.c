@@ -18,11 +18,6 @@
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
 
-struct sdhci_sirf_priv {
-	struct clk *clk;
-	int gpio_cd;
-};
-
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -76,6 +71,9 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		priv->gpio_cd = -EINVAL;
 	}
 
+	/* CSR refine for trig */
+	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma", NULL);
+
 	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata);
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);
@@ -114,6 +112,17 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		SZ_1M, &host->dma_buffer, GFP_KERNEL | GFP_DMA);
 	if (!host->combined_dma_buffer)
 		goto err_request_cd;
+
+	/* CSR refine for trig */
+	/* Loop DMA buffer allocation */
+	if (priv->loopdma) {
+		priv->mem_buf[0] = dma_alloc_coherent(&pdev->dev,
+			512 * (1 << LOOPDMA_BUF_SIZE_SHIFT),
+			&priv->loopdma_buf[0], GFP_KERNEL | GFP_DMA);
+		priv->mem_buf[1] = dma_alloc_coherent(&pdev->dev,
+			512 * (1 << LOOPDMA_BUF_SIZE_SHIFT),
+			&priv->loopdma_buf[1], GFP_KERNEL | GFP_DMA);
+	}
 
 	return 0;
 

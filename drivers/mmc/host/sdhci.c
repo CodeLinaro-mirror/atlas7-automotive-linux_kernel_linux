@@ -30,7 +30,8 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/slot-gpio.h>
 
-#include "sdhci.h"
+#include "sdhci-pltfm.h"
+#include <linux/mmc/sdio.h>
 
 #define DRIVER_NAME "sdhci"
 
@@ -756,6 +757,10 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	struct mmc_data *data = cmd->data;
 	int ret;
 
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	WARN_ON(host->data);
 
 	if (data || (cmd->flags & MMC_RSP_BUSY)) {
@@ -863,18 +868,19 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 			 * Transfer data from the SG list to
 			 * the DMA buffer.
 			 */
-			if (host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER) {
+			if (priv->loopdma) {
+
+			} else if (host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER) {
 				if (data->flags & MMC_DATA_WRITE)
 					sdhci_sg_to_dma(host, data);
 				sdhci_writel(host, host->dma_buffer,
 					SDHCI_DMA_ADDRESS);
 			} else {
-
 				sg_cnt = dma_map_sg(mmc_dev(host->mmc),
-						data->sg, data->sg_len,
-						(data->flags & MMC_DATA_READ) ?
-							DMA_FROM_DEVICE :
-							DMA_TO_DEVICE);
+					data->sg, data->sg_len,
+					(data->flags & MMC_DATA_READ) ?
+						DMA_FROM_DEVICE :
+						DMA_TO_DEVICE);
 				if (sg_cnt == 0) {
 					/*
 					 * This only happens when someone fed
@@ -884,8 +890,8 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 					host->flags &= ~SDHCI_REQ_USE_DMA;
 				} else {
 					WARN_ON(sg_cnt != 1);
-						sdhci_writel(host, sg_dma_address(data->sg),
-							SDHCI_DMA_ADDRESS);
+					sdhci_writel(host, sg_dma_address(data->sg),
+						SDHCI_DMA_ADDRESS);
 				}
 			}
 		}
@@ -921,10 +927,15 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 
 	sdhci_set_transfer_irqs(host);
 
+	/* CSR refine for trig */
 	/* Set the DMA boundary value and block size */
-	sdhci_writew(host, SDHCI_MAKE_BLKSZ(SDHCI_DEFAULT_BOUNDARY_ARG,
-		data->blksz), SDHCI_BLOCK_SIZE);
-	sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
+	if (!priv->loopdma) {
+		sdhci_writew(host, SDHCI_MAKE_BLKSZ(SDHCI_DEFAULT_BOUNDARY_ARG,
+			data->blksz), SDHCI_BLOCK_SIZE);
+		sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
+	} else
+		sdhci_writew(host, SDHCI_MAKE_BLKSZ(LOOPDMA_BUF_SIZE_SHIFT - 3,
+			data->blksz), SDHCI_BLOCK_SIZE);
 }
 
 static void sdhci_set_transfer_mode(struct sdhci_host *host,
@@ -958,7 +969,26 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		mode |= SDHCI_TRNS_DMA;
 
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
+	if (priv->loopdma) {
+		mode &= ~SDHCI_TRNS_BLK_CNT_EN;
+		mode |= SDHCI_TRNS_MULTI;
+	}
+
 	sdhci_writew(host, mode, SDHCI_TRANSFER_MODE);
+
+	/* CSR refine for trig */
+	if (priv->loopdma) {
+		sdhci_writel(host, priv->loopdma_buf[0], SD_SYS_LOOPDMA_ADDR0);
+		sdhci_writel(host, priv->loopdma_buf[1], SD_SYS_LOOPDMA_ADDR1);
+		sdhci_writel(host, priv->loopdma_buf[0], SDHCI_DMA_ADDRESS);
+		sdhci_writel(host,
+			sdhci_readb(host, SDHCI_HOST_CONTROL) | LOOP_DMA_EN,
+			SDHCI_HOST_CONTROL);
+	}
 }
 
 static void sdhci_finish_data(struct sdhci_host *host)
@@ -1094,6 +1124,10 @@ static void sdhci_finish_command(struct sdhci_host *host)
 {
 	int i;
 
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	BUG_ON(host->cmd == NULL);
 
 	if (host->cmd->flags & MMC_RSP_PRESENT) {
@@ -1124,7 +1158,9 @@ static void sdhci_finish_command(struct sdhci_host *host)
 		if (host->data && host->data_early)
 			sdhci_finish_data(host);
 
-		if (!host->cmd->data)
+		/* CSR refine for trig */
+		if (!host->cmd->data ||
+			(priv->loopdma && host->cmd->opcode == SD_IO_RW_EXTENDED))
 			tasklet_schedule(&host->finish_tasklet);
 
 		host->cmd = NULL;
@@ -2363,7 +2399,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		}
 	}
 
-	if (!host->data) {
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
+	if (!host->data && !priv->loopdma) {
 		/*
 		 * The "data complete" interrupt is also used to
 		 * indicate that a busy state has ended. See comment
@@ -2448,12 +2488,37 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	}
 }
 
+/*
+ * FIXME:
+ * trig needs explictly call this function from user space to
+ * forcely complete from wait, maybe needs refine later
+ */
+/* CSR refine for trig */
+DECLARE_COMPLETION(sdio_dma_complete);
+int sdio_dma_int_complete(void)
+{
+        complete(&sdio_dma_complete);
+}
+EXPORT_SYMBOL_GPL(sdio_dma_int_complete);
+
+int sdio_dma_int_handler(void)
+{
+        wait_for_completion(&sdio_dma_complete);
+
+        return 0;
+}
+EXPORT_SYMBOL_GPL(sdio_dma_int_handler);
+
 static irqreturn_t sdhci_irq(int irq, void *dev_id)
 {
 	irqreturn_t result;
 	struct sdhci_host *host = dev_id;
 	u32 intmask, unexpected = 0;
 	int cardint = 0, max_loops = 16;
+
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 
 	spin_lock(&host->lock);
 
@@ -2470,6 +2535,9 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 		result = IRQ_NONE;
 		goto out;
 	}
+
+	/* CSR refine for trig */
+	priv->buffer_crc_err = 0;
 
 again:
 	DBG("*** %s got interrupt: 0x%08x\n",
@@ -2506,10 +2574,50 @@ again:
 		sdhci_cmd_irq(host, intmask & SDHCI_INT_CMD_MASK);
 	}
 
+	/* CSR refine loop dma handler */
+	if (priv->loopdma && (intmask & SDHCI_INT_DMA_END)) {
+
+		sdhci_writel(host, intmask & SDHCI_INT_DMA_END,
+			SDHCI_INT_STATUS);
+#if 1
+		priv->buffer_dma_int = 1;
+		complete(&sdio_dma_complete);
+#else
+		if (intmask & LOOPDMA_BUFF0_RDY_FLAG) {
+			priv->buffer_ready[0] = 1;
+			/*priv->buffer_ready[1] = 0;*/
+		}
+		if (intmask & LOOPDMA_BUFF1_RDY_FLAG) {
+			/*priv->buffer_ready[0] = 0;*/
+			priv->buffer_ready[1] = 1;
+		}
+		if (intmask & LOOPDMA_BUFF0_ERR_FLAG) {
+			priv->buffer_err[0] = 1;
+			/*priv->buffer_err[1] = 0;*/
+		}
+		if (intmask & LOOPDMA_BUFF1_ERR_FLAG) {
+			/*priv->buffer_err[0] = 0;*/
+			priv->buffer_err[1] = 1;
+		}
+		priv->buffer_dma_int = 1;
+
+		complete(&sdio_dma_complete);
+#endif
+		intmask &= ~(SDHCI_INT_DMA_END |
+			LOOPDMA_BUFF0_RDY_FLAG | LOOPDMA_BUFF1_RDY_FLAG |
+			LOOPDMA_BUFF0_ERR_FLAG | LOOPDMA_BUFF1_ERR_FLAG);
+	}
+
 	if (intmask & SDHCI_INT_DATA_MASK) {
+		/* CSR refine for trig */
+		if (priv->loopdma && (intmask & SDHCI_INT_DATA_CRC))
+			priv->buffer_crc_err= 1;
+
 		sdhci_writel(host, intmask & SDHCI_INT_DATA_MASK,
 			SDHCI_INT_STATUS);
-		sdhci_data_irq(host, intmask & SDHCI_INT_DATA_MASK);
+		/* shutdown trig will cause data crc irq, ignore here */
+		if (!priv->loopdma)
+			sdhci_data_irq(host, intmask & SDHCI_INT_DATA_MASK);
 	}
 
 	intmask &= ~(SDHCI_INT_CMD_MASK | SDHCI_INT_DATA_MASK);
@@ -2528,6 +2636,11 @@ again:
 		cardint = 1;
 
 	intmask &= ~SDHCI_INT_CARD_INT;
+
+	/* CSR refine for trig */
+	/* in case DMA_END is not set and LOOPDMA related bits are not cleared */
+	intmask &= ~(LOOPDMA_BUFF0_RDY_FLAG | LOOPDMA_BUFF1_RDY_FLAG |
+		LOOPDMA_BUFF0_ERR_FLAG | LOOPDMA_BUFF1_ERR_FLAG);
 
 	if (intmask) {
 		unexpected |= intmask;
