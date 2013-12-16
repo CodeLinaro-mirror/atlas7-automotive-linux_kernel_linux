@@ -27,17 +27,13 @@
 
 	bt {
 		compatible = "csr,bt-8311";
-		bt_gpio_power = <&gpio 45 0>;
+		bt_gpio_power = <&gpio 62 0>;
 		bt_gpio_reset = <&gpio 3 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pins_a>;
 		pwms = <&pwm 1 0 0 3>;
 	};
 
-	wlan {
-		compatible = "csr,wlan-6030";
-		wlan_gpio_power = <&gpio 62 0>;
-	};
 
 	sirf-backlight {
 		compatible = "pwm-backlight";
