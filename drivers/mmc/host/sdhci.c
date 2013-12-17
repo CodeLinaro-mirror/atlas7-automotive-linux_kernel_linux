@@ -869,7 +869,6 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 			 * the DMA buffer.
 			 */
 			if (priv->loopdma) {
-
 			} else if (host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER) {
 				if (data->flags & MMC_DATA_WRITE)
 					sdhci_sg_to_dma(host, data);
@@ -2497,15 +2496,15 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 DECLARE_COMPLETION(sdio_dma_complete);
 int sdio_dma_int_complete(void)
 {
-        complete(&sdio_dma_complete);
+	complete(&sdio_dma_complete);
 }
 EXPORT_SYMBOL_GPL(sdio_dma_int_complete);
 
 int sdio_dma_int_handler(void)
 {
-        wait_for_completion(&sdio_dma_complete);
+	wait_for_completion(&sdio_dma_complete);
 
-        return 0;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(sdio_dma_int_handler);
 
@@ -2611,7 +2610,7 @@ again:
 	if (intmask & SDHCI_INT_DATA_MASK) {
 		/* CSR refine for trig */
 		if (priv->loopdma && (intmask & SDHCI_INT_DATA_CRC))
-			priv->buffer_crc_err= 1;
+			priv->buffer_crc_err = 1;
 
 		sdhci_writel(host, intmask & SDHCI_INT_DATA_MASK,
 			SDHCI_INT_STATUS);

@@ -31,18 +31,18 @@ struct sdhci_pltfm_host {
 
 /* CSR refine for trig */
 struct sdhci_sirf_priv {
-        struct clk *clk;
-        int gpio_cd;
+	struct clk *clk;
+	int gpio_cd;
 
-        /* structure members towards CSR hacked SDIO ctl for TriG */
-        int loopdma;
-        dma_addr_t loopdma_buf[2];
-        void *mem_buf[2];
-        dma_addr_t dma_mem;
-        unsigned int buffer_ready[2];
-        unsigned int buffer_err[2];
-        unsigned int buffer_crc_err;
-        unsigned int buffer_dma_int;
+	/* structure members towards CSR hacked SDIO ctl for TriG */
+	int loopdma;
+	dma_addr_t loopdma_buf[2];
+	void *mem_buf[2];
+	dma_addr_t dma_mem;
+	unsigned int buffer_ready[2];
+	unsigned int buffer_err[2];
+	unsigned int buffer_crc_err;
+	unsigned int buffer_dma_int;
 };
 
 #define LOOPDMA_BUFF0_RDY_FLAG  (1 << 10)
