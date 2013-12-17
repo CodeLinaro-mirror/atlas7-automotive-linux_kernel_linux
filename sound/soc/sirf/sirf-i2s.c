@@ -26,6 +26,8 @@ struct sirf_i2s {
 	spinlock_t		lock;
 	struct platform_device	*sirf_pcm_pdev;
 	bool			master;
+	int			ext_clk;
+	int			src_clk_rate;
 };
 
 static struct snd_dmaengine_dai_dma_data dma_data[2];
@@ -81,13 +83,13 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 
 		if (playback) {
 			writel(readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN)
-				& ~(I2S_TX_ENABLE | I2S_MCLK_EN),
+				& ~(I2S_TX_ENABLE),
 				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 			/* First disable the tx/rx, then stop the FIFO */
 			writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
 		} else {
 			writel(readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN)
-				& ~(I2S_RX_ENABLE | I2S_MCLK_EN),
+				& ~(I2S_RX_ENABLE),
 				si2s->base+AUDIO_CTRL_I2S_TX_RX_EN);
 
 			/* First disable the tx/rx, then stop the FIFO */
@@ -110,6 +112,9 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	u32 i2s_tx_rx_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 	u32 left_len, frame_len;
 	int channels = params_channels(params);
+	u32 bitclk;
+	u32 bclk_div;
+	u32 div;
 
 	/*
 	 * SiRFSoC I2S controller only support 2 and 6 channells output.
@@ -155,15 +160,33 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	if (si2s->master) {
 		i2s_ctrl &= ~I2S_SLAVE_MODE;
 		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
+		bitclk = params_rate(params) * frame_len;
+		div = si2s->src_clk_rate / bitclk;
+		/* MCLK divide-by-2 from source clk */
+		div /= 2;
+		bclk_div = div / 2 - 1;
+		i2s_ctrl |= (bclk_div << 24);
+		/*
+		 * MCLK coefficient must set to 0, means
+		 * divide-by-two from reference clock.
+		 */
+		i2s_ctrl &= ~(((1 << 10) - 1) << 15);
 	} else {
 		i2s_ctrl |= I2S_SLAVE_MODE;
 		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
 	}
+
+	if (si2s->ext_clk)
+		i2s_tx_rx_ctrl |= I2S_REF_CLK_SEL_EXT;
+	else
+		i2s_tx_rx_ctrl &= ~I2S_REF_CLK_SEL_EXT;
+
 	writel(i2s_ctrl, si2s->base + AUDIO_CTRL_I2S_CTRL);
 	writel(i2s_tx_rx_ctrl, si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 	writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
 			| I2S_MODE,
 			si2s->base + AUDIO_CTRL_MODE_SEL);
+
 	return 0;
 }
 
@@ -204,52 +227,22 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 	return 0;
 }
 
-static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id, int div)
+static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id, int src_rate)
 {
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	u32 val;
-	u32 bclk_div_coefficient;
 
-	if (div < 2 || div % 2) {
-		dev_err(dai->dev, "BITCLK divider must greater than 1,"
-			"And must is a multiple of 2\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Calculate the divider coefficient of I2S reference
-	 * clock frequency divider.
-	 */
-	bclk_div_coefficient = div / 2 - 1;
-
-	if (bclk_div_coefficient >= (1 << 9)) {
-		dev_err(dai->dev, "The BITCLK divider(%d) must less than "
-			"%d.\n", div, (1 << 9) * 2);
-		return -EINVAL;
-	}
-
-	val = readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 	switch (div_id) {
 	case SIRF_I2S_EXT_CLK:
-		val |= I2S_REF_CLK_SEL_EXT;
+		si2s->ext_clk = 1;
 		break;
 	case SIRF_I2S_PWM_CLK:
-		val &= ~I2S_REF_CLK_SEL_EXT;
+		si2s->ext_clk = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
-	writel(val, si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 
-	val = readl(si2s->base + AUDIO_CTRL_I2S_CTRL);
-	val |= (bclk_div_coefficient << 24);
-	/*
-	 * MCLK coefficient must set to 0, means
-	 * divide-by-two from reference clock.
-	 */
-	val &= ~(((1 << 10) - 1) << 15);
-	writel(val, si2s->base + AUDIO_CTRL_I2S_CTRL);
-
+	si2s->src_clk_rate = src_rate;
 	return 0;
 }
 
