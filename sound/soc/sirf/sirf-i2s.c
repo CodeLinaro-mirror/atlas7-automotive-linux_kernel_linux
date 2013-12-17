@@ -25,6 +25,7 @@ struct sirf_i2s {
 	u32			i2s_ctrl_tx_rx_en;
 	spinlock_t		lock;
 	struct platform_device	*sirf_pcm_pdev;
+	bool			master;
 };
 
 static struct snd_dmaengine_dai_dma_data dma_data[2];
@@ -106,6 +107,7 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 {
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
 	u32 i2s_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_CTRL);
+	u32 i2s_tx_rx_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 	u32 left_len, frame_len;
 	int channels = params_channels(params);
 
@@ -149,7 +151,19 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	/* Fill the actual len - 1 */
 	i2s_ctrl |= ((frame_len - 1) << 9) | ((left_len - 1) << 4)
 		| (0 << 15) | (3 << 24);
+
+	if (si2s->master) {
+		i2s_ctrl &= ~I2S_SLAVE_MODE;
+		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
+	} else {
+		i2s_ctrl |= I2S_SLAVE_MODE;
+		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
+	}
 	writel(i2s_ctrl, si2s->base + AUDIO_CTRL_I2S_CTRL);
+	writel(i2s_tx_rx_ctrl, si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
+	writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
+			| I2S_MODE,
+			si2s->base + AUDIO_CTRL_MODE_SEL);
 	return 0;
 }
 
@@ -157,32 +171,21 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
 	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	u32 i2s_ctrl, i2s_tx_rx_ctrl;
-
-	i2s_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_CTRL);
-	i2s_tx_rx_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBM_CFM:
-		i2s_ctrl |= I2S_SLAVE_MODE;
-		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
+		si2s->master = false;
 		break;
 	case SND_SOC_DAIFMT_CBS_CFS:
-		i2s_ctrl &= ~I2S_SLAVE_MODE;
-		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
+		si2s->master = true;
 		break;
 	default:
 		return -EINVAL;
 	}
-	writel(i2s_ctrl, si2s->base + AUDIO_CTRL_I2S_CTRL);
-	writel(i2s_tx_rx_ctrl, si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
 
 	/* interface format */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
-		writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
-			| I2S_MODE,
-			si2s->base + AUDIO_CTRL_MODE_SEL);
 		break;
 	default:
 		dev_err(dai->dev, "Only I2S format supported\n");
