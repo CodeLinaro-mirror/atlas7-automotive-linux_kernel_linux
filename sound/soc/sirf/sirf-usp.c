@@ -121,6 +121,8 @@ static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
 	u32 mode1 = readl(susp->base + USP_MODE1);
 	u32 mode2 = readl(susp->base + USP_MODE2);
+	u32 rate = params_rate(params);
+	u32 clk_rate, clk_div, clk_div_hi, clk_div_lo;
 
 	if (susp->master) {
 		mode1 &= ~USP_CLOCK_MODE_SLAVE;
@@ -133,6 +135,21 @@ static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 	writel(mode1, susp->base + USP_MODE1);
 	writel(mode2, susp->base + USP_MODE2);
+
+	clk_rate = clk_get_rate(susp->clk);
+	if (clk_rate < rate * 2) {
+		dev_err(dai->dev, "Can't get rate(%d) by need.\n", rate);
+		return -EINVAL;
+	}
+
+	clk_div = (clk_rate / (2 * rate)) - 1;
+	clk_div_hi = (clk_div & 0xC00) >> 10;
+	clk_div_lo = (clk_div & 0x3FF);
+
+	writel((clk_div_lo << 21) | readl(susp->base + USP_MODE2),
+		susp->base + USP_MODE2);
+	writel((clk_div_hi << 30) | readl(susp->base + USP_TX_FRAME_CTRL),
+		susp->base + USP_TX_FRAME_CTRL);
 
 	return 0;
 }
@@ -173,37 +190,10 @@ static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
 	return 0;
 }
 
-static int sirf_usp_pcm_divider(struct snd_soc_dai *dai, int div_id, int rate)
-{
-	struct sirf_usp *susp = snd_soc_dai_get_drvdata(dai);
-	u32 clk_rate, clk_div, clk_div_hi, clk_div_lo;
-
-	if (div_id != SIRF_USP_DIV_MCLK)
-		return -EINVAL;
-
-	clk_rate = clk_get_rate(susp->clk);
-	if (clk_rate < rate * 2) {
-		dev_err(dai->dev, "Can't get rate(%d) by need.\n", rate);
-		return -EINVAL;
-	}
-
-	clk_div = (clk_rate / (2 * rate)) - 1;
-	clk_div_hi = (clk_div & 0xC00) >> 10;
-	clk_div_lo = (clk_div & 0x3FF);
-
-	writel((clk_div_lo << 21) | readl(susp->base + USP_MODE2),
-		susp->base + USP_MODE2);
-	writel((clk_div_hi << 30) | readl(susp->base + USP_TX_FRAME_CTRL),
-		susp->base + USP_TX_FRAME_CTRL);
-
-	return 0;
-}
-
 static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
 	.trigger = sirf_usp_pcm_trigger,
 	.set_fmt = sirf_usp_pcm_set_dai_fmt,
 	.hw_params = sirf_usp_pcm_hw_params,
-	.set_clkdiv = sirf_usp_pcm_divider,
 };
 
 static struct snd_soc_dai_driver sirf_usp_pcm_dai = {
