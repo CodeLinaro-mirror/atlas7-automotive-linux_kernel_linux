@@ -2193,6 +2193,10 @@ static void sdhci_tasklet_finish(unsigned long param)
 
 	host = (struct sdhci_host*)param;
 
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	spin_lock_irqsave(&host->lock, flags);
 
         /*
@@ -2213,7 +2217,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	 * SG list.
 	 */
 	if ((host->quirks2 & SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER) &&
-		mrq->data && (mrq->data->flags & MMC_DATA_READ))
+		mrq->data && (mrq->data->flags & MMC_DATA_READ) && !priv->loopdma)
 			if (host->flags & SDHCI_REQ_USE_DMA)
 				sdhci_dma_to_sg(host, mrq->data);
 
