@@ -105,6 +105,7 @@ static struct platform_driver sirf_bt_sco_driver = {
 	.driver = {
 		.name = "sirf-bt-sco",
 		.owner = THIS_MODULE,
+		.pm = &snd_soc_pm_ops,
 		.of_match_table = sirf_bt_sco_of_match,
 	},
 	.probe = sirf_bt_sco_probe,

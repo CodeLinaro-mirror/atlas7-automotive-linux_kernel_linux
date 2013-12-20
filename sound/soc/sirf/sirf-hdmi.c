@@ -91,6 +91,7 @@ static struct platform_driver sirf_hdmi_card_driver = {
 	.driver = {
 		.name = "sirf-hdmi-card",
 		.owner = THIS_MODULE,
+		.pm = &snd_soc_pm_ops,
 		.of_match_table = sirf_hdmi_card_of_match,
 	},
 	.probe = sirf_hdmi_card_probe,
