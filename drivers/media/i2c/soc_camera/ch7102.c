@@ -47,15 +47,16 @@
 #define PAGE11	0x0A
 #define PAGE12	0x0B
 
-/* chip id :register 0xFE of page 12 */
-#define CHIPID	0xFE
-/* general status: register 0x05 of page 2 */
-#define STATUS	0x05
-/* chip control: register 0x19 of page 10 */
-#define CONTROL	0x19
-/* Audio status info: register 0x16 0f page 2*/
-#define AUDIO_INFO	0x16
+/* register offset */
+#define CHIPID     0xFE  /* Device ID register, on page 12 */
+#define CONTROL    0x19  /* Analog Control Register, on page 10 */
+#define AUDIO_INFO 0x16  /* Audio Status Info Register, on page 2 */
+#define INSIG_STAT 0xB9  /* Input Signal Status Register, on page 1 */
+#define OUTCTR     0xBA  /* TTL Output Control Register, on page 1 */
+#define FW_VER     0xE3  /* Firmware Version Register, on page 2
+			    firmware version format: xxxx.xx.xx */
 
+static int fw_version;
 
 /*
  * structure
@@ -84,20 +85,42 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	u8 value = 0;
+	int i;
 
 	if (enable) {
-		/*	select page 10 */
-		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
-		value = i2c_smbus_read_byte_data(client, CONTROL);
-		/*	enable output	*/
-		value |= 0x80;
-		i2c_smbus_write_byte_data(client, CONTROL, value);
+		if (fw_version >= 0x2F) {
+			for (i = 0; i < 15; i++) {
+				i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+				value = i2c_smbus_read_byte_data(client, INSIG_STAT);
+				if (value == 1)
+					break;
+				msleep(200);
+			}
+			/*	enable output	*/
+			value = 0x01;
+			i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+			i2c_smbus_write_byte_data(client, OUTCTR, value);
+		} else {
+			/*	select page 10 */
+			i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+			value = i2c_smbus_read_byte_data(client, CONTROL);
+			/*	enable output	*/
+			value |= 0x80;
+			i2c_smbus_write_byte_data(client, CONTROL, value);
+		}
 	} else {
-		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
-		value = i2c_smbus_read_byte_data(client, CONTROL);
-		/*	set output to tri-state	*/
-		value &= ~0x80;
-		i2c_smbus_write_byte_data(client, CONTROL, value);
+		if (fw_version >= 0x2F) {
+			i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+			/*	set output to tri-state	*/
+			value = 0x00;
+			i2c_smbus_write_byte_data(client, OUTCTR, value);
+		} else {
+			i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+			value = i2c_smbus_read_byte_data(client, CONTROL);
+			/*	set output to tri-state	*/
+			value &= ~0x80;
+			i2c_smbus_write_byte_data(client, CONTROL, value);
+		}
 	}
 
 	return 0;
@@ -350,6 +373,19 @@ static ssize_t ch7102_audio_rate_show(struct device *dev,
 static DEVICE_ATTR(ch7102_audio_rate, S_IRUGO,
 		ch7102_audio_rate_show, NULL);
 
+static int ch7102_get_fw_version(void)
+{
+	struct i2c_client *client = ch7102_client;
+	u8 value;
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	value = i2c_smbus_read_byte_data(client, FW_VER);
+	if (value != -1)
+		return value;
+	else
+		return 0x2F;
+}
+
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
@@ -400,6 +436,13 @@ static int ch7102_probe(struct i2c_client *client,
 			"Failed to create audio sample rate sysfs file.\n");
 		return ret;
 	}
+
+	fw_version = ch7102_get_fw_version();
+	dev_info(&client->dev,
+		"ch7102 Firmware Version: %x.%x.%x\r\n",
+		(fw_version & 0xF0) >> 4,
+		(fw_version & 0x0C) >> 2,
+		(fw_version&0x03));
 
 	return ch7102_video_probe(client);
 }
