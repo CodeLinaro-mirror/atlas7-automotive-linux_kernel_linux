@@ -1,0 +1,18 @@
+* SiRF atlas6/prima2 and bt-sco based audio setups
+
+Required properties:
+- compatible: "sirf,sirf-bt-sco"
+- sirf,usp-controller: The phandle of the SiRF usp controller.
+
+Optional properties:
+- bt-sco-master: The phandle of who is master, if set,
+  the codec is master, Otherwiss, the soc is master.
+
+Example:
+
+sirf-bt-sco {
+	compatible = "sirf,sirf-bt-sco";
+	sirf,usp-controller = <&usp0>;
+	bt-sco-master;
+};
+
