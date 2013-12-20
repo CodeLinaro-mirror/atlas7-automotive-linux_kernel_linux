@@ -30,7 +30,6 @@ struct sirf_inner_extcon_info {
 struct sirf_inner_card {
 	unsigned int            gpio_hp_pa;
 	unsigned int            gpio_spk_pa;
-	struct platform_device	*sirf_inner_device;
 	struct sirf_inner_extcon_info	extcon_info;
 };
 
@@ -114,10 +113,6 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	if (sinner_card == NULL)
 		return -ENOMEM;
 
-	sinner_card->sirf_inner_device = platform_device_alloc("soc-audio", -1);
-	if (!sinner_card->sirf_inner_device)
-		return -ENOMEM;
-
 	sirf_inner_dai_links[0].cpu_of_node =
 		of_parse_phandle(pdev->dev.of_node, "sirf,inner-platform", 0);
 	sirf_inner_dai_links[0].codec_of_node =
@@ -152,12 +147,10 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 	snd_soc_card_set_drvdata(card, sinner_card);
 	platform_set_drvdata(pdev, card);
-	platform_set_drvdata(sinner_card->sirf_inner_device,
-			&snd_soc_sirf_inner_card);
 
-	ret =  platform_device_add(sinner_card->sirf_inner_device);
+	ret = snd_soc_register_card(card);
 	if (ret) {
-		platform_device_put(sinner_card->sirf_inner_device);
+		dev_err(&pdev->dev, "snd_soc_register_card() failed:%d\n", ret);
 		return ret;
 	}
 
@@ -183,9 +176,8 @@ static int sirf_inner_probe(struct platform_device *pdev)
 static int sirf_inner_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 
-	platform_device_put(sinner_card->sirf_inner_device);
+	snd_soc_unregister_card(card);
 	return 0;
 }
 
@@ -204,6 +196,7 @@ static int sirf_inner_resume(struct device *dev)
 		sinner_card->extcon_info.last_state = state;
 		extcon_set_state(edev, state);
 	}
+	snd_soc_resume(dev);
 	return 0;
 }
 
@@ -214,6 +207,7 @@ static int sirf_inner_suspend(struct device *dev)
 	sinner_card->extcon_info.last_state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
 		gpio_set_value(sinner_card->gpio_spk_pa, 0);
+	snd_soc_suspend(dev);
 	return 0;
 }
 #endif
