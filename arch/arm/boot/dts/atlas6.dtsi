@@ -229,7 +229,7 @@
 				clocks = <&clks 27>;
 			};
 
-			i2s@b0040000 {
+			i2s: i2s@b0040000 {
 				compatible = "sirf,prima2-i2s";
 				reg = <0xb0040000 0x10000>;
 				dmas = <&dmac1 6>, <&dmac1 12>;

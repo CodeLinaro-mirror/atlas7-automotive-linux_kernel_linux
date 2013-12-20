@@ -59,9 +59,9 @@ static int sirf_hdmi_card_probe(struct platform_device *pdev)
 	int ret;
 
 	sirf_hdmi_dai_links[0].cpu_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,prima2-i2s");
+		of_parse_phandle(pdev->dev.of_node, "sirf,i2s-controller", 0);
 	sirf_hdmi_dai_links[0].codec_of_node =
-		of_find_compatible_node(NULL, NULL, "hdmi-audio-codec");
+		of_parse_phandle(pdev->dev.of_node, "sirf,hdmi-audio-codec", 0);
 
 	sirf_hdmi_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBM_CFM |
 		SND_SOC_DAIFMT_I2S;

@@ -53,11 +53,13 @@
 		sirf,usp-controller = <&usp0>;
 		bt-sco-master;
 	};
-	hdmi-audio-codec {
+	hdmi: hdmi {
 		compatible = "hdmi-audio-codec";
 	};
 	sirf-hdmi {
 		compatible = "sirf,hdmi-card";
+		sirf,i2s-controller = <&i2s>;
+		sirf,hdmi-audio-codec = <&hdmi>;
 	};
 	sirf-backlight {
 		compatible = "pwm-backlight";
