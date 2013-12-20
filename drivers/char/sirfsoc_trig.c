@@ -82,6 +82,9 @@ DECLARE_COMPLETION(sg_evt_msg_ready);
 DECLARE_COMPLETION(sg_evt_trig_exited);
 DECLARE_COMPLETION(sg_evt_card_int);
 
+static int
+sirf_trig_probe(struct sdio_func *func, const struct sdio_device_id *id);
+static void sirf_trig_remove(struct sdio_func *func);
 static long
 trig_ioctl(struct file *filp,unsigned int cmd, unsigned long arg);
 static int trig_mmap(struct file *file, struct vm_area_struct *vma);
@@ -1056,6 +1059,21 @@ static int trig_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+static const struct sdio_device_id trig_sdio_ids[] = {
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_CSR, SDIO_DEVICE_ID_CSR_TRIG) },
+	{ },
+};
+MODULE_DEVICE_TABLE(sdio, trig_sdio_ids);
+
+static struct sdio_driver trig_sdio_driver = {
+	.name = "trig_sdio",
+	.id_table = trig_sdio_ids,
+	.probe = sirf_trig_probe,
+	.remove = sirf_trig_remove,
+	.drv = {
+	   .owner = THIS_MODULE,
+	}
+};
 
 static int sirf_trig_probe(struct sdio_func *func,
 		const struct sdio_device_id *id)
@@ -1068,7 +1086,6 @@ static int sirf_trig_probe(struct sdio_func *func,
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(shost);
 	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 	struct device_node *pdn;
-	struct resource *plat_res = NULL;
 	int ret;
 
 	pr_info("TriG driver probe start now!!!!\n");
@@ -1142,6 +1159,19 @@ static int sirf_trig_probe(struct sdio_func *func,
 		return -EINVAL;
 	}
 
+	ret = register_chrdev_region(MKDEV(TRIG_MAJOR, 0), 1, "trig_sdio");
+	if (ret < 0)
+		printk(KERN_ERR "TRIG: can't register device!\n");
+	else
+		printk(KERN_ERR "TRIG: register device success!\n");
+
+	cdev_init(&(trigdev.ss_trig_sdio->cdev), &trig_fops);
+	trigdev.ss_trig_sdio->cdev.owner = THIS_MODULE;
+	trigdev.ss_trig_sdio->cdev.ops = &trig_fops;
+	ret = cdev_add(&(trigdev.ss_trig_sdio->cdev), MKDEV(TRIG_MAJOR, 0), 1);
+	if (ret)
+		printk(KERN_ERR "TRIG: Error adding TRIG!\n");
+
 	pr_info("TriG driver probe end !!!!,"
 		"func 0x%x, trigdev.ss_trig_sdio 0x%x\n",
 			(unsigned int)func, (unsigned int)trigdev.ss_trig_sdio->func);
@@ -1167,65 +1197,31 @@ static void sirf_trig_remove(struct sdio_func *func)
 	sdio_disable_func(func);
 	sdio_release_host(func);
 
+	cdev_del(&(trigdev.ss_trig_sdio->cdev));
+	unregister_chrdev_region(MKDEV(TRIG_MAJOR, 0), 1);
+
 	pr_info("TriG driver remove end!!!!");
 }
 
-static const struct sdio_device_id trig_sdio_ids[] = {
-	{ SDIO_DEVICE(SDIO_VENDOR_ID_CSR, SDIO_DEVICE_ID_CSR_TRIG) },
-	{ },
-};
-MODULE_DEVICE_TABLE(sdio, trig_sdio_ids);
-
-static struct sdio_driver trig_sdio_driver = {
-	.name = "trig_sdio",
-	.id_table = trig_sdio_ids,
-	.probe = sirf_trig_probe,
-	.remove = sirf_trig_remove,
-	.drv = {
-	   .owner = THIS_MODULE,
-	}
-};
-
 static int __init trig_sdio_init_module(void)
 {
-	int ret;
-
 	trigdev.process_packet = 0;
-
 	trigdev.ss_trig_sdio = kzalloc(sizeof(struct trig_sdio), GFP_KERNEL);
 	trigdev.config_msg = kzalloc(sizeof(struct TRIG_CONFIG_PARAM), GFP_KERNEL);
 	trigdev.trig_param = kzalloc(sizeof(struct TRIG_PARAMETER), GFP_KERNEL);
 	trigdev.trig_param_buf = kzalloc(sizeof(struct TRIG_PARA_BUF), GFP_KERNEL);
 	trigdev.config_msg_user = kzalloc(sizeof(struct TRIG_CONFIG_PARAM),
 			GFP_KERNEL);
-
-	ret = register_chrdev_region(MKDEV(TRIG_MAJOR, 0), 1, "trig_sdio");
-	if (ret < 0)
-		printk(KERN_ERR "TRIG: can't register device!\n");
-	else
-		printk(KERN_ERR "TRIG: register device success!\n");
-
-	cdev_init(&(trigdev.ss_trig_sdio->cdev), &trig_fops);
-	trigdev.ss_trig_sdio->cdev.owner = THIS_MODULE;
-	trigdev.ss_trig_sdio->cdev.ops = &trig_fops;
-	ret = cdev_add(&(trigdev.ss_trig_sdio->cdev), MKDEV(TRIG_MAJOR, 0), 1);
-	if (ret)
-		printk(KERN_ERR "TRIG: Error adding TRIG!\n");
-
 	return sdio_register_driver(&trig_sdio_driver);
 }
 
 static void __exit trig_sdio_exit_module(void)
 {
-	cdev_del(&(trigdev.ss_trig_sdio->cdev));
-	unregister_chrdev_region(MKDEV(TRIG_MAJOR, 0), 1);
-
 	kfree(trigdev.config_msg_user);
 	kfree(trigdev.trig_param_buf);
 	kfree(trigdev.trig_param);
 	kfree(trigdev.config_msg);
 	kfree(trigdev.ss_trig_sdio);
-
 	sdio_unregister_driver(&trig_sdio_driver);
 }
 
