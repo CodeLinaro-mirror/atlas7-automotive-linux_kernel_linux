@@ -42,7 +42,7 @@ static int sirf_inner_hp_event(struct snd_soc_dapm_widget *w,
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 	int on = !SND_SOC_DAPM_EVENT_OFF(event);
 	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_direction_output(sinner_card->gpio_hp_pa, on);
+		gpio_set_value(sinner_card->gpio_hp_pa, on);
 	return 0;
 }
 
@@ -57,12 +57,12 @@ static int sirf_inner_spk_event(struct snd_soc_dapm_widget *w,
 	if (sinner_card->extcon_info.state_changed) {
 		sinner_card->extcon_info.state_changed = 0;
 		if (!sinner_card->extcon_info.last_state)
-			gpio_direction_output(sinner_card->gpio_spk_pa, 0);
+			gpio_set_value(sinner_card->gpio_spk_pa, 0);
 		else
-			gpio_direction_output(sinner_card->gpio_spk_pa, 1);
+			gpio_set_value(sinner_card->gpio_spk_pa, 1);
 	} else {
 		if (gpio_is_valid(sinner_card->gpio_spk_pa))
-			gpio_direction_output(sinner_card->gpio_spk_pa, on);
+			gpio_set_value(sinner_card->gpio_spk_pa, on);
 	}
 
 	return 0;
@@ -126,19 +126,32 @@ static int sirf_inner_probe(struct platform_device *pdev)
 			"spk-pa-gpios", 0);
 	sinner_card->gpio_hp_pa =  of_get_named_gpio(pdev->dev.of_node,
 			"hp-pa-gpios", 0);
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_request(sinner_card->gpio_spk_pa, "SPA_PA_SD");
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_request(sinner_card->gpio_hp_pa, "HP_PA_SD");
+	if (gpio_is_valid(sinner_card->gpio_spk_pa)) {
+		ret = devm_gpio_request_one(&pdev->dev,
+				sinner_card->gpio_spk_pa,
+				GPIOF_OUT_INIT_LOW, "SPA_PA_SD");
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Failed to request GPIO_%d for reset: %d\n",
+				sinner_card->gpio_spk_pa, ret);
+			return ret;
+		}
+	}
+	if (gpio_is_valid(sinner_card->gpio_hp_pa)) {
+		ret = devm_gpio_request_one(&pdev->dev,
+				sinner_card->gpio_hp_pa,
+				GPIOF_OUT_INIT_LOW, "HP_PA_SD");
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Failed to request GPIO_%d for reset: %d\n",
+				sinner_card->gpio_hp_pa, ret);
+			return ret;
+		}
+	}
 
 	card->dev = &pdev->dev;
 	snd_soc_card_set_drvdata(card, sinner_card);
 	platform_set_drvdata(pdev, card);
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_direction_output(sinner_card->gpio_hp_pa, 0);
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
-
 	platform_set_drvdata(sinner_card->sirf_inner_device,
 			&snd_soc_sirf_inner_card);
 
@@ -172,11 +185,6 @@ static int sirf_inner_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_free(sinner_card->gpio_hp_pa);
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_free(sinner_card->gpio_spk_pa);
-
 	platform_device_put(sinner_card->sirf_inner_device);
 	return 0;
 }
@@ -205,7 +213,7 @@ static int sirf_inner_suspend(struct device *dev)
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 	sinner_card->extcon_info.last_state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
 	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_direction_output(sinner_card->gpio_spk_pa, 0);
+		gpio_set_value(sinner_card->gpio_spk_pa, 0);
 	return 0;
 }
 #endif
