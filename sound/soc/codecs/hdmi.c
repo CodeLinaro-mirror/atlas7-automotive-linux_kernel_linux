@@ -20,6 +20,7 @@
  */
 #include <linux/module.h>
 #include <sound/soc.h>
+#include <linux/of_device.h>
 
 #define DRV_NAME "hdmi-audio-codec"
 
@@ -60,6 +61,14 @@ static struct snd_soc_dai_driver hdmi_codec_dai = {
 
 };
 
+#ifdef CONFIG_OF
+static const struct of_device_id hdmi_audio_codec_ids[] = {
+	{ .compatible = "linux,hdmi-audio", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, hdmi_audio_codec_ids);
+#endif
+
 static struct snd_soc_codec_driver hdmi_codec = {
 	.dapm_widgets = hdmi_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(hdmi_widgets),
@@ -79,21 +88,11 @@ static int hdmi_codec_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
-static const struct of_device_id hdmi_audio_codec_ids[] = {
-	{ .compatible = "hdmi-audio-codec", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, hdmi_audio_codec_ids);
-#endif
-
 static struct platform_driver hdmi_codec_driver = {
 	.driver		= {
 		.name	= DRV_NAME,
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_OF
-		.of_match_table = hdmi_audio_codec_ids,
-#endif
+		.of_match_table = of_match_ptr(hdmi_audio_codec_ids),
 	},
 
 	.probe		= hdmi_codec_probe,
