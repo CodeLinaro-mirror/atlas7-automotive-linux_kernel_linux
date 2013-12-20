@@ -50,7 +50,8 @@
 
 	sirf-bt-sco {
 		compatible = "sirf,sirf-bt-sco";
-		codec-clock-frame-master = <1>;
+		sirf,usp-controller = <&usp0>;
+		bt-sco-master;
 	};
 	hdmi-audio-codec {
 		compatible = "hdmi-audio-codec";

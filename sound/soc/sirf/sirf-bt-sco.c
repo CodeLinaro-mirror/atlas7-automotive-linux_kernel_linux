@@ -67,13 +67,10 @@ static int sirf_bt_sco_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_sirf_bt_sco_card;
 	int ret;
-	u32 codec_fmt = 0;
 
 	sirf_bt_sco_dai_links[0].cpu_of_node =
-		of_find_compatible_node(NULL, NULL, "sirf,prima2-usp-pcm");
-	ret = of_property_read_u32(pdev->dev.of_node,
-		"codec-clock-frame-master",	&codec_fmt);
-	if (ret == 0 && codec_fmt != 0)
+		of_parse_phandle(pdev->dev.of_node, "sirf,usp-controller", 0);
+	if (of_property_read_bool(pdev->dev.of_node, "bt-sco-master"))
 		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBM_CFM;
 	else
 		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBS_CFS;
