@@ -1,0 +1,18 @@
+* SiRF atlas6 and hdmi audio codec based audio setups
+
+Required properties:
+- compatible: "sirf,sirf-hdmi"
+- sirf,i2s-controller: The phandle of the SiRF I2S controller.
+- sirf,hdmi-audio-codec: The phandle of the hdmi audio codec.
+
+Example:
+
+hdmi: hdmi {
+	compatible = "hdmi-audio-codec";
+};
+sirf-hdmi {
+	compatible = "sirf,hdmi-card";
+	sirf,i2s-controller = <&i2s>;
+	sirf,hdmi-audio-codec = <&hdmi>;
+};
+
