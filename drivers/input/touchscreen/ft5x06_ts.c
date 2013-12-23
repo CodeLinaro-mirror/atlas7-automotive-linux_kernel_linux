@@ -910,31 +910,21 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_PM
-/*static void ft5x0x_ts_suspend(struct early_suspend *handler)
+#ifdef CONFIG_PM_SLEEP
+static int ft5x0x_ts_suspend(struct device *dev)
 {
-	struct ft5x0x_ts_data *ts;
-	ts =  container_of(handler, struct ft5x0x_ts_data, early_suspend);
-
 	disable_irq(this_client->irq);
-	disable_irq(IRQ_EINT(6));
-	cancel_work_sync(&ts->pen_event_work);
-	flush_workqueue(ts->ts_workqueue);
-	/==set mode ==/
-	ft5x0x_set_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
-}*/
-/*
-static void ft5x0x_ts_resume(struct early_suspend *handler)
+	return 0;
+}
+
+static int ft5x0x_ts_resume(struct device *dev)
 {
-	/wake the mode/
-	__gpio_as_output(GPIO_FT5X0X_WAKE);
-	__gpio_clear_pin(GPIO_FT5X0X_WAKE);
-	msleep(100);
-	__gpio_set_pin(GPIO_FT5X0X_WAKE);
-	msleep(100);
 	enable_irq(this_client->irq);
-	enable_irq(IRQ_EINT(6));
-}*/
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(ft5x0x_dev_pm_ops,
+			ft5x0x_ts_suspend, ft5x0x_ts_resume);
 #endif
 
 /* sysfs */
@@ -1481,6 +1471,9 @@ static struct i2c_driver ft5x0x_ts_driver = {
 	.driver	= {
 		.name	= FT5X0X_NAME,
 		.owner	= THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &ft5x0x_dev_pm_ops,
+#endif
 	},
 };
 
