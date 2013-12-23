@@ -135,8 +135,6 @@ struct ft5x0x_ts_data {
 	struct input_dev	*input_dev;
 	struct ts_event		event;
 	unsigned int touch_pin;
-	struct work_struct	pen_event_work;
-	struct workqueue_struct *ts_workqueue;
 	/* Ensures that only one function can
 	 *specify the Device Mode at a time. */
 	struct mutex device_mode_mutex;
@@ -901,28 +899,17 @@ static void ft5x0x_report_value(void)
 	}
 } /*end ft5x0x_report_value*/
 
-static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
+static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 {
+	struct ft5x0x_ts_data *ft5x0x_ts = dev_id;
 	int ret = -1;
-
 	ret = ft5x0x_read_data();
 	if (ret == 0)
 		ft5x0x_report_value();
 
-	enable_irq(this_client->irq);
-}
-
-static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
-{
-	struct ft5x0x_ts_data *ft5x0x_ts = dev_id;
-
-	disable_irq_nosync(this_client->irq);
-
-	if (!work_pending(&ft5x0x_ts->pen_event_work))
-		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
-
 	return IRQ_HANDLED;
 }
+
 #ifdef CONFIG_PM
 /*static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
@@ -954,7 +941,6 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 static u8 ft5x0x_enter_factory(struct ft5x0x_ts_data *ft5x0x_ts)
 {
 	u8 regval;
-	flush_workqueue(ft5x0x_ts->ts_workqueue);
 	disable_irq_nosync(this_client->irq);
 	ft5x0x_write_reg(0, 0x40);
 	delay_qt_ms(100);
@@ -1319,6 +1305,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct input_dev *input_dev;
 	struct device_node *np = client->dev.of_node;
 	int err = 0;
+	u8 tmp = 0;
 	unsigned char uc_reg_value;
 #if CFG_SUPPORT_TOUCH_KEY
 	int i;
@@ -1328,6 +1315,10 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -ENODEV;
 		goto exit_check_functionality_failed;
 	}
+
+	err = i2c_master_send(client, &tmp, 1);
+	if (err != 1)
+		return -ENODEV;
 
 	ft5x0x_ts = kzalloc(sizeof(struct ft5x0x_ts_data), GFP_KERNEL);
 	if (!ft5x0x_ts)	{
@@ -1339,14 +1330,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	i2c_set_clientdata(client, ft5x0x_ts);
 
 	mutex_init(&ft5x0x_ts->device_mode_mutex);
-	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
-
-	ft5x0x_ts->ts_workqueue = create_singlethread_workqueue(
-					dev_name(&client->dev));
-	if (!ft5x0x_ts->ts_workqueue) {
-		err = -ESRCH;
-		goto exit_create_singlethread;
-	}
 
 	ft5x0x_ts->touch_pin = of_get_named_gpio(np, "touch-gpio", 0);
 	if (!gpio_is_valid(ft5x0x_ts->touch_pin)) {
@@ -1360,18 +1343,13 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	gpio_direction_input(ft5x0x_ts->touch_pin);
 	this_client->irq = gpio_to_irq(ft5x0x_ts->touch_pin);
 
-	if (this_client->irq) {
-		err = request_irq(this_client->irq,
-				ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING,
-				"ft5x0x_ts", ft5x0x_ts);
-		if (err < 0) {
-			dev_err(&client->dev,
-				"ft5x0x_probe: request irq failed\n");
-			goto exit_irq_request_failed;
-		}
-	} else {
-		dev_err(&this_client->dev, "no irq found\n");
-		err = -ENODEV;
+	err = devm_request_threaded_irq(&this_client->dev,
+		this_client->irq,
+		NULL, ft5x0x_ts_interrupt,
+		IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
+		"ft5x0x_ts", ft5x0x_ts);
+	if (err) {
+		dev_err(&client->dev, "\nFailed to register interrupt\n");
 		goto exit_irq_request_failed;
 	}
 
@@ -1469,9 +1447,6 @@ exit_input_register_device_failed:
 exit_input_dev_alloc_failed:
 	free_irq(this_client->irq, ft5x0x_ts);
 exit_irq_request_failed:
-	cancel_work_sync(&ft5x0x_ts->pen_event_work);
-	destroy_workqueue(ft5x0x_ts->ts_workqueue);
-exit_create_singlethread:
 	dev_err(&this_client->dev, "==singlethread error =\n");
 	i2c_set_clientdata(client, NULL);
 	kfree(ft5x0x_ts);
@@ -1489,8 +1464,6 @@ static int ft5x0x_ts_remove(struct i2c_client *client)
 	free_irq(this_client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
 	kfree(ft5x0x_ts);
-	cancel_work_sync(&ft5x0x_ts->pen_event_work);
-	destroy_workqueue(ft5x0x_ts->ts_workqueue);
 	i2c_set_clientdata(client, NULL);
 	return 0;
 }
