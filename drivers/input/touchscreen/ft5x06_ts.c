@@ -38,6 +38,7 @@
 #include <asm/uaccess.h>
 #include <linux/fs.h>
 #include <linux/string.h>
+#include <linux/of_gpio.h>
 
 #define FT5X0X_NAME     "ft5x06"
 
@@ -133,6 +134,7 @@ struct ts_event {
 struct ft5x0x_ts_data {
 	struct input_dev	*input_dev;
 	struct ts_event		event;
+	unsigned int touch_pin;
 	struct work_struct	pen_event_work;
 	struct workqueue_struct *ts_workqueue;
 	/* Ensures that only one function can
@@ -1315,6 +1317,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ft5x0x_ts_data *ft5x0x_ts;
 	struct input_dev *input_dev;
+	struct device_node *np = client->dev.of_node;
 	int err = 0;
 	unsigned char uc_reg_value;
 #if CFG_SUPPORT_TOUCH_KEY
@@ -1345,14 +1348,20 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_create_singlethread;
 	}
 
+	ft5x0x_ts->touch_pin = of_get_named_gpio(np, "touch-gpio", 0);
+	if (!gpio_is_valid(ft5x0x_ts->touch_pin)) {
+		dev_err(&client->dev, "invalid touch_pin supplied\n");
+		return -EINVAL;
+	}
+	if (devm_gpio_request(&client->dev, ft5x0x_ts->touch_pin, "touch-gpio")) {
+		dev_err(&client->dev, "request touch gpio failed\n");
+		return -EINVAL;
+	}
+	gpio_direction_input(ft5x0x_ts->touch_pin);
+	this_client->irq = gpio_to_irq(ft5x0x_ts->touch_pin);
+
 	if (this_client->irq) {
-		err = gpio_request(this_client->irq, "ft5x06");
-		if (err < 0)
-			dev_err(&this_client->dev, "ERROR = %d\n", err);
-
-		gpio_direction_input(this_client->irq);
-
-		err = request_irq(gpio_to_irq(this_client->irq),
+		err = request_irq(this_client->irq,
 				ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING,
 				"ft5x0x_ts", ft5x0x_ts);
 		if (err < 0) {

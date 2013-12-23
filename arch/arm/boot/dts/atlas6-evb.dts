@@ -146,7 +146,7 @@
 				};
 				ft5x06@38{
 					compatible = "focaltech,ft5x06";
-                                        interrupts = <3>;
+					touch-gpio = <&gpio 3 0>;
                                         reg = <0x38>;
                                 };
 			};
