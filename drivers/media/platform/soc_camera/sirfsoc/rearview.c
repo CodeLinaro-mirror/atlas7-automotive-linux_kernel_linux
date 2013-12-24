@@ -15,6 +15,7 @@
 #include <linux/gpio.h>
 #include <linux/dmaengine.h>
 #include <linux/module.h>
+#include <linux/input.h>
 
 #include <asm/dma.h>
 
@@ -42,6 +43,143 @@ static int cur_field = -1;	/* 0: odd field, 1: even field */
 static int cur_frame;	/* indicate index of the frame in the dma buffer */
 
 static atomic_t rv_started = ATOMIC_INIT(0);
+
+
+#ifdef CONFIG_INPUT
+
+struct rearview_input_priv {
+	struct input_handle handle;
+};
+
+static bool rearview_input_filter(struct input_handle *handle,
+	unsigned int type, unsigned int code, int value)
+{
+	bool suppress;
+
+	if ((atomic_read(&rv_started) == 0))
+		return false;
+
+	switch (type) {
+	case EV_ABS:
+		suppress = true;
+		break;
+	case EV_KEY:
+		if (code != KEY_POWER)
+			suppress = true;
+		else
+			suppress = false;
+		break;
+	default:
+		suppress = false;
+		break;
+	}
+
+	return suppress;
+
+}
+
+static int rearview_input_connect(struct input_handler *handler,
+	struct input_dev *dev,
+	const struct input_device_id *id)
+{
+	struct rearview_input_priv *priv;
+	int err;
+
+	pr_err("connect to input device%s\n", dev->name);
+	priv = kzalloc(sizeof(struct rearview_input_priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	priv->handle.dev = dev;
+	priv->handle.handler = handler;
+	priv->handle.name = "rearview";
+	priv->handle.private = priv;
+
+	err = input_register_handle(&priv->handle);
+	if (err) {
+		pr_err("Failed to register input rearview handler, error %d\n",
+			err);
+		goto err_free;
+	}
+
+	err = input_open_device(&priv->handle);
+	if (err) {
+		pr_err("Failed to open input device, error %d\n", err);
+		goto err_unregister;
+	}
+
+	return 0;
+
+ err_unregister:
+	input_unregister_handle(&priv->handle);
+ err_free:
+	kfree(priv);
+	return err;
+}
+
+static void rearview_input_disconnect(struct input_handle *handle)
+{
+	struct rearview_input_priv *priv = handle->private;
+
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(priv);
+}
+
+static const struct input_device_id rearview_input_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			INPUT_DEVICE_ID_MATCH_KEYBIT,
+		.evbit = { BIT_MASK(EV_KEY) },
+	},
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+	},
+	{},
+};
+
+static struct input_handler rearview_input_handler = {
+	.filter		= rearview_input_filter,
+	.connect	= rearview_input_connect,
+	.disconnect	= rearview_input_disconnect,
+	.name		= "rearview",
+	.id_table	= rearview_input_ids,
+};
+
+static bool rearview_input_registered;
+
+static inline void rearview_input_register(void)
+{
+	int err;
+
+	err = input_register_handler(&rearview_input_handler);
+	if (err)
+		pr_err("Failed to register input handler, error %d", err);
+	else
+		rearview_input_registered = true;
+}
+
+static inline void rearview_input_unregister(void)
+{
+	if (rearview_input_registered) {
+		input_unregister_handler(&rearview_input_handler);
+		rearview_input_registered = false;
+	}
+}
+
+#else
+
+static inline void rearview_input_register(void)
+{
+}
+
+static inline void rearview_input_unregister(void)
+{
+}
+
+#endif
 
 static bool rearview_enabled(void)
 {
@@ -439,11 +577,15 @@ static void rearview_init(void)
 		BLT_DI_METHOD;
 
 	blt_params.flag |= BLT_NOT_WAIT_COMPLETE;
+
+	rearview_input_register();
 }
 
 static void rearview_deinit(void)
 {
 	pr_debug("%s\n", __func__);
+
+	rearview_input_unregister();
 
 	if (atomic_read(&rv_started) > 0) {
 		rearview_stop();

@@ -18,11 +18,6 @@
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
 
-struct sdhci_sirf_priv {
-	struct clk *clk;
-	int gpio_cd;
-};
-
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -49,16 +44,6 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
 
-/*
- * The following functions are needed for DMA bouncing because SiRFprimaII SD
- * controller can address up to 256MByte
- */
-static int sdhci_sirf_needs_bounce(struct device *dev, dma_addr_t dma_addr,
-	size_t size)
-{
-	return (dma_addr + size) >= SZ_256M;
-}
-
 static int sdhci_sirf_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -79,9 +64,14 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	else
 		gpio_cd = -EINVAL;
 
-	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata, sizeof(struct sdhci_sirf_priv));
-	if (IS_ERR(host))
-		return PTR_ERR(host);
+	/* CSR refine for trig */
+	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
+
+	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata);
+	if (IS_ERR(host)) {
+		ret = PTR_ERR(host);
+		goto err_sdhci_pltfm_init;
+	}
 
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
@@ -114,17 +104,21 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
 
-	if (of_machine_is_compatible("sirf,prima2")) {
-		ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(28));
-		if (!ret) {
-			pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-			dmabounce_register_dev(&pdev->dev, 1024, 2048,
-				sdhci_sirf_needs_bounce);
-		} else {
-			dev_err(&pdev->dev, "dma coherent mask: %d failed, ret: %d\n",
-				DMA_BIT_MASK(28), ret);
-			goto err_request_cd;
-		}
+	host->quirks2 = SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
+	host->combined_dma_buffer = dma_alloc_coherent(&pdev->dev,
+		SZ_1M, &host->dma_buffer, GFP_KERNEL | GFP_DMA);
+	if (!host->combined_dma_buffer)
+		goto err_request_cd;
+
+	/* CSR refine for trig */
+	/* Loop DMA buffer allocation */
+	if (priv->loopdma) {
+		priv->mem_buf[0] = dma_alloc_coherent(&pdev->dev,
+			512 * (1 << LOOPDMA_BUF_SIZE_SHIFT),
+			&priv->loopdma_buf[0], GFP_KERNEL | GFP_DMA);
+		priv->mem_buf[1] = dma_alloc_coherent(&pdev->dev,
+			512 * (1 << LOOPDMA_BUF_SIZE_SHIFT),
+			&priv->loopdma_buf[1], GFP_KERNEL | GFP_DMA);
 	}
 
 	return 0;

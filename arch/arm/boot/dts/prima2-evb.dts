@@ -27,17 +27,13 @@
 
 	bt {
 		compatible = "csr,bt-8311";
-		bt_gpio_power = <&gpio 45 0>;
+		bt_gpio_power = <&gpio 62 0>;
 		bt_gpio_reset = <&gpio 3 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pins_a>;
 		pwms = <&pwm 1 0 0 3>;
 	};
 
-	wlan {
-		compatible = "csr,wlan-6030";
-		wlan_gpio_power = <&gpio 62 0>;
-	};
 
 	sirf-backlight {
 		compatible = "pwm-backlight";
@@ -59,6 +55,17 @@
 					status = "okay";
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc4_pins_a>;
+				};
+				sd5: sdhci@56500000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc5_pins_a>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					sdio_sirf@0 {
+						compatible = "sirf,trig_sdio";
+						reg = <0x0>;
+					};
 				};
 			};
 
@@ -91,16 +98,6 @@
 				reset-gpio = <&gpio 12 0>;
 				rearview-gpio = <&gpio 31 0>;
 			};
-			spi@b00d0000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&spi0_pins_a>;
-				spi@0 {
-					compatible = "spidev";
-					reg = <0>;
-					spi-max-frequency = <1000000>;
-				};
-			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
 				pinctrl-names = "default";
@@ -127,7 +124,7 @@
 				};
 				ft5x06@38{
 					compatible = "focaltech,ft5x06";
-                                        interrupts = <34>;
+					touch-gpio = <&gpio 34 0>;
                                         reg = <0x38>;
                                 };
 

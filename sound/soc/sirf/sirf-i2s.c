@@ -11,7 +11,6 @@
 #include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
-#include <linux/reset.h>
 
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
@@ -300,7 +299,6 @@ static int sirf_i2s_runtime_resume(struct device *dev)
 	ret = clk_prepare_enable(si2s->clk);
 	if (ret)
 		return ret;
-	ret = device_reset(dev);
 	return ret;
 }
 #endif

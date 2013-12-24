@@ -24,8 +24,9 @@
 struct rfkill_gpio_data {
 	struct rfkill		*rfkill_dev;
 	struct pwm_device	*pwm;
-	int					power_gpio;
-	int					reset_gpio;
+	int			power_gpio;
+	int			reset_gpio;
+	int			power_number;
 };
 
 static int rfkill_gpio_set_power(void *data, bool blocked)
@@ -33,12 +34,18 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 	struct rfkill_gpio_data *rfkill = data;
 
 	if (blocked) {
+		if (rfkill->power_number > 1) {
+			rfkill->power_number--;
+			return 0;/*some other apps need power, just return*/
+		}
+
 		if (gpio_is_valid(rfkill->power_gpio))
 			gpio_direction_output(rfkill->power_gpio, 0);
 
 		pwm_disable(rfkill->pwm);
-
 	} else {
+		if (rfkill->power_number++)
+			return 0;/*power already on, just return*/
 
 		if (gpio_is_valid(rfkill->power_gpio))
 			gpio_direction_output(rfkill->power_gpio, 1);
@@ -48,7 +55,6 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 		msleep(20);
 
 		if (gpio_is_valid(rfkill->reset_gpio)) {
-
 			gpio_set_value(rfkill->reset_gpio, 0);
 
 			msleep(60);

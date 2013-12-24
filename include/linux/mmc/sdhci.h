@@ -98,6 +98,8 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON		(1<<4)
 /* Controller has a non-standard host control register */
 #define SDHCI_QUIRK2_BROKEN_HOST_CONTROL		(1<<5)
+/* For better performance for SDMA controller, alloc a buffer for combined */
+#define SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER	(1<<6)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
@@ -159,6 +161,9 @@ struct sdhci_host {
 
 	dma_addr_t adma_addr;	/* Mapped ADMA descr. table */
 	dma_addr_t align_addr;	/* Mapped bounce buffer */
+
+	dma_addr_t dma_buffer;	/* combined dma buffer */
+	void *combined_dma_buffer;/* Mapped combined dma buffer */
 
 	struct tasklet_struct card_tasklet;	/* Tasklet structures */
 	struct tasklet_struct finish_tasklet;
