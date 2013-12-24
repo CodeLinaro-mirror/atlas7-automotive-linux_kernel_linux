@@ -64,10 +64,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	else
 		gpio_cd = -EINVAL;
 
-	/* CSR refine for trig */
-	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
-
-	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata);
+	host = sdhci_pltfm_init(pdev, &sdhci_sirf_pdata, sizeof(struct sdhci_sirf_priv));
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);
 		goto err_sdhci_pltfm_init;
@@ -75,6 +72,9 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
+	/* CSR refine for trig */
+	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
+
 	priv->clk = clk;
 	priv->gpio_cd = gpio_cd;
 
@@ -129,6 +129,7 @@ err_sdhci_add:
 	clk_disable_unprepare(priv->clk);
 err_clk_prepare:
 	sdhci_pltfm_free(pdev);
+err_sdhci_pltfm_init:
 	return ret;
 }
 
