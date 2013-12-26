@@ -75,20 +75,12 @@ static int sirf_bt_sco_probe(struct platform_device *pdev)
 	else
 		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBS_CFS;
 	card->dev = &pdev->dev;
-	ret = snd_soc_register_card(card);
+
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
-		return ret;
+		dev_err(&pdev->dev, "snd_soc_register_card() failed:%d\n", ret);
 
-	platform_set_drvdata(pdev, card);
-	return 0;
-}
-
-static int sirf_bt_sco_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	snd_soc_unregister_card(card);
-
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id sirf_bt_sco_of_match[] = {
@@ -105,7 +97,6 @@ static struct platform_driver sirf_bt_sco_driver = {
 		.of_match_table = sirf_bt_sco_of_match,
 	},
 	.probe = sirf_bt_sco_probe,
-	.remove = sirf_bt_sco_remove,
 };
 
 module_platform_driver(sirf_bt_sco_driver);

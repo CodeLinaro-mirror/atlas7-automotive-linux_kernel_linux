@@ -125,21 +125,12 @@ static int sirf_inner_probe(struct platform_device *pdev)
 
 	card->dev = &pdev->dev;
 	snd_soc_card_set_drvdata(card, sinner_card);
-	platform_set_drvdata(pdev, card);
 
-	ret = snd_soc_register_card(card);
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
 		dev_err(&pdev->dev, "snd_soc_register_card() failed:%d\n", ret);
 
-	return 0;
-}
-
-static int sirf_inner_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-
-	snd_soc_unregister_card(card);
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id sirf_inner_of_match[] = {
@@ -156,7 +147,6 @@ static struct platform_driver sirf_inner_driver = {
 		.of_match_table = sirf_inner_of_match,
 	},
 	.probe = sirf_inner_probe,
-	.remove = sirf_inner_remove,
 };
 module_platform_driver(sirf_inner_driver);
 

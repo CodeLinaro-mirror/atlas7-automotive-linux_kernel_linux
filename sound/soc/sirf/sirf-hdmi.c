@@ -67,20 +67,14 @@ static int sirf_hdmi_card_probe(struct platform_device *pdev)
 		SND_SOC_DAIFMT_I2S;
 
 	card->dev = &pdev->dev;
-	ret = snd_soc_register_card(card);
+
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
-		return ret;
+		dev_err(&pdev->dev, "snd_soc_register_card() failed:%d\n", ret);
 
-	platform_set_drvdata(pdev, card);
-	return 0;
+	return ret;
 }
 
-static int sirf_hdmi_card_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	snd_soc_unregister_card(card);
-	return 0;
-}
 static const struct of_device_id sirf_hdmi_card_of_match[] = {
 	{ .compatible = "sirf,hdmi-card", },
 	{}
@@ -95,7 +89,6 @@ static struct platform_driver sirf_hdmi_card_driver = {
 		.of_match_table = sirf_hdmi_card_of_match,
 	},
 	.probe = sirf_hdmi_card_probe,
-	.remove = sirf_hdmi_card_remove,
 };
 
 module_platform_driver(sirf_hdmi_card_driver);
