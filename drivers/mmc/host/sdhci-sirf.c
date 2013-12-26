@@ -72,6 +72,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
+	pltfm_host->priv = priv;
 	/* CSR refine for trig */
 	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
 
