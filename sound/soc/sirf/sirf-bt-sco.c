@@ -77,7 +77,7 @@ static int sirf_bt_sco_probe(struct platform_device *pdev)
 	if (ret == 0 && codec_fmt != 0)
 		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBM_CFM;
 	else
-		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBM_CFS;
+		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBS_CFS;
 	card->dev = &pdev->dev;
 	ret = snd_soc_register_card(card);
 	if (ret)
