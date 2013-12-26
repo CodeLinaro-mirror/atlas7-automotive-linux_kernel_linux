@@ -93,7 +93,7 @@
 			usp@b0080000 {
 				compatible = "sirf,prima2-usp-pcm";
 				pinctrl-names = "default";
-				pinctrl-0 = <&usp0_pins_a>;
+				pinctrl-0 = <&usp0_only_utfs_pins_a>;
 			};
 			usp@b0090000 {
 				pinctrl-names = "default";
