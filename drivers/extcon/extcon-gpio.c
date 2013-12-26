@@ -40,6 +40,7 @@ struct gpio_extcon_data {
 	int irq;
 	struct delayed_work work;
 	unsigned long debounce_jiffies;
+	bool lost_sleep_irq;
 };
 
 static void gpio_extcon_work(struct work_struct *work)
@@ -103,6 +104,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	extcon_data->gpio_active_low = pdata->gpio_active_low;
 	extcon_data->state_on = pdata->state_on;
 	extcon_data->state_off = pdata->state_off;
+	extcon_data->lost_sleep_irq = pdata->lost_sleep_irq;
 	if (pdata->state_on && pdata->state_off)
 		extcon_data->edev.print_state = extcon_gpio_print_state;
 	if (pdata->debounce) {
@@ -165,8 +167,9 @@ static int gpio_extcon_resume(struct device *dev)
 	struct gpio_extcon_data *extcon_data;
 
 	extcon_data = dev_get_drvdata(dev);
-	queue_delayed_work(system_power_efficient_wq, &extcon_data->work,
-			      extcon_data->debounce_jiffies);
+	if (extcon_data->lost_sleep_irq)
+		queue_delayed_work(system_power_efficient_wq,
+			&extcon_data->work, extcon_data->debounce_jiffies);
 	return 0;
 }
 #endif
