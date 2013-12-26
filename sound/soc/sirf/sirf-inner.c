@@ -11,26 +11,13 @@
 #include <linux/of.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
-#include <linux/extcon.h>
-#include <linux/extcon/extcon-gpio.h>
-
-#define SIRF_JACK_GPIO_DEBOUNCE_TIME	200 /* in ms */
-struct sirf_inner_extcon_info {
-	struct platform_device pdev;
-	struct gpio_extcon_platform_data extcon_data;
-	int last_state;
-	int state_changed;
-};
-
 struct sirf_inner_card {
 	unsigned int            gpio_hp_pa;
 	unsigned int            gpio_spk_pa;
-	struct sirf_inner_extcon_info	extcon_info;
 };
 
 static int sirf_inner_hp_event(struct snd_soc_dapm_widget *w,
@@ -53,16 +40,8 @@ static int sirf_inner_spk_event(struct snd_soc_dapm_widget *w,
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
 	int on = !SND_SOC_DAPM_EVENT_OFF(event);
 
-	if (sinner_card->extcon_info.state_changed) {
-		sinner_card->extcon_info.state_changed = 0;
-		if (!sinner_card->extcon_info.last_state)
-			gpio_set_value(sinner_card->gpio_spk_pa, 0);
-		else
-			gpio_set_value(sinner_card->gpio_spk_pa, 1);
-	} else {
-		if (gpio_is_valid(sinner_card->gpio_spk_pa))
-			gpio_set_value(sinner_card->gpio_spk_pa, on);
-	}
+	if (gpio_is_valid(sinner_card->gpio_spk_pa))
+		gpio_set_value(sinner_card->gpio_spk_pa, on);
 
 	return 0;
 }
@@ -149,28 +128,10 @@ static int sirf_inner_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, card);
 
 	ret = snd_soc_register_card(card);
-	if (ret) {
+	if (ret)
 		dev_err(&pdev->dev, "snd_soc_register_card() failed:%d\n", ret);
-		return ret;
-	}
 
-	sinner_card->extcon_info.extcon_data.name = "h2w";
-	sinner_card->extcon_info.extcon_data.debounce =
-		SIRF_JACK_GPIO_DEBOUNCE_TIME;
-	sinner_card->extcon_info.extcon_data.irq_flags =
-		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED;
-	sinner_card->extcon_info.extcon_data.state_on = "0";
-	sinner_card->extcon_info.extcon_data.state_off = "1";
-	sinner_card->extcon_info.extcon_data.gpio =
-		of_get_named_gpio(pdev->dev.of_node,
-		"hp-switch-gpios", 0);
-
-	sinner_card->extcon_info.pdev.name = "extcon-gpio";
-	sinner_card->extcon_info.pdev.id = pdev->id;
-	sinner_card->extcon_info.pdev.dev.platform_data =
-		&sinner_card->extcon_info.extcon_data;
-
-	return platform_device_register(&sinner_card->extcon_info.pdev);
+	return 0;
 }
 
 static int sirf_inner_remove(struct platform_device *pdev)
@@ -181,52 +142,17 @@ static int sirf_inner_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int sirf_inner_resume(struct device *dev)
-{
-	struct snd_soc_card *card = dev_get_drvdata(dev);
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	struct extcon_dev *edev;
-	int state;
-
-	edev = extcon_get_extcon_dev(sinner_card->extcon_info.extcon_data.name);
-	state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
-	if (state != sinner_card->extcon_info.last_state) {
-		sinner_card->extcon_info.state_changed = 1;
-		sinner_card->extcon_info.last_state = state;
-		extcon_set_state(edev, state);
-	}
-	snd_soc_resume(dev);
-	return 0;
-}
-
-static int sirf_inner_suspend(struct device *dev)
-{
-	struct snd_soc_card *card = dev_get_drvdata(dev);
-	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	sinner_card->extcon_info.last_state = gpio_get_value(sinner_card->extcon_info.extcon_data.gpio);
-	if (gpio_is_valid(sinner_card->gpio_spk_pa))
-		gpio_set_value(sinner_card->gpio_spk_pa, 0);
-	snd_soc_suspend(dev);
-	return 0;
-}
-#endif
-
 static const struct of_device_id sirf_inner_of_match[] = {
 	{.compatible = "sirf,sirf-inner", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, sirf_inner_of_match);
 
-static const struct dev_pm_ops sirf_inner_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(sirf_inner_suspend, sirf_inner_resume)
-};
-
 static struct platform_driver sirf_inner_driver = {
 	.driver = {
 		.name = "sirf-inner",
 		.owner = THIS_MODULE,
-		.pm = &sirf_inner_pm_ops,
+		.pm = &snd_soc_pm_ops,
 		.of_match_table = sirf_inner_of_match,
 	},
 	.probe = sirf_inner_probe,
