@@ -23,13 +23,6 @@ static int sirf_bt_sco_hw_params(struct snd_pcm_substream *substream,
 
 	fmt = card->dai_link[0].dai_fmt;
 
-	/* Set codec DAI configuration */
-	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
-	if (ret < 0) {
-		dev_err(card->dev, "can't set codec DAI configuration\n");
-		return ret;
-	}
-
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 	if (ret < 0) {
