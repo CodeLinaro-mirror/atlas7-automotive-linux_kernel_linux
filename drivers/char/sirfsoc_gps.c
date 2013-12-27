@@ -221,15 +221,6 @@ static void gps_init_interfaces(struct gps_dev *dev)
 	unsigned long reg_value;
 	struct platform_device *pdev;
 	struct device_node *pdn;
-	/* clear any pending interrupt before enable interrupt */
-	writel(1, PORT_ADDR(dev->iface_base, DSP_INT_RISC));
-
-	pdn = of_find_node_by_path(DSP_NODEPATH_DTS);
-	if(!pdn)
-		pr_err("gps init can't find prima2-dsp node\n");
-	pdev = of_find_device_by_node(pdn);
-	if(devm_request_irq(&pdev->dev, dev->irq, gps_interrupt, 0, "prima2-dsp", dev))
-		printk(KERN_INFO "DSP failed to request_irq\n");
 
 	/* enable clock and reset */
 	if (clk_prepare_enable(dev->dspclk))
@@ -950,6 +941,12 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	platdev = of_find_device_by_node(pdn);
 	/*get dsp interrupt num*/
 	gps_device->irq = platform_get_irq(platdev, 0);
+	/* clear any pending interrupt before enable interrupt */
+	writel(1, PORT_ADDR(gps_device->iface_base, DSP_INT_RISC));
+
+	if(devm_request_irq(&platdev->dev, gps_device->irq, gps_interrupt, 0, "prima2-dsp", gps_device))
+		printk(KERN_INFO "DSP failed to request_irq\n");
+
 	/*get dsp clock*/
 	gps_device->dspclk = devm_clk_get(&platdev->dev, NULL);
 	if(IS_ERR(gps_device->dspclk)) {
