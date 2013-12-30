@@ -944,7 +944,7 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	/* clear any pending interrupt before enable interrupt */
 	writel(1, PORT_ADDR(gps_device->iface_base, DSP_INT_RISC));
 
-	if(devm_request_irq(&platdev->dev, gps_device->irq, gps_interrupt, 0, "prima2-dsp", gps_device))
+	if (devm_request_irq(&platdev->dev, gps_device->irq, gps_interrupt, 0, "prima2-dsp", gps_device))
 		printk(KERN_INFO "DSP failed to request_irq\n");
 
 	/*get dsp clock*/
