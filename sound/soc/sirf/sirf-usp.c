@@ -374,7 +374,7 @@ static int sirf_usp_pcm_resume(struct device *dev)
 	struct sirf_usp *susp = dev_get_drvdata(dev);
 	int ret;
 
-	if (!pm_runtime_status_suspended(dev)) {
+	if (pm_runtime_status_suspended(dev)) {
 		ret = sirf_usp_pcm_runtime_resume(dev);
 		if (ret)
 			return ret;
