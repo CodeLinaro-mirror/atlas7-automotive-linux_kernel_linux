@@ -4,6 +4,9 @@
 #include <linux/kernel_stat.h>
 #include <linux/static_key.h>
 #include <linux/context_tracking.h>
+#ifdef CONFIG_PARAVIRT
+#include <asm/paravirt.h>
+#endif
 #include "sched.h"
 
 

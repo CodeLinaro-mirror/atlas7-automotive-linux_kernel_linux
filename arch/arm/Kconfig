@@ -907,6 +907,26 @@ config SECURITY_MODE
 	help
 	  Enable this if Linux is running in security mode based on CSRVisor.
 
+config PARAVIRT
+	bool "Enable paravirtualization code"
+	help
+	  This changes the kernel so it can modify itself when it is run
+	  under a hypervisor, potentially improving performance significantly
+	  over full virtualization.  However, when run without a hypervisor
+	  the kernel is theoretically slower and slightly larger.
+
+config PARAVIRT_TIME_ACCOUNTING
+	bool "Paravirtual steal time accounting"
+	depends on PARAVIRT
+	default n
+	help
+	  Select this option to enable fine granularity task steal time
+	  accounting. Time spent executing other tasks in parallel with
+	  the current vCPU is discounted from the vCPU power. To account for
+	  that, there can be a small performance impact.
+
+	  If in doubt, say N here.
+
 config SPI32_IGROUP
 	hex "Interrupt Group Configuration for SPI 32~63"
 	depends on SECURITY_MODE

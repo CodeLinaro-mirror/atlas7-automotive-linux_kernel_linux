@@ -22,6 +22,7 @@
 #include <linux/vexpress.h>
 #include <linux/clkdev.h>
 #include <linux/memblock.h>
+#include <linux/jump_label.h>
 
 #include <asm/mach-types.h>
 #include <asm/sizes.h>
@@ -55,10 +56,15 @@ static struct map_desc v2m_io_desc[] __initdata = {
 		.type		= MT_DEVICE,
 	},
 #ifndef CONFIG_SECURITY_MODE
-	{
+	{ /* csrvisor */
 		.virtual	= 0xD0000000,
 		.pfn		= __phys_to_pfn(0x80000000),
 		.length		= SZ_128K,
+		.type		= MT_DEVICE,
+	}, { /* parameter of SMC call */
+		.virtual	= 0xD0000000 + SZ_128K,
+		.pfn		= __phys_to_pfn(0x80000000 + SZ_128K),
+		.length		= SZ_4K,
 		.type		= MT_DEVICE,
 	},
 #endif
@@ -351,6 +357,9 @@ static void __init v2m_init_irq(void)
 {
 	ct_desc->init_irq();
 }
+
+struct static_key paravirt_steal_enabled = STATIC_KEY_INIT_TRUE;
+struct static_key paravirt_steal_rq_enabled = STATIC_KEY_INIT_TRUE;
 
 #ifdef CONFIG_SECURITY_MODE
 
