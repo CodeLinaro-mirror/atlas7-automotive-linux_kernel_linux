@@ -1193,6 +1193,7 @@ static void sirf_trig_remove(struct sdio_func *func)
 		gpio_free(trigdev.sg_trig_gpios.clk_out);
 	pr_info("end of gpio free!\n");
 	/*end of line moving*/
+	iounmap((void *)trigdev.pbb_base_addr);
 	sdio_claim_host(func);
 	sdio_disable_func(func);
 	sdio_release_host(func);
