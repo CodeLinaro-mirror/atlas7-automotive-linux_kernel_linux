@@ -115,6 +115,7 @@
 			};
 			usp@b0080000 {
 				compatible = "sirf,prima2-usp-pcm", "sirf,prima2-usp";
+				status = "disabled";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_pins_a>;
 				cts-gpios = <&gpio 55 0>;
