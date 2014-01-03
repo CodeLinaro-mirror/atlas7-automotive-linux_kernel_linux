@@ -338,15 +338,14 @@ static int sirfsoc_rtc_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int sirfsoc_rtc_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
+	struct sirfsoc_rtc_drv *rtcdrv = dev_get_drvdata(dev);
 	rtcdrv->overflow_rtc =
 		sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_SW_VALUE);
 
 	rtcdrv->saved_counter =
 		sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_CN);
 	rtcdrv->saved_overflow_rtc = rtcdrv->overflow_rtc;
-	if (device_may_wakeup(&pdev->dev) && !enable_irq_wake(rtcdrv->irq))
+	if (device_may_wakeup(dev) && !enable_irq_wake(rtcdrv->irq))
 		rtcdrv->irq_wake = 1;
 
 	return 0;
@@ -355,8 +354,7 @@ static int sirfsoc_rtc_suspend(struct device *dev)
 static int sirfsoc_rtc_resume(struct device *dev)
 {
 	u32 tmp;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
+	struct sirfsoc_rtc_drv *rtcdrv = dev_get_drvdata(dev);
 
 	/*
 	 * if resume from snapshot and the rtc power is losed,
@@ -399,7 +397,7 @@ static int sirfsoc_rtc_resume(struct device *dev)
 	sirfsoc_rtc_iobrg_writel(rtcdrv->overflow_rtc,
 			rtcdrv->rtc_base + RTC_SW_VALUE);
 
-	if (device_may_wakeup(&pdev->dev) && rtcdrv->irq_wake) {
+	if (device_may_wakeup(dev) && rtcdrv->irq_wake) {
 		disable_irq_wake(rtcdrv->irq);
 		rtcdrv->irq_wake = 0;
 	}
