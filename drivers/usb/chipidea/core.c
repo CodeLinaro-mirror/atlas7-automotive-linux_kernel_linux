@@ -705,6 +705,7 @@ static int ci_hdrc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct ci13xxx *ci = platform_get_drvdata(pdev);
+	disable_irq_nosync(ci->irq);
 	return ci_role_suspend(ci);
 }
 
@@ -722,6 +723,7 @@ static int ci_hdrc_resume(struct device *dev)
 	}
 	if (ci->is_otg)
 		hw_write(ci, OP_OTGSC, OTGSC_IDIE, OTGSC_IDIE);
+	enable_irq(ci->irq);
 	return 0;
 }
 

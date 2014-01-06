@@ -23,6 +23,9 @@
 #define WIDTH_MAJOR_MAX 15
 #define TRACKING_ID_MAX 5
 
+#define RESET_REG 0x3A
+#define RESET_CODE 0x3
+
 struct pixcir_ts_point_data {
 	u16 posx;  /* x coordinate */
 	u16 posy;  /* y coordinate */
@@ -40,6 +43,12 @@ struct pixcir_ts_data {
 	unsigned int touch_pin;
 	struct pixcir_ts_touch_data touch_data;
 };
+
+static void pixcir_ts_reset(struct i2c_client *client)
+{
+	u8 buf[2] = {RESET_REG, RESET_CODE};
+	i2c_master_send(client, buf, 2);
+}
 
 /*Report the touch position*/
 static void  pixcir_ts_report_event(struct pixcir_ts_data *ts)
@@ -208,6 +217,8 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	}
 
 	device_init_wakeup(&client->dev, 1);
+
+	pixcir_ts_reset(ts->client);
 
 	return 0;
 }

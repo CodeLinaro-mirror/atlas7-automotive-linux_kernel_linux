@@ -84,11 +84,18 @@ void __init prima2_reserve(void)
 	sirfsoc_video_codec_reserve_memblock();
 }
 
+
+/* specific device names for some device node */
+static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("pwm-backlight", 0, "sirf-backlight", NULL),
+	{ /* end */ },
+};
+
 static void __init sirfsoc_init_mach(void)
 {
 	sirfsoc_of_rstc_init();
 	of_platform_populate(NULL, of_default_bus_match_table,
-		NULL, NULL);
+		sirf_auxdata_lookup, NULL);
 
 	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
 	platform_device_register_simple("bt-sco", -1, NULL, 0);
