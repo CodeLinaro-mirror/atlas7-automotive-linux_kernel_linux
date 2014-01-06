@@ -296,6 +296,137 @@ static void __deinit_fbdev(void)
 	module_put(owner);
 }
 
+
+#ifdef REARVIEW_AUXILIARY
+
+static void rv_aux_drawline(void)
+{
+	struct fb_info *info = rearview_env.aux_fbi;
+	void *fb_addr = rearview_env.aux_fb_addr;
+	int i, j;
+
+	unsigned short red16 = 0xf800;
+	unsigned short yellow16 = 0xffe0;
+	unsigned short green16 = 0x07e0;
+
+	unsigned int red32 = 0xffff0000;
+	unsigned int yellow32 = 0xffffff00;
+	unsigned int green32 = 0xff00ff00;
+
+	switch (info->var.bits_per_pixel) {
+	case 16:
+		for (j = info->var.yres*5/8; j < info->var.yres*5/8 + 5; j++)
+			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
+				memcpy(fb_addr + j*info->fix.line_length + i*2, &green16, 2);
+		for (j = info->var.yres*6/8; j < info->var.yres*6/8 + 5; j++)
+			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
+				memcpy(fb_addr + j*info->fix.line_length + i*2, &yellow16, 2);
+		for (j = info->var.yres*7/8; j < info->var.yres*7/8 + 5; j++)
+			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
+				memcpy(fb_addr + j*info->fix.line_length + i*2, &red16, 2);
+		break;
+	case 32:
+		for (j = info->var.yres*5/8; j < info->var.yres*5/8 + 5; j++)
+			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
+				memcpy(fb_addr + j*info->fix.line_length + i*4, &green32, 4);
+		for (j = info->var.yres*6/8; j < info->var.yres*6/8 + 5; j++)
+			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
+				memcpy(fb_addr + j*info->fix.line_length + i*4, &yellow32, 4);
+		for (j = info->var.yres*7/8; j < info->var.yres*7/8 + 5; j++)
+			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
+				memcpy(fb_addr + j*info->fix.line_length + i*4, &red32, 4);
+		break;
+	default:
+		pr_err("%s: bpp %d not supported\n", __func__,
+			info->var.bits_per_pixel);
+		return;
+	}
+}
+
+static void rearview_auxiliary_start(void)
+{
+	struct fb_info *info = rearview_env.aux_fbi;
+	void *fb_addr = rearview_env.aux_fb_addr;
+
+	struct module *owner;
+	struct fb_var_screeninfo var;
+	struct sirfsocfb_colorkeys ckey;
+	int i, colorkey = 0x1002;
+
+	pr_debug("%s\n", __func__);
+
+	owner = info->fbops->owner;
+	if (!try_module_get(owner)) {
+		pr_err("%s: cannot get framebuffer module\n", __func__);
+		goto error_get;
+	}
+
+	if (info->fbops->fb_open != NULL) {
+		int ret;
+		ret = info->fbops->fb_open(info, 0);
+		if (ret != 0) {
+			pr_err("%s: cannot open framebuffer\n", __func__);
+			goto error_open;
+		}
+	}
+
+	/* if bpp equals 16, use colorkey mode; equals 32, take alpha
+	 * blending */
+	switch (info->var.bits_per_pixel) {
+	case 16:
+		ckey.enable = 1;
+		ckey.color_key_big = colorkey;
+		ckey.color_key_small = colorkey;
+		info->fbops->fb_ioctl(info, SIRFSOCFB_SET_COLORKEYS, &ckey);
+		for (i = 0; i < info->var.yres * info->fix.line_length; i += 2)
+			memcpy(fb_addr + i, &colorkey, 2);
+		break;
+	case 32:
+		memset(fb_addr, 0, info->var.yres * info->fix.line_length);
+		break;
+	default:
+		pr_err("%s: bpp %d not supported\n", __func__,
+			info->var.bits_per_pixel);
+		goto error_open;
+	}
+
+	var = info->var;
+	var.yoffset = 0;
+	var.activate = FB_ACTIVATE_NOW;
+	fb_set_var(info, &var);
+
+	info->fbops->fb_ioctl(info, SIRFSOCFB_ENABLE_LAYER, 0);
+	info->fbops->fb_ioctl(info, SIRFSOCFB_SET_TOPLAYER, 0);
+
+	rv_aux_drawline();
+	return;
+
+error_open:
+	module_put(owner);
+error_get:
+	return;
+}
+
+static void rearview_auxiliary_stop(void)
+{
+	struct fb_info *info = rearview_env.aux_fbi;
+	void *fb_addr = rearview_env.aux_fb_addr;
+	struct module *owner;
+
+	pr_debug("%s\n", __func__);
+
+	owner = info->fbops->owner;
+
+	memset(fb_addr, 0, info->var.yres * info->fix.line_length);
+	info->fbops->fb_ioctl(info, SIRFSOCFB_DISABLE_LAYER, 0);
+	if (info->fbops->fb_release != NULL)
+		info->fbops->fb_release(info, 0);
+
+	module_put(owner);
+}
+
+#endif
+
 static void rearview_start(int lightweight)
 {
 	VIP_FUNCTIONTABLE *funcs = rearview_env.vip_funcs;
@@ -373,6 +504,10 @@ static void rearview_start(int lightweight)
 	funcs->pfnPrintRegister();
 #endif
 	__init_fbdev();
+
+#ifdef REARVIEW_AUXILIARY
+	rearview_auxiliary_start();
+#endif
 }
 
 static void rearview_stop(void)
@@ -404,6 +539,10 @@ static void rearview_stop(void)
 
 	/* to restore original VIP context. */
 	rearview_env.restore_vip_context(rearview_env.data);
+
+#ifdef REARVIEW_AUXILIARY
+	rearview_auxiliary_start();
+#endif
 
 	__deinit_fbdev();
 
@@ -547,6 +686,15 @@ static void rearview_init(void)
 	rearview_env.fbi = info;
 	rearview_env.fb_addr = info->fix.smem_start;
 
+#ifdef REARVIEW_AUXILIARY
+	if (info == registered_fb[2] || registered_fb[2] == NULL) {
+		pr_err("%s: cannot find fb for rearview auxiliary function\n", __func__);
+		return;
+	}
+
+	rearview_env.aux_fbi = registered_fb[2];
+	rearview_env.aux_fb_addr = registered_fb[2]->screen_base;
+#endif
 	/*
 	 * init vpp blt params, dma_buffer -> overlay_buffer,
 	 * deinterlaced

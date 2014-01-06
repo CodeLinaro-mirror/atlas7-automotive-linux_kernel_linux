@@ -49,6 +49,11 @@ struct rearview_setting  {
 	unsigned long		fb_addr;
 	int			fb_opened;
 
+#ifdef REARVIEW_AUXILIARY
+	struct fb_info		*aux_fbi;
+	unsigned long		aux_fb_addr;
+#endif
+
 	void (*save_vip_context)(void *data);	/* callback save context */
 	void (*restore_vip_context)(void *data);/* callback restore context */
 	void			*data;		/* callback parameters */
