@@ -92,11 +92,6 @@ struct sirfsoc_dma {
 	struct sirfsoc_dma_regs		regs_save;
 };
 
-struct sirfsoc_dma_filter_args {
-	struct sirfsoc_dma *sdma;
-	unsigned int chan_id;
-};
-
 #define DRV_NAME	"sirfsoc_dma"
 
 static int sirfsoc_dma_runtime_suspend(struct device *dev);
@@ -709,17 +704,6 @@ sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	return &sdesc->desc;
 }
 
-static bool sirfsoc_dma_dt_filter(struct dma_chan *chan, void *param)
-{
-	struct sirfsoc_dma_filter_args *fargs = param;
-
-	if (chan->device != &fargs->sdma->dma)
-		return false;
-
-	return (chan->chan_id == fargs->chan_id);
-}
-
-
 /*
  * The DMA controller consists of 16 independent DMA channels.
  * Each channel is allocated to a different function
@@ -740,18 +724,12 @@ static struct dma_chan *of_dma_sirfsoc_xlate(struct of_phandle_args *dma_spec,
 	struct of_dma *ofdma)
 {
 	struct sirfsoc_dma *sdma = ofdma->of_dma_data;
-	struct sirfsoc_dma_filter_args fargs;
+	unsigned int request = dma_spec->args[0];
 
-	if (!sdma)
+	if (request > SIRFSOC_DMA_CHANNELS)
 		return NULL;
 
-	if (dma_spec->args_count != 1)
-		return NULL;
-
-	fargs.sdma = sdma;
-	fargs.chan_id = dma_spec->args[0];
-
-	return dma_request_channel(sdma->cap, sirfsoc_dma_dt_filter, &fargs);
+	return dma_get_slave_channel(&(sdma->channels[request].chan));
 }
 
 #define SIRFSOC_DMA_BUSWIDTHS \
