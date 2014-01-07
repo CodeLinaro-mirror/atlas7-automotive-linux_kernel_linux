@@ -85,7 +85,7 @@ static int rearview_input_connect(struct input_handler *handler,
 	struct rearview_input_priv *priv;
 	int err;
 
-	pr_err("connect to input device%s\n", dev->name);
+	pr_debug("connect to input device %s\n", dev->name);
 	priv = kzalloc(sizeof(struct rearview_input_priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -541,7 +541,7 @@ static void rearview_stop(void)
 	rearview_env.restore_vip_context(rearview_env.data);
 
 #ifdef REARVIEW_AUXILIARY
-	rearview_auxiliary_start();
+	rearview_auxiliary_stop();
 #endif
 
 	__deinit_fbdev();
