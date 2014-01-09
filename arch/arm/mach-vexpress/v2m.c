@@ -48,6 +48,10 @@
 #define V2M_PA_CS3	0x4c000000
 #define V2M_PA_CS7	0x10000000
 
+#define CSRVISOR_PHY_BASE               0x80000000
+#define CSRVISOR_VIRTIO_BUS_PHY_BASE    0x80200000
+#define CSRVISOR_SW_FIFO_PHY_BASE       0x80400000
+
 static struct map_desc v2m_io_desc[] __initdata = {
 	{
 		.virtual	= V2M_PERIPH,
@@ -65,6 +69,16 @@ static struct map_desc v2m_io_desc[] __initdata = {
 		.virtual	= 0xD0000000 + SZ_128K,
 		.pfn		= __phys_to_pfn(0x80000000 + SZ_128K),
 		.length		= SZ_4K,
+		.type		= MT_DEVICE,
+	}, {   /* Virtio Resource Table */
+		.virtual	= 0xD0200000,
+		.pfn		= __phys_to_pfn(CSRVISOR_VIRTIO_BUS_PHY_BASE),
+		.length		= SZ_2M,
+		.type		= MT_DEVICE,
+	}, {   /* SW FIFO Buffer */
+		.virtual	= 0xD0400000,
+		.pfn		= __phys_to_pfn(CSRVISOR_SW_FIFO_PHY_BASE),
+		.length		= SZ_16K,
 		.type		= MT_DEVICE,
 	},
 #endif
@@ -407,8 +421,9 @@ static void __init v2m_init(void)
 void __init csrvisor_reserve(void)
 {
 #ifdef CONFIG_SECURITY_MODE
-#define CSRVISOR_PHY_BASE 0x80000000
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
+	memblock_reserve(CSRVISOR_VIRTIO_BUS_PHY_BASE, SZ_2M);
+	memblock_reserve(CSRVISOR_SW_FIFO_PHY_BASE, SZ_16K);
 #endif
 }
 
