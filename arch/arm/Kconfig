@@ -930,7 +930,7 @@ config PARAVIRT_TIME_ACCOUNTING
 config SPI32_IGROUP
 	hex "Interrupt Group Configuration for SPI 32~63"
 	depends on SECURITY_MODE
-	default 0xFFFFFFB7
+	default 0x7FFFFFB7
 	help
 	  Interrupt Group Configuration for SPI 32~63. Interrupts higher than
 	  63 will be non-security interrupt; SGI(0-15) will be set by OS.
