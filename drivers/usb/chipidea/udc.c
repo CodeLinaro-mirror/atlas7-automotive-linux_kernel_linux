@@ -1766,7 +1766,31 @@ static void udc_stop(struct ci13xxx *ci)
 
 static int udc_suspend(struct ci13xxx *ci)
 {
-	_gadget_stop_activity(&ci->gadget);
+	unsigned long flags;
+
+	/* stop usb device controller */
+	usb_gadget_disconnect(&ci->gadget);
+
+	if (ci->driver)
+		ci->driver->disconnect(&ci->gadget);
+
+	spin_lock_irqsave(&ci->lock, flags);
+
+	if (!(ci->platdata->flags & CI13XXX_PULLUP_ON_VBUS) ||
+			ci->vbus_active) {
+		/* mask all interrupts */
+		hw_device_state(ci, 0);
+		if (ci->platdata->notify_event)
+			ci->platdata->notify_event(ci,
+			CI13XXX_CONTROLLER_STOPPED_EVENT);
+		spin_unlock_irqrestore(&ci->lock, flags);
+		_gadget_stop_activity(&ci->gadget);
+		spin_lock_irqsave(&ci->lock, flags);
+		pm_runtime_put(&ci->gadget.dev);
+	}
+
+	spin_unlock_irqrestore(&ci->lock, flags);
+
 	return 0;
 }
 
