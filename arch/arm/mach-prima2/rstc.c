@@ -13,6 +13,7 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <linux/reset-controller.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include "pm.h"
@@ -72,30 +73,44 @@ static struct reset_controller_dev sirfsoc_reset_controller = {
 	.nr_resets = SIRFSOC_RSTBIT_NUM,
 };
 
-static struct of_device_id rstc_ids[]  = {
+static const struct of_device_id rstc_ids[]  = {
 	{ .compatible = "sirf,prima2-rstc" },
 	{ .compatible = "sirf,marco-rstc" },
 	{},
 };
 
-void __init sirfsoc_of_rstc_init(void)
+static int sirfsoc_rstc_probe(struct platform_device *pdev)
 {
-	struct device_node *np = of_find_matching_node(NULL, rstc_ids);
-	if (!np)
-		panic("unable to find compatible rstc node in dtb\n");
-
+	struct device_node *np = pdev->dev.of_node;
 	sirfsoc_rstc_base = of_iomap(np, 0);
 	if (!sirfsoc_rstc_base)
 		panic("unable to map rstc cpu registers\n");
 
 	sirfsoc_reset_controller.of_node = np;
 
+	if (IS_ENABLED(CONFIG_RESET_CONTROLLER))
+		reset_controller_register(&sirfsoc_reset_controller);
+
 	if (of_property_read_u32(np, "sirf,pwrc-base", &sirfsoc_pwrc_base))
 		panic("unable to find pwrc-base offset\n");
 
-	if (IS_ENABLED(CONFIG_RESET_CONTROLLER))
-		reset_controller_register(&sirfsoc_reset_controller);
+	return 0;
 }
+
+static struct platform_driver sirfsoc_rstc_driver = {
+	.probe		= sirfsoc_rstc_probe,
+	.driver		= {
+		.name	= "sirfsoc_rstc",
+		.owner	= THIS_MODULE,
+		.of_match_table = rstc_ids,
+	},
+};
+
+static int __init sirfsoc_rstc_init(void)
+{
+	return platform_driver_register(&sirfsoc_rstc_driver);
+}
+subsys_initcall(sirfsoc_rstc_init);
 
 #define SIRFSOC_SYS_RST_BIT  BIT(31)
 
