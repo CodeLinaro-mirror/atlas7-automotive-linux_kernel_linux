@@ -78,9 +78,9 @@ static void  pixcir_ts_report_event(struct pixcir_ts_data *ts)
 		for (i = 0; i < fingers; i++) {
 			/*Get the touch position*/
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
-					ts->touch_data.point[i].posx);
+					le16_to_cpu(ts->touch_data.point[i].posx));
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,
-					ts->touch_data.point[i].posy);
+					le16_to_cpu(ts->touch_data.point[i].posy));
 
 			input_report_key(ts->input_dev, ABS_MT_TRACKING_ID,
 					ts->touch_data.point[i].id);
