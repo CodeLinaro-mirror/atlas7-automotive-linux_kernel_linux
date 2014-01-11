@@ -138,7 +138,6 @@ static int pixcir_ts_probe(struct i2c_client *client,
 {
 	struct pixcir_ts_data *ts;
 	struct input_dev *input_dev;
-	struct device_node *np = client->dev.of_node;
 	u8 tmp = 0;
 	int ret;
 
@@ -150,18 +149,6 @@ static int pixcir_ts_probe(struct i2c_client *client,
 		return -ENOMEM;
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
-
-	ts->touch_pin = of_get_named_gpio(np, "touch-gpio", 0);
-	if (!gpio_is_valid(ts->touch_pin)) {
-		dev_err(&client->dev, "invalid touch_pin supplied\n");
-		return -EINVAL;
-	}
-	if (devm_gpio_request(&client->dev, ts->touch_pin, "touch-gpio")) {
-		dev_err(&client->dev, "request touch gpio failed\n");
-		return -EINVAL;
-	}
-	gpio_direction_input(ts->touch_pin);
-	client->irq = gpio_to_irq(ts->touch_pin);
 
 	input_dev = devm_input_allocate_device(&client->dev);
 	if (!input_dev)
@@ -202,7 +189,7 @@ static int pixcir_ts_probe(struct i2c_client *client,
 	ret = devm_request_threaded_irq(&client->dev,
 		client->irq,
 		NULL, pixcir_ts_irq_handler,
-		IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
+		IRQF_ONESHOT,
 		client->name, ts);
 	if (ret) {
 		dev_err(&client->dev, "\nFailed to register interrupt\n");
