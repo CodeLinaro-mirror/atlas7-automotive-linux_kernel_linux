@@ -670,7 +670,12 @@ static void gic_cpu_restore(unsigned int gic_nr)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4);
 
 	writel_relaxed(0xf0, cpu_base + GIC_CPU_PRIMASK);
-	writel_relaxed(1, cpu_base + GIC_CPU_CTRL);
+
+#ifdef CONFIG_SECURITY_MODE
+ 	writel_relaxed(0x0b, cpu_base + GIC_CPU_CTRL);
+#else
+ 	writel_relaxed(0x01, cpu_base + GIC_CPU_CTRL);
+#endif
 }
 
 static int gic_notifier(struct notifier_block *self, unsigned long cmd,	void *v)
