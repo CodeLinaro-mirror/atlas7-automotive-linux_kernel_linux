@@ -131,8 +131,8 @@ typedef struct board_info {
 	u8		imr_all;
 
 	unsigned int	flags;
-	unsigned int	in_suspend :1;
-	unsigned int	wake_supported :1;
+	unsigned int	in_suspend:1;
+	unsigned int	wake_supported:1;
 
 	enum dm9000_type type;
 
@@ -180,7 +180,7 @@ static inline board_info_t *to_dm9000_board(struct net_device *dev)
 /* DM9000 network board routine ---------------------------- */
 
 static void
-dm9000_reset(board_info_t * db)
+dm9000_reset(board_info_t *db)
 {
 	dev_dbg(db->dev, "resetting device\n");
 
@@ -197,7 +197,7 @@ dm9000_reset(board_info_t * db)
  *   Read a byte from I/O port
  */
 static u8
-ior(board_info_t * db, int reg)
+ior(board_info_t *db, int reg)
 {
 	DM9K_SELECT_IO_ADDR();
 	writeb(reg, db->io_addr);
@@ -210,7 +210,7 @@ ior(board_info_t * db, int reg)
  */
 
 static void
-iow(board_info_t * db, int reg, int value)
+iow(board_info_t *db, int reg, int value)
 {
 	DM9K_SELECT_IO_ADDR();
 	writeb(reg, db->io_addr);
@@ -661,9 +661,9 @@ static const struct ethtool_ops dm9000_ethtool_ops = {
 	.get_link		= dm9000_get_link,
 	.get_wol		= dm9000_get_wol,
 	.set_wol		= dm9000_set_wol,
- 	.get_eeprom_len		= dm9000_get_eeprom_len,
- 	.get_eeprom		= dm9000_get_eeprom,
- 	.set_eeprom		= dm9000_set_eeprom,
+	.get_eeprom_len		= dm9000_get_eeprom_len,
+	.get_eeprom		= dm9000_get_eeprom,
+	.set_eeprom		= dm9000_set_eeprom,
 };
 
 static void dm9000_show_carrier(board_info_t *db,
@@ -1180,7 +1180,7 @@ static irqreturn_t dm9000_wol_interrupt(int irq, void *dev_id)
 			dev_info(db->dev, "wake by link status change\n");
 		if (wcr & WCR_SAMPLEST)
 			dev_info(db->dev, "wake by sample packet\n");
-		if (wcr & WCR_MAGICST )
+		if (wcr & WCR_MAGICST)
 			dev_info(db->dev, "wake by magic packet\n");
 		if (!(wcr & (WCR_LINKST | WCR_SAMPLEST | WCR_MAGICST)))
 			dev_err(db->dev, "wake signalled with no reason? "
@@ -1273,7 +1273,7 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
 
 	mutex_lock(&db->addr_lock);
 
-	spin_lock_irqsave(&db->lock,flags);
+	spin_lock_irqsave(&db->lock, flags);
 
 	DM9K_SELECT_IO_ADDR();
 	/* Save previous register address */
@@ -1287,11 +1287,11 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
 	DM9K_SELECT_IO_ADDR();
 
 	writeb(reg_save, db->io_addr);
-	spin_unlock_irqrestore(&db->lock,flags);
+	spin_unlock_irqrestore(&db->lock, flags);
 
 	dm9000_msleep(db, 1);		/* Wait read complete */
 
-	spin_lock_irqsave(&db->lock,flags);
+	spin_lock_irqsave(&db->lock, flags);
 
 	DM9K_SELECT_IO_ADDR();
 
@@ -1305,7 +1305,7 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
 	DM9K_SELECT_IO_ADDR();
 	/* restore the previous address */
 	writeb(reg_save, db->io_addr);
-	spin_unlock_irqrestore(&db->lock,flags);
+	spin_unlock_irqrestore(&db->lock, flags);
 
 	mutex_unlock(&db->addr_lock);
 
@@ -1327,7 +1327,7 @@ dm9000_phy_write(struct net_device *dev,
 	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
 	mutex_lock(&db->addr_lock);
 
-	spin_lock_irqsave(&db->lock,flags);
+	spin_lock_irqsave(&db->lock, flags);
 
 	DM9K_SELECT_IO_ADDR();
 
@@ -1349,7 +1349,7 @@ dm9000_phy_write(struct net_device *dev,
 
 	dm9000_msleep(db, 1);		/* Wait write complete */
 
-	spin_lock_irqsave(&db->lock,flags);
+	spin_lock_irqsave(&db->lock, flags);
 
 	DM9K_SELECT_IO_ADDR();
 	reg_save = readb(db->io_addr);
