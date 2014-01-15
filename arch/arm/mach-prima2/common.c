@@ -20,37 +20,37 @@
 #include "common.h"
 
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *uname,
-                                int depth, void *data)
+	int depth, void *data)
 {
-        __be32 *mem_info;
-        unsigned long len;
+	__be32 *mem_info;
+	unsigned long len;
 	unsigned int rc_addr, rc_sz, dqs_addr, dqs_sz;
 
-        mem_info = of_get_flat_dt_prop(node,
-                        "rc-range", &len);
-        if (!mem_info || (len != 2 * sizeof(unsigned long)))
-                return 0;
+	mem_info = of_get_flat_dt_prop(node,
+		"rc-range", &len);
+	if (!mem_info || (len != 2 * sizeof(unsigned long)))
+		return 0;
 
-        rc_addr = be32_to_cpu(mem_info[0]);
-        rc_sz = be32_to_cpu(mem_info[1]);
+	rc_addr = be32_to_cpu(mem_info[0]);
+	rc_sz = be32_to_cpu(mem_info[1]);
 
-        if (memblock_reserve(rc_addr, rc_sz))
-                pr_err("failed to reserve romcode memory(0x%x bytes at 0x%x)\n",
-                        rc_addr, rc_sz);
+	if (memblock_reserve(rc_addr, rc_sz))
+		pr_err("failed to reserve romcode memory(0x%x bytes at 0x%x)\n",
+			rc_addr, rc_sz);
 
-        mem_info = of_get_flat_dt_prop(node,
-                        "dqs-range", &len);
-        if (!mem_info || (len != 2 * sizeof(unsigned long)))
-                return 0;
+	mem_info = of_get_flat_dt_prop(node,
+		"dqs-range", &len);
+	if (!mem_info || (len != 2 * sizeof(unsigned long)))
+		return 0;
 
-        dqs_addr = be32_to_cpu(mem_info[0]);
-        dqs_sz = be32_to_cpu(mem_info[1]);
+	dqs_addr = be32_to_cpu(mem_info[0]);
+	dqs_sz = be32_to_cpu(mem_info[1]);
 
-        if (memblock_reserve(dqs_addr, dqs_sz))
-                pr_err("failed to reserve dqs memory(0x%x bytes at 0x%x)\n",
-                        dqs_addr, dqs_sz);
+	if (memblock_reserve(dqs_addr, dqs_sz))
+		pr_err("failed to reserve dqs memory(0x%x bytes at 0x%x)\n",
+			dqs_addr, dqs_sz);
 
-        return 1;
+	return 1;
 }
 
 /*
@@ -61,8 +61,8 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *un
  */
 void __init sirfsoc_pre_reserve()
 {
-        if (!of_scan_flat_dt(sirf_fdt_handle_pre_rsv_mem, NULL))
-                pr_err("failed to find reserved memory.\n");
+	if (!of_scan_flat_dt(sirf_fdt_handle_pre_rsv_mem, NULL))
+		pr_err("failed to find reserved memory.\n");
 }
 
 void __init sirfsoc_reserve(void)
