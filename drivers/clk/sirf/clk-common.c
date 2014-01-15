@@ -167,7 +167,7 @@ static long cpu_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	struct clk *parent_clk = clk_get_parent(hw->clk);
 	struct clk *pll_parent_clk = clk_get_parent(parent_clk);
 	unsigned long pll_parent_rate = clk_get_rate(pll_parent_clk);
-	return pll_clk_round_rate(parent_clk->hw, rate, &pll_parent_rate);
+	return pll_clk_round_rate(__clk_get_hw(parent_clk), rate, &pll_parent_rate);
 }
 
 static unsigned long cpu_clk_recalc_rate(struct clk_hw *hw,
@@ -178,7 +178,7 @@ static unsigned long cpu_clk_recalc_rate(struct clk_hw *hw,
 	 * So return the parent pll rate.
 	 */
 	struct clk *parent_clk = clk_get_parent(hw->clk);
-	return parent_clk->rate;
+	return __clk_get_rate(parent_clk);
 }
 
 static struct clk_ops std_pll_ops = {

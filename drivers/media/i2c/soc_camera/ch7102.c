@@ -54,6 +54,11 @@
 #define OUTCTR     0xBA  /* TTL Output Control Register, on page 1 */
 #define FW_VER     0xE3  /* Firmware Version Register, on page 2
 			    firmware version format: xxxx.xx.xx */
+#define ANA_REG0   0x4 /*  Analog RW Retister 0, on page 10*/
+
+
+
+#define AUDIO_ENABLED 0x41 /* Macro used to cofirm if auido is enabled*/
 
 static int fw_version;
 
@@ -348,12 +353,24 @@ static ssize_t ch7102_audio_rate_show(struct device *dev,
 {
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 	u8 value = 0;
+	u8 ana_reg0 = 0;
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+	ana_reg0 = i2c_smbus_read_byte_data(client, ANA_REG0);
+
+	/* 0x41 in aga_reg0 describes there is auido I2S data */
+	if (ana_reg0 != AUDIO_ENABLED) {
+		value = 0;
+		return sprintf(buf, "%d", value);
+	}
 
 	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
 	value = i2c_smbus_read_byte_data(client, AUDIO_INFO);
 	value &= 0xf;
+
 	return sprintf(buf, "%d", samplerate_table[value]);
 }
+
 static DEVICE_ATTR(ch7102_audio_rate, S_IRUGO,
 		ch7102_audio_rate_show, NULL);
 

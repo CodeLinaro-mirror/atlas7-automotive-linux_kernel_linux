@@ -22,7 +22,6 @@ extern struct smp_operations   sirfsoc_smp_ops;
 extern void sirfsoc_secondary_startup(void);
 extern void sirfsoc_cpu_die(unsigned int cpu);
 
-extern void __init sirfsoc_of_rstc_init(void);
 extern void __init sirfsoc_of_irq_init(void);
 extern void sirfsoc_restart(enum reboot_mode, const char *);
 extern asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs);

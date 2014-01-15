@@ -142,7 +142,8 @@
 				};
 				tangoc-ts@5c{
 					compatible = "pixcir,tangoc-ts";
-					touch-gpio = <&gpio 3 0>;
+					interrupt-parent = <&gpio>;
+					interrupts = <3 0x02>;
 					reg = <0x5c>;
 				};
 				ft5x06@38{
