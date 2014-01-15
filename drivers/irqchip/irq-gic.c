@@ -42,6 +42,12 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqchip/arm-gic.h>
 
+#ifdef CONFIG_SECURITY_MODE
+#ifdef CONFIG_CSRVISOR_SW_FIFO
+#include <linux/csrvisor_syscalls.h>
+#endif
+#endif
+
 #include <asm/irq.h>
 #include <asm/exception.h>
 #include <asm/smp_plat.h>
@@ -411,6 +417,14 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	 * for IPI in non-secure Linux
 	 */
 	writel_relaxed(0xffffffff, base + GIC_DIST_IGROUP);
+
+#ifdef CONFIG_CSRVISOR_SW_FIFO
+	/*
+	 * write interrupt set-pending register address to csrvisor.
+	 */
+	csrvisor_set_ispr((unsigned long)base + GIC_DIST_PENDING_SET);
+#endif
+
 #endif
 
 	/*
