@@ -1938,7 +1938,7 @@ static void reset(void)
 {
 }
 
-static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
+static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO *pPanel)
 {
 	memset(pPanel, 0, sizeof(*pPanel));
 
@@ -2523,7 +2523,7 @@ static int sirfsocfb_restore(struct device *dev)
 
 #ifdef CONFIG_ANDROID
 	/* Clear fb0 to avoid wallpaper garbage after hibernation back */
-	if(fb->layer_info[LCD_PRIMARY].enabled)
+	if (fb->layer_info[LCD_PRIMARY].enabled)
 		memset(fb->fb[LCD_PRIMARY].screen_base, 0x0,
 			fb->fb[LCD_PRIMARY].fix.smem_len);
 #endif
