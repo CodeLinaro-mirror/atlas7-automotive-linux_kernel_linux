@@ -310,7 +310,7 @@ static int ch7102_g_input_status(struct v4l2_subdev *sd,
 
 	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
 	value = i2c_smbus_read_byte_data(client, STATUS);
-	*status = ((value & 0x40) >> 6 );
+	*status = (value & 0x40) >> 6;
 	return 0;
 }
 
