@@ -56,10 +56,12 @@
 #define FW_VER     0xE3  /* Firmware Version Register, on page 2
 			    firmware version format: xxxx.xx.xx */
 #define ANA_REG0   0x4 /*  Analog RW Retister 0, on page 10*/
+#define STATUS	   0x5  /*  General status retister, on page 2*/
 
 
-
+/* retister value */
 #define AUDIO_ENABLED 0x41 /* Macro used to cofirm if auido is enabled*/
+#define FW_VERSION    0x2F /* From this version, HDMI output state is changed*/
 
 static int fw_version;
 
@@ -93,7 +95,7 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 	int i;
 
 	if (enable) {
-		if (fw_version >= 0x2F) {
+		if (fw_version >= FW_VERSION) {
 			for (i = 0; i < 15; i++) {
 				i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
 				value = i2c_smbus_read_byte_data(client, INSIG_STAT);
@@ -114,7 +116,7 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 			i2c_smbus_write_byte_data(client, CONTROL, value);
 		}
 	} else {
-		if (fw_version >= 0x2F) {
+		if (fw_version >= FW_VERSION) {
 			i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
 			/*	set output to tri-state	*/
 			value = 0x00;
@@ -292,6 +294,26 @@ static int ch7102_s_mbus_config(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ch7102_g_input_status(struct v4l2_subdev *sd,
+					unsigned int *status)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ch7102_priv *priv = to_ch7102(client);
+	unsigned int value = 0;
+
+	if (fw_version >= FW_VERSION) {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+		value = i2c_smbus_read_byte_data(client, INSIG_STAT);
+		*status = value & 0x1;
+		return 0;
+	}
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	value = i2c_smbus_read_byte_data(client, STATUS);
+	*status = ((value & 0x40) >> 6 );
+	return 0;
+}
+
 static struct v4l2_subdev_video_ops ch7102_subdev_video_ops = {
 	.s_stream	= ch7102_s_stream,
 	.g_mbus_fmt	= ch7102_g_fmt,
@@ -302,6 +324,7 @@ static struct v4l2_subdev_video_ops ch7102_subdev_video_ops = {
 	.enum_mbus_fmt	= ch7102_enum_fmt,
 	.g_mbus_config  = ch7102_g_mbus_config,
 	.s_mbus_config  = ch7102_s_mbus_config,
+	.g_input_status = ch7102_g_input_status,
 };
 
 static struct v4l2_subdev_ops ch7102_subdev_ops = {
@@ -400,7 +423,7 @@ static int ch7102_get_fw_version(void)
 	if (value != -1)
 		return value;
 	else
-		return 0x2F;
+		return FW_VERSION;
 }
 
 static int ch7102_probe(struct i2c_client *client,

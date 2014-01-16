@@ -55,6 +55,7 @@ static DEFINE_MUTEX(camera_lock);
 /* v4l2 csr extensions */
 #define V4L2_CID_GET_ADDR (V4L2_CID_USER_BASE + 0x1000)
 #define V4L2_CID_SET_INTERLACE (V4L2_CID_USER_BASE + 0x1001)
+#define V4L2_CID_GET_VIDEO_STATE (V4L2_CID_USER_BASE + 0x1002)
 
 static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
@@ -695,11 +696,14 @@ static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
 
 static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-        struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sirfsoc_camera_dev *pcdev = ici->priv;
-        struct videobuf_queue *q;
-        int index;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct videobuf_queue *q;
+	int index;
+	unsigned int status;
+	int ret = 0;
 
         switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
@@ -721,6 +725,13 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 			pcdev->pdata->sirfsoc_camera_interlaced = 1;
 		else
 			pcdev->pdata->sirfsoc_camera_interlaced = 0;
+		break;
+	case V4L2_CID_GET_VIDEO_STATE:
+		ret = v4l2_subdev_call(sd, video, g_input_status, &status);
+		if (ret < 0) {
+			return -EINVAL;
+		}
+		ctrl->val = status;
 		break;
         default:
                 return -EINVAL;
