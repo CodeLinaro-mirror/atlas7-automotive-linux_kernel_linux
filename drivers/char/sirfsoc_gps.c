@@ -68,8 +68,8 @@ struct gps_dev {
 	unsigned short			return_code;
 	int				return_value;
 	int				int_count;
-	char				*str_status[256];
-	char				**p_read;
+	char				str_status[256];
+	char				*p_read;
 
 	struct pm_qos_request qos_request;
 	struct cdev			cdev; /*Char device structure */
@@ -81,11 +81,11 @@ struct sirfsoc_gps_pdata {
 	int shutdown_gpio;
 	int lan_en_gpio;
 
-	char **dsp_clk;
-	char **gps_clk;
-	char **mf_clk;
-	char **cpu_clk;
-	char **cph_clk;
+	char *dsp_clk;
+	char *gps_clk;
+	char *mf_clk;
+	char *cpu_clk;
+	char *cph_clk;
 };
 
 enum {
@@ -482,7 +482,7 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_DSP_EXECUTE:
 		/*for simplify, skip DSP running check and wait for DSP
 		 *complete step just trigger the DSP interrupt with the address
-		 **/
+		 */
 		writel(arg, PORT_ADDR(dev->iface_base, RISC_INT_DSP));
 		break;
 
@@ -526,9 +526,9 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			(unsigned short __user *)arg);
 		__put_user((unsigned long)(dev->rtc_counter),
 			(unsigned long __user *)(arg + 4));
-		__put_user(*(unsigned long *)((char **)&dev->timevalofday),
+		__put_user(*(unsigned long *)((char *)&dev->timevalofday),
 			(unsigned long __user *)(arg + 8));
-		__put_user(*(unsigned long *)((char **)&dev->timevalofday + 4),
+		__put_user(*(unsigned long *)((char *)&dev->timevalofday + 4),
 			(unsigned long __user *)(arg + 12));
 		break;
 
@@ -743,7 +743,7 @@ static const struct file_operations gps_fops = {
 };
 
 static ssize_t gps_sys_dump_status(struct device *dev,
-	struct device_attribute *attr, char **buf)
+	struct device_attribute *attr, char *buf)
 {
 	struct gps_dev *gps_device = dev_get_drvdata(dev);
 	if (!gps_device) {
