@@ -2508,13 +2508,15 @@ static int sirfsocfb_freeze(struct device *dev)
 #endif
 	disable_irq(fb->irq);
 
-	fb->lcd_func.pfnSleep();
 	/* For Android hibernation, lcd clock can not be disabled here.
 	 * Or else, shutdown wallpaper can not be seen after this function.
+	 * Shut down lcd panel will only show backlight if lcd clock is
+	 * enabled, so don't do it here.
 	 * Separate Android from Linux because of Linux don't have shutdown
 	 * wallpaper now.
 	 * Make it general if Linux adds shutdown wallpaper in future */
 #ifndef CONFIG_ANDROID
+	fb->lcd_func.pfnSleep();
 	clk_disable(fb->clk);
 #endif
 	clk_disable(fb->vpp_clk);
