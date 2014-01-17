@@ -2509,7 +2509,14 @@ static int sirfsocfb_freeze(struct device *dev)
 	disable_irq(fb->irq);
 
 	fb->lcd_func.pfnSleep();
+	/* For Android hibernation, lcd clock can not be disabled here.
+	 * Or else, shutdown wallpaper can not be seen after this function.
+	 * Separate Android from Linux because of Linux don't have shutdown
+	 * wallpaper now.
+	 * Make it general if Linux adds shutdown wallpaper in future */
+#ifndef CONFIG_ANDROID
 	clk_disable(fb->clk);
+#endif
 	clk_disable(fb->vpp_clk);
 
 	return 0;
@@ -2533,7 +2540,13 @@ static int sirfsocfb_restore(struct device *dev)
 	fb->ble_func.pfnWakeup();
 	enable_irq(fb->ble_irq);
 #endif
+	/* For Android hibernation, there is no need to enable lcd clock here
+	 * because it is always enabled in uboot. This is only used for Android
+	 * shutdown wallpaper feature.
+	 * Make it general if Linux adds shutdown wallpaper in future */
+#ifndef CONFIG_ANDROID
 	clk_enable(fb->clk);
+#endif
 	clk_enable(fb->vpp_clk);
 
 	/* Check if LCD preinited by uboot */
