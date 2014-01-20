@@ -80,6 +80,23 @@ struct vring_virtqueue
 	/* Last used index we've seen. */
 	u16 last_used_idx;
 
+#ifdef CONFIG_VIRTIO_BACKEND
+	/* Last avail index we've seen */
+	u16 last_avail_idx;
+
+	/* Last used index value we have signalled on */
+	u16 signalled_used;
+
+	/* Last used index value we have signalled on */
+	bool signalled_used_valid;
+
+	/* Notification enabled? */
+	bool notification;
+
+	int inuse;
+
+#endif /* CONFIG_VIRTIO_BACKEND */
+
 	/* How to notify other side. FIXME: commonalize hcalls! */
 	bool (*notify)(struct virtqueue *vq);
 
@@ -734,10 +751,13 @@ irqreturn_t vring_interrupt(int irq, void *_vq)
 {
 	struct vring_virtqueue *vq = to_vvq(_vq);
 
+#ifndef CONFIG_VIRTIO_BACKEND
+	/* Only check used desc in frontend for bidirectional VQ */
 	if (!more_used(vq)) {
 		pr_debug("virtqueue interrupt with no work for %p\n", vq);
 		return IRQ_NONE;
 	}
+#endif
 
 	if (unlikely(vq->broken))
 		return IRQ_HANDLED;
@@ -793,14 +813,18 @@ struct virtqueue *vring_new_virtqueue(unsigned int index,
 	vq->indirect = virtio_has_feature(vdev, VIRTIO_RING_F_INDIRECT_DESC);
 	vq->event = virtio_has_feature(vdev, VIRTIO_RING_F_EVENT_IDX);
 
+#ifndef CONFIG_VIRTIO_BACKEND
 	/* No callback?  Tell other side not to bother us. */
 	if (!callback)
 		vq->vring.avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
-
+#endif
 	/* Put everything in free lists. */
 	vq->free_head = 0;
 	for (i = 0; i < num-1; i++) {
+		/* Backend VIRTIO does not need init desc */
+#ifndef CONFIG_VIRTIO_BACKEND
 		vq->vring.desc[i].next = i+1;
+#endif
 		vq->data[i] = NULL;
 	}
 	vq->data[i] = NULL;
@@ -858,5 +882,569 @@ bool virtqueue_is_broken(struct virtqueue *_vq)
 	return vq->broken;
 }
 EXPORT_SYMBOL_GPL(virtqueue_is_broken);
+
+
+/* The following code is merged from qemu. And these codes only can
+ * be used in backend virtual driver.
+ * The original source code is marked at following URL:
+ * http://git.qemu.org/?p=qemu.git;a=blob_plain;f=hw/virtio/virtio.c;hb=refs/tags/v1.6.1
+ */
+
+#ifdef CONFIG_VIRTIO_BACKEND
+
+#define VQ_ACCESS_RAW_MEMOEY	0
+
+static inline u32 vring_desc_addr(u32 desc_pa, int i)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+	pa = (u32 *)(desc_pa + sizeof(struct vring_desc) * i
+		+ offsetof(struct vring_desc, addr));
+	return *pa;
+#else
+	return ((struct vring_desc *)desc_pa)[i].addr;
+#endif
+}
+
+static inline u32 vring_desc_len(u32 desc_pa, int i)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+	pa = (u32 *)(desc_pa + sizeof(struct vring_desc) * i +
+		offsetof(struct vring_desc, len));
+	return *pa;
+#else
+	return ((struct vring_desc *)desc_pa)[i].len;
+#endif
+}
+
+static inline u16 vring_desc_flags(u32 desc_pa, int i)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)(desc_pa + sizeof(struct vring_desc) * i +
+		offsetof(struct vring_desc, flags));
+	return *pa;
+#else
+	return ((struct vring_desc *)desc_pa)[i].flags;
+#endif
+}
+
+static inline u16 vring_desc_next(u32 desc_pa, int i)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)(desc_pa + sizeof(struct vring_desc) * i +
+		offsetof(struct vring_desc, next));
+	return *pa;
+#else
+	return ((struct vring_desc *)desc_pa)[i].next;
+#endif
+}
+
+static inline u16 vring_avail_flags(struct vring_virtqueue *vq)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)((size_t)vq->vring.avail +
+		offsetof(struct vring_avail, flags));
+	return *pa;
+#else
+	return vq->vring.avail->flags;
+#endif
+}
+
+static inline u16 vring_avail_idx(struct vring_virtqueue *vq)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)((size_t)vq->vring.avail +
+		offsetof(struct vring_avail, idx));
+	return *pa;
+#else
+	return vq->vring.avail->idx;
+#endif
+}
+
+
+static inline u16 vring_avail_ring(struct vring_virtqueue *vq, int i)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)((size_t)vq->vring.avail +
+		offsetof(struct vring_avail, ring[i]));
+	return *pa;
+#else
+	return vq->vring.avail->ring[i];
+#endif
+}
+
+static inline void vring_used_ring_id(struct vring_virtqueue *vq,
+				int i, u32 val)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+	pa = (u32 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, ring[i].id));
+	*pa = val;
+#else
+	vq->vring.used->ring[i].id = val;
+#endif
+
+	return;
+}
+
+static inline void vring_used_ring_len(struct vring_virtqueue *vq,
+			int i, u32 val)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+	pa = (u32 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, ring[i].len));
+	*pa = val;
+#else
+	vq->vring.used->ring[i].len = val;
+#endif
+
+	return;
+}
+
+static inline u16 vring_used_idx(struct vring_virtqueue *vq)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, idx));
+	return *pa;
+#else
+	return vq->vring.used->idx;
+#endif
+}
+
+static inline void vring_used_idx_set(struct vring_virtqueue *vq, u16 val)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u16 *pa;
+	pa = (u16 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, idx));
+	*pa = val;
+#else
+	vq->vring.used->idx = val;
+#endif
+	return;
+}
+
+static inline void vring_used_flags_set_bit(struct vring_virtqueue *vq,
+					int mask)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+	pa = (u32 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, flags));
+	*pa |= mask;
+#else
+	vq->vring.used->flags |= mask;
+#endif
+	return;
+}
+
+static inline void vring_used_flags_unset_bit(struct vring_virtqueue *vq,
+					int mask)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+	pa = (u32 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, flags));
+	*pa = (*pa & (~mask));
+#else
+	vq->vring.used->flags &= (~mask);
+#endif
+	return;
+}
+
+static inline void vring_avail_event_backend(struct vring_virtqueue *vq,
+					u16 val)
+{
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	u32 *pa;
+#endif
+
+	if (!vq->notification)
+		return;
+
+#ifdef VQ_ACCESS_RAW_MEMOEY
+	pa = (u32 *)((size_t)vq->vring.used +
+		offsetof(struct vring_used, ring[vq->vring.num].id));
+	*pa = val;
+#else
+	vq->vring.used->ring[vq->vring.num].id = val;
+#endif
+	return;
+}
+
+void virtio_queue_set_notification(struct virtqueue *_vq, int enable)
+{
+	struct vring_virtqueue *vq = to_vvq(_vq);
+
+	vq->notification = enable;
+
+	/* Fix it: currently, we assume guest features are equal
+	 * to local features
+	 */
+	/* if (_vq->vdev->guest_features & (1 << VIRTIO_RING_F_EVENT_IDX)) */
+	if (_vq->vdev->features[0] & (1 << VIRTIO_RING_F_EVENT_IDX))
+		vring_avail_event_backend(vq, vring_avail_idx(vq));
+	else if (enable)
+		vring_used_flags_unset_bit(vq, VRING_USED_F_NO_NOTIFY);
+	else
+		vring_used_flags_set_bit(vq, VRING_USED_F_NO_NOTIFY);
+
+	/* Expose avail event/used flags before caller checks the avail idx. */
+	if (enable)
+		virtio_mb(vq->weak_barriers);
+
+	return;
+}
+
+int virtio_queue_ready(struct virtqueue *_vq)
+{
+	struct vring_virtqueue *vq = to_vvq(_vq);
+	return vq->vring.avail != 0;
+}
+
+int virtio_queue_empty(struct virtqueue *_vq)
+{
+	struct vring_virtqueue *vq = to_vvq(_vq);
+	return vring_avail_idx(vq) == vq->last_avail_idx;
+}
+
+void virtqueue_fill(struct virtqueue *_vq,
+			const struct virtqueue_element *elem,
+			unsigned int len, unsigned int idx)
+{
+	unsigned int offset;
+	int i;
+	struct vring_virtqueue *vq = to_vvq(_vq);
+
+	offset = 0;
+	for (i = 0; i < elem->in_num; i++) {
+		size_t size = min(len - offset, elem->in_sg[i].iov_len);
+		iounmap(elem->in_sg[i].iov_base);
+		offset += elem->in_sg[i].iov_len;
+		BUG_ON(size != elem->in_sg[i].iov_len);
+	}
+
+	for (i = 0; i < elem->out_num; i++)
+		iounmap(elem->out_sg[i].iov_base);
+
+	idx = (idx + vring_used_idx(vq)) % vq->vring.num;
+
+	/* Get a pointer to the next entry in the used ring. */
+	vring_used_ring_id(vq, idx, elem->index);
+	vring_used_ring_len(vq, idx, len);
+
+	return;
+}
+
+void virtqueue_flush(struct virtqueue *_vq, unsigned int count)
+{
+	u16 old, cur;
+	struct vring_virtqueue *vq = to_vvq(_vq);
+
+	/* Make sure buffer is written before we update index. */
+	virtio_wmb(vq->weak_barriers);
+
+	old = vring_used_idx(vq);
+	cur = old + count;
+	vring_used_idx_set(vq, cur);
+	vq->inuse -= count;
+	if (unlikely((int16_t)(cur - vq->signalled_used) < (u16)(cur - old)))
+		vq->signalled_used_valid = false;
+
+	return;
+}
+
+void virtqueue_push(struct virtqueue *_vq,
+		const struct virtqueue_element *elem, unsigned int len)
+{
+	virtqueue_fill(_vq, elem, len, 0);
+	virtqueue_flush(_vq, 1);
+}
+
+static int virtqueue_num_heads(struct vring_virtqueue *vq, unsigned int idx)
+{
+	u16 num_heads = vring_avail_idx(vq) - idx;
+
+	/* Check it isn't doing very strange things with descriptor numbers. */
+	if (num_heads > vq->vring.num) {
+		pr_err("Guest moved used index from %u to %u\n",
+			idx, vring_avail_idx(vq));
+		BUG_ON(1);
+	}
+	/* On success, callers read a descriptor at vq->last_avail_idx.
+	 * Make sure descriptor read does not bypass avail index read. */
+	if (num_heads)
+		virtio_rmb(vq->weak_barriers);
+
+	return num_heads;
+}
+
+
+static unsigned int virtqueue_get_head(struct vring_virtqueue *vq,
+					unsigned int idx)
+{
+	unsigned int head;
+
+	/* Grab the next descriptor number they're advertising, and increment
+	 * the index we've seen. */
+	head = vring_avail_ring(vq, idx % vq->vring.num);
+
+	/* If their number is silly, that's a fatal mistake. */
+	if (head >= vq->vring.num) {
+		pr_err("Guest says index %u is available\n", head);
+		BUG_ON(1);
+	}
+
+	return head;
+}
+
+static unsigned int virtqueue_next_desc(struct vring_virtqueue *vq,
+					u32 desc_pa, unsigned int i,
+					unsigned int max)
+{
+	unsigned int next;
+
+	/* If this descriptor says it doesn't chain, we're done. */
+	if (!(vring_desc_flags(desc_pa, i) & VRING_DESC_F_NEXT))
+		return max;
+
+	/* Check they're not leading us off end of descriptors. */
+	next = vring_desc_next(desc_pa, i);
+	/* Make sure compiler knows to grab that: we don't want it changing! */
+	virtio_wmb(vq->weak_barriers);
+
+	if (next >= max) {
+		pr_err("Desc next is %u\n", next);
+		BUG_ON(1);
+	}
+
+	return next;
+}
+
+void virtqueue_get_avail_bytes(struct virtqueue *_vq, unsigned int *in_bytes,
+				unsigned int *out_bytes,
+				unsigned max_in_bytes, unsigned max_out_bytes)
+{
+	unsigned int idx;
+	unsigned int total_bufs, in_total, out_total;
+	struct vring_virtqueue *vq = to_vvq(_vq);
+
+	idx = vq->last_avail_idx;
+
+	total_bufs = in_total = out_total = 0;
+	while (virtqueue_num_heads(vq, idx)) {
+		unsigned int max, num_bufs, indirect = 0;
+		u32 desc_pa;
+		int i;
+
+		max = vq->vring.num;
+		num_bufs = total_bufs;
+		i = virtqueue_get_head(vq, idx++);
+		desc_pa = (u32)vq->vring.desc;
+
+		if (vring_desc_flags(desc_pa, i) & VRING_DESC_F_INDIRECT) {
+			if (vring_desc_len(desc_pa, i) %
+				sizeof(struct vring_desc)) {
+				pr_err("Invalid size for indirect buffer table\n");
+				BUG_ON(1);
+			}
+
+			/* If we've got too many
+			 * that implies a descriptor loop.
+			 */
+			if (num_bufs >= max) {
+				pr_err("Looped descriptor\n");
+				BUG_ON(1);
+			}
+
+			/* loop over the indirect descriptor table */
+			indirect = 1;
+			max = vring_desc_len(desc_pa, i) /
+					sizeof(struct vring_desc);
+			desc_pa = vring_desc_addr(desc_pa, i);
+			num_bufs = i = 0;
+		}
+
+		do {
+			/* If we've got too many
+			 * that implies a descriptor loop.
+			 */
+			if (++num_bufs > max) {
+				pr_err("Looped descriptor\n");
+				BUG_ON(1);
+			}
+
+			if (vring_desc_flags(desc_pa, i) & VRING_DESC_F_WRITE)
+				in_total += vring_desc_len(desc_pa, i);
+			else
+				out_total += vring_desc_len(desc_pa, i);
+
+			if (in_total >= max_in_bytes &&
+				out_total >= max_out_bytes)
+				goto done;
+
+		} while ((i = virtqueue_next_desc(vq, desc_pa, i, max)) != max);
+
+		if (!indirect)
+			total_bufs = num_bufs;
+		else
+			total_bufs++;
+	}
+
+done:
+	if (in_bytes)
+		*in_bytes = in_total;
+
+	if (out_bytes)
+		*out_bytes = out_total;
+
+	return;
+}
+
+int virtqueue_avail_bytes(struct virtqueue *_vq,
+			unsigned int in_bytes, unsigned int out_bytes)
+{
+	unsigned int in_total, out_total;
+
+	virtqueue_get_avail_bytes(_vq, &in_total,
+				&out_total, in_bytes, out_bytes);
+	return in_bytes <= in_total && out_bytes <= out_total;
+}
+
+void virtqueue_map_sg(struct kvec *sg, u32 *addr, size_t num_sg,
+			int is_write)
+{
+	unsigned int i;
+
+	for (i = 0; i < num_sg; i++) {
+		sg[i].iov_base = ioremap(addr[i], sg[i].iov_len);
+		if (sg[i].iov_base == NULL) {
+			pr_err("virtio: trying to map MMIO memory");
+			BUG_ON(1);
+		}
+	}
+	return;
+}
+
+int virtqueue_pop(struct virtqueue *_vq, struct virtqueue_element *elem)
+{
+	unsigned int i, head, max, is_indirect = 0;
+	struct vring_virtqueue *vq = to_vvq(_vq);
+	u32 desc_pa = (u32)vq->vring.desc;
+
+	if (!virtqueue_num_heads(vq, vq->last_avail_idx))
+		return 0;
+
+	/* When we start there are none of either input nor output. */
+	elem->out_num = elem->in_num = 0;
+
+	max = vq->vring.num;
+
+	i = head = virtqueue_get_head(vq, vq->last_avail_idx++);
+
+	/* Fix it: currently, we assume guest features are equal
+	 * to local features
+	 */
+	/* if (_vq->vdev->guest_features & (1 << VIRTIO_RING_F_EVENT_IDX)) */
+	if (_vq->vdev->features[0] & (1 << VIRTIO_RING_F_EVENT_IDX))
+		vring_avail_event_backend(vq, vring_avail_idx(vq));
+
+	if (vring_desc_flags(desc_pa, i) & VRING_DESC_F_INDIRECT) {
+		int indirect_len;
+
+		if (vring_desc_len(desc_pa, i) % sizeof(struct vring_desc)) {
+			pr_err("Invalid size for indirect buffer table");
+			BUG_ON(1);
+		}
+		/* loop over the indirect descriptor table */
+		indirect_len = vring_desc_len(desc_pa, i);
+		max = indirect_len / sizeof(struct vring_desc);
+		desc_pa = (u32)ioremap((phys_addr_t)
+			vring_desc_addr(desc_pa, i), indirect_len);
+		if (desc_pa == (u32)NULL) {
+			pr_err("virtio: trying to map MMIO memory, %s\n",
+				__func__);
+			BUG_ON(1);
+		}
+		is_indirect = 1;
+		i = 0;
+	}
+
+	/* Collect all the descriptors */
+	do {
+		struct kvec *sg;
+
+		if (vring_desc_flags(desc_pa, i) & VRING_DESC_F_WRITE) {
+			if (elem->in_num >= ARRAY_SIZE(elem->in_sg)) {
+				pr_err("Too many write descriptors in indirect table\n");
+				BUG_ON(1);
+			}
+			elem->in_addr[elem->in_num] =
+				vring_desc_addr(desc_pa, i);
+			sg = &elem->in_sg[elem->in_num++];
+		} else {
+			if (elem->out_num >= ARRAY_SIZE(elem->out_sg)) {
+				pr_err("Too many read descriptors in indirect table\n");
+				BUG_ON(1);
+			}
+			elem->out_addr[elem->out_num] =
+				vring_desc_addr(desc_pa, i);
+			sg = &elem->out_sg[elem->out_num++];
+		}
+
+		sg->iov_len = vring_desc_len(desc_pa, i);
+
+		/* If we've got too many, that implies a descriptor loop. */
+		if ((elem->in_num + elem->out_num) > max) {
+			pr_err("Looped descriptor\n");
+			BUG_ON(1);
+		}
+	} while ((i = virtqueue_next_desc(vq, desc_pa, i, max)) != max);
+
+	if (is_indirect)
+		iounmap((void *)desc_pa);
+
+	/* Now map what we have collected */
+	virtqueue_map_sg(elem->in_sg, elem->in_addr, elem->in_num, 1);
+	virtqueue_map_sg(elem->out_sg, elem->out_addr, elem->out_num, 0);
+
+	elem->index = head;
+
+	vq->inuse++;
+
+	return elem->in_num + elem->out_num;
+}
+
+
+void virtqueue_iovec_init_external(struct virtqueue_iovector *vq_iov,
+					struct kvec *iov, int niov)
+{
+	int i;
+
+	vq_iov->base = NULL;
+	vq_iov->iov = iov;
+	vq_iov->n_iov = niov;
+	vq_iov->size = 0;
+
+	for (i = 0; i < niov; i++)
+		vq_iov->size += iov[i].iov_len;
+
+	if (i)
+		vq_iov->base = iov[0].iov_base;
+
+	return;
+}
+
+#endif /* CONFIG_VIRTIO_BACKEND */
 
 MODULE_LICENSE("GPL");

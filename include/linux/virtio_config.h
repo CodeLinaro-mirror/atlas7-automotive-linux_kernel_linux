@@ -204,6 +204,13 @@ static inline u8 virtio_cread8(struct virtio_device *vdev, unsigned int offset)
 	return ret;
 }
 
+static inline void virtio_cwrite_bytes(struct virtio_device *vdev,
+				      unsigned int offset,
+				      void *buf, size_t len)
+{
+	vdev->config->set(vdev, offset, buf, len);
+}
+
 static inline void virtio_cread_bytes(struct virtio_device *vdev,
 				      unsigned int offset,
 				      void *buf, size_t len)

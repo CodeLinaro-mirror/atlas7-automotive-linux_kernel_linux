@@ -75,6 +75,64 @@ unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
 
 bool virtqueue_is_broken(struct virtqueue *vq);
 
+
+/* virtqueue functions for backend */
+#ifdef CONFIG_VIRTIO_BACKEND
+
+struct virtqueue_iovector {
+	void *base;
+	struct kvec *iov;
+	int n_iov;
+	int nalloc;
+	size_t size;
+};
+
+#define VIRTQUEUE_MAX_SIZE 1024
+
+struct virtqueue_element {
+	unsigned int index;
+	unsigned int out_num;
+	unsigned int in_num;
+	u32 in_addr[VIRTQUEUE_MAX_SIZE];
+	u32 out_addr[VIRTQUEUE_MAX_SIZE];
+	struct kvec in_sg[VIRTQUEUE_MAX_SIZE];
+	struct kvec out_sg[VIRTQUEUE_MAX_SIZE];
+};
+
+void virtqueue_push(struct virtqueue *vq,
+			const struct virtqueue_element *elem,
+			unsigned int len);
+
+void virtqueue_flush(struct virtqueue *vq, unsigned int count);
+
+void virtqueue_fill(struct virtqueue *vq,
+			const struct virtqueue_element *elem,
+			unsigned int len, unsigned int idx);
+
+void virtqueue_map_sg(struct kvec *sg, u32 *addr,
+			size_t num_sg, int is_write);
+
+int virtqueue_pop(struct virtqueue *vq, struct virtqueue_element *elem);
+
+int virtqueue_avail_bytes(struct virtqueue *vq, unsigned int in_bytes,
+				unsigned int out_bytes);
+
+void virtqueue_get_avail_bytes(struct virtqueue *vq, unsigned int *in_bytes,
+			unsigned int *out_bytes, unsigned max_in_bytes,
+			unsigned max_out_bytes);
+
+void virtqueue_iovec_init_external(struct virtqueue_iovector *vq_iov,
+			struct kvec *iov, int niov);
+
+void virtio_queue_set_notification(struct virtqueue *vq, int enable);
+
+int virtio_queue_ready(struct virtqueue *vq);
+
+int virtio_queue_empty(struct virtqueue *vq);
+
+
+#endif /* CONFIG_VIRTIO_BACKEND */
+
 /**
  * virtio_device - representation of a device using virtio
  * @index: unique position on the virtio bus
