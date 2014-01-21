@@ -59,6 +59,9 @@ bool virtqueue_notify(struct virtqueue *vq);
 
 void *virtqueue_get_buf(struct virtqueue *vq, unsigned int *len);
 
+void *virtqueue_get_buf_with_idx(struct virtqueue *_vq,
+			unsigned int *p_idx, unsigned int *len);
+
 void virtqueue_disable_cb(struct virtqueue *vq);
 
 bool virtqueue_enable_cb(struct virtqueue *vq);
@@ -70,6 +73,9 @@ bool virtqueue_poll(struct virtqueue *vq, unsigned);
 bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
 
 void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+
+bool virtqueue_set_used_buf(struct virtqueue *_vq,
+			unsigned int idx, unsigned int len);
 
 unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
 
