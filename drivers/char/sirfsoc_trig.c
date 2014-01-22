@@ -54,9 +54,9 @@
 #include <linux/cdev.h>
 #include <linux/suspend.h>
 
-#include <../mmc/core/sdio_ops.h>
-#include <../mmc/host/sdhci.h>
-#include <../mmc/host/sdhci-pltfm.h>
+#include "../mmc/core/sdio_ops.h"
+#include "../mmc/host/sdhci.h"
+#include "../mmc/host/sdhci-pltfm.h"
 
 #include "sirfsoc_gpsdrv.h"
 
