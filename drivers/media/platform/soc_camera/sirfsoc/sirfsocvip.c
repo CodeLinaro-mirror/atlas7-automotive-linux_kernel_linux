@@ -702,7 +702,7 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	struct videobuf_queue *q;
 	int index;
-	unsigned int status;
+	unsigned int status = 0;
 	int ret = 0;
 
         switch (ctrl->id) {
@@ -731,7 +731,9 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret < 0) {
 			return -EINVAL;
 		}
-		ctrl->val = status;
+		ctrl->val = 1;
+		if (!status)
+			ctrl->val = 0;
 		break;
         default:
                 return -EINVAL;
@@ -759,6 +761,17 @@ static const struct v4l2_ctrl_config sirfsoc_ctrl_set_interlace = {
 	.ops = &sirfsoc_vip_ctrl_ops,
 	.id = V4L2_CID_SET_INTERLACE,
 	.name = "set interlace flag",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.def = 1,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config sirfsoc_ctrl_get_video_state = {
+	.ops = &sirfsoc_vip_ctrl_ops,
+	.id = V4L2_CID_GET_VIDEO_STATE,
+	.name = "get video state",
 	.type = V4L2_CTRL_TYPE_BOOLEAN,
 	.def = 1,
 	.min = 0,
@@ -804,6 +817,10 @@ static int sirfsoc_camera_get_formats(struct soc_camera_device *icd,
 			return icd->ctrl_handler.error;
 		v4l2_ctrl_new_custom(&icd->ctrl_handler,
 			&sirfsoc_ctrl_get_addr, NULL);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler,
+			&sirfsoc_ctrl_get_video_state, NULL);
 		if (icd->ctrl_handler.error)
 			return icd->ctrl_handler.error;
 	}
