@@ -41,6 +41,11 @@
 #include <linux/virtio.h>
 #include <linux/completion.h>
 #include <linux/idr.h>
+#include <linux/interrupt.h>
+#include <linux/semaphore.h>
+
+
+#define RPROC_RSC_TABLE_VER_DUAL_OS	0x80001000
 
 /**
  * struct resource_table - firmware resource table header
@@ -235,7 +240,9 @@ struct fw_rsc_trace {
 
 /**
  * struct fw_rsc_vdev_vring - vring descriptor entry
- * @da: device address
+ * @da: device address. In dual OS environment, da is the physical memory
+ *      address of vring descriptor start address, this memory is allocated
+ *      by frontend OS.
  * @align: the alignment between the consumer and producer parts of the vring
  * @num: num of buffers supported by this vring (must be power of two)
  * @notifyid is a unique rproc-wide notify index for this vring. This notify
@@ -330,12 +337,30 @@ struct rproc;
  * @start:	power on the device and boot it
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
+ * @resource:	alloc the resource table for rproc
+ * @release:	release the resource table.
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
+	void (*resource)(struct rproc *rproc);
+	void (*release)(struct rproc *rproc);
+	u32 (*features)(void);
 };
+
+/* Definition of remoteproc features */
+#define RPROC_F_FIRMWARE		(0x1 << 0)
+#define RPROC_F_BACKEND			(0x1 << 1)
+#define RPROC_F_FRONTEND		(0x1 << 2)
+#define RPROC_F_BUS_WRITE		(0x1 << 3)
+#define RPROC_F_LIFECYCLE		(0x1 << 4)
+#define RPROC_F_DEVICE_MMIO		(0x1 << 5)
+#define RPROC_F_DYNAMIC_VQ		(0x1 << 6)
+#define RPROC_F_DEVICE_UPDATE_NOTIFY	(0x1 << 7)
+#define RPROC_F_PREDEFINED_VQ_NOTIFYID	(0x1 << 8)
+
+#define RPROC_HAS_FEATURE(rproc, f)	((rproc)->features & (f))
 
 /**
  * enum rproc_state - remote processor states
@@ -375,6 +400,7 @@ enum rproc_crash_type {
 
 /**
  * struct rproc - represents a physical remote processor device
+ * @features: the features of this rproc contained
  * @node: klist node of this rproc object
  * @domain: iommu domain
  * @name: human readable name of the rproc
@@ -404,8 +430,18 @@ enum rproc_crash_type {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
+ * @rvdev_ids: idr for dynamically assigning device unique notify ids
+ * @bus_task: thread for rproc bus task
+ * @async_kick_task: thread for async kick task
+ * @bus_task_head: list of bus task
+ * @async_kick_head: list of async kick
+ * @bus_task_lock: lock of bus task list
+ * @bus_task_wq: wait queue of bus task
+ * @async_kick_wq: wait queue of async kick
+ * @table_len: length of rproc resource table
  */
 struct rproc {
+	u32 features;
 	struct klist_node node;
 	struct iommu_domain *domain;
 	const char *name;
@@ -435,10 +471,23 @@ struct rproc {
 	struct resource_table *table_ptr;
 	struct resource_table *cached_table;
 	u32 table_csum;
+
+	/* the following are used for dual os */
+	struct idr rvdev_ids;
+	struct task_struct *bus_task;
+	struct task_struct *async_kick_task;
+	struct list_head bus_task_head;
+	struct list_head async_kick_head;
+	spinlock_t bus_task_lock;
+	wait_queue_head_t bus_task_wq;
+	wait_queue_head_t async_kick_wq;
+	u32 table_len;
 };
 
-/* we currently support only two vrings per rvdev */
-
+/**
+ * We currently support only two vrings per rvdev for firmware.
+ * But for dual OS, rproc will expand the vring array dynamically.
+ */
 #define RVDEV_NUM_VRINGS 2
 
 /**
@@ -463,6 +512,8 @@ struct rproc_vring {
 	struct virtqueue *vq;
 };
 
+typedef int rproc_dev_mmio(struct virtio_device *dev, u32 offset);
+
 /**
  * struct rproc_vdev - remoteproc state for a supported virtio device
  * @node: list node
@@ -477,11 +528,28 @@ struct rproc_vdev {
 	struct virtio_device vdev;
 	struct rproc_vring vring[RVDEV_NUM_VRINGS];
 	u32 rsc_offset;
+	/* the following are used for dual os. */
+	u32 notifyid;
+	u32 num_of_vring;
+	u32 features;
+	u32 status;
+	rproc_dev_mmio *mmio;
 };
 
 struct rproc *rproc_alloc(struct device *dev, const char *name,
 				const struct rproc_ops *ops,
 				const char *firmware, int len);
+
+int rproc_create_device(struct virtio_device **pp_vdev,
+			u32 virtio_device_id, u32 vq_num, u32 vq_len,
+			u32 features[], u32 feature_sz,
+			rproc_dev_mmio *mmio,
+			char *rproc_name);
+int rproc_setup_device(struct virtio_device *vdev);
+int rproc_set_mmio_handler(struct virtio_device *vdev, rproc_dev_mmio *mmio);
+void rproc_remove_device(struct virtio_device *vdev);
+
+
 void rproc_put(struct rproc *rproc);
 int rproc_add(struct rproc *rproc);
 int rproc_del(struct rproc *rproc);

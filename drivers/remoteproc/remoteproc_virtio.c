@@ -19,6 +19,7 @@
 
 #include <linux/export.h>
 #include <linux/remoteproc.h>
+#include <linux/remoteproc_dualos.h>
 #include <linux/virtio.h>
 #include <linux/virtio_config.h>
 #include <linux/virtio_ids.h>
@@ -41,6 +42,36 @@ static bool rproc_virtio_notify(struct virtqueue *vq)
 	rproc->ops->kick(rproc, notifyid);
 	return true;
 }
+
+/**
+ * rproc_bus_interrupt() - tell remoteproc that a bus task is arrived
+ * @rproc: handle to the remote processor
+ * @notifyid: message id of the bus task
+ *
+ * Some bus task may cause sleep. So we have to add each task into a task list,
+ * and left the task list to be handled in a no atomic context.
+ */
+irqreturn_t rproc_bus_interrupt(struct rproc *rproc, int notifyid)
+{
+	struct rproc_bus_task *task;
+
+	dev_dbg(&rproc->dev,
+		"vbus notifyid %08x is interrupted\n", notifyid);
+
+	task = kmalloc(sizeof(*task), GFP_ATOMIC);
+	if (task == NULL)
+		return IRQ_NONE;
+
+	task->notifyid = notifyid;
+	task->rproc = rproc;
+
+	/* We're in ISR atomic context. The spin_lock is useless */
+	list_add_tail(&task->node, &rproc->bus_task_head);
+
+	wake_up(&rproc->bus_task_wq);
+	return IRQ_HANDLED;
+}
+EXPORT_SYMBOL(rproc_bus_interrupt);
 
 /**
  * rproc_vq_interrupt() - tell remoteproc that a virtqueue is interrupted
@@ -68,6 +99,32 @@ irqreturn_t rproc_vq_interrupt(struct rproc *rproc, int notifyid)
 }
 EXPORT_SYMBOL(rproc_vq_interrupt);
 
+/**
+ * rproc_handle_virtio_task() - handle a virtio device layer task.
+ * @rproc: handle to the remote processor
+ * @taskid: message id of the vdev task
+ */
+int rproc_handle_virtio_task(struct rproc *rproc, int taskid)
+{
+	struct rproc_vdev *rvdev;
+	u32 notifyid, mmio_ofs;
+
+	notifyid = GET_NOTIFY_ID(taskid);
+	mmio_ofs = GET_MMIO_OFFSET(taskid);
+
+	dev_dbg(&rproc->dev, "vdev#%d is handled, mmio offset:0x%08x\n",
+		notifyid, mmio_ofs);
+
+	rvdev = idr_find(&rproc->rvdev_ids, notifyid);
+	if (!rvdev)
+		return IRQ_NONE;
+
+	if (rvdev->mmio)
+		rvdev->mmio(&rvdev->vdev, mmio_ofs);
+
+	return IRQ_HANDLED;
+}
+
 static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 				    unsigned id,
 				    void (*callback)(struct virtqueue *vq),
@@ -79,14 +136,29 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 	struct rproc_vring *rvring;
 	struct virtqueue *vq;
 	void *addr;
-	int len, size, ret;
-
-	/* we're temporarily limited to two virtqueues per rvdev */
-	if (id >= ARRAY_SIZE(rvdev->vring))
-		return ERR_PTR(-EINVAL);
+	int len, vq_limits, ret;
 
 	if (!name)
 		return NULL;
+
+	/* if the rproc doesn't support dynamic vq,
+	 * the vq limits is RVDEV_NUM_VRINGS
+	 */
+	vq_limits = ARRAY_SIZE(rvdev->vring);
+
+	/* if rproc supports dynamic vq
+	 * vq number could be 1 ~ RPROC_VDEV_MAX_VRING_NUM
+	 */
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DYNAMIC_VQ))
+		vq_limits = RPROC_VDEV_MAX_VRING_NUM;
+
+	if (vq_limits > rvdev->num_of_vring)
+		vq_limits = rvdev->num_of_vring;
+
+	if (id >= vq_limits) {
+		dev_err(dev, "rp_find_vq index out of range!\n");
+		return NULL;
+	}
 
 	ret = rproc_alloc_vring(rvdev, id);
 	if (ret)
@@ -95,10 +167,6 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 	rvring = &rvdev->vring[id];
 	addr = rvring->va;
 	len = rvring->len;
-
-	/* zero vring */
-	size = vring_size(len, rvring->align);
-	memset(addr, 0, size);
 
 	dev_dbg(dev, "vring%d: va %p qsz %d notifyid %d\n",
 					id, addr, len, rvring->notifyid);
@@ -139,8 +207,15 @@ static void rproc_virtio_del_vqs(struct virtio_device *vdev)
 	struct rproc *rproc = vdev_to_rproc(vdev);
 
 	/* power down the remote processor before deleting vqs */
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_LIFECYCLE))
+		goto del_vqs;
 	rproc_shutdown(rproc);
 
+del_vqs:
+	/* TODO: tell backend that frontend is going to become
+	 * offline. if backend is still running, the frontend
+	 * could not del virtqueue.
+	 */
 	__rproc_virtio_del_vqs(vdev);
 }
 
@@ -160,6 +235,9 @@ static int rproc_virtio_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 		}
 	}
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_LIFECYCLE))
+		goto exit;
+
 	/* now that the vqs are all set, boot the remote processor */
 	ret = rproc_boot(rproc);
 	if (ret) {
@@ -167,6 +245,7 @@ static int rproc_virtio_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 		goto error;
 	}
 
+exit:
 	return 0;
 
 error:
@@ -177,32 +256,46 @@ error:
 static u8 rproc_virtio_get_status(struct virtio_device *vdev)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 
-	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
-
-	return rsc->status;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
+		return rvdev->status;
+	else {
+		rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+		return rsc->status;
+	}
 }
 
 static void rproc_virtio_set_status(struct virtio_device *vdev, u8 status)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 
-	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
+		rvdev->status = status;
+	else {
+		rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+		rsc->status = status;
+	}
 
-	rsc->status = status;
 	dev_dbg(&vdev->dev, "status: %d\n", status);
 }
 
 static void rproc_virtio_reset(struct virtio_device *vdev)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 
-	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
+		rvdev->status = 0;
+	else {
+		rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+		rsc->status = 0;
+	}
 
-	rsc->status = 0;
 	dev_dbg(&vdev->dev, "reset !\n");
 }
 
@@ -210,39 +303,71 @@ static void rproc_virtio_reset(struct virtio_device *vdev)
 static u32 rproc_virtio_get_features(struct virtio_device *vdev)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 
-	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
-
-	return rsc->dfeatures;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
+		return rvdev->features | (1 << VIRTIO_RPROC_F_BACK);
+	else {
+		rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+		if (RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
+			return rsc->dfeatures | (1 << VIRTIO_RPROC_F_FRONT);
+		return rsc->dfeatures;
+	}
 }
 
 static void rproc_virtio_finalize_features(struct virtio_device *vdev)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
-
-	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
 
 	/* Give virtio_ring a chance to accept features */
 	vring_transport_features(vdev);
 
-	/*
-	 * Remember the finalized features of our vdev, and provide it
-	 * to the remote processor once it is powered on.
-	 */
-	rsc->gfeatures = vdev->features[0];
+	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND)) {
+		rsc->dfeatures = vdev->features[0];
+		rvdev->features = vdev->features[0];
+	} else {
+		/*
+		 * Remember the finalized features of our vdev, and provide it
+		 * to the remote processor once it is powered on.
+		 */
+		rsc->gfeatures = vdev->features[0];
+		if (RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
+			rproc->ops->kick(rproc,
+				MK_DEV_NOTIFYID(rvdev->notifyid,
+						MMIO_GFEATURES));
+	}
 }
 
 static void rproc_virtio_get(struct virtio_device *vdev, unsigned offset,
 							void *buf, unsigned len)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 	void *cfg;
 
 	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
-	cfg = &rsc->vring[rsc->num_of_vrings];
+
+	if (offset == MMIO_DFEATURES) {
+		len = (sizeof(rsc->dfeatures) > len)
+			? len : sizeof(rsc->dfeatures);
+		memcpy(buf, &rsc->dfeatures, len);
+		return;
+	} else if (offset == MMIO_GFEATURES) {
+		len = (sizeof(rsc->gfeatures) > len)
+			? len : sizeof(rsc->gfeatures);
+		memcpy(buf, &rsc->gfeatures, len);
+		return;
+	}
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DYNAMIC_VQ))
+		cfg = &rsc->vring[RPROC_VDEV_MAX_VRING_NUM];
+	else
+		cfg = &rsc->vring[rsc->num_of_vrings];
 
 	if (offset + len > rsc->config_len || offset + len < len) {
 		dev_err(&vdev->dev, "rproc_virtio_get: access out of bounds\n");
@@ -256,11 +381,16 @@ static void rproc_virtio_set(struct virtio_device *vdev, unsigned offset,
 		      const void *buf, unsigned len)
 {
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 	void *cfg;
 
 	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
-	cfg = &rsc->vring[rsc->num_of_vrings];
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DYNAMIC_VQ))
+		cfg = &rsc->vring[RPROC_VDEV_MAX_VRING_NUM];
+	else
+		cfg = &rsc->vring[rsc->num_of_vrings];
 
 	if (offset + len > rsc->config_len || offset + len < len) {
 		dev_err(&vdev->dev, "rproc_virtio_set: access out of bounds\n");
@@ -268,6 +398,12 @@ static void rproc_virtio_set(struct virtio_device *vdev, unsigned offset,
 	}
 
 	memcpy(cfg + offset, buf, len);
+
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
+		return;
+
+	rproc->ops->kick(rproc,
+			MK_DEV_NOTIFYID(rvdev->notifyid, offset));
 }
 
 static const struct virtio_config_ops rproc_virtio_config_ops = {
@@ -295,6 +431,12 @@ static void rproc_vdev_release(struct device *dev)
 	struct virtio_device *vdev = dev_to_virtio(dev);
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
 	struct rproc *rproc = vdev_to_rproc(vdev);
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
+		idr_remove(&rproc->rvdev_ids, rvdev->notifyid);
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
+		rproc_release_resource_entry(rproc, rvdev);
 
 	list_del(&rvdev->node);
 	kfree(rvdev);

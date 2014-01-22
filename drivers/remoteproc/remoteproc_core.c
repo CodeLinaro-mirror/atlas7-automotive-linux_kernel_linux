@@ -34,6 +34,7 @@
 #include <linux/string.h>
 #include <linux/debugfs.h>
 #include <linux/remoteproc.h>
+#include <linux/remoteproc_dualos.h>
 #include <linux/iommu.h>
 #include <linux/idr.h>
 #include <linux/elf.h>
@@ -48,6 +49,10 @@ typedef int (*rproc_handle_resources_t)(struct rproc *rproc,
 				struct resource_table *table, int len);
 typedef int (*rproc_handle_resource_t)(struct rproc *rproc,
 				 void *, int offset, int avail);
+
+/* MAX rproc handlers allowed */
+#define MAX_RPROC_HANDLER	32
+static struct rproc *s_rproc_dev_handlers[MAX_RPROC_HANDLER] = {NULL,};
 
 /* Unique indices for remoteproc devices */
 static DEFINE_IDA(rproc_dev_index);
@@ -189,6 +194,92 @@ void *rproc_da_to_va(struct rproc *rproc, u64 da, int len)
 }
 EXPORT_SYMBOL(rproc_da_to_va);
 
+
+static int __rproc_alloc_vring_notifyid(struct rproc *rproc,
+				struct rproc_vring *rvring)
+{
+	u32 ret, expect_id, notifyid;
+
+	/* If the VQ's notifyid has been predefined by remote side */
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_PREDEFINED_VQ_NOTIFYID))
+		expect_id = rvring->notifyid;
+	else
+		expect_id = 0;
+
+	/* Assign an rproc-wide unique index for this vring */
+	ret = idr_alloc(&rproc->notifyids, rvring, expect_id, 0, GFP_KERNEL);
+	if (ret < 0) {
+		dev_err(&rproc->dev, "idr_alloc failed: %d\n", ret);
+		return ret;
+	}
+
+	notifyid = ret;
+
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_PREDEFINED_VQ_NOTIFYID)) {
+		/* no predefined VQ id */
+		rvring->notifyid = notifyid;
+		goto exit;
+	}
+
+	if (expect_id != notifyid) {
+		/* alloc id is not identical with predefined id */
+		dev_err(&rproc->dev,
+			"idr_alloc %d has been occupied by other VQ\n",
+			expect_id);
+		idr_remove(&rproc->notifyids, notifyid);
+		return -EBUSY;
+	}
+exit:
+	return 0;
+}
+
+int rproc_alloc_vdev_notifyid(struct rproc *rproc,
+					struct rproc_vdev *rvdev)
+{
+	u32 ret, expect_id, notifyid;
+	struct fw_rsc_vdev *rsc;
+
+	/* resource entry of rvdev */
+	rsc = (struct fw_rsc_vdev *)
+			((u32)rproc->table_ptr + rvdev->rsc_offset);
+
+	/*
+	 * If this rproc has RPROC_F_FRONTEND feature, this means the
+	 * vdev's notifyid has been predefined by remote side */
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
+		expect_id = rsc->notifyid;
+	else
+		expect_id = RPROC_VDEV_MIN_ID;
+
+	ret = idr_alloc(&rproc->rvdev_ids,
+			rvdev, expect_id, 0, GFP_KERNEL);
+
+	if (ret < 0) {
+		dev_err(&rproc->dev,
+			"idr_alloc for rvdev failed: %d\n", ret);
+		return ret;
+	}
+
+	notifyid = ret;
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND)) {
+		rsc->notifyid = notifyid;
+		goto save_to_rvdev;
+	}
+
+	if (notifyid != expect_id) {
+		dev_err(&rproc->dev, "%s%s, expect:%08x actual:%08x\n",
+			"the predefined vdev notifyid",
+			"has been occupied already",
+			expect_id, notifyid);
+		idr_remove(&rproc->rvdev_ids, notifyid);
+		return -EBUSY;
+	}
+
+save_to_rvdev:
+	rvdev->notifyid = notifyid;
+	return 0;
+}
+
 int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 {
 	struct rproc *rproc = rvdev->rproc;
@@ -197,40 +288,51 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 	struct fw_rsc_vdev *rsc;
 	dma_addr_t dma;
 	void *va;
-	int ret, size, notifyid;
+	int ret, size;
 
 	/* actual size of vring (in bytes) */
 	size = PAGE_ALIGN(vring_size(rvring->len, rvring->align));
 
-	/*
-	 * Allocate non-cacheable memory for the vring. In the future
-	 * this call will also configure the IOMMU for us
-	 */
-	va = dma_alloc_coherent(dev->parent, size, &dma, GFP_KERNEL);
-	if (!va) {
-		dev_err(dev->parent, "dma_alloc_coherent failed\n");
-		return -EINVAL;
-	}
+	/* resource entry of rvdev */
+	rsc = (struct fw_rsc_vdev *)
+			((void *)rproc->table_ptr + rvdev->rsc_offset);
 
-	/*
-	 * Assign an rproc-wide unique index for this vring
-	 * TODO: assign a notifyid for rvdev updates as well
-	 * TODO: support predefined notifyids (via resource table)
-	 */
-	ret = idr_alloc(&rproc->notifyids, rvring, 0, 0, GFP_KERNEL);
-	if (ret < 0) {
-		dev_err(dev, "idr_alloc failed: %d\n", ret);
-		dma_free_coherent(dev->parent, size, va, dma);
-		return ret;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND)) {
+		/* if the vring has been pre-allocated by remote side,
+		 * just map the vring memory into native side space.
+		 */
+		dma = rsc->vring[i].da;
+		va = ioremap(dma, size);
+		if (!va)
+			return -EINVAL;
+	} else {
+		/*
+		 * Allocate non-cacheable memory for the vring. In the future
+		 * this call will also configure the IOMMU for us
+		 */
+		va = dma_alloc_coherent(dev->parent, size, &dma, GFP_KERNEL);
+		if (!va) {
+			dev_err(dev->parent, "dma_alloc_coherent failed\n");
+			return -EINVAL;
+		}
+
+		/* Assign an rproc-wide unique index for this vring */
+		ret = __rproc_alloc_vring_notifyid(rproc, rvring);
+		if (ret) {
+			dev_err(dev, "idr_alloc failed: %d\n", ret);
+			dma_free_coherent(dev->parent, size, va, dma);
+			return ret;
+		}
+
+		/* zero vring */
+		memset(va, 0, size);
 	}
-	notifyid = ret;
 
 	dev_dbg(dev, "vring%d: va %p dma %llx size %x idr %d\n", i, va,
-				(unsigned long long)dma, size, notifyid);
+		(unsigned long long)dma, size, rvring->notifyid);
 
 	rvring->va = va;
 	rvring->dma = dma;
-	rvring->notifyid = notifyid;
 
 	/*
 	 * Let the rproc know the notifyid and da of this vring.
@@ -238,9 +340,11 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 	 * set up the iommu. In this case the device address (da) will
 	 * hold the physical address and not the device address.
 	 */
-	rsc = (void *)rproc->table_ptr + rvdev->rsc_offset;
 	rsc->vring[i].da = dma;
-	rsc->vring[i].notifyid = notifyid;
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_PREDEFINED_VQ_NOTIFYID))
+		return 0;
+
+	rsc->vring[i].notifyid = rvring->notifyid;
 	return 0;
 }
 
@@ -272,6 +376,12 @@ rproc_parse_vring(struct rproc_vdev *rvdev, struct fw_rsc_vdev *rsc, int i)
 	rvring->align = vring->align;
 	rvring->rvdev = rvdev;
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_PREDEFINED_VQ_NOTIFYID))
+		goto exit;
+
+	/* if notify id is predefined, we read id from resource entry */
+	rvring->notifyid = vring->notifyid;
+exit:
 	return 0;
 }
 
@@ -282,12 +392,19 @@ void rproc_free_vring(struct rproc_vring *rvring)
 	int idx = rvring->rvdev->vring - rvring;
 	struct fw_rsc_vdev *rsc;
 
-	dma_free_coherent(rproc->dev.parent, size, rvring->va, rvring->dma);
-	idr_remove(&rproc->notifyids, rvring->notifyid);
-
 	/* reset resource entry info */
 	rsc = (void *)rproc->table_ptr + rvring->rvdev->rsc_offset;
-	rsc->vring[idx].da = 0;
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND)) {
+		if (rvring->va)
+			iounmap(rvring->va);
+	} else {
+		dma_free_coherent(rproc->dev.parent,
+				size, rvring->va, rvring->dma);
+		rsc->vring[idx].da = 0;
+	}
+
+	idr_remove(&rproc->notifyids, rvring->notifyid);
 	rsc->vring[idx].notifyid = -1;
 }
 
@@ -318,12 +435,12 @@ void rproc_free_vring(struct rproc_vring *rvring)
  *
  * Returns 0 on success, or an appropriate error code otherwise
  */
-static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
+int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 							int offset, int avail)
 {
 	struct device *dev = &rproc->dev;
 	struct rproc_vdev *rvdev;
-	int i, ret;
+	int i, ret, alloc_vq, vq_limits;
 
 	/* make sure resource isn't truncated */
 	if (sizeof(*rsc) + rsc->num_of_vrings * sizeof(struct fw_rsc_vdev_vring)
@@ -340,14 +457,32 @@ static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 
 	dev_dbg(dev, "vdev rsc: id %d, dfeatures %x, cfg len %d, %d vrings\n",
 		rsc->id, rsc->dfeatures, rsc->config_len, rsc->num_of_vrings);
-
 	/* we currently support only two vrings per rvdev */
-	if (rsc->num_of_vrings > ARRAY_SIZE(rvdev->vring)) {
+	vq_limits = ARRAY_SIZE(rvdev->vring);
+
+	/* If rproc supports RPROC_F_DYNAMIC_VQ, and vq number is greater
+	 * than RVDEV_NUM_VRINGS. We have to allocate rproc_vring * alloc_vq
+	 * memory for extended vring.
+	 */
+	alloc_vq = 0;
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_DYNAMIC_VQ))
+		goto alloc_rproc;
+
+	/* if rproc supports dynamic vq
+	 * vq number could be 1 ~ RPROC_VDEV_MAX_VRING_NUM
+	 */
+	vq_limits = RPROC_VDEV_MAX_VRING_NUM;
+	if (rsc->num_of_vrings > RVDEV_NUM_VRINGS)
+		alloc_vq = rsc->num_of_vrings - RVDEV_NUM_VRINGS;
+
+alloc_rproc:
+	if (rsc->num_of_vrings > vq_limits) {
 		dev_err(dev, "too many vrings: %d\n", rsc->num_of_vrings);
 		return -EINVAL;
 	}
 
-	rvdev = kzalloc(sizeof(struct rproc_vdev), GFP_KERNEL);
+	rvdev = kzalloc(sizeof(struct rproc_vdev) +
+			sizeof(struct rproc_vring) * alloc_vq, GFP_KERNEL);
 	if (!rvdev)
 		return -ENOMEM;
 
@@ -362,6 +497,13 @@ static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 
 	/* remember the resource offset*/
 	rvdev->rsc_offset = offset;
+	rvdev->num_of_vring = rsc->num_of_vrings;
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY)) {
+		ret = rproc_alloc_vdev_notifyid(rproc, rvdev);
+		if (ret)
+			goto free_rvdev;
+	}
 
 	list_add_tail(&rvdev->node, &rproc->rvdevs);
 
@@ -373,6 +515,8 @@ static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 	return 0;
 
 remove_rvdev:
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
+		idr_remove(&rproc->rvdev_ids, rvdev->notifyid);
 	list_del(&rvdev->node);
 free_rvdev:
 	kfree(rvdev);
@@ -1199,7 +1343,27 @@ int rproc_add(struct rproc *rproc)
 	/* create debugfs entries */
 	rproc_create_debug_dir(rproc);
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FIRMWARE))
+		goto no_fw_rproc;
+	/*
+	 * If this rproc has RPROC_F_FIRMWARE feature,
+	 * it will start to scan resource table and add virtio devices.
+	 */
 	return rproc_add_virtio_devices(rproc);
+
+no_fw_rproc:
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
+		goto exit;
+	/*
+	 * If this rproc has RPROC_F_FRONTEND feature, set default state
+	 * to RPROC_RUNNING, then tell backend its state is running now.
+	 */
+	rproc->state = RPROC_RUNNING;
+	/* kick the remote processor, and let it know bus is running */
+	rproc_kick_bus_async(rproc,
+		MK_BUS_NOTIFYID(RPROC_BUS_STATE_RUNNING));
+exit:
+	return ret;
 }
 EXPORT_SYMBOL(rproc_add);
 
@@ -1218,8 +1382,23 @@ static void rproc_type_release(struct device *dev)
 
 	dev_info(&rproc->dev, "releasing %s\n", rproc->name);
 
+	s_rproc_dev_handlers[rproc->index] = NULL;
+
 	rproc_delete_debug_dir(rproc);
 
+	if (!RPROC_HAS_FEATURE(rproc, (RPROC_F_BACKEND | RPROC_F_FRONTEND)))
+		goto free_rvdev_idr;
+
+	rproc_task_thread_stop(rproc);
+	rproc_release_resource_table(rproc);
+
+free_rvdev_idr:
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
+		goto free_notify_idr;
+
+	idr_destroy(&rproc->rvdev_ids);
+
+free_notify_idr:
 	idr_destroy(&rproc->notifyids);
 
 	if (rproc->index >= 0)
@@ -1232,6 +1411,26 @@ static struct device_type rproc_type = {
 	.name		= "remoteproc",
 	.release	= rproc_type_release,
 };
+
+/**
+ * rproc_get_handler_by_name() - get a rproc handler by name
+ * @name: the name of remote processor which has been registered
+ *
+ * Returns appropriate rproc handler on  success, or NULL otherwise
+ */
+struct rproc *rproc_get_instance_by_name(char *name)
+{
+	struct rproc *rproc = NULL;
+	int idx;
+
+	for (idx = 0; idx < MAX_RPROC_HANDLER; idx++) {
+		rproc = s_rproc_dev_handlers[idx];
+		if (rproc && !strcmp(rproc->name, name))
+			return rproc;
+	}
+
+	return NULL;
+}
 
 /**
  * rproc_alloc() - allocate a remote processor handle
@@ -1263,9 +1462,15 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	struct rproc *rproc;
 	char *p, *template = "rproc-%s-fw";
 	int name_len = 0;
+	u32 features;
 
 	if (!dev || !name || !ops)
 		return NULL;
+
+	if (ops->features)
+		features = ops->features();
+	else
+		features = (RPROC_F_FIRMWARE | RPROC_F_LIFECYCLE);
 
 	if (!firmware)
 		/*
@@ -1295,15 +1500,32 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	rproc->name = name;
 	rproc->ops = ops;
 	rproc->priv = &rproc[1];
+	rproc->features = features;
 
 	device_initialize(&rproc->dev);
-	rproc->dev.parent = dev;
+	if (features & RPROC_F_FIRMWARE)
+		rproc->dev.parent = dev;
+	else
+		/* Just a walkaround, we'll fix this when sirf remoteproc
+		 * use a platform device
+		 */
+		rproc->dev.parent = NULL;
 	rproc->dev.type = &rproc_type;
 
-	/* Assign a unique device index and name */
-	rproc->index = ida_simple_get(&rproc_dev_index, 0, 0, GFP_KERNEL);
+	/* Assign a unique device index and name.
+	 * We limit the max instance of rproc to MAX_RPROC_HANDLER.
+	 */
+	rproc->index = ida_simple_get(&rproc_dev_index,
+				0, MAX_RPROC_HANDLER, GFP_KERNEL);
 	if (rproc->index < 0) {
 		dev_err(dev, "ida_simple_get failed: %d\n", rproc->index);
+		put_device(&rproc->dev);
+		return NULL;
+	}
+
+	if (rproc->index >= MAX_RPROC_HANDLER) {
+		dev_err(dev,
+		"Assign a unique device index access out of bounds!\n");
 		put_device(&rproc->dev);
 		return NULL;
 	}
@@ -1328,6 +1550,31 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	init_completion(&rproc->crash_comp);
 
 	rproc->state = RPROC_OFFLINE;
+
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND | RPROC_F_FRONTEND))
+		goto save_instance;
+
+	spin_lock_init(&rproc->bus_task_lock);
+
+	init_waitqueue_head(&rproc->bus_task_wq);
+	init_waitqueue_head(&rproc->async_kick_wq);
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
+		idr_init(&rproc->rvdev_ids);
+
+	INIT_LIST_HEAD(&rproc->bus_task_head);
+	INIT_LIST_HEAD(&rproc->async_kick_head);
+
+	rproc_alloc_resource_table(rproc);
+	rproc_task_thread_setup(rproc);
+
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_LIFECYCLE))
+		goto save_instance;
+
+	rproc->recovery_disabled = true;
+
+save_instance:
+	s_rproc_dev_handlers[rproc->index] = rproc;
 
 	return rproc;
 }
@@ -1370,9 +1617,13 @@ int rproc_del(struct rproc *rproc)
 	if (!rproc)
 		return -EINVAL;
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FIRMWARE))
+		goto clean_vdev;
+
 	/* if rproc is just being registered, wait */
 	wait_for_completion(&rproc->firmware_loading_complete);
 
+clean_vdev:
 	/* clean up remote vdev entries */
 	list_for_each_entry_safe(rvdev, tmp, &rproc->rvdevs, node)
 		rproc_remove_virtio_dev(rvdev);
@@ -1380,6 +1631,12 @@ int rproc_del(struct rproc *rproc)
 	/* Free the copy of the resource table */
 	kfree(rproc->cached_table);
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
+		goto del_rproc_dev;
+	/* kick the remote processor, and let it know bus is offline */
+	rproc->ops->kick(rproc,	MK_BUS_NOTIFYID(RPROC_BUS_STATE_OFFLINE));
+
+del_rproc_dev:
 	device_del(&rproc->dev);
 
 	return 0;

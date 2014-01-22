@@ -156,6 +156,9 @@ rproc_recovery_write(struct file *filp, const char __user *user_buf,
 	char buf[10];
 	int ret;
 
+	if (!(rproc->features & RPROC_F_LIFECYCLE))
+		return -EPERM;
+
 	if (count > sizeof(buf))
 		return count;
 

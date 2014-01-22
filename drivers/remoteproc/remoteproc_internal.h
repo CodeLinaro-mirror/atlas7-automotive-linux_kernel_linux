@@ -48,10 +48,17 @@ struct rproc_fw_ops {
 /* from remoteproc_core.c */
 void rproc_release(struct kref *kref);
 irqreturn_t rproc_vq_interrupt(struct rproc *rproc, int vq_id);
+irqreturn_t rproc_bus_interrupt(struct rproc *rproc, int notifyid);
+struct rproc *rproc_get_instance_by_name(char *name);
+int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
+					int offset, int avail);
+int rproc_alloc_vdev_notifyid(struct rproc *rproc,
+					struct rproc_vdev *rvdev);
 
 /* from remoteproc_virtio.c */
 int rproc_add_virtio_dev(struct rproc_vdev *rvdev, int id);
 void rproc_remove_virtio_dev(struct rproc_vdev *rvdev);
+int rproc_handle_virtio_task(struct rproc *rproc, int notifyid);
 
 /* from remoteproc_debugfs.c */
 void rproc_remove_trace_file(struct dentry *tfile);
@@ -67,6 +74,16 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i);
 
 void *rproc_da_to_va(struct rproc *rproc, u64 da, int len);
 int rproc_trigger_recovery(struct rproc *rproc);
+
+/* from remoteproc_dualos.c */
+void rproc_alloc_resource_table(struct rproc *rproc);
+void rproc_release_resource_table(struct rproc *rproc);
+void rproc_release_resource_entry(struct rproc *rproc,
+			struct rproc_vdev *rvdev);
+
+int rproc_task_thread_setup(struct rproc *rproc);
+void rproc_task_thread_stop(struct rproc *rproc);
+void rproc_kick_bus_async(struct rproc *rproc, int notifyid);
 
 static inline
 int rproc_fw_sanity_check(struct rproc *rproc, const struct firmware *fw)
