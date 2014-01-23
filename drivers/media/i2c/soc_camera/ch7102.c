@@ -27,6 +27,8 @@
 #include <linux/of_gpio.h>
 #include <linux/sysfs.h>
 
+#include "../../platform/soc_camera/sirfsoc/sirfsoc_decoder_op.h"
+
 #define WIDTH  1280
 #define HEIGHT	720
 
@@ -426,6 +428,59 @@ static int ch7102_get_fw_version(void)
 		return FW_VERSION;
 }
 
+static int ch7102_op_start(int input)
+{
+	struct i2c_client *client = ch7102_client;
+	u8 value;
+	int i;
+
+	if (fw_version >= FW_VERSION) {
+		for (i = 0; i < 15; i++) {
+			i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+			value = i2c_smbus_read_byte_data(client, INSIG_STAT);
+			if (value == 1)
+				break;
+			msleep(200);
+		}
+		/* enable output */
+		value = 0x01;
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+		i2c_smbus_write_byte_data(client, OUTCTR, value);
+	} else {
+		/* select page 10 */
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+		value = i2c_smbus_read_byte_data(client, CONTROL);
+		/* enable output */
+		value |= 0x80;
+		i2c_smbus_write_byte_data(client, CONTROL, value);
+	}
+}
+
+static int ch7102_op_stop(void)
+{
+	struct i2c_client *client = ch7102_client;
+	u8 value;
+
+	if (fw_version >= FW_VERSION) {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+		/* set output to tri-state */
+		value = 0x00;
+		i2c_smbus_write_byte_data(client, OUTCTR, value);
+	} else {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+		value = i2c_smbus_read_byte_data(client, CONTROL);
+		/* set output to tri-state */
+		value &= ~0x80;
+		i2c_smbus_write_byte_data(client, CONTROL, value);
+	}
+}
+
+static struct sirfsoc_decoder_ops ch7102_decoder_ops = {
+	.desc = "ch7102",
+	.start = ch7102_op_start,
+	.stop = ch7102_op_stop,
+};
+
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
@@ -468,6 +523,7 @@ static int ch7102_probe(struct i2c_client *client,
 
 	ch7102_client = client;
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
+	sirfsoc_register_decoder_ops(&ch7102_decoder_ops);
 
 	ret = sysfs_create_file(&client->dev.kobj,
 		&dev_attr_ch7102_audio_rate.attr);

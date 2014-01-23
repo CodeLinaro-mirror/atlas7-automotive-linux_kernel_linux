@@ -8,12 +8,14 @@ enum input_t {
 };
 
 struct sirfsoc_decoder_ops {
+	char desc[16];
 	int (*detect)(void);
 	int (*init)(void);
 	int (*deinit)(void);
 	int (*start)(int);
 	int (*stop)(void);
 	int (*set_fmt)(void);
+	struct sirfsoc_decoder_ops *next;
 };
 
 int sirfsoc_register_decoder_ops(struct sirfsoc_decoder_ops *ops);
