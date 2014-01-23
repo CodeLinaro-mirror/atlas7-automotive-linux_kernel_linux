@@ -77,7 +77,6 @@
 			rstc: reset-controller@88010000 {
 				compatible = "sirf,prima2-rstc";
 				reg = <0x88010000 0x1000>;
-				sirf,pwrc-base = <0x3000>;
 				#reset-cells = <1>;
 			};
 
