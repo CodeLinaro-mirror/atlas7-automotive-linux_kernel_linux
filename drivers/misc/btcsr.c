@@ -20,13 +20,12 @@
 #include <linux/pwm.h>
 #include <linux/slab.h>
 
-
 struct rfkill_gpio_data {
-	struct rfkill		*rfkill_dev;
-	struct pwm_device	*pwm;
-	int			power_gpio;
-	int			reset_gpio;
-	int			power_number;
+	struct rfkill *rfkill_dev;
+	struct pwm_device *pwm;
+	int power_gpio;
+	int reset_gpio;
+	int power_number;
 };
 
 static int rfkill_gpio_set_power(void *data, bool blocked)
@@ -34,27 +33,46 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 	struct rfkill_gpio_data *rfkill = data;
 
 	if (blocked) {
+		if (rfkill->power_number <= 0)
+			return 0;
+
 		if (rfkill->power_number > 1) {
+			pr_debug("%s: power_number is %d\n "
+			       , __func__, 1);
+			pr_debug("%s: decrease to %d and return\n "
+			       , __func__, rfkill->power_number - 1);
 			rfkill->power_number--;
-			return 0;/*some other apps need power, just return*/
+			/*some other apps need power, just return */
+			return 0;
 		}
 
-		if (gpio_is_valid(rfkill->power_gpio))
+		if (gpio_is_valid(rfkill->power_gpio)) {
+			pr_debug("%s: power off\n", __func__);
 			gpio_direction_output(rfkill->power_gpio, 0);
+			rfkill->power_number--;
+		}
 
 		pwm_disable(rfkill->pwm);
 	} else {
-		if (rfkill->power_number++)
-			return 0;/*power already on, just return*/
+		rfkill->power_number++;
+		if (rfkill->power_number > 1) {
+			pr_debug("%s: power already on, rfkill->power_number:%d\n",
+			       __func__, rfkill->power_number);
+			return 0;	/*power already on, just return */
+		}
 
-		if (gpio_is_valid(rfkill->power_gpio))
+		if (gpio_is_valid(rfkill->power_gpio)) {
+			pr_debug("%s: power on\n", __func__);
 			gpio_direction_output(rfkill->power_gpio, 1);
+		}
 
 		pwm_enable(rfkill->pwm);
 
 		msleep(20);
 
 		if (gpio_is_valid(rfkill->reset_gpio)) {
+
+			pr_debug("%s:reset\n", __func__);
 			gpio_set_value(rfkill->reset_gpio, 0);
 
 			msleep(60);
@@ -78,6 +96,7 @@ static int bt_csr_probe(struct platform_device *pdev)
 
 	int ret = 0;
 
+	pr_debug("%s\n", __func__);
 	rfkill = kzalloc(sizeof(*rfkill), GFP_KERNEL);
 	if (!rfkill) {
 
@@ -85,12 +104,11 @@ static int bt_csr_probe(struct platform_device *pdev)
 		goto fail_alloc;
 	}
 
-	rfkill->power_gpio =  of_get_named_gpio(dn,
-			"bt_gpio_power", 0);
-	rfkill->reset_gpio =  of_get_named_gpio(dn,
-			"bt_gpio_reset", 0);
+	rfkill->power_gpio = of_get_named_gpio(dn, "bt_gpio_power", 0);
+	rfkill->reset_gpio = of_get_named_gpio(dn, "bt_gpio_reset", 0);
 
 	if (gpio_is_valid(rfkill->power_gpio)) {
+		pr_debug("%s: request power gpio\n", __func__);
 		ret = gpio_request(rfkill->power_gpio, "bt power gpio");
 		if (ret) {
 			pr_warn("%s: failed to get power gpio.\n", __func__);
@@ -99,6 +117,7 @@ static int bt_csr_probe(struct platform_device *pdev)
 	}
 
 	if (gpio_is_valid(rfkill->reset_gpio)) {
+		pr_debug("%s: request reset gpio\n", __func__);
 		ret = gpio_request(rfkill->reset_gpio, "bt reset gpio");
 		if (ret) {
 			pr_warn("%s: failed to get reset gpio.\n", __func__);
@@ -116,9 +135,9 @@ static int bt_csr_probe(struct platform_device *pdev)
 	pwm_config(rfkill->pwm, 0, rfkill->pwm->period);
 	pwm_enable(rfkill->pwm);
 
-
 	rfkill->rfkill_dev = rfkill_alloc("csrbt-8311", &pdev->dev,
-			RFKILL_TYPE_BLUETOOTH, &rfkill_gpio_ops, rfkill);
+					  RFKILL_TYPE_BLUETOOTH,
+					  &rfkill_gpio_ops, rfkill);
 	if (!rfkill->rfkill_dev) {
 		ret = -ENOMEM;
 		goto fail_reset;
@@ -166,21 +185,21 @@ static int bt_csr_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id bt_csr_of_match[] = {
-	{.compatible = "csr,bt-8311", },
-	{ },
+	{.compatible = "csr,bt-8311",},
+	{},
 };
+
 MODULE_DEVICE_TABLE(of, bt_csr_of_match);
 
 static struct platform_driver bt_csr_driver = {
 	.driver = {
-		.name = "bt-csr-rfkill",
-		.owner = THIS_MODULE,
-		.of_match_table = bt_csr_of_match,
-	},
+		   .name = "bt-csr-rfkill",
+		   .owner = THIS_MODULE,
+		   .of_match_table = bt_csr_of_match,
+		   },
 	.probe = bt_csr_probe,
 	.remove = bt_csr_remove,
 };
-
 
 module_platform_driver(bt_csr_driver);
 
