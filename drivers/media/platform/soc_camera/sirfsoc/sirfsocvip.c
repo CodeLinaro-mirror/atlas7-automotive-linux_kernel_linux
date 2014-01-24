@@ -699,11 +699,8 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sirfsoc_camera_dev *pcdev = ici->priv;
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	struct videobuf_queue *q;
 	int index;
-	unsigned int status = 0;
-	int ret = 0;
 
         switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
@@ -726,6 +723,36 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 		else
 			pcdev->pdata->sirfsoc_camera_interlaced = 0;
 		break;
+        default:
+                return -EINVAL;
+        }
+        return 0;
+}
+
+static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct videobuf_queue *q;
+	int index;
+	unsigned int status = 0;
+	int ret = 0;
+
+        switch (ctrl->id) {
+	case V4L2_CID_GET_ADDR:
+                q = &icd->vb_vidq;
+                index = ctrl->val;
+
+                if (index < 0 || index > VIDEO_MAX_FRAME - 1)
+                        return -EINVAL;
+
+                if (q->bufs[index] == NULL ||
+                        q->bufs[index]->map == NULL)
+                        return -EINVAL;
+
+                ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
+                break;
+
 	case V4L2_CID_GET_VIDEO_STATE:
 		ret = v4l2_subdev_call(sd, video, g_input_status, &status);
 		if (ret < 0) {
@@ -739,11 +766,12 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
                 return -EINVAL;
         }
         return 0;
+	return 0;
 }
 
-
 static const struct v4l2_ctrl_ops sirfsoc_vip_ctrl_ops = {
-        .s_ctrl = sirfsoc_s_ctrl,
+	.s_ctrl = sirfsoc_s_ctrl,
+	.g_volatile_ctrl = sirfsoc_g_ctrl,
 };
 
 static const struct v4l2_ctrl_config sirfsoc_ctrl_get_addr = {
@@ -777,6 +805,7 @@ static const struct v4l2_ctrl_config sirfsoc_ctrl_get_video_state = {
 	.min = 0,
 	.max = 1,
 	.step = 1,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
 };
 
 static const struct soc_mbus_pixelfmt sirfsoc_camera_formats[] = {
