@@ -367,7 +367,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	spwm->clk = clk_get(&pdev->dev, NULL);
+	spwm->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(spwm->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(spwm->clk);
@@ -398,7 +398,6 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 
 	spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
-	clk_put(spwm->clk);
 
 	return 0;
 }
