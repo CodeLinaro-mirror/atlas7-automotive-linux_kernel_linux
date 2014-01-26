@@ -14,7 +14,6 @@
 #include <linux/delay.h>
 #include <linux/pwm.h>
 #include <linux/of.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/io.h>
 
 #include "pwm-sirf.h"
@@ -35,7 +34,6 @@ struct bklscaling_cfg {
 struct sirf_pwm {
 	void __iomem		*base;
 	struct clk		*clk;
-	struct pinctrl		*p[SIRF_PWM_CHL_NUM];
 	struct pwm_chip		chip;
 	int			duty_ns[SIRF_PWM_CHL_NUM];
 	int			src_clk_id[SIRF_PWM_CHL_NUM];
@@ -115,12 +113,6 @@ static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
 
 	return pwm;
-}
-
-static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	pinctrl_put(spwm->p[pwm->hwpwm]);
 }
 
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
@@ -358,7 +350,6 @@ static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 }
 
 static struct pwm_ops sirf_pwm_ops = {
-	.free = sirf_pwm_free,
 	.enable = sirf_pwm_enable,
 	.disable = sirf_pwm_disable,
 	.config = sirf_pwm_config,
