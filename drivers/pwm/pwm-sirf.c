@@ -84,7 +84,7 @@ static u32 sirf_pwm_clkin_freq(struct pwm_chip *chip,
 	return rate;
 }
 
-static unsigned int time_to_cycle(struct pwm_chip *chip,
+static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip,
 		struct pwm_device *pwm, unsigned int time_ns)
 {
 	u64 src_clk;
@@ -103,9 +103,8 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 		const struct of_phandle_args *args)
 {
-	struct pwm_device *pwm;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	unsigned int period;
+	int hwpwm;
 
 	if (chip->of_pwm_n_cells < 4)
 		return ERR_PTR(-EINVAL);
@@ -113,22 +112,11 @@ static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 	if (args->args[0] >= chip->npwm)
 		return ERR_PTR(-EINVAL);
 
-	pwm = pwm_request_from_chip(chip, args->args[0], NULL);
-	if (IS_ERR(pwm))
-		return pwm;
+	hwpwm = args->args[0];
+	spwm->duty_ns[hwpwm] = args->args[2];
+	spwm->src_clk_id[hwpwm] = args->args[3];
 
-	if (time_to_cycle(chip, pwm, args->args[1]) == 1)
-		period = NSEC_PER_SEC / sirf_pwm_clkin_freq(chip, pwm);
-	else
-		period = args->args[1];
-
-	pwm_set_period(pwm, period);
-
-	spwm->duty_ns[pwm->hwpwm] = args->args[2];
-
-	spwm->src_clk_id[pwm->hwpwm] = args->args[3];
-
-	return pwm;
+	return pwm_request_from_chip(chip, hwpwm, NULL);
 }
 
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
@@ -199,21 +187,19 @@ static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		int duty_ns, int period_ns)
 {
-	unsigned int period_cycles, period_high, period_low;
+	unsigned int period_cycles, high_cycles, low_cycles;
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 	unsigned int step_value, step_hold;
 #endif
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
-	period_cycles = time_to_cycle(chip, pwm, period_ns);
-	if (period_cycles == 1) {
-		dev_err(chip->dev, "pwm config warning: period_ns is too short!"
-				" bypass this channel!\n");
-	}
+	period_cycles = sirf_pwm_ns_to_cycles(chip, pwm, period_ns);
+	if (period_cycles == 1)
+		dev_warn(chip->dev, "period_ns is too short!\n");
 
-	period_high = time_to_cycle(chip, pwm, duty_ns);
-	period_low = period_cycles - period_high;
+	high_cycles = sirf_pwm_ns_to_cycles(chip, pwm, duty_ns);
+	low_cycles = period_cycles - high_cycles;
 
 	if (period_cycles == 1) {
 		/* bypass mode */
@@ -226,16 +212,9 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
 		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 
-		if (period_high < 1) {
-			dev_err(chip->dev, "pwm config error: invalid duty,"
-					"lowest one is %d\n",
-					period_high * 100 / period_cycles);
-			period_high = 1;
-			period_low = period_cycles - period_high;
-		}
-		if (period_high == period_cycles) {
-			period_high--;
-			period_low = 1;
+		if (high_cycles == period_cycles) {
+			high_cycles--;
+			low_cycles = 1;
 		}
 
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
@@ -243,22 +222,22 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			step_value = ((spwm->duty_ns[pwm->hwpwm] > duty_ns) ?
 					(spwm->duty_ns[pwm->hwpwm] - duty_ns) :
 					(duty_ns - spwm->duty_ns[pwm->hwpwm])) / spwm->trans_process_step[pwm->hwpwm];
-			step_value = time_to_cycle(chip, pwm, step_value);
-			step_hold = time_to_cycle(chip, pwm, spwm->trans_process_time[pwm->hwpwm]);
+			step_value = sirf_pwm_ns_to_cycles(chip, pwm, step_value);
+			step_hold = sirf_pwm_ns_to_cycles(chip, pwm, spwm->trans_process_time[pwm->hwpwm]);
 
 			writel(step_value, spwm->base + SIRF_PWM_TR_STEP(pwm->hwpwm));
 			writel(step_hold, spwm->base + SIRF_PWM_STEP_HOLD(pwm->hwpwm));
 		} else {
-			period_high--;
-			period_low--;
+			high_cycles--;
+			low_cycles--;
 		}
 #else
-		period_high--;
-		period_low--;
+		high_cycles--;
+		low_cycles--;
 #endif
 
-		writel(period_high, spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
-		writel(period_low, spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
+		writel(high_cycles, spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
+		writel(low_cycles, spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
 	}
 
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
@@ -304,7 +283,7 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	/* enable output */
 	val = readl(spwm->base + SIRF_PWM_OE);
-	val |= (1 << pwm->hwpwm);
+	val |= 1 << pwm->hwpwm;
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
 
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
@@ -315,9 +294,9 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 		if (spwm->is_pwm3_use_bks) {
 			val |= (1 << LOOK_TABLE_EN_BIT);
 			for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
-				cycle = time_to_cycle(chip, pwm,
+				cycle = sirf_pwm_ns_to_cycles(chip, pwm,
 						spwm->bcfg[i].period_ns);
-				high = time_to_cycle(chip, pwm,
+				high = sirf_pwm_ns_to_cycles(chip, pwm,
 						spwm->bcfg[i].duty_ns);
 				low = cycle - high;
 				if (cycle == 1) {
