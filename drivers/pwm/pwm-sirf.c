@@ -24,12 +24,12 @@
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 /* PWM3 supports black light scaling */
 #define SIRF_PWM_BKS_CHL		3
-#endif
 
 struct bklscaling_cfg {
 	unsigned int duty_ns;
 	unsigned int period_ns;
 };
+#endif
 
 struct sirf_pwm {
 	void __iomem		*base;
@@ -48,7 +48,7 @@ struct sirf_pwm {
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
-static u32 sirf_get_in_cycles_ps(struct pwm_chip *chip,
+static u32 sirf_pwm_clkin_freq(struct pwm_chip *chip,
 		struct pwm_device *pwm)
 {
 	const char *clk_name[] = {"osc", "pll1", "pll2", "rtc", "pll3"};
@@ -75,8 +75,8 @@ static unsigned int time_to_cycle(struct pwm_chip *chip,
 	unsigned int cycle;
 	u64 dividend;
 
-	src_clk = (u64) sirf_get_in_cycles_ps(chip, pwm);
-	dividend = (src_clk * time_ns + NSEC_PER_SEC / 2);
+	src_clk = (u64) sirf_pwm_clkin_freq(chip, pwm);
+	dividend = src_clk * time_ns + NSEC_PER_SEC / 2;
 	do_div(dividend, NSEC_PER_SEC);
 
 	cycle = dividend & 0xFFFFFFFFUL;
@@ -102,7 +102,7 @@ static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 		return pwm;
 
 	if (time_to_cycle(chip, pwm, args->args[1]) == 1)
-		period = NSEC_PER_SEC / sirf_get_in_cycles_ps(chip, pwm);
+		period = NSEC_PER_SEC / sirf_pwm_clkin_freq(chip, pwm);
 	else
 		period = args->args[1];
 
