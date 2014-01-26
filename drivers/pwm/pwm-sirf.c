@@ -51,7 +51,6 @@ struct sirf_pwm {
 	void __iomem		*base;
 	struct clk		*clk;
 	struct pwm_chip		chip;
-	int			src_clk_id[SIRF_PWM_CHL_NUM];
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 	bool			is_step_mode[SIRF_PWM_CHL_NUM];
 	unsigned int		trans_process_step[SIRF_PWM_CHL_NUM];
@@ -63,58 +62,28 @@ struct sirf_pwm {
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
-static u32 sirf_pwm_clkin_freq(struct pwm_chip *chip,
-		struct pwm_device *pwm)
+static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip, unsigned int time_ns)
 {
-	const char *clk_name[] = {"osc", "pll1", "pll2", "rtc", "pll3"};
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	struct clk *clk;
-	u32 rate;
+	u64 dividend;
+	u64 rate;
+	unsigned int cycle;
 
-	BUG_ON(spwm->src_clk_id[pwm->hwpwm] >= ARRAY_SIZE(clk_name));
-
-	clk = clk_get(chip->dev,
-			clk_name[spwm->src_clk_id[pwm->hwpwm]]);
-
-	BUG_ON(IS_ERR(clk));
-
+	/*
+	 * clock parent of pwm controller is different with pwm channel
+	 * parent of pwm controller is IO, but the parent of pwm channel
+	 * can be osc, pll1-pll3 and rtc, here we use pll1
+	 */
+	clk = clk_get(chip->dev, "pll1");
 	rate = clk_get_rate(clk);
 	clk_put(clk);
-	return rate;
-}
 
-static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip,
-		struct pwm_device *pwm, unsigned int time_ns)
-{
-	u64 src_clk;
-	unsigned int cycle;
-	u64 dividend;
-
-	src_clk = (u64) sirf_pwm_clkin_freq(chip, pwm);
-	dividend = src_clk * time_ns + NSEC_PER_SEC / 2;
+	dividend = rate * time_ns + NSEC_PER_SEC / 2;
 	do_div(dividend, NSEC_PER_SEC);
 
 	cycle = dividend & 0xFFFFFFFFUL;
 
 	return cycle > 1 ? cycle : 1;
-}
-
-static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
-		const struct of_phandle_args *args)
-{
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	int hwpwm;
-
-	if (chip->of_pwm_n_cells < 4)
-		return ERR_PTR(-EINVAL);
-
-	if (args->args[0] >= chip->npwm)
-		return ERR_PTR(-EINVAL);
-
-	hwpwm = args->args[0];
-	spwm->src_clk_id[hwpwm] = args->args[3];
-
-	return pwm_request_from_chip(chip, hwpwm, NULL);
 }
 
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
@@ -192,11 +161,11 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
-	period_cycles = sirf_pwm_ns_to_cycles(chip, pwm, period_ns);
+	period_cycles = sirf_pwm_ns_to_cycles(chip, period_ns);
 	if (period_cycles == 1)
 		dev_warn(chip->dev, "period_ns is too short!\n");
 
-	high_cycles = sirf_pwm_ns_to_cycles(chip, pwm, duty_ns);
+	high_cycles = sirf_pwm_ns_to_cycles(chip, duty_ns);
 	low_cycles = period_cycles - high_cycles;
 
 	if (period_cycles == 1) {
@@ -220,8 +189,8 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			step_value = ((spwm->duty_ns[pwm->hwpwm] > duty_ns) ?
 					(spwm->duty_ns[pwm->hwpwm] - duty_ns) :
 					(duty_ns - spwm->duty_ns[pwm->hwpwm])) / spwm->trans_process_step[pwm->hwpwm];
-			step_value = sirf_pwm_ns_to_cycles(chip, pwm, step_value);
-			step_hold = sirf_pwm_ns_to_cycles(chip, pwm, spwm->trans_process_time[pwm->hwpwm]);
+			step_value = sirf_pwm_ns_to_cycles(chip, step_value);
+			step_hold = sirf_pwm_ns_to_cycles(chip, spwm->trans_process_time[pwm->hwpwm]);
 
 			writel(step_value, spwm->base + SIRF_PWM_TR_STEP(pwm->hwpwm));
 			writel(step_hold, spwm->base + SIRF_PWM_STEP_HOLD(pwm->hwpwm));
@@ -257,7 +226,7 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	/* select preclock source must after disable preclk*/
 	val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
 	val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
-	val |= spwm->src_clk_id[pwm->hwpwm] << (SRC_FIELD_SIZE * pwm->hwpwm);
+	val |= 1 << (SRC_FIELD_SIZE * pwm->hwpwm);
 	writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 	/* wait for some time */
 	udelay(100);
@@ -367,8 +336,6 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	spwm->chip.ops = &sirf_pwm_ops;
 	spwm->chip.base = 0;
 	spwm->chip.npwm = SIRF_PWM_CHL_NUM;
-	spwm->chip.of_xlate = sirf_of_pwm_xlate_with_flags;
-	spwm->chip.of_pwm_n_cells = 4;
 
 	ret = pwmchip_add(&spwm->chip);
 	if (ret < 0) {
@@ -382,11 +349,10 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 
 static int sirf_pwm_remove(struct platform_device *pdev)
 {
-	struct sirf_pwm *spwm;
-
-	spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
 
+	pwmchip_remove(&spwm->chip);
 	return 0;
 }
 
@@ -444,7 +410,6 @@ static int sirf_pwm_restore(struct device *dev)
 #define sirf_pwm_suspend NULL
 #define sirf_pwm_restore NULL
 #endif
-
 
 static const struct dev_pm_ops sirf_pwm_pm_ops = {
 	.suspend = sirf_pwm_suspend,
