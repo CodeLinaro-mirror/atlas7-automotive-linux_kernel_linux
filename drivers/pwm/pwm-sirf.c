@@ -16,14 +16,30 @@
 #include <linux/of.h>
 #include <linux/io.h>
 
-#include "pwm-sirf.h"
+#define SIRF_PWM_SELECT_PRECLK			0x0
+#define SIRF_PWM_OE				0x4
+#define SIRF_PWM_ENABLE_PRECLOCK		0x8
+#define SIRF_PWM_ENABLE_POSTCLOCK		0xC
+#define SIRF_PWM_GET_WAIT_OFFSET(n)		(0x10 + 0x8*n)
+#define SIRF_PWM_GET_HOLD_OFFSET(n)		(0x14 + 0x8*n)
 
-#define SIRF_PWM_CHL_NUM		7
-#define SIRF_PWM_BLS_GRP_NUM		16
+#define SIRF_PWM_TR_STEP(n)			(0x48 + 0x8*n)
+#define SIRF_PWM_STEP_HOLD(n)			(0x4c + 0x8*n)
+
+#define SRC_FIELD_SIZE				3
+#define BYPASS_MODE_BIT				21
+#define TRANS_MODE_SELECT_BIT			7
+
+#define SIRF_PWM_CHL_NUM			7
+#define SIRF_PWM_BLS_GRP_NUM			16
 
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 /* PWM3 supports black light scaling */
 #define SIRF_PWM_BKS_CHL		3
+/* smart backlight*/
+#define SIRF_PWM_WAIT3(n)			(0x80 + 0x8*n)
+#define SIRF_PWM_HOLD3(n)			(0x84 + 0x8*n)
+#define LOOK_TABLE_EN_BIT		14
 
 struct bklscaling_cfg {
 	unsigned int duty_ns;
@@ -201,14 +217,14 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	if (period_cycles == 1) {
 		/* bypass mode */
-		val = readl(spwm->base + PWM_SELECT_PRECLK);
-		val |= (0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
-		writel(val, spwm->base + PWM_SELECT_PRECLK);
+		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
+		val |= 0x1 << (BYPASS_MODE_BIT + pwm->hwpwm);
+		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 	} else {
 		/* divider mode */
-		val = readl(spwm->base + PWM_SELECT_PRECLK);
+		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
 		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
-		writel(val, spwm->base + PWM_SELECT_PRECLK);
+		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 
 		if (period_high < 1) {
 			dev_err(chip->dev, "pwm config error: invalid duty,"
@@ -230,8 +246,8 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			step_value = time_to_cycle(chip, pwm, step_value);
 			step_hold = time_to_cycle(chip, pwm, spwm->trans_process_time[pwm->hwpwm]);
 
-			writel(step_value, spwm->base + PWM_TR_STEP(pwm->hwpwm));
-			writel(step_hold, spwm->base + PWM_STEP_HOLD(pwm->hwpwm));
+			writel(step_value, spwm->base + SIRF_PWM_TR_STEP(pwm->hwpwm));
+			writel(step_hold, spwm->base + SIRF_PWM_STEP_HOLD(pwm->hwpwm));
 		} else {
 			period_high--;
 			period_low--;
@@ -241,8 +257,8 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		period_low--;
 #endif
 
-		writel(period_high, spwm->base + PWM_GET_WAIT_OFFSET(pwm->hwpwm));
-		writel(period_low, spwm->base + PWM_GET_HOLD_OFFSET(pwm->hwpwm));
+		writel(period_high, spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
+		writel(period_low, spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
 	}
 
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
@@ -264,30 +280,30 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 #endif
 
 	/* disable preclock */
-	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
+	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + PWM_ENABLE_PRECLOCK);
+	writel(val, spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
 
 	/* select preclock source must after disable preclk*/
-	val = readl(spwm->base + PWM_SELECT_PRECLK);
-	val &= ~(0x7 << (PWM_SRC_FIELD_LEN * pwm->hwpwm));
-	val |= (spwm->src_clk_id[pwm->hwpwm] << (PWM_SRC_FIELD_LEN * pwm->hwpwm));
-	writel(val, spwm->base + PWM_SELECT_PRECLK);
+	val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
+	val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
+	val |= spwm->src_clk_id[pwm->hwpwm] << (SRC_FIELD_SIZE * pwm->hwpwm);
+	writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 	/* wait for some time */
 	udelay(100);
 
 	/* enable preclock */
-	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
+	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
 	val |= (1 << pwm->hwpwm);
-	writel(val, spwm->base + PWM_ENABLE_PRECLOCK);
+	writel(val, spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
 
 	/* enable post clock*/
-	val = readl(spwm->base + PWM_ENABLE_POSTCLOCK);
+	val = readl(spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
 	val |= (1 << pwm->hwpwm);
-	writel(val, spwm->base + PWM_ENABLE_POSTCLOCK);
+	writel(val, spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
 
 	/* enable output */
-	val = readl(spwm->base + PWM_OE);
+	val = readl(spwm->base + SIRF_PWM_OE);
 	val |= (1 << pwm->hwpwm);
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
 
@@ -310,8 +326,8 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 					high = 2;
 					low = 2;
 				}
-				writel(high - 1, spwm->base + PWM_WAIT3(i));
-				writel(low - 1, spwm->base + PWM_HOLD3(i));
+				writel(high - 1, spwm->base + SIRF_PWM_WAIT3(i));
+				writel(low - 1, spwm->base + SIRF_PWM_HOLD3(i));
 			}
 		} else {
 			val &= ~(1 << LOOK_TABLE_EN_BIT);
@@ -319,7 +335,7 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	}
 #endif
 
-	writel(val, spwm->base + PWM_OE);
+	writel(val, spwm->base + SIRF_PWM_OE);
 
 	return 0;
 }
@@ -329,19 +345,19 @@ static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	/* disable output */
-	val = readl(spwm->base + PWM_OE);
+	val = readl(spwm->base + SIRF_PWM_OE);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + PWM_OE);
+	writel(val, spwm->base + SIRF_PWM_OE);
 
 	/* disable postclock */
-	val = readl(spwm->base + PWM_ENABLE_POSTCLOCK);
+	val = readl(spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + PWM_ENABLE_POSTCLOCK);
+	writel(val, spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
 
 	/* disable preclock */
-	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
+	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + PWM_ENABLE_PRECLOCK);
+	writel(val, spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
 }
 
 static struct pwm_ops sirf_pwm_ops = {
