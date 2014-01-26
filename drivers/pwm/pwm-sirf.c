@@ -1,7 +1,7 @@
 /*
  * SIRF serial SoC PWM device core driver
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
  * Licensed under GPLv2 or later.
  */
@@ -33,31 +33,10 @@
 #define SIRF_PWM_CHL_NUM			7
 #define SIRF_PWM_BLS_GRP_NUM			16
 
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-/* PWM3 supports black light scaling */
-#define SIRF_PWM_BKS_CHL		3
-/* smart backlight*/
-#define SIRF_PWM_WAIT3(n)			(0x80 + 0x8*n)
-#define SIRF_PWM_HOLD3(n)			(0x84 + 0x8*n)
-#define LOOK_TABLE_EN_BIT		14
-
-struct bklscaling_cfg {
-	unsigned int duty_ns;
-	unsigned int period_ns;
-};
-#endif
-
 struct sirf_pwm {
 	void __iomem		*base;
 	struct clk		*clk;
 	struct pwm_chip		chip;
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-	bool			is_step_mode[SIRF_PWM_CHL_NUM];
-	unsigned int		trans_process_step[SIRF_PWM_CHL_NUM];
-	unsigned int		trans_process_time[SIRF_PWM_CHL_NUM];
-	bool			is_pwm3_use_bks;
-	struct bklscaling_cfg	bcfg[SIRF_PWM_BLS_GRP_NUM];
-#endif
 };
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
@@ -86,84 +65,14 @@ static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip, unsigned int ti
 	return cycle > 1 ? cycle : 1;
 }
 
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-/*
- * The SiRF SoC's PWM device has some special features.
- * Such as step mode and bklscaling mode. So if any devices
- * need use the these modes, they need write the configuration
- * in the dts file. The configuration specify mode enable/disable
- * and mode parameters.
- */
-static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
-		struct pwm_device *pwm)
-{
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-	struct device_node *np = pwm->user_dev_np;
-	int ret;
-	u32 trans_mode_params[2];
-	u32 bcfg_params[SIRF_PWM_BLS_GRP_NUM * 2];
-
-	/*
-	 * In step mode, If the user change the PWM output period or duty.
-	 * The PWM module isn't changed directly. It will change the output
-	 * step-by-step. The first specifies the change the steps and the
-	 * second specifies the time interval of each steps in nanoseconds.
-	 */
-	spwm->is_step_mode[pwm->hwpwm] = of_property_read_bool(np, "sirf-pwm-step-mode");
-
-	if (spwm->is_step_mode[pwm->hwpwm]) {
-		/*Step mode*/
-		ret = of_property_read_u32_array(np,
-				"sirf-pwm-step-mode-params",
-				trans_mode_params, 2);
-		if (ret)
-			trans_mode_params[0] = trans_mode_params[1] = 0;
-		spwm->trans_process_step[pwm->hwpwm] = trans_mode_params[0];
-		spwm->trans_process_time[pwm->hwpwm] = trans_mode_params[1];
-	}
-
-	if (pwm->hwpwm != SIRF_PWM_BKS_CHL)
-		return;
-
-	/*
-	 * The bklscaling mode is used to support back light scaling function.
-	 * Set 16 groups parameters look table is used by LCD driver.
-	 * Every group includes one wait state (number of pre-clock for high
-	 * level of output waveform) and one hold state (number of pre-clock
-	 * for low level of output wavefrom). The  wait_hold_sel register in
-	 * the LCD module can be used to choose one of them. In dts script file,
-	 * these parameters specify with period and duty in nanoseconds.
-	 */
-	spwm->is_pwm3_use_bks = of_property_read_bool(np, "sirf-pwm-bklscaling-mode");
-	if (spwm->is_pwm3_use_bks) {
-		/*bklscaling mode*/
-		int i;
-		ret = of_property_read_u32_array(np,
-				"sirf-pwm-bklscaling-params",
-				bcfg_params, SIRF_PWM_BLS_GRP_NUM * 2);
-		if (ret)
-			memset(bcfg_params, 0, sizeof(u32) * SIRF_PWM_BLS_GRP_NUM * 2);
-		for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
-			spwm->bcfg[i].period_ns = bcfg_params[i * 2];
-			spwm->bcfg[i].duty_ns = bcfg_params[i * 2 + 1];
-		}
-	}
-}
-#endif
-
 static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		int duty_ns, int period_ns)
 {
 	unsigned int period_cycles, high_cycles, low_cycles;
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-	unsigned int step_value, step_hold;
-#endif
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
 	period_cycles = sirf_pwm_ns_to_cycles(chip, period_ns);
-	if (period_cycles == 1)
-		dev_warn(chip->dev, "period_ns is too short!\n");
 
 	high_cycles = sirf_pwm_ns_to_cycles(chip, duty_ns);
 	low_cycles = period_cycles - high_cycles;
@@ -173,6 +82,7 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
 		val |= 0x1 << (BYPASS_MODE_BIT + pwm->hwpwm);
 		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
+		dev_warn(chip->dev, "period is too short!\n");
 	} else {
 		/* divider mode */
 		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
@@ -184,24 +94,9 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			low_cycles = 1;
 		}
 
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-		if (spwm->is_step_mode[pwm->hwpwm]) {
-			step_value = ((spwm->duty_ns[pwm->hwpwm] > duty_ns) ?
-					(spwm->duty_ns[pwm->hwpwm] - duty_ns) :
-					(duty_ns - spwm->duty_ns[pwm->hwpwm])) / spwm->trans_process_step[pwm->hwpwm];
-			step_value = sirf_pwm_ns_to_cycles(chip, step_value);
-			step_hold = sirf_pwm_ns_to_cycles(chip, spwm->trans_process_time[pwm->hwpwm]);
-
-			writel(step_value, spwm->base + SIRF_PWM_TR_STEP(pwm->hwpwm));
-			writel(step_hold, spwm->base + SIRF_PWM_STEP_HOLD(pwm->hwpwm));
-		}
-#endif
-
 		writel(high_cycles, spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
 		writel(low_cycles, spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
 	}
-
-	pwm_set_period(pwm, period_ns);
 
 	return 0;
 }
@@ -210,13 +105,6 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	unsigned int val;
-
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-	unsigned int cycle, high, low;
-	int i;
-
-	sirf_pwm_get_cfg_from_user(chip, pwm);
-#endif
 
 	/* disable preclock */
 	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
@@ -245,34 +133,6 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	val = readl(spwm->base + SIRF_PWM_OE);
 	val |= 1 << pwm->hwpwm;
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
-
-#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
-	val |= (!(spwm->is_step_mode[pwm->hwpwm]) <<
-			(pwm->hwpwm + TRANS_MODE_SELECT_BIT));
-
-	if (pwm->hwpwm == SIRF_PWM_BKS_CHL) {
-		if (spwm->is_pwm3_use_bks) {
-			val |= (1 << LOOK_TABLE_EN_BIT);
-			for (i = 0; i < SIRF_PWM_BLS_GRP_NUM; i++) {
-				cycle = sirf_pwm_ns_to_cycles(chip, pwm,
-						spwm->bcfg[i].period_ns);
-				high = sirf_pwm_ns_to_cycles(chip, pwm,
-						spwm->bcfg[i].duty_ns);
-				low = cycle - high;
-				if (cycle == 1) {
-					dev_info(spwm->chip.dev, "pwm scaling config warning:"
-							"period_ns is too short!\n");
-					high = 2;
-					low = 2;
-				}
-				writel(high - 1, spwm->base + SIRF_PWM_WAIT3(i));
-				writel(low - 1, spwm->base + SIRF_PWM_HOLD3(i));
-			}
-		} else {
-			val &= ~(1 << LOOK_TABLE_EN_BIT);
-		}
-	}
-#endif
 
 	writel(val, spwm->base + SIRF_PWM_OE);
 
@@ -437,6 +297,6 @@ static struct platform_driver sirf_pwm_driver = {
 module_platform_driver(sirf_pwm_driver);
 
 MODULE_DESCRIPTION("SIRF serial SoC PWM device core driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
-MODULE_AUTHOR("Huayi Li <huayi.li@csr.com>");
+MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>, "
+	"Huayi Li <huayi.li@csr.com>");
 MODULE_LICENSE("GPL v2");
