@@ -22,9 +22,6 @@
 #define SIRF_PWM_CHL_NUM		7
 #define SIRF_PWM_BLS_GRP_NUM		16
 
-/* PWM6 is an internal channel dedicated to as the source of I2S MCLK */
-#define SIRF_PWM_I2S_CHL		6
-
 /* PWM3 supports black light scaling */
 #define SIRF_PWM_BKS_CHL		3
 
@@ -107,7 +104,6 @@ static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 	else
 		period = args->args[1];
 
-	dev_info(chip->dev, "pwm %d period is %d ns!\n", pwm->hwpwm, period);
 	pwm_set_period(pwm, period);
 
 	spwm->duty_ns[pwm->hwpwm] = args->args[2];
@@ -357,15 +353,15 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 
 	spwm = devm_kzalloc(&pdev->dev, sizeof(struct sirf_pwm),
 			GFP_KERNEL);
-	if (spwm == NULL)
+	if (!spwm)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, spwm);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	spwm->base = devm_ioremap_resource(&pdev->dev, mem_res);
-	if (spwm->base == NULL) {
+	if (!spwm->base)
 		return -ENOMEM;
-	}
 
 	spwm->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(spwm->clk)) {
@@ -402,7 +398,7 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int sirf_pwm_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
