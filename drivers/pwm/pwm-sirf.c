@@ -22,8 +22,10 @@
 #define SIRF_PWM_CHL_NUM		7
 #define SIRF_PWM_BLS_GRP_NUM		16
 
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 /* PWM3 supports black light scaling */
 #define SIRF_PWM_BKS_CHL		3
+#endif
 
 struct bklscaling_cfg {
 	unsigned int duty_ns;
@@ -37,11 +39,13 @@ struct sirf_pwm {
 	struct pwm_chip		chip;
 	int			duty_ns[SIRF_PWM_CHL_NUM];
 	int			src_clk_id[SIRF_PWM_CHL_NUM];
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 	bool			is_step_mode[SIRF_PWM_CHL_NUM];
 	unsigned int		trans_process_step[SIRF_PWM_CHL_NUM];
 	unsigned int		trans_process_time[SIRF_PWM_CHL_NUM];
 	bool			is_pwm3_use_bks;
 	struct bklscaling_cfg	bcfg[SIRF_PWM_BLS_GRP_NUM];
+#endif
 };
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
@@ -119,6 +123,7 @@ static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 	pinctrl_put(spwm->p[pwm->hwpwm]);
 }
 
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 /*
  * The SiRF SoC's PWM device has some special features.
  * Such as step mode and bklscaling mode. So if any devices
@@ -181,12 +186,15 @@ static void sirf_pwm_get_cfg_from_user(struct pwm_chip *chip,
 		}
 	}
 }
+#endif
 
 static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		int duty_ns, int period_ns)
 {
 	unsigned int period_cycles, period_high, period_low;
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 	unsigned int step_value, step_hold;
+#endif
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
@@ -210,7 +218,7 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		val |= (0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
 		writel(val, spwm->base + PWM_SELECT_PRECLK);
 	} else {
-		/* divder mode */
+		/* divider mode */
 		val = readl(spwm->base + PWM_SELECT_PRECLK);
 		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
 		writel(val, spwm->base + PWM_SELECT_PRECLK);
@@ -226,6 +234,8 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			period_high--;
 			period_low = 1;
 		}
+
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 		if (spwm->is_step_mode[pwm->hwpwm]) {
 			step_value = ((spwm->duty_ns[pwm->hwpwm] > duty_ns) ?
 					(spwm->duty_ns[pwm->hwpwm] - duty_ns) :
@@ -239,9 +249,13 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			period_high--;
 			period_low--;
 		}
+#else
+		period_high--;
+		period_low--;
+#endif
 
-		writel(period_high, (spwm->base + PWM_GET_WAIT_OFFSET(pwm->hwpwm)));
-		writel(period_low, (spwm->base + PWM_GET_HOLD_OFFSET(pwm->hwpwm)));
+		writel(period_high, spwm->base + PWM_GET_WAIT_OFFSET(pwm->hwpwm));
+		writel(period_low, spwm->base + PWM_GET_HOLD_OFFSET(pwm->hwpwm));
 	}
 
 	spwm->duty_ns[pwm->hwpwm] = duty_ns;
@@ -252,12 +266,15 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	int i;
-	unsigned int val;
-	unsigned int cycle, high, low;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	unsigned int val;
+
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
+	unsigned int cycle, high, low;
+	int i;
 
 	sirf_pwm_get_cfg_from_user(chip, pwm);
+#endif
 
 	/* disable preclock */
 	val = readl(spwm->base + PWM_ENABLE_PRECLOCK);
@@ -286,6 +303,8 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	val = readl(spwm->base + PWM_OE);
 	val |= (1 << pwm->hwpwm);
 	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
+
+#ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 	val |= (!(spwm->is_step_mode[pwm->hwpwm]) <<
 			(pwm->hwpwm + TRANS_MODE_SELECT_BIT));
 
@@ -311,6 +330,7 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 			val &= ~(1 << LOOK_TABLE_EN_BIT);
 		}
 	}
+#endif
 
 	writel(val, spwm->base + PWM_OE);
 
