@@ -190,11 +190,6 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	unsigned int val;
 	struct sirf_pwm *spwm = to_sirf_chip(chip);
 
-	if (duty_ns > period_ns) {
-		dev_err(chip->dev, "pwm config error: duty_ns > period_ns\n");
-		return -EINVAL;
-	}
-
 	period_cycles = time_to_cycle(chip, pwm, period_ns);
 	if (period_cycles == 1) {
 		dev_err(chip->dev, "pwm config warning: period_ns is too short!"
