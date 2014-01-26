@@ -133,6 +133,15 @@ config MAX1363
 	  max11646, max11647) Provides direct access via sysfs and buffered
 	  data via the iio dev interface.
 
+config SIRFSOC_ADC
+        tristate "SiRFSoC ADC"
+	depends on ARCH_SIRF
+	help
+	  If you say yes here you get support for CSR SiRFSoC internal ADC.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called sirfsoc_adc.
+
 config TI_ADC081C
 	tristate "Texas Instruments ADC081C021/027"
 	depends on I2C

@@ -233,22 +233,32 @@ static int sirfsoc_adc_remove(struct platform_device *pdev)
 
 static const struct of_device_id sirfsoc_adc_of_match[] = {
 	{ .compatible = "sirf,prima2-adc",},
-	{ .compatible = "sirf,marco-adc",},
 	{}
 };
 
 static struct platform_driver sirfsoc_adc_driver = {
-	.driver	= {
-		.name	= DRIVER_NAME,
+	.driver = {
+		.name   = DRIVER_NAME,
 		.of_match_table = sirfsoc_adc_of_match,
 	},
-	.probe		= sirfsoc_adc_probe,
-	.remove		= sirfsoc_adc_remove,
-	.suspend	= sirfsoc_adc_suspend,
-	.resume		= sirfsoc_adc_resume,
+	.probe          = sirfsoc_adc_probe,
+	.remove         = sirfsoc_adc_remove,
+	.suspend        = sirfsoc_adc_suspend,
+	.resume         = sirfsoc_adc_resume,
 };
 
-module_platform_driver(sirfsoc_adc_driver);
+static __init int sirfsoc_adc_init(void)
+{
+	return platform_driver_register(&sirfsoc_adc_driver);
+}
+
+static void __exit sirfsoc_adc_exit(void)
+{
+	platform_driver_unregister(&sirfsoc_adc_driver);
+}
+
+subsys_initcall(sirfsoc_adc_init);
+module_exit(sirfsoc_adc_exit);
 
 MODULE_AUTHOR("sober song <zhiwu.song@csr.com>");
 MODULE_DESCRIPTION("SiRF SoC On-chip ADC driver");
