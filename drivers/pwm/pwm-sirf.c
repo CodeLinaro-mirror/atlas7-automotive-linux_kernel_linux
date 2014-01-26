@@ -51,7 +51,6 @@ struct sirf_pwm {
 	void __iomem		*base;
 	struct clk		*clk;
 	struct pwm_chip		chip;
-	int			duty_ns[SIRF_PWM_CHL_NUM];
 	int			src_clk_id[SIRF_PWM_CHL_NUM];
 #ifdef CONFIG_PWM_SIRF_COMPLEX_MODE
 	bool			is_step_mode[SIRF_PWM_CHL_NUM];
@@ -113,7 +112,6 @@ static struct pwm_device *sirf_of_pwm_xlate_with_flags(struct pwm_chip *chip,
 		return ERR_PTR(-EINVAL);
 
 	hwpwm = args->args[0];
-	spwm->duty_ns[hwpwm] = args->args[2];
 	spwm->src_clk_id[hwpwm] = args->args[3];
 
 	return pwm_request_from_chip(chip, hwpwm, NULL);
@@ -227,20 +225,13 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 			writel(step_value, spwm->base + SIRF_PWM_TR_STEP(pwm->hwpwm));
 			writel(step_hold, spwm->base + SIRF_PWM_STEP_HOLD(pwm->hwpwm));
-		} else {
-			high_cycles--;
-			low_cycles--;
 		}
-#else
-		high_cycles--;
-		low_cycles--;
 #endif
 
 		writel(high_cycles, spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
 		writel(low_cycles, spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
 	}
 
-	spwm->duty_ns[pwm->hwpwm] = duty_ns;
 	pwm_set_period(pwm, period_ns);
 
 	return 0;
@@ -412,14 +403,14 @@ static int sirf_pwm_suspend(struct device *dev)
 
 static void sirf_pwm_config_restore(struct sirf_pwm *spwm)
 {
-	unsigned int i;
-	struct pwm_device *pwm = NULL;
+	struct pwm_device *pwm;
+	int i;
 
 	for (i = 0; i < spwm->chip.npwm; i++) {
 		pwm = &spwm->chip.pwms[i];
 		/*
-		 * corner case: back from hibernation, state of pwm
-		 * is enabled, but not enabled in fact
+		 * while restoring from hibernation, state of pwm is enabled,
+		 * but PWM hardware is not re-enabled
 		 */
 		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
 		     test_bit(PWMF_ENABLED, &pwm->flags))
@@ -429,8 +420,7 @@ static void sirf_pwm_config_restore(struct sirf_pwm *spwm)
 
 static int sirf_pwm_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm *spwm = dev_get_drvdata(dev);
 
 	clk_prepare_enable(spwm->clk);
 
@@ -441,8 +431,7 @@ static int sirf_pwm_resume(struct device *dev)
 
 static int sirf_pwm_restore(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm *spwm = dev_get_drvdata(dev);
 
 	/* back from hibernation, clock is already enabled */
 	sirf_pwm_config_restore(spwm);
