@@ -1114,6 +1114,7 @@ static struct sirfsoc_decoder_ops tw9900_decoder_ops = {
 	.set_fmt = NULL,
 	.start = tw9900_op_start,
 	.stop = tw9900_op_stop,
+	.list = LIST_HEAD_INIT(tw9900_decoder_ops.list)
 };
 
 /*

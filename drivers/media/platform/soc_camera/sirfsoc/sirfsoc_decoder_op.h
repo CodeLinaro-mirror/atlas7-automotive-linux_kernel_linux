@@ -5,6 +5,7 @@ enum input_t {
 	INPUT_CVBS_AIN1,
 	INPUT_CVBS_AIN2,
 	INPUT_COLORBAR,
+	INPUT_ANY,
 };
 
 struct sirfsoc_decoder_ops {
@@ -15,7 +16,7 @@ struct sirfsoc_decoder_ops {
 	int (*start)(int);
 	int (*stop)(void);
 	int (*set_fmt)(void);
-	struct sirfsoc_decoder_ops *next;
+	struct list_head list;
 };
 
 int sirfsoc_register_decoder_ops(struct sirfsoc_decoder_ops *ops);

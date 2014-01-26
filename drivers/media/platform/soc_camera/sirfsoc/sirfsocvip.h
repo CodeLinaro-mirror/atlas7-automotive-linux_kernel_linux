@@ -82,10 +82,11 @@ struct sirfsoc_camera_dev {
 	VIP_FUNCTIONTABLE	vip_funcs;
 	VIP_PARAMS              vip_params;
 
-	struct sirfsoc_decoder_ops	*decoder_ops;
 	/* Current active task which holds VIP hardware */
 	struct task_struct      *task;
 
+	struct sirfsoc_decoder_ops      *vip_decoder_ops;
+	struct sirfsoc_decoder_ops      *rearview_decoder_ops;
 
 	/* start address of dma buf reserved for rearview */
 	unsigned long		rearview_dma_addr;

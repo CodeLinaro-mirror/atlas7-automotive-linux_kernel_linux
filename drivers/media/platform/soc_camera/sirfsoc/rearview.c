@@ -768,7 +768,7 @@ int rearview_thread(void *data)
 	rearview_env.gpio = pcdev->rearview_gpio;
 	rearview_env.irq = gpio_to_irq(rearview_env.gpio);
 
-	rearview_env.decoder_ops = pcdev->decoder_ops;
+	rearview_env.decoder_ops = pcdev->rearview_decoder_ops;
 	rearview_env.pdata = pcdev->pdata;
 
 	rearview_env.save_vip_context = pcdev->save_vip_context;

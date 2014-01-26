@@ -479,6 +479,7 @@ static struct sirfsoc_decoder_ops ch7102_decoder_ops = {
 	.desc = "ch7102",
 	.start = ch7102_op_start,
 	.stop = ch7102_op_stop,
+	.list = LIST_HEAD_INIT(ch7102_decoder_ops.list)
 };
 
 static int ch7102_probe(struct i2c_client *client,
@@ -523,6 +524,7 @@ static int ch7102_probe(struct i2c_client *client,
 
 	ch7102_client = client;
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
+	sirfsoc_register_decoder_ops(&ch7102_decoder_ops);
 
 	ret = sysfs_create_file(&client->dev.kobj,
 		&dev_attr_ch7102_audio_rate.attr);

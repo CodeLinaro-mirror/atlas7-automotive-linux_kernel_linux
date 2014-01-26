@@ -64,7 +64,7 @@ module_param(rearview, bool, S_IRUGO);
 MODULE_PARM_DESC(rearview, "to launch rearview thread.");
 
 static struct task_struct *rearview_task;
-static struct sirfsoc_decoder_ops *rearview_decoder_ops;
+static LIST_HEAD(decoder_list);
 
 static phys_addr_t sirf_vip_phy_base;
 static phys_addr_t sirf_vip_phy_size;
@@ -72,16 +72,17 @@ static int brestart;
 
 static struct pm_qos_request qos_cpufreq_min_req;
 
-static inline bool need_launch_rearview(void)
+static inline bool need_launch_rearview(struct sirfsoc_camera_dev *pcdev)
 {
-	return !rearview ? false : !rearview_decoder_ops->detect();
+	return !rearview ? false : (pcdev->rearview_decoder_ops &&
+		!pcdev->rearview_decoder_ops->detect());
 }
 
 int sirfsoc_register_decoder_ops(struct sirfsoc_decoder_ops *decoder_ops)
 {
 	WARN_ON(decoder_ops == NULL);
 
-	rearview_decoder_ops = decoder_ops;
+	list_add_tail(&decoder_ops->list, &decoder_list);
 
 	return 0;
 }
@@ -435,7 +436,8 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 	struct sirfsoc_camera_platform_data *pdata = pcdev->pdata;
 	VIP_PARAMS *params = &pcdev->vip_params;
 
-	int ret;
+	struct sirfsoc_decoder_ops *decoder_ops;
+	int ret, i = 0;
 
 	mutex_lock(&camera_lock);
 
@@ -465,6 +467,12 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 0;
 		}
+
+		list_for_each_entry(decoder_ops, &decoder_list, list) {
+			if (i++ == icd->devnum)
+				break;
+		}
+		pcdev->vip_decoder_ops = decoder_ops;
 	}
 
 	ret = sirfsoc_camera_activate(pcdev);
@@ -986,7 +994,7 @@ static void sirfsoc_vip_save_context(void *data)
 	while (!task_is_stopped(pcdev->task))
 		msleep(20);
 
-	pcdev->decoder_ops->stop();
+	pcdev->vip_decoder_ops->stop();
 
 	free_irq(pcdev->irq, pcdev);
 	pcdev->vip_funcs.pfnStop();
@@ -1014,10 +1022,10 @@ static void sirfsoc_vip_restore_context(void *data)
 
 	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
 
-	if (pcdev->pdata->sirfsoc_camera_ccir656_en)
-		pcdev->decoder_ops->start(INPUT_YC);
+	if (strcmp(pcdev->vip_decoder_ops->desc, "tw9900") == 0)
+		pcdev->vip_decoder_ops->start(INPUT_CVBS_AIN1);
 	else
-		/*TODO, how to restart camera */
+		pcdev->vip_decoder_ops->start(INPUT_ANY);
 
 	if (pcdev->active)
 		sirfsoc_camera_start_dma(pcdev, 1);
@@ -1081,6 +1089,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	struct platform_device *pdev = async_data;
 	struct sirfsoc_camera_dev *pcdev;
 	struct resource *res;
+	struct sirfsoc_decoder_ops *decoder_ops;
 	void __iomem *base;
 	u32 dma_ch;
 	dma_cap_mask_t dma_cap_mask;
@@ -1219,12 +1228,17 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	 * At this point client .probe() should have run already,
 	 * decoder_ops is available.
 	 */
-	pcdev->decoder_ops = rearview_decoder_ops;
+	list_for_each_entry(decoder_ops, &decoder_list, list) {
+		if (strcmp(decoder_ops->desc, "tw9900") == 0) {
+			pcdev->rearview_decoder_ops = decoder_ops;
+			break;
+		}
+	}
 
 	pcdev->save_vip_context = sirfsoc_vip_save_context;
 	pcdev->restore_vip_context = sirfsoc_vip_restore_context;
 
-	if (need_launch_rearview()) {
+	if (need_launch_rearview(pcdev)) {
 		pcdev->rearview_gpio = of_get_named_gpio(pdev->dev.of_node,
 							"rearview-gpio", 0);
 		rearview_task = kthread_create(rearview_thread,
