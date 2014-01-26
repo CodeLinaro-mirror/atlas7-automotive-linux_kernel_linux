@@ -723,10 +723,10 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 		else
 			pcdev->pdata->sirfsoc_camera_interlaced = 0;
 		break;
-        default:
-                return -EINVAL;
-        }
-        return 0;
+	default:
+		return -EINVAL;
+	}
+	return 0;
 }
 
 static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
@@ -738,20 +738,20 @@ static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
 	unsigned int status = 0;
 	int ret = 0;
 
-        switch (ctrl->id) {
+	switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
-                q = &icd->vb_vidq;
-                index = ctrl->val;
+		q = &icd->vb_vidq;
+		index = ctrl->val;
 
-                if (index < 0 || index > VIDEO_MAX_FRAME - 1)
-                        return -EINVAL;
+		if (index < 0 || index > VIDEO_MAX_FRAME - 1)
+			return -EINVAL;
 
-                if (q->bufs[index] == NULL ||
-                        q->bufs[index]->map == NULL)
-                        return -EINVAL;
+		if (q->bufs[index] == NULL ||
+			q->bufs[index]->map == NULL)
+			return -EINVAL;
 
-                ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
-                break;
+		ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
+		break;
 
 	case V4L2_CID_GET_VIDEO_STATE:
 		ret = v4l2_subdev_call(sd, video, g_input_status, &status);
