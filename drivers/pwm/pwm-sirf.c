@@ -353,7 +353,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 {
 	struct sirf_pwm *spwm;
 	struct resource *mem_res;
-	int ret = 0;
+	int ret;
 
 	spwm = devm_kzalloc(&pdev->dev, sizeof(struct sirf_pwm),
 			GFP_KERNEL);
@@ -362,14 +362,11 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, spwm);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		return -ENODEV;
-	}
 	spwm->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (spwm->base == NULL) {
 		return -ENOMEM;
 	}
+
 	spwm->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(spwm->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
