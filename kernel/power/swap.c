@@ -767,10 +767,10 @@ out_finish:
 		ret = err2;
 	if (!ret)
 		printk(KERN_INFO "PM: Image saving done.\n");
-	swsusp_show_speed(&start, &stop, nr_to_write, "Wrote uncompressed");
 
-	if (nr_cmp_written > 0)
-		swsusp_show_speed(&start, &stop, nr_cmp_written, "Wrote compressed");
+	printk(KERN_INFO "PM: Saved %lu Kbytes (uncompressed Image)\n",
+		nr_to_write * (PAGE_SIZE / 1024));
+	swsusp_show_speed(&start, &stop, nr_cmp_written, "Wrote compressed");
 
 out_clean:
 	if (crc) {
