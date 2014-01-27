@@ -124,6 +124,7 @@ struct gps_dev *gpsdev;
 
 static phys_addr_t sirf_gps_phy_base;
 static phys_addr_t sirf_gps_phy_size;
+static struct pm_qos_request qos_request;
 
 static void sirfsoc_gps_reset(struct gps_dev *gdev);
 
@@ -327,6 +328,7 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	struct clk *clk = NULL;
 	struct GPS_RTC_CLK_INFO clk_info;
+	struct cpufreq_policy policy;
 
 	struct DSP_BUF_INFO gps_buffer_info;
 	struct DSP_RW_GENERAL_REG gps_gen_reg;
@@ -345,19 +347,15 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case IOCTL_SET_CPU_FREQ_TO_MAX:
-#if 0
-		struct cpufreq_policy policy;
 		if (!cpufreq_get_policy(&policy, 0))
+			/*keep cpuferq max to make sure caculation perfermance in GNSS acquisition channels*/
 			pm_qos_update_request(&qos_request, policy.cpuinfo.max_freq);
-#endif
 		break;
 
 	case IOCTL_RESET_CPU_FREQ_TO_DEFAULT:
-#if 0
-		struct cpufreq_policy policy;
 		if (!cpufreq_get_policy(&policy, 0))
+			/*set to default after GNSS got fix*/
 			pm_qos_update_request(&qos_request, policy.cpuinfo.min_freq);
-#endif
 		break;
 
 	case IOCTL_DSP_READ_DMX_BUFFER:
@@ -999,7 +997,8 @@ static int sirf_gps_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto unmap_idma;
 	}
-
+	pm_qos_add_request(&qos_request, PM_QOS_CPU_FREQ_MIN,
+			PM_QOS_DEFAULT_VALUE);
 	platform_set_drvdata(pdev, gps_device);
 	gpsdev = gps_device;
 
@@ -1070,6 +1069,7 @@ static int sirf_gps_remove(struct platform_device *pdev)
 {
 	struct gps_dev *gps_device = platform_get_drvdata(pdev);
 
+	pm_qos_remove_request(&qos_request);
 	cdev_del(&(gps_device->cdev));
 	unregister_chrdev_region(MKDEV(BH2X0BD_DSP_MAJOR, 0), 1);
 
