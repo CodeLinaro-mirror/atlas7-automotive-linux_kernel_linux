@@ -273,6 +273,7 @@
 
 			usp0: usp@b0080000 {
 				cell-index = <0>;
+				status = "disabled";
 				compatible = "sirf,prima2-usp";
 				reg = <0xb0080000 0x10000>;
 				interrupts = <20>;
