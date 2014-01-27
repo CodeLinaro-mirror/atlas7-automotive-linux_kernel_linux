@@ -36,6 +36,7 @@
 #include <linux/pm_qos.h>
 
 #include <asm/dma.h>
+#include <media/sirfsoc_v4l2.h>
 
 #include "sirfsocvip.h"
 #include "rearview.h"
@@ -51,11 +52,6 @@ static DEFINE_MUTEX(camera_lock);
 
 #define SIRFSOC_CAM_VERSION_CODE KERNEL_VERSION(0, 0, 5)
 #define SIRFSOC_CAM_DRV_NAME "sirfsoc-vip"
-
-/* v4l2 csr extensions */
-#define V4L2_CID_GET_ADDR (V4L2_CID_USER_BASE + 0x1000)
-#define V4L2_CID_SET_INTERLACE (V4L2_CID_USER_BASE + 0x1001)
-#define V4L2_CID_GET_VIDEO_STATE (V4L2_CID_USER_BASE + 0x1002)
 
 static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
@@ -742,9 +738,11 @@ static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
 	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	struct videobuf_queue *q;
+	struct v4l2_control control;
 	int index;
 	unsigned int status = 0;
 	int ret = 0;
+	unsigned int value = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
@@ -763,12 +761,18 @@ static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_GET_VIDEO_STATE:
 		ret = v4l2_subdev_call(sd, video, g_input_status, &status);
-		if (ret < 0) {
+		if (ret < 0)
 			return -EINVAL;
-		}
 		ctrl->val = 1;
 		if (!status)
 			ctrl->val = 0;
+		break;
+	case V4L2_CID_GET_AUDIO_SAMPLE_RATE:
+		control.id = ctrl->id;
+		ret = v4l2_subdev_call(sd, core, g_ctrl, &control);
+		if (ret < 0)
+			return -EINVAL;
+		ctrl->val = control.value;
 		break;
         default:
                 return -EINVAL;
@@ -816,6 +820,17 @@ static const struct v4l2_ctrl_config sirfsoc_ctrl_get_video_state = {
 	.flags = V4L2_CTRL_FLAG_VOLATILE,
 };
 
+static const struct v4l2_ctrl_config sirfsoc_ctrl_get_audio_sample_rate = {
+	.ops = &sirfsoc_vip_ctrl_ops,
+	.id = V4L2_CID_GET_AUDIO_SAMPLE_RATE,
+	.name = "get audio sample rate",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.def = 1,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+};
 static const struct soc_mbus_pixelfmt sirfsoc_camera_formats[] = {
 	{
 		.fourcc			= V4L2_PIX_FMT_UYVY,
@@ -858,6 +873,10 @@ static int sirfsoc_camera_get_formats(struct soc_camera_device *icd,
 			return icd->ctrl_handler.error;
 		v4l2_ctrl_new_custom(&icd->ctrl_handler,
 			&sirfsoc_ctrl_get_video_state, NULL);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler,
+			&sirfsoc_ctrl_get_audio_sample_rate, NULL);
 		if (icd->ctrl_handler.error)
 			return icd->ctrl_handler.error;
 	}
