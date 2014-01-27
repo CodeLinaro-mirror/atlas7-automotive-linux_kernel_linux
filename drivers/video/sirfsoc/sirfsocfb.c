@@ -879,6 +879,7 @@ int sirfsocfb_enable_feature_layer(struct sirfsocfb *fb, int layer,
 	enum sirfsocfb_feature_layer feature)
 {
 	if (feature == REARVIEW_FEATURE_LAYER) {
+		fb->record_toplayer = fb->lcd_func.pfnGetTopLayer();
 		layer_enable(fb, layer);
 		sirfsocfb_set_toplayer(fb, layer);
 		fb->layer_info[layer].feature = REARVIEW_FEATURE_LAYER;
@@ -893,7 +894,7 @@ int sirfsocfb_enable_feature_layer(struct sirfsocfb *fb, int layer,
 int sirfsocfb_disable_feature_layer(struct sirfsocfb *fb, int layer)
 {
 	if (fb->layer_info[layer].feature == REARVIEW_FEATURE_LAYER) {
-		sirfsocfb_set_toplayer(fb, toplayer);
+		sirfsocfb_set_toplayer(fb, fb->record_toplayer);
 		layer_disable(fb, layer);
 		fb->layer_info[layer].feature = NORMAL_LAYER;
 	} else {

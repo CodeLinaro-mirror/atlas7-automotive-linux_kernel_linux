@@ -108,6 +108,7 @@ struct sirfsocfb{
 	int 			irq;
 	spinlock_t 		lock;
 	int			init_enabled;
+	int			record_toplayer;
 
 	LCD_FUNCTIONTABLE lcd_func;
 	VPP_FUNCTIONTABLE *vpp_func;
