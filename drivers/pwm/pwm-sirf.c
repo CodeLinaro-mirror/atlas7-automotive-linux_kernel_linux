@@ -43,21 +43,14 @@ struct sirf_pwm {
 
 static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip, unsigned int time_ns)
 {
-	struct clk *clk;
 	u64 dividend;
-	u64 rate;
 	unsigned int cycle;
-
 	/*
-	 * clock parent of pwm controller is different with pwm channel
-	 * parent of pwm controller is IO, but the parent of pwm channel
-	 * can be osc, pll1-pll3 and rtc, here we use pll1
+	 * on SiRFSoC, OSC input is const, we use it as the source to generate
+	 * PWM wave
 	 */
-	clk = clk_get(chip->dev, "pll1");
-	rate = clk_get_rate(clk);
-	clk_put(clk);
-
-	dividend = rate * time_ns + NSEC_PER_SEC / 2;
+#define SRC_OSC_RATE 26000000ULL
+	dividend = SRC_OSC_RATE * time_ns + NSEC_PER_SEC / 2;
 	do_div(dividend, NSEC_PER_SEC);
 
 	cycle = dividend & 0xFFFFFFFFUL;
@@ -114,7 +107,6 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	/* select preclock source must after disable preclk*/
 	val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
 	val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
-	val |= 1 << (SRC_FIELD_SIZE * pwm->hwpwm);
 	writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 	/* wait for some time */
 	udelay(100);
