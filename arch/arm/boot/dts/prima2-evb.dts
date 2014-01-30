@@ -139,11 +139,13 @@
                                 };
 
 			};
-                        tsc {
-                                compatible = "sirf,prima2-tsc";
-                                interrupts = <33>;
-                                reset-bit = <32>;
-                        };
+			adc@b0110000 {
+				tsc {
+					compatible = "sirf,prima2-tsc";
+					interrupts = <33>;
+					resets = <&rstc 32>;
+				};
+			};
 		};
                 disp-iobg {
                       lcd@90010000 {

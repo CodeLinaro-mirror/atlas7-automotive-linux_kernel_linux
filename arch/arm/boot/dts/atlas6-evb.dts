@@ -152,6 +152,13 @@
                                         reg = <0x38>;
                                 };
 			};
+			adc@b0110000 {
+				tsc {
+					compatible = "sirf,prima2-tsc";
+					interrupts = <33>;
+					resets = <&rstc 32>;
+				};
+			};
 			pci-iobg {
 				sd0: sdhci@56000000 {
 					status = "okay";
@@ -163,11 +170,6 @@
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc2_pins_a>;
 				};
-			};
-			tsc {
-				compatible = "sirf,prima2-tsc";
-				interrupts = <33>;
-				reset-bit = <32>;
 			};
 		};
 		disp-iobg {
