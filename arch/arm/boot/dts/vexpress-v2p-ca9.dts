@@ -18,7 +18,9 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
-	chosen { };
+	chosen {
+		bootargs = "root=/dev/mmcblk0 rw init=/bin/sh console=ttyAMA1,38400n8 mem=1024M ip=dhcp";
+	};
 
 	aliases {
 		serial0 = &v2m_serial0;

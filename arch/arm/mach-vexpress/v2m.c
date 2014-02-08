@@ -510,6 +510,18 @@ static const char * const v2m_dt_match[] __initconst = {
 	NULL,
 };
 
+#ifdef CONFIG_SECURITY_MODE
+DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
+	.dt_compat	= v2m_dt_match,
+	.smp		= smp_ops(vexpress_smp_ops),
+	.reserve        = csrvisor_reserve,
+	.map_io		= v2m_map_io,
+	.init_early	= v2m_init_early,
+	.init_irq	= v2m_init_irq,
+	.init_time	= v2m_timer_init,
+	.init_machine	= v2m_init,
+MACHINE_END
+#else
 DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
 	.dt_compat	= v2m_dt_match,
 	.smp		= smp_ops(vexpress_smp_ops),
@@ -518,3 +530,4 @@ DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
 	.init_early	= v2m_dt_init_early,
 	.init_machine	= v2m_dt_init,
 MACHINE_END
+#endif
