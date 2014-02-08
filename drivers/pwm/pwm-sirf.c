@@ -37,20 +37,18 @@ struct sirf_pwm {
 	void __iomem		*base;
 	struct clk		*clk;
 	struct pwm_chip		chip;
+	unsigned long		src_clk_rate;
 };
 
 #define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
 
 static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip, unsigned int time_ns)
 {
+	struct sirf_pwm *spwm = to_sirf_chip(chip);
 	u64 dividend;
 	unsigned int cycle;
-	/*
-	 * on SiRFSoC, OSC input is const, we use it as the source to generate
-	 * PWM wave
-	 */
-#define SRC_OSC_RATE 26000000ULL
-	dividend = SRC_OSC_RATE * time_ns + NSEC_PER_SEC / 2;
+
+	dividend = spwm->src_clk_rate * time_ns + NSEC_PER_SEC / 2;
 	do_div(dividend, NSEC_PER_SEC);
 
 	cycle = dividend & 0xFFFFFFFFUL;
@@ -162,6 +160,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 {
 	struct sirf_pwm *spwm;
 	struct resource *mem_res;
+	struct clk *clk_pwm_src;
 	int ret;
 
 	spwm = devm_kzalloc(&pdev->dev, sizeof(struct sirf_pwm),
@@ -176,13 +175,27 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	if (!spwm->base)
 		return -ENOMEM;
 
-	spwm->clk = devm_clk_get(&pdev->dev, NULL);
+	/*
+	 * the 1st clock is for PWM controller
+	 */
+	spwm->clk = of_clk_get(pdev->dev.of_node, 0);
 	if (IS_ERR(spwm->clk)) {
-		dev_err(&pdev->dev, "Get clock failed.\n");
+		dev_err(&pdev->dev, "Get PWM controller clock failed.\n");
 		return PTR_ERR(spwm->clk);
 	}
-
 	clk_prepare_enable(spwm->clk);
+
+	/*
+	 * the 2nd clock is the source to generate PWM waves
+	 * it is the OSC on SiRFSoC
+	 */
+	clk_pwm_src = of_clk_get(pdev->dev.of_node, 1);
+	if (IS_ERR(clk_pwm_src)) {
+		dev_err(&pdev->dev, "Get PWM source clock failed.\n");
+		return PTR_ERR(clk_pwm_src);
+	}
+	spwm->src_clk_rate = clk_get_rate(clk_pwm_src);
+	clk_put(clk_pwm_src);
 
 	spwm->chip.dev = &pdev->dev;
 	spwm->chip.ops = &sirf_pwm_ops;
@@ -203,6 +216,7 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 {
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
 	clk_disable_unprepare(spwm->clk);
+	clk_put(spwm->clk);
 
 	pwmchip_remove(&spwm->chip);
 	return 0;
