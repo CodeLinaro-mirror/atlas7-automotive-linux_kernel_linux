@@ -98,6 +98,7 @@ THUMB(	mov	sp, r2			)
 THUMB(	bx	r3			)
 ENDPROC(cpu_resume)
 
+#ifdef CONFIG_HIBERNATION
 	.align
 ENTRY(cpu_resume_restore_nosave)
 	ldr	r0, =__nosave_backup_phys
@@ -114,6 +115,7 @@ ENTRY(cpu_resume_restore_nosave)
 	cmp	r1, r2
 	bne	1b
 	b	cpu_resume
+#endif
 
 sleep_save_sp:
 	.rept	CONFIG_NR_CPUS
