@@ -2,11 +2,16 @@ SiRF prima2 & atlas6 PWM drivers
 
 Required properties:
 - compatible: "sirf,prima2-pwm"
+- reg: physical base address and length of the controller's registers
 - #pwm-cells: should be 2.  The first cell specifies the per-chip index
   of the PWM to use and the second cell is the period in nanoseconds.
+- clocks: from common clock binding: the 1st clock is for PWM controller
+  the 2nd clock is the source to generate PWM waves
 
 Example:
 pwm: pwm@b0130000 {
 	compatible = "sirf,prima2-pwm";
 	#pwm-cells = <2>;
+	reg = <0xb0130000 0x10000>;
+	clocks = <&clks 21>, <&clks 1>;
 };
