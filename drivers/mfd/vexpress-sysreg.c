@@ -231,7 +231,11 @@ static int vexpress_sysreg_config_func_exec(void *func, int offset,
 		return -ENOENT;
 
 	command = readl(vexpress_sysreg_base + SYS_CFGCTRL);
+#ifdef CONFIG_SECURITY_MODE
 	if (WARN_ON(command & SYS_CFGCTRL_START))
+#else
+	if (command & SYS_CFGCTRL_START)
+#endif
 		return -EBUSY;
 
 	command = SYS_CFGCTRL_START;
