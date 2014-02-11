@@ -131,7 +131,7 @@ static void sirfsoc_gps_reset(struct gps_dev *gdev);
 void __init sirfsoc_gps_reserve_memblock(void)
 {
 	sirf_gps_phy_size = 4 * SZ_1M;
-	sirf_gps_phy_base = memblock_alloc(sirf_gps_phy_size, PAGE_SIZE);
+	sirf_gps_phy_base = memblock_alloc(sirf_gps_phy_size, SZ_1M);
 	memblock_remove(sirf_gps_phy_base, sirf_gps_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_gps_reserve_memblock);

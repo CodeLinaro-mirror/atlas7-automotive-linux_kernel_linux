@@ -106,7 +106,7 @@ static phys_addr_t sirf_pbb_phy_size;
 void __init sirfsoc_pbb_reserve_memblock(void)
 {
 	sirf_pbb_phy_size = SZ_1M;
-	sirf_pbb_phy_base = memblock_alloc(sirf_pbb_phy_size, PAGE_SIZE);
+	sirf_pbb_phy_base = memblock_alloc(sirf_pbb_phy_size, SZ_1M);
 	memblock_remove(sirf_pbb_phy_base, sirf_pbb_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_pbb_reserve_memblock);
