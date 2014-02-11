@@ -29,7 +29,7 @@ struct sirfsoc_pwrc_drvdata {
 #define PWRC_INT_MASK			0x10
 
 #define PWRC_PIN_STATUS			0x14
-#define PWRC_KEY_DETECT_UP_TIME		(10)	/* ms*/
+#define PWRC_KEY_DETECT_UP_TIME		20	/* ms*/
 
 static inline int sirfsoc_pwrc_is_on_key_down(
 		struct sirfsoc_pwrc_drvdata *pwrcdrv)
