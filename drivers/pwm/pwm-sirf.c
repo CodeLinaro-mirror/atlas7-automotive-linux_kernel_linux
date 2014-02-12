@@ -48,7 +48,7 @@ static unsigned int sirf_pwm_ns_to_cycles(struct pwm_chip *chip, unsigned int ti
 	u64 dividend;
 	unsigned int cycle;
 
-	dividend = spwm->src_clk_rate * time_ns + NSEC_PER_SEC / 2;
+	dividend = (u64)spwm->src_clk_rate * time_ns + NSEC_PER_SEC / 2;
 	do_div(dividend, NSEC_PER_SEC);
 
 	cycle = dividend & 0xFFFFFFFFUL;
