@@ -85,8 +85,10 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			low_cycles = 1;
 		}
 
-		writel(high_cycles, spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
-		writel(low_cycles, spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
+		writel(high_cycles - 1,
+			spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
+		writel(low_cycles - 1,
+			spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
 	}
 
 	return 0;
