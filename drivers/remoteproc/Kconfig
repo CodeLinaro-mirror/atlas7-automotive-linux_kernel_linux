@@ -64,4 +64,42 @@ config DA8XX_REMOTEPROC
 	  It's safe to say n here if you're not interested in multimedia
 	  offloading.
 
+# config CSR hypervisor remoteproc.
+config CSRVISOR_SW_FIFO
+	tristate
+	default n
+
+config CSRVISOR_REMOTEPROC
+	tristate
+	select REMOTEPROC
+	select CSRVISOR_SW_FIFO
+	default n
+
+config CSRVISOR_REMOTEPROC_BACKEND
+	tristate "CSRVisor remoteproc support for backend OS"
+	depends on SECURITY_MODE
+	select VIRTIO_BACKEND
+	select CSRVISOR_REMOTEPROC
+	default n
+	help
+	  Say y here to support CSR hypervisor remote processors via the
+	  remote processor framework in backend OS which is running
+	  in ARM secure mode.
+
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
+config CSRVISOR_REMOTEPROC_FRONTEND
+	tristate "CSRVisor remoteproc support for frontend OS"
+	depends on !SECURITY_MODE
+	select CSRVISOR_REMOTEPROC
+	default n
+	help
+	  Say y here to support CSR hypervisor remote processors via the
+	  remote processor framework in frontend OS which is running
+	  in ARM non-secure mode.
+
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
 endmenu
