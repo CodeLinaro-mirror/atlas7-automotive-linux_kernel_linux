@@ -19,7 +19,7 @@
 static struct platform_device *sirf_camera_pdev[NO_OF_CAMERA_DEVICE];
 
 static struct i2c_board_info tvdecoder_i2c_tw9900 = {
-		I2C_BOARD_INFO("tw9900", (0x88 >> 1)),
+	I2C_BOARD_INFO("tw9900", (0x88 >> 1)),
 };
 
 static struct tw9900_video_info tw9900_info = {
@@ -42,7 +42,7 @@ struct soc_camera_desc camera_desc = {
 };
 
 static struct i2c_board_info hdmireceiver_i2c_ch7102 = {
-		I2C_BOARD_INFO("ch7102", (0xF0 >> 1)),
+	I2C_BOARD_INFO("ch7102", (0xF0 >> 1)),
 };
 
 static struct ch7102_video_info ch7102_info = {
