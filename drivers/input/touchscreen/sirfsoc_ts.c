@@ -345,7 +345,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	if (irq < 0) {
 		dev_err(&pdev->dev, "sirfsoc tsc: get irq failed!\n");
 		ret = -ENOMEM;
-		goto out2;
+		goto out3;
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_ts_hard_irq,
@@ -354,7 +354,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "sirfsoc ts: regist irq handler failed!\n");
 		ret = -ENODEV;
-		goto out2;
+		goto out3;
 	}
 	/*touch is not pressed down*/
 	ts->press_hold_cnt = 0;
@@ -368,7 +368,8 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	input_set_abs_params(input_dev, ABS_Y, 0, 0x3FFF, 0, 0);
 
 	return 0;
-
+out3:
+	input_unregister_device(input_dev);
 out2:
 	input_free_device(input_dev);
 out1:
