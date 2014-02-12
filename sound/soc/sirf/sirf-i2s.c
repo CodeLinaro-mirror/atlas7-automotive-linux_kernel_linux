@@ -295,11 +295,7 @@ static int sirf_i2s_runtime_suspend(struct device *dev)
 static int sirf_i2s_runtime_resume(struct device *dev)
 {
 	struct sirf_i2s *si2s = dev_get_drvdata(dev);
-	int ret;
-	ret = clk_prepare_enable(si2s->clk);
-	if (ret)
-		return ret;
-	return ret;
+	return clk_prepare_enable(si2s->clk);
 }
 #endif
 
