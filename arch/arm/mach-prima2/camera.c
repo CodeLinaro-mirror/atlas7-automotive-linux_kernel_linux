@@ -117,6 +117,6 @@ static void __exit sirfsoc_camera_exit(void)
 
 module_exit(sirfsoc_camera_exit);
 
-MODULE_AUTHOR("Renwei Wu");
+MODULE_AUTHOR("Renwei Wu <Renwei.Wu@csr.com>");
 MODULE_DESCRIPTION("SiRF camera platform device registration");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

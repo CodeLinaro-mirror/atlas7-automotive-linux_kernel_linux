@@ -1462,5 +1462,6 @@ static struct platform_driver sirfsoc_camera_driver = {
 module_platform_driver(sirfsoc_camera_driver);
 
 MODULE_DESCRIPTION("sirfsoc SoC Camera Host driver(VIP interface)");
-MODULE_AUTHOR("Guennadi Liakhovetski <kernel@pengutronix.de>");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Renwei Wu <Renwei.Wu@csr.com>, "
+	"Xiaomeng Hou <Xiaomeng.Hou@csr.com>");
+MODULE_LICENSE("GPL v2");
