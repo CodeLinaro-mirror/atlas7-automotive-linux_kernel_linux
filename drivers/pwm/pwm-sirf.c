@@ -122,7 +122,7 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	/* enable output */
 	val = readl(spwm->base + SIRF_PWM_OE);
 	val |= 1 << pwm->hwpwm;
-	val &= ~(1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT));
+	val |= 1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT);
 
 	writel(val, spwm->base + SIRF_PWM_OE);
 
