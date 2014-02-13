@@ -90,6 +90,8 @@ static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
 
 static void __init sirfsoc_init_mach(void)
 {
+	sirfsoc_add_camera_pdev();
+
 	of_platform_populate(NULL, of_default_bus_match_table,
 		sirf_auxdata_lookup, NULL);
 

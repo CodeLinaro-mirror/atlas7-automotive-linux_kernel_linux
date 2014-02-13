@@ -14,10 +14,6 @@
 #include <media/tw9900.h>
 #include <media/ch7102.h>
 
-#define NO_OF_CAMERA_DEVICE 2
-
-static struct platform_device *sirf_camera_pdev[NO_OF_CAMERA_DEVICE];
-
 static struct i2c_board_info tvdecoder_i2c_tw9900 = {
 	I2C_BOARD_INFO("tw9900", (0x88 >> 1)),
 };
@@ -27,7 +23,7 @@ static struct tw9900_video_info tw9900_info = {
 	.mpout          = TW9900_MPO_FIELD,
 };
 
-struct soc_camera_desc camera_desc = {
+static struct soc_camera_desc tw9900_desc = {
 	.host_desc = {
 		.bus_id = 0,
 		.i2c_adapter_id = 0,
@@ -49,7 +45,7 @@ static struct ch7102_video_info ch7102_info = {
 	.buswidth	= SOCAM_DATAWIDTH_8,
 };
 
-struct soc_camera_desc camera_desc1 = {
+static struct soc_camera_desc ch7102_desc = {
 	.host_desc = {
 		.bus_id = 0,
 		.i2c_adapter_id = 1,
@@ -63,60 +59,29 @@ struct soc_camera_desc camera_desc1 = {
 	},
 };
 
-static int __init sirfsoc_camera_init(void)
+static struct platform_device sirfsoc_camera[] = {
+	{
+		.name	= "soc-camera-pdrv",
+		.id	= 0,
+		.dev	= {
+			.platform_data = &tw9900_desc,
+		},
+	}, {
+		.name	= "soc-camera-pdrv",
+		.id	= 1,
+		.dev	= {
+			.platform_data = &ch7102_desc,
+		},
+	},
+};
+
+static struct platform_device *sirfsoc_camera_pdev[] __initdata = {
+	&sirfsoc_camera[0],
+	&sirfsoc_camera[1],
+};
+
+int __init sirfsoc_add_camera_pdev(void)
 {
-	struct platform_device *pdev;
-	struct soc_camera_desc *pdata = &camera_desc;
-	int err = -ENOMEM;
-
-	pdev = platform_device_alloc("soc-camera-pdrv", 0);
-	if (!pdev)
-		goto err_out;
-
-	err = platform_device_add_data(pdev, pdata, sizeof(*pdata));
-	if (err)
-		goto err_out;
-
-	err = platform_device_add(pdev);
-	if (err)
-		goto err_out;
-
-	sirf_camera_pdev[0] = pdev;
-
-	pdata = &camera_desc1;
-	pdev = platform_device_alloc("soc-camera-pdrv", 1);
-	if (!pdev)
-		goto err_out;
-
-	err = platform_device_add_data(pdev, pdata, sizeof(*pdata));
-	if (err)
-		goto err_out;
-
-	err = platform_device_add(pdev);
-	if (err)
-		goto err_out;
-
-	sirf_camera_pdev[1] = pdev;
-
-	return 0;
-
-err_out:
-	platform_device_put(pdev);
-
-	return err;
+	return platform_add_devices(sirfsoc_camera_pdev,
+		ARRAY_SIZE(sirfsoc_camera_pdev));
 }
-module_init(sirfsoc_camera_init);
-
-static void __exit sirfsoc_camera_exit(void)
-{
-	int i = 0;
-
-	for (i = 0; i < NO_OF_CAMERA_DEVICE; i++)
-		platform_device_unregister(sirf_camera_pdev[i]);
-}
-
-module_exit(sirfsoc_camera_exit);
-
-MODULE_AUTHOR("Renwei Wu <Renwei.Wu@csr.com>");
-MODULE_DESCRIPTION("SiRF camera platform device registration");
-MODULE_LICENSE("GPL v2");
