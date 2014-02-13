@@ -49,7 +49,6 @@ struct rproc_fw_ops {
 void rproc_release(struct kref *kref);
 irqreturn_t rproc_vq_interrupt(struct rproc *rproc, int vq_id);
 irqreturn_t rproc_bus_interrupt(struct rproc *rproc, int notifyid);
-struct rproc *rproc_get_instance_by_name(char *name);
 int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 					int offset, int avail);
 int rproc_alloc_vdev_notifyid(struct rproc *rproc,
@@ -78,8 +77,6 @@ int rproc_trigger_recovery(struct rproc *rproc);
 /* from remoteproc_dualos.c */
 void rproc_alloc_resource_table(struct rproc *rproc);
 void rproc_release_resource_table(struct rproc *rproc);
-void rproc_release_resource_entry(struct rproc *rproc,
-			struct rproc_vdev *rvdev);
 
 int rproc_task_thread_setup(struct rproc *rproc);
 void rproc_task_thread_stop(struct rproc *rproc);

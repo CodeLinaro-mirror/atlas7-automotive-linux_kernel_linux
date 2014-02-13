@@ -435,9 +435,6 @@ static void rproc_vdev_release(struct device *dev)
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
 		idr_remove(&rproc->rvdev_ids, rvdev->notifyid);
 
-	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
-		rproc_release_resource_entry(rproc, rvdev);
-
 	list_del(&rvdev->node);
 	kfree(rvdev);
 

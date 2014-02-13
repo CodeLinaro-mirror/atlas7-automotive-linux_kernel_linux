@@ -22,6 +22,11 @@
 #include <linux/csrvisor_fifo.h>
 #include <linux/csrvisor_syscalls.h>
 
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_BACKEND
+#include <linux/virtio_ids.h>
+#include <linux/rpmsg.h>
+#endif
+
 #include "remoteproc_internal.h"
 
 /* The id of CPU which the secure mode is enable*/
@@ -293,6 +298,14 @@ static int csrvisor_rproc_stop(struct rproc *rproc)
 	return 0;
 }
 
+
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_BACKEND
+static struct rproc_vdev_desc s_rproc_vdev_desc[] = {
+	/* virtio rpmsg bus device descriptor */
+	{VIRTIO_ID_RPMSG, 2, 256, {VIRTIO_RPMSG_F_NS, }, 1, RPROC_VDEV_MMIO_SIZE},
+};
+#endif
+
 static void csrvisor_rproc_resource(struct rproc *rproc)
 {
 	struct csrvisor_rproc *srproc = (struct csrvisor_rproc *)rproc->priv;
@@ -303,7 +316,13 @@ static void csrvisor_rproc_resource(struct rproc *rproc)
 	rproc->table_ptr = srproc->rsc_table_pa;
 	rproc->table_len = srproc->rsc_table_len;
 
-	return;
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_BACKEND
+	rproc->vdev_desc_tbl = s_rproc_vdev_desc;
+	rproc->vdev_desc_tbl_len = ARRAY_SIZE(s_rproc_vdev_desc);
+#else
+	rproc->vdev_desc_tbl = NULL;
+	rproc->vdev_desc_tbl_len = 0;
+#endif
 }
 
 static void csrvisor_rproc_release(struct rproc *rproc)
@@ -368,7 +387,8 @@ static u32 csrvisor_rproc_features(void)
 			RPROC_F_DEVICE_UPDATE_NOTIFY;
 
 #ifdef CONFIG_CSRVISOR_REMOTEPROC_BACKEND
-	features |= (RPROC_F_BACKEND | RPROC_F_BUS_WRITE);
+	features |= (RPROC_F_BACKEND | RPROC_F_BUS_WRITE |
+			RPROC_F_PREDEFINED_VQ_NOTIFYID);
 #else
 	features |= (RPROC_F_FRONTEND | RPROC_F_PREDEFINED_VQ_NOTIFYID);
 #endif

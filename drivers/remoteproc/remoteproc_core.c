@@ -297,14 +297,21 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 	rsc = (struct fw_rsc_vdev *)
 			((void *)rproc->table_ptr + rvdev->rsc_offset);
 
+	/* Assign an rproc-wide unique index for this vring */
+	ret = __rproc_alloc_vring_notifyid(rproc, rvring);
+	if (ret)
+		return ret;
+
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND)) {
 		/* if the vring has been pre-allocated by remote side,
 		 * just map the vring memory into native side space.
 		 */
 		dma = rsc->vring[i].da;
 		va = ioremap(dma, size);
-		if (!va)
-			return -EINVAL;
+		if (!va) {
+			ret = -EINVAL;
+			goto free_idr;
+		}
 	} else {
 		/*
 		 * Allocate non-cacheable memory for the vring. In the future
@@ -313,15 +320,8 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 		va = dma_alloc_coherent(dev->parent, size, &dma, GFP_KERNEL);
 		if (!va) {
 			dev_err(dev->parent, "dma_alloc_coherent failed\n");
-			return -EINVAL;
-		}
-
-		/* Assign an rproc-wide unique index for this vring */
-		ret = __rproc_alloc_vring_notifyid(rproc, rvring);
-		if (ret) {
-			dev_err(dev, "idr_alloc failed: %d\n", ret);
-			dma_free_coherent(dev->parent, size, va, dma);
-			return ret;
+			ret = -EINVAL;
+			goto free_idr;
 		}
 
 		/* zero vring */
@@ -346,6 +346,10 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 
 	rsc->vring[i].notifyid = rvring->notifyid;
 	return 0;
+
+free_idr:
+	idr_remove(&rproc->notifyids, rvring->notifyid);
+	return ret;
 }
 
 static int
@@ -498,6 +502,7 @@ alloc_rproc:
 	/* remember the resource offset*/
 	rvdev->rsc_offset = offset;
 	rvdev->num_of_vring = rsc->num_of_vrings;
+	rvdev->features = rsc->dfeatures;
 
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY)) {
 		ret = rproc_alloc_vdev_notifyid(rproc, rvdev);
@@ -1083,6 +1088,9 @@ static int rproc_add_virtio_devices(struct rproc *rproc)
 {
 	int ret;
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FIRMWARE))
+		goto look_for_devices;
+
 	/* rproc_del() calls must wait until async loader completes */
 	init_completion(&rproc->firmware_loading_complete);
 
@@ -1103,6 +1111,10 @@ static int rproc_add_virtio_devices(struct rproc *rproc)
 	}
 
 	return ret;
+
+look_for_devices:
+	/* look for virtio devices and register them */
+	return rproc_handle_resources(rproc, rproc->table_len, rproc_vdev_handler);
 }
 
 /**
@@ -1343,17 +1355,8 @@ int rproc_add(struct rproc *rproc)
 	/* create debugfs entries */
 	rproc_create_debug_dir(rproc);
 
-	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FIRMWARE))
-		goto no_fw_rproc;
-	/*
-	 * If this rproc has RPROC_F_FIRMWARE feature,
-	 * it will start to scan resource table and add virtio devices.
-	 */
-	return rproc_add_virtio_devices(rproc);
-
-no_fw_rproc:
 	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
-		goto exit;
+		goto add_virtio_devs;
 	/*
 	 * If this rproc has RPROC_F_FRONTEND feature, set default state
 	 * to RPROC_RUNNING, then tell backend its state is running now.
@@ -1362,8 +1365,12 @@ no_fw_rproc:
 	/* kick the remote processor, and let it know bus is running */
 	rproc_kick_bus_async(rproc,
 		MK_BUS_NOTIFYID(RPROC_BUS_STATE_RUNNING));
-exit:
-	return ret;
+
+add_virtio_devs:
+	/*
+	 * it will start to scan resource table and add virtio devices.
+	 */
+	return rproc_add_virtio_devices(rproc);
 }
 EXPORT_SYMBOL(rproc_add);
 

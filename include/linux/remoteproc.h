@@ -399,6 +399,24 @@ enum rproc_crash_type {
 };
 
 /**
+ * struct rproc_vdev_desc - descriptor of rproc virtio device
+ * @virtio_id:	virtio device type id
+ * @vq_number:	number of virtqueue of this virtio device
+ * @vq_length:	number of desciptor per virtqueue
+ * @features:	virtio device feature array
+ * @feature_sz:	number of features
+ * @config_len: virtio rproc config iomem length
+ */
+struct rproc_vdev_desc {
+	u32 virtio_id;
+	u32 vq_number;
+	u32 vq_length;
+	u32 features[32];
+	u32 feature_sz;
+	u32 config_len;
+};
+
+/**
  * struct rproc - represents a physical remote processor device
  * @features: the features of this rproc contained
  * @node: klist node of this rproc object
@@ -430,6 +448,10 @@ enum rproc_crash_type {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
+ * @vdev_desc_tbl: virtio rproc device descriptor table
+ * @vdev_desc_tbl_len: number of virtio rproc device descriptor
+ * @vdev_notifyid_index: the index base of virtio device notifyid
+ * @vq_notifyid_index: the index base of virtqueue notifyid
  * @rvdev_ids: idr for dynamically assigning device unique notify ids
  * @bus_task: thread for rproc bus task
  * @async_kick_task: thread for async kick task
@@ -473,6 +495,10 @@ struct rproc {
 	u32 table_csum;
 
 	/* the following are used for dual os */
+	struct rproc_vdev_desc *vdev_desc_tbl;
+	u32 vdev_desc_tbl_len;
+	u32 vdev_notifyid_index;
+	u32 vq_notifyid_index;
 	struct idr rvdev_ids;
 	struct task_struct *bus_task;
 	struct task_struct *async_kick_task;
@@ -540,15 +566,7 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 				const struct rproc_ops *ops,
 				const char *firmware, int len);
 
-int rproc_create_device(struct virtio_device **pp_vdev,
-			u32 virtio_device_id, u32 vq_num, u32 vq_len,
-			u32 features[], u32 feature_sz,
-			rproc_dev_mmio *mmio,
-			char *rproc_name);
-int rproc_setup_device(struct virtio_device *vdev);
 int rproc_set_mmio_handler(struct virtio_device *vdev, rproc_dev_mmio *mmio);
-void rproc_remove_device(struct virtio_device *vdev);
-
 
 void rproc_put(struct rproc *rproc);
 int rproc_add(struct rproc *rproc);
