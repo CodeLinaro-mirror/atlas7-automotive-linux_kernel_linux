@@ -20,6 +20,7 @@
 struct sirfsoc_pwrc_drvdata {
 	u32			pwrc_base;
 	struct input_dev	*input;
+	int			irq;
 	struct delayed_work	work;
 };
 
@@ -81,7 +82,7 @@ MODULE_DEVICE_TABLE(of, sirfsoc_pwrc_of_match);
 
 static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 {
-	int ret, irq;
+	int ret;
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = NULL;
 	struct device_node *np = pdev->dev.of_node;
 
@@ -112,13 +113,13 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pwrcdrv);
 
 	INIT_DELAYED_WORK(&pwrcdrv->work, sirfsoc_pwrc_report_event);
-	irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, irq,
+	pwrcdrv->irq = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(&pdev->dev, pwrcdrv->irq,
 			sirfsoc_pwrc_isr, 0,
 			"sirfsoc_pwrc_int", pwrcdrv);
 	if (ret) {
 		dev_err(&pdev->dev, "pwrc: Unable to claim irq %d; error %d\n",
-			irq, ret);
+			pwrcdrv->irq, ret);
 		return ret;
 	}
 
@@ -147,6 +148,8 @@ static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(&pdev->dev);
 
 	device_init_wakeup(&pdev->dev, 0);
+
+	devm_free_irq(&pdev->dev, pwrcdrv->irq, pwrcdrv);
 
 	cancel_delayed_work_sync(&pwrcdrv->work);
 
