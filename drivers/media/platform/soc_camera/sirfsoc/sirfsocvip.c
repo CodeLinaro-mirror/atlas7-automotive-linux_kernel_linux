@@ -208,9 +208,10 @@ out:
 static int sirfsoc_camera_start_dma(
 	struct sirfsoc_camera_dev *pcdev, int resetfifo);
 
-static void sirfsoc_camera_callback (void *pdata) {
+static void sirfsoc_camera_callback(void *pdata)
+{
 	struct videobuf_buffer *vb = NULL;
-	struct sirfsoc_camera_dev *pcdev = (struct sirfsoc_camera_dev*)pdata;
+	struct sirfsoc_camera_dev *pcdev = (struct sirfsoc_camera_dev *)pdata;
 	unsigned long flags;
 
 	dev_dbg(pcdev->dev, "%s\n", __func__);
@@ -261,12 +262,13 @@ static void sirfsoc_camera_callback (void *pdata) {
 		pcdev->active->state = VIDEOBUF_ACTIVE;
 		pcdev->dma_xt->dst_start = videobuf_to_dma_contig(pcdev->active);
 
-		rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan, pcdev->dma_xt, 0);
-	        rx_desc->callback = sirfsoc_camera_callback;
-	        rx_desc->callback_param = pcdev;
+		rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan,
+							pcdev->dma_xt, 0);
+		rx_desc->callback = sirfsoc_camera_callback;
+		rx_desc->callback_param = pcdev;
 
-	        dmaengine_submit(rx_desc);
-	        dma_async_issue_pending(pcdev->dma_chan);
+		dmaengine_submit(rx_desc);
+		dma_async_issue_pending(pcdev->dma_chan);
 
 		if (pcdev->pdata->sirfsoc_camera_single)
 			pcdev->vip_funcs.pfnStart(0);
@@ -297,9 +299,10 @@ static int sirfsoc_camera_start_dma(
 	pcdev->dma_xt->frame_size = 1;
 	pcdev->dma_xt->numf = vb->height;
 	pcdev->dma_xt->dst_start = videobuf_to_dma_contig(vb);
-        pcdev->dma_xt->dir = DMA_DEV_TO_MEM;
+	pcdev->dma_xt->dir = DMA_DEV_TO_MEM;
 
-	rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan, pcdev->dma_xt, 0);
+	rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan,
+						pcdev->dma_xt, 0);
 	rx_desc->callback = sirfsoc_camera_callback;
 	rx_desc->callback_param = pcdev;
 
@@ -695,8 +698,8 @@ static int sirfsoc_camera_try_fmt_cap(struct soc_camera_device *icd,
 
 static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
 {
-        return container_of(ctrl->handler, struct soc_camera_device,
-                                                        ctrl_handler);
+	return container_of(ctrl->handler, struct soc_camera_device,
+		ctrl_handler);
 }
 
 static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
@@ -707,20 +710,19 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct videobuf_queue *q;
 	int index;
 
-        switch (ctrl->id) {
+	switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
-                q = &icd->vb_vidq;
-                index = ctrl->val;
+		q = &icd->vb_vidq;
+		index = ctrl->val;
 
-                if (index < 0 || index > VIDEO_MAX_FRAME - 1)
-                        return -EINVAL;
+		if (index < 0 || index > VIDEO_MAX_FRAME - 1)
+			return -EINVAL;
 
-                if (q->bufs[index] == NULL ||
-                        q->bufs[index]->map == NULL)
-                        return -EINVAL;
+		if (q->bufs[index] == NULL || q->bufs[index]->map == NULL)
+			return -EINVAL;
 
-                ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
-                break;
+		ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
+		break;
 
 	case V4L2_CID_SET_INTERLACE:
 		if (ctrl->val)
@@ -731,6 +733,7 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -775,10 +778,10 @@ static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
 			return -EINVAL;
 		ctrl->val = control.value;
 		break;
-        default:
-                return -EINVAL;
-        }
-        return 0;
+	default:
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -987,13 +990,14 @@ static irqreturn_t sirfsoc_camera_irq(int irq, void *data)
 	status = pcdev->vip_funcs.pfnGetInterrupts();
 	pcdev->vip_funcs.pfnClearInterrupts(status);
 
-	if (status & VIP_INTMASK_SENSOR) {
+	if (status & VIP_INTMASK_SENSOR)
 		dev_dbg(pcdev->dev, "sensor interrupt happens\n");
-	}
+
 	if (status & VIP_INTMASK_FIFO_OFLOW) {
 		/* dev_info(pcdev->dev, "FIFO overflow interrupt happens\n"); */
 		brestart = 1;
 	}
+
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(pcdev->dev, "FIFO underflow interrupt happens\n");
 
@@ -1139,7 +1143,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_camera_irq, 0,
-                                SIRFSOC_CAM_DRV_NAME, pcdev);
+					SIRFSOC_CAM_DRV_NAME, pcdev);
 	if (ret)
 		goto exit_kfree;
 
@@ -1225,7 +1229,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	pcdev->dma_slave_config.dst_maxburst = 4;
 	pcdev->dma_slave_config.device_fc = 0;
 
-	if(dmaengine_slave_config(pcdev->dma_chan, &pcdev->dma_slave_config)) {
+	if (dmaengine_slave_config(pcdev->dma_chan, &pcdev->dma_slave_config)) {
 		dev_err(&pdev->dev, "%s: can not set dma slave config\n",
 			__func__);
 		goto exit_free_dma;
@@ -1463,6 +1467,5 @@ static struct platform_driver sirfsoc_camera_driver = {
 module_platform_driver(sirfsoc_camera_driver);
 
 MODULE_DESCRIPTION("sirfsoc SoC Camera Host driver(VIP interface)");
-MODULE_AUTHOR("Renwei Wu <Renwei.Wu@csr.com>, "
-	"Xiaomeng Hou <Xiaomeng.Hou@csr.com>");
+MODULE_AUTHOR("Renwei Wu <Renwei.Wu@csr.com>, Xiaomeng Hou <Xiaomeng.Hou@csr.com>");
 MODULE_LICENSE("GPL v2");

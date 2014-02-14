@@ -689,7 +689,8 @@ static void rearview_init(void)
 
 #ifdef REARVIEW_AUXILIARY
 	if (info == registered_fb[2] || registered_fb[2] == NULL) {
-		pr_err("%s: cannot find fb for rearview auxiliary function\n", __func__);
+		pr_err("%s: cannot find fb for rearview auxiliary function\n",
+			__func__);
 		return;
 	}
 
