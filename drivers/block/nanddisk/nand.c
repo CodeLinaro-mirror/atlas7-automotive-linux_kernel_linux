@@ -51,7 +51,7 @@ struct nanddisk_device {
 	struct semaphore	nanddisk_sem;
 
 	/* data for transferring */
-	void *data;
+	void *data_buf;
 
 	/* buffer for u-boot */
 	void *uboot_buf;
@@ -65,8 +65,7 @@ struct nanddisk_device {
 	/* power status */
 	unsigned power;
 
-	/* information got from bootloader cmd line */
-	unsigned nandboot;
+	/* information got from dtb */
 	unsigned nandinsert;
 	unsigned boot_zone_log_sector_start;
 	unsigned boot_zone_log_sector_num;
@@ -77,7 +76,7 @@ struct nanddisk_device {
 	/* address map and irq resource */
 	struct ADDRMAP *addr_map_tbl;
 	unsigned addr_entry_num;
-	unsigned irq;
+	int irq;
 	unsigned irq_num;
 	unsigned int dma_num;
 	struct dma_chan *rw_chan;
@@ -93,7 +92,7 @@ struct nanddisk_device {
 	struct task_struct *pending_task;
 	unsigned pending_async_status;
 
-	struct tasklet_struct *ist_tasklet;
+	struct tasklet_struct ist_tasklet;
 	struct task_struct *wearlevel_task;
 	int need_wearlevel;
 
@@ -229,19 +228,6 @@ static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
 		&& sector >= nand_dev.boot_zone_log_sector_start
 		&& sector + nsect <= nand_dev.boot_zone_log_sector_start
 		+ nand_dev.boot_zone_log_sector_num) {
-		if (!nand_dev.uboot_buf) {
-			nand_dev.uboot_buf = vmalloc(
-				UBOOT_MAX_LENGTH + UBOOT_MAX_SECTOR);
-			if (!nand_dev.uboot_buf) {
-				pr_err("%s: malloc buffer for u-boot failed\n",
-					__func__);
-				return -1;
-			}
-			nand_dev.uboot_write_map = (unsigned char *)(
-				nand_dev.uboot_buf + UBOOT_MAX_LENGTH);
-			memset(nand_dev.uboot_buf, 0, UBOOT_MAX_LENGTH);
-			memset(nand_dev.uboot_write_map, 0, UBOOT_MAX_SECTOR);
-		}
 		if (sector == uboot_commit_flag_sector) {
 			unsigned phy_sector_size =
 				nand_dev.nand_chip_info.
@@ -373,7 +359,7 @@ static irqreturn_t nanddisk_isr(int irq, void *dev_id)
 	}
 
 	nand_dev.irq_pending = 1;
-	tasklet_schedule(nand_dev.ist_tasklet);
+	tasklet_schedule(&nand_dev.ist_tasklet);
 	nand_dev.irq_num++;
 	return IRQ_HANDLED;
 }
@@ -445,20 +431,20 @@ static int nanddisk_merge_and_transfer(struct request *req,
 	remain_bytes = total_bytes;
 	if (!dir)
 		ret = nanddisk_io_sort(sector,
-			total_sectors, nand_dev.data, dir);
+			total_sectors, nand_dev.data_buf, dir);
 	while (remain_bytes != 0) {
 		cur_bytes = blk_rq_cur_bytes(req);
 		if (dir)
-			memcpy(nand_dev.data + merged_bytes,
+			memcpy(nand_dev.data_buf + merged_bytes,
 				req->buffer, cur_bytes);
 		else
 			memcpy(req->buffer,
-				nand_dev.data + merged_bytes, cur_bytes);
+				nand_dev.data_buf + merged_bytes, cur_bytes);
 		merged_bytes += cur_bytes;
 		remain_bytes -= cur_bytes;
 		if (remain_bytes == 0 && dir)
 			ret = nanddisk_io_sort(sector,
-				total_sectors, nand_dev.data, dir);
+				total_sectors, nand_dev.data_buf, dir);
 		spin_lock_irqsave(q->queue_lock, flags);
 		ret = __blk_end_request(req, 0, cur_bytes);
 		spin_unlock_irqrestore(q->queue_lock, flags);
@@ -621,16 +607,11 @@ static int nanddisk_init(struct platform_device *pdev)
 
 	nand_dev.sector_size_shift =
 	  blksize_bits(nand_dev.nand_chip_info.io_bdev_info.byte_per_sector);
-	dev_dbg(dev, "sector size shift=%d\n", nand_dev.sector_size_shift);
 	nand_dev.size = nand_dev.sectors_num << nand_dev.sector_size_shift;
 
 	nand_dev.boot_zone_log_sector_start = 1;
 	nand_dev.boot_zone_log_sector_num =
 		nand_dev.nanddisk_code_size >> nand_dev.sector_size_shift;
-	dev_dbg(dev, "bootzone shadow area: sector[%d,%d]\n",
-		nand_dev.boot_zone_log_sector_start,
-		nand_dev.boot_zone_log_sector_start +
-		nand_dev.boot_zone_log_sector_num);
 
 	/* enable async adapt mode */
 	async_mode.enable = 1;
@@ -662,18 +643,6 @@ static int nanddisk_init(struct platform_device *pdev)
 		return -1;
 	}
 	return 0;
-}
-
-static void nand_free_resource(void)
-{
-	clk_disable_unprepare(nand_dev.nand_clk);
-	clk_put(nand_dev.nand_clk);
-
-	if (nand_dev.dma_num)
-		dma_release_channel(nand_dev.rw_chan);
-
-	if (nand_dev.data)
-		vfree(nand_dev.data);
 }
 
 /*
@@ -731,222 +700,6 @@ static struct arch_nanddisk_resource arch_nres[] = {
 	}
 
 };
-
-static int nand_alloc_resource(struct platform_device *pdev)
-{
-	struct resource res;
-	struct device_node *dn = NULL;
-	struct device *dev = &pdev->dev;
-	dma_cap_mask_t dma_cap_mask;
-	int i, ret, addr_map_tbl_size;
-	int resource_index;
-	unsigned int value;
-	struct arch_nanddisk_resource *arch_nres_used;
-
-	arch_nres_used = &arch_nres[0];
-	i = 0;
-	while (i < ARRAY_SIZE(arch_nres)) {
-		dn = of_find_compatible_node(NULL, NULL,
-			arch_nres_used->arch_compatible);
-		if (dn)
-			break;
-		arch_nres_used++;
-		i++;
-	}
-
-	if (!dn) {
-		dev_info(dev, "no suitable nand controller!!\n");
-		ret = -ENODEV;
-		goto err_exit;
-	}
-
-	dev_info(dev, "find nand controller(%s).\n",
-		 arch_nres_used->arch_compatible);
-
-	/* total other controller */
-	nand_dev.addr_entry_num = arch_nres_used->res_num;
-	/* add nand controller */
-	nand_dev.addr_entry_num += 1;
-	/* add 2 item, ram and zero-end */
-	nand_dev.addr_entry_num += 2;
-	addr_map_tbl_size = sizeof(struct ADDRMAP) * nand_dev.addr_entry_num;
-	nand_dev.addr_map_tbl = devm_kzalloc(dev,
-					addr_map_tbl_size, GFP_KERNEL);
-	if (!nand_dev.addr_map_tbl) {
-		dev_err(dev, "failed to kmalloc.\n");
-		ret = -ENOMEM;
-		goto err_exit;
-	}
-
-	/* get resouce from other controller */
-	i = 0;
-	while (i < arch_nres_used->res_num) {
-		dn = NULL;
-		resource_index = arch_nres_used->arch_ores[i].index;
-		/* when it is not the first node */
-		do {
-			dn = of_find_compatible_node(dn, NULL,
-				arch_nres_used->arch_ores[i].res_compatible);
-			if (!dn) {
-				dev_err(dev, "failed to get %s node!\n",
-					arch_nres_used->arch_ores[i].res_compatible);
-				ret = -ENODEV;
-				goto err_exit;
-			}
-		} while (resource_index--);
-
-		ret = of_address_to_resource(dn, 0, &res);
-		if (ret) {
-			dev_err(dev, "failed to get resource(%d)!\n", i);
-			ret = -EINVAL;
-			goto err_exit;
-		}
-
-		nand_dev.addr_map_tbl[i].pa = res.start;
-		nand_dev.addr_map_tbl[i].size = resource_size(&res);
-		nand_dev.addr_map_tbl[i].va =
-			devm_ioremap(dev, res.start, resource_size(&res));
-
-		if (!nand_dev.addr_map_tbl[i].va) {
-			dev_err(dev, "failed to ioremap!\n");
-			ret = -ENOMEM;
-			goto err_exit;
-		}
-
-		dev_dbg(dev, "get resource va 0x%p, pa 0x%x, size 0x%x.\n",
-			nand_dev.addr_map_tbl[i].va,
-			nand_dev.addr_map_tbl[i].pa,
-			nand_dev.addr_map_tbl[i].size);
-
-		i++;
-	}
-
-	/* get resource from nand controller */
-	dn = pdev->dev.of_node;
-	if (!dn) {
-		dev_err(dev, "failed to get nand node!\n");
-		ret = -ENODEV;
-		goto err_exit;
-	}
-
-	ret = of_address_to_resource(dn, 0, &res);
-	if (ret) {
-		dev_err(dev, "failed to get resource(%d)!\n", i);
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	nand_dev.addr_map_tbl[i].pa = res.start;
-	nand_dev.addr_map_tbl[i].size = resource_size(&res);
-	nand_dev.addr_map_tbl[i].va =
-		devm_ioremap(dev, res.start, resource_size(&res));
-
-	if (!nand_dev.addr_map_tbl[i].va) {
-		dev_err(dev, "failed to ioremap!\n");
-		ret = -ENOMEM;
-		goto err_exit;
-	}
-
-	dev_dbg(dev, "get resource va 0x%p, pa 0x%x, size 0x%x.\n",
-		nand_dev.addr_map_tbl[i].va,
-		nand_dev.addr_map_tbl[i].pa,
-		nand_dev.addr_map_tbl[i].size);
-
-	/*
-	 * nand and sd0 share the same slot
-	 * nand can be used when sd0 absent
-	 */
-
-	value = readl(nand_dev.addr_map_tbl[i].va) &
-			arch_nres_used->sd0_boot_mode_mask;
-	if (value == arch_nres_used->sd0_boot_mode_value ||
-		value == arch_nres_used->sd0_bootp_mode_value) {
-		dev_info(dev, "no nand chip.\n");
-		ret = -ENODEV;
-		goto err_exit;
-	}
-
-	/* firmware area */
-	if (of_property_read_u32(dn, "sirf,nanddisk-uboot-commit-flag",
-		&nand_dev.uboot_commit_flag)) {
-		dev_err(dev, "failed to get uboot commit flag!\n");
-		ret = -ENODEV;
-		goto err_exit;
-	}
-
-	i++;
-	nand_dev.addr_map_tbl[i].pa = nand_dev.nanddisk_code_start;
-	nand_dev.addr_map_tbl[i].va =
-		(void *)phys_to_virt(nand_dev.nanddisk_code_start);
-	nand_dev.addr_map_tbl[i].size = nand_dev.nanddisk_code_size;
-	nand_dev.addr_map_tbl[i].flag = ADDR_MAP_FLAG_CACHE;
-	dev_dbg(dev, "get firmware va 0x%p, pa 0x%x, size 0x%x.\n",
-			nand_dev.addr_map_tbl[i].va,
-			nand_dev.addr_map_tbl[i].pa,
-			nand_dev.addr_map_tbl[i].size);
-
-	/* irq resource */
-	nand_dev.irq = irq_of_parse_and_map(dn, 0);
-	if (!nand_dev.irq) {
-		dev_err(dev, "could not get irq!\n");
-		ret = -EINVAL;
-		goto err_exit;
-	}
-
-	ret = devm_request_irq(dev, nand_dev.irq, nanddisk_isr,
-		IRQF_DISABLED, "nanddisk", &nand_dev);
-	if (ret) {
-		dev_err(dev, "nand failed to request irq!\n");
-		goto err_exit;
-	}
-	dev_dbg(dev, "get irq 0x%x.\n", nand_dev.irq);
-
-	/* dma resource */
-	if (of_property_read_u32(dn, "sirf,nand-dma-channel",
-		&nand_dev.dma_num)) {
-		dev_err(dev, "failed to get dma channel!\n");
-		ret = -ENODEV;
-		goto err_exit;
-	}
-	dev_dbg(dev, "dma channel is %d.\n", nand_dev.dma_num);
-
-	dma_cap_zero(dma_cap_mask);
-	dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
-	nand_dev.rw_chan = dma_request_channel(dma_cap_mask,
-		(dma_filter_fn)sirfsoc_dma_filter_id,
-		(void *)nand_dev.dma_num);
-	if (!nand_dev.rw_chan) {
-		dev_err(dev, "failed to allocate dma channel\n");
-		goto err_exit;
-	}
-
-	/* clock */
-	nand_dev.nand_clk = clk_get(dev, NULL);
-	if (IS_ERR(nand_dev.nand_clk)) {
-		ret = PTR_ERR(nand_dev.nand_clk);
-		dev_err(dev, "failed to get clk!\n");
-		goto err_exit;
-	}
-
-	clk_prepare_enable(nand_dev.nand_clk);
-
-	dev_dbg(dev, "nand clk is %ld\n", clk_get_rate(nand_dev.nand_clk));
-
-	nand_dev.pfn_ioctrl =
-		(PFN_NANDDISK_IOCTRL)phys_to_virt(nand_dev.nanddisk_code_start);
-
-	dev_dbg(dev, "nanddisk area: ram[0x%x,0x%x]\n",
-		nand_dev.nanddisk_code_start,
-		nand_dev.nanddisk_code_start + nand_dev.nanddisk_code_size);
-
-	nand_dev.nandboot = 1;
-	nand_dev.nandinsert = 1;
-
-	return 0;
-err_exit:
-	nand_free_resource();
-	return -1;
-}
 
 static void nand_request(struct request_queue *q)
 {
@@ -1076,41 +829,232 @@ static DEVICE_ATTR(log, S_IRUGO | S_IWUSR, get_log_state, set_log_state);
 static int sirfsoc_nand_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct resource res;
+	struct device_node *dn = NULL;
+	dma_cap_mask_t dma_cap_mask;
+	int i, error, addr_map_tbl_size;
+	int resource_index;
+	unsigned int value;
+	struct arch_nanddisk_resource *arch_nres_used;
 
-	if (nand_alloc_resource(pdev))
-		return -1;
+	arch_nres_used = &arch_nres[0];
+	for (i = 0; i < ARRAY_SIZE(arch_nres); i++) {
+		dn = of_find_compatible_node(NULL, NULL,
+			arch_nres_used->arch_compatible);
+		if (dn)
+			break;
+		arch_nres_used++;
+	}
 
-	if (nanddisk_init(pdev))
-		return -1;
+	if (!dn) {
+		dev_err(dev, "no suitable nand controller!!\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
 
-	dev_dbg(dev, "sector num is %d\n", nand_dev.sectors_num);
+	dev_info(dev, "find nand controller(%s).\n",
+		 arch_nres_used->arch_compatible);
+
+	/* total other controller */
+	nand_dev.addr_entry_num = arch_nres_used->res_num;
+	/* add nand controller */
+	nand_dev.addr_entry_num += 1;
+	/* add 2 item, ram and zero-end */
+	nand_dev.addr_entry_num += 2;
+	addr_map_tbl_size = sizeof(struct ADDRMAP) * nand_dev.addr_entry_num;
+	nand_dev.addr_map_tbl = devm_kzalloc(dev,
+					addr_map_tbl_size, GFP_KERNEL);
+	if (!nand_dev.addr_map_tbl) {
+		dev_err(dev, "unable to malloc buffer for address table.\n");
+		error = -ENOMEM;
+		goto err_exit;
+	}
+
+	/* get resouce from other controller */
+	for (i = 0; i < arch_nres_used->res_num; i++) {
+		dn = NULL;
+		resource_index = arch_nres_used->arch_ores[i].index;
+		/* when it is not the first node */
+		do {
+			dn = of_find_compatible_node(dn, NULL,
+				arch_nres_used->arch_ores[i].res_compatible);
+			if (!dn) {
+				dev_err(dev, "unable to get %s node!\n",
+					arch_nres_used->arch_ores[i].res_compatible);
+				error = -ENODEV;
+				goto err_exit;
+			}
+		} while (resource_index--);
+
+		error = of_address_to_resource(dn, 0, &res);
+		if (error) {
+			dev_err(dev, "unable to get resource(%d)!\n", i);
+			error = -EINVAL;
+			goto err_exit;
+		}
+
+		nand_dev.addr_map_tbl[i].pa = res.start;
+		nand_dev.addr_map_tbl[i].size = resource_size(&res);
+		nand_dev.addr_map_tbl[i].va =
+			devm_ioremap(dev, res.start, resource_size(&res));
+
+		if (!nand_dev.addr_map_tbl[i].va) {
+			dev_err(dev, "unable to ioremap!\n");
+			error = -ENOMEM;
+			goto err_exit;
+		}
+	}
+
+	/* get resource from nand controller */
+	dn = pdev->dev.of_node;
+	error = of_address_to_resource(dn, 0, &res);
+	if (error) {
+		dev_err(dev, "unable to get resource(%d)!\n", i);
+		error = -EINVAL;
+		goto err_exit;
+	}
+
+	nand_dev.addr_map_tbl[i].pa = res.start;
+	nand_dev.addr_map_tbl[i].size = resource_size(&res);
+	nand_dev.addr_map_tbl[i].va =
+		devm_ioremap(dev, res.start, resource_size(&res));
+
+	if (!nand_dev.addr_map_tbl[i].va) {
+		dev_err(dev, "unable to ioremap!\n");
+		error = -ENOMEM;
+		goto err_exit;
+	}
+
+	/*
+	 * nand and sd0 share the same slot
+	 * nand can be used when sd0 absent
+	 */
+	value = readl(nand_dev.addr_map_tbl[i].va) &
+			arch_nres_used->sd0_boot_mode_mask;
+	if (value == arch_nres_used->sd0_boot_mode_value ||
+		value == arch_nres_used->sd0_bootp_mode_value) {
+		dev_err(dev, "no nand chip.\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	/* firmware area */
+	if (of_property_read_u32(dn, "sirf,nanddisk-uboot-commit-flag",
+		&nand_dev.uboot_commit_flag)) {
+		dev_err(dev, "unable to get uboot commit flag!\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	i++;
+	nand_dev.addr_map_tbl[i].pa = nand_dev.nanddisk_code_start;
+	nand_dev.addr_map_tbl[i].va =
+		(void *)phys_to_virt(nand_dev.nanddisk_code_start);
+	nand_dev.addr_map_tbl[i].size = nand_dev.nanddisk_code_size;
+	nand_dev.addr_map_tbl[i].flag = ADDR_MAP_FLAG_CACHE;
+
+	/* irq resource */
+	nand_dev.irq = platform_get_irq(pdev, 0);
+	if (nand_dev.irq < 0) {
+		dev_err(dev, "unable to get irq!\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	error = devm_request_irq(dev, nand_dev.irq, nanddisk_isr,
+			0, "nanddisk", &nand_dev);
+	if (error) {
+		dev_err(dev, "unable to request irq!\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	/* dma resource */
+	if (of_property_read_u32(dn, "sirf,nand-dma-channel",
+		&nand_dev.dma_num)) {
+		dev_err(dev, "unable to get dma channel!\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	dma_cap_zero(dma_cap_mask);
+	dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
+	nand_dev.rw_chan = dma_request_channel(dma_cap_mask,
+		(dma_filter_fn)sirfsoc_dma_filter_id,
+		(void *)nand_dev.dma_num);
+	if (!nand_dev.rw_chan) {
+		dev_err(dev, "unable to allocate dma channel\n");
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	/* clock */
+	nand_dev.nand_clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(nand_dev.nand_clk)) {
+		dev_err(dev, "unable to get clk!\n");
+		error = PTR_ERR(nand_dev.nand_clk);
+		goto err_clk_get;
+	}
+
+	clk_prepare_enable(nand_dev.nand_clk);
+
+	nand_dev.pfn_ioctrl =
+		(PFN_NANDDISK_IOCTRL)phys_to_virt(nand_dev.nanddisk_code_start);
+
+	nand_dev.nandinsert = 1;
+
+	if (nanddisk_init(pdev)) {
+		dev_err(dev, "unable to initialize nanddisk.\n");
+		error = -ENODEV;
+		goto err_nanddisk_init;
+	}
 
 	nand_dev.power = 1;
 
 	spin_lock_init(&nand_dev.lock);
 
 	nand_dev.queue = blk_init_queue(nand_request, &nand_dev.lock);
-	if (nand_dev.queue == NULL)
-		goto err_exit;
-
+	if (nand_dev.queue == NULL) {
+		dev_err(dev, "unable to initialize blk queue.\n");
+		error = -ENOMEM;
+		goto err_blk_init_queue;
+	}
 	blk_queue_logical_block_size(nand_dev.queue,
 		0x1<<nand_dev.sector_size_shift);
 	blk_queue_max_hw_sectors(nand_dev.queue, 1024);
 
-	nand_dev.data = vmalloc(1024 * 512);
-	if (nand_dev.data == NULL)
-		goto err_exit;
-	nand_dev.uboot_buf = NULL;
+	nand_dev.data_buf = vmalloc(1024 * 512);
+	if (!nand_dev.data_buf) {
+		dev_err(dev, "unable to malloc buffer for data.\n");
+		error = -ENOMEM;
+		goto err_vmalloc_data_buf;
+	}
+
+	nand_dev.uboot_buf = vmalloc(
+			UBOOT_MAX_LENGTH + UBOOT_MAX_SECTOR);
+	if (!nand_dev.uboot_buf) {
+		dev_err(dev, "unable to malloc buffer for uboot.\n");
+		error = -ENOMEM;
+		goto err_vmalloc_uboot_buf;
+	}
+	nand_dev.uboot_write_map = (unsigned char *)(
+			nand_dev.uboot_buf + UBOOT_MAX_LENGTH);
+	memset(nand_dev.uboot_buf, 0, UBOOT_MAX_LENGTH);
+	memset(nand_dev.uboot_write_map, 0, UBOOT_MAX_SECTOR);
 
 	nand_dev.major_num = register_blkdev(nand_dev.major_num, "nandblk");
 	if (nand_dev.major_num <= 0) {
-		dev_err(dev, "nand: unable to get major number\n");
-		goto err_exit;
+		dev_err(dev, "unable to register blkdev.\n");
+		error = -EIO;
+		goto err_register_blkdev;
 	}
 
 	nand_dev.gd = alloc_disk(16);
-	if (!nand_dev.gd)
-		goto err_exit;
+	if (!nand_dev.gd) {
+		dev_err(dev, "unable to alloc disk.\n");
+		error = -ENOMEM;
+		goto err_alloc_disk;
+	}
 
 	nand_dev.gd->major = nand_dev.major_num;
 	nand_dev.gd->first_minor = 0;
@@ -1126,42 +1070,53 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 
 	nand_dev.wearlevel_task = kthread_run(nanddisk_wearlevel_thread, NULL,
 		"nand_wearlevel");
-	if (IS_ERR(nand_dev.wearlevel_task))
-		goto err_exit;
-
+	if (IS_ERR(nand_dev.wearlevel_task)) {
+		dev_err(dev, "unable to run wearlevel task.\n");
+		error = PTR_ERR(nand_dev.wearlevel_task);
+		goto err_kthread_run_wearlevel_task;
+	}
 
 	nand_dev.transfer_task = kthread_run(nanddisk_transfer_thread, NULL,
 		"nand_transfer");
-	if (IS_ERR(nand_dev.transfer_task))
-		goto err_exit;
+	if (IS_ERR(nand_dev.transfer_task)) {
+		dev_err(dev, "unable to run transfer task.\n");
+		error = PTR_ERR(nand_dev.transfer_task);
+		goto err_kthread_run_transfer_task;
+	}
 
-	nand_dev.ist_tasklet = devm_kzalloc(dev,
-				sizeof(struct tasklet_struct), GFP_KERNEL);
-	if (!nand_dev.ist_tasklet)
-		goto err_exit;
-
-	tasklet_init(nand_dev.ist_tasklet, nanddisk_ist, 0);
+	tasklet_init(&nand_dev.ist_tasklet, nanddisk_ist, 0);
 
 	add_disk(nand_dev.gd);
 
-	if (device_create_file(dev, &dev_attr_log) < 0)
-		dev_info(dev, "create log sys file fail.!\n");
+	error = device_create_file(dev, &dev_attr_log);
+	if (error) {
+		dev_err(dev, "unable to create log sys file.\n");
+		goto err_device_create_file;
+	}
 
 	return 0;
 
+err_device_create_file:
+	kthread_stop(nand_dev.transfer_task);
+err_kthread_run_transfer_task:
+	kthread_stop(nand_dev.wearlevel_task);
+err_kthread_run_wearlevel_task:
+	put_disk(nand_dev.gd);
+err_alloc_disk:
+	unregister_blkdev(nand_dev.major_num, "nandblk");
+err_register_blkdev:
+	vfree(nand_dev.uboot_buf);
+err_vmalloc_uboot_buf:
+	vfree(nand_dev.data_buf);
+err_vmalloc_data_buf:
+	blk_cleanup_queue(nand_dev.queue);
+err_blk_init_queue:
+err_nanddisk_init:
+	clk_disable_unprepare(nand_dev.nand_clk);
+err_clk_get:
+	dma_release_channel(nand_dev.rw_chan);
 err_exit:
-	if (nand_dev.wearlevel_task)
-		kthread_stop(nand_dev.wearlevel_task);
-	if (nand_dev.transfer_task)
-		kthread_stop(nand_dev.transfer_task);
-	if (nand_dev.queue)
-		blk_cleanup_queue(nand_dev.queue);
-	if (nand_dev.gd)
-		put_disk(nand_dev.gd);
-	if (nand_dev.major_num > 0)
-		unregister_blkdev(nand_dev.major_num, "nandblk");
-
-	return -1;
+	return error;
 }
 
 static int sirfsoc_nand_remove(struct platform_device *pdev)
@@ -1180,7 +1135,14 @@ static int sirfsoc_nand_remove(struct platform_device *pdev)
 	unregister_blkdev(nand_dev.major_num, "nandblk");
 
 	device_remove_file(dev, &dev_attr_log);
-	nand_free_resource();
+
+	clk_disable_unprepare(nand_dev.nand_clk);
+
+	dma_release_channel(nand_dev.rw_chan);
+
+	vfree(nand_dev.data_buf);
+
+	vfree(nand_dev.uboot_buf);
 
 	return 0;
 }
