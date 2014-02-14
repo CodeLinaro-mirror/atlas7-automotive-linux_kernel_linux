@@ -636,11 +636,6 @@ static int nanddisk_init(struct platform_device *pdev)
 	/* enable async adapt mode */
 	async_mode.enable = 1;
 	async_mode.auto_adapt = 0;
-	async_mode.duration = 3;
-	async_mode.hi_level_read = 4*1024*1024;
-	async_mode.hi_level_write = 1*1024*1024;
-	async_mode.low_level_read = 1*1024*1024;
-	async_mode.low_level_write = 500*1024;
 
 	if (!nand_dev.pfn_ioctrl(0, NAND_IOCTRL_ASYNC_MODE, &async_mode,
 		sizeof(async_mode), NULL, 0, NULL)) {
