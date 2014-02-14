@@ -1196,8 +1196,6 @@ static void sirfsoc_nand_shutdown(struct platform_device *pdev)
 	pm_message.event = 0;
 	dev_info(dev, "%s ++", __func__);
 	sirfsoc_nand_suspend(dev);
-
-	return ;
 }
 
 static const struct dev_pm_ops sirfsoc_nand_pm_ops = {
