@@ -396,7 +396,6 @@ static void nanddisk_ist(unsigned long data)
 		nand_dev.pending_async_status = async_status;
 		wake_up_process(nand_dev.pending_task);
 	}
-	return;
 }
 
 static int nanddisk_wearlevel_thread(void *arg)
@@ -675,8 +674,6 @@ static void nand_free_resource(void)
 
 	if (nand_dev.data)
 		vfree(nand_dev.data);
-
-	return;
 }
 
 /*
