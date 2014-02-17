@@ -14,6 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/slab.h>
@@ -29,6 +30,11 @@
 #define PWR_WAKEEN_TS_SHIFT	5
 #define SIRFSOC_PWRC_TRIGGER_EN	0x8
 #define SIRFSOC_PWRC_BASE	0x3000
+
+/* If new coordinates are close enough to last ones, last values
+ * should be used to suppress glitches.
+ */
+#define TS_GLITCH_GAP		60
 
 /* Dual touch: Configurable parameters */
 #define TS_PREC_BITS		10	/* Precision, must >= 2 */
@@ -58,14 +64,14 @@
 		| ADC_FREQ_6K | ADC_TP_TIME(0) | ADC_SGAIN(0) \
 		| ADC_EXTCM(0) | ADC_RBAT_DISABLE | ADC_MORE_CTL1)
 
-enum sirfsoc_ts_filter {
-	SIRFSOC_TS_FILTER_OK,
-	SIRFSOC_TS_FILTER_RESET,
-	SIRFSOC_TS_FILTER_REPEAT,
-	SIRFSOC_TS_FILTER_IGNORE,
+/* AD sample indexes (single touch) */
+enum {
+	X,
+	Y,
+	AD_SAMPLE_COUNT_SINGLE
 };
 
-/* AD sample indexes */
+/* AD sample indexes (dual touch) */
 enum {
 	XPXN_YP,
 	YPYN_XP,
@@ -75,11 +81,11 @@ enum {
 	XPYN_XN,
 	YPXN_XP,
 	YPXN_YN,
-	AD_SAMPLE_COUNT
+	AD_SAMPLE_COUNT_DUAL
 };
 
 /* AD registers */
-#define AD_REG_COUNT (AD_SAMPLE_COUNT / 2)
+#define AD_REG_COUNT (AD_SAMPLE_COUNT_DUAL / 2)
 static const u32 sirfsoc_ts_reg[AD_REG_COUNT] = {
 	ADC_COORD, ADC_COORD2, ADC_COORD3, ADC_COORD4
 };
@@ -87,10 +93,13 @@ static const u32 sirfsoc_ts_reg[AD_REG_COUNT] = {
 struct sirfsoc_ts {
 	char			phys[32];
 
+	/* AD samples buffer of current detection */
+	u32			samples[AD_SAMPLE_COUNT_DUAL];
+
 	/* Calculated coordinates of current detection */
-	int			x[2], y[2];
-	/* Last successfully calculated and reported coordinates */
-	int			reported_x[2], reported_y[2];
+	int			sampled_x[2], sampled_y[2];
+	/* Last successfully calculated and issued coordinates */
+	int			issued_x[2], issued_y[2];
 
 	/* Fingers detected pressing on the screen
 	 * always 1 for single touch driver
@@ -98,25 +107,27 @@ struct sirfsoc_ts {
 	 */
 	int			fingers;
 
-	/* Debouncing */
-	int			read_cnt;
-	int			read_rep;
-	/* Max tries to find a stable consequence */
-	int			debounce_max;
-	/* Min continuous stable readings to determinte a stable consequence */
-	int			debounce_rep;
-	/* Max deviation among stable readings */
-	int			debounce_tol;
-
-	/* AD sample buffer */
-	u32			sample[AD_SAMPLE_COUNT];
-
-	/* Callback routine to read and calculate coordinates */
-	int			(*get_coord)(struct sirfsoc_ts *ts);
+	/* Last touching event is a dual touch */
+	bool			last_is_dual;
 
 	struct delayed_work	report_work;
 
 	struct input_dev	*input;
+
+	/* Points to touch specific data */
+	const struct sirfsoc_ts_of_data_touch	*touch;
+};
+
+/* Single/dual touch specific data and routines */
+struct sirfsoc_ts_of_data_touch {
+	/* Number of continuous stable samples for debouncing */
+	int	debounce_rep;
+	/* Max deviation of AD values for stable samples */
+	int	debounce_dev;
+	/* Callback routine to read and calculate coordinates */
+	int	(*get_coord)(struct sirfsoc_ts *);
+	/* Callback routine to read AD samples */
+	int	(*read_samples)(struct sirfsoc_ts *, u32 *);
 };
 
 static inline int sirfsoc_ts_get_pendown(struct sirfsoc_ts *ts)
@@ -124,117 +135,89 @@ static inline int sirfsoc_ts_get_pendown(struct sirfsoc_ts *ts)
 	return sirfsoc_adc_read_reg(ADC_COORD) & PEN_DOWN;
 }
 
-static int sirfsoc_ts_debounce_filter(struct sirfsoc_ts *ts,
-		int coord, int *coord0)
-{
-	if (ts->read_cnt == 0 || abs(coord - *coord0) > ts->debounce_tol) {
-		/*
-		 * Repeat it, if this was the first read or the read
-		 * wasn't consistent enough.
-		 */
-		if (ts->read_cnt < ts->debounce_max) {
-			/* Start over collecting consistent readings */
-			*coord0 = coord;
-			ts->read_cnt++;
-			ts->read_rep = 1;
-			return SIRFSOC_TS_FILTER_RESET;
-		} else {
-			/*
-			 * Maximum number of debouncing reached and still
-			 * not enough number of consistent readings. Abort
-			 * the whole sample, repeat it in the next sampling
-			 * period.
-			 */
-			ts->read_cnt = 0;
-			ts->read_rep = 0;
-			return SIRFSOC_TS_FILTER_IGNORE;
-		}
-	} else {
-		if (++ts->read_rep >= ts->debounce_rep) {
-			/*
-			 * Got a good reading for this coordinate,
-			 * go for the next one.
-			 */
-			ts->read_cnt = 0;
-			ts->read_rep = 0;
-			return SIRFSOC_TS_FILTER_OK;
-		} else {
-			/* Read more values that are consistent. */
-			ts->read_cnt++;
-			return  SIRFSOC_TS_FILTER_REPEAT;
-		}
-	}
-}
-
-/*
- * Read single touch coordnates and do debouncing
- * sel_xy == 0x01, x coord
- * sel_xy == 0x02, y coord
+/* Debounce routine shared by single and dual touch
+ * sample_count: how many AD samples needs to take care
  */
-static int sirfsoc_ts_read_sample_single(struct sirfsoc_ts *ts, int sel_xy)
+static int sirfsoc_ts_debounce(struct sirfsoc_ts *ts, int sample_count)
 {
-	int action;
-	u32 coord;
-	int coord0 = 0;	/* First possible stable coordinate */
-	int cnt = 0;
-	int sum = 0;
+	int i, j;
+	u32 samples[AD_SAMPLE_COUNT_DUAL];	/* Max of single/dual samples */
 
-	while (true) {
-		sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(sel_xy), ADC_CONTROL1);
-		if (sirfsoc_adc_sync_reg() < 0) {
-			ts->read_cnt = 0;
-			ts->read_rep = 0;
+	/* First sample */
+	if ((*(ts->touch->read_samples))(ts, ts->samples))
+		return -EBUSY;
+
+	/* Debouncing
+	 * - Condition for a stable reading: Three (debounce_rep) continuous
+	 *   reading with AD samples deviation less than 50 (debounce_dev)
+	 * - ts->samples[] stores sum of previous readings
+	 * - samples[] stored current reading
+	 */
+	for (i = 1; i < ts->touch->debounce_rep; i++) {
+		/* Get raw AD samples */
+		if ((*(ts->touch->read_samples))(ts, samples))
 			return -EBUSY;
-		}
-
-		coord = sirfsoc_adc_read_reg(ADC_COORD);
-		if (sel_xy == SIRFSOC_TS_SEL_X) {
-			coord &= DATA_XMASK;
-		} else {
-			coord &= DATA_YMASK;
-			coord >>= DATA_SHIFT_BITS;
-		}
-
-		cnt++;
-		sum += coord;
-		action = sirfsoc_ts_debounce_filter(ts, coord, &coord0);
-
-		/* Debounce */
-		switch (action) {
-		case SIRFSOC_TS_FILTER_RESET:
-			cnt = 1;
-			sum = coord;
-			break;
-		case SIRFSOC_TS_FILTER_REPEAT:
-			break;
-		case SIRFSOC_TS_FILTER_IGNORE:
-			return -EAGAIN;
-		case SIRFSOC_TS_FILTER_OK:
-			return sum / cnt;
-		default:
-			BUG();
+		/* Verify adjacent samples deviation */
+		for (j = 0; j < sample_count; j++) {
+			if (abs(ts->samples[j] / i - samples[j]) >
+					ts->touch->debounce_dev)
+				return -EINVAL;
+			ts->samples[j] += samples[j];
 		}
 	}
+
+	/* Average samples, store to ts->samples */
+	for (i = 0; i < ts->touch->debounce_rep; i++)
+		ts->samples[i] /= ts->touch->debounce_rep;
+
+	return 0;
 }
 
+static int sirfsoc_ts_read_samples_single(struct sirfsoc_ts *ts, u32 *samples)
+{
+	u32 coord;
+
+	/* x sample */
+	sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(SIRFSOC_TS_SEL_X), ADC_CONTROL1);
+	if (sirfsoc_adc_sync_reg() < 0)
+		return -EBUSY;
+	coord = sirfsoc_adc_read_reg(ADC_COORD);
+	coord &= DATA_XMASK;	/* Bits 13~0 */
+	samples[X] = coord;
+
+	/* y sample */
+	sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(SIRFSOC_TS_SEL_Y), ADC_CONTROL1);
+	if (sirfsoc_adc_sync_reg() < 0)
+		return -EBUSY;
+	coord = sirfsoc_adc_read_reg(ADC_COORD);
+	coord &= DATA_YMASK;	/* Bits 27~14 */
+	coord >>= DATA_SHIFT_BITS;
+	samples[Y] = coord;
+
+	return 0;
+}
+
+/* Calculate single touch coordinate
+ * coord: (ts->sampled_x[0], y[0])
+ */
 static int sirfsoc_ts_get_coord_single(struct sirfsoc_ts *ts)
 {
-	ts->x[0] = sirfsoc_ts_read_sample_single(ts, SIRFSOC_TS_SEL_X);
-	if (ts->x[0] < 0)
-		return ts->x[0];
+	int ret;
 
-	ts->y[0] = sirfsoc_ts_read_sample_single(ts, SIRFSOC_TS_SEL_Y);
-	if (ts->y[0] < 0)
-		return ts->y[0];
+	ret = sirfsoc_ts_debounce(ts, AD_SAMPLE_COUNT_SINGLE);
+	if (ret < 0)
+		return ret;
+
+	ts->sampled_x[0] = ts->samples[X];
+	ts->sampled_y[0] = ts->samples[Y];
 
 	return 0;
 }
 
 /* Read eight AD samples from TS controller */
-static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts)
+static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts, u32 *samples)
 {
 	int i;
-	u32 *sample = ts->sample;
 
 	sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(SIRFSOC_TS_SEL_DUAL),
 			ADC_CONTROL1);
@@ -244,15 +227,14 @@ static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts)
 	for (i = 0; i < AD_REG_COUNT; i++) {
 		u32 tmp;
 		tmp = sirfsoc_adc_read_reg(sirfsoc_ts_reg[i]);
-		*sample++ = tmp & DATA_XMASK;
-		*sample++ = (tmp & DATA_YMASK) >> DATA_SHIFT_BITS;
+		*samples++ = tmp & DATA_XMASK;
+		*samples++ = (tmp & DATA_YMASK) >> DATA_SHIFT_BITS;
 	}
 
 	return 0;
 }
 
-/*
- * Calculate dual touch points
+/* Calculate dual touch coordinates
  *
  * - Schematic
  *
@@ -267,7 +249,7 @@ static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts)
  *    YP ----/\/\/\----o----/\/\/\----o----/\/\/\---- YN
  *             RY1     B      RY2     C      RY3
  *
- * Return points in ts->x[0]/y[0], ts->x[1]/y[1]
+ * coord1: (ts->sampled_x[0], y[0]); coord2: (ts->sampled_x[1], y[1])
  */
 static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 {
@@ -278,7 +260,7 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 	u32 rtouch;		/* Touch resister between X & Y planes */
 	bool neg_slope;		/* Slope of the line connecting dual points,
 				   negative if LeftUpper and RightDown */
-	u32 *sample = ts->sample;
+	u32 *samples = ts->samples;
 
 	/* Step 1: Calculate Rtouch
 	 *
@@ -291,11 +273,11 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 	 * CAUTION:
 	 * rtouch is multiplied by 1024 to keep enough precision bits
 	 */
-	a64 = TS_RY * sample[YPYN_XP];
+	a64 = TS_RY * samples[YPYN_XP];
 	a64 <<= TS_PREC_BITS;	/* *1024 */
 	do_div(a64, TS_V);
-	b64 = a64 * sample[XPYN_XN];
-	do_div(b64, sample[XPYN_YP]);
+	b64 = a64 * samples[XPYN_XN];
+	do_div(b64, samples[XPYN_YP]);
 	rtouch = (u32)(b64 - a64);
 	if (rtouch < TS_RTOUCH_MIN || rtouch > TS_RTOUCH_MAX)
 		return -EINVAL;	/* Unstable reading */
@@ -305,8 +287,8 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 	 * As single touch is the dominant case, it should be handled first.
 	 * Chance is prominent that we may skip all dual touch related messes.
 	 */
-	ubc = sample[XPXN_YP] - sample[XPXN_YN];
-	uad = sample[YPYN_XP] - sample[YPYN_XN];
+	ubc = samples[XPXN_YP] - samples[XPXN_YN];
+	uad = samples[YPYN_XP] - samples[YPYN_XN];
 	neg_slope = (ubc < 0);
 	ubc = abs(ubc);
 
@@ -377,39 +359,41 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 	 */
 
 	/* x1, x2 */
-	x = (sample[XPXN_YP] + sample[XPXN_YN]) << (TS_PREC_BITS-2);
+	x = (samples[XPXN_YP] + samples[XPXN_YN]) << (TS_PREC_BITS-2);
 	tmp = (TS_V * rx2) / TS_RX;
 	/* x = x0 * 512, tmp = dx * 512 */
 	if (unlikely(x <= tmp))
-		ts->x[0] = 1;
+		ts->sampled_x[0] = 1;
 	else
-		ts->x[0] = (x - tmp) >> (TS_PREC_BITS-1);
-	ts->x[1] = (x + tmp) >> (TS_PREC_BITS-1);
+		ts->sampled_x[0] = (x - tmp) >> (TS_PREC_BITS-1);
+	ts->sampled_x[1] = (x + tmp) >> (TS_PREC_BITS-1);
 
 	/* y1, y2 */
-	y = (sample[YPYN_XP] + sample[YPYN_XN]) << (TS_PREC_BITS-2);
+	y = (samples[YPYN_XP] + samples[YPYN_XN]) << (TS_PREC_BITS-2);
 	tmp = (TS_V * ry2) / TS_RY;
 	/* y = y0 * 512, tmp = dy * 512 */
 	if (unlikely(y <= tmp))
-		ts->y[0] = 1;
+		ts->sampled_y[0] = 1;
 	else
-		ts->y[0] = (y - tmp) >> (TS_PREC_BITS-1);
-	ts->y[1] = (y + tmp) >> (TS_PREC_BITS-1);
+		ts->sampled_y[0] = (y - tmp) >> (TS_PREC_BITS-1);
+	ts->sampled_y[1] = (y + tmp) >> (TS_PREC_BITS-1);
 
 	/* Verify data */
-	if (unlikely(ts->x[0] > ts->x[1] || ts->x[1] >= TS_V_MAX ||
-		     ts->y[0] > ts->y[1] || ts->y[1] >= TS_V_MAX))
+	if (unlikely(ts->sampled_x[0] > ts->sampled_x[1] ||
+		     ts->sampled_y[0] > ts->sampled_y[1] ||
+		     ts->sampled_x[1] >= TS_V_MAX ||
+		     ts->sampled_y[1] >= TS_V_MAX))
 		return -EINVAL;	/* Illegal data */
-	if (ts->x[1] >= TS_V)
-		ts->x[1] = TS_V - 1;
-	if (ts->y[1] >= TS_V)
-		ts->y[1] = TS_V - 1;
+	if (ts->sampled_x[1] >= TS_V)
+		ts->sampled_x[1] = TS_V - 1;
+	if (ts->sampled_y[1] >= TS_V)
+		ts->sampled_y[1] = TS_V - 1;
 
 	/* Swap x coordinates if negative slope */
 	if (neg_slope) {
-		tmp = ts->x[0];
-		ts->x[0] = ts->x[1];
-		ts->x[1] = tmp;
+		tmp = ts->sampled_x[0];
+		ts->sampled_x[0] = ts->sampled_x[1];
+		ts->sampled_x[1] = tmp;
 	}
 
 	/* Dual touch detected */
@@ -426,8 +410,8 @@ single_touch:
 			&& ubc <= TS_SINGLE_MAXGAP_Y
 			&& uad <= TS_SINGLE_MAXGAP_X) {
 		/* Get single touch coordinate */
-		ts->x[0] = (sample[XPXN_YP] + sample[XPXN_YN]) / 2;
-		ts->y[0] = (sample[YPYN_XP] + sample[YPYN_XN]) / 2;
+		ts->sampled_x[0] = (samples[XPXN_YP] + samples[XPXN_YN]) / 2;
+		ts->sampled_y[0] = (samples[YPYN_XP] + samples[YPYN_XN]) / 2;
 		/* Single touch detected */
 		ts->fingers = 1;
 		return 0;
@@ -438,10 +422,29 @@ single_touch:
 
 static int sirfsoc_ts_get_coord_dual(struct sirfsoc_ts *ts)
 {
-	if (sirfsoc_ts_read_samples_dual(ts))
-		return -EBUSY;
+	int ret;
+	bool is_dual;
 
-	return sirfsoc_ts_calculate_dual(ts);
+	/* Read samples and do debouncing */
+	ret = sirfsoc_ts_debounce(ts, AD_SAMPLE_COUNT_DUAL);
+	if (ret < 0)
+		return ret;
+
+	/* Calculate coordinates */
+	ret = sirfsoc_ts_calculate_dual(ts);
+	if (ret < 0)
+		return ret;
+
+	/* First switching from single to dual or dual to single are
+	 * sometimes unstable, drop it.
+	 */
+	is_dual = (ts->fingers == 2);	/* Current is dual touch? */
+	if (is_dual != ts->last_is_dual) {
+		ts->last_is_dual = is_dual;
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /* Report touch events to event driver */
@@ -454,23 +457,25 @@ static void sirfsoc_ts_report_coord(struct sirfsoc_ts *ts)
 
 	for (i = 0; i < ts->fingers; i++) {
 		/* Filter small glitches */
-		if (abs(ts->x[i] - ts->reported_x[i]) < ts->debounce_tol &&
-		    abs(ts->y[i] - ts->reported_y[i]) < ts->debounce_tol) {
+		if (abs(ts->sampled_x[i] - ts->issued_x[i]) < TS_GLITCH_GAP &&
+		    abs(ts->sampled_y[i] - ts->issued_y[i]) < TS_GLITCH_GAP) {
 			/* New coord is very close to last checking,
 			 * adopt old coord instead
 			 */
-			ts->x[i] = ts->reported_x[i];
-			ts->y[i] = ts->reported_y[i];
+			ts->sampled_x[i] = ts->issued_x[i];
+			ts->sampled_y[i] = ts->issued_y[i];
 		} else {
 			/* Save new coord for next time comparison */
-			ts->reported_x[i] = ts->x[i];
-			ts->reported_y[i] = ts->y[i];
+			ts->issued_x[i] = ts->sampled_x[i];
+			ts->issued_y[i] = ts->sampled_y[i];
 		}
 
-		ts_linear_scale(&ts->x[i], &ts->y[i]);
+		ts_linear_scale(&ts->sampled_x[i], &ts->sampled_y[i]);
 
-		input_report_abs(ts->input, ABS_MT_POSITION_X, ts->x[i]);
-		input_report_abs(ts->input, ABS_MT_POSITION_Y, ts->y[i]);
+		input_report_abs(ts->input, ABS_MT_POSITION_X,
+				ts->sampled_x[i]);
+		input_report_abs(ts->input, ABS_MT_POSITION_Y,
+				ts->sampled_y[i]);
 		input_mt_sync(ts->input);
 	}
 
@@ -485,7 +490,7 @@ static void sirfsoc_ts_report_work(struct work_struct *work)
 	struct input_dev *input = ts->input;
 
 	if (sirfsoc_ts_get_pendown(ts)) {
-		if ((*(ts->get_coord))(ts) == 0)
+		if ((*(ts->touch->get_coord))(ts) == 0)
 			sirfsoc_ts_report_coord(ts);
 
 		schedule_delayed_work(&ts->report_work, msecs_to_jiffies(10));
@@ -511,6 +516,30 @@ static irqreturn_t sirfsoc_ts_hard_irq(int irq, void *handle)
 	return IRQ_HANDLED;
 }
 
+static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_single = {
+	.debounce_rep	= 3,
+	.debounce_dev	= 50,
+	.get_coord	= sirfsoc_ts_get_coord_single,
+	.read_samples	= sirfsoc_ts_read_samples_single,
+};
+
+static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_dual = {
+	.debounce_rep	= 4,
+	.debounce_dev	= 500,
+	.get_coord	= sirfsoc_ts_get_coord_dual,
+	.read_samples	= sirfsoc_ts_read_samples_dual,
+};
+
+static const struct of_device_id sirfsoc_ts_of_match[] = {
+	{ .compatible = "sirf,prima2-tsc",
+	  .data = &sirfsoc_ts_of_data_single },
+	{ .compatible = "sirf,marco-tsc",
+	  .data = &sirfsoc_ts_of_data_single },
+	{ .compatible = "sirf,dualtouch-tsc",
+	  .data = &sirfsoc_ts_of_data_dual },
+	{}
+};
+
 static int sirfsoc_ts_probe(struct platform_device *pdev)
 {
 	struct input_dev		*input_dev;
@@ -518,6 +547,7 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	int				ret;
 	int				i;
 	int				irq;
+	const struct of_device_id	*match;
 
 	const unsigned int codes[] = {
 		KEY_HOME, KEY_MENU, KEY_BACK, KEY_SEARCH,
@@ -595,11 +625,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		goto out3;
 	}
 
-	/* Debouncing parameters */
-	ts->debounce_rep = 0x03;
-	ts->debounce_max = 0x03;
-	ts->debounce_tol = 0x30;
-
 	input_set_abs_params(input_dev, ABS_X, 0, 0x3FFF, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, 0x3FFF, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, 0x3FFF, 0, 0);
@@ -608,13 +633,9 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	/* Default to single touch */
 	ts->fingers = 1;
 
-	/* Check dual touch compatibility */
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,dualtouch-tsc")) {
-		dev_info(&pdev->dev, "sirfsoc ts: dual touch enabled\n");
-		ts->get_coord = sirfsoc_ts_get_coord_dual;
-	} else {
-		ts->get_coord = sirfsoc_ts_get_coord_single;
-	}
+	/* Touch specific data */
+	match = of_match_device(of_match_ptr(sirfsoc_ts_of_match), &pdev->dev);
+	ts->touch = match->data;
 
 	return 0;
 out3:
@@ -622,7 +643,6 @@ out3:
 out2:
 	input_free_device(input_dev);
 out1:
-	dev_err(&pdev->dev, "Start failed\n");
 	return ret;
 }
 
@@ -680,20 +700,13 @@ static const struct dev_pm_ops sirfsoc_ts_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_ts_suspend, sirfsoc_ts_resume)
 };
 
-static const struct of_device_id tsc_sirfsoc_of_match[] = {
-	{ .compatible = "sirf,prima2-tsc",},
-	{ .compatible = "sirf,marco-tsc",},
-	{ .compatible = "sirf,dualtouch-tsc",},
-	{}
-};
-
 static struct platform_driver tsc_sirfsoc_driver = {
 	.driver	 = {
 		.name   = DRIVER_NAME,
 #ifdef CONFIG_PM
 		.pm     = &sirfsoc_ts_pm_ops,
 #endif
-		.of_match_table = tsc_sirfsoc_of_match,
+		.of_match_table = sirfsoc_ts_of_match,
 	},
 	.probe	  = sirfsoc_ts_probe,
 	.remove	 = sirfsoc_ts_remove,
