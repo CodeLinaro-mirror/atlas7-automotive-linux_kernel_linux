@@ -446,7 +446,7 @@ UINT32 __BleSoc_SurfaceAndRectCheck(BLE2DBLTINFO *pBltInfo, BLE2D_REGISTERS *pBL
     if(bSrcExist)
     {
         pBLE2dregs->reg_src_offset.value      = pBltInfo->pSrcMemInfo->ulOffset;
-        pBLE2dregs->reg_src_format.value      = (pBltInfo->SrcFormat<< 16 | pBltInfo->SrcStride);
+	pBLE2dregs->reg_src_format.value = (pBltInfo->AlphaBlendFunc & 0x01) << 20 | pBltInfo->SrcFormat << 16 | pBltInfo->SrcStride;
 
         pBLE2dregs->reg_src_lt.value = 0;
         pBLE2dregs->reg_src_rb.value = 0;
