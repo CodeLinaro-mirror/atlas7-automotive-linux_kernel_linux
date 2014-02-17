@@ -74,6 +74,35 @@ static irqreturn_t sirfsoc_pwrc_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void sirfsoc_pwrc_toggle_interrupts(struct sirfsoc_pwrc_drvdata *pwrcdrv,
+					bool enable)
+{
+	u32 int_mask;
+
+	int_mask = sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base + PWRC_INT_MASK);
+	if (enable)
+		int_mask |= PWRC_ON_KEY_BIT;
+	else
+		int_mask &= ~PWRC_ON_KEY_BIT;
+	sirfsoc_rtc_iobrg_writel(int_mask, pwrcdrv->pwrc_base + PWRC_INT_MASK);
+}
+
+static int sirfsoc_pwrc_open(struct input_dev *input)
+{
+	struct sirfsoc_pwrc_drvdata *pwrcdrv = input_get_drvdata(input);
+
+	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, true);
+
+	return 0;
+}
+
+static void sirfsoc_pwrc_close(struct input_dev *input)
+{
+	struct sirfsoc_pwrc_drvdata *pwrcdrv = input_get_drvdata(input);
+
+	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, false);
+}
+
 static const struct of_device_id sirfsoc_pwrc_of_match[] = {
 	{ .compatible = "sirf,prima2-pwrc" },
 	{},
@@ -110,6 +139,11 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	pwrcdrv->input->name = "sirfsoc pwrckey";
 	pwrcdrv->input->phys = "pwrc/input0";
 
+	pwrcdrv->input->open = sirfsoc_pwrc_open;
+	pwrcdrv->input->close = sirfsoc_pwrc_close;
+
+	input_set_drvdata(pwrcdrv->input, pwrcdrv);
+
 	platform_set_drvdata(pdev, pwrcdrv);
 
 	INIT_DELAYED_WORK(&pwrcdrv->work, sirfsoc_pwrc_report_event);
@@ -122,10 +156,6 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 			pwrcdrv->irq, ret);
 		return ret;
 	}
-
-	sirfsoc_rtc_iobrg_writel(
-		sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base + PWRC_INT_MASK)
-		| PWRC_ON_KEY_BIT, pwrcdrv->pwrc_base + PWRC_INT_MASK);
 
 	pwrcdrv->input->evbit[0] = BIT_MASK(EV_PWR) | BIT_MASK(EV_KEY);
 	set_bit(KEY_POWER, pwrcdrv->input->keybit);
@@ -160,14 +190,15 @@ static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 static int sirfsoc_pwrc_resume(struct device *dev)
 {
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
+	struct input_dev *input = pwrcdrv->input;
 	/*
 	 * Do not mask pwrc interrupt as we want pwrc work as a wakeup source
 	 * if users touch X_ONKEY_B, see arch/arm/mach-prima2/pm.c
 	 */
-	sirfsoc_rtc_iobrg_writel(
-		sirfsoc_rtc_iobrg_readl(
-		pwrcdrv->pwrc_base + PWRC_INT_MASK) | PWRC_ON_KEY_BIT,
-		pwrcdrv->pwrc_base + PWRC_INT_MASK);
+	mutex_lock(&input->mutex);
+	if (input->users)
+		sirfsoc_pwrc_toggle_interrupts(pwrcdrv, true);
+	mutex_unlock(&input->mutex);
 
 	return 0;
 }
