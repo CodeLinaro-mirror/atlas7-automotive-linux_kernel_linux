@@ -217,23 +217,15 @@ static void sirfsoc_camera_callback(void *pdata)
 	dev_dbg(pcdev->dev, "%s\n", __func__);
 	spin_lock_irqsave(&pcdev->lock, flags);
 
-	if (!pcdev) {
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		return;
-	}
-
 	if (brestart) {
 		sirfsoc_camera_start_dma(pcdev, 1);
 		brestart = 0;
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		return;
+		goto out;
 	}
 
 	vb = pcdev->active;
-	if (vb == NULL) {
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		return;
-	}
+	if (vb == NULL)
+		goto out;
 
 	/*
 	 * if rearview switch has taken place in hardware, not add the
@@ -274,6 +266,7 @@ static void sirfsoc_camera_callback(void *pdata)
 			pcdev->vip_funcs.pfnStart(0);
 	}
 
+out:
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 }
 
