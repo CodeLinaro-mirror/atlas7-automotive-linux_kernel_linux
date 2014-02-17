@@ -388,6 +388,7 @@ struct pid;
 extern struct pid *session_of_pgrp(struct pid *pgrp);
 
 unsigned long int_sqrt(unsigned long);
+unsigned long long int64_sqrt(unsigned long long);
 
 extern void bust_spinlocks(int yes);
 extern int oops_in_progress;		/* If set, an oops, panic(), BUG() or die() is in progress */
