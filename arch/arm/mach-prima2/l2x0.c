@@ -11,8 +11,7 @@
 #include <linux/of.h>
 #include <asm/hardware/cache-l2x0.h>
 
-struct l2x0_aux
-{
+struct l2x0_aux {
 	u32 val;
 	u32 mask;
 };
