@@ -101,6 +101,7 @@ static void sirfsoc_pwrc_close(struct input_dev *input)
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = input_get_drvdata(input);
 
 	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, false);
+	cancel_delayed_work_sync(&pwrcdrv->work);
 }
 
 static const struct of_device_id sirfsoc_pwrc_of_match[] = {
@@ -178,10 +179,6 @@ static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(&pdev->dev);
 
 	device_init_wakeup(&pdev->dev, 0);
-
-	devm_free_irq(&pdev->dev, pwrcdrv->irq, pwrcdrv);
-
-	cancel_delayed_work_sync(&pwrcdrv->work);
 
 	return 0;
 }
