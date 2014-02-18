@@ -16,18 +16,18 @@ struct l2x0_aux {
 	u32 mask;
 };
 
-static struct l2x0_aux prima2_l2x0_aux __initconst = {
+static const struct l2x0_aux prima2_l2x0_aux __initconst = {
 	.val = 2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT,
 	.mask =	0,
 };
 
-static struct l2x0_aux marco_l2x0_aux __initconst = {
+static const struct l2x0_aux marco_l2x0_aux __initconst = {
 	.val = (2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
 		(1 << L2X0_AUX_CTRL_ASSOCIATIVITY_SHIFT),
 	.mask = L2X0_AUX_CTRL_MASK,
 };
 
-static struct of_device_id sirf_l2x0_ids[] __initconst = {
+static const struct of_device_id sirf_l2x0_ids[] __initconst = {
 	{ .compatible = "sirf,prima2-pl310-cache", .data = &prima2_l2x0_aux, },
 	{ .compatible = "sirf,marco-pl310-cache", .data = &marco_l2x0_aux, },
 	{},
