@@ -47,8 +47,7 @@ struct nanddisk_device {
 	struct request_queue *queue;
 	struct request *req;
 
-	struct semaphore	io_session_sem;
-	struct semaphore	nanddisk_sem;
+	struct mutex mutex;
 
 	/* data for transferring */
 	void *data_buf;
@@ -151,18 +150,6 @@ void  __init sirfsoc_nand_nosave_memblock(void)
 }
 EXPORT_SYMBOL(sirfsoc_nand_nosave_memblock);
 
-static void nanddisk_sem_get(void)
-{
-	disable_irq_nosync(nand_dev.irq);
-	down(&nand_dev.nanddisk_sem);
-}
-
-static void nanddisk_sem_put(void)
-{
-	up(&nand_dev.nanddisk_sem);
-	enable_irq(nand_dev.irq);
-}
-
 static int nanddisk_io_session(unsigned handle,
 		unsigned ioctrl_code,
 		void	 *in_buf,
@@ -171,44 +158,54 @@ static int nanddisk_io_session(unsigned handle,
 		unsigned out_buf_size,
 		unsigned *async_status)
 {
-	int ret = 0;
+	int error;
 
 	nand_dev.pending_task = NULL;
 	nand_dev.pending_async_status = 0;
-	nanddisk_sem_get();
 	nand_dev.irq_num = 0;
 
-	if (nand_dev.pfn_ioctrl(handle, ioctrl_code, in_buf, in_buf_size,
-				out_buf, out_buf_size, async_status)) {
+	/*
+	 * disable interrupt of nanddisk during each function
+	 * call to avoid reentrancy
+	 */
+	disable_irq_nosync(nand_dev.irq);
+	error = nand_dev.pfn_ioctrl(handle, ioctrl_code, in_buf, in_buf_size,
+				out_buf, out_buf_size, async_status);
+
+	if (error) {
+		error = 0;
 		if (async_status) {
 			if (*async_status & ASYNC_STATUS_PENDING) {
 				nand_dev.pending_task = current;
 				nand_dev.pending_async_status = *async_status;
 			}
 
-			nanddisk_sem_put();
+			enable_irq(nand_dev.irq);
 
 			set_current_state(TASK_INTERRUPTIBLE);
 			if (nand_dev.pending_async_status &
-				ASYNC_STATUS_PENDING)
+					ASYNC_STATUS_PENDING)
 				schedule();
 			set_current_state(TASK_RUNNING);
 
-			if (nand_dev.pending_async_status & ASYNC_STATUS_ERR)
-				ret = -1;
+			if (nand_dev.pending_async_status & ASYNC_STATUS_ERR) {
+				error = -EIO;
+				pr_err("%s:async stat 0x%x, ioctrl(0x%x).\n",
+					__func__,
+					nand_dev.pending_async_status,
+					ioctrl_code);
+			}
 
-			nanddisk_sem_get();
+			disable_irq_nosync(nand_dev.irq);
 		}
 	} else {
-		ret = -1;
+		error = -EIO;
+		pr_err("%s:ioctrl(0x%x) failed.\n", __func__, ioctrl_code);
 	}
 
-	nanddisk_sem_put();
+	enable_irq(nand_dev.irq);
 
-	if (ret)
-		pr_err("%s:pfn_ioctrl(0x%x) failed.\n",
-				 __func__, ioctrl_code);
-	return ret;
+	return error;
 }
 
 static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
@@ -396,7 +393,7 @@ static int nanddisk_wearlevel_thread(void *arg)
 		if (kthread_should_stop())
 			break;
 
-		down(&nand_dev.io_session_sem);
+		mutex_lock(&nand_dev.mutex);
 		while (nand_dev.need_wearlevel) {
 			if (kthread_should_stop())
 				break;
@@ -409,11 +406,12 @@ static int nanddisk_wearlevel_thread(void *arg)
 				pr_err("%s:wear level failed.\n",  __func__);
 				nand_dev.need_wearlevel = 0;
 			}
-			up(&nand_dev.io_session_sem);
+
+			mutex_unlock(&nand_dev.mutex);
 			schedule_timeout(500);
-			down(&nand_dev.io_session_sem);
+			mutex_lock(&nand_dev.mutex);
 		}
-		up(&nand_dev.io_session_sem);
+		mutex_unlock(&nand_dev.mutex);
 	} while (1);
 
 	return 0;
@@ -463,8 +461,10 @@ static int nanddisk_transfer_thread(void *arg)
 	struct request_queue *q = nand_dev.queue;
 	unsigned total_sectors, total_bytes;
 	bool is_merge;
+
 	set_user_nice(current, -20);
-	down(&nand_dev.io_session_sem);
+	mutex_lock(&nand_dev.mutex);
+
 	do {
 		req = NULL;
 		spin_lock_irqsave(q->queue_lock, flags);
@@ -479,11 +479,12 @@ static int nanddisk_transfer_thread(void *arg)
 				set_current_state(TASK_RUNNING);
 				break;
 			}
-			up(&nand_dev.io_session_sem);
+			mutex_unlock(&nand_dev.mutex);
 			schedule();
-			down(&nand_dev.io_session_sem);
+			mutex_lock(&nand_dev.mutex);
 			continue;
 		}
+
 		set_current_state(TASK_RUNNING);
 
 		if (req->cmd_type != REQ_TYPE_FS) {
@@ -525,7 +526,7 @@ static int nanddisk_transfer_thread(void *arg)
 			}
 		} while (ret); /* no finished? */
 	} while (1);
-	up(&nand_dev.io_session_sem);
+	mutex_unlock(&nand_dev.mutex);
 
 	return 0;
 }
@@ -759,8 +760,7 @@ static int sirfsoc_nand_resume(struct device *dev)
 		spin_lock_irqsave(nand_dev.queue->queue_lock, flags);
 		blk_start_queue(nand_dev.queue);
 		spin_unlock_irqrestore(nand_dev.queue->queue_lock, flags);
-		up(&nand_dev.nanddisk_sem);
-		up(&nand_dev.io_session_sem);
+		mutex_unlock(&nand_dev.mutex);
 	}
 	return 0;
 }
@@ -772,8 +772,7 @@ static int sirfsoc_nand_suspend(struct device *dev)
 
 	dev_info(dev, "%s ++\n", __func__);
 	if (nand_dev.power) {
-		down(&nand_dev.io_session_sem);
-		down(&nand_dev.nanddisk_sem);
+		mutex_lock(&nand_dev.mutex);
 		spin_lock_irqsave(nand_dev.queue->queue_lock, flags);
 		blk_stop_queue(nand_dev.queue);
 		spin_unlock_irqrestore(nand_dev.queue->queue_lock, flags);
@@ -798,7 +797,7 @@ static ssize_t set_log_state(struct device *dev, struct device_attribute *attr,
 {
 	unsigned long log_state;
 
-	nanddisk_sem_get();
+	mutex_lock(&nand_dev.mutex);
 
 	if (kstrtoul(buf, 10, &log_state)) {
 		dev_info(dev, "wrong input state!\n");
@@ -813,7 +812,7 @@ static ssize_t set_log_state(struct device *dev, struct device_attribute *attr,
 		return -1;
 	}
 
-	nanddisk_sem_put();
+	mutex_unlock(&nand_dev.mutex);
 
 	return count;
 }
@@ -1065,8 +1064,7 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 		nand_dev.sectors_num<<(nand_dev.sector_size_shift - 9));
 	nand_dev.gd->queue = nand_dev.queue;
 
-	sema_init(&nand_dev.nanddisk_sem, 1);
-	sema_init(&nand_dev.io_session_sem, 1);
+	mutex_init(&nand_dev.mutex);
 
 	nand_dev.wearlevel_task = kthread_run(nanddisk_wearlevel_thread, NULL,
 		"nand_wearlevel");
