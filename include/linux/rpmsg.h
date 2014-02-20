@@ -98,6 +98,20 @@ enum rpmsg_ns_flags {
 struct virtproc_info;
 
 /**
+ * struct rpmsg_channel_descriptor - channel info description
+ * @name: name of service
+ * @src: local address
+ * @dst: destination address
+ * @reserved: reserved
+ */
+struct rpmsg_channel_descriptor {
+	char name[RPMSG_NAME_SIZE];
+	u32 src;
+	u32 dst;
+	u32 reserved[2];
+};
+
+/**
  * rpmsg_channel - devices that belong to the rpmsg bus are called channels
  * @vrp: the remote processor this channel belongs to
  * @dev: the device struct

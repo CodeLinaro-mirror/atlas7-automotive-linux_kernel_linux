@@ -33,6 +33,23 @@
 #include <linux/wait.h>
 #include <linux/rpmsg.h>
 #include <linux/mutex.h>
+#include <linux/remoteproc.h>
+#include <linux/remoteproc_dualos.h>
+
+
+/* Definition of RPMSG features*/
+/* This RPMSG is working with firmware */
+#define RPMSG_F_FIRMWARE	(0x1 << 0)
+/* This RPMSG is working with backend */
+#define RPMSG_F_BACKEND		(0x1 << 1)
+/* This RPMSG is working with frontend */
+#define RPMSG_F_FRONTEND	(0x1 << 2)
+
+#define RPMSG_HAS_FEATURE(r, f)	((r)->features & (f))
+
+/* RPMSG customized MMIO */
+/* This MMIO space store the rpmsg memory pool's physical address */
+#define RPMSG_MMIO_MEMPOOL	0x00
 
 /**
  * struct virtproc_info - virtual remote processor state
@@ -51,7 +68,9 @@
  * @sendq:	wait queue of sending contexts waiting for a tx buffers
  * @sleepers:	number of senders that are waiting for a tx buffer
  * @ns_ept:	the bus's name service endpoint
- *
+ * @channel_desc:	the predefined channel descriptors on this rpmsg bus.
+ * @channel_desc_sz:	number of predefined channels
+ * @features:	RPMSG bus features
  * This structure stores the rpmsg state of a given virtio remote processor
  * device (there might be several virtio proc devices for each physical
  * remote processor).
@@ -68,6 +87,10 @@ struct virtproc_info {
 	wait_queue_head_t sendq;
 	atomic_t sleepers;
 	struct rpmsg_endpoint *ns_ept;
+	/* members for dual OS */
+	struct rpmsg_channel_descriptor *channel_desc;
+	int channel_desc_sz;
+	int features;
 };
 
 /**
@@ -567,9 +590,9 @@ static int rpmsg_destroy_channel(struct virtproc_info *vrp,
 }
 
 /* super simple buffer "allocator" that is just enough for now */
-static void *get_a_tx_buf(struct virtproc_info *vrp)
+static void *get_a_tx_buf(struct virtproc_info *vrp,
+			unsigned int *p_idx, unsigned int *p_len)
 {
-	unsigned int len;
 	void *ret;
 
 	/* support multiple concurrent senders */
@@ -579,11 +602,15 @@ static void *get_a_tx_buf(struct virtproc_info *vrp)
 	 * either pick the next unused tx buffer
 	 * (half of our buffers are used for sending messages)
 	 */
-	if (vrp->last_sbuf < RPMSG_NUM_BUFS / 2)
+	if (vrp->last_sbuf < RPMSG_NUM_BUFS / 2) {
+		if (p_idx)
+			*p_idx = vrp->last_sbuf;
+		if (p_len)
+			*p_len = RPMSG_BUF_SIZE;
 		ret = vrp->sbufs + RPMSG_BUF_SIZE * vrp->last_sbuf++;
-	/* or recycle a used one */
-	else
-		ret = virtqueue_get_buf(vrp->svq, &len);
+	} else
+		/* or recycle a used one */
+		ret = virtqueue_get_buf_with_idx(vrp->svq, p_idx, p_len);
 
 	mutex_unlock(&vrp->tx_lock);
 
@@ -687,6 +714,7 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 	struct device *dev = &rpdev->dev;
 	struct scatterlist sg;
 	struct rpmsg_hdr *msg;
+	unsigned int buf_idx, buf_len;
 	int err;
 
 	/* bcasting isn't allowed */
@@ -710,7 +738,7 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 	}
 
 	/* grab a buffer */
-	msg = get_a_tx_buf(vrp);
+	msg = get_a_tx_buf(vrp, &buf_idx, &buf_len);
 	if (!msg && !wait)
 		return -ENOMEM;
 
@@ -726,7 +754,7 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 		 * if later this happens to be required, it'd be easy to add.
 		 */
 		err = wait_event_interruptible_timeout(vrp->sendq,
-					(msg = get_a_tx_buf(vrp)),
+			(msg = get_a_tx_buf(vrp, &buf_idx, &buf_len)),
 					msecs_to_jiffies(15000));
 
 		/* disable "tx-complete" interrupts if we're the last sleeper */
@@ -768,6 +796,12 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 		goto out;
 	}
 
+	if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_FIRMWARE))
+		goto kick;
+
+	virtqueue_set_used_buf(vrp->svq, buf_idx, buf_len);
+
+kick:
 	/* tell the remote processor it has a pending message to read */
 	virtqueue_kick(vrp->svq);
 out:
@@ -940,38 +974,91 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	}
 }
 
-static int rpmsg_probe(struct virtio_device *vdev)
+static void __rpmsg_free_mempool(struct virtio_device *vdev,
+				struct virtproc_info *vrp)
 {
-	vq_callback_t *vq_cbs[] = { rpmsg_recv_done, rpmsg_xmit_done };
-	const char *names[] = { "input", "output" };
-	struct virtqueue *vqs[2];
-	struct virtproc_info *vrp;
 	void *bufs_va;
-	int err = 0, i;
 
-	vrp = kzalloc(sizeof(*vrp), GFP_KERNEL);
-	if (!vrp)
-		return -ENOMEM;
+	if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_BACKEND)) {
+		bufs_va = vrp->sbufs;
+		if (bufs_va)
+			iounmap(bufs_va);
+	} else {
+		bufs_va = vrp->rbufs;
+		if (bufs_va)
+			dma_free_coherent(vdev->dev.parent->parent,
+					RPMSG_TOTAL_BUF_SPACE,
+					bufs_va, vrp->bufs_dma);
+	}
+}
 
-	vrp->vdev = vdev;
+static void __rpmsg_online(struct virtio_device *vdev,
+				struct virtproc_info *vrp)
+{
+	if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_FIRMWARE))
+		/* tell the remote processor it can start sending messages */
+		virtqueue_kick(vrp->rvq);
+	else if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_FRONTEND))
+		/* tell the backend that frontend is online */
+		virtio_cwrite32(vdev, MMIO_FRONT_ONLINE, vdev->index);
+	else if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_BACKEND))
+		/* tell the frontend that backend is online */
+		virtio_cwrite32(vdev, MMIO_BACK_ONLINE, vdev->index);
 
-	idr_init(&vrp->endpoints);
-	mutex_init(&vrp->endpoints_lock);
-	mutex_init(&vrp->tx_lock);
-	init_waitqueue_head(&vrp->sendq);
+	dev_info(&vdev->dev, "rpmsg host is online\n");
+}
 
-	/* We expect two virtqueues, rx and tx (and in this order) */
+static int __rpmsg_turn_online(struct virtio_device *vdev,
+				struct virtproc_info *vrp)
+{
+	vq_callback_t *vq_cbs[2];
+	const char *names[2];
+	struct virtqueue *vqs[2];
+	void *bufs_va;
+	int err, i, tvq_idx, rvq_idx;
+
+	if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_BACKEND)) {
+		tvq_idx = 0;
+		rvq_idx = 1;
+
+	} else {
+		tvq_idx = 1;
+		rvq_idx = 0;
+	}
+
+	vq_cbs[rvq_idx] = rpmsg_recv_done;
+	vq_cbs[tvq_idx] = rpmsg_xmit_done;
+	names[rvq_idx] = "input";
+	names[tvq_idx] = "output";
+
+	/* We expect two virtqueues,
+	 * rx and tx (and in rvq_idx, tvq_idx order) */
 	err = vdev->config->find_vqs(vdev, 2, vqs, vq_cbs, names);
 	if (err)
-		goto free_vrp;
+		return err;
 
-	vrp->rvq = vqs[0];
-	vrp->svq = vqs[1];
+	vrp->rvq = vqs[rvq_idx];
+	vrp->svq = vqs[tvq_idx];
 
-	/* allocate coherent memory for the buffers */
-	bufs_va = dma_alloc_coherent(vdev->dev.parent->parent,
-				RPMSG_TOTAL_BUF_SPACE,
-				&vrp->bufs_dma, GFP_KERNEL);
+	if (!RPMSG_HAS_FEATURE(vrp, RPMSG_F_FRONTEND))
+		goto alloc_mempool;
+	/* Tell the backend vring is ready. */
+	virtio_cwrite32(vdev, MMIO_FRONT_VQ_READY, vdev->index);
+
+alloc_mempool:
+	if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_BACKEND))
+		/* RPMSG is using a mempool for TX&RX buffer.
+		 * backend's tx buffer is frontend's rx buffer.
+		 * frontend has initialize its rx buffer already.
+		 * And backend get the mempool phy-addr from MMIO.
+		 */
+		bufs_va = ioremap(vrp->bufs_dma, RPMSG_TOTAL_BUF_SPACE);
+	else
+		/* allocate coherent memory for the buffers */
+		bufs_va = dma_alloc_coherent(vdev->dev.parent->parent,
+					RPMSG_TOTAL_BUF_SPACE,
+					&vrp->bufs_dma, GFP_KERNEL);
+
 	if (!bufs_va) {
 		err = -ENOMEM;
 		goto vqs_del;
@@ -981,11 +1068,17 @@ static int rpmsg_probe(struct virtio_device *vdev)
 					(unsigned long long)vrp->bufs_dma);
 
 	/* half of the buffers is dedicated for RX */
-	vrp->rbufs = bufs_va;
+	vrp->rbufs = bufs_va + (RPMSG_TOTAL_BUF_SPACE / 2) * rvq_idx;
 
 	/* and half is dedicated for TX */
-	vrp->sbufs = bufs_va + RPMSG_TOTAL_BUF_SPACE / 2;
+	vrp->sbufs = bufs_va + (RPMSG_TOTAL_BUF_SPACE / 2) * tvq_idx;
 
+	if (!RPMSG_HAS_FEATURE(vrp, RPMSG_F_FRONTEND))
+		goto setup_recv_buf;
+	/* Tell the backend the mempool's physical address */
+	virtio_cwrite32(vdev, RPMSG_MMIO_MEMPOOL, vrp->bufs_dma);
+
+setup_recv_buf:
 	/* set up the receive buffers */
 	for (i = 0; i < RPMSG_NUM_BUFS / 2; i++) {
 		struct scatterlist sg;
@@ -1001,8 +1094,6 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	/* suppress "tx-complete" interrupts */
 	virtqueue_disable_cb(vrp->svq);
 
-	vdev->priv = vrp;
-
 	/* if supported by the remote processor, enable the name service */
 	if (virtio_has_feature(vdev, VIRTIO_RPMSG_F_NS)) {
 		/* a dedicated endpoint handles the name service msgs */
@@ -1015,20 +1106,134 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		}
 	}
 
-	/* tell the remote processor it can start sending messages */
-	virtqueue_kick(vrp->rvq);
-
-	dev_info(&vdev->dev, "rpmsg host is online\n");
+	__rpmsg_online(vdev, vrp);
 
 	return 0;
 
 free_coherent:
-	dma_free_coherent(vdev->dev.parent->parent, RPMSG_TOTAL_BUF_SPACE,
-					bufs_va, vrp->bufs_dma);
+	__rpmsg_free_mempool(vdev, vrp);
+
 vqs_del:
 	vdev->config->del_vqs(vrp->vdev);
-free_vrp:
-	kfree(vrp);
+
+	return err;
+}
+
+static int rpmsg_create_predefined_channels(struct virtproc_info *vrp)
+{
+	int idx;
+	struct rpmsg_channel *rpdev;
+	struct rpmsg_channel_info chn_info;
+
+	for (idx = 0; idx < vrp->channel_desc_sz; idx++) {
+		chn_info.src = vrp->channel_desc[idx].src;
+		chn_info.dst = vrp->channel_desc[idx].dst;
+		strcpy(chn_info.name, vrp->channel_desc[idx].name);
+		rpdev = rpmsg_create_channel(vrp, &chn_info);
+		if (!rpdev)
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int rpmsg_mmio(struct virtio_device *vdev, u32 offset)
+{
+	u32 value_u = 0;
+	struct virtproc_info *vrp = vdev->priv;
+
+	switch (offset) {
+	/************* RPROC Defined MMIO Handlers *****************/
+	case MMIO_FRONT_ONLINE:
+		value_u = __rpmsg_turn_online(vdev, vrp);
+		if (value_u) {
+			dev_err(&vdev->dev,
+			"__rpmsg_turn_backend_online failed!err:%08x\n",
+			value_u);
+			BUG_ON(1);
+		}
+		value_u = rpmsg_create_predefined_channels(vrp);
+		break;
+
+	case MMIO_FRONT_VQ_READY:
+		dev_dbg(&vdev->dev, "Frontend VQ had been ready!\n");
+		break;
+
+	case MMIO_BACK_ONLINE:
+		break;
+
+	case MMIO_BACK_OFFLINE:
+	case MMIO_FRONT_OFFLINE:
+		break;
+
+	case MMIO_DFEATURES:
+		value_u = virtio_cread32(vdev, MMIO_DFEATURES);
+		break;
+
+	case MMIO_GFEATURES:
+		value_u = virtio_cread32(vdev, MMIO_GFEATURES);
+		break;
+
+	/*************** Customized MMIO Handlers *******************/
+	case RPMSG_MMIO_MEMPOOL:
+		value_u = virtio_cread32(vdev, RPMSG_MMIO_MEMPOOL);
+		vrp->bufs_dma = value_u;
+		dev_dbg(&vdev->dev,
+		"Get RPMSG MEMPOOL physical address : %08x\n", value_u);
+		break;
+
+	default:
+		dev_err(&vdev->dev, "Bad MMIO offset:%d\n", offset);
+		break;
+	}
+	return 0;
+}
+
+static int rpmsg_probe(struct virtio_device *vdev)
+{
+	struct virtproc_info *vrp;
+	int err = 0;
+
+	vrp = kzalloc(sizeof(*vrp), GFP_KERNEL);
+	if (!vrp)
+		return -ENOMEM;
+
+	vrp->vdev = vdev;
+	if (virtio_has_feature(vdev, VIRTIO_RPROC_F_FRONT)) {
+		vrp->features |= RPMSG_F_FRONTEND;
+		dev_info(&vdev->dev,
+			"start probe virtio rpmsg frontend bus\n");
+	} else if (virtio_has_feature(vdev, VIRTIO_RPROC_F_BACK)) {
+		vrp->features |= RPMSG_F_BACKEND;
+		vrp->channel_desc = (void*)virtio_cread32(vdev, MMIO_PRIV_DATA);
+		vrp->channel_desc_sz = virtio_cread32(vdev, MMIO_PRIV_SIZE);
+		dev_info(&vdev->dev,
+			"start probe virtio rpmsg backend bus\n");
+	} else {
+		vrp->features |= RPMSG_F_FIRMWARE;
+		dev_info(&vdev->dev, "probe firmware rpmsg bus device!\n");
+	}
+
+	idr_init(&vrp->endpoints);
+	mutex_init(&vrp->endpoints_lock);
+	mutex_init(&vrp->tx_lock);
+	init_waitqueue_head(&vrp->sendq);
+
+	vdev->priv = vrp;
+
+	if (!RPMSG_HAS_FEATURE(vrp, RPMSG_F_BACKEND | RPMSG_F_FRONTEND))
+		goto turn_online;
+
+	rproc_set_mmio_handler(vdev, rpmsg_mmio);
+
+	if (RPMSG_HAS_FEATURE(vrp, RPMSG_F_BACKEND))
+		return 0;
+
+turn_online:
+	err = __rpmsg_turn_online(vdev, vrp);
+	if (err)
+		kfree(vrp);
+
 	return err;
 }
 
@@ -1057,8 +1262,7 @@ static void rpmsg_remove(struct virtio_device *vdev)
 
 	vdev->config->del_vqs(vrp->vdev);
 
-	dma_free_coherent(vdev->dev.parent->parent, RPMSG_TOTAL_BUF_SPACE,
-					vrp->rbufs, vrp->bufs_dma);
+	__rpmsg_free_mempool(vdev, vrp);
 
 	kfree(vrp);
 }
@@ -1068,8 +1272,12 @@ static struct virtio_device_id id_table[] = {
 	{ 0 },
 };
 
+/* Virtio driver features, support both firmware,
+ * backend, frontend rproc based rpmsg */
 static unsigned int features[] = {
 	VIRTIO_RPMSG_F_NS,
+	VIRTIO_RPROC_F_BACK,
+	VIRTIO_RPROC_F_FRONT,
 };
 
 static struct virtio_driver virtio_ipc_driver = {
