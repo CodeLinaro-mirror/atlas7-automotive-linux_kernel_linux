@@ -878,10 +878,10 @@ static int tw9900_video_probe(struct i2c_client *client)
 		ret = -ENODEV;
 		goto done;
 	}
-#endif
 
 	dev_info(&client->dev,
 		 "tw9900 Product ID %0x:%0x\n", id, priv->revision);
+#endif
 
 	priv->norm = V4L2_STD_NTSC;
 
@@ -1037,6 +1037,11 @@ static int tw9900_op_start(int input)
 		i2c_smbus_write_byte_data(client, 0x09, 0x1F);
 	}
 
+	value = i2c_smbus_read_byte_data(client, OPFORM);
+	/* enable all output */
+	value &= 0xF8;
+	i2c_smbus_write_byte_data(client, OPFORM, value);
+
 	return 0;
 }
 
@@ -1058,8 +1063,10 @@ static int tw9900_op_detect(void)
 		return -ENODEV;
 	}
 
-	return 0;
+	dev_info(&client->dev,
+		"tw9900 Product ID %0x:%0x\n", id, priv->revision);
 
+	return 0;
 }
 
 static int tw9900_op_init(void)
@@ -1074,16 +1081,26 @@ static int tw9900_op_deinit(void)
 
 static int tw9900_op_stop(void)
 {
+	struct i2c_client *client = tw9900_client;
+	u8 value;
+
+	value = i2c_smbus_read_byte_data(client, OPFORM);
+	/* set all output to tri-state */
+	value |= 0x07;
+	i2c_smbus_write_byte_data(client, OPFORM, value);
+
 	return 0;
 }
 
 static struct sirfsoc_decoder_ops tw9900_decoder_ops = {
+	.desc = "tw9900",
 	.detect = tw9900_op_detect,
 	.init = tw9900_op_init,
 	.deinit = tw9900_op_deinit,
 	.set_fmt = NULL,
 	.start = tw9900_op_start,
 	.stop = tw9900_op_stop,
+	.list = LIST_HEAD_INIT(tw9900_decoder_ops.list)
 };
 
 /*

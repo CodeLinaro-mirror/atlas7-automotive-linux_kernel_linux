@@ -79,7 +79,6 @@
 			rstc: reset-controller@88010000 {
 				compatible = "sirf,prima2-rstc";
 				reg = <0x88010000 0x1000>;
-				sirf,pwrc-base = <0x3000>;
 				#reset-cells = <1>;
 			};
 
@@ -262,8 +261,8 @@
 				interrupts = <17>;
 				fifosize = <128>;
 				clocks = <&clks 13>;
-				sirf,uart-dma-rx-channel = <21>;
-				sirf,uart-dma-tx-channel = <2>;
+				dmas = <&dmac1 5>, <&dmac0 2>;
+				dma-names = "rx", "tx";
 			};
 
 			uart1: uart@b0060000 {
@@ -273,6 +272,7 @@
 				interrupts = <18>;
 				fifosize = <32>;
 				clocks = <&clks 14>;
+				dma-names = "no-rx", "no-tx";
 			};
 
 			uart2: uart@b0070000 {
@@ -282,8 +282,8 @@
 				interrupts = <19>;
 				fifosize = <128>;
 				clocks = <&clks 15>;
-				sirf,uart-dma-rx-channel = <6>;
-				sirf,uart-dma-tx-channel = <7>;
+				dmas = <&dmac0 6>, <&dmac0 7>;
+				dma-names = "rx", "tx";
 			};
 
 			usp0: usp@b0080000 {
@@ -304,8 +304,8 @@
 				interrupts = <21>;
 				fifosize = <128>;
 				clocks = <&clks 29>;
-				sirf,usp-dma-rx-channel = <14>;
-				sirf,usp-dma-tx-channel = <15>;
+				dmas = <&dmac0 14>, <&dmac0 15>;
+				dma-names = "rx", "tx";
 			};
 
 			usp2: usp@b00a0000 {
@@ -315,8 +315,8 @@
 				interrupts = <22>;
 				fifosize = <128>;
 				clocks = <&clks 30>;
-				sirf,usp-dma-rx-channel = <10>;
-				sirf,usp-dma-tx-channel = <11>;
+				dmas = <&dmac0 10>, <&dmac0 11>;
+				dma-names = "rx", "tx";
 			};
 
 			dmac0: dma-controller@b00b0000 {
@@ -695,10 +695,9 @@
 
 			pwm: pwm@b0130000 {
 				compatible = "sirf,prima2-pwm";
-				#pwm-cells = <4>;
+				#pwm-cells = <2>;
 				reg = <0xb0130000 0x10000>;
-				clocks = <&clks 21>, <&clks 0>, <&clks 1>, <&clks 2>, <&clks 3>, <&clks 4>;
-				clock-names = "pwmc", "rtc", "osc", "pll1", "pll2", "pll3";
+				clocks = <&clks 21>, <&clks 1>;
 			};
 
 			efusesys@b0140000 {

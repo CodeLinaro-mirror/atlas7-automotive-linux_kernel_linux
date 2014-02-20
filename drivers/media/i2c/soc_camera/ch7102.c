@@ -25,6 +25,9 @@
 #include <linux/extcon/extcon-gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/sysfs.h>
+#include <media/sirfsoc_v4l2.h>
+
+#include "../../platform/soc_camera/sirfsoc/sirfsoc_decoder_op.h"
 
 #define WIDTH  1280
 #define HEIGHT	720
@@ -55,10 +58,12 @@
 #define FW_VER     0xE3  /* Firmware Version Register, on page 2
 			    firmware version format: xxxx.xx.xx */
 #define ANA_REG0   0x4 /*  Analog RW Retister 0, on page 10*/
+#define STATUS	   0x5  /*  General status retister, on page 2*/
 
 
-
+/* retister value */
 #define AUDIO_ENABLED 0x41 /* Macro used to cofirm if auido is enabled*/
+#define FW_VERSION    0x2F /* From this version, HDMI output state is changed*/
 
 static int fw_version;
 
@@ -92,7 +97,7 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 	int i;
 
 	if (enable) {
-		if (fw_version >= 0x2F) {
+		if (fw_version >= FW_VERSION) {
 			for (i = 0; i < 15; i++) {
 				i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
 				value = i2c_smbus_read_byte_data(client, INSIG_STAT);
@@ -113,7 +118,7 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 			i2c_smbus_write_byte_data(client, CONTROL, value);
 		}
 	} else {
-		if (fw_version >= 0x2F) {
+		if (fw_version >= FW_VERSION) {
 			i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
 			/*	set output to tri-state	*/
 			value = 0x00;
@@ -136,6 +141,44 @@ static int ch7102_s_power(struct v4l2_subdev *sd, int on)
 	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
 
 	return soc_camera_set_power(&client->dev, ssdd, NULL, on);
+}
+
+
+static int ch7102_get_audio_sample_rate(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u8 value = 0;
+	u8 ana_reg0 = 0;
+	int samplerate_table[] = {
+		44100, 44100, 48000, 32000, 22050, 44100, 24000, 44100,
+		88200, 768000, 96000, 44100, 176400, 44100, 192000, 44100
+	};
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+	ana_reg0 = i2c_smbus_read_byte_data(client, ANA_REG0);
+
+	/* 0x41 in aga_reg0 describes there is auido I2S data */
+	if (ana_reg0 != AUDIO_ENABLED)
+		return 0;
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	value = i2c_smbus_read_byte_data(client, AUDIO_INFO);
+	value &= 0xf;
+
+	return samplerate_table[value];
+}
+
+static int ch7102_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+{
+	switch (ctrl->id) {
+	case V4L2_CID_GET_AUDIO_SAMPLE_RATE:
+		ctrl->value = ch7102_get_audio_sample_rate(sd);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int ch7102_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
@@ -241,6 +284,7 @@ static int ch7102_video_probe(struct i2c_client *client)
 
 static struct v4l2_subdev_core_ops ch7102_subdev_core_ops = {
 	.s_power	= ch7102_s_power,
+	.g_ctrl		= ch7102_g_ctrl,
 };
 
 static int ch7102_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
@@ -276,6 +320,26 @@ static int ch7102_s_mbus_config(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ch7102_g_input_status(struct v4l2_subdev *sd,
+					unsigned int *status)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ch7102_priv *priv = to_ch7102(client);
+	unsigned int value = 0;
+
+	if (fw_version >= FW_VERSION) {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+		value = i2c_smbus_read_byte_data(client, INSIG_STAT);
+		*status = value & 0x1;
+		return 0;
+	}
+
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	value = i2c_smbus_read_byte_data(client, STATUS);
+	*status = (value & 0x40) >> 6;
+	return 0;
+}
+
 static struct v4l2_subdev_video_ops ch7102_subdev_video_ops = {
 	.s_stream	= ch7102_s_stream,
 	.g_mbus_fmt	= ch7102_g_fmt,
@@ -286,6 +350,7 @@ static struct v4l2_subdev_video_ops ch7102_subdev_video_ops = {
 	.enum_mbus_fmt	= ch7102_enum_fmt,
 	.g_mbus_config  = ch7102_g_mbus_config,
 	.s_mbus_config  = ch7102_s_mbus_config,
+	.g_input_status = ch7102_g_input_status,
 };
 
 static struct v4l2_subdev_ops ch7102_subdev_ops = {
@@ -343,36 +408,6 @@ err_out:
 	return NULL;
 }
 
-static int samplerate_table[] = {
-	44100, 44100, 48000, 32000, 22050, 44100, 24000, 44100,
-	88200, 768000, 96000, 44100, 176400, 44100, 192000, 44100
-};
-
-static ssize_t ch7102_audio_rate_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
-	u8 value = 0;
-	u8 ana_reg0 = 0;
-
-	i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
-	ana_reg0 = i2c_smbus_read_byte_data(client, ANA_REG0);
-
-	/* 0x41 in aga_reg0 describes there is auido I2S data */
-	if (ana_reg0 != AUDIO_ENABLED) {
-		value = 0;
-		return sprintf(buf, "%d", value);
-	}
-
-	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
-	value = i2c_smbus_read_byte_data(client, AUDIO_INFO);
-	value &= 0xf;
-
-	return sprintf(buf, "%d", samplerate_table[value]);
-}
-
-static DEVICE_ATTR(ch7102_audio_rate, S_IRUGO,
-		ch7102_audio_rate_show, NULL);
 
 static int ch7102_get_fw_version(void)
 {
@@ -384,8 +419,64 @@ static int ch7102_get_fw_version(void)
 	if (value != -1)
 		return value;
 	else
-		return 0x2F;
+		return FW_VERSION;
 }
+
+static int ch7102_op_start(int input)
+{
+	struct i2c_client *client = ch7102_client;
+	u8 value;
+	int i;
+
+	if (fw_version >= FW_VERSION) {
+		for (i = 0; i < 15; i++) {
+			i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+			value = i2c_smbus_read_byte_data(client, INSIG_STAT);
+			if (value == 1)
+				break;
+			msleep(200);
+		}
+		/* enable output */
+		value = 0x01;
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+		i2c_smbus_write_byte_data(client, OUTCTR, value);
+	} else {
+		/* select page 10 */
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+		value = i2c_smbus_read_byte_data(client, CONTROL);
+		/* enable output */
+		value |= 0x80;
+		i2c_smbus_write_byte_data(client, CONTROL, value);
+	}
+}
+
+static int ch7102_op_stop(void)
+{
+	struct i2c_client *client = ch7102_client;
+	u8 value;
+
+	if (fw_version >= FW_VERSION) {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE1);
+		/* set output to tri-state */
+		value = 0x00;
+		i2c_smbus_write_byte_data(client, OUTCTR, value);
+	} else {
+		i2c_smbus_write_byte_data(client, PG_SEL, PAGE10);
+		value = i2c_smbus_read_byte_data(client, CONTROL);
+		/* set output to tri-state */
+		value &= ~0x80;
+		i2c_smbus_write_byte_data(client, CONTROL, value);
+	}
+
+	return 0;
+}
+
+static struct sirfsoc_decoder_ops ch7102_decoder_ops = {
+	.desc = "ch7102",
+	.start = ch7102_op_start,
+	.stop = ch7102_op_stop,
+	.list = LIST_HEAD_INIT(ch7102_decoder_ops.list)
+};
 
 static int ch7102_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
@@ -429,14 +520,7 @@ static int ch7102_probe(struct i2c_client *client,
 
 	ch7102_client = client;
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
-
-	ret = sysfs_create_file(&client->dev.kobj,
-		&dev_attr_ch7102_audio_rate.attr);
-	if (ret) {
-		dev_err(&client->dev,
-			"Failed to create audio sample rate sysfs file.\n");
-		return ret;
-	}
+	sirfsoc_register_decoder_ops(&ch7102_decoder_ops);
 
 	fw_version = ch7102_get_fw_version();
 	dev_info(&client->dev,
@@ -450,7 +534,6 @@ static int ch7102_probe(struct i2c_client *client,
 
 static int ch7102_remove(struct i2c_client *client)
 {
-	sysfs_remove_file(&client->dev.kobj, &dev_attr_ch7102_audio_rate.attr);
 	platform_device_unregister(pextcon_dev);
 
 	return 0;

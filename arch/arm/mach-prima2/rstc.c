@@ -77,6 +77,7 @@ static struct reset_controller_dev sirfsoc_reset_controller = {
 static int sirfsoc_rstc_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *pwrc_np;
 	sirfsoc_rstc_base = of_iomap(np, 0);
 	if (!sirfsoc_rstc_base) {
 		dev_err(&pdev->dev, "unable to map rstc cpu registers\n");
@@ -86,6 +87,10 @@ static int sirfsoc_rstc_probe(struct platform_device *pdev)
 	sirfsoc_reset_controller.of_node = np;
 
 	reset_controller_register(&sirfsoc_reset_controller);
+
+	pwrc_np = of_find_compatible_node(NULL, NULL, "sirf,prima2-pwrc");
+	if (of_property_read_u32(pwrc_np, "reg", &sirfsoc_pwrc_base))
+		panic("unable to find pwrc-base offset\n");
 
 	return 0;
 }

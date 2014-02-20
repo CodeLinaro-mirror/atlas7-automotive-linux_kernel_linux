@@ -541,7 +541,7 @@ static int apm_suspend_notifier(struct notifier_block *nb,
 	case PM_SUSPEND_PREPARE:
 	case PM_HIBERNATION_PREPARE:
 		apm_event = (event == PM_SUSPEND_PREPARE) ?
-			APM_USER_SUSPEND : APM_SYS_SUSPEND;
+			APM_USER_SUSPEND : APM_USER_HIBERNATION;
 		/*
 		 * Queue an event to all "writer" users that we want
 		 * to suspend and need their ack.
@@ -607,7 +607,7 @@ static int apm_suspend_notifier(struct notifier_block *nb,
 	case PM_POST_SUSPEND:
 	case PM_POST_HIBERNATION:
 		apm_event = (event == PM_POST_SUSPEND) ?
-			APM_NORMAL_RESUME : APM_CRITICAL_RESUME;
+			APM_NORMAL_RESUME : APM_HIBERNATION_RESUME;
 		/*
 		 * Anyone on the APM queues will think we're still suspended.
 		 * Send a message so everyone knows we're now awake again.

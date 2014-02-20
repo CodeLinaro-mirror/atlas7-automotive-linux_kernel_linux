@@ -2,7 +2,8 @@
 /*
  * CSR SiRFprima2 VIP library interface
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
  *
  * Licensed under GPLv2 or later.
  */

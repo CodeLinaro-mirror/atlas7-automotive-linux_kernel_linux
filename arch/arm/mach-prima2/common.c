@@ -23,37 +23,37 @@
 static struct gpio_extcon_platform_data h2w_extcon_data;
 
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *uname,
-                                int depth, void *data)
+	int depth, void *data)
 {
-        __be32 *mem_info;
-        unsigned long len;
+	__be32 *mem_info;
+	unsigned long len;
 	unsigned int rc_addr, rc_sz, dqs_addr, dqs_sz;
 
-        mem_info = of_get_flat_dt_prop(node,
-                        "rc-range", &len);
-        if (!mem_info || (len != 2 * sizeof(unsigned long)))
-                return 0;
+	mem_info = of_get_flat_dt_prop(node,
+		"rc-range", &len);
+	if (!mem_info || (len != 2 * sizeof(unsigned long)))
+		return 0;
 
-        rc_addr = be32_to_cpu(mem_info[0]);
-        rc_sz = be32_to_cpu(mem_info[1]);
+	rc_addr = be32_to_cpu(mem_info[0]);
+	rc_sz = be32_to_cpu(mem_info[1]);
 
-        if (memblock_reserve(rc_addr, rc_sz))
-                pr_err("failed to reserve romcode memory(0x%x bytes at 0x%x)\n",
-                        rc_addr, rc_sz);
+	if (memblock_reserve(rc_addr, rc_sz))
+		pr_err("failed to reserve romcode memory(0x%x bytes at 0x%x)\n",
+			rc_addr, rc_sz);
 
-        mem_info = of_get_flat_dt_prop(node,
-                        "dqs-range", &len);
-        if (!mem_info || (len != 2 * sizeof(unsigned long)))
-                return 0;
+	mem_info = of_get_flat_dt_prop(node,
+		"dqs-range", &len);
+	if (!mem_info || (len != 2 * sizeof(unsigned long)))
+		return 0;
 
-        dqs_addr = be32_to_cpu(mem_info[0]);
-        dqs_sz = be32_to_cpu(mem_info[1]);
+	dqs_addr = be32_to_cpu(mem_info[0]);
+	dqs_sz = be32_to_cpu(mem_info[1]);
 
-        if (memblock_reserve(dqs_addr, dqs_sz))
-                pr_err("failed to reserve dqs memory(0x%x bytes at 0x%x)\n",
-                        dqs_addr, dqs_sz);
+	if (memblock_reserve(dqs_addr, dqs_sz))
+		pr_err("failed to reserve dqs memory(0x%x bytes at 0x%x)\n",
+			dqs_addr, dqs_sz);
 
-        return 1;
+	return 1;
 }
 
 /*
@@ -64,8 +64,8 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *un
  */
 void __init sirfsoc_pre_reserve(void)
 {
-        if (!of_scan_flat_dt(sirf_fdt_handle_pre_rsv_mem, NULL))
-                pr_err("failed to find reserved memory.\n");
+	if (!of_scan_flat_dt(sirf_fdt_handle_pre_rsv_mem, NULL))
+		pr_err("failed to find reserved memory.\n");
 }
 
 void __init sirfsoc_reserve(void)
@@ -93,6 +93,8 @@ static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
 
 static void __init sirfsoc_init_mach(void)
 {
+	sirfsoc_add_camera_pdev();
+
 	of_platform_populate(NULL, of_default_bus_match_table,
 		sirf_auxdata_lookup, NULL);
 
@@ -139,7 +141,7 @@ static __init void sirfsoc_map_io(void)
 }
 
 #ifdef CONFIG_ARCH_ATLAS6
-static const char *atlas6_dt_match[] __initdata = {
+static const char *atlas6_dt_match[] __initconst = {
 	"sirf,atlas6",
 	NULL
 };
@@ -156,7 +158,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_ARCH_PRIMA2
-static const char *prima2_dt_match[] __initdata = {
+static const char *prima2_dt_match[] __initconst = {
 	"sirf,prima2",
 	NULL
 };
@@ -174,7 +176,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_ARCH_MARCO
-static const char *marco_dt_match[] __initdata = {
+static const char *marco_dt_match[] __initconst = {
 	"sirf,marco",
 	NULL
 };

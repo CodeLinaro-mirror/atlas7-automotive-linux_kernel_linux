@@ -1,25 +1,10 @@
-/******************************************************************************
- Cambridge Silicon Radio Limited, a CSR plc group company PrimaII BSP/CSP
-
- Copyright (c) 2010 - 2011  Cambridge Silicon Radio Limited, a CSR plc group
- company.
-
- All rights reserved.
-
- This Software is protected by United Kingdom copyright laws and international 
- treaties.  You may not reverse engineer, decompile or disassemble this 
- Software.
-
- WARNING:
- This Software contains Cambridge Silicon Radio Limited's confidential and 
- proprietary information. UNAUTHORIZED COPYING, USE, MODIFICATION, 
- DISTRIBUTION, PUBLICATION, TRANSFER, SALE, RENTAL, REPACKAGING, REASSEMBLING 
- OR DISCLOSURE OF THE WHOLE OR ANY PART OF THE SOFTWARE IS PROHIBITED AND MAY 
- RESULT IN SERIOUS LEGAL CONSEQUENCES.  Do not copy this Software without 
- Cambridge Silicon Radio Limited's express written permission.   Use of any 
- portion of the contents of this Software is subject to and restricted by your 
- signed written agreement with Cambridge Silicon Radio Limited. 
-******************************************************************************/
+/*
+ * CSR sirfsoc VPP register def file
+ *
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
 
 #ifndef __A7_VPP_H__
 #define __A7_VPP_H__
@@ -55,7 +40,7 @@
 #define VPP_HSCA_COEF61 	0x0070 
 #define VPP_HSCA_COEF62 	0x0074 
 #define VPP_HSCA_COEF70 	0x0078 
-#define VPP_HSCA_COEF71 	0x007c 
+#define VPP_HSCA_COEF71		0x007c
 #define VPP_HSCA_COEF72 	0x0080 
 #define VPP_HSCA_COEF80 	0x0084 
 #define VPP_HSCA_COEF81 	0x0088 

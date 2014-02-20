@@ -161,6 +161,7 @@ ENTRY(sleep_save_sp)
 _sleep_save_sp:
 	.space	SLEEP_SAVE_SP_SZ		@ struct sleep_save_sp
 
+#ifdef CONFIG_HIBERNATION
 	.align
 ENTRY(cpu_resume_restore_nosave)
 	ldr	r0, =__nosave_backup_phys
@@ -177,3 +178,4 @@ ENTRY(cpu_resume_restore_nosave)
 	cmp	r1, r2
 	bne	1b
 	b	cpu_resume
+#endif

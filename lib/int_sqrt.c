@@ -36,3 +36,30 @@ unsigned long int_sqrt(unsigned long x)
 	return y;
 }
 EXPORT_SYMBOL(int_sqrt);
+
+/**
+ * Square root of a 64-bit digit.
+ * Same as int_sqrt on 64-bit platforms where "long" equals "long long"
+ */
+unsigned long long int64_sqrt(unsigned long long x)
+{
+	unsigned long long m = 0, y = 0, b = 0;
+
+	if (x <= 1)
+		return x;
+
+	m = 1ULL << (BITS_PER_LONG_LONG - 2);
+	while (m != 0) {
+		b = y + m;
+		y >>= 1;
+
+		if (x >= b) {
+			x -= b;
+			y += m;
+		}
+		m >>= 2;
+	}
+
+	return y;
+}
+EXPORT_SYMBOL(int64_sqrt);

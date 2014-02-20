@@ -18,7 +18,7 @@ void __init sirfsoc_video_codec_reserve_memblock(void)
 	memblock_remove(sirfsoc_video_codec_phy_base, sirfsoc_video_codec_phy_size);
 }
 
-void sirfsoc_video_codec_get_mem(phys_addr_t *addr,int *size)
+void sirfsoc_video_codec_get_mem(phys_addr_t *addr, int *size)
 {
 	*addr = sirfsoc_video_codec_phy_base;
 	*size = sirfsoc_video_codec_phy_size;

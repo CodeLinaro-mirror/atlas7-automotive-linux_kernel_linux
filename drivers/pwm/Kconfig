@@ -156,6 +156,15 @@ config PWM_SAMSUNG
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-samsung.
 
+config PWM_SIRF
+	tristate "SiRF PWM support"
+	depends on ARCH_SIRF
+	help
+	  Generic PWM framework driver for SiRF SoC.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-sirf.
+
 config PWM_SPEAR
 	tristate "STMicroelectronics SPEAr PWM support"
 	depends on PLAT_SPEAR
@@ -232,14 +241,5 @@ config PWM_VT8500
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-vt8500.
-
-config PWM_SIRF
-	tristate "SiRF PWM support"
-	depends on ARCH_SIRF
-	help
-	  Generic PWM framework driver for SiRF SoC.
-
-	  To compile this driver as a module, choose M here: the module
-	  will be called pwm-sirf.
 
 endif

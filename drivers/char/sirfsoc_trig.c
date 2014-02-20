@@ -54,9 +54,9 @@
 #include <linux/cdev.h>
 #include <linux/suspend.h>
 
-#include <../mmc/core/sdio_ops.h>
-#include <../mmc/host/sdhci.h>
-#include <../mmc/host/sdhci-pltfm.h>
+#include "../mmc/core/sdio_ops.h"
+#include "../mmc/host/sdhci.h"
+#include "../mmc/host/sdhci-pltfm.h"
 
 #include "sirfsoc_gpsdrv.h"
 
@@ -86,7 +86,7 @@ static int
 sirf_trig_probe(struct sdio_func *func, const struct sdio_device_id *id);
 static void sirf_trig_remove(struct sdio_func *func);
 static long
-trig_ioctl(struct file *filp,unsigned int cmd, unsigned long arg);
+trig_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 static int trig_mmap(struct file *file, struct vm_area_struct *vma);
 static int trig_open(struct inode *inode, struct file *filp);
 static int trig_release(struct inode *inode, struct file *filp);
@@ -106,7 +106,7 @@ static phys_addr_t sirf_pbb_phy_size;
 void __init sirfsoc_pbb_reserve_memblock(void)
 {
 	sirf_pbb_phy_size = SZ_1M;
-	sirf_pbb_phy_base = memblock_alloc(sirf_pbb_phy_size, PAGE_SIZE);
+	sirf_pbb_phy_base = memblock_alloc(sirf_pbb_phy_size, SZ_1M);
 	memblock_remove(sirf_pbb_phy_base, sirf_pbb_phy_size);
 }
 EXPORT_SYMBOL(sirfsoc_pbb_reserve_memblock);
@@ -312,7 +312,7 @@ static int trig_isp_init(struct sdio_func *func, unsigned int triGMode)
 		ISP_P2_GLO_QUANT_CFG_A, 0x246084cd,
 		ISP_P2_GLO_QUANT_CFG_B, 0x00000011,
 		ISP_P2_CONTROL,  ISP_P2_CONTROL_DEFAULT_VALUE_141_US,
-		ISP_CWREM_CFG,0x00000001
+		ISP_CWREM_CFG, 0x00000001
 #endif
 	};
 	unsigned int ispInitDataComp[] = {
@@ -538,7 +538,7 @@ static int trig_int_thread(void *data)
 
 static int gpio_control(unsigned int on_off)
 {
-	if(of_machine_is_compatible("sirf,prima2")) {
+	if (of_machine_is_compatible("sirf,prima2")) {
 		printk("gpio_control enter\n");
 		/*TRIG_SHUTDOWN_B*/
 		gpio_set_value(trigdev.sg_trig_gpios.shutdown, 0);
@@ -783,7 +783,7 @@ static long trig_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EIO;
 		}
 		/*Rewrite NCO registers*/
-		if(2 == trigdev.config_msg->triGMode){
+		if (2 == trigdev.config_msg->triGMode) {
 			if (trig_reg_init(trigdev.ss_trig_sdio->func,
 						  ISP_P2_GLO1_NCO,
 						  0x1653AA76)) {
@@ -1032,7 +1032,6 @@ static int trig_mmap(struct file *file, struct vm_area_struct *vma)
 						vma->vm_page_prot)) {
 		return -EAGAIN;
 	}
-	//vma->vm_flags |= VM_RESERVED;
 	return 0;
 }
 static int trig_open(struct inode *inode, struct file *filp)
@@ -1106,7 +1105,7 @@ static int sirf_trig_probe(struct sdio_func *func,
 
 	/*move following lines from init_module to here to fix the hibernation bug in P2EVB*/
 	pdn = of_find_node_by_path(GPS_NODEPATH_DTS);
-	if(!pdn) {
+	if (!pdn) {
 		printk("can't find prima2-gps node\n");
 		return -EINVAL;
 	}
@@ -1114,7 +1113,7 @@ static int sirf_trig_probe(struct sdio_func *func,
 	trigdev.sg_trig_gpios.lan_en = of_get_named_gpio(pdn, "lan-en-gpios", 0);
 	trigdev.sg_trig_gpios.clk_out = of_get_named_gpio(pdn, "clk-out-gpios", 0);
 
-	if(gpio_is_valid(trigdev.sg_trig_gpios.shutdown)) {
+	if (gpio_is_valid(trigdev.sg_trig_gpios.shutdown)) {
 		ret = gpio_request(trigdev.sg_trig_gpios.shutdown, "shutdown-gpios");
 		if (ret) {
 			pr_info("TriG TRIG_SHUTDOWN_B request failed!\n");
@@ -1125,7 +1124,7 @@ static int sirf_trig_probe(struct sdio_func *func,
 		gpio_direction_output(trigdev.sg_trig_gpios.shutdown, 1);
 	}
 
-	if(gpio_is_valid(trigdev.sg_trig_gpios.lan_en)) {
+	if (gpio_is_valid(trigdev.sg_trig_gpios.lan_en)) {
 		ret = gpio_request(trigdev.sg_trig_gpios.lan_en, "lan-en-gpios");
 		if (ret) {
 			pr_info("TriG LAN_EN request failed!\n");
@@ -1136,7 +1135,7 @@ static int sirf_trig_probe(struct sdio_func *func,
 		gpio_direction_output(trigdev.sg_trig_gpios.lan_en, 1);
 	}
 
-	if(gpio_is_valid(trigdev.sg_trig_gpios.clk_out)) {
+	if (gpio_is_valid(trigdev.sg_trig_gpios.clk_out)) {
 		ret = gpio_request(trigdev.sg_trig_gpios.clk_out, "clk-out-gpios");
 		if (ret) {
 			pr_info("TriG CLK_OUT request failed!\n");
@@ -1149,7 +1148,7 @@ static int sirf_trig_probe(struct sdio_func *func,
 
 	/* get gps_rtc_base */
 	pdn = of_find_node_by_path(GPSRTC_NODEPATH_DTS);
-	if(!pdn) {
+	if (!pdn) {
 		printk(KERN_ERR "TRIG: can't find node name gpsrtc\n");
 		return -EINVAL;
 	}

@@ -164,6 +164,15 @@ config NAU7802
 	  To compile this driver as a module, choose M here: the
 	  module will be called nau7802.
 
+config SIRFSOC_ADC
+        tristate "SiRFSoC ADC"
+	depends on ARCH_SIRF
+	help
+	  If you say yes here you get support for CSR SiRFSoC internal ADC.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called sirfsoc_adc.
+
 config TI_ADC081C
 	tristate "Texas Instruments ADC081C021/027"
 	depends on I2C

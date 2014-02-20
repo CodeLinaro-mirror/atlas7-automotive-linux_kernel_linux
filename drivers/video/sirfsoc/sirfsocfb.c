@@ -1,21 +1,11 @@
 /*
- * (C) Copyright (C) 2007 SiRF Technology Inc.
+ * CSR sirfsoc framebuffer driver
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ * Licensed under GPLv2 or later.
  */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -888,6 +878,7 @@ int sirfsocfb_enable_feature_layer(struct sirfsocfb *fb, int layer,
 	enum sirfsocfb_feature_layer feature)
 {
 	if (feature == REARVIEW_FEATURE_LAYER) {
+		fb->record_toplayer = fb->lcd_func.pfnGetTopLayer();
 		layer_enable(fb, layer);
 		sirfsocfb_set_toplayer(fb, layer);
 		fb->layer_info[layer].feature = REARVIEW_FEATURE_LAYER;
@@ -902,7 +893,7 @@ int sirfsocfb_enable_feature_layer(struct sirfsocfb *fb, int layer,
 int sirfsocfb_disable_feature_layer(struct sirfsocfb *fb, int layer)
 {
 	if (fb->layer_info[layer].feature == REARVIEW_FEATURE_LAYER) {
-		sirfsocfb_set_toplayer(fb, toplayer);
+		sirfsocfb_set_toplayer(fb, fb->record_toplayer);
 		layer_disable(fb, layer);
 		fb->layer_info[layer].feature = NORMAL_LAYER;
 	} else {
@@ -1937,7 +1928,7 @@ static void reset(void)
 {
 }
 
-static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO * pPanel)
+static void param_prepare(struct sirfsocfb *fb, LCD_PANEL_INFO *pPanel)
 {
 	memset(pPanel, 0, sizeof(*pPanel));
 
@@ -2507,8 +2498,17 @@ static int sirfsocfb_freeze(struct device *dev)
 #endif
 	disable_irq(fb->irq);
 
+	/* For Android hibernation, lcd clock can not be disabled here.
+	 * Or else, shutdown wallpaper can not be seen after this function.
+	 * Shut down lcd panel will only show backlight if lcd clock is
+	 * enabled, so don't do it here.
+	 * Separate Android from Linux because of Linux don't have shutdown
+	 * wallpaper now.
+	 * Make it general if Linux adds shutdown wallpaper in future */
+#ifndef CONFIG_ANDROID
 	fb->lcd_func.pfnSleep();
 	clk_disable(fb->clk);
+#endif
 	clk_disable(fb->vpp_clk);
 
 	return 0;
@@ -2522,7 +2522,7 @@ static int sirfsocfb_restore(struct device *dev)
 
 #ifdef CONFIG_ANDROID
 	/* Clear fb0 to avoid wallpaper garbage after hibernation back */
-	if(fb->layer_info[LCD_PRIMARY].enabled)
+	if (fb->layer_info[LCD_PRIMARY].enabled)
 		memset(fb->fb[LCD_PRIMARY].screen_base, 0x0,
 			fb->fb[LCD_PRIMARY].fix.smem_len);
 #endif
@@ -2532,7 +2532,13 @@ static int sirfsocfb_restore(struct device *dev)
 	fb->ble_func.pfnWakeup();
 	enable_irq(fb->ble_irq);
 #endif
+	/* For Android hibernation, there is no need to enable lcd clock here
+	 * because it is always enabled in uboot. This is only used for Android
+	 * shutdown wallpaper feature.
+	 * Make it general if Linux adds shutdown wallpaper in future */
+#ifndef CONFIG_ANDROID
 	clk_enable(fb->clk);
+#endif
 	clk_enable(fb->vpp_clk);
 
 	/* Check if LCD preinited by uboot */

@@ -44,7 +44,6 @@ config ARCH_MARCO
 	select HAVE_ARM_SCU if SMP
 	select HAVE_SMP
 	select SMP_ON_UP if SMP
-	select SIRFMARCO_FPGA
 	help
           Support for CSR SiRFSoC ARM Cortex A9 Platform
 
@@ -55,10 +54,7 @@ config SIRF_IRQ
 
 config SIRFMARCO_FPGA
 	bool "CSR SiRFmarco FPGA with 26Mhz io clock"
-	select NET
-	select INET
-	select ETHERNET
-	select NETDEVICES
+	default n
 	select DM9000_SIRFFPGA
 	select I2C_MUX_SIRFFPGACPLD
 	select I2C_MUX

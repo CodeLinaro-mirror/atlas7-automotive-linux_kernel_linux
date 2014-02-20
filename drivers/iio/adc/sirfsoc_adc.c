@@ -17,6 +17,7 @@
 #include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/input/sirfsoc_adc.h>
+#include <linux/of_platform.h>
 #include <asm/irq.h>
 
 #define DRIVER_NAME "sirfsoc_adc"
@@ -160,6 +161,11 @@ static int sirfsoc_adc_resume(struct platform_device *pdev)
 #define sirfsoc_adc_suspend NULL
 #endif
 
+static const struct of_device_id sirfsoc_adc_of_match[] = {
+	{ .compatible = "sirf,prima2-adc",},
+	{}
+};
+
 static int sirfsoc_adc_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -216,6 +222,12 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	ret = of_platform_populate(pdev->dev.of_node, sirfsoc_adc_of_match, NULL, &pdev->dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed adding child nodes\n");
+		goto err;
+	}
+
 	return 0;
 
 err:
@@ -231,21 +243,15 @@ static int sirfsoc_adc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id sirfsoc_adc_of_match[] = {
-	{ .compatible = "sirf,prima2-adc",},
-	{ .compatible = "sirf,marco-adc",},
-	{}
-};
-
 static struct platform_driver sirfsoc_adc_driver = {
-	.driver	= {
-		.name	= DRIVER_NAME,
+	.driver = {
+		.name   = DRIVER_NAME,
 		.of_match_table = sirfsoc_adc_of_match,
 	},
-	.probe		= sirfsoc_adc_probe,
-	.remove		= sirfsoc_adc_remove,
-	.suspend	= sirfsoc_adc_suspend,
-	.resume		= sirfsoc_adc_resume,
+	.probe          = sirfsoc_adc_probe,
+	.remove         = sirfsoc_adc_remove,
+	.suspend        = sirfsoc_adc_suspend,
+	.resume         = sirfsoc_adc_resume,
 };
 
 module_platform_driver(sirfsoc_adc_driver);

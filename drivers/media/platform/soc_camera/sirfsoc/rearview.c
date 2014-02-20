@@ -1,7 +1,8 @@
 /*
  * CSR SiRFprima2 Rearview implementation
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
  *
  * Licensed under GPLv2 or later.
  */
@@ -688,7 +689,8 @@ static void rearview_init(void)
 
 #ifdef REARVIEW_AUXILIARY
 	if (info == registered_fb[2] || registered_fb[2] == NULL) {
-		pr_err("%s: cannot find fb for rearview auxiliary function\n", __func__);
+		pr_err("%s: cannot find fb for rearview auxiliary function\n",
+			__func__);
 		return;
 	}
 
@@ -768,7 +770,7 @@ int rearview_thread(void *data)
 	rearview_env.gpio = pcdev->rearview_gpio;
 	rearview_env.irq = gpio_to_irq(rearview_env.gpio);
 
-	rearview_env.decoder_ops = pcdev->decoder_ops;
+	rearview_env.decoder_ops = pcdev->rearview_decoder_ops;
 	rearview_env.pdata = pcdev->pdata;
 
 	rearview_env.save_vip_context = pcdev->save_vip_context;

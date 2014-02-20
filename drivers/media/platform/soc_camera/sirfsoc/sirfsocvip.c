@@ -1,7 +1,8 @@
 /*
  * CSR SiRFprima2 VIP host driver
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
  *
  * Licensed under GPLv2 or later.
  */
@@ -36,6 +37,7 @@
 #include <linux/pm_qos.h>
 
 #include <asm/dma.h>
+#include <media/sirfsoc_v4l2.h>
 
 #include "sirfsocvip.h"
 #include "rearview.h"
@@ -52,10 +54,6 @@ static DEFINE_MUTEX(camera_lock);
 #define SIRFSOC_CAM_VERSION_CODE KERNEL_VERSION(0, 0, 5)
 #define SIRFSOC_CAM_DRV_NAME "sirfsoc-vip"
 
-/* v4l2 csr extensions */
-#define V4L2_CID_GET_ADDR (V4L2_CID_USER_BASE + 0x1000)
-#define V4L2_CID_SET_INTERLACE (V4L2_CID_USER_BASE + 0x1001)
-
 static const char *sirfsoc_cam_driver_description = SIRFSOC_CAM_DRV_NAME;
 
 static bool rearview = true;
@@ -63,7 +61,7 @@ module_param(rearview, bool, S_IRUGO);
 MODULE_PARM_DESC(rearview, "to launch rearview thread.");
 
 static struct task_struct *rearview_task;
-static struct sirfsoc_decoder_ops *rearview_decoder_ops;
+static LIST_HEAD(decoder_list);
 
 static phys_addr_t sirf_vip_phy_base;
 static phys_addr_t sirf_vip_phy_size;
@@ -71,16 +69,17 @@ static int brestart;
 
 static struct pm_qos_request qos_cpufreq_min_req;
 
-static inline bool need_launch_rearview(void)
+static inline bool need_launch_rearview(struct sirfsoc_camera_dev *pcdev)
 {
-	return !rearview ? false : !rearview_decoder_ops->detect();
+	return !rearview ? false : (pcdev->rearview_decoder_ops &&
+		!pcdev->rearview_decoder_ops->detect());
 }
 
 int sirfsoc_register_decoder_ops(struct sirfsoc_decoder_ops *decoder_ops)
 {
 	WARN_ON(decoder_ops == NULL);
 
-	rearview_decoder_ops = decoder_ops;
+	list_add_tail(&decoder_ops->list, &decoder_list);
 
 	return 0;
 }
@@ -209,31 +208,24 @@ out:
 static int sirfsoc_camera_start_dma(
 	struct sirfsoc_camera_dev *pcdev, int resetfifo);
 
-static void sirfsoc_camera_callback (void *pdata) {
+static void sirfsoc_camera_callback(void *pdata)
+{
 	struct videobuf_buffer *vb = NULL;
-	struct sirfsoc_camera_dev *pcdev = (struct sirfsoc_camera_dev*)pdata;
+	struct sirfsoc_camera_dev *pcdev = (struct sirfsoc_camera_dev *)pdata;
 	unsigned long flags;
 
 	dev_dbg(pcdev->dev, "%s\n", __func__);
 	spin_lock_irqsave(&pcdev->lock, flags);
 
-	if (!pcdev) {
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		return;
-	}
-
 	if (brestart) {
 		sirfsoc_camera_start_dma(pcdev, 1);
 		brestart = 0;
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		return;
+		goto out;
 	}
 
 	vb = pcdev->active;
-	if (vb == NULL) {
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		return;
-	}
+	if (vb == NULL)
+		goto out;
 
 	/*
 	 * if rearview switch has taken place in hardware, not add the
@@ -262,17 +254,19 @@ static void sirfsoc_camera_callback (void *pdata) {
 		pcdev->active->state = VIDEOBUF_ACTIVE;
 		pcdev->dma_xt->dst_start = videobuf_to_dma_contig(pcdev->active);
 
-		rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan, pcdev->dma_xt, 0);
-	        rx_desc->callback = sirfsoc_camera_callback;
-	        rx_desc->callback_param = pcdev;
+		rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan,
+							pcdev->dma_xt, 0);
+		rx_desc->callback = sirfsoc_camera_callback;
+		rx_desc->callback_param = pcdev;
 
-	        dmaengine_submit(rx_desc);
-	        dma_async_issue_pending(pcdev->dma_chan);
+		dmaengine_submit(rx_desc);
+		dma_async_issue_pending(pcdev->dma_chan);
 
 		if (pcdev->pdata->sirfsoc_camera_single)
 			pcdev->vip_funcs.pfnStart(0);
 	}
 
+out:
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 }
 
@@ -298,9 +292,10 @@ static int sirfsoc_camera_start_dma(
 	pcdev->dma_xt->frame_size = 1;
 	pcdev->dma_xt->numf = vb->height;
 	pcdev->dma_xt->dst_start = videobuf_to_dma_contig(vb);
-        pcdev->dma_xt->dir = DMA_DEV_TO_MEM;
+	pcdev->dma_xt->dir = DMA_DEV_TO_MEM;
 
-	rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan, pcdev->dma_xt, 0);
+	rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan,
+						pcdev->dma_xt, 0);
 	rx_desc->callback = sirfsoc_camera_callback;
 	rx_desc->callback_param = pcdev;
 
@@ -434,7 +429,8 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 	struct sirfsoc_camera_platform_data *pdata = pcdev->pdata;
 	VIP_PARAMS *params = &pcdev->vip_params;
 
-	int ret;
+	struct sirfsoc_decoder_ops *decoder_ops;
+	int ret, i = 0;
 
 	mutex_lock(&camera_lock);
 
@@ -464,6 +460,12 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 				__func__);
 			pdata->sirfsoc_camera_ccir656_en = 0;
 		}
+
+		list_for_each_entry(decoder_ops, &decoder_list, list) {
+			if (i++ == icd->devnum)
+				break;
+		}
+		pcdev->vip_decoder_ops = decoder_ops;
 	}
 
 	ret = sirfsoc_camera_activate(pcdev);
@@ -689,32 +691,31 @@ static int sirfsoc_camera_try_fmt_cap(struct soc_camera_device *icd,
 
 static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
 {
-        return container_of(ctrl->handler, struct soc_camera_device,
-                                                        ctrl_handler);
+	return container_of(ctrl->handler, struct soc_camera_device,
+		ctrl_handler);
 }
 
 static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-        struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sirfsoc_camera_dev *pcdev = ici->priv;
-        struct videobuf_queue *q;
-        int index;
+	struct videobuf_queue *q;
+	int index;
 
-        switch (ctrl->id) {
+	switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
-                q = &icd->vb_vidq;
-                index = ctrl->val;
+		q = &icd->vb_vidq;
+		index = ctrl->val;
 
-                if (index < 0 || index > VIDEO_MAX_FRAME - 1)
-                        return -EINVAL;
+		if (index < 0 || index > VIDEO_MAX_FRAME - 1)
+			return -EINVAL;
 
-                if (q->bufs[index] == NULL ||
-                        q->bufs[index]->map == NULL)
-                        return -EINVAL;
+		if (q->bufs[index] == NULL || q->bufs[index]->map == NULL)
+			return -EINVAL;
 
-                ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
-                break;
+		ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
+		break;
 
 	case V4L2_CID_SET_INTERLACE:
 		if (ctrl->val)
@@ -722,15 +723,64 @@ static int sirfsoc_s_ctrl(struct v4l2_ctrl *ctrl)
 		else
 			pcdev->pdata->sirfsoc_camera_interlaced = 0;
 		break;
-        default:
-                return -EINVAL;
-        }
-        return 0;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
+static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct videobuf_queue *q;
+	struct v4l2_control control;
+	int index;
+	unsigned int status = 0;
+	int ret = 0;
+	unsigned int value = 0;
+
+	switch (ctrl->id) {
+	case V4L2_CID_GET_ADDR:
+		q = &icd->vb_vidq;
+		index = ctrl->val;
+
+		if (index < 0 || index > VIDEO_MAX_FRAME - 1)
+			return -EINVAL;
+
+		if (q->bufs[index] == NULL ||
+			q->bufs[index]->map == NULL)
+			return -EINVAL;
+
+		ctrl->val = videobuf_to_dma_contig(q->bufs[index]);
+		break;
+
+	case V4L2_CID_GET_VIDEO_STATE:
+		ret = v4l2_subdev_call(sd, video, g_input_status, &status);
+		if (ret < 0)
+			return -EINVAL;
+		ctrl->val = 1;
+		if (!status)
+			ctrl->val = 0;
+		break;
+	case V4L2_CID_GET_AUDIO_SAMPLE_RATE:
+		control.id = ctrl->id;
+		ret = v4l2_subdev_call(sd, core, g_ctrl, &control);
+		if (ret < 0)
+			return -EINVAL;
+		ctrl->val = control.value;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static const struct v4l2_ctrl_ops sirfsoc_vip_ctrl_ops = {
-        .s_ctrl = sirfsoc_s_ctrl,
+	.s_ctrl = sirfsoc_s_ctrl,
+	.g_volatile_ctrl = sirfsoc_g_ctrl,
 };
 
 static const struct v4l2_ctrl_config sirfsoc_ctrl_get_addr = {
@@ -755,6 +805,29 @@ static const struct v4l2_ctrl_config sirfsoc_ctrl_set_interlace = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config sirfsoc_ctrl_get_video_state = {
+	.ops = &sirfsoc_vip_ctrl_ops,
+	.id = V4L2_CID_GET_VIDEO_STATE,
+	.name = "get video state",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.def = 1,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+};
+
+static const struct v4l2_ctrl_config sirfsoc_ctrl_get_audio_sample_rate = {
+	.ops = &sirfsoc_vip_ctrl_ops,
+	.id = V4L2_CID_GET_AUDIO_SAMPLE_RATE,
+	.name = "get audio sample rate",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.def = 1,
+	.min = 0,
+	.max = 1,
+	.step = 1,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+};
 static const struct soc_mbus_pixelfmt sirfsoc_camera_formats[] = {
 	{
 		.fourcc			= V4L2_PIX_FMT_UYVY,
@@ -793,6 +866,14 @@ static int sirfsoc_camera_get_formats(struct soc_camera_device *icd,
 			return icd->ctrl_handler.error;
 		v4l2_ctrl_new_custom(&icd->ctrl_handler,
 			&sirfsoc_ctrl_get_addr, NULL);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler,
+			&sirfsoc_ctrl_get_video_state, NULL);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+		v4l2_ctrl_new_custom(&icd->ctrl_handler,
+			&sirfsoc_ctrl_get_audio_sample_rate, NULL);
 		if (icd->ctrl_handler.error)
 			return icd->ctrl_handler.error;
 	}
@@ -902,13 +983,14 @@ static irqreturn_t sirfsoc_camera_irq(int irq, void *data)
 	status = pcdev->vip_funcs.pfnGetInterrupts();
 	pcdev->vip_funcs.pfnClearInterrupts(status);
 
-	if (status & VIP_INTMASK_SENSOR) {
+	if (status & VIP_INTMASK_SENSOR)
 		dev_dbg(pcdev->dev, "sensor interrupt happens\n");
-	}
+
 	if (status & VIP_INTMASK_FIFO_OFLOW) {
 		/* dev_info(pcdev->dev, "FIFO overflow interrupt happens\n"); */
 		brestart = 1;
 	}
+
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(pcdev->dev, "FIFO underflow interrupt happens\n");
 
@@ -929,7 +1011,7 @@ static void sirfsoc_vip_save_context(void *data)
 	while (!task_is_stopped(pcdev->task))
 		msleep(20);
 
-	pcdev->decoder_ops->stop();
+	pcdev->vip_decoder_ops->stop();
 
 	free_irq(pcdev->irq, pcdev);
 	pcdev->vip_funcs.pfnStop();
@@ -957,10 +1039,10 @@ static void sirfsoc_vip_restore_context(void *data)
 
 	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
 
-	if (pcdev->pdata->sirfsoc_camera_ccir656_en)
-		pcdev->decoder_ops->start(INPUT_YC);
+	if (strcmp(pcdev->vip_decoder_ops->desc, "tw9900") == 0)
+		pcdev->vip_decoder_ops->start(INPUT_CVBS_AIN1);
 	else
-		/*TODO, how to restart camera */
+		pcdev->vip_decoder_ops->start(INPUT_ANY);
 
 	if (pcdev->active)
 		sirfsoc_camera_start_dma(pcdev, 1);
@@ -1024,6 +1106,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	struct platform_device *pdev = async_data;
 	struct sirfsoc_camera_dev *pcdev;
 	struct resource *res;
+	struct sirfsoc_decoder_ops *decoder_ops;
 	void __iomem *base;
 	u32 dma_ch;
 	dma_cap_mask_t dma_cap_mask;
@@ -1053,7 +1136,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_camera_irq, 0,
-                                SIRFSOC_CAM_DRV_NAME, pcdev);
+					SIRFSOC_CAM_DRV_NAME, pcdev);
 	if (ret)
 		goto exit_kfree;
 
@@ -1139,7 +1222,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	pcdev->dma_slave_config.dst_maxburst = 4;
 	pcdev->dma_slave_config.device_fc = 0;
 
-	if(dmaengine_slave_config(pcdev->dma_chan, &pcdev->dma_slave_config)) {
+	if (dmaengine_slave_config(pcdev->dma_chan, &pcdev->dma_slave_config)) {
 		dev_err(&pdev->dev, "%s: can not set dma slave config\n",
 			__func__);
 		goto exit_free_dma;
@@ -1162,12 +1245,17 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	 * At this point client .probe() should have run already,
 	 * decoder_ops is available.
 	 */
-	pcdev->decoder_ops = rearview_decoder_ops;
+	list_for_each_entry(decoder_ops, &decoder_list, list) {
+		if (strcmp(decoder_ops->desc, "tw9900") == 0) {
+			pcdev->rearview_decoder_ops = decoder_ops;
+			break;
+		}
+	}
 
 	pcdev->save_vip_context = sirfsoc_vip_save_context;
 	pcdev->restore_vip_context = sirfsoc_vip_restore_context;
 
-	if (need_launch_rearview()) {
+	if (need_launch_rearview(pcdev)) {
 		pcdev->rearview_gpio = of_get_named_gpio(pdev->dev.of_node,
 							"rearview-gpio", 0);
 		rearview_task = kthread_create(rearview_thread,
@@ -1372,5 +1460,5 @@ static struct platform_driver sirfsoc_camera_driver = {
 module_platform_driver(sirfsoc_camera_driver);
 
 MODULE_DESCRIPTION("sirfsoc SoC Camera Host driver(VIP interface)");
-MODULE_AUTHOR("Guennadi Liakhovetski <kernel@pengutronix.de>");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Renwei Wu <Renwei.Wu@csr.com>, Xiaomeng Hou <Xiaomeng.Hou@csr.com>");
+MODULE_LICENSE("GPL v2");

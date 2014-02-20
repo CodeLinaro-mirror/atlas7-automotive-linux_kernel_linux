@@ -1,7 +1,8 @@
 /*
  * CSR SiRFprima2 VIP host driver header
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
  *
  * Licensed under GPLv2 or later.
  */
@@ -82,10 +83,11 @@ struct sirfsoc_camera_dev {
 	VIP_FUNCTIONTABLE	vip_funcs;
 	VIP_PARAMS              vip_params;
 
-	struct sirfsoc_decoder_ops	*decoder_ops;
 	/* Current active task which holds VIP hardware */
 	struct task_struct      *task;
 
+	struct sirfsoc_decoder_ops      *vip_decoder_ops;
+	struct sirfsoc_decoder_ops      *rearview_decoder_ops;
 
 	/* start address of dma buf reserved for rearview */
 	unsigned long		rearview_dma_addr;

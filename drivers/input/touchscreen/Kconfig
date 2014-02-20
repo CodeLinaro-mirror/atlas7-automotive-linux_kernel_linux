@@ -954,15 +954,13 @@ config TOUCHSCREEN_FT5X06
 config TOUCHSCREEN_SIRFSOC
 	tristate "SiRFSoC touchscreen"
 	depends on ARCH_SIRF
-	select ADC_SIRFSOC
+	select IIO
+	select SIRFSOC_ADC
 	help
 	 To compile this driver as a module, choose M here: the
 	 module will be called sirfsoc_ts. If you choose M, note
 	 that there could be a race condition if TS modules are
 	 inserted when ADC is running.
-
-config ADC_SIRFSOC
-        tristate "SiRFSoC ADC"
 
 config TOUCHSCREEN_ZFORCE
 	tristate "Neonode zForce infrared touchscreens"

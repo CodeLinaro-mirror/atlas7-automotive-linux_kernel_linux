@@ -1,22 +1,11 @@
 /*
- *  Copyright (C) 2007 by SiRF Technology, Inc. All rights reserved.
+ * CSR sirfsoc framebuffer internal interface
  *
- *  linux/drivers/video/sirfsoc_clcdc.h
- *   
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Licensed under GPLv2 or later.
  */
+
 #ifndef __SIRFSOC_LCD_H 
 #define __SIRFSOC_LCD_H 
 
@@ -119,6 +108,7 @@ struct sirfsocfb{
 	int 			irq;
 	spinlock_t 		lock;
 	int			init_enabled;
+	int			record_toplayer;
 
 	LCD_FUNCTIONTABLE lcd_func;
 	VPP_FUNCTIONTABLE *vpp_func;

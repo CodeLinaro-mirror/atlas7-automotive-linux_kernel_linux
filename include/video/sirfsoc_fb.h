@@ -29,16 +29,16 @@ struct sirfsocfb_screen {
 };
 
 struct sirfsocfb_backcolour {
-	/* 
+	/*
 	 * A non zero value means that the defined blank colour will
 	 * be used in the active region else, the last displayed pixel
 	 * value will be used to fill the inactive region
-	 */ 
+	 */
 	int blankcolour_valid;
 	/* This register is not used */
 	unsigned long blankcolour;
-	/* 
-	 * Pixel value to be used for region where no layer is active, 
+	/*
+	 * Pixel value to be used for region where no layer is active,
 	 * must be given in 8:8:8 RGB format
 	 */
 	unsigned long background_colour;
@@ -273,9 +273,11 @@ enum sirfsocfb_feature_layer {
 #define FB_DBG_MSG(fmt, args...)	printk(FB_PFX fmt, ## args)
 #define FB_FUN_MSG(fmt, args...)
 #define FB_ASSERT(expr) \
-	if (!(expr)) \
-		printk(KERN_ERR FB_PFX "Assertion failed! %s, %s, %s, line=%d\n", \
-			#expr, __FILE__, __func__, __LINE__)
+	do { \
+		if (!(expr)) \
+			printk(KERN_ERR FB_PFX "Assertion failed! %s, %s, %s, line=%d\n", \
+				#expr, __FILE__, __func__, __LINE__); \
+	} while (0)
 #else
 #define FB_DBG_MSG(fmt, args...)
 #define FB_FUN_MSG(fmt, args...)

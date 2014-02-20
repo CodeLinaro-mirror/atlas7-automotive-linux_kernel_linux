@@ -587,6 +587,7 @@ static int save_image_lzo(struct swap_map_handle *handle,
 	unsigned char *page = NULL;
 	struct cmp_data *data = NULL;
 	struct crc_data *crc = NULL;
+	unsigned int nr_cmp_written = 0;
 
 	/*
 	 * We'll limit the number of threads for compression to limit memory
@@ -747,6 +748,8 @@ static int save_image_lzo(struct swap_map_handle *handle,
 			     off += PAGE_SIZE) {
 				memcpy(page, data[thr].cmp + off, PAGE_SIZE);
 
+				nr_cmp_written++;
+
 				ret = swap_write_page(handle, page, &bio);
 				if (ret)
 					goto out_finish;
@@ -764,7 +767,11 @@ out_finish:
 		ret = err2;
 	if (!ret)
 		printk(KERN_INFO "PM: Image saving done.\n");
-	swsusp_show_speed(&start, &stop, nr_to_write, "Wrote");
+
+	printk(KERN_INFO "PM: Saved %lu Kbytes (uncompressed Image)\n",
+		nr_to_write * (PAGE_SIZE / 1024));
+	swsusp_show_speed(&start, &stop, nr_cmp_written, "Wrote compressed");
+
 out_clean:
 	if (crc) {
 		if (crc->thr)

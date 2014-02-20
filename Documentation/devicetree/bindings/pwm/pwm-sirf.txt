@@ -2,48 +2,16 @@ SiRF prima2 & atlas6 PWM drivers
 
 Required properties:
 - compatible: "sirf,prima2-pwm"
-- #pwm-cells: should be 4, the first cell specifies the pwm
-  index of the PWM to use, the second cell is the perios in
-  nanoseconds, the third cell is the duty in nanosecons and
-  the last cell is the source clock be used by pwm frequency
-  divider.
-  Source clock select:
-  0: OSC
-  1: PLL1
-  2: PLL2
-  3: RTC
-  4: PLL3
+- reg: physical base address and length of the controller's registers
+- #pwm-cells: should be 2.  The first cell specifies the per-chip index
+  of the PWM to use and the second cell is the period in nanoseconds.
+- clocks: from common clock binding: the 1st clock is for PWM controller
+  the 2nd clock is the source to generate PWM waves
 
 Example:
 pwm: pwm@b0130000 {
 	compatible = "sirf,prima2-pwm";
-	#pwm-cells = <4>;
-};
-
-More configration can be set by the pwm user driver.
-- sirf-pwm-transfer-mode: used set the pwm transfer mode
-  0 is the directly switch mode
-  1 is the setting step switch mode
-
-- sirf-pwm-step-mode-params: If set the transfer mode as
-  setting step switch. Need set the step parameters.
-  The first specifies the change the steps and the second
-  specifies the time interval of each steps in nanoseconds.
-
-- sirf-pwm-bklscaling-mode: used set the pwm use the bklscaling mode.
-  Only PWM3 support this mode.
-  0 is the normal mode
-  1 is the bklscaling mode
-
-- sirf-pwm-bklscaling-params: If set to bklscaling mode, the parameters is needed.
-  Need set 16 groups parameters, 2 parameters in a group. The first speifies the 
-  perios in nanoseconds and the second is the duty in nanosecons.
-
-Example:
-sirf-csrbt {
-	pwms = <&pwm 3 40 20 2>;
-	sirf-pwm-transfer-mode = <1>;
-	sirf-pwm-step-mode-params = <2 3>;
-	sirf-pwm-bklscaling-mode = <1>;
-	sirf-pwm-bklscaling-params = <4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35>;
+	#pwm-cells = <2>;
+	reg = <0xb0130000 0x10000>;
+	clocks = <&clks 21>, <&clks 1>;
 };

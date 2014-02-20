@@ -31,7 +31,7 @@
 		bt_gpio_reset = <&gpio 3 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pins_a>;
-		pwms = <&pwm 1 0 0 3>;
+		pwms = <&pwm 1 0>;
 	};
 
 	bt-sco {
@@ -47,7 +47,7 @@
 		compatible = "pwm-backlight";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm3_pins_a>;
-		pwms = <&pwm 3 50000 50000 0>;
+		pwms = <&pwm 3 50000>;
 		brightness-levels = <0 48 56 64 96 112 128 255>;
 		default-brightness-level = <6>;
 	};
@@ -139,11 +139,13 @@
                                 };
 
 			};
-                        tsc {
-                                compatible = "sirf,prima2-tsc";
-                                interrupts = <33>;
-                                reset-bit = <32>;
-                        };
+			adc@b0110000 {
+				tsc {
+					compatible = "sirf,prima2-tsc";
+					interrupts = <33>;
+					resets = <&rstc 32>;
+				};
+			};
 		};
                 disp-iobg {
                       lcd@90010000 {
