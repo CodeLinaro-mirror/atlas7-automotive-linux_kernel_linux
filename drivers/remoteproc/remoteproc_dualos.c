@@ -304,6 +304,7 @@ static int rproc_setup_device_resource(struct rproc *rproc,
 				struct rproc_vdev_desc *vdev_desc)
 {
 	int index;
+	void *cfg;
 
 	rsc->id = vdev_desc->virtio_id;
 	rsc->notifyid = rproc->vdev_notifyid_index++;
@@ -330,6 +331,17 @@ static int rproc_setup_device_resource(struct rproc *rproc,
 		rsc->vring[index].da = 0;
 	}
 
+	if (!vdev_desc->priv_data)
+		return 0;
+
+	/* Setup device private data */
+	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DYNAMIC_VQ))
+		cfg = &rsc->vring[RPROC_VDEV_MAX_VRING_NUM];
+	else
+		cfg = &rsc->vring[rsc->num_of_vrings];
+
+	memcpy(cfg + MMIO_PRIV_DATA, &vdev_desc->priv_data, sizeof(void *));
+	memcpy(cfg + MMIO_PRIV_SIZE, &vdev_desc->priv_size, sizeof(u32));
 	return 0;
 }
 

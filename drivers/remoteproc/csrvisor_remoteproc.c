@@ -300,9 +300,27 @@ static int csrvisor_rproc_stop(struct rproc *rproc)
 
 
 #ifdef CONFIG_CSRVISOR_REMOTEPROC_BACKEND
+/* This table defined the channels will be created when rpmsg backend
+ * become ready. And the corresponded channels for the frontend will be
+ * created by ns_service automatically.
+ *
+ * The channel that was created by ns_serice will receive msg from any
+ * address, so dst address should be RPMSG_ADDR_ANY.
+ *
+ * If you want to restrict the address, you have to create the channel
+ * manually in remote side, and change RPMSG_ADDR_ANY to customized address
+ * and do the restriction in your client& service driver.
+ */
+static struct rpmsg_channel_descriptor s_rpmsg_channels[] = {
+	{ "rpmsg-client-sample", 0x1234, RPMSG_ADDR_ANY, {0, 0} },
+};
+
+/* This table defined the virtio device will be create on remoteproc bus */
 static struct rproc_vdev_desc s_rproc_vdev_desc[] = {
 	/* virtio rpmsg bus device descriptor */
-	{VIRTIO_ID_RPMSG, 2, 256, {VIRTIO_RPMSG_F_NS, }, 1, RPROC_VDEV_MMIO_SIZE},
+	{ VIRTIO_ID_RPMSG, 2, 256, { VIRTIO_RPMSG_F_NS, }, 1,
+		RPROC_VDEV_MMIO_SIZE,
+		s_rpmsg_channels, ARRAY_SIZE(s_rpmsg_channels) },
 };
 #endif
 

@@ -406,6 +406,8 @@ enum rproc_crash_type {
  * @features:	virtio device feature array
  * @feature_sz:	number of features
  * @config_len: virtio rproc config iomem length
+ * @priv_data: address of device private data
+ * @priv_size: size of device private data
  */
 struct rproc_vdev_desc {
 	u32 virtio_id;
@@ -414,6 +416,8 @@ struct rproc_vdev_desc {
 	u32 features[32];
 	u32 feature_sz;
 	u32 config_len;
+	void *priv_data;
+	u32 priv_size;
 };
 
 /**

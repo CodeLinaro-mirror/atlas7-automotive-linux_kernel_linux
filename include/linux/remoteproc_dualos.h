@@ -40,10 +40,14 @@
 #define MMIO_BACK_ONLINE	(RPROC_VDEV_MMIO_SIZE - 0x10)
 /* backend is offline */
 #define MMIO_BACK_OFFLINE	(RPROC_VDEV_MMIO_SIZE - 0x14)
+/* the private data address of rproc vdev */
+#define MMIO_PRIV_DATA		(RPROC_VDEV_MMIO_SIZE - 0x18)
+/* the size of private data */
+#define MMIO_PRIV_SIZE		(RPROC_VDEV_MMIO_SIZE - 0x1C)
 
 /* Access virtio device features */
-#define MMIO_DFEATURES   (RPROC_VDEV_MMIO_SIZE)
-#define MMIO_GFEATURES   (RPROC_VDEV_MMIO_SIZE + 1)
+#define MMIO_DFEATURES		(RPROC_VDEV_MMIO_SIZE)
+#define MMIO_GFEATURES		(RPROC_VDEV_MMIO_SIZE + 1)
 
 #define GET_NOTIFY_ID(x)    ((x) & 0x0000FFFF)
 #define GET_MMIO_OFFSET(x)  (((x) >> 16) & 0x000001FF)
