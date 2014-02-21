@@ -306,12 +306,14 @@ static u32 rproc_virtio_get_features(struct virtio_device *vdev)
 	struct rproc *rproc = rvdev->rproc;
 	struct fw_rsc_vdev *rsc;
 
+	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND))
-		return rvdev->features | (1 << VIRTIO_RPROC_F_BACK);
+		return (rsc->dfeatures & ~(1 << VIRTIO_RPROC_F_FRONT))
+			| (1 << VIRTIO_RPROC_F_BACK);
 	else {
-		rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
 		if (RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
-			return rsc->dfeatures | (1 << VIRTIO_RPROC_F_FRONT);
+			return (rsc->dfeatures & ~(1 << VIRTIO_RPROC_F_BACK))
+				| (1 << VIRTIO_RPROC_F_FRONT);
 		return rsc->dfeatures;
 	}
 }
@@ -328,7 +330,6 @@ static void rproc_virtio_finalize_features(struct virtio_device *vdev)
 	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND)) {
 		rsc->dfeatures = vdev->features[0];
-		rvdev->features = vdev->features[0];
 	} else {
 		/*
 		 * Remember the finalized features of our vdev, and provide it
