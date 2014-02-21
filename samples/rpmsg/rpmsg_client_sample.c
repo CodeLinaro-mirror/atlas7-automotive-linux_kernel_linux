@@ -42,24 +42,33 @@ static void rpmsg_sample_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	}
 
 	/* send a new message now */
+#ifdef CONFIG_RPMSG_BACKEND
+	ret = rpmsg_sendto(rpdev, MSG, strlen(MSG), src);
+#else
 	ret = rpmsg_send(rpdev, MSG, strlen(MSG));
+#endif
 	if (ret)
 		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
 }
 
 static int rpmsg_sample_probe(struct rpmsg_channel *rpdev)
 {
+#ifdef CONFIG_RPMSG_FRONTEND
 	int ret;
-
+#endif
 	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
 					rpdev->src, rpdev->dst);
 
+	/* during probe, the channel in backend hasn't been created,
+	 * skip rpmsg send */
+#ifdef CONFIG_RPMSG_FRONTEND
 	/* send a message to our remote processor */
 	ret = rpmsg_send(rpdev, MSG, strlen(MSG));
 	if (ret) {
 		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
 		return ret;
 	}
+#endif
 
 	return 0;
 }
