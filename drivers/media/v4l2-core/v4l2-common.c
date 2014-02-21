@@ -313,7 +313,9 @@ struct v4l2_subdev *v4l2_i2c_new_subdev_board(struct v4l2_device *v4l2_dev,
 
 	BUG_ON(!v4l2_dev);
 
+#if defined(CONFIG_MODULES) && defined(MODULE)
 	request_module(I2C_MODULE_PREFIX "%s", info->type);
+#endif
 
 	/* Create the i2c client */
 	if (info->addr == 0 && probe_addrs)
