@@ -1,15 +1,17 @@
-config SND_SIRF_SOC
+config SND_SOC_SIRF
 	tristate "SoC Audio for the SiRF SoC chips"
-	depends on ARCH_SIRF && SND_SOC
+	depends on ARCH_SIRF || COMPILE_TEST
 	select SND_SOC_GENERIC_DMAENGINE_PCM
 
-config SND_SIRF_SOC_INNER
+config SND_SOC_SIRF_AUDIO_PORT
+	select REGMAP_MMIO
 	tristate
 
-config SND_SIRF_INNER
-	tristate "SoC Audio support for SiRF inner codec of Atlas6 EVB"
-	depends on SND_SIRF_SOC
-	select SND_SIRF_SOC_INNER
+config SND_SOC_SIRF_AUDIO
+	tristate "SoC Audio support for SiRF internal audio codec"
+	depends on SND_SOC_SIRF
+	select SND_SOC_SIRF_AUDIO_CODEC
+	select SND_SOC_SIRF_AUDIO_PORT
 
 config SND_SOC_SIRF_USP
 	tristate
@@ -18,13 +20,13 @@ config SND_SOC_SIRF_I2S
 	tristate
 
 config SND_SOC_SIRF_BT_SCO
-	tristate "SoC Audio support for BT SCO of Atlas6 EVB"
-	depends on SND_SIRF_SOC
+	tristate "SoC Audio support for BT SCO"
+	depends on SND_SOC_SIRF
 	select SND_SOC_BT_SCO
 	select SND_SOC_SIRF_USP
 
 config SND_SOC_SIRF_HDMI
-	tristate "SoC Audio support for SiRF HDMI of Atlas6 EVB"
-	depends on SND_SIRF_SOC
+	tristate "SoC Audio support for SiRF HDMI"
+	depends on SND_SOC_SIRF
 	select SND_SOC_SIRF_I2S
 	select SND_SOC_HDMI_CODEC

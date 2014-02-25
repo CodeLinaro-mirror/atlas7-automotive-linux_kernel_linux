@@ -220,13 +220,18 @@
 				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
 			};
 
-			audio: audio@b0040000 {
-				compatible = "sirf,atlas6-audio";
+			audiocodec: audiocodec@b0040000 {
+				compatible = "sirf,atlas6-audio-codec";
 				reg = <0xb0040000 0x10000>;
 				interrupts = <35>;
+				clocks = <&clks 27>;
+			};
+
+			audioport: audioport@b0040000 {
+				compatible = "sirf,audio-port";
+				reg = <0xb0040000 0x10000>;
 				dmas = <&dmac1 3>, <&dmac1 8>;
 				dma-names = "rx", "tx";
-				clocks = <&clks 27>;
 			};
 
 			i2s: i2s@b0040000 {
