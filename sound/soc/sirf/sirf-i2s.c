@@ -11,92 +11,94 @@
 #include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
-
+#include <linux/regmap.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 #include <sound/dmaengine_pcm.h>
 
-#include "sirf-audio.h"
+#include "sirf-i2s.h"
 
 struct sirf_i2s {
-	void __iomem		*base;
-	struct clk		*clk;
-	u32			i2s_ctrl;
-	u32			i2s_ctrl_tx_rx_en;
-	spinlock_t		lock;
-	struct platform_device	*sirf_pcm_pdev;
-	bool			master;
-	int			ext_clk;
-	int			src_clk_rate;
+	struct regmap *regmap;
+	struct clk *clk;
+	u32 i2s_ctrl;
+	u32 i2s_ctrl_tx_rx_en;
+	bool master;
+	int ext_clk;
+	int src_clk_rate;
+	struct snd_dmaengine_dai_dma_data playback_dma_data;
+	struct snd_dmaengine_dai_dma_data capture_dma_data;
 };
-
-static struct snd_dmaengine_dai_dma_data dma_data[2];
 
 static int sirf_i2s_dai_probe(struct snd_soc_dai *dai)
 {
-	dai->playback_dma_data = &dma_data[0];
-	dai->capture_dma_data = &dma_data[1];
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+	snd_soc_dai_init_dma_data(dai, &i2s->playback_dma_data,
+			&i2s->capture_dma_data);
 	return 0;
+}
+
+static void sirf_i2s_tx_enable(struct sirf_i2s *i2s)
+{
+	/* First start the FIFO, then enable the tx/rx */
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
+		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
+		AUDIO_FIFO_START, AUDIO_FIFO_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+		I2S_TX_ENABLE | I2S_DOUT_OE,
+		I2S_TX_ENABLE | I2S_DOUT_OE);
+}
+
+static void sirf_i2s_tx_disable(struct sirf_i2s *i2s)
+{
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+		I2S_TX_ENABLE, ~I2S_TX_ENABLE);
+	/* First disable the tx/rx, then stop the FIFO */
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP, 0);
+}
+
+static void sirf_i2s_rx_enable(struct sirf_i2s *i2s)
+{
+	/* First start the FIFO, then enable the tx/rx */
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
+		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
+		AUDIO_FIFO_START, AUDIO_FIFO_START);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+		I2S_RX_ENABLE, I2S_RX_ENABLE);
+}
+
+static void sirf_i2s_rx_disable(struct sirf_i2s *i2s)
+{
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+		I2S_RX_ENABLE, ~I2S_RX_ENABLE);
+	/* First disable the tx/rx, then stop the FIFO */
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP, 0);
 }
 
 static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 		int cmd, struct snd_soc_dai *dai)
 {
-	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 	int playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		spin_lock(&si2s->lock);
-
-		if (playback) {
-			/* First start the FIFO, then enable the tx/rx */
-			writel(AUDIO_FIFO_RESET,
-				si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
-			writel(AUDIO_FIFO_START,
-				si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
-
-			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
-				| I2S_TX_ENABLE | I2S_DOUT_OE,
-				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
-
-		} else {
-			/* First start the FIFO, then enable the tx/rx */
-			writel(AUDIO_FIFO_RESET,
-				si2s->base + AUDIO_CTRL_RXFIFO_OP);
-			writel(AUDIO_FIFO_START,
-				si2s->base + AUDIO_CTRL_RXFIFO_OP);
-
-			writel(readl(si2s->base+AUDIO_CTRL_I2S_TX_RX_EN)
-				| I2S_RX_ENABLE,
-				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
-		}
-
-		spin_unlock(&si2s->lock);
+		if (playback)
+			sirf_i2s_tx_enable(i2s);
+		else
+			sirf_i2s_rx_enable(i2s);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		spin_lock(&si2s->lock);
-
-		if (playback) {
-			writel(readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN)
-				& ~(I2S_TX_ENABLE),
-				si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
-			/* First disable the tx/rx, then stop the FIFO */
-			writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_OP);
-		} else {
-			writel(readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN)
-				& ~(I2S_RX_ENABLE),
-				si2s->base+AUDIO_CTRL_I2S_TX_RX_EN);
-
-			/* First disable the tx/rx, then stop the FIFO */
-			writel(0, si2s->base + AUDIO_CTRL_RXFIFO_OP);
-		}
-
-		spin_unlock(&si2s->lock);
+		if (playback)
+			sirf_i2s_tx_disable(i2s);
+		else
+			sirf_i2s_rx_disable(i2s);
 		break;
 	default:
 		return -EINVAL;
@@ -107,9 +109,9 @@ static int sirf_i2s_trigger(struct snd_pcm_substream *substream,
 static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
-	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
-	u32 i2s_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_CTRL);
-	u32 i2s_tx_rx_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+	u32 i2s_ctrl;
+	u32 i2s_tx_rx_ctrl;
 	u32 left_len, frame_len;
 	int channels = params_channels(params);
 	u32 bitclk;
@@ -121,6 +123,8 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	 * I2S_SIX_CHANNELS bit clear: select 2 channels mode.
 	 * I2S_SIX_CHANNELS bit set: select 6 channels mode.
 	 */
+	regmap_read(i2s->regmap, AUDIO_CTRL_I2S_CTRL, &i2s_ctrl);
+	regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, &i2s_tx_rx_ctrl);
 	switch (channels) {
 	case 2:
 		i2s_ctrl &= ~I2S_SIX_CHANNELS;
@@ -154,38 +158,38 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	frame_len = left_len * 2;
 	i2s_ctrl &= ~(I2S_L_CHAN_LEN_MASK | I2S_FRAME_LEN_MASK);
 	/* Fill the actual len - 1 */
-	i2s_ctrl |= ((frame_len - 1) << 9) | ((left_len - 1) << 4)
-		| (0 << 15) | (3 << 24);
+	i2s_ctrl |= ((frame_len - 1) << I2S_FRAME_LEN_SHIFT)
+		| ((left_len - 1) << I2S_L_CHAN_LEN_SHIFT)
+		| (0 << I2S_MCLK_DIV_SHIFT) | (3 << I2S_BITCLK_DIV_SHIFT);
 
-	if (si2s->master) {
+	if (i2s->master) {
 		i2s_ctrl &= ~I2S_SLAVE_MODE;
 		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
 		bitclk = params_rate(params) * frame_len;
-		div = si2s->src_clk_rate / bitclk;
+		div = i2s->src_clk_rate / bitclk;
 		/* MCLK divide-by-2 from source clk */
 		div /= 2;
 		bclk_div = div / 2 - 1;
-		i2s_ctrl |= (bclk_div << 24);
+		i2s_ctrl |= (bclk_div << I2S_BITCLK_DIV_SHIFT);
 		/*
 		 * MCLK coefficient must set to 0, means
 		 * divide-by-two from reference clock.
 		 */
-		i2s_ctrl &= ~(((1 << 10) - 1) << 15);
+		i2s_ctrl &= ~I2S_MCLK_DIV_MASK;
 	} else {
 		i2s_ctrl |= I2S_SLAVE_MODE;
 		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
 	}
 
-	if (si2s->ext_clk)
+	if (i2s->ext_clk)
 		i2s_tx_rx_ctrl |= I2S_REF_CLK_SEL_EXT;
 	else
 		i2s_tx_rx_ctrl &= ~I2S_REF_CLK_SEL_EXT;
 
-	writel(i2s_ctrl, si2s->base + AUDIO_CTRL_I2S_CTRL);
-	writel(i2s_tx_rx_ctrl, si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
-	writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
-			| I2S_MODE,
-			si2s->base + AUDIO_CTRL_MODE_SEL);
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s_ctrl);
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, i2s_tx_rx_ctrl);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
+		I2S_MODE, I2S_MODE);
 
 	return 0;
 }
@@ -193,14 +197,14 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 		unsigned int fmt)
 {
-	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBM_CFM:
-		si2s->master = false;
+		i2s->master = false;
 		break;
 	case SND_SOC_DAIFMT_CBS_CFS:
-		si2s->master = true;
+		i2s->master = true;
 		break;
 	default:
 		return -EINVAL;
@@ -227,22 +231,23 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 	return 0;
 }
 
-static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id, int src_rate)
+static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id,
+	int src_rate)
 {
-	struct sirf_i2s *si2s = snd_soc_dai_get_drvdata(dai);
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
 	switch (div_id) {
 	case SIRF_I2S_EXT_CLK:
-		si2s->ext_clk = 1;
+		i2s->ext_clk = 1;
 		break;
 	case SIRF_I2S_PWM_CLK:
-		si2s->ext_clk = 0;
+		i2s->ext_clk = 0;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	si2s->src_clk_rate = src_rate;
+	i2s->src_clk_rate = src_rate;
 	return 0;
 }
 
@@ -279,31 +284,32 @@ static struct snd_soc_dai_driver sirf_i2s_dai = {
 	},
 	.ops = &sirfsoc_i2s_dai_ops,
 };
+
 #ifdef CONFIG_PM_RUNTIME
 static int sirf_i2s_runtime_suspend(struct device *dev)
 {
-	struct sirf_i2s *si2s = dev_get_drvdata(dev);
-	clk_disable_unprepare(si2s->clk);
+	struct sirf_i2s *i2s = dev_get_drvdata(dev);
+	clk_disable_unprepare(i2s->clk);
 
 	return 0;
 }
 
 static int sirf_i2s_runtime_resume(struct device *dev)
 {
-	struct sirf_i2s *si2s = dev_get_drvdata(dev);
-	return clk_prepare_enable(si2s->clk);
+	struct sirf_i2s *i2s = dev_get_drvdata(dev);
+	return clk_prepare_enable(i2s->clk);
 }
 #endif
 
 #ifdef CONFIG_PM_SLEEP
 static int sirf_i2s_suspend(struct device *dev)
 {
-	struct sirf_i2s *si2s = dev_get_drvdata(dev);
+	struct sirf_i2s *i2s = dev_get_drvdata(dev);
 
 	if (!pm_runtime_status_suspended(dev)) {
-		si2s->i2s_ctrl = readl(si2s->base + AUDIO_CTRL_I2S_CTRL);
-		si2s->i2s_ctrl_tx_rx_en =
-			readl(si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
+		regmap_read(i2s->regmap, AUDIO_CTRL_I2S_CTRL, &i2s->i2s_ctrl);
+		regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+			&i2s->i2s_ctrl_tx_rx_en);
 		sirf_i2s_runtime_suspend(dev);
 	}
 	return 0;
@@ -311,23 +317,22 @@ static int sirf_i2s_suspend(struct device *dev)
 
 static int sirf_i2s_resume(struct device *dev)
 {
-	struct sirf_i2s *si2s = dev_get_drvdata(dev);
+	struct sirf_i2s *i2s = dev_get_drvdata(dev);
 	int ret;
 	if (!pm_runtime_status_suspended(dev)) {
 		ret = sirf_i2s_runtime_resume(dev);
 		if (ret)
 			return ret;
-		writel(readl(si2s->base + AUDIO_CTRL_MODE_SEL)
-				| I2S_MODE,
-				si2s->base + AUDIO_CTRL_MODE_SEL);
-		writel(si2s->i2s_ctrl, si2s->base + AUDIO_CTRL_I2S_CTRL);
-		/*Restore MCLK enable and reference clock select bits.*/
-		writel(si2s->i2s_ctrl_tx_rx_en &
-			(I2S_MCLK_EN | I2S_REF_CLK_SEL_EXT),
-			si2s->base + AUDIO_CTRL_I2S_TX_RX_EN);
+		regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
+			I2S_MODE, I2S_MODE);
+		regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s->i2s_ctrl);
+		/* Restore MCLK enable and reference clock select bits. */
+		i2s->i2s_ctrl_tx_rx_en &= (I2S_MCLK_EN | I2S_REF_CLK_SEL_EXT);
+		regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+			i2s->i2s_ctrl_tx_rx_en);
 
-		writel(0, si2s->base + AUDIO_CTRL_EXT_TXFIFO1_INT_MSK);
-		writel(0, si2s->base + AUDIO_CTRL_RXFIFO_INT_MSK);
+		regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_INT_MSK, 0);
+		regmap_write(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_INT_MSK, 0);
 	}
 
 	return 0;
@@ -338,44 +343,47 @@ static const struct snd_soc_component_driver sirf_i2s_component = {
 	.name       = "sirf-i2s",
 };
 
+static const struct regmap_config sirf_i2s_regmap_config = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = AUDIO_CTRL_I2S_RXFIFO_INT_MSK,
+	.cache_type = REGCACHE_NONE,
+};
+
 static int sirf_i2s_probe(struct platform_device *pdev)
 {
-	struct sirf_i2s *si2s;
 	int ret;
-	struct resource mem_res;
+	struct sirf_i2s *i2s;
+	void __iomem *base;
+	struct resource *mem_res;
 
-	si2s = devm_kzalloc(&pdev->dev, sizeof(struct sirf_i2s),
+	i2s = devm_kzalloc(&pdev->dev, sizeof(struct sirf_i2s),
 			GFP_KERNEL);
-	if (!si2s)
+	if (!i2s)
 		return -ENOMEM;
 
-	si2s->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
-			0, NULL, 0);
-	if (IS_ERR(si2s->sirf_pcm_pdev))
-		return PTR_ERR(si2s->sirf_pcm_pdev);
-
-	platform_set_drvdata(pdev, si2s);
-
-	spin_lock_init(&si2s->lock);
-
-	dma_data[0].chan_name = "tx";
-	dma_data[1].chan_name = "rx";
-
-	ret = of_address_to_resource(pdev->dev.of_node, 0, &mem_res);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to get i2s memory resource.\n");
-		return ret;
+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem_res) {
+		dev_err(&pdev->dev, "no mem resource?\n");
+		return -ENODEV;
 	}
-	si2s->base = devm_ioremap(&pdev->dev, mem_res.start,
-		resource_size(&mem_res));
-	if (!si2s->base)
+
+	base = devm_ioremap(&pdev->dev, mem_res->start,
+		resource_size(mem_res));
+	if (base == NULL)
 		return -ENOMEM;
 
-	si2s->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(si2s->clk)) {
+	i2s->regmap = devm_regmap_init_mmio(&pdev->dev, base,
+					    &sirf_i2s_regmap_config);
+	if (IS_ERR(i2s->regmap))
+		return PTR_ERR(i2s->regmap);
+
+	i2s->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(i2s->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
-		ret = PTR_ERR(si2s->clk);
-		goto err;
+		ret = PTR_ERR(i2s->clk);
+		return ret;
 	}
 
 	pm_runtime_enable(&pdev->dev);
@@ -384,21 +392,16 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 			&sirf_i2s_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
-		goto err;
+		return ret;
 	}
 
-	return 0;
-
-err:
-	return ret;
+	platform_set_drvdata(pdev, i2s);
+	return devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 }
 
 static int sirf_i2s_remove(struct platform_device *pdev)
 {
-	struct sirf_i2s *si2s = platform_get_drvdata(pdev);
-
 	pm_runtime_disable(&pdev->dev);
-	platform_device_unregister(si2s->sirf_pcm_pdev);
 	return 0;
 }
 
