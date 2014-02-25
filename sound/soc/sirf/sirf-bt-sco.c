@@ -14,7 +14,6 @@ static int sirf_bt_sco_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = codec->card;
@@ -43,7 +42,6 @@ static struct snd_soc_dai_link sirf_bt_sco_dai_links[] = {
 		.name = "SiRF BT SCO",
 		.stream_name = "SiRF BT_SCO",
 		.codec_dai_name = "bt-sco-pcm",
-		.platform_name = "sirf-pcm-audio.2",
 		.codec_name = "bt-sco",
 		.ops = &sirf_bt_sco_ops,
 	},
@@ -62,6 +60,8 @@ static int sirf_bt_sco_probe(struct platform_device *pdev)
 	int ret;
 
 	sirf_bt_sco_dai_links[0].cpu_of_node =
+		of_parse_phandle(pdev->dev.of_node, "sirf,usp-controller", 0);
+	sirf_bt_sco_dai_links[0].platform_of_node =
 		of_parse_phandle(pdev->dev.of_node, "sirf,usp-controller", 0);
 	if (of_property_read_bool(pdev->dev.of_node, "bt-sco-master"))
 		sirf_bt_sco_dai_links[0].dai_fmt = SND_SOC_DAIFMT_CBM_CFM;
