@@ -39,6 +39,7 @@
 #include <linux/klist.h>
 #include <linux/mutex.h>
 #include <linux/virtio.h>
+#include <linux/vringh.h>
 #include <linux/completion.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
@@ -530,6 +531,8 @@ struct rproc {
  * @notifyid: rproc-specific unique vring index
  * @rvdev: remote vdev
  * @vq: the virtqueue of this vring
+ * @vrh_cb: callback used when device has kicked
+ * @vrh: the host-side vring
  */
 struct rproc_vring {
 	void *va;
@@ -540,6 +543,8 @@ struct rproc_vring {
 	int notifyid;
 	struct rproc_vdev *rvdev;
 	struct virtqueue *vq;
+	vrh_callback_t *vrh_cb;
+	struct vringh vrh;
 };
 
 typedef int rproc_dev_mmio(struct virtio_device *dev, u32 offset);
@@ -590,6 +595,11 @@ static inline struct rproc *vdev_to_rproc(struct virtio_device *vdev)
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
 
 	return rvdev->rproc;
+}
+
+static inline struct rproc_vring *vrh_to_rvring(struct vringh *vrh)
+{
+	return container_of(vrh, struct rproc_vring, vrh);
 }
 
 #endif /* REMOTEPROC_H */
