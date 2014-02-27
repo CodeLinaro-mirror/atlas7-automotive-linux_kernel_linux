@@ -61,6 +61,8 @@
 				};
 				sd4: sdhci@56400000 {
 					status = "okay";
+					non-removable;
+					cap-power-off-card;
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc4_pins_a>;
 				};
