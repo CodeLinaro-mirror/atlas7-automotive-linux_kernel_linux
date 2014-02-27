@@ -31,7 +31,6 @@
 #define TRANS_MODE_SELECT_BIT			7
 
 #define SIRF_PWM_CHL_NUM			7
-#define SIRF_PWM_BLS_GRP_NUM			16
 
 struct sirf_pwm {
 	void __iomem		*base;
@@ -202,7 +201,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 	spwm->chip.dev = &pdev->dev;
 	spwm->chip.ops = &sirf_pwm_ops;
 	spwm->chip.base = 0;
-	spwm->chip.npwm = SIRF_PWM_CHL_NUM;
+	spwm->chip.npwm = 7;
 
 	ret = pwmchip_add(&spwm->chip);
 	if (ret < 0) {
