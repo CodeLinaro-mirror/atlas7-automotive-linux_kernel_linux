@@ -6,12 +6,19 @@ Required properties:
 - #pwm-cells: should be 2.  The first cell specifies the per-chip index
   of the PWM to use and the second cell is the period in nanoseconds.
 - clocks: from common clock binding: the 1st clock is for PWM controller
-  the 2nd clock is the source to generate PWM waves
+  the 2nd and 3rd clocks are the sources to generate PWM signals
+- clock-names : the 1st clock is used by PWM controller, its name is"pwrcclk";
+  the 2nd clock comes from OSC, used by PWM controller to generate PWM signals
+  in various period and duty, and its name is "sigclk_osc".
+  the 3rd clock comes from RTC, and PWM controller can bypass it, and its name
+  is "sigclk_rtc".
+
 
 Example:
 pwm: pwm@b0130000 {
 	compatible = "sirf,prima2-pwm";
 	#pwm-cells = <2>;
 	reg = <0xb0130000 0x10000>;
-	clocks = <&clks 21>, <&clks 1>;
+	clocks = <&clks 21>, <&clks 1>, <&clks 0>;
+	clock-names = "pwrcclk", "sigclk_osc", "sigclk_rtc";
 };

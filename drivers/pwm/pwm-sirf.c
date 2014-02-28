@@ -68,9 +68,7 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	u32 val;
 	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
 	if (unlikely(period_ns == NSEC_PER_SEC/spwm->sigrtc_clk_rate)) {
-		/*
-		 * bypass RTC clock to WiFi/Bluetooth module
-		 */
+		/* bypass RTC clock to WiFi/Bluetooth module */
 		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
 		val |= 0x1 << (BYPASS_MODE_BIT + pwm->hwpwm);
 		val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
