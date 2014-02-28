@@ -30,24 +30,30 @@
 #define BYPASS_MODE_BIT				21
 #define TRANS_MODE_SELECT_BIT			7
 
-#define SIRF_PWM_CHL_NUM			7
-
 struct sirf_pwm {
 	struct pwm_chip	chip;
 	void __iomem *base;
 	struct clk *clk;
-	unsigned long src_clk_rate;
+	/*
+	 * PWM controller uses OSC(default 26MHz) or RTC(default 32768Hz) clock
+	 * to generate PWM signals instead of the clock of the controller
+	 */
+	unsigned long sigosc_clk_rate;
+	unsigned long sigrtc_clk_rate;
 };
 
-#define to_sirf_chip(chip)	container_of(chip, struct sirf_pwm, chip)
+static inline struct sirf_pwm *to_sirf_pwm_chip(struct pwm_chip *chip)
+{
+	return container_of(chip, struct sirf_pwm, chip);
+}
 
 static u32 sirf_pwm_ns_to_cycles(struct pwm_chip *chip, u32 time_ns)
 {
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
 	u64 dividend;
 	u32 cycle;
 
-	dividend = (u64)spwm->src_clk_rate * time_ns + NSEC_PER_SEC / 2;
+	dividend = (u64)spwm->sigosc_clk_rate * time_ns + NSEC_PER_SEC / 2;
 	do_div(dividend, NSEC_PER_SEC);
 
 	cycle = dividend;
@@ -60,18 +66,28 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 {
 	u32 period_cycles, high_cycles, low_cycles;
 	u32 val;
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
-
-	period_cycles = sirf_pwm_ns_to_cycles(chip, period_ns);
-	high_cycles = sirf_pwm_ns_to_cycles(chip, duty_ns);
-	low_cycles = period_cycles - high_cycles;
-
-	if (period_cycles == 1) {
-		return -EINVAL;
+	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
+	if (unlikely(period_ns == NSEC_PER_SEC/spwm->sigrtc_clk_rate)) {
+		/*
+		 * bypass RTC clock to WiFi/Bluetooth module
+		 */
+		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
+		val |= 0x1 << (BYPASS_MODE_BIT + pwm->hwpwm);
+		val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
+		val |= 3 << (SRC_FIELD_SIZE * pwm->hwpwm);
+		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 	} else {
-		/* divider mode */
+		/* use OSC to generate PWM signals */
+		period_cycles = sirf_pwm_ns_to_cycles(chip, period_ns);
+		if (period_cycles == 1)
+			return -EINVAL;
+
+		high_cycles = sirf_pwm_ns_to_cycles(chip, duty_ns);
+		low_cycles = period_cycles - high_cycles;
+
 		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
 		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
+		val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
 		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 
 		if (high_cycles == period_cycles) {
@@ -90,7 +106,7 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
 	u32 val;
 
 	/* disable preclock */
@@ -128,7 +144,7 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	u32 val;
-	struct sirf_pwm *spwm = to_sirf_chip(chip);
+	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
 
 	/* disable output */
 	val = readl(spwm->base + SIRF_PWM_OE);
@@ -157,7 +173,7 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 {
 	struct sirf_pwm *spwm;
 	struct resource *mem_res;
-	struct clk *clk_pwm_src;
+	struct clk *clk_sigosc, *clk_sigrtc;
 	int ret;
 
 	spwm = devm_kzalloc(&pdev->dev, sizeof(*spwm),
@@ -173,26 +189,31 @@ static int sirf_pwm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/*
-	 * the 1st clock is for PWM controller
+	 * clock for PWM controller
 	 */
-	spwm->clk = of_clk_get(pdev->dev.of_node, 0);
+	spwm->clk = devm_clk_get(&pdev->dev, "pwrcclk");
 	if (IS_ERR(spwm->clk)) {
-		dev_err(&pdev->dev, "Get PWM controller clock failed.\n");
+		dev_err(&pdev->dev, "failed to get PWM controller clock\n");
 		return PTR_ERR(spwm->clk);
 	}
 	clk_prepare_enable(spwm->clk);
 
 	/*
-	 * the 2nd clock is the source to generate PWM waves
-	 * it is the OSC on SiRFSoC
+	 * clocks to generate PWM signals(always enabled OSC and RTC)
 	 */
-	clk_pwm_src = of_clk_get(pdev->dev.of_node, 1);
-	if (IS_ERR(clk_pwm_src)) {
-		dev_err(&pdev->dev, "failed to get PWM controller clock\n");
-		return PTR_ERR(clk_pwm_src);
+	clk_sigosc = devm_clk_get(&pdev->dev, "sigclk_osc");
+	if (IS_ERR(clk_sigosc)) {
+		dev_err(&pdev->dev, "failed to get PWM signal clock - OSC\n");
+		return PTR_ERR(clk_sigosc);
 	}
-	spwm->src_clk_rate = clk_get_rate(clk_pwm_src);
-	clk_put(clk_pwm_src);
+	spwm->sigosc_clk_rate = clk_get_rate(clk_sigosc);
+
+	clk_sigrtc = devm_clk_get(&pdev->dev, "sigclk_rtc");
+	if (IS_ERR(clk_sigrtc)) {
+		dev_err(&pdev->dev, "failed to get PWM signal clock - RTC\n");
+		return PTR_ERR(clk_sigrtc);
+	}
+	spwm->sigrtc_clk_rate = clk_get_rate(clk_sigrtc);
 
 	spwm->chip.dev = &pdev->dev;
 	spwm->chip.ops = &sirf_pwm_ops;
@@ -214,7 +235,6 @@ static int sirf_pwm_remove(struct platform_device *pdev)
 	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(spwm->clk);
-	clk_put(spwm->clk);
 
 	return pwmchip_remove(&spwm->chip);
 }
