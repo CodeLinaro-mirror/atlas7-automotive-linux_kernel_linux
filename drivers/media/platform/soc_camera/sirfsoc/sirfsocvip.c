@@ -130,7 +130,7 @@ static void free_buffer(struct videobuf_queue *vq,
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 	if (pcdev->active != NULL && pcdev->active == &buf->vb) {
-		pcdev->vip_funcs.pfnStop();
+		pcdev->vip_funcs.stop();
 		dmaengine_terminate_all(pcdev->dma_chan);
 		pcdev->active = NULL;
 		list_del_init(&(buf->vb.queue));
@@ -244,7 +244,7 @@ static void sirfsoc_camera_callback(void *pdata)
 				struct videobuf_buffer, queue);
 		} else {
 			pcdev->active = NULL;
-			pcdev->vip_funcs.pfnStop();
+			pcdev->vip_funcs.stop();
 		}
 	}
 
@@ -263,7 +263,7 @@ static void sirfsoc_camera_callback(void *pdata)
 		dma_async_issue_pending(pcdev->dma_chan);
 
 		if (pcdev->pdata->sirfsoc_camera_single)
-			pcdev->vip_funcs.pfnStart(0);
+			pcdev->vip_funcs.start(0);
 	}
 
 out:
@@ -277,7 +277,7 @@ static int sirfsoc_camera_start_dma(
 	struct dma_async_tx_descriptor *rx_desc;
 
 	if (vb == NULL) {
-		pcdev->vip_funcs.pfnStop();
+		pcdev->vip_funcs.stop();
 		mdelay(1);
 		dmaengine_terminate_all(pcdev->dma_chan);
 		return -EINVAL;
@@ -285,7 +285,7 @@ static int sirfsoc_camera_start_dma(
 
 	vb->state = VIDEOBUF_ACTIVE;
 	if (resetfifo)
-		pcdev->vip_funcs.pfnStop();
+		pcdev->vip_funcs.stop();
 
 	pcdev->dma_xt->sgl[0].size = vb->size/vb->height; /* transfer size in byte*/
 	pcdev->dma_xt->sgl[0].icg = 0;
@@ -302,7 +302,7 @@ static int sirfsoc_camera_start_dma(
 	dmaengine_submit(rx_desc);
 	dma_async_issue_pending(pcdev->dma_chan);
 
-	pcdev->vip_funcs.pfnStart(0);
+	pcdev->vip_funcs.start(0);
 
 	return 0;
 }
@@ -374,7 +374,7 @@ static int sirfsoc_camera_activate(struct sirfsoc_camera_dev *pcdev)
 		}
 	}
 
-	pcdev->vip_funcs.pfnInitialize(pcdev->base, NULL);
+	pcdev->vip_funcs.initialize(pcdev->base, NULL);
 
 	if (pdata && pdata->power) {
 		dev_dbg(pcdev->dev, "%s: power on camera\n", __func__);
@@ -406,7 +406,7 @@ static void sirfsoc_camera_deactivate(struct sirfsoc_camera_dev *pcdev)
 	struct sirfsoc_camera_platform_data *board = pcdev->pdata;
 
 
-	pcdev->vip_funcs.pfnTerminate();
+	pcdev->vip_funcs.terminate();
 
 	if (board && board->power) {
 		dev_dbg(pcdev->dev, "%s: Power off camera\n", __func__);
@@ -427,7 +427,7 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sirfsoc_camera_dev *pcdev = ici->priv;
 	struct sirfsoc_camera_platform_data *pdata = pcdev->pdata;
-	VIP_PARAMS *params = &pcdev->vip_params;
+	struct vcss_vip_params *params = &pcdev->vip_params;
 
 	struct sirfsoc_decoder_ops *decoder_ops;
 	int ret, i = 0;
@@ -476,21 +476,21 @@ static int sirfsoc_camera_add_device(struct soc_camera_device *icd)
 	memset(params, 0, sizeof(*params));
 
 	if (pdata->sirfsoc_camera_pxclk_en)
-		params->uiFlag |= VIP_CTRL_PXCLK_CTRL;
+		params->flag |= VCSS_VIP_CTRL_PXCLK_CTRL;
 	if (pdata->sirfsoc_camera_hsync_en)
-		params->uiFlag |= VIP_CTRL_HSYNC_CTRL;
+		params->flag |= VCSS_VIP_CTRL_HSYNC_CTRL;
 	if (pdata->sirfsoc_camera_vsync_en)
-		params->uiFlag |= VIP_CTRL_VSYNC_CTRL;
+		params->flag |= VCSS_VIP_CTRL_VSYNC_CTRL;
 	if (pdata->sirfsoc_camera_ccir656_en)
-		params->uiFlag |= VIP_CTRL_CCIR656_EN;
+		params->flag |= VCSS_VIP_CTRL_CCIR656_EN;
 	if (pdata->sirfsoc_camera_single)
-		params->uiFlag |= VIP_CTRL_SINGLE_MODE;
+		params->flag |= VCSS_VIP_CTRL_SINGLE_MODE;
 
 	/* Vip multiplex USB0 for atlas6 */
 #ifdef CONFIG_ARCH_ATLAS6
-	params->uiFlag |= VIP_CTRL_PAD_MUX_UPLI;
+	params->flag |= VCSS_VIP_CTRL_PAD_MUX_UPLI;
 #endif
-	params->PixelBitSelect = pcdev->pdata->sirfsoc_camera_pixel_shift;
+	params->pixel_bit_sel = pcdev->pdata->sirfsoc_camera_pixel_shift;
 
 	pcdev->icd = icd;
 	pcdev->task = current;
@@ -553,7 +553,7 @@ static int sirfsoc_camera_set_bus_param(struct soc_camera_device *icd)
 	struct sirfsoc_camera_dev *pcdev = ici->priv;
 	unsigned int bus_flags;
 	const struct soc_mbus_pixelfmt *fmt;
-	VIP_PARAMS *params = &pcdev->vip_params;
+	struct vcss_vip_params *params = &pcdev->vip_params;
 	int ret;
 
 	fmt = soc_mbus_get_fmtdesc(icd->current_fmt->code);
@@ -565,14 +565,14 @@ static int sirfsoc_camera_set_bus_param(struct soc_camera_device *icd)
 	if (ret < 0)
 		return ret;
 
-	params->uiFlag |= VIP_CTRL_HSYNC_INV;
-	params->uiFlag |= VIP_CTRL_VSYNC_INV;
+	params->flag |= VCSS_VIP_CTRL_HSYNC_INV;
+	params->flag |= VCSS_VIP_CTRL_VSYNC_INV;
 
 	/* We assume the input data is always UYVY */
-	params->eSrcFormat = LCD_PIXELFORMAT_UYVY;
-	params->eDstFormat = LCD_PIXELFORMAT_UNKNOWN;
+	params->src_fmt = VCSS_PIXELFORMAT_UYVY;
+	params->dst_fmt = VCSS_PIXELFORMAT_UNKNOWN;
 
-	pcdev->vip_funcs.pfnSetParams(params);
+	pcdev->vip_funcs.set_params(params);
 
 	return 0;
 }
@@ -589,8 +589,8 @@ static int sirfsoc_camera_set_fmt_cap(struct soc_camera_device *icd,
 	const struct soc_camera_format_xlate *xlate;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 	struct v4l2_mbus_framefmt mf;
-	VIP_PARAMS *params = &pcdev->vip_params;
-	RECT  src_rect;
+	struct vcss_vip_params *params = &pcdev->vip_params;
+	struct vcss_rect src_rect;
 
 	int buswidth = soc_mbus_bytes_per_line(1,
 		icd->current_fmt->host_fmt);
@@ -636,7 +636,7 @@ static int sirfsoc_camera_set_fmt_cap(struct soc_camera_device *icd,
 	src_rect.top = y_start;
 	src_rect.bottom = y_end;
 
-	params->SrcRect = src_rect;
+	params->src_rect = src_rect;
 
 	return 0;
 }
@@ -980,18 +980,18 @@ static irqreturn_t sirfsoc_camera_irq(int irq, void *data)
 	struct sirfsoc_camera_dev *pcdev = data;
 	u32 status;
 
-	status = pcdev->vip_funcs.pfnGetInterrupts();
-	pcdev->vip_funcs.pfnClearInterrupts(status);
+	status = pcdev->vip_funcs.get_interrupts();
+	pcdev->vip_funcs.clear_interrupts(status);
 
-	if (status & VIP_INTMASK_SENSOR)
+	if (status & VCSS_VIP_INTMASK_SENSOR)
 		dev_dbg(pcdev->dev, "sensor interrupt happens\n");
 
-	if (status & VIP_INTMASK_FIFO_OFLOW) {
+	if (status & VCSS_VIP_INTMASK_FIFO_OFLOW) {
 		/* dev_info(pcdev->dev, "FIFO overflow interrupt happens\n"); */
 		brestart = 1;
 	}
 
-	if (status & VIP_INTMASK_FIFO_UFLOW)
+	if (status & VCSS_VIP_INTMASK_FIFO_UFLOW)
 		dev_err(pcdev->dev, "FIFO underflow interrupt happens\n");
 
 	return IRQ_HANDLED;
@@ -1014,7 +1014,7 @@ static void sirfsoc_vip_save_context(void *data)
 	pcdev->vip_decoder_ops->stop();
 
 	free_irq(pcdev->irq, pcdev);
-	pcdev->vip_funcs.pfnStop();
+	pcdev->vip_funcs.stop();
 
 	dmaengine_terminate_all(pcdev->dma_chan);
 
@@ -1037,7 +1037,7 @@ static void sirfsoc_vip_restore_context(void *data)
 
 	sirfsoc_camera_activate(pcdev);
 
-	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
+	pcdev->vip_funcs.set_params(&pcdev->vip_params);
 
 	if (strcmp(pcdev->vip_decoder_ops->desc, "tw9900") == 0)
 		pcdev->vip_decoder_ops->start(INPUT_CVBS_AIN1);
@@ -1232,7 +1232,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	if (IS_ERR(pcdev->p))
 		goto exit_free_dma;
 
-	VIP_GetFuncTable(&pcdev->vip_funcs);
+	vcss_install_vip_ops(&pcdev->vip_funcs);
 
 	sirfsoc_soc_camera_host.priv		= pcdev;
 	sirfsoc_soc_camera_host.v4l2_dev.dev	= &pdev->dev;
@@ -1257,9 +1257,9 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 
 	if (need_launch_rearview(pcdev)) {
 		pcdev->rearview_gpio = of_get_named_gpio(pdev->dev.of_node,
-							"rearview-gpio", 0);
+			"rearview-gpio", 0);
 		rearview_task = kthread_create(rearview_thread,
-						pcdev, "rearview");
+			pcdev, "rearview");
 		if (IS_ERR(rearview_task)) {
 			dev_err(pcdev->dev, "%s: create rearview thread error\n",
 				__func__);
@@ -1349,7 +1349,7 @@ static int sirfsoc_cam_pm_suspend(struct device *dev)
 		return 0;
 
 	disable_irq(pcdev->irq);
-	pcdev->vip_funcs.pfnStop();
+	pcdev->vip_funcs.stop();
 	dmaengine_terminate_all(pcdev->dma_chan);
 
 	sirfsoc_camera_deactivate(pcdev);
@@ -1373,7 +1373,7 @@ static int sirfsoc_cam_pm_resume(struct device *dev)
 
 	sirfsoc_camera_activate(pcdev);
 
-	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
+	pcdev->vip_funcs.set_params(&pcdev->vip_params);
 	enable_irq(pcdev->irq);
 
 	/* Restart frame capture if active buffer exists */
@@ -1396,7 +1396,7 @@ static int sirfsoc_cam_pm_freeze(struct device *dev)
 		return 0;
 
 	disable_irq(pcdev->irq);
-	pcdev->vip_funcs.pfnStop();
+	pcdev->vip_funcs.stop();
 	dmaengine_terminate_all(pcdev->dma_chan);
 
 	sirfsoc_camera_deactivate(pcdev);
@@ -1419,7 +1419,7 @@ static int sirfsoc_cam_pm_restore(struct device *dev)
 
 	sirfsoc_camera_activate(pcdev);
 
-	pcdev->vip_funcs.pfnSetParams(&pcdev->vip_params);
+	pcdev->vip_funcs.set_params(&pcdev->vip_params);
 	enable_irq(pcdev->irq);
 
 	/* Restart frame capture if active buffer exists */

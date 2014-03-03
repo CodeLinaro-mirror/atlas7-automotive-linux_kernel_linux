@@ -10,63 +10,52 @@
 #ifndef __CSP_SOC_VIP_INTERNAL_H__
 #define __CSP_SOC_VIP_INTERNAL_H__
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #include "CspCmnVip.h"
 #include "VIPRegs.h"
 
-typedef struct _VIPSOC_CONFIG_
-{
-    BOOL bInitialized;
-    UINT32 ui32RefCount;
-    VIP_PARAMS VipSetting;
+struct vip_config {
+	bool initialized;
+	u32 ref_count;
+	struct vcss_vip_params setting;
+	void __iomem *base;
+	void __iomem *dma_base;
+	struct vcss_vip_params saved_setting;
+};
 
-    volatile unsigned char *pVipRegs;
-    volatile unsigned char *pDMARegs;
-    VIP_PARAMS VipSavedSetting;
-} VIPSOC_CONFIG;
-
-extern VIPSOC_CONFIG gsVipConfig;
+extern struct vip_config vip_config;
 
 /*
 ** Register operation
 */
-static INLINE UINT32 ReadVipRegisterValue(UINT32 ui32Offset)
+static inline u32 vip_read_reg(u32 offset)
 {
-	return (*(volatile UINT32 * const)(gsVipConfig.pVipRegs + ui32Offset));
+	return readl(vip_config.base + offset);
 }
 
-static INLINE UINT32 ReadDmaRegisterValue(UINT32 ui32Offset)
+static inline void vip_write_reg(u32 offset, u32 val)
 {
-    return (*(volatile UINT32 * const)(gsVipConfig.pDMARegs + ui32Offset));
+	writel(val, vip_config.base + offset);
 }
 
-static INLINE VOID __WriteVipRegisterValue(UINT32 ui32Offset, UINT32 ui32Value)
+static inline u32 vip_read_dma_reg(u32 offset)
 {
-	*(volatile UINT32 * const)(gsVipConfig.pVipRegs + ui32Offset) = ui32Value;
+	return readl(vip_config.dma_base + offset);
 }
 
-static INLINE VOID WriteDmaRegisterValue(UINT32 ui32Offset, UINT32 ui32Value)
+static inline void vip_write_dma_reg(u32 offset, u32 val)
 {
-	*(volatile UINT32 * const)(gsVipConfig.pDMARegs + ui32Offset) = ui32Value;
+	writel(val, vip_config.dma_base + offset);
 }
 
-#ifdef VIP_LOG
-#define WriteVipRegisterValue(ui32Offset, ui32Value) \
-	do \
-	{ \
-		VIP_MSG((LCD_STR("WriteVipRegisterValue(") RAW_STR(#ui32Offset) RAW_STR(", 0x%08x);\r\n"), ui32Value)); \
-		__WriteVipRegisterValue(ui32Offset, ui32Value); \
-	} while(0);
-#else
-#define WriteVipRegisterValue(ui32Offset, ui32Value) __WriteVipRegisterValue(ui32Offset, ui32Value)
-#endif
+#define VIP_DUMP(fmt, ...) \
+	pr_debug(fmt, ## __VA_ARGS__)
 
-#if defined(__cplusplus)
-}
-#endif
+#define VIP_ENTRY(fmt, ...)
 
+#define VIP_INFO(fmt, ...) \
+	pr_info(fmt, ## __VA_ARGS__)
+
+#define VIP_ERR(fmt, ...) \
+	pr_err(fmt, ## __VA_ARGS__)
 #endif
 

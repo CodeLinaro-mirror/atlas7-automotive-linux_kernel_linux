@@ -80,8 +80,8 @@ struct sirfsoc_camera_dev {
 
 	struct videobuf_buffer	*active;
 
-	VIP_FUNCTIONTABLE	vip_funcs;
-	VIP_PARAMS              vip_params;
+	struct vcss_vip_ops	vip_funcs;
+	struct vcss_vip_params	vip_params;
 
 	/* Current active task which holds VIP hardware */
 	struct task_struct      *task;

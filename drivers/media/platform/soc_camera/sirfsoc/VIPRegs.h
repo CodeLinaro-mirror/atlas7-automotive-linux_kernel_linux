@@ -36,583 +36,141 @@
 #define CAM_RD_FIFO_DATA        0x005C
 #define CAM_TS_CTRL             0x0060
 
+#define CAM_COUNT_XC_MASK	(0xFFFF << 0)
+#define CAM_COUNT_YC_MASK	(0xFFFF << 16)
 
-#define DMA_CH0_ADDR            0x000
-#define DMA_CH0_XLEN            0x004
-#define DMA_CH0_YLEN            0x008
-#define DMA_CH0_CTRL            0x00C
-#define DMA_WIDTH_0             0x100
-#define DMA_CHN_VALID           0x140
-#define DMA_CHN_INT_ENABLE      0x144
-#define DMA_INT_ENABLE          0x148
-#define DMA_CH_LOOP_CTRL        0x150
+#define CAM_INT_COUNT_XI_MASK	(0xFFFF << 0)
+#define CAM_INT_COUNT_XI(x)	(((x) & 0xFFFF) << 0)
+#define CAM_INT_COUNT_YI_MASK	(0xFFFF << 16)
+#define CAM_INT_COUNT_YI(x)	(((x) & 0xFFFF) << 16)
 
+#define CAM_START_XS_MASK	(0xFFFF << 0)
+#define CAM_START_XS(x)		(((x) & 0xFFFF) << 0)
+#define CAM_START_YS_MASK	(0xFFFF << 16)
+#define CAM_START_YS(x)		(((x) & 0xFFFF) << 16)
 
+#define CAM_END_XE_MASK		(0xFFFF << 0)
+#define CAM_END_XE(x)		(((x) & 0xFFFF) << 0)
+#define CAM_END_YE_MASK		(0xFFFF << 16)
+#define CAM_END_YE(x)		(((x) & 0xFFFF) << 16)
 
-/*
- * Register bit field definitions
- */
-typedef union
-{
-    struct
-    {
-      DWORD XC:     16;     /*The value of the current column of the input pixel from sensor*/
-      DWORD YC:     16;     /*The value of the current row of the input pixel from sensor*/
-    };
-    DWORD DW;
-} REG_CAM_COUNT;
+#define CAM_CTRL_PXCLK_CTRL		(1 << 0)
+#define CAM_CTRL_HSYNC_CTRL		(1 << 1)
+#define CAM_CTRL_VSYNC_CTRL		(1 << 2)
+#define CAM_CTRL_PIXCLK_INV		(1 << 3)
+#define CAM_CTRL_HSYNC_INV		(1 << 4)
+#define CAM_CTRL_VSYNC_INV		(1 << 5)
+#define CAM_CTRL_SINGLE			(1 << 6)
+#define CAM_CTRL_IO_TRIGGER		(1 << 7)
+#define CAM_CTRL_YUV_YCRCB		(1 << 8)
+#define CAM_CTRL_YUV_FORMAT_MASK	(0x7 << 9)
+#define CAM_CTRL_YUV_FORMAT(x)		(((x) & 0x7) << 9)
+#define CAM_CTRL_OUT_FORMAT_MASK	(0x3 << 12)
+#define CAM_CTRL_OUT_FORMAT(x)		(((x) & 0x3) << 12)
+#define CAM_CTRL_YUVRGB			(1 << 14)
+#define CAM_CTRL_X_SCA_MASK		(0x3 << 16)
+#define CAM_CTRL_X_SCA(x)		(((x) & 0x3) << 16)
+#define CAM_CTRL_Y_SCA_MASK		(0x3 << 18)
+#define CAM_CTRL_Y_SCA(x)		(((x) & 0x3) << 18)
+#define CAM_CTRL_HOR_MIRROR		(1 << 20)
+#define CAM_CTRL_CAP_FROM_ODD		(1 << 21)
+#define CAM_CTRL_CAP_FROM_EVEN		(1 << 22)
+#define CAM_CTRL_PAD_MUX_ON_UPLI	(1 << 23)
+#define CAM_CTRL_CCIR656_EN		(1 << 24)
+#define CAM_CTRL_FID			(1 << 25)
+#define CAM_CTRL_INIT			(1 << 31)
 
-typedef union
-{
-    struct
-    {
-      DWORD XI:     16;     /*Camera will generate an interrupt when the current XCOUNT value equals to the XINT value*/
-      DWORD YI:     16;     /*Camera will generate an interrupt when the current YCOUNT value equals to the YINT value*/
-    };
-    DWORD DW;
-} REG_CAM_INT_COUNT;
+#define CAM_PS_PIXEL_SHIFT_MASK	(0x7 << 0)
+#define CAM_PS_PIXEL_SHIFT(x)	(((x) & 0x7) << 0)
 
-typedef union
-{
-    struct
-    {
-      DWORD XS:     16;     /*The value of the start column of the active region*/
-      DWORD YS:     16;     /*The value of the start row of the active region*/
-    };
-    DWORD DW;
-} REG_CAM_START;
+#define CAM_YUV_COEF1_C1_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF1_C1(x)	(((x) & 0x3FF) << 0)
+#define CAM_YUV_COEF1_C2_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF1_C2(x)	(((x) & 0x3FF) << 10)
+#define CAM_YUV_COEF1_C3_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF1_C3(x)	(((x) & 0x3FF) << 20)
 
-typedef union
-{
-    struct
-    {
-      DWORD XE:     16;     /*The value of the end column of the active region*/
-      DWORD YE:     16;     /*The value of the end row of the active region*/
-    };
-    DWORD DW;
-} REG_CAM_END;
+#define CAM_YUV_COEF2_C4_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF2_C4(x)	(((x) & 0x3FF) << 0)
+#define CAM_YUV_COEF2_C5_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF2_C5(x)	(((x) & 0x3FF) << 10)
+#define CAM_YUV_COEF2_C6_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF2_C6(x)	(((x) & 0x3FF) << 20)
 
-typedef union
-{
-    struct
-    {
-      DWORD PXCLK_CTRL:1;      /*0: PIXCLK generated from an external sensor
-                                 1: PIXCLK generated internally
-                                */
-      DWORD HSYNC_CTRL:1;      /*0: HSYNC generated from an external sensor
-                                 1: HSYNC generated internally
-                                */
-      DWORD VSYNC_CTRL:1;      /*0: VSYNC generated from an external sensor
-                                 1: VSYNC generated internally
-                                */
-      DWORD PIXCLK_INV:1;      /*Inverts the polarity of the input PIXCLK*/
-      DWORD HSYNC_INV: 1;      /*Inverts the polarity of the input HSYNC*/
-      DWORD VSYNC_INV: 1;      /*Inverts the polarity of the input VSYNC*/
-      DWORD SINGLE:    1;      /*1'b1: Captures one frame image
-                                 1'b0: Continuous capture
-                                */
-      DWORD IO_TRIGGER:1;      /*0: PIXCLK directly passes through
-                                 1: PIXCLK sampled by IOCLK
-                                */
+#define CAM_YUV_COEF3_C7_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF3_C7(x)	(((x) & 0x3FF) << 0)
+#define CAM_YUV_COEF3_C8_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF3_C8(x)	(((x) & 0x3FF) << 10)
+#define CAM_YUV_COEF3_C9_MASK	(0x3FF << 0)
+#define CAM_YUV_COEF3_C9(x)	(((x) & 0x3FF) << 20)
 
-      DWORD YUVYCrCb:  1;      /*1: Input pixel data is in YUV format
-                                 0: Input pixel data is in YCrCb format
-                                */
-      DWORD YUV_FORMAT:3;      /*Raw pixel data input sequence:
-                                 000: YUYV/YCrYCb
-                                 001: UYYV/CrYYCb
-                                 010: YUVY/YCrCbY
-                                 011: UYVY/CrYCbY
-                                 100: YVYU/YCbYCr
-                                 101: VYYU/CbYYCr
-                                 110: YVUY/YCbCrY
-                                 111: VYUY/CbYCrY
-                               */
-      DWORD OUT_FORMAT: 2;     /*RGB format sent to the FIFO after YUV to RGB conversion is completed:
-                                 00: 8:8:8
-                                 01: 6:5:5
-                                 10: 5:5:6
-                                 11: 5:6:5
-                                */
-      DWORD YUVRGB:     1;     /*0: Bypasses YUV to RGB conversion
-                                 1: Convert data format from YUV to RGB
-                                */
-      DWORD RESERVE0:   1;
-      DWORD X_SCA:      2;     /*Contraction ratio in column direction:
-                                 2'b00: no contraction
-                                 2'b01: 1:2 contraction
-                                 2'b10: 1:4
-                                 2'b11: 1:8
-                                 This must be 2¡¯b00 when the yuv->rgb module is bypassed
-                                */
-      DWORD Y_SCA:      2;     /*Contraction ratio in row direction:
-                                 2'b00: no contraction
-                                 2'b01: 1:2 contraction
-                                 2'b10: 1:4
-                                 2'b11: 1:8
-                                 This must be 2¡¯b00 when the yuv->rgb module is bypassed
-                                */
-#ifdef CONFIG_ARCH_ATLAS6
-      DWORD HOR_MIRROR: 1;     /*0: disable L/R mirror function
-                                 1: enable L/R mirror functio
-                                */
-      DWORD CAP_FROM_ODD: 1;   /*0: VIP start to capture field data freely
-                                 1: VIP start to capture field data from the first odd field
-                                */
-      DWORD CAP_FROM_EVEN: 1;  /*0: VIP start to capture field data freely
-                                 1: VIP start to capture field data from the first even field
-                                */
-	DWORD PAD_MUX_ON_UPLI : 1;/*0: normal
-                                 1: pad mux on UPLI
-                                */
-#else
-      DWORD RESERVE2:   4;
+#define CAM_YUV_OFFSET_OFF1_MASK	(0x3FF << 0)
+#define CAM_YUV_OFFSET_OFF1(x)		(((x) & 0x3FF) << 0)
+#define CAM_YUV_OFFSET_OFF2_MASK	(0x3FF << 10)
+#define CAM_YUV_OFFSET_OFF2(x)		(((x) & 0x3FF) << 10)
+#define CAM_YUV_OFFSET_OFF3_MASK	(0x3FF << 20)
+#define CAM_YUV_OFFSET_OFF3(x)		(((x) & 0x3FF) << 20)
+
+#define CAM_INT_EN_SENSOR_INT	(1 << 0)
+#define CAM_INT_EN_FIFO_OFLOW	(1 << 1)
+#define CAM_INT_EN_FIFO_UFLOW	(1 << 2)
+#define CAM_INT_EN_TS_OVER	(1 << 3)
+
+#define CAM_INT_CTRL_SENSOR_INT	(1 << 0)
+#define CAM_INT_CTRL_FIFO_OFLOW	(1 << 1)
+#define CAM_INT_CTRL_FIFO_UFLOW	(1 << 2)
+#define CAM_INT_CTRL_TS_OVER	(1 << 3)
+
+#define CAM_VSYNC_CTRL_ACT_NUM_MASK	(0xFFFF << 0)
+#define CAM_VSYNC_CTRL_ACT_NUM(x)	(((x) & 0xFFFF) << 0)
+#define CAM_VSYNC_CTRL_BLANK_NUM_MASK	(0xFFFF << 16)
+#define CAM_VSYNC_CTRL_BLANK_NUM(x)	(((x) & 0xFFFF) << 16)
+
+#define CAM_HSYNC_CTRL_ACT_NUM_MASK	(0xFFFF << 0)
+#define CAM_HSYNC_CTRL_ACT_NUM(x)	(((x) & 0xFFFF) << 0)
+#define CAM_HSYNC_CTRL_BLANK_NUM_MASK	(0xFFFF << 16)
+#define CAM_HSYNC_CTRL_BLANK_NUM(x)	(((x) & 0xFFFF) << 16)
+
+#define CAM_PIXCLK_CTRL_NUM_MASK	(0xFFFF << 0)
+#define CAM_PIXCLK_CTRL_NUM(x)		(((x) & 0xFFFF) << 0)
+
+#define CAM_VH_VSYNC_HSYNC_MASK		(0xFFFF << 0)
+#define CAM_VH_VSYNC_HSYNC(x)		(((x) & 0xFFFF) << 0)
+#define CAM_VH_VSYNC_WIDTH_MASK		(0xFFFF << 16)
+#define CAM_VH_VSYNC_WIDTH(x)		(((x) & 0xFFFF) << 16)
+
+#define CAM_TIMING_CTRL_PCLK_POLAR	(1 << 0)
+#define CAM_TIMING_CTRL_HSYNC_POLAR	(1 << 1)
+#define CAM_TIMING_CTRL_VSYNC_POLAR	(1 << 2)
+#define CAM_TIMING_CTRL_HSYNC_MASK	(1 << 3)
+
+#define CAM_DMA_CTRL_DMA_IO		(1 << 0)
+#define CAM_DMA_CTRL_DMA_FLUSH		(1 << 2)
+#define CAM_DMA_CTRL_ENDIAN_MODE_MASK	(0x3 << 4)
+#define CAM_DMA_CTRL_ENDIAN_MODE(x)	(((x) & 0x3) << 4)
+
+#define CAM_FIFO_CTRL_FIFO_WIDTH_MASK	(0x3 << 0)
+#define CAM_FIFO_CTRL_FIFO_WIDTH(x)	(((x) & 0x3) << 0)
+
+#define CAM_FIFO_LEVEL_CHK_FIFO_SC_MASK	(0x7F << 0)
+#define CAM_FIFO_LEVEL_CHK_FIFO_SC(x)	(((x) & 0x7F) << 0)
+#define CAM_FIFO_LEVEL_CHK_FIFO_LC_MASK	(0x7F << 10)
+#define CAM_FIFO_LEVEL_CHK_FIFO_LC(x)	(((x) & 0x7F) << 10)
+#define CAM_FIFO_LEVEL_CHK_FIFO_HC_MASK	(0x7F << 20)
+#define CAM_FIFO_LEVEL_CHK_FIFO_HC(x)	(((x) & 0x7F) << 20)
+
+#define CAM_FIFO_OP_FIFO_START	(1 << 0)
+#define CAM_FIFO_OP_FIFO_RESET	(1 << 1)
+
+#define CAM_FIFO_STATUS_FIFO_LEVEL_MASK	(0x1FF << 0)
+#define CAM_FIFO_STATUS_FIFO_LEVEL(x)	(((x) & 0x1FF) << 0)
+#define CAM_FIFO_STATUS_FIFO_FULL	(1 << 9)
+#define CAM_FIFO_STATUS_FIFO_EMPTY	(1 << 10)
+
+#define CAM_TS_CTRL_VIP_TS	(1 << 4)
+#define CAM_TS_CTRL_NEG_SAMPLE	(1 << 5)
+#define CAM_TS_CTRL_SINGLE	(1 << 6)
+#define CAM_TS_CTRL_ENDIAN	(1 << 7)
+#define CAM_TS_CTRL_INIT	(1 << 31)
+
 #endif
-      DWORD CCIR656_EN: 1;     /*CCIR656 enable*/
-      DWORD FID:        1;     /*FID input, read only*/
-      DWORD RESERVE3:   5;
-      DWORD INIT:       1;     /*Reset camera control module, configuration data will still be reserved.
-                                 Logic remains in the reset until a 0 is written to this bit
-                                */
-    };
-    DWORD DW;
-} REG_CAM_CTRL;
-
-typedef union
-{
-    struct
-    {
-      DWORD PIXEL_SHIFT: 3;     /*Pixel bit select options. The input pixel data is always connected to the lowest data pin
-                                  3'b000: select pxd_data[15:0] as valid data
-                                  3'b001: select pxd_data[7:0] as valid data
-                                  3'b010: select pxd_data[8:1] as valid data
-                                  3'b011: store pxd_data[9:2] as valid data
-                                  3'b100: select pxd_data[10:3] as valid data
-                                  3'b101: select pxd_data[11:4] as valid data
-                                  3'b110: select pxd_data[14:7] as valid data
-                                  3'b111: store pxd_data[15:8] as valid dat
-                                 */
-      DWORD RESERVE:    29;     /*The value of the current row of the input pixel from sensor*/
-    };
-    DWORD DW;
-} REG_CAM_PIXEL_SHIFT;
-
-typedef union
-{
-    struct
-    {
-      DWORD C1:        10;      /*V coefficient for R*/
-      DWORD C2:        10;      /*U coefficient for R*/
-      DWORD C3:        10;      /*Y coefficient for R*/
-      DWORD RESERVE:    2;
-    };
-    DWORD DW;
-} REG_CAM_YUV_COEF1;
-
-typedef union
-{
-    struct
-    {
-        DWORD C4:      10;    /*V coefficient for G*/
-        DWORD C5:      10;    /*U coefficient for G*/
-        DWORD C6:      10;    /*Y coefficient for G*/
-        DWORD RESERVE:  2;
-    };
-    DWORD DW;
-} REG_CAM_YUV_COEF2;
-
-typedef union
-{
-    struct
-    {
-      DWORD C7:     10;      /*V coefficient for B*/
-      DWORD C8:     10;      /*U coefficient for B*/
-      DWORD C9:     10;      /*Y coefficient for B*/
-      DWORD RESERVE: 2;
-    };
-    DWORD DW;
-} REG_CAM_YUV_COEF3;
-
-typedef union
-{
-    struct
-    {
-      DWORD OFFSET1:10;     /*Offset coefficient for R*/
-      DWORD OFFSET2:10;     /*Offset coefficient for G*/
-      DWORD OFFSET3:10;     /*Offset coefficient for B*/
-      DWORD RESERVE: 2;
-    };
-    DWORD DW;
-} REG_CAM_YUV_OFFSET;
-
-typedef union
-{
-    struct
-    {
-      DWORD SENSOR_INT_EN:1;    /*Enables sensor interrupt*/
-      DWORD FIFO_OFLOW_EN:1;    /*Enables FIFO overflow interrupt*/
-      DWORD FIFO_UFLOW_EN:1;    /*Enables FIFO underflow interrupt*/
-      DWORD TS_OVER_EN:   1;    /*Enables a TS frame over interrupt*/
-      DWORD RESERVE:     28;
-    };
-    DWORD DW;
-} REG_CAM_INT_EN;
-
-typedef union
-{
-    struct
-    {
-        DWORD SENSOR_INT:1;     /*When the value of CAM_COUNT equals to that of the CAM_INT_COUNT
-                                  register, this interrupt will be generated; write a 1 to this bit
-                                  to reset it
-                                 */
-        DWORD FIFO_OFLOW:1;     /*FIFO is overflown. Write a 1 to this bit to reset it*/
-        DWORD FIFO_UFLOW:1;     /*FIFO is underflown. Write a 1 to this bit to reset it*/
-        DWORD TS_OVER:   1;     /*TS one Frame over. Write a 1 to this bit to reset it*/
-        DWORD RESERVE:  28;
-    };
-    DWORD DW;
-} REG_CAM_INT_CTRL;
-
-typedef union
-{
-    struct
-    {
-      DWORD VSYNC_ACT_NUM:  16; /*VSYNC active width in HSYNC number*/
-      DWORD VSYNC_BLANK_NUM:16; /*VSYNC blank width in HSYNC number*/
-    };
-    DWORD DW;
-} REG_CAM_VSYNC_CTRL;
-
-typedef union
-{
-    struct
-    {
-      DWORD HSYNC_ACT_NUM:  16; /*HSYNC active width in HSYNC number*/
-      DWORD HSYNC_BLANK_NUM:16; /*HSYNC blank width in HSYNC number*/
-    };
-    DWORD DW;
-} REG_CAM_HSYNC_CTRL;
-
-typedef union
-{
-    struct
-    {
-      DWORD PIXCLK_NUM:16;  /*PIXCLK number in IOCLK number. Actual output period of
-                              PIXCLK equals to 2*(PIXCLK_NUM+1)*IOCLK period
-                             */
-      DWORD RESERVE:   16;
-    };
-    DWORD DW;
-} REG_CAM_PIXCLK_CTRL;
-
-typedef union
-{
-    struct
-    {
-        DWORD VSYNC_HSYNC:16; /*Pixel number between the first HSYNC and VSYNC*/
-        DWORD VSYNC_WIDTH:16; /*VSYNC width number in the number of PIXCLK period*/
-    };
-    DWORD DW;
-} REG_CAM_VSYNC_HSYNC;
-
-typedef union
-{
-    struct
-    {
-      DWORD PCLK_POLAR: 1;  /*Inverts pixel clock:
-                              1 = Inverts pixel clock (i.e. pixel clock ? phase off)
-                              0 = Do not invert pixel clock
-                             */
-      DWORD HSYNC_POLAR:1;  /*Inverts the horizontal sync signal:
-                              1 = Horizontal sync signal is active low
-                              0 = Horizontal sync signal is active high
-                             */
-      DWORD VSYNC_POLAR:1;  /*Inverts the vertical sync signal:
-                              1 = vertical sync signal is active low
-                              0 = vertical sync signal is active high
-                             */
-      DWORD HSYNC_MASK: 1;  /*Masks HSYNC control:
-                              1 = Disables the HSYNC during the vertical blank time
-                              0 = Enables the HSYNC during the vertical blank time
-                             */
-      DWORD RESERVE:   28;
-    };
-    DWORD DW;
-} REG_CAM_TIMING_CTRL;
-
-typedef union
-{
-    struct
-    {
-      DWORD DMA_IO:      1; /*0: DMA operation
-                              1: IO operation
-                             */
-      DWORD RESERVE1:    1;
-      DWORD DMA_FLUSH:   1; /*Flushes the DMA receive FIFO if the data length at the peripheral
-                              does not match the DWORD size in the DMA control
-                             */
-      DWORD RESERVE2:    1;
-      DWORD ENDIAN_MODE: 2; /*00: No change
-                              01: Byte exchange in DWORD
-                              10: Word exchange in DWORD
-                              11: Byte exchange in WORD
-                             */
-      DWORD RESERVE3:   26;
-    };
-    DWORD DW;
-} REG_CAM_DMA_CTRL;
-
-typedef union
-{
-    struct
-    {
-        DWORD DATA_LEN:32;/*The byte length of a DMA transfer. If it's set to zero,
-                            then DMA transfer will operate continuously until it is stopped
-                           */
-    };
-    DWORD DW;
-} REG_CAM_DMA_LEN;
-
-typedef union
-{
-    struct
-    {
-      DWORD FIFO_WIDTH:2;   /*00: Byte-mode FIFO
-                              01: Word-mode FIFO
-                              10: Dword-mode FIFO
-                              11: Dword-mode FIFO
-                             */
-      DWORD RESERVE1: 30;
-    };
-    DWORD DW;
-} REG_CAM_FIFO_CTRL;
-
-typedef union
-{
-    struct
-    {
-      DWORD FIFO_SC: 7;  /*FIFO stop check in DWORD length*/
-      DWORD RESERVE1:3;
-      DWORD FIFO_LC: 7;  /*FIFO low check in DWORD length*/
-      DWORD RESERVE2:3;
-      DWORD FIFO_HC: 7;  /*FIFO high check in DWORD length*/
-      DWORD RESERVE3:5;
-    } ;
-    DWORD DW;
-} REG_CAM_FIFO_LEVEL_CHK;
-
-typedef union
-{
-    struct
-    {
-      DWORD FIFO_START:1;   /*Starts the FIFO transfer when this bit is declared*/
-      DWORD FIFO_RESET:1;   /*Set to 1 to stop the FIFO and reset the FIFO internal status,
-                              including the relevant interrupt status. Set to 0 in normal operation
-                             */
-      DWORD RESERVE1: 30;
-    } ;
-    DWORD DW;
-} REG_CAM_FIFO_OP;
-
-typedef union
-{
-    struct
-    {
-      DWORD FIFO_LEVEL:9;   /*The byte count of the valid data in the FIFO varies from 0 to 511 bytes.
-                              In case FIFO is full, the value of this register will be set to 0, thus
-                              users must concatenate the FIFO_FULL bit with this value to determine
-                              the actual data count in it
-                             */
-      DWORD FIFO_FULL: 1;   /*FIFO full status; FIFO is full when it¡¯s read out as 1. This bit is
-                              concatenated with FIFO_LEVEL to be the actual FIFO data count
-                             */
-      DWORD FIFO_EMPTY:1;   /*FIFO empty status,
-                              equivalent to (FIFO_FULL, FIFO_LEVEL) = 0
-                             */
-      DWORD RESERVE:  21;
-    } ;
-    DWORD DW;
-} REG_CAM_FIFO_STATUS;
-
-
-typedef union
-{
-    struct
-    {
-        DWORD FIFO_DATA:32; /*FIFO data read by RISC or DSP*/
-    } ;
-    DWORD DW;
-} REG_CAM_FIFO_DATA;
-
-
-typedef union
-{
-    struct
-    {
-      DWORD RESERVE0:  4;
-      DWORD VIP_TS:    1;   /*0: VIP is configured to receive CCIR656/CCD/CMOS sensor
-                              1: VIP is configured to receive Transport Stream
-                             */
-      DWORD NEG_SAMPLE:1;   /*0: Using pos-edge of the nput clock to sample psync/dvalid/data
-                              1: Using neg-edge of input clock to sample psync/dvalid/data
-                             */
-      DWORD SINGLE:    1;   /*1'b1: Capture one frame image
-                              1'b0: Continuous capture
-                             */
-      DWORD ENDIAN:    1;   /*1'b1:Big-endian, first input byte is in [31:24]
-                              1'b0:Little-endian, first input byte is in [7:0]
-                             */
-      DWORD RESERVE1: 24;
-      DWORD INIT:      1;   /*Reset the TS control module and the configuration data will
-                              still be reserved. Logic will remain in the reset until a 0
-                              is written to this bit
-                             */
-    } ;
-    DWORD DW;
-} REG_CAM_TS_CTRL;
-
-
-typedef union
-{
-    struct
-    {
-        unsigned chn0               : 1;
-        unsigned chn1               : 1;
-        unsigned chn2               : 1;
-        unsigned chn3               : 1;
-        unsigned chn4               : 1;
-        unsigned chn5               : 1;
-        unsigned chn6               : 1;
-        unsigned chn7               : 1;
-        unsigned chn8               : 1;
-        unsigned chn9               : 1;
-        unsigned chn10              : 1;
-        unsigned chn11              : 1;
-        unsigned chn12              : 1;
-        unsigned chn13              : 1;
-        unsigned chn14              : 1;
-        unsigned chn15              : 1;
-        unsigned rsvd0              : 16;
-    };
-    DWORD DW;
-}REG_DMA_CHN_VALID;
-
-typedef union
-{
-    struct
-    {
-        unsigned chn0               : 1;
-        unsigned chn1               : 1;
-        unsigned chn2               : 1;
-        unsigned chn3               : 1;
-        unsigned chn4               : 1;
-        unsigned chn5               : 1;
-        unsigned chn6               : 1;
-        unsigned chn7               : 1;
-        unsigned chn8               : 1;
-        unsigned chn9               : 1;
-        unsigned chn10              : 1;
-        unsigned chn11              : 1;
-        unsigned chn12              : 1;
-        unsigned chn13              : 1;
-        unsigned chn14              : 1;
-        unsigned chn15              : 1;
-        unsigned rsvd0              : 16;
-    };
-    DWORD DW;
-}REG_DMA_INT_ENABLE;
-
-typedef union
-{
-    struct
-    {
-        unsigned width:32;
-    };
-    DWORD DW;
-}REG_DMA_WIDTH;
-
-typedef union
-{
-    struct
-    {
-        unsigned bufA_valid0        : 1;
-        unsigned bufA_valid1        : 1;
-        unsigned bufA_valid2        : 1;
-        unsigned bufA_valid3        : 1;
-        unsigned bufA_valid4        : 1;
-        unsigned bufA_valid5        : 1;
-        unsigned bufA_valid6        : 1;
-        unsigned bufA_valid7        : 1;
-        unsigned bufA_valid8        : 1;
-        unsigned bufA_valid9        : 1;
-        unsigned bufA_valid10       : 1;
-        unsigned bufA_valid11       : 1;
-        unsigned bufA_valid12       : 1;
-        unsigned bufA_valid13       : 1;
-        unsigned bufA_valid14       : 1;
-        unsigned bufA_valid15       : 1;
-        unsigned bufB_valid0        : 1;
-        unsigned bufB_valid1        : 1;
-        unsigned bufB_valid2        : 1;
-        unsigned bufB_valid3        : 1;
-        unsigned bufB_valid4        : 1;
-        unsigned bufB_valid5        : 1;
-        unsigned bufB_valid6        : 1;
-        unsigned bufB_valid7        : 1;
-        unsigned bufB_valid8        : 1;
-        unsigned bufB_valid9        : 1;
-        unsigned bufB_valid10       : 1;
-        unsigned bufB_valid11       : 1;
-        unsigned bufB_valid12       : 1;
-        unsigned bufB_valid13       : 1;
-        unsigned bufB_valid14       : 1;
-        unsigned bufB_valid15       : 1;
-    };
-    DWORD DW;
-}REG_DMA_CHN_LOOP_CTRL;
-
-typedef union
-{
-    struct
-    {
-        unsigned addr               : 29;
-        unsigned rsvd0              : 3;
-    };
-    DWORD DW;
-}REG_DMA_ADDRESS;
-
-typedef union
-{
-  struct
-  {
-    unsigned xl                 : 12;
-    unsigned rsvd0              : 20;
-  };
-  DWORD DW;
-}REG_DMA_XLEN;
-
-typedef union
-{
-    struct
-    {
-        unsigned yl                 : 12;
-        unsigned rsvd0              : 20;
-    };
-    DWORD DW;
-}REG_DMA_YLEN;
-
-typedef union
-{
-    struct
-    {
-        unsigned ws                 : 4;
-        unsigned burst              : 1;
-        unsigned dir                : 1;
-        unsigned rsvd0              : 26;
-    };
-    DWORD DW;
-}REG_DMA_CTRL;
-
-
-#endif  // __VIP_REGS_H__
