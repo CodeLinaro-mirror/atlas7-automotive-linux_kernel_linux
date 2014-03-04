@@ -12,6 +12,10 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 
+#ifdef CONFIG_SECURITY_MODE
+#include <linux/io.h>
+#endif
+
 static __printf(1,2) __cold void vringh_bad(const char *fmt, ...)
 {
 	static DEFINE_RATELIMIT_STATE(vringh_rs,
@@ -164,7 +168,20 @@ static int move_to_indirect(int *up_next, u16 *i, void *addr,
 		*up_next = desc->next;
 	else
 		*up_next = -2;
-	*descs = addr;
+
+#ifdef CONFIG_SECURITY_MODE
+	/* secure world considers the physical memory
+	 * from non-secure as IO memory
+	 */
+	*descs = ioremap((phys_addr_t)addr, desc->len);
+	if (!(*descs)) {
+		vringh_bad("Could not map indirect descs");
+		return -EINVAL;
+	}
+#else
+	*descs = phys_to_virt((unsigned long)addr);
+#endif
+
 	*desc_max = desc->len / sizeof(struct vring_desc);
 
 	/* Now, start at the first indirect. */
@@ -203,6 +220,12 @@ static u16 __cold return_from_indirect(const struct vringh *vrh, int *up_next,
 {
 	u16 i = *up_next;
 
+#ifdef CONFIG_SECURITY_MODE
+	/* secure world considers the physical memory
+	 * from non-secure as IO memory
+	 */
+	iounmap(*descs);
+#endif
 	*up_next = -1;
 	*descs = vrh->vring.desc;
 	*desc_max = vrh->vring.num;
@@ -363,12 +386,16 @@ __vringh_iov(struct vringh *vrh, u16 i,
 		if (desc.flags & VRING_DESC_F_NEXT) {
 			i = desc.next;
 		} else {
+			/* If we are in direct mode, just break */
+			if (up_next == -1)
+				break;
+
 			/* Just in case we need to finish traversing above. */
-			if (unlikely(up_next > 0)) {
-				i = return_from_indirect(vrh, &up_next,
-							 &descs, &desc_max);
+			i = return_from_indirect(vrh, &up_next,
+						&descs, &desc_max);
+			if (unlikely(up_next > 0))
 				slow = false;
-			} else
+			else
 				break;
 		}
 
