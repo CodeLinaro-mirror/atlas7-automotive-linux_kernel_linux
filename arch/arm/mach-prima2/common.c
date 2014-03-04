@@ -10,6 +10,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/irqchip.h>
+#include <linux/interrupt.h>
 #include <linux/memblock.h>
 #include <asm/sizes.h>
 #include <asm/mach-types.h>
@@ -17,7 +18,11 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/extcon/extcon-gpio.h>
 #include "common.h"
+
+static struct gpio_extcon_platform_data h2w_extcon_data;
 
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *uname,
 	int depth, void *data)
@@ -100,10 +105,35 @@ static void __init sirfsoc_init_mach(void)
 
 static void __init sirfsoc_init_late(void)
 {
+	struct device_node *np;
+
 	sirfsoc_pm_init();
 	sirfsoc_gps_nosave_memblock();
 	sirfsoc_pbb_nosave_memblock();
 	sirfsoc_nand_nosave_memblock();
+
+	np = of_find_node_by_path("/sound");
+	if (!np) {
+		pr_err("No sound node found\n");
+		return;
+	}
+
+	h2w_extcon_data.name = "h2w";
+	h2w_extcon_data.debounce = 200;
+	h2w_extcon_data.irq_flags = IRQF_TRIGGER_RISING |
+		IRQF_TRIGGER_FALLING | IRQF_SHARED;
+	h2w_extcon_data.state_on = "1";
+	h2w_extcon_data.state_off = "0";
+	h2w_extcon_data.check_on_resume = true;
+	h2w_extcon_data.gpio_active_low = true;
+	h2w_extcon_data.gpio =
+		of_get_named_gpio(np, "hp-switch-gpios", 0);
+
+	platform_device_register_data(&platform_bus, "extcon-gpio", -1,
+		&h2w_extcon_data, sizeof(struct gpio_extcon_platform_data));
+
+	of_node_put(np);
+
 }
 
 static __init void sirfsoc_init_time(void)
