@@ -890,6 +890,83 @@ int vringh_init_kern(struct vringh *vrh, u32 features,
 EXPORT_SYMBOL(vringh_init_kern);
 
 /**
+ * vringh_kiov_map - map physical address in kiov to virtual address.
+ * @out: the kiov contained output data.
+ * @in: the kiov contained input data.
+ *
+ * Returns an no-zero if failed.
+ */
+static int vringh_kiov_map(struct vringh_kiov *out, struct vringh_kiov *in)
+{
+	int err = 0;
+	int idx, r_maped = 0, w_maped = 0;
+	void *va;
+
+	for (idx = 0; out && idx < out->used; idx++, r_maped++) {
+#ifdef CONFIG_SECURITY_MODE
+		/* secure world considers the physical memory
+		 * from non-secure as IO memory
+		 */
+		va = ioremap((dma_addr_t)out->iov[idx].iov_base,
+					out->iov[idx].iov_len);
+		if (!va) {
+			err = -EFAULT;
+			goto free_out_iov;
+		}
+#else
+		va = phys_to_virt((unsigned long)out->iov[idx].iov_base);
+#endif
+		out->iov[idx].iov_base = va;
+	}
+
+	for (idx = 0; in && idx < in->used; idx++, w_maped++) {
+#ifdef CONFIG_SECURITY_MODE
+		va = ioremap((dma_addr_t)in->iov[idx].iov_base,
+					in->iov[idx].iov_len);
+		if (!va) {
+			err = -EFAULT;
+			goto free_in_iov;
+		}
+#else
+		va = phys_to_virt((unsigned long)in->iov[idx].iov_base);
+#endif
+		in->iov[idx].iov_base = va;
+	}
+
+	return err;
+
+#ifdef CONFIG_SECURITY_MODE
+free_out_iov:
+	for (idx = 0; idx < r_maped; idx++)
+		iounmap(out->iov[idx].iov_base);
+
+free_in_iov:
+	for (idx = 0; idx < w_maped; idx++)
+		iounmap(in->iov[idx].iov_base);
+
+	return err;
+#endif
+}
+
+/**
+ * vringh_kiov_unmap - unmap physical address in kiov.
+ * @out: the kiov contained output data.
+ * @in: the kiov contained input data.
+ */
+static void vringh_kiov_unmap(struct vringh_kiov *out, struct vringh_kiov *in)
+{
+#ifdef CONFIG_SECURITY_MODE
+	int idx;
+
+	for (idx = 0; out && idx < out->used; idx++)
+		iounmap(out->iov[idx].iov_base);
+
+	for (idx = 0; in && idx < in->used; idx++)
+		iounmap(in->iov[idx].iov_base);
+#endif
+}
+
+/**
  * vringh_getdesc_kern - get next available descriptor from kernelspace ring.
  * @vrh: the kernelspace vring.
  * @riov: where to put the readable descriptors (or NULL)
@@ -931,6 +1008,48 @@ int vringh_getdesc_kern(struct vringh *vrh,
 	return 1;
 }
 EXPORT_SYMBOL(vringh_getdesc_kern);
+
+/**
+ * vringh_pop_kern - pop a request from vring into out&in kiov.
+ * @vrh: the kernelspace vring.
+ * @out: where to put the output(readable) descriptors (or NULL)
+ * @int: where to put the input(writable( descriptors (or NULL)
+ * @head: head index we received, for passing to vringh_complete_kern().
+ * @gfp: flags for allocating larger riov/wiov.
+ *
+ * Return no-zero if failed.
+ */
+int vringh_pop_kern(struct vringh *vrh, struct vringh_kiov *out,
+			struct vringh_kiov *in, u16 *head, gfp_t gfp)
+{
+	int err;
+
+	err = vringh_getdesc_kern(vrh, out, in, head, gfp);
+	if (err != 1)
+		return (err == 0) ? -ENOSPC : err;
+
+	return vringh_kiov_map(out, in);
+}
+EXPORT_SYMBOL(vringh_pop_kern);
+
+/**
+ * vringh_push_kern - push out&in kiov back to vring.
+ * @vrh: the kernelspace vring.
+ * @out: where to put the output(readable) descriptors (or NULL)
+ * @int: where to put the input(writable( descriptors (or NULL)
+ * @head: head index we received, for passing to vringh_complete_kern().
+ * @len: the data length of out/in kiov. This value will be used in
+ *       cpu_physical_memory_unmap, and iounmap.
+ *       reserved now, this value could be zero.
+ *
+ */
+void vringh_push_kern(struct vringh *vrh, struct vringh_kiov *out,
+			struct vringh_kiov *in, u16 head, u32 len)
+{
+	vringh_kiov_unmap(out, in);
+	vringh_complete_kern(vrh, head, len);
+}
+EXPORT_SYMBOL(vringh_push_kern);
 
 /**
  * vringh_iov_pull_kern - copy bytes from vring_iov.

@@ -204,6 +204,11 @@ int vringh_getdesc_kern(struct vringh *vrh,
 			u16 *head,
 			gfp_t gfp);
 
+int vringh_pop_kern(struct vringh *vrh, struct vringh_kiov *out,
+		struct vringh_kiov *in, u16 *head, gfp_t gfp);
+void vringh_push_kern(struct vringh *vrh, struct vringh_kiov *out,
+		struct vringh_kiov *in, u16 head, u32 len);
+
 ssize_t vringh_iov_pull_kern(struct vringh_kiov *riov, void *dst, size_t len);
 ssize_t vringh_iov_push_kern(struct vringh_kiov *wiov,
 			     const void *src, size_t len);
