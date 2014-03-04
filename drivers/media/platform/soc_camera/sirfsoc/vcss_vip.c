@@ -10,7 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/io.h>
-#include "CspSocVipInternal.h"
+#include "vip_defs.h"
 
 /* Global vip configuration */
 struct vip_config vip_config = {

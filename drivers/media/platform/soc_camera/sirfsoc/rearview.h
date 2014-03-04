@@ -18,7 +18,7 @@
 
 #include <video/sirfsoc_fb.h>
 
-#include "CspCmnVip.h"
+#include "vcss_vip.h"
 #include "sirfsocvip.h"
 
 #define SRC_WIDTH	720

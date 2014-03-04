@@ -20,7 +20,7 @@
 #include <media/soc_mediabus.h>
 
 #include "sirfsoc_decoder_op.h"
-#include "CspCmnVip.h"
+#include "vcss_vip.h"
 
 /* buffer for one video frame */
 struct sirfsoc_buffer {

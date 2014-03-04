@@ -8,8 +8,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef CSP_CMN_VIP_H
-#define CSP_CMN_VIP_H
+#ifndef __SIRFSOC_VCSS_VIP_H
+#define __SIRFSOC_VCSS_VIP_H
 
 struct vcss_rect {
 	int    left;

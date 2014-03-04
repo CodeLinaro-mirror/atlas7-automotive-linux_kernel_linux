@@ -7,11 +7,11 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef __CSP_SOC_VIP_INTERNAL_H__
-#define __CSP_SOC_VIP_INTERNAL_H__
+#ifndef __SIRFSOC_VIP_DEFS_H
+#define __SIRFSOC_VIP_DEFS_H
 
-#include "CspCmnVip.h"
-#include "VIPRegs.h"
+#include "vcss_vip.h"
+#include "vip_regs.h"
 
 struct vip_config {
 	bool initialized;

@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef __VIP_REGS_H__
-#define __VIP_REGS_H__
+#ifndef __SIRFSOC_VIP_REGS_H
+#define __SIRFSOC_VIP_REGS_H
 
 #define CAM_COUNT               0x0000
 #define CAM_INT_COUNT           0x0004
