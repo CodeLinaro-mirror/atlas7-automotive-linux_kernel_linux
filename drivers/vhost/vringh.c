@@ -261,6 +261,10 @@ __vringh_iov(struct vringh *vrh, u16 i,
 	struct vringh_range range = { -1ULL, 0 }, slowrange;
 	bool slow = false;
 
+	if (!riov && !wiov)
+		/* You must want something! */
+		BUG();
+
 	/* We start traversing vring's descriptor table. */
 	descs = vrh->vring.desc;
 	desc_max = vrh->vring.num;
@@ -268,11 +272,8 @@ __vringh_iov(struct vringh *vrh, u16 i,
 
 	if (riov)
 		riov->i = riov->used = 0;
-	else if (wiov)
+	if (wiov)
 		wiov->i = wiov->used = 0;
-	else
-		/* You must want something! */
-		BUG();
 
 	for (;;) {
 		void *addr;
