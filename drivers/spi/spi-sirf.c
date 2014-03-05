@@ -161,6 +161,7 @@ struct sirfsoc_spi {
 	dma_addr_t dst_start;
 	void *dummypage;
 	int word_width; /* in bytes */
+
 	bool	tx_by_cmd;
 	int chipselect[0];
 };
@@ -315,32 +316,35 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 
 	writel(SIRFSOC_SPI_INT_MASK_ALL, sspi->base + SIRFSOC_SPI_INT_STATUS);
 
-	if (t && t->tx_buf && !t->rx_buf && (t->len <= SIRFSOC_MAX_CMD_BYTES)) {
-		const u32 *cmd_ptr;
+	/*
+	 * in the transfer, if transfer data using command register with rx_buf
+	 * null, just fill command data into command register and wait for its
+	 * completion.
+	 */
+	if (sspi->tx_by_cmd) {
 		u32 cmd;
-		sspi->tx_by_cmd = true;
-		cmd_ptr = sspi->tx;
-		cmd = *cmd_ptr;
+		memcpy(&cmd, sspi->tx, t->len);
+
 		if (sspi->word_width == 1 && !(spi->mode & SPI_LSB_FIRST))
 			cmd = cpu_to_be32(cmd) >>
 				((SIRFSOC_MAX_CMD_BYTES - t->len) * 8);
 		if (sspi->word_width == 2 && t->len == 4 &&
 				(!(spi->mode & SPI_LSB_FIRST)))
 			cmd = ((cmd & 0xffff) << 16) | (cmd >> 16);
-		writel(cmd, sspi->base + SIRFSOC_SPI_CMD);
 
+		writel(cmd, sspi->base + SIRFSOC_SPI_CMD);
 		writel(SIRFSOC_SPI_FRM_END_INT_EN,
-				sspi->base + SIRFSOC_SPI_INT_EN);
+			sspi->base + SIRFSOC_SPI_INT_EN);
 		writel(SIRFSOC_SPI_CMD_TX_EN,
-				sspi->base + SIRFSOC_SPI_TX_RX_EN);
+			sspi->base + SIRFSOC_SPI_TX_RX_EN);
 
 		if (wait_for_completion_timeout(&sspi->tx_done, timeout) == 0) {
 			dev_err(&spi->dev, "transfer timeout\n");
 			return 0;
 		}
+
 		return t->len;
-	} else
-		sspi->tx_by_cmd = false;
+	}
 	if (sspi->left_tx_word == 1) {
 		writel(readl(sspi->base + SIRFSOC_SPI_CTRL) |
 			SIRFSOC_SPI_ENA_AUTO_CLR,
@@ -550,11 +554,14 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	writel(txfifo_ctrl, sspi->base + SIRFSOC_SPI_TXFIFO_CTRL);
 	writel(rxfifo_ctrl, sspi->base + SIRFSOC_SPI_RXFIFO_CTRL);
 
-	if (t && t->tx_buf && !t->rx_buf && (t->len <= SIRFSOC_MAX_CMD_BYTES))
+	if (t && t->tx_buf && !t->rx_buf && (t->len <= SIRFSOC_MAX_CMD_BYTES)) {
 		regval |= (SIRFSOC_SPI_CMD_BYTE_NUM((t->len - 1)) |
 				SIRFSOC_SPI_CMD_MODE);
-	else
+		sspi->tx_by_cmd = true;
+	} else {
 		regval &= ~SIRFSOC_SPI_CMD_MODE;
+		sspi->tx_by_cmd = false;
+	}
 	writel(regval, sspi->base + SIRFSOC_SPI_CTRL);
 
 	if (IS_DMA_VALID(t)) {

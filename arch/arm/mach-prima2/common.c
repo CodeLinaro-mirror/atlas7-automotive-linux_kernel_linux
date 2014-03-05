@@ -123,7 +123,6 @@ static void __init sirfsoc_init_late(void)
 		IRQF_TRIGGER_FALLING | IRQF_SHARED;
 	h2w_extcon_data.state_on = "1";
 	h2w_extcon_data.state_off = "0";
-	h2w_extcon_data.lost_sleep_irq = true;
 	h2w_extcon_data.gpio_active_low = true;
 	h2w_extcon_data.gpio =
 		of_get_named_gpio(np, "hp-switch-gpios", 0);

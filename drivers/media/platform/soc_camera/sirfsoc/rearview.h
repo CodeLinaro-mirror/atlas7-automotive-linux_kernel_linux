@@ -18,18 +18,18 @@
 
 #include <video/sirfsoc_fb.h>
 
-#include "CspCmnVip.h"
+#include "vcss_vip.h"
 #include "sirfsocvip.h"
 
 #define SRC_WIDTH	720
 #define SRC_HEIGHT	480
 
-#define SRC_PXLFORMAT	LCD_PIXELFORMAT_UYVY
+#define SRC_PXLFORMAT	VCSS_PIXELFORMAT_UYVY
 
 struct rearview_setting  {
 	/* vip */
-	VIP_PARAMS		vip_params;
-	VIP_FUNCTIONTABLE	*vip_funcs;
+	struct vcss_vip_params	vip_params;
+	struct vcss_vip_ops	*vip_funcs;
 	void			*base;
 	u32			vip_irq;
 	struct clk		*vip_clk;

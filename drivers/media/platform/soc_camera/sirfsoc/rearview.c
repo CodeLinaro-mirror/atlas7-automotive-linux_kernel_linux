@@ -223,20 +223,20 @@ static irqreturn_t rearview_vip_irq_handler(int irq, void *data)
 {
 	u32 status;
 
-	status = rearview_env.vip_funcs->pfnGetInterrupts();
-	rearview_env.vip_funcs->pfnClearInterrupts(status);
+	status = rearview_env.vip_funcs->get_interrupts();
+	rearview_env.vip_funcs->clear_interrupts(status);
 
-	if (status & VIP_INTMASK_SENSOR) {
+	if (status & VCSS_VIP_INTMASK_SENSOR) {
 		prev_field = cur_field;
-		cur_field = rearview_env.vip_funcs->pfnGetFID();
+		cur_field = rearview_env.vip_funcs->get_fid();
 		if (prev_field != -1 && cur_field == prev_field)
 			pr_err("vip bad field sequence\n");
 	}
 
-	if (status & VIP_INTMASK_FIFO_OFLOW)
+	if (status & VCSS_VIP_INTMASK_FIFO_OFLOW)
 		pr_err("vip FIFO overflow happens\n");
 
-	if (status & VIP_INTMASK_FIFO_UFLOW)
+	if (status & VCSS_VIP_INTMASK_FIFO_UFLOW)
 		pr_err("vip FIFO underflow happens\n");
 
 	return IRQ_HANDLED;
@@ -430,7 +430,7 @@ static void rearview_auxiliary_stop(void)
 
 static void rearview_start(int lightweight)
 {
-	VIP_FUNCTIONTABLE *funcs = rearview_env.vip_funcs;
+	struct vcss_vip_ops *funcs = rearview_env.vip_funcs;
 	struct dma_async_tx_descriptor *rx_desc;
 	int ret;
 
@@ -454,10 +454,10 @@ static void rearview_start(int lightweight)
 
 	clk_prepare_enable(rearview_env.vip_clk);
 
-	funcs->pfnInitialize(rearview_env.base, NULL);
+	funcs->initialize(rearview_env.base, NULL);
 
 	if (!lightweight) {
-		funcs->pfnSetParams(&rearview_env.vip_params);
+		funcs->set_params(&rearview_env.vip_params);
 
 		if (rearview_env.pdata && rearview_env.pdata->init) {
 			ret = rearview_env.pdata->init(rearview_env.vip_dev);
@@ -500,9 +500,9 @@ static void rearview_start(int lightweight)
 	dmaengine_submit(rx_desc);
 	dma_async_issue_pending(rearview_env.dma_chan);
 
-	funcs->pfnStart(0);
+	funcs->start(0);
 #if 0
-	funcs->pfnPrintRegister();
+	funcs->print_registers();
 #endif
 	__init_fbdev();
 
@@ -520,9 +520,9 @@ static void rearview_stop(void)
 	rearview_env.decoder_ops->stop();
 
 	free_irq(rearview_env.vip_irq, &rearview_env);
-	rearview_env.vip_funcs->pfnStop();
+	rearview_env.vip_funcs->stop();
 	dmaengine_terminate_all(rearview_env.dma_chan);
-	rearview_env.vip_funcs->pfnTerminate();
+	rearview_env.vip_funcs->terminate();
 
 	if (rearview_env.pdata && rearview_env.pdata->power) {
 		ret = rearview_env.pdata->power(rearview_env.vip_dev, 0);
@@ -586,9 +586,9 @@ static int rearview_suspend(void)
 
 	if (atomic_read(&rv_started) > 0) {
 		free_irq(rearview_env.vip_irq, &rearview_env);
-		rearview_env.vip_funcs->pfnStop();
+		rearview_env.vip_funcs->stop();
 		dmaengine_terminate_all(rearview_env.dma_chan);
-		rearview_env.vip_funcs->pfnTerminate();
+		rearview_env.vip_funcs->terminate();
 		clk_disable_unprepare(rearview_env.vip_clk);
 		rearview_env.restore_vip_context(rearview_env.data);
 		memset(rearview_env.fbi->screen_base, 0,
@@ -616,7 +616,7 @@ static void rearview_init(void)
 {
 	int ret;
 	int i;
-	VIP_PARAMS *params;
+	struct vcss_vip_params *params;
 	struct fb_info *info = NULL;
 
 	pr_debug("%s\n", __func__);
@@ -648,24 +648,24 @@ static void rearview_init(void)
 	/* init vip pmrmas */
 	params = &rearview_env.vip_params;
 
-	params->SrcRect.left = 0;
-	params->SrcRect.top = 0;
-	params->SrcRect.right = params->SrcRect.left +
+	params->src_rect.left = 0;
+	params->src_rect.top = 0;
+	params->src_rect.right = params->src_rect.left +
 		SRC_WIDTH * 2 - 1;
-	params->SrcRect.bottom = params->SrcRect.top +
+	params->src_rect.bottom = params->src_rect.top +
 		SRC_HEIGHT / 2 - 1;
 
-	params->eSrcFormat = SRC_PXLFORMAT;
-	params->eDstFormat = LCD_PIXELFORMAT_UNKNOWN;
+	params->src_fmt = SRC_PXLFORMAT;
+	params->dst_fmt = VCSS_PIXELFORMAT_UNKNOWN;
 
-	params->uiFlag |= VIP_CTRL_CCIR656_EN;
+	params->flag |= VCSS_VIP_CTRL_CCIR656_EN;
 
 	/* Vip multiplex USB0 for atlas6 */
 #ifdef CONFIG_ARCH_ATLAS6
-	params->uiFlag |= VIP_CTRL_PAD_MUX_UPLI;
+	params->flag |= VCSS_VIP_CTRL_PAD_MUX_UPLI;
 #endif
 
-	params->PixelBitSelect = rearview_env.pdata->sirfsoc_camera_pixel_shift;
+	params->pixel_bit_sel = rearview_env.pdata->sirfsoc_camera_pixel_shift;
 
 	/* init tvdecoder device */
 	rearview_env.decoder_ops->init();

@@ -1,26 +1,24 @@
 /*
  * Power key driver for SiRF PrimaII
  *
- * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
  *
  * Licensed under GPLv2 or later.
  */
 
 #include <linux/module.h>
-#include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/of.h>
-#include <linux/suspend.h>
 #include <linux/workqueue.h>
 
 struct sirfsoc_pwrc_drvdata {
 	u32			pwrc_base;
 	struct input_dev	*input;
-	int			irq;
 	struct delayed_work	work;
 };
 
@@ -28,31 +26,27 @@ struct sirfsoc_pwrc_drvdata {
 
 #define PWRC_INT_STATUS			0xc
 #define PWRC_INT_MASK			0x10
-
 #define PWRC_PIN_STATUS			0x14
 #define PWRC_KEY_DETECT_UP_TIME		20	/* ms*/
 
-static inline int sirfsoc_pwrc_is_on_key_down(
-		struct sirfsoc_pwrc_drvdata *pwrcdrv)
+static int sirfsoc_pwrc_is_on_key_down(struct sirfsoc_pwrc_drvdata *pwrcdrv)
 {
-	int state = sirfsoc_rtc_iobrg_readl(
-				pwrcdrv->pwrc_base + PWRC_PIN_STATUS)
-				& PWRC_ON_KEY_BIT;
-	return !state; /* ON_KEY is active low */
+	u32 state = sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base +
+							PWRC_PIN_STATUS);
+	return !(state & PWRC_ON_KEY_BIT); /* ON_KEY is active low */
 }
 
 static void sirfsoc_pwrc_report_event(struct work_struct *work)
 {
 	struct sirfsoc_pwrc_drvdata *pwrcdrv =
-				container_of((struct delayed_work *)work,
-				struct sirfsoc_pwrc_drvdata, work);
+		container_of(work, struct sirfsoc_pwrc_drvdata, work.work);
 
-	if (!sirfsoc_pwrc_is_on_key_down(pwrcdrv)) {
-		input_event(pwrcdrv->input, EV_KEY, KEY_POWER, 0);
-		input_sync(pwrcdrv->input);
-	} else {
+	if (sirfsoc_pwrc_is_on_key_down(pwrcdrv)) {
 		schedule_delayed_work(&pwrcdrv->work,
 			msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
+	} else {
+		input_event(pwrcdrv->input, EV_KEY, KEY_POWER, 0);
+		input_sync(pwrcdrv->input);
 	}
 }
 
@@ -69,13 +63,13 @@ static irqreturn_t sirfsoc_pwrc_isr(int irq, void *dev_id)
 	input_event(pwrcdrv->input, EV_KEY, KEY_POWER, 1);
 	input_sync(pwrcdrv->input);
 	schedule_delayed_work(&pwrcdrv->work,
-		msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
+			      msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
 
 	return IRQ_HANDLED;
 }
 
 static void sirfsoc_pwrc_toggle_interrupts(struct sirfsoc_pwrc_drvdata *pwrcdrv,
-					bool enable)
+					   bool enable)
 {
 	u32 int_mask;
 
@@ -125,7 +119,7 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * we can't use of_iomap because pwrc is not mapped in memory,
+	 * We can't use of_iomap because pwrc is not mapped in memory,
 	 * the so-called base address is only offset in rtciobrg
 	 */
 	error = of_property_read_u32(np, "reg", &pwrcdrv->pwrc_base);
@@ -141,26 +135,28 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 
 	pwrcdrv->input->name = "sirfsoc pwrckey";
 	pwrcdrv->input->phys = "pwrc/input0";
+	pwrcdrv->input->evbit[0] = BIT_MASK(EV_KEY);
+	input_set_capability(pwrcdrv->input, EV_KEY, KEY_POWER);
+
+	INIT_DELAYED_WORK(&pwrcdrv->work, sirfsoc_pwrc_report_event);
 
 	pwrcdrv->input->open = sirfsoc_pwrc_open;
 	pwrcdrv->input->close = sirfsoc_pwrc_close;
 
 	input_set_drvdata(pwrcdrv->input, pwrcdrv);
 
-	platform_set_drvdata(pdev, pwrcdrv);
+	/* Make sure the device is quiesced */
+	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, false);
 
-	INIT_DELAYED_WORK(&pwrcdrv->work, sirfsoc_pwrc_report_event);
 	irq = platform_get_irq(pdev, 0);
 	error = devm_request_irq(&pdev->dev, irq,
-			sirfsoc_pwrc_isr, 0,
-			"sirfsoc_pwrc_int", pwrcdrv);
+				 sirfsoc_pwrc_isr, 0,
+				 "sirfsoc_pwrc_int", pwrcdrv);
 	if (error) {
-		dev_err(&pdev->dev, "pwrc: Unable to claim irq %d; error %d\n",
+		dev_err(&pdev->dev, "unable to claim irq %d, error: %d\n",
 			irq, error);
 		return error;
 	}
-
-	set_bit(KEY_POWER, pwrcdrv->input->keybit);
 
 	error = input_register_device(pwrcdrv->input);
 	if (error) {
@@ -170,7 +166,7 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 		return error;
 	}
 
-	platform_set_drvdata(pdev, pwrcdrv);
+	dev_set_drvdata(&pdev->dev, pwrcdrv);
 	device_init_wakeup(&pdev->dev, 1);
 
 	return 0;
@@ -178,8 +174,6 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 
 static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(&pdev->dev);
-
 	device_init_wakeup(&pdev->dev, 0);
 
 	return 0;
@@ -190,6 +184,7 @@ static int sirfsoc_pwrc_resume(struct device *dev)
 {
 	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
 	struct input_dev *input = pwrcdrv->input;
+
 	/*
 	 * Do not mask pwrc interrupt as we want pwrc work as a wakeup source
 	 * if users touch X_ONKEY_B, see arch/arm/mach-prima2/pm.c
@@ -219,6 +214,6 @@ static struct platform_driver sirfsoc_pwrc_driver = {
 module_platform_driver(sirfsoc_pwrc_driver);
 
 MODULE_LICENSE("GPLv2");
-MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
+MODULE_AUTHOR("Binghua Duan <Binghua.Duan@csr.com>, Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_DESCRIPTION("CSR Prima2 PWRC Driver");
 MODULE_ALIAS("platform:sirfsoc-pwrc");

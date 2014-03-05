@@ -208,8 +208,8 @@ static int nanddisk_io_session(unsigned handle,
 	return error;
 }
 
-static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
-				char *buffer, int write)
+static int nanddisk_zone_io(unsigned sector, unsigned  nsect, char *buffer,
+		int write)
 {
 	struct NAND_IO nand_io;
 	unsigned async_status;
@@ -282,11 +282,14 @@ static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
 		nand_io.start_sector = sector;
 		nand_io.sector_num = nsect;
 		nand_io.sector_buf = (void *)buffer;
-		if (nanddisk_io_session(zone,
+		if (nanddisk_io_session(
+			MAP_HANDLE,
 			write ? NAND_IOCTRL_WRITE_SECTOR :
-			NAND_IOCTRL_READ_SECTOR,
-			&nand_io, sizeof(nand_io), &flag_wearlevel,
-			sizeof(flag_wearlevel), &async_status)) {
+				NAND_IOCTRL_READ_SECTOR,
+			&nand_io, sizeof(nand_io),
+			&flag_wearlevel,
+			sizeof(flag_wearlevel),
+			&async_status)) {
 			pr_err("%s:pfn_ioctrl(%s,%d,%d,0x%x) failed.\n"
 				, __func__, write ? "NAND_IOCTRL_WRITE_SECTOR" :
 						"NAND_IOCTRL_READ_SECTOR",
@@ -299,50 +302,6 @@ static int nanddisk_zone_io(unsigned zone, unsigned sector, unsigned  nsect,
 		nand_dev.need_wearlevel = 1;
 		wake_up_process(nand_dev.wearlevel_task);
 	}
-	return 0;
-}
-
-/* handle an I/O request */
-static int nanddisk_io_sort(unsigned sector, unsigned nsect, char *buffer,
-				int write)
-{
-	unsigned cur_sec_num;
-
-	/* the part before boot zone shadow */
-	if (nsect && sector < nand_dev.boot_zone_log_sector_start) {
-		cur_sec_num = min(nsect,
-				nand_dev.boot_zone_log_sector_start - sector);
-		if (nanddisk_zone_io(MAP_HANDLE,
-					sector, cur_sec_num, buffer, write))
-			return -1;
-		sector += cur_sec_num;
-		nsect -= cur_sec_num;
-		buffer += cur_sec_num<<nand_dev.sector_size_shift;
-	}
-
-	/* the part in boot zone shadow, and within the boot zone */
-	if (nsect && sector < nand_dev.boot_zone_log_sector_start +
-			nand_dev.boot_zone_log_sector_num) {
-		cur_sec_num = min(nsect, nand_dev.boot_zone_log_sector_start +
-		  nand_dev.boot_zone_log_sector_num - sector);
-		if ((write && nand_dev.nandinsert) || !write)
-			if (nanddisk_zone_io(MAP_HANDLE, sector, cur_sec_num,
-				buffer, write))
-				return -1;
-		sector += cur_sec_num;
-		nsect -= cur_sec_num;
-		buffer += cur_sec_num<<nand_dev.sector_size_shift;
-	}
-
-	/* the part after zone shadow */
-	if (nsect && sector >= nand_dev.boot_zone_log_sector_start +
-			nand_dev.boot_zone_log_sector_num) {
-		cur_sec_num = nsect;
-		if (nanddisk_zone_io(MAP_HANDLE,
-			sector, cur_sec_num, buffer, write))
-			return -1;
-	}
-
 	return 0;
 }
 
@@ -428,7 +387,7 @@ static int nanddisk_merge_and_transfer(struct request *req,
 	merged_bytes = 0;
 	remain_bytes = total_bytes;
 	if (!dir)
-		ret = nanddisk_io_sort(sector,
+		ret = nanddisk_zone_io(sector,
 			total_sectors, nand_dev.data_buf, dir);
 	while (remain_bytes != 0) {
 		cur_bytes = blk_rq_cur_bytes(req);
@@ -441,7 +400,7 @@ static int nanddisk_merge_and_transfer(struct request *req,
 		merged_bytes += cur_bytes;
 		remain_bytes -= cur_bytes;
 		if (remain_bytes == 0 && dir)
-			ret = nanddisk_io_sort(sector,
+			ret = nanddisk_zone_io(sector,
 				total_sectors, nand_dev.data_buf, dir);
 		spin_lock_irqsave(q->queue_lock, flags);
 		ret = __blk_end_request(req, 0, cur_bytes);
@@ -517,7 +476,7 @@ static int nanddisk_transfer_thread(void *arg)
 					(nand_dev.sector_size_shift - 9));
 				nsect = blk_rq_cur_sectors(req)	>>
 					(nand_dev.sector_size_shift - 9);
-				ret = nanddisk_io_sort(sector,
+				ret = nanddisk_zone_io(sector,
 					nsect, req->buffer, write);
 				spin_lock_irqsave(q->queue_lock, flags);
 				ret = __blk_end_request(req, ret,
