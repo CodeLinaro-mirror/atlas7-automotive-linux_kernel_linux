@@ -695,8 +695,8 @@
 				compatible = "sirf,prima2-pwm";
 				#pwm-cells = <2>;
 				reg = <0xb0130000 0x10000>;
-				clocks = <&clks 21>, <&clks 1>, <&clks 0>;
-				clock-names = "pwmc", "sigsrc0", "sigsrc3";
+				clocks = <&clks 21>, <&clks 1>;
+				clock-names = "pwmc", "sigsrc0";
 			};
 
 			efusesys@b0140000 {

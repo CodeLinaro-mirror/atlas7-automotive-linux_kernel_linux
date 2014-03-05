@@ -3,13 +3,14 @@ SiRF prima2 & atlas6 PWM drivers
 Required properties:
 - compatible: "sirf,prima2-pwm"
 - reg: physical base address and length of the controller's registers
-- #pwm-cells: should be 2.  The first cell specifies the per-chip index
-  of the PWM to use and the second cell is the period in nanoseconds.
-- clocks: from common clock binding: the 1st clock is for PWM controller
-  the other clocks are the sources to generate PWM signals
-- clock-names : The first one is the name of the clock for PWM, others
-  are names of clock sources to generate PWM signal. So the first one
-  is "pwmc", others will have names like "sigsrc0"~"sigsrc4".
+- #pwm-cells: should be 2.  The first cell specifies the per-chip index of the
+  PWM to use and the second cell is the period in nanoseconds.
+- clocks: from common clock binding: the 1st clock is for PWM controller the
+  other clocks are the sources to generate PWM signals
+- clock-names : The first one is the name of the clock for PWM, others are names
+  of clock sources to generate PWM signal, e.g.sigsrc0 ~sigsrc4. For prima2 and
+  atlas6, sigsrc0 is OSC with 26MHz, sigsrc3 is RTC with 32KHz, others are PLLs.
+  Generally, PWM module uses the OSC as clock source to generate PWM signals.
 
 
 Example:
@@ -17,6 +18,6 @@ pwm: pwm@b0130000 {
 	compatible = "sirf,prima2-pwm";
 	#pwm-cells = <2>;
 	reg = <0xb0130000 0x10000>;
-	clocks = <&clks 21>, <&clks 1>, <&clks 0>;
-	clock-names = "pwmc", "sigsrc0", "sigsrc3";
+	clocks = <&clks 21>, <&clks 1>;
+	clock-names = "pwmc", "sigsrc0"";
 };
