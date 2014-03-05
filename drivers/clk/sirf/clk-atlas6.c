@@ -114,7 +114,7 @@ static __initdata struct clk_hw *atlas6_clk_hw_array[maxclk] = {
 
 static struct clk *atlas6_clks[maxclk];
 
-void __init atlas6_clk_init(struct device_node *np)
+static void __init atlas6_clk_init(struct device_node *np)
 {
 	struct device_node *rscnp;
 	int i;

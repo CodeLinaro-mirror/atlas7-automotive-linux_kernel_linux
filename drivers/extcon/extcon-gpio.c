@@ -107,6 +107,12 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	extcon_data->check_on_resume = pdata->check_on_resume;
 	if (pdata->state_on && pdata->state_off)
 		extcon_data->edev.print_state = extcon_gpio_print_state;
+
+	ret = devm_gpio_request_one(&pdev->dev, extcon_data->gpio, GPIOF_DIR_IN,
+				    pdev->name);
+	if (ret < 0)
+		return ret;
+
 	if (pdata->debounce) {
 		ret = gpio_set_debounce(extcon_data->gpio,
 					pdata->debounce * 1000);
@@ -118,11 +124,6 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	ret = extcon_dev_register(&extcon_data->edev);
 	if (ret < 0)
 		return ret;
-
-	ret = devm_gpio_request_one(&pdev->dev, extcon_data->gpio, GPIOF_DIR_IN,
-				    pdev->name);
-	if (ret < 0)
-		goto err;
 
 	INIT_DELAYED_WORK(&extcon_data->work, gpio_extcon_work);
 
@@ -168,8 +169,8 @@ static int gpio_extcon_resume(struct device *dev)
 
 	extcon_data = dev_get_drvdata(dev);
 	if (extcon_data->check_on_resume)
-		schedule_delayed_work(&extcon_data->work,
-				extcon_data->debounce_jiffies);
+		queue_delayed_work(system_power_efficient_wq,
+			&extcon_data->work, extcon_data->debounce_jiffies);
 
 	return 0;
 }
@@ -185,7 +186,7 @@ static struct platform_driver gpio_extcon_driver = {
 	.driver		= {
 		.name	= "extcon-gpio",
 		.owner	= THIS_MODULE,
-		.pm     = &gpio_extcon_pm_ops,
+		.pm	= &gpio_extcon_pm_ops,
 	},
 };
 

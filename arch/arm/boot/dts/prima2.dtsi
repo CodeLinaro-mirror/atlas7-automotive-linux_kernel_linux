@@ -727,6 +727,7 @@
 					non-removable;
 					reg = <0x56000000 0x100000>;
 					interrupts = <38>;
+					status = "disabled";
 					bus-width = <8>;
 					clocks = <&clks 36>;
 				};
@@ -736,8 +737,8 @@
 					compatible = "sirf,prima2-sdhc";
 					reg = <0x56100000 0x100000>;
 					interrupts = <38>;
-					bus-width = <4>;
 					status = "disabled";
+					bus-width = <4>;
 					clocks = <&clks 36>;
 				};
 
@@ -775,7 +776,6 @@
 					loop-dma;
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
-					status = "okay";
 					clocks = <&clks 38>;
 				};
 

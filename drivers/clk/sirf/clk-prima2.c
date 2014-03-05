@@ -113,7 +113,7 @@ static __initdata struct clk_hw *prima2_clk_hw_array[maxclk] = {
 
 static struct clk *prima2_clks[maxclk];
 
-void __init prima2_clk_init(struct device_node *np)
+static void __init prima2_clk_init(struct device_node *np)
 {
 	struct device_node *rscnp;
 	int i;

@@ -122,9 +122,11 @@ EXPORT_SYMBOL(v4l2_of_parse_parallel_bus);
  * the bus as serial CSI-2 and clock-noncontinuous isn't set, we set the
  * V4L2_MBUS_CSI2_CONTINUOUS_CLOCK flag.
  * The caller should hold a reference to @node.
+ *
+ * Return: 0.
  */
-void v4l2_of_parse_endpoint(const struct device_node *node,
-			    struct v4l2_of_endpoint *endpoint)
+int v4l2_of_parse_endpoint(const struct device_node *node,
+			   struct v4l2_of_endpoint *endpoint)
 {
 	struct device_node *port_node = of_get_parent(node);
 
@@ -147,6 +149,8 @@ void v4l2_of_parse_endpoint(const struct device_node *node,
 		v4l2_of_parse_parallel_bus(node, endpoint);
 
 	of_node_put(port_node);
+
+	return 0;
 }
 EXPORT_SYMBOL(v4l2_of_parse_endpoint);
 
@@ -263,6 +267,6 @@ struct device_node *v4l2_of_get_remote_port(const struct device_node *node)
 	np = of_parse_phandle(node, "remote-endpoint", 0);
 	if (!np)
 		return NULL;
-	return of_get_parent(np);
+	return of_get_next_parent(np);
 }
 EXPORT_SYMBOL(v4l2_of_get_remote_port);

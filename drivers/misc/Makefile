@@ -57,3 +57,4 @@ obj-$(CONFIG_CSR_RFKILL)	+= btcsr.o
 obj-$(CONFIG_CSR_RFKILL)	+= wlancsr.o
 obj-$(CONFIG_SIRF_MINIGPSRTC)	+= sirf_minigpsrtc.o
 obj-y				+= mic/
+obj-$(CONFIG_GENWQE)		+= genwqe/
