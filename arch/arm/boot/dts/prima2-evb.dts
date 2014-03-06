@@ -31,7 +31,7 @@
 		bt_gpio_reset = <&gpio 3 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pins_a>;
-		pwms = <&pwm 1 0>;
+		pwms = <&pwm 1 30518>;
 	};
 
 	bt-sco {
