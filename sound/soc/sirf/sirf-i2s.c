@@ -345,7 +345,6 @@ static const struct snd_soc_component_driver sirf_i2s_component = {
 static int sirf_i2s_probe(struct platform_device *pdev)
 {
 	struct sirf_i2s *si2s;
-	u32 rx_dma_ch, tx_dma_ch;
 	int ret;
 	struct resource mem_res;
 
@@ -362,22 +361,6 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, si2s);
 
 	spin_lock_init(&si2s->lock);
-
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"sirf,i2s-dma-rx-channel", &rx_dma_ch);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to USP0 rx dma channel\n");
-		return ret;
-	}
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"sirf,i2s-dma-tx-channel", &tx_dma_ch);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to USP0 tx dma channel\n");
-		return ret;
-	}
-
-	dma_data[0].filter_data = (void *)tx_dma_ch;
-	dma_data[1].filter_data = (void *)rx_dma_ch;
 
 	ret = of_address_to_resource(pdev->dev.of_node, 0, &mem_res);
 	if (ret < 0) {
