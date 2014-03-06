@@ -155,6 +155,8 @@ static int sirf_phy_probe(struct platform_device *pdev)
 					dev_err(&pdev->dev, "Failed to request GPIO VBus\n");
 					return -ENODEV;
 				}
+				gpio_direction_output(gpio_vbus, 0);
+				msleep(50);
 				gpio_direction_output(gpio_vbus, 1);
 			} else {
 				dev_err(&pdev->dev, "Invalid GPIO VBus\n");
