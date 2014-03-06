@@ -357,7 +357,7 @@ static void layer_frame_irq(struct work_struct *data)
 	}
 }
 
-static int send_vsync_timestamp(struct work_struct *data)
+static void send_vsync_timestamp(struct work_struct *data)
 {
 	struct sirfsocfb *fb;
 	struct device *dev;
@@ -365,7 +365,6 @@ static int send_vsync_timestamp(struct work_struct *data)
 	dev = &fb->dev->dev;
 
 	sysfs_notify(&dev->kobj, NULL, "vsync_timestamp");
-	return 0;
 }
 
 static int set_par(struct fb_info *info)
