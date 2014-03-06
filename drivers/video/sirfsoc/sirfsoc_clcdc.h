@@ -124,7 +124,7 @@ struct sirfsocfb{
 	void  *ble_mem_base;
 	dma_addr_t ble_mem_offset;
 	unsigned int ble_mem_size;
-	BLE_FUNCTIONTABLE ble_func;
+	struct vdss_ble_ops ble_func;
 	void *ble_context;
 #endif
 

@@ -11,247 +11,242 @@
 #define CSP_CMN_BLE_H
 
 #include <linux/kernel.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "ble_defs.h"
 
 /*************************************************************************/
 /*              Misc Definition Area Begin                               */
-#ifndef IN
-#define IN
-#endif
-
-#ifndef OUT
-#define OUT
-#endif
-
-#ifndef INOUT
-#define INOUT
-#endif
-
-#ifndef VOID
-#define VOID  void
-#endif
-
 #ifndef max
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#define max(a, b)            (((a) > (b)) ? (a) : (b))
 #endif
 
 #ifndef min
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#define min(a, b)            (((a) < (b)) ? (a) : (b))
 #endif
 
-#define TRUE        1
-#define FALSE       0
-
-
-typedef enum _DRAWCTRL_SHIFT
-{
-    BLE2D_DRAWCTRL_COLORFILL_SHIFT        = 16,
-    BLE2D_DRAWCTRL_ALPHA_SHIFT            = 17,
-    BLE2D_DRAWCTRL_FLIP_H_SHIFT           = 19,
-    BLE2D_DRAWCTRL_FLIP_V_SHIFT           = 20,
-    BLE2D_DRAWCTRL_ROTATION_SHIFT         = 21,
-    BLE2D_DRAWCTRL_CLIP_SHIFT             = 23,
-    BLE2D_DRAWCTRL_TRANSPARENT_SHIFT      = 24,
-    BLE2D_DRAWCTRL_COLORKEY_MODE_SHIFT    = 25,
-}BLE2D_DRAWCTRL_SHIFT;
+enum drawctrl_shift {
+	BLE_DRAWCTRL_COLORFILL_SHIFT     = 16,
+	BLE_DRAWCTRL_ALPHA_SHIFT         = 17,
+	BLE_DRAWCTRL_FLIP_H_SHIFT        = 19,
+	BLE_DRAWCTRL_FLIP_V_SHIFT        = 20,
+	BLE_DRAWCTRL_ROTATION_SHIFT      = 21,
+	BLE_DRAWCTRL_CLIP_SHIFT          = 23,
+	BLE_DRAWCTRL_TRANSPARENT_SHIFT   = 24,
+	BLE_DRAWCTRL_COLORKEY_MODE_SHIFT = 25,
+};
 
 /***************************************************************************
 **
 ** Blt Engine Misc Declare Area
 ****************************************************************************/
 
-typedef enum _BLE2DOPERATIONMODE
-{
-    BLE2DMMIOMODE    = 1,
-    BLE2DCOMMANDMODE = 2,
-}BLE2DOPERATIONMODE;
+enum ble_mode {
+	BLEMMIOMODE    = 1,
+	BLECOMMANDMODE = 2,
+};
 
+struct ring_bufinfo {
+	u32   offset;
+	u32   virtual;
+	/* double word aligened */
+	u32   size;
+};
 
-typedef struct _RINGBUFINO
-{
-    UINT32   RingBufOffset;
-    UINT32   RingBufVirtual;
-    UINT32   RingBufSizeInDW;
-}RINGBUFINFO;
+struct fence_bufinfo {
+	u32    offset;
+	u32    virtual;
+	/* double word aligened */
+	u32    size;
+};
 
-typedef struct _FENCEBUFINFO
-{
-    UINT32    FenceBufOffset;
-    UINT32    FenceBufVirtual;
-    UINT32    FenceBufSize;
-}FENCEBUFINFO;
+enum ble_format {
+	BLE_ARGB8888,
+	BLE_ABGR8888,
+	BLE_RGB565,
+	BLE_ARGB1555,  /* this format is not support yet */
+	BLE_ARGB4444,  /* this format is not support yet */
+	BLE_YUYV,      /* this format is not support yet */
+	BLE_YVYU,      /* this format is not support yet */
+	BLE_UYVY,      /* this format is not support yet */
+	BLE_VYUY,      /* this format is not support yet */
+	/* this format is for LCD support */
+	BLE_RGB556,
+	BLE_RGB655,
+	BLE_RGB666,
+};
 
-
-typedef enum
-{
-    BLE2D_ARGB8888,
-    BLE2D_ABGR8888,
-    BLE2D_RGB565,
-    BLE2D_ARGB1555,  /* this format is not support yet*/
-    BLE2D_ARGB4444,  /* this format is not support yet*/
-    BLE2D_YUYV,      /* this format is not support yet*/
-    BLE2D_YVYU,      /* this format is not support yet*/
-    BLE2D_UYVY,      /* this format is not support yet*/
-    BLE2D_VYUY,      /* this format is not support yet*/
-
-    /* this format is for LCD support*/
-    BLE2D_XRGB8888,
-    BLE2D_RGB556,
-    BLE2D_RGB655,
-    BLE2D_RGB666,
-} BLE2DFORMAT;
-
-typedef enum
-{
-    BLE2D_ALPHA_OP_NON_PREMULTIPLIED = 1,   /* source alpha : Cdst = Csrc*Asrc + Cdst*(1-Asrc) */
-    BLE2D_ALPHA_OP_PREMULTIPLIED     = 2    /* premultiplied source alpha : Cdst = Csrc + Cdst*(1-Asrc) */
-} BLE2D_ALPHABLENDFUNC;
+enum ble_blendfunc {
+	/* source alpha : Cds = Csrc*Asrc + Cdst*(1-Asrc) */
+	BLE_ALPHA_OP_NON_PREMULTIPLIED = 1,
+	/* premultiplied source alpha : Cdst = Csrc + Cdst*(1-Asrc) */
+	BLE_ALPHA_OP_PREMULTIPLIED     = 2,
+};
 
 /* flags for control information of additional blits */
-typedef enum
-{
-    BLE2D_BLIT_DISABLE_ALL                  = 0x00000000,   /* disable all additional controls */
-    BLE2D_BLIT_TRANSPARENT_ENABLE           = 0x00000001,   /* enable transparent blt   */
-    BLE2D_BLIT_GLOBAL_ALPHA                 = 0x00000002,   /* enable standard global alpha */
-    BLE2D_BLIT_PERPIXEL_ALPHA               = 0x00000004,   /* enable per-pixel alpha bleding */
-    BLE2D_BLIT_PAT_SURFACE_ENABLE           = 0x00000008,   /* enable pattern surf (disable fill) */
-    BLE2D_BLIT_SRC_SURFACE_ENABLE           = 0x00000010,   /* enable source surf  (disable fill) */
-    BLE2D_BLIT_ROT_90                       = 0x00000020,   /* apply 90 degree rotation to the blt */
-    BLE2D_BLIT_ROT_180                      = 0x00000040,   /* apply 180 degree rotation to the blt */
-    BLE2D_BLIT_ROT_270                      = 0x00000080,   /* apply 270 degree rotation to the blt */
-    BLE2D_BLIT_FLIP_H                       = 0x00000100,   /* apply mirror in horizontal */
-    BLE2D_BLIT_FLIP_V                       = 0x00000200,   /* apply mirror in vertical     */
-    BLE2D_BLIT_SRC_COLORKEY                 = 0x00000400,   /* Source color Key  enabled    */
-    BLE2D_BLIT_DST_COLORKEY                 = 0x00000800,   /* Destination color Key enabled */
-    BLE2D_BLIT_COLOR_FILL                   = 0x00001000,   /* Color fill enabled    */
-    BLE2D_BLIT_CLIP_ENABLE                  = 0x00002000,   /* Clipping enabled     */
-    BLE2D_BLIT_PATH_BLE2DCORE               = 0x00004000,   /* Blt via dedicated BLE 2D Core */
-    BLE2D_BLIT_PATH_EXTERNCORE              = 0x00008000,   /* Blt via extern Core */
-    BLE2D_BLIT_PATH_SWBLT                   = 0x00010000,   /* Blt via host software */
-} BLE2DBLITFLAGS;
+enum ble_blt_flags {
+	/* disable all additional controls */
+	BLE_BLIT_DISABLE_ALL                  = 0x00000000,
+	/* enable transparent blt   */
+	BLE_BLIT_TRANSPARENT_ENABLE           = 0x00000001,
+	/* enable standard global alpha */
+	BLE_BLIT_GLOBAL_ALPHA                 = 0x00000002,
+	/* enable per-pixel alpha bleding */
+	BLE_BLIT_PERPIXEL_ALPHA               = 0x00000004,
+	/* alpha bleding mask, include global and perpixel alpha */
+	BLE_BLIT_ALPHA_MASK                   = 0x00000006,
+	/* enable pattern surf (disable fill) */
+	BLE_BLIT_PAT_SURFACE_ENABLE           = 0x00000008,
+	/* enable source surf  (disable fill) */
+	BLE_BLIT_SRC_SURFACE_ENABLE           = 0x00000010,
+	/* apply 90 degree rotation to the blt */
+	BLE_BLIT_ROT_90                       = 0x00000020,
+	/* apply 180 degree rotation to the blt */
+	BLE_BLIT_ROT_180                      = 0x00000040,
+	/* apply 270 degree rotation to the blt */
+	BLE_BLIT_ROT_270                      = 0x00000080,
+	/* apply roate degree mask to the blt */
+	BLE_BLIT_ROT_MASK                     = 0x000000e0,
+	/* apply mirror in horizontal */
+	BLE_BLIT_FLIP_H                       = 0x00000100,
+	/* apply mirror in vertical*/
+	BLE_BLIT_FLIP_V                       = 0x00000200,
+	/* apply mirror mask */
+	BLE_BLIT_FLIP_MASK                    = 0x00000300,
+	/* Source color Key  enabled    */
+	BLE_BLIT_SRC_COLORKEY                 = 0x00000400,
+	/* Destination color Key enabled */
+	BLE_BLIT_DST_COLORKEY                 = 0x00000800,
+	/* Color fill enabled    */
+	BLE_BLIT_COLOR_FILL                   = 0x00001000,
+	/* Clipping enabled     */
+	BLE_BLIT_CLIP_ENABLE                  = 0x00002000,
+	/* Blt via dedicated BLE 2D Core */
+	BLE_BLIT_PATH_BLECORE               = 0x00004000,
+	/* Blt via extern Core */
+	BLE_BLIT_PATH_EXTERNCORE              = 0x00008000,
+};
 
-typedef struct _SYNC_OBJECT
-{
-    ULONG   PhyAddr;
-    ULONG   VirAddr;
-    ULONG   ulCurrentSyncID;
-}SYNC_OBJECT;
+struct sync_object {
+	unsigned long   phyaddr;
+	unsigned long   viraddr;
+	unsigned long   cur_syncid;
+};
 
 /* surface info structure */
-typedef struct _BLE2DMEMINFO
-{
-    ULONG           Reserved1;
-    ULONG           Reserved2;
-    ULONG           ulOffset;
-    ULONG           ulMemSize;
-    ULONG           ulTag;
-    ULONG           ulDesiredSyncID;
-    SYNC_OBJECT     *pSyncObject;
-}BLE2DMEMINFO, *PBLE2DMEMINFO;
+struct ble_meminfo {
+	unsigned long           reserved1;
+	unsigned long           reserved2;
+	unsigned long           offset;
+	unsigned long           memsize;
+	unsigned long           tag;
+	unsigned long           desired_syncid;
+	struct sync_object     *sync_object;
+};
 
 /* error codes */
-typedef enum
+enum ble_error {
+	BLE_OK                           =  0,
+	BLE_ERR_INVALID_PARAMETER        = -1,
+	BLE_ERR_DEVICE_UNAVAILABLE       = -2,
+	BLE_ERR_INVALID_CONTEXT          = -3,
+	BLE_ERR_MEMORY_UNAVAILABLE       = -4,
+	BLE_ERR_DEVICE_NOT_PRESENT       = -5,
+	BLE_ERR_GENERIC		         = -6,
+	BLE_ERR_BLT_NOTCOMPLETE          = -7,
+	BLE_ERR_HW_FEATURE_NOT_SUPPORTED = -8,
+	BLE_ERR_NOT_YET_IMPLEMENTED      = -9,
+	BLE_ERR_MAPPING_FAILED           = -10
+};
+
+struct ble_rect {
+	long  left;
+	long  top;
+	long  right;
+	long  bottom;
+};
+
+struct ble_bltinfo {
+	unsigned long                  rop3;                  /* rop3 code  */
+	unsigned long                  fill_color;             /* fill color */
+	/* color key in argb8888 fromat */
+	unsigned long                  colorkey;
+	/* global alpha blending */
+	u8                             global_alpha;
+	/* per-pixel alpha-blending function */
+	u8                             blendfunc;
+	unsigned long                  num_cliprect;
+	struct ble_rect                *ble_cliprect;
+	/* additional blit control information */
+	int			       blt_flags;
+	/* destination memory */
+	struct ble_meminfo             *dmeminfo;
+	/* signed stride, the number of bytes from pixel 0,0 to 0,1 */
+	unsigned long                  dst_stride;
+	/* pixel offset from start of dest surface to start of blt rectangle */
+	unsigned long                  dstx, dsty;
+	unsigned long                  dst_sizex, dst_sizey;     /* blt size */
+	int			       dst_format;             /* dest format */
+	/* size of dest surface in pixels */
+	unsigned long                  dst_surfwidth;
+	/* size of dest surface in pixels */
+	unsigned long                  dst_surfheight;
+	/* source mem, (source fields are also used for patterns) */
+	struct ble_meminfo             *smeminfo;
+	/* signed stride, the number of bytes from pixel 0,0 to 0,1 */
+	unsigned long                  src_stride;
+	/* pixel offset from start of surface to start of source rectangle */
+	long                           srcx, srcy;
+	/* source rectangle size or pattern size in pixels */
+	unsigned long                  src_sizex, src_sizey;
+	int                            src_format;        /* source format */
+	/* size of source surface in pixels */
+	unsigned long                  src_surfwidth;
+	/* size of source surface in pixels */
+	unsigned long                  src_surfheight;
+	bool                           src_exist;
+	/* pattern memory containing argb8888 color table */
+	struct ble_meminfo             *pat_meminfo;
+	unsigned long                  patx, paty;
+	unsigned long                  pat_sizex, patsizey;
+	/* byte offset from start of allocation to start of pattern */
+	unsigned long                  patoffset;
+	bool                           pat_exist;
+	bool                           need_synclast;
+};
+
+#define BLE_MAX_BLIT_CMD_SIZE  0x40
+
+#define RING_BUF_SIZE            (64*1024UL)
+#define RING_BUF_ALIGNMENT       0x8
+#define RINGBUFFULLGAP           0x4
+
+static inline unsigned long convert_rgb565to8888(unsigned long color)
 {
-    BLE2D_OK                            =  0,
-    BLE2DERROR_INVALID_PARAMETER        = -1,
-    BLE2DERROR_DEVICE_UNAVAILABLE       = -2,
-    BLE2DERROR_INVALID_CONTEXT          = -3,
-    BLE2DERROR_MEMORY_UNAVAILABLE       = -4,
-    BLE2DERROR_DEVICE_NOT_PRESENT       = -5,
-    BLE2DERROR_IOCTL_ERROR              = -6,
-    BLE2DERROR_GENERIC_ERROR            = -7,
-    BLE2DERROR_BLT_NOTCOMPLETE          = -8,
-    BLE2DERROR_HW_FEATURE_NOT_SUPPORTED = -9,
-    BLE2DERROR_NOT_YET_IMPLEMENTED      = -10,
-    BLE2DERROR_MAPPING_FAILED           = -11
-}BLE2DERROR;
-
-typedef struct _BLE2DRECTL
-{
-    LONG  left;
-    LONG  top;
-    LONG  right;
-    LONG  bottom;
-}BLE2DRECT,BLE2DRECTL;
-
-typedef struct _BLE2DBLTINFO
-{
-    ULONG                  ROP3;                  /* rop3 code  */
-    ULONG                  FillColor;             /* fill color */
-    ULONG                  ColorKey;              /* color key in argb8888 fromat */
-    UCHAR                  GlobalAlpha;           /* global alpha blending */
-    UCHAR                  AlphaBlendFunc;        /* per-pixel alpha-blending function */
-    ULONG                  NumClipRect;
-    BLE2DRECTL             *pBleClipRect;
-    BLE2DBLITFLAGS         BlitFlags;             /* additional blit control information */
-
-    BLE2DMEMINFO           *pDstMemInfo;          /* destination memory */
-    ULONG                  DstStride;             /* signed stride, the number of bytes from pixel 0,0 to 0,1 */
-    ULONG                  DstX, DstY;            /* pixel offset from start of dest surface to start of blt rectangle */
-    ULONG                  DstSizeX,DstSizeY;     /* blt size */
-    BLE2DFORMAT            DstFormat;             /* dest format */
-    ULONG                  DstSurfWidth;          /* size of dest surface in pixels */
-    ULONG                  DstSurfHeight;         /* size of dest surface in pixels */
-
-    BLE2DMEMINFO           *pSrcMemInfo;          /* source mem, (source fields are also used for patterns) */
-    ULONG                  SrcStride;             /* signed stride, the number of bytes from pixel 0,0 to 0,1 */
-    LONG                   SrcX, SrcY;            /* pixel offset from start of surface to start of source rectangle */
-    ULONG                  SrcSizeX,SrcSizeY;     /* source rectangle size or pattern size in pixels */
-    BLE2DFORMAT            SrcFormat;             /* source format */
-    ULONG                  SrcSurfWidth;          /* size of source surface in pixels */
-    ULONG                  SrcSurfHeight;         /* size of source surface in pixels */
-    BOOL                   bSrcExist;
-
-    BLE2DMEMINFO           *pPatMemInfo;          /* pattern memory containing argb8888 color table */
-    ULONG                  PatX,PatY;
-    ULONG                  PatSizeX,PatSizeY;
-    ULONG                  PatOffset;             /* byte offset from start of allocation to start of pattern */
-    BOOL                   bPatExist;
-    BOOL                   bNeedSyncLast;
-}BLE2DBLTINFO, *PBLE2DBLTINFO;
-
-#define BLE2D_MAX_BLIT_CMD_SIZE  0x40
-
-#define RING_BUF_SIZE         (64*1024UL)
-#define RING_BUF_ALIGNMENT           0x8
-#define RINGBUFFULLGAP               0x4
-
-static ULONG INLINE ConvertRGB565to8888(ULONG color)
-{
-    return ((((color >> 8) & 0xF8UL) | ((color >> 13)& 0x7UL)) << 16 | // R
-            (((color >> 3) & 0xFCUL) | ((color >>  9)& 0x3UL)) <<  8 | // G
-            (((color << 3) & 0xF8UL) | ((color >>  2)& 0x7UL)));// B
+	/* R | G I B */
+	return (((color >> 8) & 0xF8UL) | ((color >> 13) & 0x7UL)) << 16 |
+		(((color >> 3) & 0xFCUL) | ((color >>  9) & 0x3UL)) <<  8 |
+		(((color << 3) & 0xF8UL) | ((color >>  2) & 0x7UL));
 }
 
-#define BLE2D_PATTERN_WIDTH         0x08
-#define BLE2D_PATTERN_HEIGHT        0x08
-#define BLE2D_PATTERN_STEP          0x04
-#define BLE2D_PATTERN_STRIDE        (BLE2D_PATTERN_STEP   * BLE2D_PATTERN_WIDTH)
-#define BLE2D_PATTERN_SIZE          (BLE2D_PATTERN_STRIDE * BLE2D_PATTERN_HEIGHT)
+#define BLE_PATTERN_WIDTH       0x08
+#define BLE_PATTERN_HEIGHT      0x08
+#define BLE_PATTERN_STEP        0x04
+#define BLE_PATTERN_STRIDE      (BLE_PATTERN_STEP   * BLE_PATTERN_WIDTH)
+#define BLE_PATTERN_SIZE        (BLE_PATTERN_STRIDE * BLE_PATTERN_HEIGHT)
 
 #define MAX_PATTERN_BUF_RESERVED   0x400
 
-typedef struct _BLE2DCONTEXT
-{
-   BLE2DOPERATIONMODE      ble2dOPMode;
-   BLE2DMEMINFO            *pReservedPatSurf[MAX_PATTERN_BUF_RESERVED];
-   UINT32                  CurPatBufIndex;
-   SYNC_OBJECT             SyncObject;
-   BYTE                    *pBleRegs;
-   union
-   {
-   struct
-   {
-       RINGBUFINFO             RingBuf;
-       UINT32                  RingBufSizeLeftInDW;
-       UINT32                  *pRingBufWtPtr;
-       FENCEBUFINFO            FenceBuf;
-   } CmdMode;
-   } Mode;
-}BLE2DCONTEXT;
+struct ble_context {
+	int                  ble_op_mode;
+	struct ble_meminfo   *patsurf[MAX_PATTERN_BUF_RESERVED];
+	u32                  cur_patbuf;
+	struct sync_object   sync_object;
+	unsigned char        *ble_regs;
+	struct ring_bufinfo   ringbuf;
+	/* double word aligened */
+	u32                   ringbuf_size_left;
+	u32                   *ringbuf_wtptr;
+	struct fence_bufinfo  fencebuf;
+};
 
 #define FENCE_BUF_SIZE       0x1000
 #define FENCE_BUF_ALIGNMENT  0x10
@@ -262,48 +257,27 @@ typedef struct _BLE2DCONTEXT
 **
 ** Function table Declare Area
 ****************************************************************************/
-typedef struct _INITMEMINFO
-{
-    UINT32  	RegBase;
-    UINT32  	MemOffset;
-    UINT32  	MemBase;
-    UINT32      MemSize;
-}BLE2DINITMEMINFO;
+struct ble_init_meminfo {
+	u32	regbase;
+	u32	memoffset;
+	u32	membase;
+	u32	memsize;
+};
 
-typedef BOOL (*PFN_BLE_INITIALIZE)(INOUT VOID **pBle2DContext, IN VOID *pInitData);
-typedef BOOL (*PFN_BLE_TERMINATE)(IN VOID *hContext);
-typedef BOOL (*PFN_BLE_CHECKBLTPARAMS)(IN VOID *GPEBltParms);
-typedef UINT32 (*PFN_BLE_BITBLT)(IN VOID *hContext, IN VOID *BltInfo);
-typedef BLE2DERROR (*PFN_BLE_QUERYBLTSTATUS)(IN VOID *pBle2DContext, IN VOID *pMemInfo, IN BOOL bWait);
-typedef VOID (*PFN_BLE_INTERRUPTROUTINE)(IN VOID *hContext);
-typedef VOID (*PFN_BLE_WAKEUP)(VOID);
-typedef VOID (*PFN_BLE_SLEEP)(VOID);
-typedef VOID (*PFN_BLE_ENABLECLOCK)(VOID);
-typedef VOID (*PFN_BLE_DISABLECLOCK)(VOID);
-typedef VOID (*PFN_BLE_RESET)(VOID);
-typedef VOID (*PFN_BLE_PRINTREGISTERS)(VOID);
+struct vdss_ble_ops {
+	bool    (*initialize)	    (void **dcontext, void *initdta);
+	bool    (*terminate)	    (void *hcontext);
+	bool    (*check_params)	    (void *parms);
+	u32     (*bitblt)	    (void *hcontext, void *bltinfo);
+	int     (*query_status)     (void *dcontext, void *meminfo, bool wait);
+	void    (*interrupt_routine)(void *hcontext);
+	void    (*wakeup)	    (void);
+	void    (*sleep)	    (void);
+	void    (*enable_clock)	    (void);
+	void    (*disable_clock)    (void);
+	void    (*reset)	    (void);
+	void    (*print_registers)  (void);
+};
 
-typedef struct _BLE_FUNCTIONTABLE
-{
-    PFN_BLE_INITIALIZE       pfnInitialize;
-    PFN_BLE_TERMINATE        pfnTerminate;
-    PFN_BLE_CHECKBLTPARAMS   pfnCheckBltParams;
-    PFN_BLE_BITBLT           pfnBitBlt;
-    PFN_BLE_QUERYBLTSTATUS   pfnQueryBltStatus;
-    PFN_BLE_INTERRUPTROUTINE pfnInterruptRoutine;
-    PFN_BLE_WAKEUP           pfnWakeup;
-    PFN_BLE_SLEEP            pfnSleep;
-    PFN_BLE_ENABLECLOCK      pfnEnableClock;
-    PFN_BLE_DISABLECLOCK     pfnDisableClock;
-    PFN_BLE_RESET            pfnReset;
-
-    /*for Debug Purpose */
-    PFN_BLE_PRINTREGISTERS   pfnPrintRegisters;
-}BLE_FUNCTIONTABLE;
-
-VOID BleSoc_GetFuncTable(INOUT BLE_FUNCTIONTABLE *pData);
-#ifdef __cplusplus
-}
-#endif
-
+void vdss_ble_install_ops(struct vdss_ble_ops *ble_ops);
 #endif

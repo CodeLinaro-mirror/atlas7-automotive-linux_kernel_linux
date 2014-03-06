@@ -39,7 +39,7 @@
 #include "CspCmnVpp.h"
 
 #ifdef SUPPORT_BLE
-#include "CspCmnBle.h"
+#include "ble_defs.h"
 #endif
 
 #include "sirfsoc_clcdc.h"
@@ -1145,14 +1145,14 @@ static int sirfsocfb_blt_yuv2rgb(struct sirfsocfb *fb, int layer,
 #ifdef SUPPORT_BLE
 
 #define MEM_INFO_ARRAY_SIZE 5
-static BLE2DMEMINFO mem_src_info[MEM_INFO_ARRAY_SIZE];
-static BLE2DMEMINFO mem_dst_info[MEM_INFO_ARRAY_SIZE];
+static struct ble_meminfo mem_src_info[MEM_INFO_ARRAY_SIZE];
+static struct ble_meminfo mem_dst_info[MEM_INFO_ARRAY_SIZE];
 static int cur_mem_info = -1;
 
 static int sirfsocfb_blt_ble(struct sirfsocfb *fb, int layer,
 	struct sirfsocfb_bltparms_ble *parms)
 {
-	BLE2DBLTINFO blt_info;
+	struct ble_bltinfo blt_info;
 
 	cur_mem_info++;
 
@@ -1160,47 +1160,47 @@ static int sirfsocfb_blt_ble(struct sirfsocfb *fb, int layer,
 		cur_mem_info = 0;
 
 	memset(&blt_info, 0, sizeof(blt_info));
-	blt_info.ROP3 = parms->rop3;
-	blt_info.FillColor = parms->fill_color;
-	blt_info.ColorKey = parms->color_key;
-	blt_info.GlobalAlpha = parms->global_alpha;
-	blt_info.AlphaBlendFunc = parms->blend_func;
-	blt_info.NumClipRect = parms->num_rects;
-	blt_info.pBleClipRect = parms->rects;
-	blt_info.BlitFlags = (parms->flags & ~BLE_BLT_WAIT_COMPLETE);
+	blt_info.rop3 = parms->rop3;
+	blt_info.fill_color = parms->fill_color;
+	blt_info.colorkey = parms->color_key;
+	blt_info.global_alpha = parms->global_alpha;
+	blt_info.blendfunc = parms->blend_func;
+	blt_info.num_cliprect = parms->num_rects;
+	blt_info.ble_cliprect = parms->rects;
+	blt_info.blt_flags = (parms->flags & ~BLE_BLT_WAIT_COMPLETE);
 
-	blt_info.pDstMemInfo = &mem_dst_info[cur_mem_info];
-	blt_info.pDstMemInfo->ulOffset = parms->dst_offset;
-	blt_info.DstStride = parms->dst_stride;
-	blt_info.DstX = parms->dstx;
-	blt_info.DstY = parms->dsty;
-	blt_info.DstSizeX = parms->dst_sizex;
-	blt_info.DstSizeY = parms->dst_sizey;
-	blt_info.DstFormat = parms->dst_fmt;
-	blt_info.DstSurfWidth = parms->dst_width;
-	blt_info.DstSurfHeight = parms->dst_height;
+	blt_info.dmeminfo = &mem_dst_info[cur_mem_info];
+	blt_info.dmeminfo->offset = parms->dst_offset;
+	blt_info.dst_stride = parms->dst_stride;
+	blt_info.dstx = parms->dstx;
+	blt_info.dsty = parms->dsty;
+	blt_info.dst_sizex = parms->dst_sizex;
+	blt_info.dst_sizey = parms->dst_sizey;
+	blt_info.dst_format = parms->dst_fmt;
+	blt_info.dst_surfwidth = parms->dst_width;
+	blt_info.dst_surfheight = parms->dst_height;
 
-	blt_info.bPatExist = FALSE;
-	blt_info.bSrcExist = FALSE;
+	blt_info.pat_exist = FALSE;
+	blt_info.src_exist = FALSE;
 
 	if (parms->src_offset > 0) {
-		blt_info.pSrcMemInfo = &mem_src_info[cur_mem_info];
-		blt_info.pSrcMemInfo->ulOffset = parms->src_offset;
-		blt_info.SrcStride = parms->src_stride;
-		blt_info.SrcX = parms->srcx;
-		blt_info.SrcY = parms->srcy;
-		blt_info.SrcSizeX = parms->src_sizex;
-		blt_info.SrcSizeY = parms->src_sizey;
-		blt_info.SrcFormat = parms->src_fmt;
-		blt_info.SrcSurfWidth = parms->src_width;
-		blt_info.SrcSurfHeight = parms->src_height;
-		blt_info.bSrcExist = TRUE;
+		blt_info.smeminfo = &mem_src_info[cur_mem_info];
+		blt_info.smeminfo->offset = parms->src_offset;
+		blt_info.src_stride = parms->src_stride;
+		blt_info.srcx = parms->srcx;
+		blt_info.srcy = parms->srcy;
+		blt_info.src_sizex = parms->src_sizex;
+		blt_info.src_sizey = parms->src_sizey;
+		blt_info.src_format = parms->src_fmt;
+		blt_info.src_surfwidth = parms->src_width;
+		blt_info.src_surfheight = parms->src_height;
+		blt_info.src_exist = TRUE;
 	}
 
 	if (parms->flags & BLE_BLT_WAIT_COMPLETE)
-		blt_info.bNeedSyncLast = TRUE;
+		blt_info.need_synclast = TRUE;
 
-	fb->ble_func.pfnBitBlt(fb->ble_context, &blt_info);
+	fb->ble_func.bitblt(fb->ble_context, &blt_info);
 
 	return 0;
 }
@@ -1211,7 +1211,7 @@ static int sirfsocfb_blt_ble_complete(struct sirfsocfb *fb, int layer,
 	if (cur_mem_info == -1)
 		return 0;
 	else
-		return fb->ble_func.pfnQueryBltStatus(fb->ble_context,
+		return fb->ble_func.query_status(fb->ble_context,
 			&mem_dst_info[cur_mem_info], wait);
 }
 
@@ -1980,7 +1980,7 @@ static irqreturn_t sirfsocfb_ble_irq_handler(int irq, void *data)
 {
 	struct sirfsocfb *fb = (struct sirfsocfb *)data;
 
-	fb->ble_func.pfnInterruptRoutine(fb->ble_context);
+	fb->ble_func.interrupt_routine(fb->ble_context);
 
 	return IRQ_HANDLED;
 }
@@ -1988,7 +1988,7 @@ static irqreturn_t sirfsocfb_ble_irq_handler(int irq, void *data)
 static int sirfsocfb_setup_ble(struct sirfsocfb *fb)
 {
 	struct platform_device *pdev = fb->dev;
-	BLE2DINITMEMINFO mem_info;
+	struct ble_init_meminfo mem_info;
 	int ret;
 	struct device_node *np;
 	const struct of_device_id sirfsoc_ble_tbl[] = {
@@ -2032,15 +2032,15 @@ static int sirfsocfb_setup_ble(struct sirfsocfb *fb)
 		goto err_free;
 	}
 
-	BleSoc_GetFuncTable(&fb->ble_func);
+	vdss_ble_install_ops(&fb->ble_func);
 	clk_prepare_enable(fb->ble_clk);
 
-	mem_info.RegBase = (unsigned int)fb->ble_base;
-	mem_info.MemBase = (unsigned int)fb->ble_mem_base;
-	mem_info.MemOffset = (unsigned int)fb->ble_mem_offset;
-	mem_info.MemSize = fb->ble_mem_size;
+	mem_info.regbase = (unsigned int)fb->ble_base;
+	mem_info.membase = (unsigned int)fb->ble_mem_base;
+	mem_info.memoffset = (unsigned int)fb->ble_mem_offset;
+	mem_info.memsize = fb->ble_mem_size;
 
-	fb->ble_func.pfnInitialize(&fb->ble_context, &mem_info);
+	fb->ble_func.initialize(&fb->ble_context, &mem_info);
 
 	if (request_irq(fb->ble_irq, sirfsocfb_ble_irq_handler, 0,
 		"SIRFSOC-BLE", fb)) {
@@ -2452,7 +2452,7 @@ static int sirfsocfb_suspend(struct device *dev)
 
 #ifdef SUPPORT_BLE
 	disable_irq(fb->ble_irq);
-	fb->ble_func.pfnSleep();
+	fb->ble_func.sleep();
 	clk_disable(fb->ble_clk);
 #endif
 	disable_irq(fb->irq);
@@ -2472,7 +2472,7 @@ static int sirfsocfb_resume(struct device *dev)
 
 #ifdef SUPPORT_BLE
 	clk_enable(fb->ble_clk);
-	fb->ble_func.pfnWakeup();
+	fb->ble_func.wakeup();
 	enable_irq(fb->ble_irq);
 #endif
 	clk_enable(fb->clk);
@@ -2494,7 +2494,7 @@ static int sirfsocfb_freeze(struct device *dev)
 
 #ifdef SUPPORT_BLE
 	disable_irq(fb->ble_irq);
-	fb->ble_func.pfnSleep();
+	fb->ble_func.sleep();
 	clk_disable(fb->ble_clk);
 #endif
 	disable_irq(fb->irq);
@@ -2530,7 +2530,7 @@ static int sirfsocfb_restore(struct device *dev)
 
 #ifdef SUPPORT_BLE
 	clk_enable(fb->ble_clk);
-	fb->ble_func.pfnWakeup();
+	fb->ble_func.wakeup();
 	enable_irq(fb->ble_irq);
 #endif
 	/* For Android hibernation, there is no need to enable lcd clock here
