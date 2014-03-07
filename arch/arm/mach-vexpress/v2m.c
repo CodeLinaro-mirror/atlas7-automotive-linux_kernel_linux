@@ -98,6 +98,20 @@ static void __init v2m_sp804_init(void __iomem *base, unsigned int irq)
 #endif
 }
 
+static struct resource v2m_remoteproc_resources[] = {
+	{
+		.start	= CSRVISOR_VIRTIO_BUS_PHY_BASE,
+		.end	= CSRVISOR_VIRTIO_BUS_PHY_BASE + 0x200000,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device v2m_remoteproc_device = {
+	.name		= "csrvisor-remoteproc",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(v2m_remoteproc_resources),
+	.resource	= v2m_remoteproc_resources,
+};
 
 static struct resource v2m_pcie_i2c_resource = {
 	.start	= V2M_SERIAL_BUS_PCI,
@@ -407,6 +421,7 @@ static void __init v2m_init(void)
 	platform_device_register(&v2m_cf_device);
 	platform_device_register(&v2m_eth_device);
 	platform_device_register(&v2m_usb_device);
+	platform_device_register(&v2m_remoteproc_device);
 
 	for (i = 0; i < ARRAY_SIZE(v2m_amba_devs); i++)
 		amba_device_register(v2m_amba_devs[i], &iomem_resource);
