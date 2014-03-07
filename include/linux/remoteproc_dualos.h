@@ -46,8 +46,7 @@
 #define MMIO_PRIV_SIZE		(RPROC_VDEV_MMIO_SIZE - 0x1C)
 
 /* Access virtio device features */
-#define MMIO_DFEATURES		(RPROC_VDEV_MMIO_SIZE)
-#define MMIO_GFEATURES		(RPROC_VDEV_MMIO_SIZE + 1)
+#define MMIO_FEATURES		(RPROC_VDEV_MMIO_SIZE)
 
 /* return vq or vdev notify id */
 #define GET_NOTIFY_ID(x)    ((x) & 0x0000FFFF)

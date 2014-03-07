@@ -492,7 +492,7 @@ static void rproc_virtio_finalize_features(struct virtio_device *vdev)
 		if (RPROC_HAS_FEATURE(rproc, RPROC_F_FRONTEND))
 			rproc->ops->kick(rproc,
 				MK_DEV_NOTIFYID(rvdev->notifyid,
-						MMIO_GFEATURES));
+						MMIO_FEATURES));
 	}
 }
 
@@ -505,18 +505,6 @@ static void rproc_virtio_get(struct virtio_device *vdev, unsigned offset,
 	void *cfg;
 
 	rsc = (void *)rvdev->rproc->table_ptr + rvdev->rsc_offset;
-
-	if (offset == MMIO_DFEATURES) {
-		len = (sizeof(rsc->dfeatures) > len)
-			? len : sizeof(rsc->dfeatures);
-		memcpy(buf, &rsc->dfeatures, len);
-		return;
-	} else if (offset == MMIO_GFEATURES) {
-		len = (sizeof(rsc->gfeatures) > len)
-			? len : sizeof(rsc->gfeatures);
-		memcpy(buf, &rsc->gfeatures, len);
-		return;
-	}
 
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DYNAMIC_VQ))
 		cfg = &rsc->vring[RPROC_VDEV_MAX_VRING_NUM];
