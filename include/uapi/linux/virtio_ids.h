@@ -40,4 +40,10 @@
 #define VIRTIO_ID_RPROC_SERIAL 11 /* virtio remoteproc serial link */
 #define VIRTIO_ID_CAIF	       12 /* Virtio caif */
 
+/* CSR Private VIRTIO DEVICE IDs */
+#define VIRTIO_ID_CSR_BASE	0x1000
+
+/* virtio i2c */
+#define VIRTIO_ID_I2C		(VIRTIO_ID_CSR_BASE | 0x01)
+
 #endif /* _LINUX_VIRTIO_IDS_H */

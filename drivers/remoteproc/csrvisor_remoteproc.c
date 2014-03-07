@@ -20,6 +20,7 @@
 #ifdef CONFIG_CSRVISOR_REMOTEPROC_BACKEND
 #include <linux/virtio_ids.h>
 #include <linux/rpmsg.h>
+#include <linux/virtio_i2c.h>
 #endif
 
 #include "remoteproc_internal.h"
@@ -307,12 +308,26 @@ static struct rpmsg_channel_descriptor s_rpmsg_channels[] = {
 	{ "rpmsg-client-sample", 0x1234, RPMSG_ADDR_ANY, {0, 0} },
 };
 
+/* This table defined the virtio i2c adapter descriptors */
+static struct virtio_i2c_desc s_virtio_i2c_descs[] = {
+	{ 0, "CSR Virtual I2C Adapter#0" },
+	{ 1, "CSR Virtual I2C Adapter#1" },
+};
+
 /* This table defined the virtio device will be create on remoteproc bus */
 static struct rproc_vdev_desc s_rproc_vdev_desc[] = {
 	/* virtio rpmsg bus device descriptor */
 	{ VIRTIO_ID_RPMSG, 2, 256, { VIRTIO_RPMSG_F_NS, }, 1,
 		RPROC_VDEV_MMIO_SIZE,
 		s_rpmsg_channels, ARRAY_SIZE(s_rpmsg_channels) },
+	/* virtio i2c device#0 descriptor */
+	{ VIRTIO_ID_I2C, 1, 256, { VIRTIO_RING_F_INDIRECT_DESC, }, 1,
+		RPROC_VDEV_MMIO_SIZE,
+		&s_virtio_i2c_descs[0], sizeof(struct virtio_i2c_desc) },
+	/* virtio i2c device#1 descriptor */
+	{ VIRTIO_ID_I2C, 1, 256, { VIRTIO_RING_F_INDIRECT_DESC, }, 1,
+		RPROC_VDEV_MMIO_SIZE,
+		&s_virtio_i2c_descs[1], sizeof(struct virtio_i2c_desc) },
 };
 #endif
 
