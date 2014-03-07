@@ -240,12 +240,12 @@ struct ble_context {
 	struct ble_meminfo   *patsurf[MAX_PATTERN_BUF_RESERVED];
 	u32                  cur_patbuf;
 	struct sync_object   sync_object;
-	unsigned char        *ble_regs;
-	struct ring_bufinfo   ringbuf;
+	void __iomem	     *ble_reg_base;
+	struct ring_bufinfo  ringbuf;
 	/* double word aligened */
-	u32                   ringbuf_size_left;
-	u32                   *ringbuf_wtptr;
-	struct fence_bufinfo  fencebuf;
+	u32                  ringbuf_size_left;
+	u32                  *ringbuf_wtptr;
+	struct fence_bufinfo fencebuf;
 };
 
 #define FENCE_BUF_SIZE       0x1000
@@ -258,10 +258,10 @@ struct ble_context {
 ** Function table Declare Area
 ****************************************************************************/
 struct ble_init_meminfo {
-	u32	regbase;
-	u32	memoffset;
-	u32	membase;
-	u32	memsize;
+	void __iomem	*regbase;
+	u32		memoffset;
+	u32		membase;
+	u32		memsize;
 };
 
 struct vdss_ble_ops {

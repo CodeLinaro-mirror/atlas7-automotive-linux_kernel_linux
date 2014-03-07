@@ -7,10 +7,10 @@
  * Licensed under GPLv2 or later.
 */
 
-#include "ble_defs.h"
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include "ble_defs.h"
 
 static bool first_cmd = true;
 
@@ -67,7 +67,7 @@ static u32 *__ble_get_ringbuf_space(struct ble_context *dcontext,
 	/* Wrap around */
 	virtual = dcontext->ringbuf.virtual;
 	if ((dcontext->ringbuf_wtptr + submit_size) >=
-	    (virtual + dcontext->ringbuf.size)) {
+	    ((u32 *)virtual + dcontext->ringbuf.size)) {
 		int tmp1 = (int) dcontext->ringbuf_size_left;
 		int tmp2 = (int) submit_size;
 		/* Wait for enough ringbuffer space */
@@ -771,7 +771,7 @@ static bool ble_initialize(void **dcontext, void *initdata)
 
 	context->cur_patbuf = 0;
 
-	context->ble_regs = meminfo->regbase;
+	context->ble_reg_base = meminfo->regbase;
 
 	context->ringbuf.offset =
 	    (meminfo->memoffset + RING_BUF_ALIGNMENT - 1) &

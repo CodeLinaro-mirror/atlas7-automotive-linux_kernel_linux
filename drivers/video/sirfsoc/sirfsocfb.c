@@ -1166,7 +1166,7 @@ static int sirfsocfb_blt_ble(struct sirfsocfb *fb, int layer,
 	blt_info.global_alpha = parms->global_alpha;
 	blt_info.blendfunc = parms->blend_func;
 	blt_info.num_cliprect = parms->num_rects;
-	blt_info.ble_cliprect = parms->rects;
+	blt_info.ble_cliprect = (struct ble_rect *)parms->rects;
 	blt_info.blt_flags = (parms->flags & ~BLE_BLT_WAIT_COMPLETE);
 
 	blt_info.dmeminfo = &mem_dst_info[cur_mem_info];
@@ -2035,7 +2035,7 @@ static int sirfsocfb_setup_ble(struct sirfsocfb *fb)
 	vdss_ble_install_ops(&fb->ble_func);
 	clk_prepare_enable(fb->ble_clk);
 
-	mem_info.regbase = (unsigned int)fb->ble_base;
+	mem_info.regbase = fb->ble_base;
 	mem_info.membase = (unsigned int)fb->ble_mem_base;
 	mem_info.memoffset = (unsigned int)fb->ble_mem_offset;
 	mem_info.memsize = fb->ble_mem_size;

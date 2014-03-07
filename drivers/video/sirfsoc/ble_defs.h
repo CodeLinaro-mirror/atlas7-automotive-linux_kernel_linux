@@ -10,9 +10,9 @@
 #ifndef __SIRFSOC_BLE_DEFS_H
 #define __SIRFSOC_BLE_DEFS_H
 
-#include "CspSocBleInternal.h"
-#include "CspCmnBle.h"
-#include <asm/io.h>
+#include <linux/io.h>
+#include "ble_regs.h"
+#include "vdss_ble.h"
 
 static inline u32 set_ble_register(u32 start_offset, u32 num_reg)
 {
@@ -23,13 +23,13 @@ static inline u32 set_ble_register(u32 start_offset, u32 num_reg)
 
 static inline u32 ble_read_reg(struct ble_context *dcontext, u32 offset)
 {
-	return readl(dcontext->ble_regs + offset);
+	return readl(dcontext->ble_reg_base + offset);
 }
 
 static inline void ble_write_reg(struct ble_context *dcontext,
 				 u32 offset, u32 value)
 {
-	writel(value, dcontext->ble_regs + offset);
+	writel(value, dcontext->ble_reg_base + offset);
 }
 
 struct ble_registers {
