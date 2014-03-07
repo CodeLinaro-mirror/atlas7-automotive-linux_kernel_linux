@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef CSP_CMN_BLE_H
-#define CSP_CMN_BLE_H
+#ifndef __SIRFSOC_VDSS_BLE_H
+#define __SIRFSOC_VDSS_BLE_H
 
 #include <linux/kernel.h>
 #include "ble_defs.h"

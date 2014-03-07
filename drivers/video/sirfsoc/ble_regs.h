@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef CSP_SOC_BLE_INTERNAL_H
-#define CSP_SOC_BLE_INTERNAL_H
+#ifndef __SIRFSOC_BLE_REGS_H
+#define __SIRFSOC_BLE_REGS_H
 
 /***************************************************************************
 **

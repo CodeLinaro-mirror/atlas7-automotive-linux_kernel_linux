@@ -159,7 +159,7 @@ static int __ble_wait_complete(struct ble_context *dcontext,
 	if (!wait_complete)
 		return BLE_ERR_BLT_NOTCOMPLETE;
 
-	while (1) {
+	while (true) {
 		cur_syncid = *(u32 *) (sync_object->viraddr);
 		count++;
 		if (cur_syncid >= dsyncid || ((int) (dsyncid -
@@ -557,7 +557,7 @@ static u32 __ble2d_bitblt(struct ble_context *dcontext,
 
 	if (wait_complete) {
 		u32 counter = 0;
-		while (1) {
+		while (true) {
 			uint fenceid = dcontext->sync_object.cur_syncid - 1;
 			if (*(uint *) dcontext->sync_object.viraddr >= fenceid)
 				break;
