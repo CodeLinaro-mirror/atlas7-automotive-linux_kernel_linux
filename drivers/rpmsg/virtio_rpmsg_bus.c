@@ -49,7 +49,7 @@
 
 /* RPMSG customized MMIO */
 /* This MMIO space store the rpmsg memory pool's physical address */
-#define RPMSG_MMIO_MEMPOOL	0x00
+#define RPMSG_MMIO_MEMPOOL	MMIO_CONFIG_BASE
 
 /**
  * struct virtproc_info - virtual remote processor state
