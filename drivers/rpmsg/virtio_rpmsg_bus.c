@@ -1159,19 +1159,10 @@ static int rpmsg_mmio(struct virtio_device *vdev, u32 offset)
 		dev_dbg(&vdev->dev, "Frontend VQ had been ready!\n");
 		break;
 
+	case MMIO_FEATURES:
 	case MMIO_BACK_ONLINE:
-		break;
-
 	case MMIO_BACK_OFFLINE:
 	case MMIO_FRONT_OFFLINE:
-		break;
-
-	case MMIO_DFEATURES:
-		value_u = virtio_cread32(vdev, MMIO_DFEATURES);
-		break;
-
-	case MMIO_GFEATURES:
-		value_u = virtio_cread32(vdev, MMIO_GFEATURES);
 		break;
 
 	/*************** Customized MMIO Handlers *******************/
