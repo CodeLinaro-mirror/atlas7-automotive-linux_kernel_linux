@@ -17,42 +17,45 @@
 
 /*
 *                         NOTIFYID 32 bits
-* x x xx xxxx
-* | |  |   |--------- bit(0~15)  vq id in VQ TYPE, VDEV ID in VDEV TYPE,
-* | |  |              reserved in VBUS TYPE.
-* | |  |------------- bit(16~23) declare the MMIO offset in VDEV TYPE
-* | |---------------- bit(24~27) MMIO offset >= 256, access VDEV features
-* |------------------ bit(28~31) NOTIFYID TYPE (0:VQ, 2:VBUS, 4:VDEV)
+* x xxx xxxx
+* |  |   |--------- bit(0~15)  vq id in VQ TYPE, VDEV ID in VDEV TYPE,
+* |  |------------- bit(16~27) MMIO offset 0 ~ 0xFFF
+* |---------------- bit(28~31) NOTIFYID TYPE (0:VQ, 2:VBUS, 4:VDEV)
 */
 #define RPROC_VDEV_MAX_VRING_NUM	32
 #define RPROC_VRING_ALIGN_PAGE		4096
-#define RPROC_VDEV_MMIO_SIZE		256
+#define RPROC_VDEV_MMIO_SIZE		4096
 
+/* the version of this mmio space */
+#define MMIO_VERSION		0x00
+/* the features of vdev */
+#define MMIO_FEATURES		0x04
 /* virtqueue had been configed in backend, included shared-memory for vring.
  * notify backend to config its virtqueue. */
-#define MMIO_FRONT_VQ_READY	(RPROC_VDEV_MMIO_SIZE - 0x4)
+#define MMIO_FRONT_VQ_READY	0x08
 /* frontend had been configed, notify backend that it's online */
-#define MMIO_FRONT_ONLINE	(RPROC_VDEV_MMIO_SIZE - 0x8)
+#define MMIO_FRONT_ONLINE	0x0C
 /* frontend is going to be offline, notify backend to cleanup
  * resource. */
-#define MMIO_FRONT_OFFLINE	(RPROC_VDEV_MMIO_SIZE - 0xC)
+#define MMIO_FRONT_OFFLINE	0x10
 /* backend had been configed, notify frontend that it's online */
-#define MMIO_BACK_ONLINE	(RPROC_VDEV_MMIO_SIZE - 0x10)
+#define MMIO_BACK_ONLINE	0x14
 /* backend is offline */
-#define MMIO_BACK_OFFLINE	(RPROC_VDEV_MMIO_SIZE - 0x14)
+#define MMIO_BACK_OFFLINE	0x18
 /* the private data address of rproc vdev */
-#define MMIO_PRIV_DATA		(RPROC_VDEV_MMIO_SIZE - 0x18)
+#define MMIO_PRIV_DATA		0x1C
 /* the size of private data */
-#define MMIO_PRIV_SIZE		(RPROC_VDEV_MMIO_SIZE - 0x1C)
-
-/* Access virtio device features */
-#define MMIO_FEATURES		(RPROC_VDEV_MMIO_SIZE)
+#define MMIO_PRIV_SIZE		0x20
+/* the last RPROC common MMIO offset,
+ * the vdev customized MMIO could use this offset as start base
+ */
+#define MMIO_CONFIG_BASE	0x24
 
 /* return vq or vdev notify id */
 #define GET_NOTIFY_ID(x)    ((x) & 0x0000FFFF)
 
 /* return MMIO offset */
-#define GET_MMIO_OFFSET(x)  (((x) >> 16) & 0x000001FF)
+#define GET_MMIO_OFFSET(x)  (((x) >> 16) & 0x00000FFF)
 
 /* is a vq notify */
 #define IS_VQ_NOTIFY(x)     (!((x) & 0xF0000000))
@@ -65,14 +68,7 @@
 #define MK_BUS_NOTIFYID(x)    (((x) & 0xFFFF) | 0x20000000)
 /* combine a vdev notify id */
 #define MK_DEV_NOTIFYID(x, y) \
-(((x) & 0xFFFF) | (((y) & 0x1FF) << 16) | 0x40000000)
-
-#define ADD_DEVICE_ID(x)	(((x) & 0x7FFF) | 0x8000)
-#define DEL_DEVICE_ID(x)	((x) & 0x7FFF)
-
-#define IS_ADD_DEVICE_ID(x)	((x) & 0x8000)
-#define IS_DEL_DEVICE_ID(x)	(!IS_ADD_DEVICE_ID(x))
-#define GET_NOTIFY_DEVICE_ID(x)	((x) & 0x7FFF)
+(((x) & 0xFFFF) | (((y) & 0xFFF) << 16) | 0x40000000)
 
 #define RPROC_VDEV_MIN_ID   0x20
 #define RPROC_VRING_MIN_ID  0x80
