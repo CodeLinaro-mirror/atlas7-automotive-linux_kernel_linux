@@ -1510,13 +1510,7 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	rproc->features = features;
 
 	device_initialize(&rproc->dev);
-	if (features & RPROC_F_FIRMWARE)
-		rproc->dev.parent = dev;
-	else
-		/* Just a walkaround, we'll fix this when sirf remoteproc
-		 * use a platform device
-		 */
-		rproc->dev.parent = NULL;
+	rproc->dev.parent = dev;
 	rproc->dev.type = &rproc_type;
 
 	/* Assign a unique device index and name.
