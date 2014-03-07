@@ -5,17 +5,12 @@
  *
  * Licensed under GPLv2 or later.
  */
-
-#include <linux/bitops.h>
-#include <linux/clk.h>
-#include <linux/err.h>
-#include <linux/interrupt.h>
-#include <linux/kthread.h>
-#include <linux/io.h>
-#include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
+#include <linux/kthread.h>
+#include <linux/of.h>
 
 #include <linux/remoteproc.h>
 #include <linux/remoteproc_dualos.h>
@@ -51,9 +46,6 @@ struct smc_task {
 	struct list_head node;
 	u32 id;
 };
-
-static struct csrvisor_rproc *s_csrvisor_rproc;
-static struct device s_csrvisor_rproc_dev;
 
 /**
  * struct csrvisor_rproc - csrvisor remote processor instance state
@@ -458,18 +450,19 @@ static int csrvisor_rproc_kick_thread_on_tcpu(void *data)
 }
 #endif
 
-static int csrvisor_rproc_probe(void)
+static int __csrvisor_rproc_probe(struct platform_device *pdev)
 {
 	struct csrvisor_rproc *srproc;
 	struct rproc *rproc;
 	int ret;
 
-	/*
-	 * In the future, we will use the platform device
-	 * to replace s_csrvisor_rproc_dev
-	 */
-	device_initialize(&s_csrvisor_rproc_dev);
-	rproc = rproc_alloc(&s_csrvisor_rproc_dev, "csrvisor_rproc#0",
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(&pdev->dev, "dma_set_coherent_mask: %d\n", ret);
+		return ret;
+	}
+
+	rproc = rproc_alloc(&pdev->dev, "csrvisor_rproc#0",
 			&csrvisor_rproc_ops, NULL, sizeof(*srproc));
 	if (!rproc)
 		return -ENOMEM;
@@ -518,10 +511,10 @@ static int csrvisor_rproc_probe(void)
 	kthread_bind(s_kick_thread_on_tcpu, T_CPU);
 	wake_up_process(s_kick_thread_on_tcpu);
 #endif
+	platform_set_drvdata(pdev, rproc);
+
 	/* Enable SW FIFO IRQ */
 	fifo_register_write(srproc, SW_FIFO_IRQ_CTRL_REG, 1);
-
-	s_csrvisor_rproc = srproc;
 
 	ret = rproc_add(rproc);
 	if (ret) {
@@ -530,7 +523,6 @@ static int csrvisor_rproc_probe(void)
 	}
 
 	return 0;
-
 
 free_alloc_irq:
 	free_irq(srproc->irq, rproc);
@@ -544,16 +536,17 @@ free_rproc:
 #if defined(CONFIG_SMP) && defined(CONFIG_CSRVISOR_REMOTEPROC_FRONTEND)
 static int csrvisor_rproc_init_thread_on_tcpu(void *data)
 {
-	s_rproc_init_result = csrvisor_rproc_probe();
+	struct platform_device *pdev = (struct platform_device *)data;
+	s_rproc_init_result = __csrvisor_rproc_probe(pdev);
 	s_rproc_init_status = true;
 	wake_up(&s_rproc_init_wq);
 	return 0;
 }
 #endif
 
-static int csrvisor_rproc_remove(void)
+static int csrvisor_rproc_remove(struct platform_device *pdev)
 {
-	struct rproc *rproc = s_csrvisor_rproc->rproc;
+	struct rproc *rproc = platform_get_drvdata(pdev);
 
 	rproc_del(rproc);
 	rproc_put(rproc);
@@ -562,13 +555,11 @@ static int csrvisor_rproc_remove(void)
 	if (s_kick_thread_on_tcpu)
 		kthread_stop(s_kick_thread_on_tcpu);
 #endif
-	s_csrvisor_rproc = NULL;
 	return 0;
 }
 
-static int csrvisor_rproc_init(void)
+static int csrvisor_rproc_probe(struct platform_device *pdev)
 {
-	pr_info("Init csrvisor remoteproc.\n");
 #if defined(CONFIG_SMP) && defined(CONFIG_CSRVISOR_REMOTEPROC_FRONTEND)
 	if (smp_processor_id() != T_CPU) {
 		pr_info("Place initialization to TrustZone enabled CPU.\n");
@@ -579,7 +570,7 @@ static int csrvisor_rproc_init(void)
 
 		s_init_thread_on_tcpu = kthread_create(
 					csrvisor_rproc_init_thread_on_tcpu,
-					NULL, "rproc_smc_task/%d", T_CPU);
+					pdev, "rproc_smc_task/%d", T_CPU);
 		if (IS_ERR(s_init_thread_on_tcpu)) {
 			pr_err("%s:Put task to CPU#0 failed!\n", __func__);
 			return PTR_ERR(s_init_thread_on_tcpu);
@@ -595,16 +586,26 @@ static int csrvisor_rproc_init(void)
 		return s_rproc_init_result;
 	}
 #endif
-	return csrvisor_rproc_probe();
+	return __csrvisor_rproc_probe(pdev);
 }
 
-static void __exit csrvisor_rproc_exit(void)
-{
-	csrvisor_rproc_remove();
-}
-module_init(csrvisor_rproc_init);
-module_exit(csrvisor_rproc_exit);
+static const struct of_device_id csrvisor_rproc_of_match[] = {
+	{ .compatible = "csr,csrvisor-remoteproc", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, csrvisor_rproc_of_match);
 
+static struct platform_driver csrvisor_rproc_driver = {
+	.probe = csrvisor_rproc_probe,
+	.remove = csrvisor_rproc_remove,
+	.driver = {
+		.name = "csrvisor-remoteproc",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(csrvisor_rproc_of_match),
+	},
+};
+
+module_platform_driver(csrvisor_rproc_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("CSRVisor Remote Processor driver");
