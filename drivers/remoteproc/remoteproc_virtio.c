@@ -553,11 +553,12 @@ static void rproc_virtio_set(struct virtio_device *vdev, unsigned offset,
 
 	memcpy(cfg + offset, buf, len);
 
-	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY))
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_UPDATE_NOTIFY)
+		|| rvdev->kick_disable)
 		return;
 
 	rproc->ops->kick(rproc,
-			MK_DEV_NOTIFYID(rvdev->notifyid, offset));
+		MK_DEV_NOTIFYID(rvdev->notifyid, offset));
 }
 
 static const struct virtio_config_ops rproc_virtio_config_ops = {

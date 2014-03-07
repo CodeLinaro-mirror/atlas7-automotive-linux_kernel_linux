@@ -49,14 +49,22 @@
 #define MMIO_DFEATURES		(RPROC_VDEV_MMIO_SIZE)
 #define MMIO_GFEATURES		(RPROC_VDEV_MMIO_SIZE + 1)
 
+/* return vq or vdev notify id */
 #define GET_NOTIFY_ID(x)    ((x) & 0x0000FFFF)
+
+/* return MMIO offset */
 #define GET_MMIO_OFFSET(x)  (((x) >> 16) & 0x000001FF)
 
+/* is a vq notify */
 #define IS_VQ_NOTIFY(x)     (!((x) & 0xF0000000))
+/* is a bus notify */
 #define IS_BUS_NOTIFY(x)    ((x) & 0x20000000)
+/* is a vdev notify */
 #define IS_DEV_NOTIFY(x)    ((x) & 0x40000000)
 
+/* combine a bus notify id */
 #define MK_BUS_NOTIFYID(x)    (((x) & 0xFFFF) | 0x20000000)
+/* combine a vdev notify id */
 #define MK_DEV_NOTIFYID(x, y) \
 (((x) & 0xFFFF) | (((y) & 0x1FF) << 16) | 0x40000000)
 
@@ -80,7 +88,6 @@
 #define RPROC_BUS_STATE_CRASHED		3
 #define RPROC_BUS_STATE_LAST		0x1F
 
-
 /* This MACRO is indicates the resource entry is unused */
 #define	RSC_NULL -1
 
@@ -95,6 +102,20 @@ struct rproc_bus_task {
 	struct list_head node;
 	struct rproc *rproc;
 	u32 notifyid;
+};
+
+static  inline void rproc_virtio_enable_notify(struct virtio_device *vdev)
+{
+	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+
+	rvdev->kick_disable = false;
+};
+
+static inline void rproc_virtio_disable_notify(struct virtio_device *vdev)
+{
+	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
+
+	rvdev->kick_disable = true;
 };
 
 #endif /* _REMOTEPROC_DUALOS_H_ */

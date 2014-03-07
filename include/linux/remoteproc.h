@@ -556,6 +556,13 @@ typedef int rproc_dev_mmio(struct virtio_device *dev, u32 offset);
  * @vdev: the virio device
  * @vring: the vrings for this vdev
  * @rsc_offset: offset of the vdev's resource entry
+ * @kick_disable: disable the device to notify remote side about device
+ *		configuration has been changed
+ * @notifyid: device configuration changed notify id
+ * @num_of_vring: how many vrings this device hold
+ * @features: the features of this device
+ * @status: device status
+ * @mmio: the handler of mmio space changed
  */
 struct rproc_vdev {
 	struct list_head node;
@@ -564,6 +571,7 @@ struct rproc_vdev {
 	struct rproc_vring vring[RVDEV_NUM_VRINGS];
 	u32 rsc_offset;
 	/* the following are used for dual os. */
+	bool kick_disable;
 	u32 notifyid;
 	u32 num_of_vring;
 	u32 features;
