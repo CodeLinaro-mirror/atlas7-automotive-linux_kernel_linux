@@ -137,7 +137,6 @@
 				pinctrl-0 = <&i2c1_pins_a>;
 				ch7102@f0 {
 					compatible = "chrontel,ch7102";
-					hp-hdmiinput-gpios = <&gpio 0 0>;
 					reg = <0xf0>;
 				};
 				tangoc-ts@5c{
