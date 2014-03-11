@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef __A7_LCDC_H__
-#define __A7_LCDC_H__
+#ifndef __SIRFSOC_LCDC_REGS_H
+#define __SIRFSOC_LCDC_REGS_H
 
 #define S0_HSYNC_PERIOD		0x0000
 #define S0_HSYNC_WIDTH		0x0004

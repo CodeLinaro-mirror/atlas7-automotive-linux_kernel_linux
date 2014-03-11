@@ -35,8 +35,8 @@
 #include <asm/cacheflush.h>
 #include <video/sirfsoc_fb.h>
 
-#include "CspCmnLcd.h"
-#include "CspCmnVpp.h"
+#include "vdss_lcdc.h"
+#include "vdss_vpp.h"
 
 #ifdef SUPPORT_BLE
 #include "ble_defs.h"

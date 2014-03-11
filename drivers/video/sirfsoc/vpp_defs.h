@@ -7,14 +7,14 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef __CSP_SOC_VPP_INTERNAL_H__
-#define __CSP_SOC_VPP_INTERNAL_H__
+#ifndef __SIRFSOC_VPP_DEFS_H
+#define __SIRFSOC_VPP_DEFS_H
 
 #include <linux/io.h>
 
-#include "CspCmnLcd.h"
-#include "CspCmnVpp.h"
-#include "VPPV2Regs.h"
+#include "vdss_lcdc.h"
+#include "vdss_vpp.h"
+#include "vpp_regs.h"
 
 struct sirfsoc_vpp_config {
 	struct vpp_parms surf_stat;

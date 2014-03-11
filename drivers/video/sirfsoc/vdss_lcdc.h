@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef CSP_CMN_LCD_H
-#define CSP_CMN_LCD_H
+#ifndef __SIRFSOC_VDSS_LCDC_H
+#define __SIRFSOC_VDSS_LCDC_H
 
 struct vdss_rect {
 	int	left;

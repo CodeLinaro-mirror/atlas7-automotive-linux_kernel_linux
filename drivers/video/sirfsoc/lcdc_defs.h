@@ -7,16 +7,16 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef __CSP_SOC_LCD_INTERNAL_H__
-#define __CSP_SOC_LCD_INTERNAL_H__
+#ifndef __SIRFSOC_LCDC_DEFS_H
+#define __SIRFSOC_LCDC_DEFS_H
 
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 
-#include "CspCmnLcd.h"
-#include "LCDV2Regs.h"
-#include "CspCmnVpp.h"
+#include "vdss_lcdc.h"
+#include "vdss_vpp.h"
+#include "lcdc_regs.h"
 
 
 struct lcdc_cursor_state {

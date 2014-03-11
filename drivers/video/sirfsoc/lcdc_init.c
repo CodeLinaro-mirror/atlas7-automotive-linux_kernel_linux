@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later.
  */
 
-#include "CspSocLcdInternal.h"
+#include "lcdc_defs.h"
 
 
 void __iomem *lcdc_regs;

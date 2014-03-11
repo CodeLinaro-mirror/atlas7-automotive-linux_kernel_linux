@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef __A7_VPP_H__
-#define __A7_VPP_H__
+#ifndef __SIRFSOC_VPP_REGS_H
+#define __SIRFSOC_VPP_REGS_H
 
 #define VPP_CTRL		0x0000
 #define VPP_YBASE		0x0004

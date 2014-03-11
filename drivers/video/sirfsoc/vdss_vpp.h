@@ -7,8 +7,8 @@
  * Licensed under GPLv2 or later.
  */
 
-#ifndef CSP_CMN_VPP_H
-#define CSP_CMN_VPP_H
+#ifndef __SIRFSOC_VDSS_VPP_H
+#define __SIRFSOC_VDSS_VPP_H
 
 
 enum vpp_deinterlace_mode {

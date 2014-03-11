@@ -11,7 +11,7 @@
 #include <linux/string.h>
 #include <linux/delay.h>
 
-#include "CspSocVppInternal.h"
+#include "vpp_defs.h"
 
 
 struct sirfsoc_vpp_config vpp_config = {

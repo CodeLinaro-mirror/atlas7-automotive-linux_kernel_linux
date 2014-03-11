@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later.
  */
 
-#include "CspSocLcdInternal.h"
+#include "lcdc_defs.h"
 
 
 static struct vdss_vpp_ops vpp_ops;
