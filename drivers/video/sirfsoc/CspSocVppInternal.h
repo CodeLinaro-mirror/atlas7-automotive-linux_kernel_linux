@@ -10,114 +10,90 @@
 #ifndef __CSP_SOC_VPP_INTERNAL_H__
 #define __CSP_SOC_VPP_INTERNAL_H__
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+#include <linux/io.h>
 
 #include "CspCmnLcd.h"
 #include "CspCmnVpp.h"
 #include "VPPV2Regs.h"
 
-typedef struct _VPPSOC_CONFIG_
-{
-    VPP_SETPARAMS_DATA sSurfaceState;
-    RECT sRectSrc;
-    RECT sRectDst;
+struct sirfsoc_vpp_config {
+	struct vpp_parms surf_stat;
+	struct vdss_rect src_rect;
+	struct vdss_rect dst_rect;
 
-    BOOL bContinueLock;
-    BOOL bShow;
-    volatile unsigned char *pVppRegs;
-    BOOL bNeedUnmap;
+	bool continue_lock;
+	bool show;
+	void __iomem *vpp_regs;
+	bool need_unmap;
 
-    UINT ui32RefCount;
-    BOOL bInitialized;
+	unsigned int ref_count;
+	bool initialized;
 
-    BOOL bValid;
-	BOOL bUserMode;
+	bool valid;
+	bool usr_mode;
 
-    BOOL bUVInterleave;
+	bool uv_interleave;
 
-    BOOL bDMAInterruptEnabled;
+	bool dma_interrupt_enabled;
 
-    VPP_COLORCTRL_DATA sClrCtrl;
-    VPP_INTERLACE_DATA sInterlace;
+	struct vpp_color_ctrl clr_ctrl;
+	struct vpp_interlace_data interlace;
 
-	INT16 i16Hue;
-	INT16 i16Saturation;
+	short hue;
+	short saturation;
 
-    DOUBLE fHScalingRatioLast;
-    DOUBLE fVScalingRatioLast;
-} VPPSOC_CONFIG;
+	double hscaling_ratio_last;
+	double vscaling_ratio_last;
+};
 
-extern VPPSOC_CONFIG gsVppConfig;
+struct sirfsoc_vpp_config vpp_config;
 
-#if 1
-typedef enum _VPP_INFORMAT_
-{
-    VPP_INFORMAT_UNKNOWN = 0,
+enum vpp_in_fomat {
+	VPP_INFORMAT_UNKNOWN = 0,
 
-    /*
-      RGB format goes here
-    */
-    VPP_INFORMAT_YUV420,
-    VPP_INFORMAT_Y0UY1V,
-    VPP_INFORMAT_Y1UY0V,
-    VPP_INFORMAT_Y0VY1U,
-    VPP_INFORMAT_Y1VY0U,
-    VPP_INFORMAT_UY0VY1,
-    VPP_INFORMAT_UY1VY0,
-    VPP_INFORMAT_VY0UY1,
-    VPP_INFORMAT_VY1UY0
-    
-}VPP_INFORMAT;
+	/* RGB format goes here */
+	VPP_INFORMAT_YUV420,
+	VPP_INFORMAT_Y0UY1V,
+	VPP_INFORMAT_Y1UY0V,
+	VPP_INFORMAT_Y0VY1U,
+	VPP_INFORMAT_Y1VY0U,
+	VPP_INFORMAT_UY0VY1,
+	VPP_INFORMAT_UY1VY0,
+	VPP_INFORMAT_VY0UY1,
+	VPP_INFORMAT_VY1UY0
+};
 
-typedef enum _VPP_OUTFORMAT_
-{
-    VPP_OUTFORMAT_UNKNOWN = 0,
+enum vpp_outformat {
+	VPP_OUTFORMAT_UNKNOWN = 0,
 
-    /*
-      RGB format goes here
-    */
-    VPP_OUTFORMAT_RGB565,
-    VPP_OUTFORMAT_RGB666,
-    VPP_OUTFORMAT_RGB888,
-    VPP_OUTFORMAT_Y0UY1V,
-    VPP_OUTFORMAT_Y1UY0V,
-    VPP_OUTFORMAT_Y0VY1U,
-    VPP_OUTFORMAT_Y1VY0U,
-    VPP_OUTFORMAT_UY0VY1,
-    VPP_OUTFORMAT_UY1VY0,
-    VPP_OUTFORMAT_VY0UY1,
-    VPP_OUTFORMAT_VY1UY0
-    
-}VPP_OUTFORMAT;
+	/* RGB format goes here */
+	VPP_OUTFORMAT_RGB565,
+	VPP_OUTFORMAT_RGB666,
+	VPP_OUTFORMAT_RGB888,
+	VPP_OUTFORMAT_Y0UY1V,
+	VPP_OUTFORMAT_Y1UY0V,
+	VPP_OUTFORMAT_Y0VY1U,
+	VPP_OUTFORMAT_Y1VY0U,
+	VPP_OUTFORMAT_UY0VY1,
+	VPP_OUTFORMAT_UY1VY0,
+	VPP_OUTFORMAT_VY0UY1,
+	VPP_OUTFORMAT_VY1UY0
+};
 
-#endif
 
 /*
-** Register operation
-*/
-static INLINE UINT32 ReadVppRegisterValue(UINT32 ui32Offset)
+ * Register operation
+ */
+static inline unsigned int vpp_read_reg(unsigned int offset)
 {
-	return (*(volatile UINT32 * const)(gsVppConfig.pVppRegs + ui32Offset));
+	return readl(vpp_config.vpp_regs + offset);
 }
 
-static INLINE VOID WriteVppRegisterValue(UINT32 ui32Offset, UINT32 ui32Value)
+static inline void vpp_write_reg(unsigned int offset, unsigned int val)
 {
-#ifdef VPP_LOG
-	LCD_MSG(("Write VPP 0x%08x=0x%08x \r\n",  ui32Offset, ui32Value));
-#endif
-	*(volatile UINT32 * const)(gsVppConfig.pVppRegs + ui32Offset) = ui32Value;
+	writel(val, vpp_config.vpp_regs + offset);
 }
 
-static INLINE UINT ALIGN_SIZE(UINT uiSize, UINT uiAlign)
-{
-	return (uiSize+uiAlign-1) & ~(uiAlign-1);
-}
-
-#if defined(__cplusplus)
-}
-#endif
 
 #endif
 

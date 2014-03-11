@@ -7,1637 +7,1250 @@
  * Licensed under GPLv2 or later.
  */
 
-#include "CspSocVppInternal.h"
-
-#if defined(_WIN32_WCE)
-#include "macros.h"
-#include <drvlib.h>
-/*
-** Global variable
-*/
-VPPSOC_CONFIG gsVppConfig = {0};
-
-CRITICAL_SECTION gsCriticalSection;
-VOID OSInitializeCriticalSection(VOID)
-{
-    InitializeCriticalSection(&gsCriticalSection);
-}
-
-VOID OSDeleteCriticalSection(VOID)
-{
-    DeleteCriticalSection(&gsCriticalSection);
-}
-
-VOID OSEnterCriticalSection(VOID)
-{
-    EnterCriticalSection(&gsCriticalSection);
-}
-
-VOID OSLeaveCriticalSection(VOID)
-{
-    LeaveCriticalSection(&gsCriticalSection);
-}
-
-VOID __VppSoc_EnableClock(VOID)
-{
-    if(!gsVppConfig.bUserMode)
-    {
-        WRITE_BITFIELD(struct clkclkenable, &(v_pClkRegs->clk_clkenable), vpp, 1);
-    }
-}
-
-VOID __VppSoc_DisableClock(VOID)
-{
-    if(!gsVppConfig.bUserMode)
-    {
-        WRITE_BITFIELD(struct clkclkenable, &(v_pClkRegs->clk_clkenable), vpp, 0);
-    }
-}
-
-VOID __VppSoc_Reset(VOID)
-{
-    if(!gsVppConfig.bUserMode)
-    {
-        WRITE_BITFIELD(struct ResetSWRBits, &v_pRstRegs->resetswrReg, vpp, 1);
-        usWait(10);
-        WRITE_BITFIELD(struct ResetSWRBits, &v_pRstRegs->resetswrReg, vpp, 0);
-        usWait(10);
-    }
-}
-
-INLINE double sinc(double x)
-{
-    double pi = 2 * asin(1.0);
-    x = x * pi;
-    if (x != 0.0)
-        return(sin(x)/x);
-    return(1.0);
-}
-
-INLINE double lanczos6(double x)
-{
-    double I = 3;
-    if (x < 0)
-        x=(-x);
-    if (x < I)
-        return(sinc(x)*sinc(x/I));
-    return(0.0);
-}
-
-INLINE double lanczos4(double x)
-{
-    double I = 2;
-    if (x < 0)
-        x=(-x);
-    if (x < I)
-        return(sinc(x)*sinc(x/I));
-    return(0.0);
-}
-
-INLINE VOID OSVppWaitms(UINT uCount)
-{
-    msWait(uCount);
-}
-
-VOID *OSMapVppRegs(VOID)
-{
-    if (CspRegMap(FALSE))
-    {
-        return (VOID*)v_pVppRegs;
-    }
-    else
-    {
-        LCD_MSG(("OSMapVppRegs: CspRegMap fail\n"));
-        return NULL;
-    }
-}
-
-VOID OSUnmapVppRegs(VOID)
-{
-    CspRegUnMap();
-}
-
-#else
+#include <linux/bug.h>
 #include <linux/string.h>
 #include <linux/delay.h>
 
-/*
-** Global variable
-*/
-VPPSOC_CONFIG gsVppConfig = {
-    .bInitialized = FALSE,
+#include "CspSocVppInternal.h"
+
+
+struct sirfsoc_vpp_config vpp_config = {
+	.initialized = false,
 };
 
-VOID OSInitializeCriticalSection(VOID)
-{
-}
-
-VOID OSDeleteCriticalSection(VOID)
-{
-}
-
-VOID OSEnterCriticalSection(VOID)
-{
-}
-
-VOID OSLeaveCriticalSection(VOID)
-{
-}
-
-VOID __VppSoc_EnableClock(VOID)
-{
-}
-
-VOID __VppSoc_DisableClock(VOID)
-{
-}
-
-VOID __VppSoc_Reset(VOID)
-{
-}
-
-INLINE VOID OSVppWaitms(UINT uCount)
-{
-    msleep(uCount);
-}
-
-VOID *OSMapVppRegs(VOID)
-{
-    return NULL;
-}
-
-VOID OSUnmapVppRegs(VOID)
-{
-}
-
-#endif
-
-static const UINT32 tap_filter_coeff[] = 
-{
-    0x00000000,  
-    0x00001000, 
-    0x00000000,
-    0x7f3f002f,  
-    0x00e50fe3, 
-    0x00017fc6,
-    0x7ea40053,  
-    0x01ee0f8f, 
-    0x00077f83,
-    0x7e2f006c,  
-    0x03150f05, 
-    0x00117f39,
-    0x7ddf007b,  
-    0x04560e48, 
-    0x001e7eea,
-    0x7db10080,  
-    0x05aa0d5d, 
-    0x002e7e9a,
-    0x7da2007c,  
-    0x07090c49, 
-    0x00407e4e,
-    0x7db00072,  
-    0x086b0b15, 
-    0x00527e0b,
-    0x7dd40064,  
-    0x09c809c8, 
-    0x00647dd4,
-    0x10000000,  
-    0x00000000,
-    0x0fdb7f72,  
-    0x7ffc00b7,
-    0x0f717f0b,  
-    0x7fef0195,
-    0x0ec77eca,  
-    0x7fd80298,
-    0x0de57ea9,  
-    0x7fb803ba,
-    0x0cd67ea4,  
-    0x7f9004f6,
-    0x0ba47eb5,  
-    0x7f620645,
-    0x0a597ed5,  
-    0x7f3107a1,
-    0x09007f00,  
-    0x7f000900,
+static const u32 tap_filter_coeff[] = {
+	0x00000000,
+	0x00001000,
+	0x00000000,
+	0x7f3f002f,
+	0x00e50fe3,
+	0x00017fc6,
+	0x7ea40053,
+	0x01ee0f8f,
+	0x00077f83,
+	0x7e2f006c,
+	0x03150f05,
+	0x00117f39,
+	0x7ddf007b,
+	0x04560e48,
+	0x001e7eea,
+	0x7db10080,
+	0x05aa0d5d,
+	0x002e7e9a,
+	0x7da2007c,
+	0x07090c49,
+	0x00407e4e,
+	0x7db00072,
+	0x086b0b15,
+	0x00527e0b,
+	0x7dd40064,
+	0x09c809c8,
+	0x00647dd4,
+	0x10000000,
+	0x00000000,
+	0x0fdb7f72,
+	0x7ffc00b7,
+	0x0f717f0b,
+	0x7fef0195,
+	0x0ec77eca,
+	0x7fd80298,
+	0x0de57ea9,
+	0x7fb803ba,
+	0x0cd67ea4,
+	0x7f9004f6,
+	0x0ba47eb5,
+	0x7f620645,
+	0x0a597ed5,
+	0x7f3107a1,
+	0x09007f00,
+	0x7f000900,
 };
 
-static const UINT32 rgb_yuv_coeff[] =
-{
-    0x199, 0x0, 0x12A,  /* V, U, Y for R */
-    0xD0, 0x64, 0x12A,  /* V, U, Y for G */
-    0x0, 0x204, 0x12A,  /* V, U, Y for B */
+static const u32 rgb_yuv_coeff[] = {
+	0x199, 0x0, 0x12A,	/* V, U, Y for R */
+	0xD0, 0x64, 0x12A,	/* V, U, Y for G */
+	0x0, 0x204, 0x12A,	/* V, U, Y for B */
 };
 
-static const UINT32 rgb_offsets[] = 
-{
-    0xdf20,
-    0x8760,
-    0x114a0,
+static const u32 rgb_offsets[] = {
+	0xdf20,
+	0x8760,
+	0x114a0,
 };
 
-/*
-** Internal function
-*/
 
-INLINE ENUM_VPP_HW_DI_MODE convertDi2HWDi(VPP_DI_MODE eDiMode)
+static void __vpp_set_color_ctrl(void)
 {
-    /* Values of 2 mode equal. So return directly */
-    return (ENUM_VPP_HW_DI_MODE)eDiMode;
+	u32 reg_bc = 0x0;
+	u32 reg_hs = 0x0;
+	struct vpp_color_ctrl *clrctrl = &vpp_config.clr_ctrl;
+
+	reg_bc = VPP_COLOR_B_CTRL(clrctrl->bright) |
+		VPP_COLOR_C_CTRL(clrctrl->contrast);
+	reg_hs = VPP_COLOR_UC_CTRL(clrctrl->uc) |
+		VPP_COLOR_VC_CTRL(clrctrl->vc);
+	vpp_write_reg(VPP_COLOR_BC_CTRL, reg_bc);
+	vpp_write_reg(VPP_COLOR_HS_CTRL, reg_hs);
 }
 
-
-VOID __VppSoc_SetColorCtrl(VOID)
+static void __vpp_setup(void)
 {
-    REG_VPP_COLOR_BC_CTRL reg_VPP_COLOR_BC_CTRL;    
-    REG_VPP_COLOR_HS_CTRL reg_VPP_COLOR_HS_CTRL;
-    VPP_COLORCTRL_DATA *pClrCtrl = &gsVppConfig.sClrCtrl;
+	u32 reg_thresh = 0x0;
+	u32 offset, val;
+	int i;
 
-    reg_VPP_COLOR_BC_CTRL.DW = 0;
-    reg_VPP_COLOR_BC_CTRL.Brightness = pClrCtrl->i16Bright;
-    reg_VPP_COLOR_BC_CTRL.Contrast = pClrCtrl->i16Contrast;
-    reg_VPP_COLOR_HS_CTRL.DW = 0;
-    reg_VPP_COLOR_HS_CTRL.uC = pClrCtrl->i16UC;
-    reg_VPP_COLOR_HS_CTRL.vC = pClrCtrl->i16VC;    
-    WriteVppRegisterValue(VPP_COLOR_BC_CTRL, reg_VPP_COLOR_BC_CTRL.DW);
-    WriteVppRegisterValue(VPP_COLOR_HS_CTRL, reg_VPP_COLOR_HS_CTRL.DW);
-}
+	reg_thresh = VPP_FIFO_FULL_THRESH(0x8);
+	vpp_write_reg(VPP_FULL_THRESH, reg_thresh);
 
-VOID __VppSoc_Setup(VOID)
-{
-    REG_VPP_FULL_THRESH reg_VPP_FULL_THRESH;
-    UINT32 ui32Offset, ui32Val;
-    INT i;
-
-    if(!gsVppConfig.bUserMode)
-        __VppSoc_EnableClock();
-
-    reg_VPP_FULL_THRESH.DW = 0;
-    reg_VPP_FULL_THRESH.FIFO_FULL_THRESH = 0x8;
-    WriteVppRegisterValue(VPP_FULL_THRESH, reg_VPP_FULL_THRESH.DW);
-
-    ui32Offset = VPP_HSCA_COEF00;
-    for (i=0; i<(sizeof(tap_filter_coeff)/sizeof(tap_filter_coeff[0])); i++)
-    {
-        WriteVppRegisterValue(ui32Offset, tap_filter_coeff[i]);
-        ui32Offset += 4;
-    }
-
-    ui32Offset = VPP_RCOEF;
-    for (i=0; i<(sizeof(rgb_yuv_coeff)/sizeof(rgb_yuv_coeff[0])); i=i+3)
-    {
-        ui32Val = rgb_yuv_coeff[i] | (rgb_yuv_coeff[i+1]<<10) | (rgb_yuv_coeff[i+2]<<20);
-        WriteVppRegisterValue(ui32Offset, ui32Val);
-        ui32Offset += 4;
-    }
-
-    WriteVppRegisterValue(VPP_OFFSET1, rgb_offsets[0]);
-    WriteVppRegisterValue(VPP_OFFSET2, rgb_offsets[1]);
-    WriteVppRegisterValue(VPP_OFFSET3, rgb_offsets[2]);
-
-    __VppSoc_SetColorCtrl(); 
-}
-
-VOID __VppSoc_SetBase(VOID)
-{
-    VPP_SETPARAMS_DATA *pData = &gsVppConfig.sSurfaceState;
-    REG_VPP_YBASE reg_VPP_YBASE;
-    REG_VPP_UBASE reg_VPP_UBASE;
-    REG_VPP_VBASE reg_VPP_VBASE;
-    REG_VPP_DESBASE reg_VPP_DSTBASE;
-    UINT uiYOffset_pixel;
-    UINT uiUOffset_pixel;
-    UINT uiVOffset_pixel;
-
-    REG_VPP_YBASE_BOT reg_VPP_YBASE_BOT;
-    REG_VPP_UBASE_BOT reg_VPP_UBASE_BOT;
-    REG_VPP_VBASE_BOT reg_VPP_VBASE_BOT;
-
-    reg_VPP_YBASE.DW = 0;
-    reg_VPP_UBASE.DW = 0;
-    reg_VPP_VBASE.DW = 0;
-    reg_VPP_DSTBASE.DW = 0;
-
-    reg_VPP_YBASE_BOT.DW = 0;
-    reg_VPP_UBASE_BOT.DW = 0;
-    reg_VPP_VBASE_BOT.DW = 0;
-
-    uiYOffset_pixel = pData->uiSrcWStride_pixel*gsVppConfig.sRectSrc.top+gsVppConfig.sRectSrc.left;
-    if( pData->eSrcFormat == LCD_PIXELFORMAT_YV12 || pData->eSrcFormat == LCD_PIXELFORMAT_I420 )
-    {
-        uiUOffset_pixel = (pData->uiSrcWStride_pixel/2)*gsVppConfig.sRectSrc.top/2+(gsVppConfig.sRectSrc.left/2);
-        uiVOffset_pixel = uiUOffset_pixel;
-    }
-    else if( pData->eSrcFormat == LCD_PIXELFORMAT_IMC1 || pData->eSrcFormat == LCD_PIXELFORMAT_IMC3 ||
-             pData->eSrcFormat == LCD_PIXELFORMAT_IMC2 || pData->eSrcFormat == LCD_PIXELFORMAT_IMC4 )
-    {
-        uiUOffset_pixel = (pData->uiSrcWStride_pixel)*gsVppConfig.sRectSrc.top/2+(gsVppConfig.sRectSrc.left/2);
-        uiVOffset_pixel = uiUOffset_pixel;
-    }
-    else if (pData->eSrcFormat == LCD_PIXELFORMAT_NV12 || pData->eSrcFormat == LCD_PIXELFORMAT_NV21)
-    {
-        uiUOffset_pixel = pData->uiSrcWStride_pixel * gsVppConfig.sRectSrc.top/2 + gsVppConfig.sRectSrc.left;
-        uiVOffset_pixel = uiUOffset_pixel;
-    }
-    else
-    {
-        uiVOffset_pixel = uiUOffset_pixel = 0;
-    }
-
-    switch(pData->eSrcFormat)
-    {
-        /* TODO: Need to clarify the format layout later */
-        case LCD_PIXELFORMAT_YV12:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_VBASE.VBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+uiVOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = pData->ui32SrcBase+ (pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)*5/4 + uiVOffset_pixel;
-            break;
-        case LCD_PIXELFORMAT_I420:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+uiUOffset_pixel;
-            reg_VPP_VBASE.VBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)*5/4+uiVOffset_pixel;
-            break;
-        case LCD_PIXELFORMAT_IMC1:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_VBASE.VBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+uiVOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)*3/2+uiUOffset_pixel;
-            break;
-        case LCD_PIXELFORMAT_IMC2:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+uiVOffset_pixel;
-            reg_VPP_VBASE.VBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+
-                pData->uiSrcWStride_pixel/2+uiUOffset_pixel;
-            break;            
-        case LCD_PIXELFORMAT_IMC3:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_VBASE.VBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+uiUOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)*3/2+uiVOffset_pixel;
-            break;
-        case LCD_PIXELFORMAT_IMC4:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+uiUOffset_pixel;
-            reg_VPP_VBASE.VBASE_ADDR = pData->ui32SrcBase+(pData->uiSrcWStride_pixel*pData->uiSrcHStride_pixel)+
-                pData->uiSrcWStride_pixel/2+uiVOffset_pixel;
-            break;
-        case LCD_PIXELFORMAT_NV12: 
-        case LCD_PIXELFORMAT_NV21: 
-            /* NV12, NV21, hw requried UV base right shift 1*/
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+uiYOffset_pixel;
-            reg_VPP_UBASE.UBASE_ADDR = (pData->ui32SrcBase+(pData->uiSrcWStride_pixel*((pData->uiSrcHStride_pixel+0x3f)&(~0x3f)))+uiUOffset_pixel) >> 1;
-            reg_VPP_VBASE.VBASE_ADDR = reg_VPP_UBASE.UBASE_ADDR;
-            break;
-        case LCD_PIXELFORMAT_UYVY:
-        case LCD_PIXELFORMAT_UYNV:
-        case LCD_PIXELFORMAT_YUY2:
-        case LCD_PIXELFORMAT_YUYV:
-        case LCD_PIXELFORMAT_YUNV:
-        case LCD_PIXELFORMAT_YVYU:
-        case LCD_PIXELFORMAT_VYUY:
-            reg_VPP_YBASE.YBASE_ADDR = pData->ui32SrcBase+(2*uiYOffset_pixel);
-            reg_VPP_UBASE.UBASE_ADDR = reg_VPP_VBASE.VBASE_ADDR = reg_VPP_YBASE.YBASE_ADDR;
-            break;
-        default:
-            LCD_ASSERT(0);
-            break;
-    }
-
-    if (gsVppConfig.sInterlace.bInInterlaced)
-    {
-        if (gsVppConfig.sInterlace.ui32FieldOffset)
-        {
-            reg_VPP_YBASE_BOT.YBASE_ADDR_BOT = reg_VPP_YBASE.YBASE_ADDR+gsVppConfig.sInterlace.ui32FieldOffset;
-            reg_VPP_VBASE_BOT.VBASE_ADDR_BOT = reg_VPP_VBASE.VBASE_ADDR+gsVppConfig.sInterlace.ui32FieldOffset;
-            reg_VPP_UBASE_BOT.UBASE_ADDR_BOT = reg_VPP_UBASE.UBASE_ADDR+gsVppConfig.sInterlace.ui32FieldOffset; 
-        }
-        else
-        {
-            switch(pData->eSrcFormat)
-            {
-            case LCD_PIXELFORMAT_YV12:
-            case LCD_PIXELFORMAT_I420:
-            case LCD_PIXELFORMAT_NV12:
-            case LCD_PIXELFORMAT_NV21:
-                reg_VPP_YBASE_BOT.YBASE_ADDR_BOT = reg_VPP_YBASE.YBASE_ADDR+pData->uiSrcWStride_pixel;
-                reg_VPP_VBASE_BOT.VBASE_ADDR_BOT = reg_VPP_VBASE.VBASE_ADDR+pData->uiSrcWStride_pixel/2;
-                reg_VPP_UBASE_BOT.UBASE_ADDR_BOT = reg_VPP_UBASE.UBASE_ADDR+pData->uiSrcWStride_pixel/2;
-                break;
-            case LCD_PIXELFORMAT_IMC4:
-            case LCD_PIXELFORMAT_IMC3:
-            case LCD_PIXELFORMAT_IMC2:
-            case LCD_PIXELFORMAT_IMC1:
-                reg_VPP_YBASE_BOT.YBASE_ADDR_BOT = reg_VPP_YBASE.YBASE_ADDR+pData->uiSrcWStride_pixel;
-                reg_VPP_VBASE_BOT.VBASE_ADDR_BOT = reg_VPP_VBASE.VBASE_ADDR+pData->uiSrcWStride_pixel;
-                reg_VPP_UBASE_BOT.UBASE_ADDR_BOT = reg_VPP_UBASE.UBASE_ADDR+pData->uiSrcWStride_pixel;
-                break;
-            case LCD_PIXELFORMAT_UYVY:
-            case LCD_PIXELFORMAT_UYNV:
-            case LCD_PIXELFORMAT_YUY2:
-            case LCD_PIXELFORMAT_YUYV:
-            case LCD_PIXELFORMAT_YUNV:
-            case LCD_PIXELFORMAT_YVYU:
-            case LCD_PIXELFORMAT_VYUY:
-                reg_VPP_YBASE_BOT.YBASE_ADDR_BOT = reg_VPP_YBASE.YBASE_ADDR+(2*pData->uiSrcWStride_pixel);
-                    reg_VPP_UBASE_BOT.UBASE_ADDR_BOT = reg_VPP_VBASE_BOT.VBASE_ADDR_BOT = reg_VPP_YBASE_BOT.YBASE_ADDR_BOT;
-                break;
-            default:
-                LCD_ASSERT(0);
-                break;                    
-            }
-        }
-    
-        if (gsVppConfig.sInterlace.bInputTopFirst)
-        {
-            WriteVppRegisterValue(VPP_YBASE, reg_VPP_YBASE.DW);
-            WriteVppRegisterValue(VPP_UBASE, reg_VPP_UBASE.DW);
-            WriteVppRegisterValue(VPP_VBASE, reg_VPP_VBASE.DW);
-            WriteVppRegisterValue(VPP_YBASE_BOT, reg_VPP_YBASE_BOT.DW);
-            WriteVppRegisterValue(VPP_UBASE_BOT, reg_VPP_UBASE_BOT.DW);
-            WriteVppRegisterValue(VPP_VBASE_BOT, reg_VPP_VBASE_BOT.DW);
-        }
-        else
-        {
-            WriteVppRegisterValue(VPP_YBASE_BOT, reg_VPP_YBASE.DW);
-            WriteVppRegisterValue(VPP_UBASE_BOT, reg_VPP_UBASE.DW);
-            WriteVppRegisterValue(VPP_VBASE_BOT, reg_VPP_VBASE.DW);
-            WriteVppRegisterValue(VPP_YBASE, reg_VPP_YBASE_BOT.DW);
-            WriteVppRegisterValue(VPP_UBASE, reg_VPP_UBASE_BOT.DW);
-            WriteVppRegisterValue(VPP_VBASE, reg_VPP_VBASE_BOT.DW);
-        }
-    }
-    else
-    {   
-        WriteVppRegisterValue(VPP_YBASE, reg_VPP_YBASE.DW);
-        WriteVppRegisterValue(VPP_UBASE, reg_VPP_UBASE.DW);
-        WriteVppRegisterValue(VPP_VBASE, reg_VPP_VBASE.DW);
-    }
-    
-    if (pData->ui32DstBase)
-    {
-        UINT    uiBytesPerPixel;
-
-        if ((LCD_PIXELFORMAT_666 == pData->eDstFormat) ||
-            (LCD_PIXELFORMAT_RGBX_8880 == pData->eDstFormat) || 
-            (LCD_PIXELFORMAT_BGRX_8880 == pData->eDstFormat))
-        {
-            uiBytesPerPixel = 4;
-        }
-        else
-        {
-            uiBytesPerPixel = 2;
-        }
-        
-        uiYOffset_pixel = pData->uiDstWStride_pixel*gsVppConfig.sRectDst.top+gsVppConfig.sRectDst.left;
-        reg_VPP_DSTBASE.DESBASE_ADDR = (pData->ui32DstBase + (uiYOffset_pixel * uiBytesPerPixel)) & (~7);
-        WriteVppRegisterValue(VPP_DESBASE, reg_VPP_DSTBASE.DW);
-        
-        if(gsVppConfig.sInterlace.eOutMode == VPP_OUTPUT_INTERLACE)
-        {
-            WriteVppRegisterValue(VPP_DESBASE_BOT, reg_VPP_DSTBASE.DESBASE_ADDR + (pData->uiDstWStride_pixel * uiBytesPerPixel));
-        }
-        else if(gsVppConfig.sInterlace.eOutMode == VPP_OUTPUT_P_DOUBLE)
-        {
-            WriteVppRegisterValue(VPP_DESBASE_BOT, reg_VPP_DSTBASE.DESBASE_ADDR + (pData->uiDstWStride_pixel * pData->uiDstHStride_pixel * uiBytesPerPixel));
-        }
-        else
-        {
-            ASSERT(gsVppConfig.sInterlace.eOutMode == VPP_OUTPUT_P_SINGLE);
-            // do nothing
-        }
-    }
-
-    return;
-}
-
-
-BOOL __VppSoc_SetSize(VOID)
-{
-    UINT32 ui32SrcWidth = gsVppConfig.sRectSrc.right - gsVppConfig.sRectSrc.left;
-    UINT32 ui32DstWidth = gsVppConfig.sRectDst.right - gsVppConfig.sRectDst.left;
-    UINT32 ui32SrcHeight = gsVppConfig.sRectSrc.bottom - gsVppConfig.sRectSrc.top;
-    UINT32 ui32DstHeight = gsVppConfig.sRectDst.bottom - gsVppConfig.sRectDst.top;
-    REG_VPP_WIDTH reg_VPP_WIDTH;
-    REG_VPP_HEIGHT reg_VPP_HEIGHT;
-    
-    gsVppConfig.bValid = TRUE;
-    reg_VPP_WIDTH.DW = 0;
-    reg_VPP_WIDTH.SRC_WIDTH = ui32SrcWidth;
-    reg_VPP_WIDTH.DES_WIDTH = ui32DstWidth;
-    WriteVppRegisterValue(VPP_WIDTH, reg_VPP_WIDTH.DW);
-
-    reg_VPP_HEIGHT.DW = 0;
-    reg_VPP_HEIGHT.SRC_HEIGHT = ui32SrcHeight;
-    reg_VPP_HEIGHT.DES_HEIGHT = ui32DstHeight;
-    WriteVppRegisterValue(VPP_HEIGHT, reg_VPP_HEIGHT.DW);
-
-    __VppSoc_SetBase();
-    return TRUE;
-}
-
-BOOL __VppSoc_SetParames(VOID)
-{
-    REG_VPP_CTRL reg_VPP_CTRL;
-    REG_VPP_STRIDE0 reg_VPP_STRIDE0;
-    REG_VPP_STRIDE1 reg_VPP_STRIDE1;
-    REG_VPP_FULL_THRESH reg_VPP_THRESH;
-
-    VPP_SETPARAMS_DATA *pData = &gsVppConfig.sSurfaceState;
-    VPP_INTERLACE_DATA *psInterlace = &gsVppConfig.sInterlace;
-    
-    reg_VPP_CTRL.DW = 0;
-    reg_VPP_STRIDE0.DW = 0;
-    reg_VPP_STRIDE1.DW = 0;
-    switch (pData->eSrcFormat)
-    {    
-    /* TODO: Need to clarify the format layout later */
-    case LCD_PIXELFORMAT_YV12:
-    case LCD_PIXELFORMAT_I420:
-    case LCD_PIXELFORMAT_NV12: /* NV12, NV21, hw requried UV stride right shift 1*/
-    case LCD_PIXELFORMAT_NV21:
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV420;
-        reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel;
-        reg_VPP_STRIDE1.V_STRIDE = reg_VPP_STRIDE0.U_STRIDE = pData->uiSrcWStride_pixel/2;
-        break;
-    case LCD_PIXELFORMAT_IMC4:
-    case LCD_PIXELFORMAT_IMC3:
-    case LCD_PIXELFORMAT_IMC2:
-    case LCD_PIXELFORMAT_IMC1:        
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV420;
-        reg_VPP_STRIDE1.V_STRIDE = reg_VPP_STRIDE0.U_STRIDE = reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel;
-        break;
-    case LCD_PIXELFORMAT_UYVY:
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV422;
-        reg_VPP_CTRL.ENDIAN_MODE = E_VPP_ENDIAN_MODE_LITTLE;
-        reg_VPP_CTRL.YUV422_FORMAT = E_VPP_YUV422_FORMAT_VYUY; // UYVY is taken as VYUY, maybe this is a vpp hardware bug.
-        reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_UYNV:
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV422;
-        reg_VPP_CTRL.ENDIAN_MODE = E_VPP_ENDIAN_MODE_LITTLE;
-        reg_VPP_CTRL.YUV422_FORMAT = E_VPP_YUV422_FORMAT_UYVY;
-        reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_YUY2:
-    case LCD_PIXELFORMAT_YUYV:
-    case LCD_PIXELFORMAT_YUNV:
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV422;
-        reg_VPP_CTRL.ENDIAN_MODE = E_VPP_ENDIAN_MODE_LITTLE;
-        reg_VPP_CTRL.YUV422_FORMAT = E_VPP_YUV422_FORMAT_YUYV;
-        reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_YVYU:
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV422;
-        reg_VPP_CTRL.ENDIAN_MODE = E_VPP_ENDIAN_MODE_LITTLE;
-        reg_VPP_CTRL.YUV422_FORMAT = E_VPP_YUV422_FORMAT_YVYU;
-        reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_VYUY:
-        reg_VPP_CTRL.PIXEL_FORMAT = E_VPP_PIXEL_FORMAT_YUV422;
-        reg_VPP_CTRL.ENDIAN_MODE = E_VPP_ENDIAN_MODE_LITTLE;
-        reg_VPP_CTRL.YUV422_FORMAT = E_VPP_YUV422_FORMAT_VYUY;
-        reg_VPP_STRIDE0.Y_STRIDE = pData->uiSrcWStride_pixel*2;
-        break;
-    default:
-        LCD_ASSERT(0);
-        return FALSE;
-    }
-    if ((LCD_PIXELFORMAT_NV12 == pData->eSrcFormat) ||
-        (LCD_PIXELFORMAT_NV21 == pData->eSrcFormat)) 
-    {
-        reg_VPP_CTRL.UV_INTERLEAVE_EN = 1; /* WRITE ONLY*/
-        gsVppConfig.bUVInterleave = TRUE;
-    }
-    else
-    {
-        gsVppConfig.bUVInterleave = FALSE;
-    }
-     /* Attention, this is write only*/
-    reg_VPP_THRESH.DW = ReadVppRegisterValue(VPP_FULL_THRESH);    
-    reg_VPP_THRESH.UVUV_MODE = (LCD_PIXELFORMAT_NV12 == pData->eSrcFormat) ? 1 : 0;
-    WriteVppRegisterValue(VPP_FULL_THRESH, reg_VPP_THRESH.DW);
-
-    if (psInterlace->bInInterlaced)
-    {
-        if (psInterlace->ui32FieldOffset == 0)
-        {
-        reg_VPP_STRIDE0.Y_STRIDE *= 2;
-        reg_VPP_STRIDE1.V_STRIDE *= 2;
-        reg_VPP_STRIDE0.U_STRIDE *= 2;
-        }
-
-        if (psInterlace->eOutMode == VPP_OUTPUT_INTERLACE)
-        {
-            reg_VPP_CTRL.SEQ_TYPE = E_VPP_SEQ_TYPE_IIIO;
-            reg_VPP_CTRL.TOP_FIELD_FIRST = (psInterlace->bOutputTopFirst) ? 1 : 0;
-            reg_VPP_CTRL.HW_DI_MODE = 0;          
-        }
-        else if (psInterlace->eOutMode == VPP_OUTPUT_P_DOUBLE)
-        {
-            reg_VPP_CTRL.DOUBLE_FRATE = 1;
-            reg_VPP_CTRL.SEQ_TYPE = E_VPP_SEQ_TYPE_IIPO;
-            reg_VPP_CTRL.DI_FIELD_BOT = (psInterlace->bTopDi)?1:0;
-            reg_VPP_CTRL.TOP_FIELD_FIRST = (psInterlace->bOutputTopFirst) ? 1 : 0;
-            reg_VPP_CTRL.HW_DI_MODE = convertDi2HWDi(psInterlace->eDeintMode);          
-        }
-        else
-        {
-            ASSERT(psInterlace->eOutMode == VPP_OUTPUT_P_SINGLE);
-            
-            reg_VPP_CTRL.SEQ_TYPE = E_VPP_SEQ_TYPE_IIPO;
-            reg_VPP_CTRL.DI_FIELD_BOT = (psInterlace->bTopDi)?1:0;
-            reg_VPP_CTRL.HW_DI_MODE = convertDi2HWDi(psInterlace->eDeintMode);
-        }
-    }
-    else
-    {
-        if (psInterlace->eOutMode == VPP_OUTPUT_INTERLACE)
-        {
-            reg_VPP_CTRL.SEQ_TYPE = E_VPP_SEQ_TYPE_PIIO;
-            reg_VPP_CTRL.HW_DI_MODE = 0;
-            reg_VPP_CTRL.TOP_FIELD_FIRST = (psInterlace->bOutputTopFirst) ? 1 : 0;
-        }
-        else
-        {
-            reg_VPP_CTRL.SEQ_TYPE = E_VPP_SEQ_TYPE_PIPO;
-            reg_VPP_CTRL.HW_DI_MODE = 0;
-        }
-    }
-
-    if (pData->ui32DstBase == 0)
-    {
-        reg_VPP_CTRL.DEST = E_VPP_DEST_LCD;
-    }
-    else
-    {
-        reg_VPP_CTRL.DEST = E_VPP_DEST_MEMORY;
-    }
-    
-    switch (pData->eDstFormat)
-    {
-    case LCD_PIXELFORMAT_565:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_RGB565;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_666:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_RGB666;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*4;
-        break;
-    case LCD_PIXELFORMAT_BGRX_8880:
-	case LCD_PIXELFORMAT_RGBX_8880:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_RGB888;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*4;
-        break;
-    case LCD_PIXELFORMAT_YUYV:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_YUV422;
-        reg_VPP_CTRL.OUT_YUV422_FORMAT = E_VPP_YUV422_FORMAT_YUYV;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_YVYU:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_YUV422;
-        reg_VPP_CTRL.OUT_YUV422_FORMAT = E_VPP_YUV422_FORMAT_YVYU;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_UYVY:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_YUV422;
-        reg_VPP_CTRL.OUT_YUV422_FORMAT = E_VPP_YUV422_FORMAT_UYVY;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*2;
-        break;
-    case LCD_PIXELFORMAT_VYUY:
-        reg_VPP_CTRL.OUT_FORMAT = E_VPP_OUT_FORMAT_YUV422;
-        reg_VPP_CTRL.OUT_YUV422_FORMAT = E_VPP_YUV422_FORMAT_VYUY;
-        reg_VPP_STRIDE1.DES_STRIDE = pData->uiDstWStride_pixel*2;
-        break;
-    default:
-        LCD_ASSERT(0);
-        return FALSE;
-    }
-    WriteVppRegisterValue(VPP_CTRL, reg_VPP_CTRL.DW);
-    WriteVppRegisterValue(VPP_STRIDE0, reg_VPP_STRIDE0.DW);
-    WriteVppRegisterValue(VPP_STRIDE1, reg_VPP_STRIDE1.DW);
-
-	if (pData->eDstFormat == LCD_PIXELFORMAT_RGBX_8880)
-	{
-		UINT32 ui32Val;
-		ui32Val = rgb_yuv_coeff[0] | (rgb_yuv_coeff[1]<<10) | (rgb_yuv_coeff[2]<<20);
-		WriteVppRegisterValue(VPP_BCOEF, ui32Val);
-		ui32Val = rgb_yuv_coeff[6] | (rgb_yuv_coeff[7]<<10) | (rgb_yuv_coeff[8]<<20);
-		WriteVppRegisterValue(VPP_RCOEF, ui32Val);
-
-		WriteVppRegisterValue(VPP_OFFSET3, rgb_offsets[0]);
-		WriteVppRegisterValue(VPP_OFFSET1, rgb_offsets[2]);
+	offset = VPP_HSCA_COEF00;
+	for (i = 0; i < ARRAY_SIZE(tap_filter_coeff); i++) {
+		vpp_write_reg(offset, tap_filter_coeff[i]);
+		offset += 4;
 	}
+
+	offset = VPP_RCOEF;
+	for (i = 0; i < ARRAY_SIZE(rgb_yuv_coeff); i += 3) {
+		val = rgb_yuv_coeff[i] |
+			(rgb_yuv_coeff[i+1] << 10) |
+			(rgb_yuv_coeff[i+2] << 20);
+		vpp_write_reg(offset, val);
+		offset += 4;
+	}
+
+	vpp_write_reg(VPP_OFFSET1, rgb_offsets[0]);
+	vpp_write_reg(VPP_OFFSET2, rgb_offsets[1]);
+	vpp_write_reg(VPP_OFFSET3, rgb_offsets[2]);
+
+	__vpp_set_color_ctrl();
+}
+
+static void __vpp_set_base(void)
+{
+	struct vpp_parms *parms = &vpp_config.surf_stat;
+	u32 reg_ybase = 0x0;
+	u32 reg_ubase = 0x0;
+	u32 reg_vbase = 0x0;
+	u32 reg_dstbase = 0x0;
+	unsigned int yoffset_pixel, uoffset_pixel, voffset_pixel;
+
+	u32 reg_ybase_bot = 0x0;
+	u32 reg_ubase_bot = 0x0;
+	u32 reg_vbase_bot = 0x0;
+
+	yoffset_pixel = parms->src_wstride_pixel * vpp_config.src_rect.top +
+			vpp_config.src_rect.left;
+	if (parms->src_fmt == VDSS_PIXELFORMAT_YV12 ||
+		parms->src_fmt == VDSS_PIXELFORMAT_I420) {
+		uoffset_pixel = (parms->src_wstride_pixel / 2) *
+				(vpp_config.src_rect.top / 2) +
+				vpp_config.src_rect.left / 2;
+		voffset_pixel = uoffset_pixel;
+	} else if (parms->src_fmt == VDSS_PIXELFORMAT_IMC1 ||
+			parms->src_fmt == VDSS_PIXELFORMAT_IMC3 ||
+			parms->src_fmt == VDSS_PIXELFORMAT_IMC2 ||
+			parms->src_fmt == VDSS_PIXELFORMAT_IMC4) {
+		uoffset_pixel = parms->src_wstride_pixel *
+				(vpp_config.src_rect.top / 2) +
+				vpp_config.src_rect.left / 2;
+		voffset_pixel = uoffset_pixel;
+	} else if (parms->src_fmt == VDSS_PIXELFORMAT_NV12 ||
+			parms->src_fmt == VDSS_PIXELFORMAT_NV21) {
+		uoffset_pixel = parms->src_wstride_pixel *
+				(vpp_config.src_rect.top / 2) +
+				vpp_config.src_rect.left;
+		voffset_pixel = uoffset_pixel;
+	} else {
+		voffset_pixel = uoffset_pixel = 0;
+	}
+
+	switch (parms->src_fmt) {
+	/* TODO: Need to clarify the format layout later */
+	case VDSS_PIXELFORMAT_YV12:
+		reg_ybase = parms->src_base + yoffset_pixel;
+		reg_ybase &= VPP_BASE_ADDR_MASK;
+		reg_vbase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel + voffset_pixel;
+		reg_vbase &= VPP_BASE_ADDR_MASK;
+		reg_ubase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel * 5 / 4 + uoffset_pixel;
+		reg_ubase &= VPP_BASE_ADDR_MASK;
+		break;
+	case VDSS_PIXELFORMAT_I420:
+		reg_ybase = parms->src_base + yoffset_pixel;
+		reg_ybase &= VPP_BASE_ADDR_MASK;
+		reg_ubase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel + uoffset_pixel;
+		reg_ubase &= VPP_BASE_ADDR_MASK;
+		reg_vbase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel * 5 / 4 + voffset_pixel;
+		reg_vbase &= VPP_BASE_ADDR_MASK;
+		break;
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC3:
+		reg_ybase = parms->src_base + yoffset_pixel;
+		reg_ybase &= VPP_BASE_ADDR_MASK;
+		reg_vbase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel + voffset_pixel;
+		reg_vbase &= VPP_BASE_ADDR_MASK;
+		reg_ubase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel * 3 / 2 + uoffset_pixel;
+		reg_ubase &= VPP_BASE_ADDR_MASK;
+		break;
+	case VDSS_PIXELFORMAT_IMC2:
+	case VDSS_PIXELFORMAT_IMC4:
+		reg_ybase = parms->src_base + yoffset_pixel;
+		reg_ybase &= VPP_BASE_ADDR_MASK;
+		reg_ubase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel + uoffset_pixel;
+		reg_ubase &= VPP_BASE_ADDR_MASK;
+		reg_vbase = parms->src_base + parms->src_wstride_pixel *
+			parms->src_hstride_pixel + voffset_pixel +
+			parms->src_wstride_pixel / 2;
+		reg_vbase &= VPP_BASE_ADDR_MASK;
+		break;
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		/* NV12, NV21, hw requried UV base right shift 1*/
+		reg_ybase = parms->src_base + yoffset_pixel;
+		reg_ybase &= VPP_BASE_ADDR_MASK;
+		reg_ubase = (parms->src_base + parms->src_wstride_pixel *
+			((parms->src_hstride_pixel + 0x3f) & (~0x3f)) +
+			uoffset_pixel) >> 1;
+		reg_ubase &= VPP_BASE_ADDR_MASK;
+		reg_vbase = reg_ubase;
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_UYNV:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_YUNV:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_VYUY:
+		reg_ybase = parms->src_base + (2 * yoffset_pixel);
+		reg_ybase &= VPP_BASE_ADDR_MASK;
+		reg_ubase = reg_vbase = reg_ybase;
+		break;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, parms->src_fmt);
+		break;
+	}
+
+	if (vpp_config.interlace.in_interlaced) {
+		if (vpp_config.interlace.field_offset) {
+			reg_ybase_bot = reg_ybase +
+				vpp_config.interlace.field_offset;
+			reg_ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
+			reg_vbase_bot = reg_vbase +
+				vpp_config.interlace.field_offset;
+			reg_vbase_bot &= VPP_BASE_ADDR_BOT_MASK;
+			reg_ubase_bot = reg_ubase +
+				vpp_config.interlace.field_offset;
+			reg_ubase_bot &= VPP_BASE_ADDR_BOT_MASK;
+		} else {
+			switch (parms->src_fmt) {
+			case VDSS_PIXELFORMAT_YV12:
+			case VDSS_PIXELFORMAT_I420:
+			case VDSS_PIXELFORMAT_NV12:
+			case VDSS_PIXELFORMAT_NV21:
+				reg_ybase_bot = reg_ybase +
+					parms->src_wstride_pixel;
+				reg_ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				reg_vbase_bot = reg_vbase +
+					parms->src_wstride_pixel / 2;
+				reg_vbase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				reg_ubase_bot = reg_ubase +
+					parms->src_wstride_pixel / 2;
+				reg_ubase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				break;
+			case VDSS_PIXELFORMAT_IMC4:
+			case VDSS_PIXELFORMAT_IMC3:
+			case VDSS_PIXELFORMAT_IMC2:
+			case VDSS_PIXELFORMAT_IMC1:
+				reg_ybase_bot = reg_ybase +
+					parms->src_wstride_pixel;
+				reg_ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				reg_vbase_bot = reg_vbase +
+					parms->src_wstride_pixel;
+				reg_vbase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				reg_ubase_bot = reg_ubase +
+					parms->src_wstride_pixel;
+				reg_ubase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				break;
+			case VDSS_PIXELFORMAT_UYVY:
+			case VDSS_PIXELFORMAT_UYNV:
+			case VDSS_PIXELFORMAT_YUY2:
+			case VDSS_PIXELFORMAT_YUYV:
+			case VDSS_PIXELFORMAT_YUNV:
+			case VDSS_PIXELFORMAT_YVYU:
+			case VDSS_PIXELFORMAT_VYUY:
+				reg_ybase_bot = reg_ybase +
+					2 * parms->src_wstride_pixel;
+				reg_ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
+				reg_ubase_bot = reg_vbase_bot = reg_ybase_bot;
+				break;
+			default:
+				LCDC_ERR("%s(%d): unknown format 0x%x\n",
+					__func__, __LINE__, parms->src_fmt);
+				break;
+			}
+		}
+
+		if (vpp_config.interlace.input_top_first) {
+			vpp_write_reg(VPP_YBASE, reg_ybase);
+			vpp_write_reg(VPP_UBASE, reg_ubase);
+			vpp_write_reg(VPP_VBASE, reg_vbase);
+			vpp_write_reg(VPP_YBASE_BOT, reg_ybase_bot);
+			vpp_write_reg(VPP_UBASE_BOT, reg_ubase_bot);
+			vpp_write_reg(VPP_VBASE_BOT, reg_vbase_bot);
+		} else {
+			vpp_write_reg(VPP_YBASE_BOT, reg_ybase);
+			vpp_write_reg(VPP_UBASE_BOT, reg_ubase);
+			vpp_write_reg(VPP_VBASE_BOT, reg_vbase);
+			vpp_write_reg(VPP_YBASE, reg_ybase_bot);
+			vpp_write_reg(VPP_UBASE, reg_ubase_bot);
+			vpp_write_reg(VPP_VBASE, reg_vbase_bot);
+		}
+	} else {
+		vpp_write_reg(VPP_YBASE, reg_ybase);
+		vpp_write_reg(VPP_UBASE, reg_ubase);
+		vpp_write_reg(VPP_VBASE, reg_vbase);
+	}
+
+	if (parms->dst_base) {
+		unsigned int bpp;
+
+		if (parms->dst_fmt == VDSS_PIXELFORMAT_666 ||
+			parms->dst_fmt == VDSS_PIXELFORMAT_RGBX_8880 ||
+			parms->dst_fmt == VDSS_PIXELFORMAT_BGRX_8880)
+			bpp = 4;
+		else
+			bpp = 2;
+
+		yoffset_pixel = parms->dst_wstride_pixel *
+				vpp_config.dst_rect.top +
+				vpp_config.dst_rect.left;
+		reg_dstbase = (parms->dst_base + yoffset_pixel * bpp) & (~7);
+		reg_dstbase &= VPP_BASE_ADDR_MASK;
+		vpp_write_reg(VPP_DESBASE, reg_dstbase);
+
+		if (vpp_config.interlace.out_mode == VPP_OUTPUT_INTERLACE)
+			vpp_write_reg(VPP_DESBASE_BOT, VPP_BASE_ADDR_MASK &
+				(reg_dstbase + parms->dst_wstride_pixel * bpp));
+		else if (vpp_config.interlace.out_mode == VPP_OUTPUT_P_DOUBLE)
+			vpp_write_reg(VPP_DESBASE_BOT, VPP_BASE_ADDR_MASK &
+				(reg_dstbase + parms->dst_wstride_pixel *
+				 parms->dst_hstride_pixel * bpp));
+	}
+
+	return;
+}
+
+
+static bool __vpp_set_size(void)
+{
+	u32 src_width = vpp_config.src_rect.right - vpp_config.src_rect.left;
+	u32 dst_width = vpp_config.dst_rect.right - vpp_config.dst_rect.left;
+	u32 src_height = vpp_config.src_rect.bottom - vpp_config.src_rect.top;
+	u32 dst_height = vpp_config.dst_rect.bottom - vpp_config.dst_rect.top;
+	u32 reg_width = 0x0;
+	u32 reg_height = 0x0;
+
+	vpp_config.valid = true;
+	reg_width = VPP_SRC_WIDTH(src_width) | VPP_DES_WIDTH(dst_width);
+	vpp_write_reg(VPP_WIDTH, reg_width);
+
+	reg_height = VPP_SRC_HEIGHT(src_height) | VPP_DES_HEIGHT(dst_height);
+	vpp_write_reg(VPP_HEIGHT, reg_height);
+
+	__vpp_set_base();
+	return true;
+}
+
+static bool __vpp_set_params(void)
+{
+	u32 reg_ctrl = 0x0;
+	u32 reg_stride0 = 0x0, reg_stride1 = 0x0;
+	u32 reg_thresh;
+
+	struct vpp_parms *parms = &vpp_config.surf_stat;
+	struct vpp_interlace_data *interlace = &vpp_config.interlace;
+
+	switch (parms->src_fmt) {
+	/* TODO: Need to clarify the format layout later */
+	case VDSS_PIXELFORMAT_YV12:
+	case VDSS_PIXELFORMAT_I420:
+	/* NV12, NV21, hw requried UV stride right shift 1 */
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		reg_ctrl |= VPP_CTRL_PIXEL_FORMAT;	/* YUV420 */
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel);
+		reg_stride0 |= VPP_U_STRIDE(parms->src_wstride_pixel / 2);
+		reg_stride1 |= VPP_V_STRIDE(parms->src_wstride_pixel / 2);
+		break;
+	case VDSS_PIXELFORMAT_IMC4:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_IMC2:
+	case VDSS_PIXELFORMAT_IMC1:
+		reg_ctrl |= VPP_CTRL_PIXEL_FORMAT;	/* YUV420 */
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel);
+		reg_stride0 |= VPP_U_STRIDE(parms->src_wstride_pixel);
+		reg_stride1 |= VPP_V_STRIDE(parms->src_wstride_pixel);
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+		reg_ctrl &= ~VPP_CTRL_PIXEL_FORMAT;	/* YUV422 */
+		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;	/* LITTLE MODE */
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_UYNV:
+		reg_ctrl &= ~VPP_CTRL_PIXEL_FORMAT;	/* YUV422 */
+		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;	/* LITTLE MODE */
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_YUNV:
+		reg_ctrl &= ~VPP_CTRL_PIXEL_FORMAT;	/* YUV422 */
+		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;	/* LITTLE MODE */
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_YVYU:
+		reg_ctrl &= ~VPP_CTRL_PIXEL_FORMAT;	/* YUV422 */
+		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;	/* LITTLE MODE */
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_VYUY:
+		reg_ctrl &= ~VPP_CTRL_PIXEL_FORMAT;	/* YUV422 */
+		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;	/* LITTLE MODE */
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
+		reg_stride0 |= VPP_Y_STRIDE(parms->src_wstride_pixel * 2);
+		break;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, parms->src_fmt);
+		return false;
+	}
+
+	if (parms->src_fmt == VDSS_PIXELFORMAT_NV12 ||
+		parms->src_fmt == VDSS_PIXELFORMAT_NV21) {
+		reg_ctrl |= VPP_CTRL_UV_INTERLEAVE_EN;
+		vpp_config.uv_interleave = true;
+	} else {
+		vpp_config.uv_interleave = false;
+	}
+
+	/* Attention, this is write only*/
+	reg_thresh = vpp_read_reg(VPP_FULL_THRESH);
+	if (parms->src_fmt == VDSS_PIXELFORMAT_NV12)
+		reg_thresh |= VPP_UVUV_MODE;
+	vpp_write_reg(VPP_FULL_THRESH, reg_thresh);
+
+	if (interlace->in_interlaced) {
+		if (interlace->field_offset == 0) {
+			reg_stride0 = (reg_stride0 * 2) &
+				(VPP_Y_STRIDE_MASK | VPP_U_STRIDE_MASK);
+			reg_stride1 = (reg_stride1 * 2) & VPP_V_STRIDE_MASK;
+		}
+
+		if (interlace->out_mode == VPP_OUTPUT_INTERLACE) {
+			reg_ctrl |= VPP_CTRL_SEQ_TYPE(VPP_SEQ_TYPE_IIIO);
+			if (interlace->output_top_first)
+				reg_ctrl |= VPP_CTRL_TOP_FIELD_FIRST;
+			reg_ctrl |= VPP_CTRL_HW_DI_MODE(0);
+		} else if (interlace->out_mode == VPP_OUTPUT_P_DOUBLE) {
+			reg_ctrl |= VPP_CTRL_DOUBLE_FRATE;
+			reg_ctrl |= VPP_CTRL_SEQ_TYPE(VPP_SEQ_TYPE_IIPO);
+			if (interlace->di_top)
+				reg_ctrl |= VPP_CTRL_DI_FIELD_BOT;
+			if (interlace->output_top_first)
+				reg_ctrl |= VPP_CTRL_TOP_FIELD_FIRST;
+			reg_ctrl |= VPP_CTRL_HW_DI_MODE(interlace->di_mode);
+		} else {
+			reg_ctrl |= VPP_CTRL_SEQ_TYPE(VPP_SEQ_TYPE_IIPO);
+			if (interlace->di_top)
+				reg_ctrl |= VPP_CTRL_DI_FIELD_BOT;
+			reg_ctrl |= VPP_CTRL_HW_DI_MODE(interlace->di_mode);
+		}
+	} else {
+		if (interlace->out_mode == VPP_OUTPUT_INTERLACE) {
+			reg_ctrl |= VPP_CTRL_SEQ_TYPE(VPP_SEQ_TYPE_PIIO);
+			reg_ctrl |= VPP_CTRL_HW_DI_MODE(0);
+			if (interlace->output_top_first)
+				reg_ctrl |= VPP_CTRL_TOP_FIELD_FIRST;
+		} else {
+			reg_ctrl |= VPP_CTRL_SEQ_TYPE(VPP_SEQ_TYPE_PIPO);
+			reg_ctrl |= VPP_CTRL_HW_DI_MODE(0);
+		}
+	}
+
+	if (parms->dst_base == 0)
+		reg_ctrl |= VPP_CTRL_DEST;	/* LCD */
 	else
-	{
-		UINT32 ui32Val;
-		ui32Val = rgb_yuv_coeff[0] | (rgb_yuv_coeff[1]<<10) | (rgb_yuv_coeff[2]<<20);
-		WriteVppRegisterValue(VPP_RCOEF, ui32Val);
-		ui32Val = rgb_yuv_coeff[6] | (rgb_yuv_coeff[7]<<10) | (rgb_yuv_coeff[8]<<20);
-		WriteVppRegisterValue(VPP_BCOEF, ui32Val);
+		reg_ctrl &= ~VPP_CTRL_DEST;	/* MEMORY */
 
-		WriteVppRegisterValue(VPP_OFFSET1, rgb_offsets[0]);
-		WriteVppRegisterValue(VPP_OFFSET3, rgb_offsets[2]);
+	switch (parms->dst_fmt) {
+	case VDSS_PIXELFORMAT_565:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_RGB565);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_666:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_RGB666);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 4);
+		break;
+	case VDSS_PIXELFORMAT_BGRX_8880:
+	case VDSS_PIXELFORMAT_RGBX_8880:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_RGB888);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 4);
+		break;
+	case VDSS_PIXELFORMAT_YUYV:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_YVYU:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 2);
+		break;
+	case VDSS_PIXELFORMAT_VYUY:
+		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
+		reg_stride1 |= VPP_DES_STRIDE(parms->dst_wstride_pixel * 2);
+		break;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, parms->dst_fmt);
+		return false;
 	}
-    return TRUE;    
+	vpp_write_reg(VPP_CTRL, reg_ctrl);
+	vpp_write_reg(VPP_STRIDE0, reg_stride0);
+	vpp_write_reg(VPP_STRIDE1, reg_stride1);
+
+	if (parms->dst_fmt == VDSS_PIXELFORMAT_RGBX_8880) {
+		u32 val;
+		val = rgb_yuv_coeff[0] | (rgb_yuv_coeff[1] << 10) |
+			(rgb_yuv_coeff[2] << 20);
+		vpp_write_reg(VPP_BCOEF, val);
+		val = rgb_yuv_coeff[6] | (rgb_yuv_coeff[7] << 10) |
+			(rgb_yuv_coeff[8] << 20);
+		vpp_write_reg(VPP_RCOEF, val);
+
+		vpp_write_reg(VPP_OFFSET3, rgb_offsets[0]);
+		vpp_write_reg(VPP_OFFSET1, rgb_offsets[2]);
+	} else {
+		u32 val;
+		val = rgb_yuv_coeff[0] | (rgb_yuv_coeff[1] << 10) |
+			(rgb_yuv_coeff[2] << 20);
+		vpp_write_reg(VPP_RCOEF, val);
+		val = rgb_yuv_coeff[6] | (rgb_yuv_coeff[7] << 10) |
+			(rgb_yuv_coeff[8] << 20);
+		vpp_write_reg(VPP_BCOEF, val);
+
+		vpp_write_reg(VPP_OFFSET1, rgb_offsets[0]);
+		vpp_write_reg(VPP_OFFSET3, rgb_offsets[2]);
+	}
+
+	return true;
 }
 
 
 /*
-** VPP SOC function
-*/
-VOID VppSoc_Initialize(VOID *pVppRegs)
+ * VPP SOC function
+ */
+static void vpp_init(void *vpp_regs)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (!gsVppConfig.bInitialized)
-    {
-        memset(&gsVppConfig, 0, sizeof(gsVppConfig));
-        gsVppConfig.bInitialized = TRUE;
-        OSInitializeCriticalSection();
+	LCDC_ENTRY("%s\n", __func__);
+	if (!vpp_config.initialized) {
+		memset(&vpp_config, 0, sizeof(vpp_config));
+		vpp_config.initialized = true;
 
-        if (pVppRegs == NULL)
-        {
-            if (gsVppConfig.pVppRegs == NULL)
-            {
-                gsVppConfig.bNeedUnmap = TRUE;
-                LCD_MSG(("VPP call CspRegMap..."));
-                gsVppConfig.pVppRegs = OSMapVppRegs();
-            }
-        }
-        else
-        {
-            gsVppConfig.bNeedUnmap = FALSE;
-            gsVppConfig.pVppRegs = pVppRegs;
-        }
-        
-        gsVppConfig.bDMAInterruptEnabled = FALSE;
+		if (vpp_regs == NULL) {
+			if (vpp_config.vpp_regs == NULL)
+				vpp_config.need_unmap = true;
+		} else {
+			vpp_config.need_unmap = false;
+			vpp_config.vpp_regs = vpp_regs;
+		}
 
-        gsVppConfig.fHScalingRatioLast = 1.0;
-        gsVppConfig.fVScalingRatioLast = 1.0;
+		vpp_config.dma_interrupt_enabled = false;
 
-        gsVppConfig.sClrCtrl.i16UC = 0x100;
-        gsVppConfig.sClrCtrl.i16VC = 0;
-        gsVppConfig.sClrCtrl.i16Bright = 0;
-        gsVppConfig.sClrCtrl.i16Contrast = 0x80;
+		vpp_config.hscaling_ratio_last = 1.0;
+		vpp_config.vscaling_ratio_last = 1.0;
 
-        gsVppConfig.i16Hue = 0;
-        gsVppConfig.i16Saturation = 0x80;
-        
-        __VppSoc_Setup();
-    }
-    gsVppConfig.ui32RefCount++;
+		vpp_config.clr_ctrl.uc = 0x100;
+		vpp_config.clr_ctrl.vc = 0;
+		vpp_config.clr_ctrl.bright = 0;
+		vpp_config.clr_ctrl.contrast = 0x80;
+
+		vpp_config.hue = 0;
+		vpp_config.saturation = 0x80;
+
+		__vpp_setup();
+	}
+	vpp_config.ref_count++;
 }
 
-VOID VppSoc_Terminate(VOID)
+static void vpp_terminate(void)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.ui32RefCount--;
-    if (gsVppConfig.ui32RefCount==0)
-    {
-        gsVppConfig.bInitialized = FALSE;
-        if (gsVppConfig.bNeedUnmap)
-        {
-            LCD_MSG(("VPP call CspRegUnMap..."));
-            OSUnmapVppRegs();
-            gsVppConfig.bNeedUnmap = FALSE;
-            gsVppConfig.pVppRegs = NULL;
-        }
-        OSDeleteCriticalSection();
-    }
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.ref_count--;
+	if (vpp_config.ref_count == 0) {
+		vpp_config.initialized = false;
+		if (vpp_config.need_unmap) {
+			vpp_config.need_unmap = false;
+			vpp_config.vpp_regs = NULL;
+		}
+	}
 }
 
-BOOL VppSoc_AllocOverlay(LCD_ALLOCOVERLAY_DATA *pData)
+#define ALIGN_SIZE(size, align) ((size + align - 1) & ~(align - 1))
+
+static bool vpp_alloc_overlay(struct lcdc_overlay *data)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    switch(pData->eLcdFormat)
-    {
-    case LCD_PIXELFORMAT_NV12:
-    case LCD_PIXELFORMAT_NV21:
-        /* VXD require wstride&hstride to be 64 pixel aligned */
-        pData->i32WStrideByte = pData->i32WStridePixel = ALIGN_SIZE(pData->i32Width, 64);
-        pData->i32HStridePixel = ALIGN_SIZE(pData->i32Height, 64);
-        pData->i32HStrideByte = ALIGN_SIZE(pData->i32WStrideByte*pData->i32HStridePixel*2, 4096);
-        break;
-    case LCD_PIXELFORMAT_I420:
-        /* MVED require wstride&hstride to be 16 pixel aligned */
-        pData->i32WStrideByte = pData->i32WStridePixel = ALIGN_SIZE(pData->i32Width, 16);
-        pData->i32HStridePixel = ALIGN_SIZE(pData->i32Height, 16);
-        pData->i32HStrideByte = pData->i32WStrideByte*pData->i32HStridePixel*3/2;
-        break;
-    case LCD_PIXELFORMAT_YV12:
-        pData->i32WStridePixel = ALIGN_SIZE(pData->i32Width, 16);
-        pData->i32HStridePixel = pData->i32Height;
-        pData->i32WStrideByte = pData->i32WStridePixel; // useless
-        pData->i32HStrideByte = pData->i32WStrideByte*pData->i32Height; // useless
-        break;
-    case LCD_PIXELFORMAT_IMC1: // this case has not been tested
-    case LCD_PIXELFORMAT_IMC3: // this case has not been tested
-    case LCD_PIXELFORMAT_VYUY:
-        pData->i32WStridePixel = ALIGN_SIZE(pData->i32Width, 8);
-        pData->i32HStridePixel = pData->i32Height;
-        pData->i32WStrideByte = pData->i32WStridePixel; // useless
-        pData->i32HStrideByte = pData->i32WStrideByte*pData->i32Height; // useless
-        break;
-    case LCD_PIXELFORMAT_UYVY: // this case has not been tested
-    case LCD_PIXELFORMAT_YUY2: // this case has not been tested
-    case LCD_PIXELFORMAT_YVYU: // this case has not been tested
-    case LCD_PIXELFORMAT_YUYV:
-        pData->i32WStrideByte = ALIGN_SIZE(pData->i32Width*2, 8);
-        pData->i32HStrideByte = pData->i32WStrideByte*pData->i32Height;
-        pData->i32WStridePixel = pData->i32WStrideByte/2;
-        pData->i32HStridePixel = pData->i32Height;
-        break;
-    default:
-        LCD_MSG(("Unsupport format (0x%08x) in %s", pData->eLcdFormat, __FUNCTION__));
-        LCD_ASSERT(0);
-        return FALSE;
-    }
-    return TRUE;
+	LCDC_ENTRY("%s\n", __func__);
+	switch (data->fmt) {
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		/* VXD require wstride&hstride to be 64 pixel aligned */
+		data->wstride_byte = data->wstride_pixel =
+			ALIGN_SIZE(data->width, 64);
+		data->hstride_pixel = ALIGN_SIZE(data->height, 64);
+		data->hstride_byte = ALIGN_SIZE(data->wstride_byte *
+					data->hstride_pixel * 2, 4096);
+		break;
+	case VDSS_PIXELFORMAT_I420:
+		/* MVED require wstride&hstride to be 16 pixel aligned */
+		data->wstride_byte = data->wstride_pixel =
+			ALIGN_SIZE(data->width, 16);
+		data->hstride_pixel = ALIGN_SIZE(data->height, 16);
+		data->hstride_byte = data->wstride_byte *
+					data->hstride_pixel * 3 / 2;
+		break;
+	case VDSS_PIXELFORMAT_YV12:
+		data->wstride_pixel = ALIGN_SIZE(data->width, 16);
+		data->hstride_pixel = data->height;
+		data->wstride_byte = data->wstride_pixel;
+		data->hstride_byte = data->wstride_byte * data->height;
+		break;
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_VYUY:
+		data->wstride_pixel = ALIGN_SIZE(data->width, 8);
+		data->hstride_pixel = data->height;
+		data->wstride_byte = data->wstride_pixel;
+		data->hstride_byte = data->wstride_byte * data->height;
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_YUYV:
+		data->wstride_byte = ALIGN_SIZE(data->width * 2, 8);
+		data->hstride_byte = data->wstride_byte * data->height;
+		data->wstride_pixel = data->wstride_byte / 2;
+		data->hstride_pixel = data->height;
+		break;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, data->fmt);
+		return false;
+	}
+	return true;
 }
 
-BOOL VppSoc_Lock(BOOL bContinues)
+static bool vpp_lock(bool continues)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (gsVppConfig.bContinueLock)
-    {
-        return FALSE;
-    }
-    else
-    {
-        OSEnterCriticalSection();
-        gsVppConfig.bContinueLock = bContinues;
-        return TRUE;
-    }
+	LCDC_ENTRY("%s\n", __func__);
+	if (vpp_config.continue_lock) {
+		return false;
+	} else {
+		vpp_config.continue_lock = continues;
+		return true;
+	}
 }
-VOID VppSoc_Unlock(VOID)
+static void vpp_unlock(void)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.bContinueLock = FALSE;
-    OSLeaveCriticalSection();
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.continue_lock = false;
 }
 
 
 /* Set parameters which will be set only once */
-BOOL VppSoc_SetParames(VPP_SETPARAMS_DATA *pData)
+static bool vpp_set_params(struct vpp_parms *parms)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.sSurfaceState = *pData;
-    __VppSoc_SetParames();
-    return TRUE;
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.surf_stat = *parms;
+	__vpp_set_params();
+	return true;
 }
 
-
-
-VOID VppSoc_SetBase(UINT32 ui32Base)
+static void vpp_set_base(unsigned long base)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.sSurfaceState.ui32SrcBase = ui32Base;
-    __VppSoc_SetBase();
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.surf_stat.src_base = base;
+	__vpp_set_base();
 }
 
-BOOL VppSoc_SetSize(RECT *psSrcRect, RECT *psDstRect)
+static bool vpp_set_size(struct vdss_rect *src_rect,
+			struct vdss_rect *dst_rect)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.sRectSrc = (*psSrcRect);
-    gsVppConfig.sRectDst = (*psDstRect);
-    return __VppSoc_SetSize();
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.src_rect = *src_rect;
+	vpp_config.dst_rect = *dst_rect;
+	return __vpp_set_size();
 }
 
-VOID VppSoc_Start(BOOL bContinues)
+static void vpp_start(bool continues)
 {
-    REG_VPP_CTRL reg_VPP_CTRL;
+	u32 reg_ctrl;
 
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    if (gsVppConfig.bUVInterleave)
-    {
-        reg_VPP_CTRL.UV_INTERLEAVE_EN = 1;
-    }
-    reg_VPP_CTRL.START = 1;
-    WriteVppRegisterValue(VPP_CTRL, reg_VPP_CTRL.DW);
+	LCDC_ENTRY("%s\n", __func__);
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	if (vpp_config.uv_interleave)
+		reg_ctrl |= VPP_CTRL_UV_INTERLEAVE_EN;
+	reg_ctrl |= VPP_CTRL_START;
+	vpp_write_reg(VPP_CTRL, reg_ctrl);
 }
 
-VOID VppSoc_Stop(VOID)
+static void vpp_stop(void)
 {
-    REG_VPP_CTRL reg_VPP_CTRL;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    WriteVppRegisterValue(VPP_CTRL, reg_VPP_CTRL.DW);
+	u32 reg_ctrl;
+	LCDC_ENTRY("%s\n", __func__);
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	vpp_write_reg(VPP_CTRL, reg_ctrl);
 }
 
-BOOL VppSoc_IsBusy(VOID)
+static bool vpp_is_busy(void)
 {
-    REG_VPP_CTRL reg_VPP_CTRL;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    return (reg_VPP_CTRL.BUSY_STATUS==1);
+	u32 reg_ctrl;
+	LCDC_ENTRY("%s\n", __func__);
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	return ((reg_ctrl & VPP_CTRL_BUSY_STATUS) != 0);
 }
 
-VOID VppSoc_ClearDMAInterrupt(VOID)
+static void vpp_clear_dma_interrupt(void)
 {
-    REG_VPP_INT_STATUS reg_VPP_INT_STATUS;
-    reg_VPP_INT_STATUS.DW = 0;
-    reg_VPP_INT_STATUS.INT_SINGLE_STATUS = 1;
-    WriteVppRegisterValue(VPP_INT_STATUS, reg_VPP_INT_STATUS.DW);    
+	u32 reg_int_stat = 0x0;
+	reg_int_stat = VPP_INT_SINGLE_STATUS;
+	vpp_write_reg(VPP_INT_STATUS, reg_int_stat);
 }
 
-VOID VppSoc_EnableDMAInterrupt(VOID)
+static void vpp_enable_dma_interrupt(void)
 {
-    REG_VPP_INT_MASK reg_VPP_INT_MASK;
-    VppSoc_ClearDMAInterrupt();
-    gsVppConfig.bDMAInterruptEnabled = TRUE;
-    reg_VPP_INT_MASK.DW = ReadVppRegisterValue(VPP_INT_MASK);
-    reg_VPP_INT_MASK.INT_SINGLE_MASK = 1;
-    WriteVppRegisterValue(VPP_INT_MASK, reg_VPP_INT_MASK.DW);
+	u32 reg_int_mask;
+	vpp_clear_dma_interrupt();
+	vpp_config.dma_interrupt_enabled = true;
+	reg_int_mask = vpp_read_reg(VPP_INT_MASK);
+	reg_int_mask |= VPP_INT_SINGLE_ENABLE;
+	vpp_write_reg(VPP_INT_MASK, reg_int_mask);
 }
 
-VOID VppSoc_DisableDMAInterrupt(VOID)
+static void vpp_disable_dma_interrupt(void)
 {
-    REG_VPP_INT_MASK reg_VPP_INT_MASK;
-    gsVppConfig.bDMAInterruptEnabled = FALSE;
-    reg_VPP_INT_MASK.DW = ReadVppRegisterValue(VPP_INT_MASK);
-    reg_VPP_INT_MASK.INT_SINGLE_MASK = 0;
-    WriteVppRegisterValue(VPP_INT_MASK, reg_VPP_INT_MASK.DW);
+	u32 reg_int_mask;
+	vpp_config.dma_interrupt_enabled = false;
+	reg_int_mask = vpp_read_reg(VPP_INT_MASK);
+	reg_int_mask &= ~VPP_INT_SINGLE_ENABLE;
+	vpp_write_reg(VPP_INT_MASK, reg_int_mask);
 }
 
-BOOL VppSoc_IsDMAInterrupted(VOID)
+static bool vpp_dma_irq_detected(void)
 {
-    REG_VPP_INT_STATUS reg_VPP_INT_STATUS;
-    reg_VPP_INT_STATUS.DW = ReadVppRegisterValue(VPP_INT_STATUS);
-    return (reg_VPP_INT_STATUS.INT_SINGLE_STATUS==1);
+	u32 reg_int_stat;
+	reg_int_stat = vpp_read_reg(VPP_INT_STATUS);
+	return ((reg_int_stat & VPP_INT_SINGLE_STATUS) != 0);
 }
 
-VOID VppSoc_Sleep(VOID)
+static void vpp_sleep(void)
 {
-    UINT times = 0;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    while(VppSoc_IsBusy())
-    {
-        OSVppWaitms(1);
-        times++;
-        if (times > 20)
-        {
-            LCD_MSG(("Error: VPP can't stop\n"));
-            break;
-        }
-    }
-    __VppSoc_DisableClock();
+	int count = 0;
+	LCDC_ENTRY("%s\n", __func__);
+	while (vpp_is_busy()) {
+		msleep(20);
+		count++;
+		if (count > 20) {
+			LCDC_ERR("%s(%d): VPP can't stop\n",
+				__func__, __LINE__);
+			break;
+		}
+	}
 }
 
-VOID VppSoc_Wakeup(VOID)
+static void vpp_wakeup(void)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    __VppSoc_Setup();
+	LCDC_ENTRY("%s\n", __func__);
+	__vpp_setup();
 
-    // Coefs are reset to default table.
-    gsVppConfig.fHScalingRatioLast = 1.0;
-    gsVppConfig.fVScalingRatioLast = 1.0;
+	/* Coefs are reset to default table */
+	vpp_config.hscaling_ratio_last = 1.0;
+	vpp_config.vscaling_ratio_last = 1.0;
 
-#if 0   
-    //
-    // Restore registers base on software state, but it seems LCD or
-    // blt function will update these parameters.
-    //
-    __VppSoc_SetParames();
-    __VppSoc_SetSize();
+#if 0
+	/*
+	 * Restore registers base on software state, but it seems LCD or blt
+	 * function will update these parameters.
+	 */
+	__vpp_set_params();
+	__vpp_set_size();
 #endif
-    __VppSoc_SetColorCtrl();
-    if (gsVppConfig.bDMAInterruptEnabled)
-    {
-        VppSoc_EnableDMAInterrupt();
-    }
+	__vpp_set_color_ctrl();
+	if (vpp_config.dma_interrupt_enabled)
+		vpp_enable_dma_interrupt();
 }
 
 
-VOID VppSoc_UpdateBright(INT iBrightness)
+static void vpp_update_bright(int brightness)
 {
-    REG_VPP_COLOR_BC_CTRL reg_VPP_COLOR_BC_CTRL;
-    VPP_COLORCTRL_DATA *pClrCtrl = &gsVppConfig.sClrCtrl;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
+	u32 reg_bc_ctrl = 0x0;
+	struct vpp_color_ctrl *clr_ctrl = &vpp_config.clr_ctrl;
+	LCDC_ENTRY("%s\n", __func__);
 
-    pClrCtrl->i16Bright = (INT16)iBrightness;
+	clr_ctrl->bright = (short)brightness;
 
-    reg_VPP_COLOR_BC_CTRL.DW = 0;
-    reg_VPP_COLOR_BC_CTRL.Brightness = pClrCtrl->i16Bright;
-    reg_VPP_COLOR_BC_CTRL.Contrast = pClrCtrl->i16Contrast;
-    WriteVppRegisterValue(VPP_COLOR_BC_CTRL, reg_VPP_COLOR_BC_CTRL.DW);
+	reg_bc_ctrl = VPP_COLOR_B_CTRL(clr_ctrl->bright) |
+			VPP_COLOR_C_CTRL(clr_ctrl->contrast);
+	vpp_write_reg(VPP_COLOR_BC_CTRL, reg_bc_ctrl);
 }
 
-VOID VppSoc_UpdateContrast(INT iContrast)
+static void vpp_update_contrast(int contrast)
 {
-    REG_VPP_COLOR_BC_CTRL reg_VPP_COLOR_BC_CTRL;
-    VPP_COLORCTRL_DATA *pClrCtrl = &gsVppConfig.sClrCtrl;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
+	u32 reg_bc_ctrl = 0x0;
+	struct vpp_color_ctrl *clr_ctrl = &vpp_config.clr_ctrl;
+	LCDC_ENTRY("%s\n", __func__);
 
-    pClrCtrl->i16Contrast = (INT16)(iContrast);
+	clr_ctrl->contrast = (short)contrast;
 
-    reg_VPP_COLOR_BC_CTRL.DW = 0;
-    reg_VPP_COLOR_BC_CTRL.Brightness = pClrCtrl->i16Bright;
-    reg_VPP_COLOR_BC_CTRL.Contrast = pClrCtrl->i16Contrast;
-    WriteVppRegisterValue(VPP_COLOR_BC_CTRL, reg_VPP_COLOR_BC_CTRL.DW);
+	reg_bc_ctrl = VPP_COLOR_B_CTRL(clr_ctrl->bright) |
+			VPP_COLOR_C_CTRL(clr_ctrl->contrast);
+	vpp_write_reg(VPP_COLOR_BC_CTRL, reg_bc_ctrl);
 }
-VOID VppSoc_SetColorCtrl(VPP_COLORCTRL_DATA *pData)
+static void vpp_set_color_ctrl(struct vpp_color_ctrl *data)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.sClrCtrl = *pData;
-    __VppSoc_SetColorCtrl();
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.clr_ctrl = *data;
+	__vpp_set_color_ctrl();
 }
 
-VOID VppSoc_SetInterlace(BOOL bInputMode, VPP_OUTPUT_MODE eOutputMode,
-    BOOL bOutputTopFirst, BOOL bTopFieldReserved, VPP_DI_MODE eDeinterMode,
-    BOOL bInputTopFirst, UINT32 ui32FieldOffset)
+static void vpp_set_interlace(bool input_mode, int out_mode,
+	bool output_top_first, bool top_field_reserved, int di_mode,
+	bool input_top_first, u32 field_offset)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.sInterlace.bInInterlaced = bInputMode;
-    gsVppConfig.sInterlace.eOutMode = eOutputMode;
-    gsVppConfig.sInterlace.bOutputTopFirst = bOutputTopFirst;
-    gsVppConfig.sInterlace.bInputTopFirst = bInputTopFirst;
-    gsVppConfig.sInterlace.bTopDi = bTopFieldReserved;
-    gsVppConfig.sInterlace.eDeintMode = eDeinterMode;
-    gsVppConfig.sInterlace.ui32FieldOffset = ui32FieldOffset;
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.interlace.in_interlaced = input_mode;
+	vpp_config.interlace.out_mode = out_mode;
+	vpp_config.interlace.output_top_first = output_top_first;
+	vpp_config.interlace.input_top_first = input_top_first;
+	vpp_config.interlace.di_top = top_field_reserved;
+	vpp_config.interlace.di_mode = di_mode;
+	vpp_config.interlace.field_offset = field_offset;
 }
 
-VOID VppSoc_PrintRegister(VOID)
+static void vpp_print_register(void)
 {
-    LCD_MSG(("VPP registers:\n"));
-    LCD_MSG(("VPP_CTRL=0x%08x\r\n",         ReadVppRegisterValue(VPP_CTRL)));
-    LCD_MSG(("VPP_YBASE=0x%08x\r\n",        ReadVppRegisterValue(VPP_YBASE)));
-    LCD_MSG(("VPP_UBASE=0x%08x\r\n",        ReadVppRegisterValue(VPP_UBASE)));
-    LCD_MSG(("VPP_VBASE=0x%08x\r\n",        ReadVppRegisterValue(VPP_VBASE)));
-    LCD_MSG(("VPP_DESBASE=0x%08x\r\n",      ReadVppRegisterValue(VPP_DESBASE)));
-    LCD_MSG(("VPP_WIDTH =0x%08x\r\n",       ReadVppRegisterValue(VPP_WIDTH)));
-    LCD_MSG(("VPP_HEIGHT=0x%08x\r\n",       ReadVppRegisterValue(VPP_HEIGHT)));
-    LCD_MSG(("VPP_STRIDE0=0x%08x\r\n",      ReadVppRegisterValue(VPP_STRIDE0)));
-    LCD_MSG(("VPP_STRIDE1=0x%08x\r\n",      ReadVppRegisterValue(VPP_STRIDE1)));
-    LCD_MSG(("VPP_HSCA_COEF00=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF00)));
-    LCD_MSG(("VPP_HSCA_COEF01=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF01)));
-    LCD_MSG(("VPP_HSCA_COEF02=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF02)));
-    LCD_MSG(("VPP_HSCA_COEF10=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF10)));
-    LCD_MSG(("VPP_HSCA_COEF11=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF11)));
-    LCD_MSG(("VPP_HSCA_COEF12=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF12)));
-    LCD_MSG(("VPP_HSCA_COEF20=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF20)));
-    LCD_MSG(("VPP_HSCA_COEF21=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF21)));
-    LCD_MSG(("VPP_HSCA_COEF22=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF22)));
-    LCD_MSG(("VPP_HSCA_COEF30=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF30)));
-    LCD_MSG(("VPP_HSCA_COEF31=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF31)));
-    LCD_MSG(("VPP_HSCA_COEF32=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF32)));
-    LCD_MSG(("VPP_HSCA_COEF40=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF40)));
-    LCD_MSG(("VPP_HSCA_COEF41=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF41)));
-    LCD_MSG(("VPP_HSCA_COEF42=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF42)));
-    LCD_MSG(("VPP_HSCA_COEF50=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF50)));
-    LCD_MSG(("VPP_HSCA_COEF51=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF51)));
-    LCD_MSG(("VPP_HSCA_COEF52=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF52)));
-    LCD_MSG(("VPP_HSCA_COEF60=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF60)));
-    LCD_MSG(("VPP_HSCA_COEF61=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF61)));
-    LCD_MSG(("VPP_HSCA_COEF62=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF62)));
-    LCD_MSG(("VPP_HSCA_COEF70=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF70)));
-    LCD_MSG(("VPP_HSCA_COEF71=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF71)));
-    LCD_MSG(("VPP_HSCA_COEF72=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF72)));
-    LCD_MSG(("VPP_HSCA_COEF80=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF80)));
-    LCD_MSG(("VPP_HSCA_COEF81=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF81)));
-    LCD_MSG(("VPP_HSCA_COEF82=0x%08x\r\n",  ReadVppRegisterValue(VPP_HSCA_COEF82)));
-    LCD_MSG(("VPP_VSCA_COEF00=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF00)));
-    LCD_MSG(("VPP_VSCA_COEF01=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF01)));
-    LCD_MSG(("VPP_VSCA_COEF10=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF10)));
-    LCD_MSG(("VPP_VSCA_COEF11=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF11)));
-    LCD_MSG(("VPP_VSCA_COEF20=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF20)));
-    LCD_MSG(("VPP_VSCA_COEF21=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF21)));
-    LCD_MSG(("VPP_VSCA_COEF30=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF30)));
-    LCD_MSG(("VPP_VSCA_COEF31=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF31)));
-    LCD_MSG(("VPP_VSCA_COEF40=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF40)));
-    LCD_MSG(("VPP_VSCA_COEF41=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF41)));
-    LCD_MSG(("VPP_VSCA_COEF50=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF50)));
-    LCD_MSG(("VPP_VSCA_COEF51=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF51)));
-    LCD_MSG(("VPP_VSCA_COEF60=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF60)));
-    LCD_MSG(("VPP_VSCA_COEF61=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF61)));
-    LCD_MSG(("VPP_VSCA_COEF70=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF70)));
-    LCD_MSG(("VPP_VSCA_COEF71=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF71)));
-    LCD_MSG(("VPP_VSCA_COEF80=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF80)));
-    LCD_MSG(("VPP_VSCA_COEF81=0x%08x\r\n",  ReadVppRegisterValue(VPP_VSCA_COEF81)));
-    LCD_MSG(("VPP_RCOEF=0x%08x\r\n",        ReadVppRegisterValue(VPP_RCOEF)));
-    LCD_MSG(("VPP_GCOEF=0x%08x\r\n",        ReadVppRegisterValue(VPP_GCOEF)));
-    LCD_MSG(("VPP_BCOEF=0x%08x\r\n",        ReadVppRegisterValue(VPP_BCOEF)));
-    LCD_MSG(("VPP_OFFSET1=0x%08x\r\n",      ReadVppRegisterValue(VPP_OFFSET1)));
-    LCD_MSG(("VPP_OFFSET2=0x%08x\r\n",      ReadVppRegisterValue(VPP_OFFSET2)));
-    LCD_MSG(("VPP_OFFSET3=0x%08x\r\n",      ReadVppRegisterValue(VPP_OFFSET3)));
-    LCD_MSG(("VPP_INT_MASK=0x%08x\r\n",     ReadVppRegisterValue(VPP_INT_MASK)));
-    LCD_MSG(("VPP_INT_STATUS=0x%08x\r\n",   ReadVppRegisterValue(VPP_INT_STATUS)));
-    LCD_MSG(("VPP_ACC=0x%08x\r\n",          ReadVppRegisterValue(VPP_ACC)));
-    LCD_MSG(("VPP_FULL_THRESH=0x%08x\r\n",  ReadVppRegisterValue(VPP_FULL_THRESH)));
-    LCD_MSG(("VPP_COLOR_HS_CTRL=0x%08x\r\n",ReadVppRegisterValue(VPP_COLOR_HS_CTRL)));
-    LCD_MSG(("VPP_COLOR_BC_CTRL=0x%08x\r\n",ReadVppRegisterValue(VPP_COLOR_BC_CTRL)));
-    LCD_MSG(("VPP_YBASE_BOT=0x%08x\r\n",    ReadVppRegisterValue(VPP_YBASE_BOT)));
-    LCD_MSG(("VPP_UBASE_BOT=0x%08x\r\n",    ReadVppRegisterValue(VPP_UBASE_BOT)));
-    LCD_MSG(("VPP_VBASE_BOT=0x%08x\r\n",    ReadVppRegisterValue(VPP_VBASE_BOT)));
-    LCD_MSG(("VPP_DESBASE_BOT=0x%08x\r\n",  ReadVppRegisterValue(VPP_DESBASE_BOT)));
+	LCDC_DUMP("VPP registers:\n");
+	LCDC_DUMP("VPP_CTRL=0x%08x\n",		vpp_read_reg(VPP_CTRL));
+	LCDC_DUMP("VPP_YBASE=0x%08x\n",		vpp_read_reg(VPP_YBASE));
+	LCDC_DUMP("VPP_UBASE=0x%08x\n",		vpp_read_reg(VPP_UBASE));
+	LCDC_DUMP("VPP_VBASE=0x%08x\n",		vpp_read_reg(VPP_VBASE));
+	LCDC_DUMP("VPP_DESBASE=0x%08x\n",	vpp_read_reg(VPP_DESBASE));
+	LCDC_DUMP("VPP_WIDTH =0x%08x\n",	vpp_read_reg(VPP_WIDTH));
+	LCDC_DUMP("VPP_HEIGHT=0x%08x\n",	vpp_read_reg(VPP_HEIGHT));
+	LCDC_DUMP("VPP_STRIDE0=0x%08x\n",	vpp_read_reg(VPP_STRIDE0));
+	LCDC_DUMP("VPP_STRIDE1=0x%08x\n",	vpp_read_reg(VPP_STRIDE1));
+	LCDC_DUMP("VPP_HSCA_COEF00=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF00));
+	LCDC_DUMP("VPP_HSCA_COEF01=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF01));
+	LCDC_DUMP("VPP_HSCA_COEF02=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF02));
+	LCDC_DUMP("VPP_HSCA_COEF10=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF10));
+	LCDC_DUMP("VPP_HSCA_COEF11=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF11));
+	LCDC_DUMP("VPP_HSCA_COEF12=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF12));
+	LCDC_DUMP("VPP_HSCA_COEF20=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF20));
+	LCDC_DUMP("VPP_HSCA_COEF21=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF21));
+	LCDC_DUMP("VPP_HSCA_COEF22=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF22));
+	LCDC_DUMP("VPP_HSCA_COEF30=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF30));
+	LCDC_DUMP("VPP_HSCA_COEF31=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF31));
+	LCDC_DUMP("VPP_HSCA_COEF32=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF32));
+	LCDC_DUMP("VPP_HSCA_COEF40=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF40));
+	LCDC_DUMP("VPP_HSCA_COEF41=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF41));
+	LCDC_DUMP("VPP_HSCA_COEF42=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF42));
+	LCDC_DUMP("VPP_HSCA_COEF50=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF50));
+	LCDC_DUMP("VPP_HSCA_COEF51=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF51));
+	LCDC_DUMP("VPP_HSCA_COEF52=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF52));
+	LCDC_DUMP("VPP_HSCA_COEF60=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF60));
+	LCDC_DUMP("VPP_HSCA_COEF61=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF61));
+	LCDC_DUMP("VPP_HSCA_COEF62=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF62));
+	LCDC_DUMP("VPP_HSCA_COEF70=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF70));
+	LCDC_DUMP("VPP_HSCA_COEF71=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF71));
+	LCDC_DUMP("VPP_HSCA_COEF72=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF72));
+	LCDC_DUMP("VPP_HSCA_COEF80=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF80));
+	LCDC_DUMP("VPP_HSCA_COEF81=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF81));
+	LCDC_DUMP("VPP_HSCA_COEF82=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF82));
+	LCDC_DUMP("VPP_VSCA_COEF00=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF00));
+	LCDC_DUMP("VPP_VSCA_COEF01=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF01));
+	LCDC_DUMP("VPP_VSCA_COEF10=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF10));
+	LCDC_DUMP("VPP_VSCA_COEF11=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF11));
+	LCDC_DUMP("VPP_VSCA_COEF20=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF20));
+	LCDC_DUMP("VPP_VSCA_COEF21=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF21));
+	LCDC_DUMP("VPP_VSCA_COEF30=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF30));
+	LCDC_DUMP("VPP_VSCA_COEF31=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF31));
+	LCDC_DUMP("VPP_VSCA_COEF40=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF40));
+	LCDC_DUMP("VPP_VSCA_COEF41=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF41));
+	LCDC_DUMP("VPP_VSCA_COEF50=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF50));
+	LCDC_DUMP("VPP_VSCA_COEF51=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF51));
+	LCDC_DUMP("VPP_VSCA_COEF60=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF60));
+	LCDC_DUMP("VPP_VSCA_COEF61=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF61));
+	LCDC_DUMP("VPP_VSCA_COEF70=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF70));
+	LCDC_DUMP("VPP_VSCA_COEF71=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF71));
+	LCDC_DUMP("VPP_VSCA_COEF80=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF80));
+	LCDC_DUMP("VPP_VSCA_COEF81=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF81));
+	LCDC_DUMP("VPP_RCOEF=0x%08x\n",		vpp_read_reg(VPP_RCOEF));
+	LCDC_DUMP("VPP_GCOEF=0x%08x\n",		vpp_read_reg(VPP_GCOEF));
+	LCDC_DUMP("VPP_BCOEF=0x%08x\n",		vpp_read_reg(VPP_BCOEF));
+	LCDC_DUMP("VPP_OFFSET1=0x%08x\n",	vpp_read_reg(VPP_OFFSET1));
+	LCDC_DUMP("VPP_OFFSET2=0x%08x\n",	vpp_read_reg(VPP_OFFSET2));
+	LCDC_DUMP("VPP_OFFSET3=0x%08x\n",	vpp_read_reg(VPP_OFFSET3));
+	LCDC_DUMP("VPP_INT_MASK=0x%08x\n",	vpp_read_reg(VPP_INT_MASK));
+	LCDC_DUMP("VPP_INT_STATUS=0x%08x\n",	vpp_read_reg(VPP_INT_STATUS));
+	LCDC_DUMP("VPP_ACC=0x%08x\n",		vpp_read_reg(VPP_ACC));
+	LCDC_DUMP("VPP_FULL_THRESH=0x%08x\n",	vpp_read_reg(VPP_FULL_THRESH));
+	LCDC_DUMP("VPP_COLOR_HS_CTRL=0x%08x\n",
+		vpp_read_reg(VPP_COLOR_HS_CTRL));
+	LCDC_DUMP("VPP_COLOR_BC_CTRL=0x%08x\n",
+		vpp_read_reg(VPP_COLOR_BC_CTRL));
+	LCDC_DUMP("VPP_YBASE_BOT=0x%08x\n",	vpp_read_reg(VPP_YBASE_BOT));
+	LCDC_DUMP("VPP_UBASE_BOT=0x%08x\n",	vpp_read_reg(VPP_UBASE_BOT));
+	LCDC_DUMP("VPP_VBASE_BOT=0x%08x\n",	vpp_read_reg(VPP_VBASE_BOT));
+	LCDC_DUMP("VPP_DESBASE_BOT=0x%08x\n",	vpp_read_reg(VPP_DESBASE_BOT));
 }
 
 
-/*Copy the data in source buffer to the external buffer*/
-VOID VppSoc_GetSourceInfo(UINT *pwidth,UINT *pheight,INT *pformat)
+/* Copy the data in source buffer to the external buffer */
+static void vpp_get_src_info(unsigned int *width,
+	unsigned int *height, int *format)
 {
-    REG_VPP_CTRL  reg_VPP_CTRL;
-    REG_VPP_WIDTH reg_VPP_WIDTH;
-    REG_VPP_HEIGHT reg_VPP_HEIGHT;
-  
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    reg_VPP_WIDTH.DW = ReadVppRegisterValue(VPP_WIDTH);
-    reg_VPP_HEIGHT.DW = ReadVppRegisterValue(VPP_HEIGHT);
-#if 1
-    *pwidth=reg_VPP_WIDTH.SRC_WIDTH;
-    *pheight = reg_VPP_HEIGHT.SRC_HEIGHT;
-  
-    if(reg_VPP_CTRL.PIXEL_FORMAT)//yv12 format
-    {
-        *pformat=VPP_INFORMAT_YUV420;
-    }
-    else
-    {
-        switch(reg_VPP_CTRL.YUV422_FORMAT)
-        {
-        case 0://YUYV
-            if(reg_VPP_CTRL.ENDIAN_MODE)//big endian
-                *pformat=VPP_INFORMAT_Y0UY1V;
-            else
-                *pformat=VPP_INFORMAT_Y1UY0V;
-            break;
-        case 1://YVYU
-            if(reg_VPP_CTRL.ENDIAN_MODE)//big endian
-                *pformat=VPP_INFORMAT_Y0VY1U;
-            else
-                *pformat=VPP_INFORMAT_Y1VY0U;
-            break;
-        case 2://UYVY
-            if(reg_VPP_CTRL.ENDIAN_MODE)//big endian
-                *pformat=VPP_INFORMAT_UY0VY1;
-            else
-                *pformat=VPP_INFORMAT_UY1VY0;
-            break;
-        case 3://VYUY
-            if(reg_VPP_CTRL.ENDIAN_MODE)//big endian
-                *pformat=VPP_INFORMAT_VY0UY1;
-            else
-                *pformat=VPP_INFORMAT_VY1UY0;
-            break;
-        }
-    }
-#endif
+	u32 reg_ctrl;
+	u32 reg_width;
+	u32 reg_height;
+
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	reg_width = vpp_read_reg(VPP_WIDTH);
+	reg_height = vpp_read_reg(VPP_HEIGHT);
+
+	*width = reg_width & VPP_SRC_WIDTH_MASK;
+	*height = reg_height & VPP_SRC_HEIGHT_MASK;
+
+	if (reg_ctrl & VPP_CTRL_PIXEL_FORMAT) {
+		*format = VPP_INFORMAT_YUV420;
+	} else {
+		switch ((reg_ctrl & VPP_CTRL_YUV422_FORMAT_MASK) >> 2) {
+		case 0: /* YUYV */
+			if (reg_ctrl & VPP_CTRL_ENDIAN_MODE) /* big endian */
+				*format = VPP_INFORMAT_Y0UY1V;
+			else
+				*format = VPP_INFORMAT_Y1UY0V;
+			break;
+		case 1: /* YVYU */
+			if (reg_ctrl & VPP_CTRL_ENDIAN_MODE) /* big endian */
+				*format = VPP_INFORMAT_Y0VY1U;
+			else
+				*format = VPP_INFORMAT_Y1VY0U;
+			break;
+		case 2: /* UYVY */
+			if (reg_ctrl & VPP_CTRL_ENDIAN_MODE) /* big endian */
+				*format = VPP_INFORMAT_UY0VY1;
+			else
+				*format = VPP_INFORMAT_UY1VY0;
+			break;
+		case 3: /* VYUY */
+			if (reg_ctrl & VPP_CTRL_ENDIAN_MODE) /* big endian */
+				*format = VPP_INFORMAT_VY0UY1;
+			else
+				*format = VPP_INFORMAT_VY1UY0;
+			break;
+		}
+	}
 }
 
-BOOL VppSoc_GetSourceBuffer(UINT8 *pSrc)
+static bool vpp_get_src_buf(unsigned char *src)
 {
-    UINT8 * p_Yadd;
-    UINT j;
-    REG_VPP_CTRL  reg_VPP_CTRL;
-        
-    REG_VPP_STRIDE0 reg_VPP_STRIDE0;
-    REG_VPP_STRIDE1 reg_VPP_STRIDE1;
-    REG_VPP_WIDTH reg_VPP_WIDTH;
-    REG_VPP_HEIGHT reg_VPP_HEIGHT;
-  
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    reg_VPP_STRIDE0.DW = ReadVppRegisterValue(VPP_STRIDE0);
-    reg_VPP_STRIDE1.DW = ReadVppRegisterValue(VPP_STRIDE1);
-    reg_VPP_WIDTH.DW = ReadVppRegisterValue(VPP_WIDTH);
-    reg_VPP_HEIGHT.DW = ReadVppRegisterValue(VPP_HEIGHT);
-    
-    if(reg_VPP_CTRL.DEST)
-        return FALSE;
-    
-    if(reg_VPP_CTRL.PIXEL_FORMAT)//YV12 format
-    {
-        REG_VPP_YBASE reg_VPP_YBASE;
-        REG_VPP_UBASE reg_VPP_UBASE;
-        REG_VPP_VBASE reg_VPP_VBASE;
-        reg_VPP_YBASE.DW = ReadVppRegisterValue(VPP_YBASE);
-        reg_VPP_UBASE.DW = ReadVppRegisterValue(VPP_UBASE);
-        reg_VPP_VBASE.DW = ReadVppRegisterValue(VPP_VBASE);
-        
-        p_Yadd= (UINT8*)(UINT32)reg_VPP_YBASE.YBASE_ADDR;
-        
-        for(j=0;j<reg_VPP_HEIGHT.SRC_HEIGHT;j++)
-        {
-            memcpy(pSrc,p_Yadd,reg_VPP_WIDTH.SRC_WIDTH);
-            pSrc+=reg_VPP_WIDTH.SRC_WIDTH;
-            p_Yadd+=reg_VPP_STRIDE0.Y_STRIDE;
-        }
-        p_Yadd = (UINT8*)(UINT32)reg_VPP_UBASE.UBASE_ADDR;
-        for(j=0;j<reg_VPP_HEIGHT.SRC_HEIGHT/2;j++)
-        {
-            memcpy(pSrc,p_Yadd,reg_VPP_WIDTH.SRC_WIDTH/2);
-            pSrc+=reg_VPP_WIDTH.SRC_WIDTH/2;
-            p_Yadd+=reg_VPP_STRIDE0.U_STRIDE;
-        }
-        
-        p_Yadd = (UINT8*)(UINT32)reg_VPP_VBASE.VBASE_ADDR;
-        for(j=0;j<reg_VPP_HEIGHT.SRC_HEIGHT/2;j++)
-        {
-            memcpy(pSrc,p_Yadd,reg_VPP_WIDTH.SRC_WIDTH/2);
-            pSrc+=reg_VPP_WIDTH.SRC_WIDTH/2;
-            p_Yadd+=reg_VPP_STRIDE1.V_STRIDE;
-        }           
-    }   
-    else
-    {
-        REG_VPP_YBASE reg_VPP_YBASE;
-        reg_VPP_YBASE.DW = ReadVppRegisterValue(VPP_YBASE);
-            
-        p_Yadd=(UINT8*)(UINT32)reg_VPP_YBASE.YBASE_ADDR;
-        
-        for(j=0;j<reg_VPP_HEIGHT.SRC_HEIGHT;j++)
-        {
-            memcpy(pSrc,p_Yadd,reg_VPP_WIDTH.SRC_WIDTH*2);
-            pSrc+=reg_VPP_WIDTH.SRC_WIDTH*2;
-            p_Yadd+=reg_VPP_STRIDE0.Y_STRIDE;
-        }
-    }    
-    return TRUE;
+	unsigned char *addr;
+	int j;
+
+	u32 reg_ctrl;
+	u32 reg_stride0;
+	u32 reg_stride1;
+	u32 reg_width;
+	u32 reg_height;
+
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	reg_stride0 = vpp_read_reg(VPP_STRIDE0);
+	reg_stride1 = vpp_read_reg(VPP_STRIDE1);
+	reg_width = vpp_read_reg(VPP_WIDTH);
+	reg_height = vpp_read_reg(VPP_HEIGHT);
+
+	if (reg_ctrl & VPP_CTRL_DEST)
+		return false;
+
+	if (reg_ctrl & VPP_CTRL_PIXEL_FORMAT) {
+		u32 reg_ybase;
+		u32 reg_ubase;
+		u32 reg_vbase;
+		reg_ybase = vpp_read_reg(VPP_YBASE);
+		reg_ubase = vpp_read_reg(VPP_UBASE);
+		reg_vbase = vpp_read_reg(VPP_VBASE);
+
+		addr = (unsigned char *)reg_ybase;
+		for (j = 0; j < (reg_height & VPP_SRC_HEIGHT_MASK); j++) {
+			memcpy(src, addr, reg_width & VPP_SRC_WIDTH_MASK);
+			src += reg_width & VPP_SRC_WIDTH_MASK;
+			addr += reg_stride0 & VPP_Y_STRIDE_MASK;
+		}
+
+		addr = (unsigned char *)reg_ubase;
+		for (j = 0; j < (reg_height & VPP_SRC_HEIGHT_MASK) / 2; j++) {
+			memcpy(src, addr, (reg_width & VPP_SRC_WIDTH_MASK) / 2);
+			src += (reg_width & VPP_SRC_WIDTH_MASK) / 2;
+			addr += (reg_stride0 & VPP_U_STRIDE_MASK) >> 16;
+		}
+
+		addr = (unsigned char *)reg_vbase;
+		for (j = 0; j < (reg_height & VPP_SRC_HEIGHT_MASK) / 2; j++) {
+			memcpy(src, addr, (reg_width & VPP_SRC_WIDTH_MASK) / 2);
+			src += (reg_width & VPP_SRC_WIDTH_MASK) / 2;
+			addr += reg_stride1 & VPP_V_STRIDE_MASK;
+		}
+	} else {
+		u32 reg_ybase;
+		reg_ybase = vpp_read_reg(VPP_YBASE);
+
+		addr = (unsigned char *)reg_ybase;
+		for (j = 0; j < (reg_height & VPP_SRC_HEIGHT_MASK); j++) {
+			memcpy(src, addr, (reg_width & VPP_SRC_WIDTH_MASK) * 2);
+			src += (reg_width & VPP_SRC_WIDTH_MASK) * 2;
+			addr += reg_stride0 & VPP_Y_STRIDE_MASK;
+		}
+	}
+
+	return true;
 }
 
-VOID VppSoc_GetDestInfo(UINT *pwidth,UINT *pheight,INT *pformat)
+static void vpp_get_dst_info(unsigned int *width,
+	unsigned int *height, int *format)
 {
-    REG_VPP_CTRL  reg_VPP_CTRL;
-    REG_VPP_WIDTH reg_VPP_WIDTH;
-    REG_VPP_HEIGHT reg_VPP_HEIGHT;
-  
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    reg_VPP_WIDTH.DW = ReadVppRegisterValue(VPP_WIDTH);
-    reg_VPP_HEIGHT.DW = ReadVppRegisterValue(VPP_HEIGHT);
-   
-    *pwidth  = reg_VPP_WIDTH.DES_WIDTH;
-    *pheight = reg_VPP_HEIGHT.DES_HEIGHT;
+	u32 reg_ctrl;
+	u32 reg_width;
+	u32 reg_height;
 
-#if 1  
-    if(reg_VPP_CTRL.OUT_FORMAT==0)//RGB565 format
-    {
-        *pformat=VPP_OUTFORMAT_RGB565;      
-    }     
-    else if(reg_VPP_CTRL.OUT_FORMAT==1) //RGB666 format
-    {
-        *pformat=VPP_OUTFORMAT_RGB666; 
-    }
-    else if(reg_VPP_CTRL.OUT_FORMAT==2)// RGB8880 format
-    {
-        *pformat=VPP_OUTFORMAT_RGB888; 
-    }
-    else if(reg_VPP_CTRL.OUT_FORMAT==3)//YUV422
-    {
-        switch(reg_VPP_CTRL.OUT_YUV422_FORMAT)
-        {
-        case 0://YUYV
-            if(reg_VPP_CTRL.OUT_ENDIAN_MODE)//big endian
-                *pformat=VPP_OUTFORMAT_Y0UY1V;
-            else
-                *pformat=VPP_OUTFORMAT_Y1UY0V;
-            break;
-        case 1://YVYU
-            if(reg_VPP_CTRL.OUT_ENDIAN_MODE)//big endian
-                *pformat=VPP_OUTFORMAT_Y0VY1U;
-            else
-                *pformat=VPP_OUTFORMAT_Y1VY0U;
-            break;
-        case 2://UYVY
-            if(reg_VPP_CTRL.OUT_ENDIAN_MODE)//big endian
-                *pformat=VPP_OUTFORMAT_UY0VY1;
-            else
-                *pformat=VPP_OUTFORMAT_UY1VY0;
-            break;
-        case 3://VYUY
-            if(reg_VPP_CTRL.OUT_ENDIAN_MODE)//big endian
-                *pformat=VPP_OUTFORMAT_VY0UY1;
-            else
-                *pformat=VPP_OUTFORMAT_VY1UY0;
-            break;
-        }           
-    }
-#endif
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	reg_width = vpp_read_reg(VPP_WIDTH);
+	reg_height = vpp_read_reg(VPP_HEIGHT);
+
+	*width  = (reg_width & VPP_DES_WIDTH_MASK) >> 16;
+	*height = (reg_height & VPP_DES_WIDTH_MASK) >> 16;
+
+	if ((reg_ctrl & VPP_CTRL_OUT_FORMAT_MASK) >> 8 == 0)
+		*format = VPP_OUTFORMAT_RGB565;
+	else if ((reg_ctrl & VPP_CTRL_OUT_FORMAT_MASK) >> 8 == 1)
+		*format = VPP_OUTFORMAT_RGB666;
+	else if ((reg_ctrl & VPP_CTRL_OUT_FORMAT_MASK) >> 8 == 2)
+		*format = VPP_OUTFORMAT_RGB888;
+	else if ((reg_ctrl & VPP_CTRL_OUT_FORMAT_MASK) >> 8 == 3) {
+		switch ((reg_ctrl & VPP_CTRL_OUT_YUV422_FORMAT_MASK) >> 4) {
+		case 0: /* YUYV */
+			if (reg_ctrl & VPP_CTRL_OUT_ENDIAN_MODE)
+				*format = VPP_OUTFORMAT_Y0UY1V;
+			else
+				*format = VPP_OUTFORMAT_Y1UY0V;
+			break;
+		case 1: /* YVYU */
+			if (reg_ctrl & VPP_CTRL_OUT_ENDIAN_MODE)
+				*format = VPP_OUTFORMAT_Y0VY1U;
+			else
+				*format = VPP_OUTFORMAT_Y1VY0U;
+			break;
+		case 2: /* UYVY */
+			if (reg_ctrl & VPP_CTRL_OUT_ENDIAN_MODE)
+				*format = VPP_OUTFORMAT_UY0VY1;
+			else
+				*format = VPP_OUTFORMAT_UY1VY0;
+			break;
+		case 3: /* VYUY */
+			if (reg_ctrl & VPP_CTRL_OUT_ENDIAN_MODE)
+				*format = VPP_OUTFORMAT_VY0UY1;
+			else
+				*format = VPP_OUTFORMAT_VY1UY0;
+			break;
+		}
+	}
 }
 
-/*Copy the data in dest buffer to the external buffer*/
-BOOL VppSoc_GetDestBuffer(UINT8* pDest)
+/* Copy the data in dest buffer to the external buffer */
+static bool vpp_get_dst_buf(unsigned char *dst)
 {
-    UINT j;
-    UINT8 * p_Yadd;
-    REG_VPP_CTRL  reg_VPP_CTRL;
-    REG_VPP_DESBASE reg_VPP_DSTBASE;
-    
-    REG_VPP_STRIDE1 reg_VPP_STRIDE1;
-    REG_VPP_WIDTH reg_VPP_WIDTH;
-    REG_VPP_HEIGHT reg_VPP_HEIGHT;
-  
-    reg_VPP_CTRL.DW  = ReadVppRegisterValue(VPP_CTRL);
-    reg_VPP_STRIDE1.DW = ReadVppRegisterValue(VPP_STRIDE1);
-    reg_VPP_WIDTH.DW = ReadVppRegisterValue(VPP_WIDTH);
-    reg_VPP_HEIGHT.DW = ReadVppRegisterValue(VPP_HEIGHT);
-    
-    if(reg_VPP_CTRL.DEST)//pass through mode
-        return FALSE;
-    
-    
-    reg_VPP_DSTBASE.DW = ReadVppRegisterValue(VPP_DESBASE);
-    
-    p_Yadd= (UINT8*)(UINT32)reg_VPP_DSTBASE.DESBASE_ADDR;
-        
-    for(j=0;j<reg_VPP_HEIGHT.DES_HEIGHT;j++)
-    {
-        memcpy(pDest,p_Yadd,reg_VPP_WIDTH.DES_WIDTH);
-        pDest+=reg_VPP_WIDTH.DES_WIDTH;
-        p_Yadd+=reg_VPP_STRIDE1.DES_STRIDE;
-    }
-    
-    return TRUE;
+	unsigned char *addr;
+	int j;
+
+	u32 reg_ctrl;
+	u32 reg_dstbase;
+	u32 reg_stride1;
+	u32 reg_width;
+	u32 reg_height;
+
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	reg_stride1 = vpp_read_reg(VPP_STRIDE1);
+	reg_width = vpp_read_reg(VPP_WIDTH);
+	reg_height = vpp_read_reg(VPP_HEIGHT);
+
+	if (reg_ctrl & VPP_CTRL_DEST) /* pass through mode */
+		return false;
+
+	reg_dstbase = vpp_read_reg(VPP_DESBASE);
+
+	addr = (unsigned char *)reg_dstbase;
+	for (j = 0; j < (reg_height & VPP_DES_HEIGHT_MASK) >> 16; j++) {
+		memcpy(dst, addr, (reg_width & VPP_DES_WIDTH_MASK) >> 16);
+		dst += (reg_width & VPP_DES_WIDTH_MASK) >> 16;
+		addr += (reg_stride1 & VPP_DES_STRIDE_MASK) >> 16;
+	}
+
+	return true;
 }
 
-#if defined(_WIN32_WCE)
-VOID VppSoc_UpdateHue(INT iHue)
+
+static void vpp_update_coeff2(u32 *filter_coef)
 {
-    REG_VPP_COLOR_HS_CTRL reg_VPP_COLOR_HS_CTRL;
-    VPP_COLORCTRL_DATA *pClrCtrl = &gsVppConfig.sClrCtrl;
+	int i;
+	u32 offset;
+	u32 reg_hsca_coef = 0x0;
+	u32 reg_vsca_coef = 0x0;
 
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.i16Hue = (INT16)iHue;
-    pClrCtrl->i16UC = (INT16)(cos((double)gsVppConfig.i16Hue / 90.0 * asin(1.0)) * (double)gsVppConfig.i16Saturation * 2.0);
-    pClrCtrl->i16VC = (INT16)(sin((double)gsVppConfig.i16Hue / 90.0 * asin(1.0)) * (double)gsVppConfig.i16Saturation * 2.0);
+	LCDC_ENTRY("%s\n", __func__);
+	offset = VPP_HSCA_COEF00;
 
-    reg_VPP_COLOR_HS_CTRL.DW = 0;
-    reg_VPP_COLOR_HS_CTRL.uC = pClrCtrl->i16UC;
-    reg_VPP_COLOR_HS_CTRL.vC = pClrCtrl->i16VC;
-    WriteVppRegisterValue(VPP_COLOR_HS_CTRL, reg_VPP_COLOR_HS_CTRL.DW);
+	for (i = 0; i < 54; i += 2) {
+		reg_hsca_coef = VPP_HC_HSCA_COEF00(filter_coef[i]) |
+				VPP_HC_HSCA_COEF01(filter_coef[i+1]);
+		vpp_write_reg(offset, reg_hsca_coef);
+		offset += 4;
+	}
+
+	offset = VPP_VSCA_COEF00;
+
+	for (i = 54; i < 90; i += 2) {
+		reg_vsca_coef = VPP_VC_VSCA_COEF00(filter_coef[i]) |
+				VPP_VC_VSCA_COEF01(filter_coef[i+1]);
+		vpp_write_reg(offset, reg_vsca_coef);
+		offset += 4;
+	}
 }
 
-VOID VppSoc_UpdateSaturation(INT iSaturation)
+static void vpp_update_yuv2rgb(struct vpp_coeff *rcoef,
+				struct vpp_coeff *gcoef,
+				struct vpp_coeff *bcoef)
 {
-    REG_VPP_COLOR_HS_CTRL reg_VPP_COLOR_HS_CTRL;
-    VPP_COLORCTRL_DATA *pClrCtrl = &gsVppConfig.sClrCtrl;
+	u32 reg_rcoef = 0x0;
+	u32 reg_gcoef = 0x0;
+	u32 reg_bcoef = 0x0;
 
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.i16Saturation = (INT16)iSaturation;
-    pClrCtrl->i16UC = (INT16)(cos((double)gsVppConfig.i16Hue / 90.0 * asin(1.0)) * (double)gsVppConfig.i16Saturation * 2.0);
-    pClrCtrl->i16VC = (INT16)(sin((double)gsVppConfig.i16Hue / 90.0 * asin(1.0)) * (double)gsVppConfig.i16Saturation * 2.0);
+	LCDC_ENTRY("%s\n", __func__);
+	reg_rcoef = VPP_COEF_C1(rcoef->ycoeff) |
+		VPP_COEF_C2(rcoef->ucoeff) |
+		VPP_COEF_C3(rcoef->vcoeff);
+	vpp_write_reg(VPP_RCOEF, reg_rcoef);
 
-    reg_VPP_COLOR_HS_CTRL.DW = 0;
-    reg_VPP_COLOR_HS_CTRL.uC = pClrCtrl->i16UC;
-    reg_VPP_COLOR_HS_CTRL.vC = pClrCtrl->i16VC;
-    WriteVppRegisterValue(VPP_COLOR_HS_CTRL, reg_VPP_COLOR_HS_CTRL.DW);
+	reg_gcoef = VPP_COEF_C1(gcoef->ycoeff) |
+		VPP_COEF_C2(gcoef->ucoeff) |
+		VPP_COEF_C3(gcoef->vcoeff);
+	vpp_write_reg(VPP_GCOEF, reg_gcoef);
+
+	reg_bcoef = VPP_COEF_C1(bcoef->ycoeff) |
+		VPP_COEF_C2(bcoef->ucoeff) |
+		VPP_COEF_C3(bcoef->vcoeff);
+	vpp_write_reg(VPP_BCOEF, reg_bcoef);
+
+	vpp_write_reg(VPP_OFFSET1, rcoef->offset);
+	vpp_write_reg(VPP_OFFSET2, gcoef->offset);
+	vpp_write_reg(VPP_OFFSET3, bcoef->offset);
 }
 
-INLINE DWORD double2coeff(DOUBLE x)
+static void vpp_update_format_endian(bool input_big_endian,
+					bool output_big_endian)
 {
-    INT temp;
-    temp = (INT)(x*(DOUBLE)(1<<12));
+	u32 reg_ctrl;
 
-    LCD_ASSERT(((temp&0xffff8000)==0xffff8000) || ((temp&0xffff8000)==0));
-    return temp & 0x7fff;
+	LCDC_ENTRY("%s\n", __func__);
+	reg_ctrl = vpp_read_reg(VPP_CTRL);
+	if (input_big_endian)
+		reg_ctrl |= VPP_CTRL_ENDIAN_MODE;
+	else
+		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;
+
+	if (output_big_endian)
+		reg_ctrl |= VPP_CTRL_OUT_ENDIAN_MODE;
+	else
+		reg_ctrl &= ~VPP_CTRL_OUT_ENDIAN_MODE;
+
+	vpp_write_reg(VPP_CTRL, reg_ctrl);
 }
 
-VOID VppSoc_UpdateCoeff(VOID)
+static void vpp_set_usr_mode(bool usr)
 {
-    UINT32 ui32SrcWidth = gsVppConfig.sRectSrc.right - gsVppConfig.sRectSrc.left;
-    UINT32 ui32DstWidth = gsVppConfig.sRectDst.right - gsVppConfig.sRectDst.left;
-    UINT32 ui32SrcHeight = gsVppConfig.sRectSrc.bottom - gsVppConfig.sRectSrc.top;
-    UINT32 ui32DstHeight = gsVppConfig.sRectDst.bottom - gsVppConfig.sRectDst.top;
-    UINT32 ui32Offset;
-    
-    REG_VPP_HSCA_COEF Lanczos6Coeff;
-    REG_VPP_VSCA_COEF Lanczos4Coeff;
-    /*Update scaling coeff if the scaling ratio change*/
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    ui32Offset = VPP_HSCA_COEF00;
-    if (ui32DstWidth>=ui32SrcWidth)
-    {
-        if (gsVppConfig.fHScalingRatioLast < 1.0)
-        {
-            INT i;
-            for (i=0; i<27; i++)
-            {
-                WriteVppRegisterValue(ui32Offset, tap_filter_coeff[i]);
-                ui32Offset += 4;
-            }
-        }
-        
-        gsVppConfig.fHScalingRatioLast = 1.0;
-    }
-    else
-    {
-        if (((gsVppConfig.fHScalingRatioLast - (DOUBLE)ui32DstWidth / ui32SrcWidth) > 10e-9) || 
-            ((gsVppConfig.fHScalingRatioLast - (DOUBLE)ui32DstWidth / ui32SrcWidth) < -10e-9))
-        {
-            INT i;
-            DOUBLE acc;
-
-            gsVppConfig.fHScalingRatioLast = (DOUBLE)ui32DstWidth / ui32SrcWidth;
-
-            for (i = 0; i < 9; i++)
-            {
-#if 1
-                DOUBLE frac = (DOUBLE)i / (DOUBLE)(1 << 4); 
-
-                DOUBLE coeff0 = lanczos6((2.0 + frac) * gsVppConfig.fHScalingRatioLast);
-                DOUBLE coeff1 = lanczos6((1.0 + frac) * gsVppConfig.fHScalingRatioLast);
-                DOUBLE coeff2 = lanczos6((0.0 + frac) * gsVppConfig.fHScalingRatioLast);
-                DOUBLE coeff3 = lanczos6((1.0 - frac) * gsVppConfig.fHScalingRatioLast);
-                DOUBLE coeff4 = lanczos6((2.0 - frac) * gsVppConfig.fHScalingRatioLast);
-                DOUBLE coeff5 = lanczos6((3.0 - frac) * gsVppConfig.fHScalingRatioLast);
-                acc = coeff0 + coeff1 + coeff2 + coeff3 + coeff4 + coeff5;
-
-                Lanczos6Coeff.COEF00 = double2coeff(coeff0/acc);
-                Lanczos6Coeff.COEF01 = double2coeff(coeff1/acc);
-                WriteVppRegisterValue(ui32Offset, Lanczos6Coeff.DW);
-                ui32Offset+=4;
-                Lanczos6Coeff.COEF00 = double2coeff(coeff2/acc);
-                Lanczos6Coeff.COEF01 = double2coeff(coeff3/acc);
-                WriteVppRegisterValue(ui32Offset, Lanczos6Coeff.DW);
-                ui32Offset+=4;
-                Lanczos6Coeff.COEF00 = double2coeff(coeff4/acc);
-                Lanczos6Coeff.COEF01 = double2coeff(coeff5/acc);
-                WriteVppRegisterValue(ui32Offset, Lanczos6Coeff.DW);
-                ui32Offset+=4;
-#endif
-            }
-        }
-            
-    }
-
-    ui32Offset = VPP_VSCA_COEF00;
-    if (ui32DstHeight>=ui32SrcHeight)
-    {
-        if (gsVppConfig.fVScalingRatioLast<1.0)
-        {
-            
-            INT i;
-            for (i = 27; i < 45; i++) 
-            {
-                WriteVppRegisterValue(ui32Offset, tap_filter_coeff[i]);
-                ui32Offset += 4;
-            }
-        }
-        gsVppConfig.fVScalingRatioLast=1.0;
-    }
-    else
-    {
-        if (((gsVppConfig.fVScalingRatioLast -(DOUBLE)ui32DstHeight/ui32SrcHeight)>10e-9) || 
-            ((gsVppConfig.fVScalingRatioLast -(DOUBLE)ui32DstHeight/ui32SrcHeight)<-10e-9))
-        {
-            
-            INT i;
-            DOUBLE acc;
-
-            gsVppConfig.fVScalingRatioLast = (DOUBLE)ui32DstHeight / ui32SrcHeight;    
-
-            for (i = 0; i < 9; i++) 
-            {
-#if 1
-                DOUBLE frac = (DOUBLE)i / (DOUBLE)(1 << 4); 
-
-                DOUBLE coeff0 = lanczos4((1.0 + frac) * gsVppConfig.fVScalingRatioLast);
-                DOUBLE coeff1 = lanczos4((0.0 + frac) * gsVppConfig.fVScalingRatioLast);
-                DOUBLE coeff2 = lanczos4((1.0 - frac) * gsVppConfig.fVScalingRatioLast);
-                DOUBLE coeff3 = lanczos4((2.0 - frac) * gsVppConfig.fVScalingRatioLast);
-
-                acc = coeff0 + coeff1 + coeff2 + coeff3;
-
-                Lanczos4Coeff.COEF00 = double2coeff(coeff0/acc);
-                Lanczos4Coeff.COEF01 = double2coeff(coeff1/acc);
-                WriteVppRegisterValue(ui32Offset, Lanczos4Coeff.DW);
-                ui32Offset+=4;
-                Lanczos4Coeff.COEF00 = double2coeff(coeff2/acc);
-                Lanczos4Coeff.COEF01 = double2coeff(coeff3/acc);
-                WriteVppRegisterValue(ui32Offset, Lanczos4Coeff.DW);
-                ui32Offset+=4;
-#endif
-            }
-        }       
-    }
+	LCDC_ENTRY("%s\n", __func__);
+	vpp_config.usr_mode = usr;
 }
-#endif
 
-VOID VppSoc_UpdateCoeff2(UINT32 *pFilterCoef)
+static void vpp_reset(void)
 {
-    INT    i;
-    UINT32 ui32Offset;
-    REG_VPP_HSCA_COEF reg_VPP_HSCA_COEF;
-    REG_VPP_VSCA_COEF reg_VPP_VSCA_COEF;
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    ui32Offset = VPP_HSCA_COEF00;
-
-    for (i = 0; i < 54; i += 2)
-    {
-        reg_VPP_HSCA_COEF.DW     = 0;
-        reg_VPP_HSCA_COEF.COEF00 = pFilterCoef[i];
-        reg_VPP_HSCA_COEF.COEF01 = pFilterCoef[i + 1];
-        WriteVppRegisterValue(ui32Offset, reg_VPP_HSCA_COEF.DW);
-        ui32Offset += 4;
-    }
-
-    ui32Offset = VPP_VSCA_COEF00;
-
-    for (i = 54; i < 90; i += 2)
-    {
-        reg_VPP_VSCA_COEF.DW = 0;
-        reg_VPP_VSCA_COEF.COEF00 = pFilterCoef[i];
-        reg_VPP_VSCA_COEF.COEF01 = pFilterCoef[i + 1];
-        WriteVppRegisterValue(ui32Offset, reg_VPP_VSCA_COEF.DW);
-        ui32Offset += 4;
-    }
+	LCDC_ENTRY("%s\n", __func__);
 }
 
-VOID VppSoc_UpdateYUV2RGB(VPP_YUV2RGB_DATA *pRCoef, VPP_YUV2RGB_DATA *pGCoef, VPP_YUV2RGB_DATA *pBCoef)
+void vdss_install_vpp_ops(struct vdss_vpp_ops *vpp_ops)
 {
-    REG_VPP_RCOEF reg_VPP_RCOEF;
-    REG_VPP_GCOEF reg_VPP_GCOEF;
-    REG_VPP_BCOEF reg_VPP_BCOEF;
+	LCDC_ENTRY("%s\n", __func__);
+	memset(vpp_ops, 0, sizeof(*vpp_ops));
 
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    reg_VPP_RCOEF.DW = 0;
-    reg_VPP_RCOEF.C1 = pRCoef->ui32YCoeff;
-    reg_VPP_RCOEF.C2 = pRCoef->ui32UCoeff;
-    reg_VPP_RCOEF.C3 = pRCoef->ui32VCoeff;
-    WriteVppRegisterValue(VPP_RCOEF, reg_VPP_RCOEF.DW);
-    
-    reg_VPP_GCOEF.DW = 0;
-    reg_VPP_GCOEF.C1 = pGCoef->ui32YCoeff;
-    reg_VPP_GCOEF.C2 = pGCoef->ui32UCoeff;
-    reg_VPP_GCOEF.C3 = pGCoef->ui32VCoeff;
-    WriteVppRegisterValue(VPP_GCOEF, reg_VPP_GCOEF.DW);
-    
-    reg_VPP_BCOEF.DW = 0;
-    reg_VPP_BCOEF.C1 = pBCoef->ui32YCoeff;
-    reg_VPP_BCOEF.C2 = pBCoef->ui32UCoeff;
-    reg_VPP_BCOEF.C3 = pBCoef->ui32VCoeff;
-    WriteVppRegisterValue(VPP_BCOEF, reg_VPP_BCOEF.DW);
+	vpp_ops->init = vpp_init;
+	vpp_ops->terminate = vpp_terminate;
+	vpp_ops->lock = vpp_lock;
+	vpp_ops->unlock = vpp_unlock;
+	vpp_ops->alloc_overlay = vpp_alloc_overlay;
 
-    WriteVppRegisterValue(VPP_OFFSET1, pRCoef->ui32Offset);
-    WriteVppRegisterValue(VPP_OFFSET2, pGCoef->ui32Offset);
-    WriteVppRegisterValue(VPP_OFFSET3, pBCoef->ui32Offset);
+	/* Set parameters which will be set only once */
+	vpp_ops->set_params = vpp_set_params;
+	vpp_ops->set_base = vpp_set_base;
+	vpp_ops->set_size = vpp_set_size;
+	vpp_ops->start = vpp_start;
+	vpp_ops->stop = vpp_stop;
+	vpp_ops->is_busy = vpp_is_busy;
+	vpp_ops->clear_dma_interrupt = vpp_clear_dma_interrupt;
+	vpp_ops->enable_dma_interrupt = vpp_enable_dma_interrupt;
+	vpp_ops->disable_dma_interrupt = vpp_disable_dma_interrupt;
+	vpp_ops->dma_irq_detected = vpp_dma_irq_detected;
+	vpp_ops->update_format_endian = vpp_update_format_endian;
+
+	vpp_ops->sleep = vpp_sleep;
+	vpp_ops->wakeup = vpp_wakeup;
+	vpp_ops->set_color_ctrl = vpp_set_color_ctrl;
+	vpp_ops->set_interlace = vpp_set_interlace;
+	vpp_ops->update_bright = vpp_update_bright;
+	vpp_ops->update_contrast = vpp_update_contrast;
+	vpp_ops->update_coeff2  = vpp_update_coeff2;
+	vpp_ops->update_yuv2rgb = vpp_update_yuv2rgb;
+	vpp_ops->print_register = vpp_print_register;
+
+	/* Internal function, debug only */
+	vpp_ops->get_src_info = vpp_get_src_info;
+	vpp_ops->get_src_buf = vpp_get_src_buf;
+	vpp_ops->get_dst_info = vpp_get_dst_info;
+	vpp_ops->get_dst_buf = vpp_get_dst_buf;
+	vpp_ops->set_usr_mode = vpp_set_usr_mode;
+	vpp_ops->reset = vpp_reset;
 }
-
-VOID VppSoc_UpdateFormatEndian(BOOL bInputBigEndian,BOOL bOutputBigEndian)
-{
-    REG_VPP_CTRL reg_VPP_CTRL;
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    reg_VPP_CTRL.DW = ReadVppRegisterValue(VPP_CTRL);
-    reg_VPP_CTRL.ENDIAN_MODE = bInputBigEndian?1:0;
-    reg_VPP_CTRL.OUT_ENDIAN_MODE = bOutputBigEndian?1:0;
-    WriteVppRegisterValue(VPP_CTRL, reg_VPP_CTRL.DW);
-}
-
-VOID VppSoc_SetUserMode(BOOL bUser)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsVppConfig.bUserMode = bUser;
-}
-
-VOID VppSoc_Reset(VOID)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    __VppSoc_Reset();
-}
-
-VOID VPP_GetFuncTable(VPP_FUNCTIONTABLE *pTable)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    memset(pTable, 0, sizeof(VPP_FUNCTIONTABLE));
-
-    pTable->pfnInitialize = VppSoc_Initialize;
-    pTable->pfnTerminate = VppSoc_Terminate;
-    pTable->pfnLock = VppSoc_Lock;
-    pTable->pfnUnlock = VppSoc_Unlock;
-    pTable->pfnAllocOverlay = VppSoc_AllocOverlay;
-
-    /* Set parameters which will be set only once */
-    pTable->pfnSetParames = VppSoc_SetParames;
-    pTable->pfnSetBase = VppSoc_SetBase;
-    pTable->pfnSetSize = VppSoc_SetSize;
-    pTable->pfnStart = VppSoc_Start;
-    pTable->pfnStop = VppSoc_Stop;
-    pTable->pfnIsBusy = VppSoc_IsBusy;
-    pTable->pfnClearDMAInterrupt = VppSoc_ClearDMAInterrupt;
-    pTable->pfnEnableDMAInterrupt = VppSoc_EnableDMAInterrupt;
-    pTable->pfnDisableDMAInterrupt = VppSoc_DisableDMAInterrupt;
-    pTable->pfnIsDMAInterrupted = VppSoc_IsDMAInterrupted;
-    pTable->pfnUpdateFormatEndian = VppSoc_UpdateFormatEndian;
-
-    pTable->pfnSleep = VppSoc_Sleep;
-    pTable->pfnWakeup = VppSoc_Wakeup;
-    pTable->pfnSetColorCtrl = VppSoc_SetColorCtrl;
-    pTable->pfnSetInterlace = VppSoc_SetInterlace;
-#if defined(_WIN32_WCE)
-    pTable->pfnUpdateCoeff = VppSoc_UpdateCoeff;
-    pTable->pfnUpdateHue = VppSoc_UpdateHue;
-    pTable->pfnUpdateSaturation = VppSoc_UpdateSaturation;
-#endif
-    pTable->pfnUpdateBright = VppSoc_UpdateBright;
-    pTable->pfnUpdateContrast = VppSoc_UpdateContrast;
-    pTable->pfnUpdateCoeff2  = VppSoc_UpdateCoeff2;
-    pTable->pfnUpdateYUV2RGB = VppSoc_UpdateYUV2RGB;
-    pTable->pfnPrintRegister = VppSoc_PrintRegister;
-
-    /* Internal function, debug only */
-    pTable->pfnGetSourceInfo = VppSoc_GetSourceInfo;
-    pTable->pfnGetSourceBuffer = VppSoc_GetSourceBuffer;
-    pTable->pfnGetDestInfo = VppSoc_GetDestInfo;
-    pTable->pfnGetDestBuffer = VppSoc_GetDestBuffer;
-    pTable->pfnSetUserMode = VppSoc_SetUserMode;
-    pTable->pfnReset = VppSoc_Reset;
-}
-
 

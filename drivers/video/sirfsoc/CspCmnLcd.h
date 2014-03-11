@@ -10,484 +10,322 @@
 #ifndef CSP_CMN_LCD_H
 #define CSP_CMN_LCD_H
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+struct vdss_rect {
+	int	left;
+	int	top;
+	int	right;
+	int	bottom;
+};
+
+enum lcdc_layer {
+	LCDC_PRIMARY = 0,
+	LCDC_OVERLAY_1 = 1,
+	LCDC_OVERLAY_2 = 2,
+	LCDC_OVERLAY_3 = 3,
+	LCDC_CURSOR = 6,
+	LCDC_LAYER_UNKNOWN = 0xffffffff,
+};
+
+enum lcdc_cursor_mode {
+	LCDC_CURSOR_MODE_32x32x2_2_T	= 0,
+	LCDC_CURSOR_MODE_32x32x2_4	= 1,
+	LCDC_CURSOR_MODE_32x32x2_3_T	= 2,
+	LCDC_CURSOR_MODE_64x64x2_2_T	= 4,
+	LCDC_CURSOR_MODE_64x64x2_4	= 5,
+	LCDC_CURSOR_MODE_64x64x2_3_T	= 6,
+};
+
+enum vdss_pixelformat {
+	VDSS_PIXELFORMAT_UNKNOWN = 0,
+
+	/* RGB format goes here */
+	VDSS_PIXELFORMAT_1BPP = 1,
+	VDSS_PIXELFORMAT_2BPP = 2,
+	VDSS_PIXELFORMAT_4BPP = 3,
+	VDSS_PIXELFORMAT_8BPP = 4,
+
+	VDSS_PIXELFORMAT_565 = 5,
+	VDSS_PIXELFORMAT_5551 = 6,
+	VDSS_PIXELFORMAT_4444 = 7,
+	VDSS_PIXELFORMAT_5550 = 8,
+	VDSS_PIXELFORMAT_BGRX_8880 = 9,
+	VDSS_PIXELFORMAT_8888 = 10,
+
+	VDSS_PIXELFORMAT_556 = 11,
+	VDSS_PIXELFORMAT_655 = 12,
+	VDSS_PIXELFORMAT_RGBX_8880 = 13,	/* R8G8B8 format */
+	VDSS_PIXELFORMAT_666 = 14,		/* CSR only */
+
+	VDSS_PIXELFORMAT_15BPPGENERIC = 15,	/* some generic types */
+	VDSS_PIXELFORMAT_16BPPGENERIC = 16,
+	VDSS_PIXELFORMAT_24BPPGENERIC = 17,
+	VDSS_PIXELFORMAT_32BPPGENERIC = 18,
+
+	/* FOURCC format goes here */
+	VDSS_PIXELFORMAT_UYVY = 19,
+	VDSS_PIXELFORMAT_UYNV = 20,
+	VDSS_PIXELFORMAT_YUY2 = 21,
+	VDSS_PIXELFORMAT_YUYV = 22,
+	VDSS_PIXELFORMAT_YUNV = 23,
+	VDSS_PIXELFORMAT_YVYU = 24,
+	VDSS_PIXELFORMAT_VYUY = 25,
+
+	VDSS_PIXELFORMAT_IMC2 = 26,		/* 4:2:0 planar YUV formats */
+	VDSS_PIXELFORMAT_YV12 = 27,
+	VDSS_PIXELFORMAT_I420 = 28,
+
+	VDSS_PIXELFORMAT_IMC1 = 29,
+	VDSS_PIXELFORMAT_IMC3 = 30,
+	VDSS_PIXELFORMAT_IMC4 = 31,
+	VDSS_PIXELFORMAT_NV12 = 32,
+	VDSS_PIXELFORMAT_NV21 = 33,
+	VDSS_PIXELFORMAT_UYVI = 34,
+	VDSS_PIXELFORMAT_VLVQ = 35,
+
+	VDSS_PIXELFORMAT_CUSTOMFORMAT = 0X1000
+};
+
+enum lcdc_out_format {
+	LCDC_OUT_8_BIT_RBGRBG = 0,
+	LCDC_OUT_8_BIT_YUV422 = 1,
+	LCDC_OUT_16BIT_YUV422 = 2,
+	LCDC_OUT_18BIT_RBG666 = 3,
+	LCDC_OUT_24BIT_RBG888 = 4
+};
+
+enum lcdc_chip_id {
+	LCDC_CHIP_V1 = 1,
+	LCDC_CHIP_V2 = 2,
+	LCDC_CHIP_ROM = 3,
+};
+
+struct lcdc_wait_for_vblank {
+	bool block_begin;		/* IN: Returns when the vertical-blank
+					       interval begins */
+};
+
+struct lcdc_scanline {
+	u32 *scanline;			/* OUT: line number */
+};
+
+struct lcdc_mode {
+	enum vdss_pixelformat fmt;	/* OUT: pixel format type */
+	u32 stride;			/* OUT: byte stride */
+	u32 width;			/* OUT: width */
+	u32 height;			/* OUT: height */
+	u32 ref_rate;			/* OUT: refresh rate of the display */
+};
+
+struct lcdc_video_mem {
+	u32 size;			/* OUT: reserved size for display */
+	u32 primary_size;		/* OUT: primary framebuffer size */
+	u32 phy_base;			/* OUT: physical base address */
+	u32 virt_base;			/* OUT: virtual base address */
+};
+
+struct lcdc_cursor_shape {
+	u16 width;			/* IN: width */
+	u16 height;			/* IN: height */
+	s16 xhot;			/* IN: x coord of hot spot */
+	s16 yhot;			/* IN: y coord of hot spot */
+
+	void *mask;			/* IN: and/xor cpu virtual address */
+	s16 mask_stride;		/* IN: and/xor stride */
+
+	void *color;			/* IN: color surface virtual address */
+	s16 color_stride;		/* IN: color surface stride*/
+	enum vdss_pixelformat fmt;	/* IN: color surface format */
+};
+
+struct lcdc_cursor_info {
+	s16 xpos;			/* IN: X position */
+	s16 ypos;			/* IN: Y position */
+
+	u32 rotation;			/* IN: rotation mode (0,90,180,270) */
+	struct lcdc_cursor_shape cursor_shape;
+};
 
 
-/***************************************************************************
-** 
-** OS Dependent
-****************************************************************************/
-#if defined(_WIN32_WCE)
-#include <windows.h>
-#define INLINE __inline
-#else
+struct lcdc_parms {
+	enum vdss_pixelformat fmt;	/* IN/OUT: surface format */
+	enum lcdc_layer layer;		/* IN/OUT: layer index*/
+	struct vdss_rect src_rect;	/* IN: source rect offset */
+	struct vdss_rect dst_rect;	/* IN: destination rect offset */
+	int surf_width;			/* IN/OUT: surface width/stride */
+	int surf_height;		/* IN/OUT: surface height */
 
-typedef unsigned int	UINT;
-typedef signed int		INT;
-typedef unsigned char	UINT8;
-typedef unsigned char	BYTE;
-typedef signed char		INT8;
-typedef char			CHAR;
-typedef unsigned char       UCHAR;
-typedef unsigned short	UINT16;
-typedef signed short	INT16;
-typedef unsigned int	UINT32;
-typedef signed int		INT32;
-typedef void            VOID;
-typedef unsigned int	DWORD;
-typedef double			DOUBLE;
-typedef unsigned long       ULONG;
-typedef long                LONG;
+	bool ckey_on;			/* IN: if color key enable */
+	u32 ckey_high;			/* IN: high color key */
+	u32 ckey_low;			/* IN: low color key */
+	u32 base;			/* IN: physical base address */
+	bool g_alpha_enabled;		/* IN: if global alpha enabled */
+	u8 alpha;			/* IN: alpha value */
+	bool dst_ckey_on;
+	u32 dst_ckey_high;		/* IN: high color key */
+	u32 dst_ckey_low;		/* IN: low color key */
+	bool src_alpha_enabled;		/* IN: if source alpha enabled */
+	bool pre_alpha_enabled;		/* IN: if premulti alpha enabled */
+};
 
-typedef	enum _BOOL_
-{
-	FALSE		= 0,
-	TRUE		= 1,
-} BOOL;
+struct lcdc_overlay {
+	enum vdss_pixelformat fmt;	/* IN/OUT: surface format */
+	enum lcdc_layer layer;		/* IN: layer to be allocated */
+	int width;			/* IN/OUT: surface width */
+	int height;			/* IN/OUT: surface height */
+	int wstride_pixel;
+	int hstride_pixel;
+	int wstride_byte;
+	int hstride_byte;
+};
 
-typedef struct _RECT_
-{
-    INT32    left;
-    INT32    top;
-    INT32    right;
-    INT32    bottom;
-} RECT;
+enum lcdc_flip_mode {
+	LCDC_FLIP_FRAME = 0,
+	LCDC_FLIP_TOP_FIELD,
+	LCDC_FLIP_BOTTOM_FIELD,
+};
 
-#define ASSERT(EXPR)
-#define INLINE inline
-#endif
-
-typedef enum _LCD_LAYER_
-{
-    LCD_PRIMARY = 0,
-    LCD_OVERLAY_1 = 1,
-    LCD_OVERLAY_2 = 2,
-    LCD_OVERLAY_3 = 3,
-    LCD_CURSOR = 6,     
-    LCD_LAYER_UNKNOWN = 0xffffffff,
-} LCD_LAYER;
-
-typedef enum _LCD_CURSOR_MODE_
-{
-    LCD_CURSOR_MODE_32x32x2_2_T   = 0,
-    LCD_CURSOR_MODE_32x32x2_4     = 1,
-    LCD_CURSOR_MODE_32x32x2_3_T   = 2,
-    LCD_CURSOR_MODE_64x64x2_2_T   = 4,
-    LCD_CURSOR_MODE_64x64x2_4     = 5,
-    LCD_CURSOR_MODE_64x64x2_3_T   = 6,
-    
-}LCD_CURSOR_MODE;
-
-typedef enum _LCD_PIXELFORMAT_
-{
-    LCD_PIXELFORMAT_UNKNOWN = 0,
-
-    /*
-      RGB format goes here
-    */
-    LCD_PIXELFORMAT_1BPP = 1,
-    LCD_PIXELFORMAT_2BPP = 2,
-    LCD_PIXELFORMAT_4BPP = 3,
-    LCD_PIXELFORMAT_8BPP = 4,
-
-    LCD_PIXELFORMAT_565 = 5,
-    LCD_PIXELFORMAT_5551 = 6,
-    LCD_PIXELFORMAT_4444 = 7,
-    LCD_PIXELFORMAT_5550 = 8,
-    LCD_PIXELFORMAT_BGRX_8880 = 9,
-    LCD_PIXELFORMAT_8888 = 10,
-
-    LCD_PIXELFORMAT_556 = 11,
-    LCD_PIXELFORMAT_655 = 12,
-    LCD_PIXELFORMAT_RGBX_8880 = 13,           /* R8G8B8 format */
-    LCD_PIXELFORMAT_666 = 14,            /* CSR only */
-
-    LCD_PIXELFORMAT_15BPPGENERIC = 15,   /* some generic types */
-    LCD_PIXELFORMAT_16BPPGENERIC = 16,
-    LCD_PIXELFORMAT_24BPPGENERIC = 17,
-    LCD_PIXELFORMAT_32BPPGENERIC = 18,
-
-    /*
-      FOURCC format goes here
-    */
-    LCD_PIXELFORMAT_UYVY = 19,
-    LCD_PIXELFORMAT_UYNV = 20,
-    LCD_PIXELFORMAT_YUY2 = 21,
-    LCD_PIXELFORMAT_YUYV = 22,
-    LCD_PIXELFORMAT_YUNV = 23,
-    LCD_PIXELFORMAT_YVYU = 24,
-    LCD_PIXELFORMAT_VYUY = 25,
-        
-    LCD_PIXELFORMAT_IMC2 = 26,           /* 4:2:0 planar YUV formats */
-    LCD_PIXELFORMAT_YV12 = 27,
-    LCD_PIXELFORMAT_I420 = 28,
-        
-    LCD_PIXELFORMAT_IMC1 = 29,
-    LCD_PIXELFORMAT_IMC3 = 30,
-    LCD_PIXELFORMAT_IMC4 = 31,
-    LCD_PIXELFORMAT_NV12 = 32,
-    LCD_PIXELFORMAT_NV21 = 33,
-    LCD_PIXELFORMAT_UYVI = 34,
-    LCD_PIXELFORMAT_VLVQ = 35,
-
-    LCD_PIXELFORMAT_CUSTOMFORMAT = 0X1000
-}LCD_PIXELFORMAT;
-
-typedef enum
-{
-    LCD_OUT_8_BIT_RBGRBG = 0,
-    LCD_OUT_8_BIT_YUV422 = 1,
-    LCD_OUT_16BIT_YUV422 = 2,
-    LCD_OUT_18BIT_RBG666 = 3,
-    LCD_OUT_24BIT_RBG888 = 4
-}LCD_OUT_FORMAT;
-
-typedef enum _LCD_CHIP_ID_
-{
-    LCD_CHIP_V1 = 1,
-    LCD_CHIP_V2 = 2,
-    LCD_CHIP_ROM = 3,
-} LCD_CHIP_ID;
-
-typedef struct _LCD_WAITFORVBLANK_DATA_
-{
-    BOOL bBlockBegin;               /* IN: Returns when the vertical-blank interval begins */
-} LCD_WAITFORVBLANK_DATA;
-
-typedef struct _LCD_GETSCANLINE_DATA_
-{
-    UINT32 *pScanLine;              /* OUT: line number */
-} LCD_GETSCANLINE_DATA;
-
-typedef struct _LCD_GETMODE_DATA_
-{
-    LCD_PIXELFORMAT  eFormat;       /* OUT: pixel format type */
-    UINT32  ui32ByteStride;         /* OUT: byte stride */
-    UINT32  ui32Width;              /* OUT: width */
-    UINT32  ui32Height;             /* OUT: height */
-    UINT32  ui32RefreshHZ;          /* OUT: refresh rate of the display */
-} LCD_GETMODE_DATA;
-
-typedef struct _LCD_GETVIDMEM_DATA_
-{
-    UINT32  ui32Size;             /* OUT: reserved size for display */
-    UINT32  ui32PrimarySize;       /* OUT: primary framebuffer size */
-    UINT32  ui32PBase;            /* OUT: physical base address of display */    
-    UINT32  ui32VBase;            /* OUT: virtual base address of display */    
-} LCD_GETVIDMEM_DATA;
-
-typedef struct _LCD_CURSOR_SHAPE
-{
-    UINT16  ui16Width;              /* IN: width */
-    UINT16  ui16Height;             /* IN: height */
-    INT16  i16XHot;                 /* IN: x coord of hot spot */
-    INT16  i16YHot;                 /* IN: y coord of hot spot */
-    
-    VOID*  pvMask;                  /* IN: and/xor cpu virtual address */
-    INT16  i16MaskByteStride;       /* IN: and/xor stride */
-    
-    VOID*  pvColor;                 /* IN: color surface cpu virtual address */
-    INT16  i16ColorByteStride;      /* IN: color surface stride*/
-    LCD_PIXELFORMAT  eLcdFormat;    /* IN: color surface format */
-} LCD_CURSOR_SHAPE;
-
-typedef struct _LCD_CURSOR_INFO_
-{
-    INT16 i16XPos;                  /* IN: X position */
-    INT16 i16YPos;                  /* IN: Y position */
-    
-    LCD_CURSOR_SHAPE sCursorShape;  /* IN: cursor shape information */
-    UINT32 ui32Rotation;            /* IN: rotation mode (0,90,180,270) */
-
-} LCD_CURSOR_INFO;
+enum lcdc_interrupt_type {
+	LCDC_INTERRUPT_L0_DMA = 0,
+	LCDC_INTERRUPT_L1_DMA,
+	LCDC_INTERRUPT_L2_DMA,
+	LCDC_INTERRUPT_L3_DMA,
+	LCDC_INTERRUPT_L0_OFLOW = 6,
+	LCDC_INTERRUPT_L1_OFLOW,
+	LCDC_INTERRUPT_L2_OFLOW,
+	LCDC_INTERRUPT_L3_OFLOW,
+	LCDC_INTERRUPT_L0_UFLOW = 12,
+	LCDC_INTERRUPT_L1_UFLOW,
+	LCDC_INTERRUPT_L2_UFLOW,
+	LCDC_INTERRUPT_L3_UFLOW,
+	LCDC_INTERRUPT_VSYNC = 18,
+	LCDC_INTERRUPT_ALL = 0xFFFFFFFF
+};
 
 
-typedef struct _LCD_SETPARAMS_DATA_
-{
-    LCD_PIXELFORMAT eLcdFormat;     /* IN/OUT: surface format */
-    LCD_LAYER eLayer;               /* IN/OUT: layer index*/
-    RECT sRectSrc;                  /* IN: source rect offset */
-    RECT sRectDst;                  /* IN: destination rect offset */
-    INT32 i32SurfWidth;             /* IN/OUT: surface width/stride */
-    INT32 i32SurfHeight;            /* IN/OUT: surface height */
+#define LCDC_COLORCONTROL_BRIGHTNESS	1
+#define LCDC_COLORCONTROL_CONTRAST	2
+#define LCDC_COLORCONTROL_HUE		4
+#define LCDC_COLORCONTROL_SATURATION	8
 
-    BOOL bCKeyOn;                   /* IN: if color key enable */
-    UINT32 ui32CKHigh;              /* IN: high color key */    
-    UINT32 ui32CKLow;               /* IN: low color key */
-    UINT32 ui32Base;                /* IN: physical base address of surface */
-    BOOL bGlobalAlpha;               /* IN: if global alpha */
-    UINT8 ui8Alpha;               /* IN: alpha value */
-    BOOL bCKeyDstOn;
-    UINT32 ui32CKDstHigh;              /* IN: high color key */    
-    UINT32 ui32CKDstLow;               /* IN: low color key */
-    BOOL bSourceAlpha;
-    BOOL bPremultiAlpha;
-    
-} LCD_SETPARAMS_DATA;
-
-typedef struct _LCD_ALLOCOVERLAY_DATA_
-{
-    LCD_PIXELFORMAT eLcdFormat;     /* IN/OUT: surface format */
-    INT32 i32Width;             /* IN/OUT: surface width */
-    INT32 i32Height;            /* IN/OUT: surface height */
-    LCD_LAYER eLayer;               /* IN: layer to be allocated */
-	INT32 i32WStridePixel;
-	INT32 i32HStridePixel;
-	INT32 i32WStrideByte;
-	INT32 i32HStrideByte;
-} LCD_ALLOCOVERLAY_DATA;
-
-typedef enum _LCD_FLIP_MODE_
-{
-    LCD_FLIP_FRAME = 0,
-    LCD_FLIP_TOP_FIELD = 1,
-    LCD_FLIP_BOTTOM_FIELD = 2,
-} LCD_FLIP_MODE;
-
-typedef enum _LCD_INTERRUPT_TYPE_
-{
-    LCD_INTERRUPT_L0_DMA = 0,
-	LCD_INTERRUPT_L1_DMA,
-	LCD_INTERRUPT_L2_DMA,
-	LCD_INTERRUPT_L3_DMA,
-	LCD_INTERRUPT_L0_OFLOW = 6,
-	LCD_INTERRUPT_L1_OFLOW,
-	LCD_INTERRUPT_L2_OFLOW,
-	LCD_INTERRUPT_L3_OFLOW,
-	LCD_INTERRUPT_L0_UFLOW = 12,
-	LCD_INTERRUPT_L1_UFLOW,
-	LCD_INTERRUPT_L2_UFLOW,
-	LCD_INTERRUPT_L3_UFLOW,
-	LCD_INTERRUPT_VSYNC = 18,
-	LCD_INTERRUPT_ALL = 0xFFFFFFFF
-} LCD_INTERRUPT_TYPE;
-
-
-#define LCD_COLORCONTROL_BRIGHTNESS     1 
-#define LCD_COLORCONTROL_CONTRAST       2
-#define LCD_COLORCONTROL_HUE            4
-#define LCD_COLORCONTROL_SATURATION     8
-
-typedef struct _LCD_COLORCONTROL
-{
-    UINT32  ui32Flags;
-    INT32   i32Brightness;
-    INT32   i32Contrast;
-    INT32   i32Hue;
-    INT32   i32Saturation;
-} LCD_COLORCONTROL;
-
-typedef VOID (*PFN_NOP)(VOID);
+struct lcdc_color_ctrl {
+	u32 flags;
+	int brightness;
+	int contrast;
+	int hue;
+	int saturation;
+};
 
 #define RGB_SEQ_RGB	0x186
 #define RGB_SEQ_BGR	0x924
 #define RGB_SEQ_BRG	0x861
 
-typedef struct _LCD_PANEL_INFO_
-{
-	UINT32 ui32HsyncPeriod;
-	UINT32 ui32HsyncWidth;
-	UINT32 ui32VsyncPeriod;
-	UINT32 ui32VsyncWidth;
+struct lcdc_panel_info {
+	u32 hsync_period;
+	u32 hsync_width;
+	u32 vsync_period;
+	u32 vsync_width;
 
-	UINT32 ui32HStart;
-	UINT32 ui32HEnd;
-	UINT32 ui32VStart;
-	UINT32 ui32VEnd;
-	
-	LCD_OUT_FORMAT eOutFormat;
-	UINT32 ui32RGBSequence;
+	u32 hstart;
+	u32 hend;
+	u32 vstart;
+	u32 vend;
 
-	BOOL bPClkPolar;
-	BOOL bPClkEdge;
-	BOOL bHSyncPolar;
-	BOOL bVSyncPolar;
-	BOOL bIOMaster;
-	UINT32 ui32HSyncDelay;
+	enum lcdc_out_format out_fmt;
+	u32 rgb_sequence;
 
-	UINT32 ui32SysClock;
-	UINT32 ui32FreshRate;
+	bool pclk_polar;
+	bool pclk_edge;
+	bool hsync_polar;
+	bool vsync_polar;
+	bool iomaster;
+	u32 hsync_delay;
 
-	LCD_LAYER eMaxLayer;
-	LCD_LAYER eLayer; /* Current primary layer */
+	u32 sys_clk;
+	u32 ref_rate;
 
-	PFN_NOP pfnPrePowerUp;
-	PFN_NOP pfnPostPowerUp;
-	PFN_NOP pfnPrePowerDown;
-	PFN_NOP pfnPostPowerDown;
-	PFN_NOP pfnReset;
-}LCD_PANEL_INFO;
+	enum lcdc_layer maxlayer;
+	enum lcdc_layer layer;		/* Current primary layer */
 
-typedef BOOL (*PFN_CHANGEMODE)(LCD_PANEL_INFO *psPanel);
-typedef BOOL (*PFN_INITIALIZE)(VOID *pLcdRegs, 
-						VOID *pVppRegs,
-						UINT32 ui32PrimBase, 
-						UINT32 ui32BitPerPixel,
-						LCD_PANEL_INFO *psPanel);
-typedef VOID (*PFN_TERMINATE)(VOID);
-typedef VOID (*PFN_SLEEP)(VOID);
-typedef BOOL (*PFN_WAKEUP)(VOID);
-typedef VOID (*PFN_GETSCANLINE)(LCD_GETSCANLINE_DATA *pData);
-typedef VOID (*PFN_WAITFORVBLANK)(LCD_WAITFORVBLANK_DATA *pData);
-typedef VOID (*PFN_GETMODE)(LCD_GETMODE_DATA *pData);
-typedef VOID (*PFN_GETVIDMEM)(LCD_GETVIDMEM_DATA *pData);
-
-typedef LCD_LAYER (*PFN_ALLOCOVERLAY)(LCD_ALLOCOVERLAY_DATA *pData);
-typedef VOID (*PFN_FREEOVERLAY)(LCD_LAYER eLayer);
-
-typedef BOOL (*PFN_SETPARAMETERS)(LCD_SETPARAMS_DATA *pData);
-typedef VOID (*PFN_GETPARAMETERS)(LCD_SETPARAMS_DATA *pData);
-typedef VOID (*PFN_SHOWOVERLAY)(LCD_LAYER eLayer);
-typedef VOID (*PFN_HIDEOVERLAY)(LCD_LAYER eLayer);
-typedef VOID (*PFN_SETOVERLAYPOS)(LCD_LAYER eLayer, RECT *pSrc, RECT *pDst);
-typedef VOID (*PFN_PANDISPLAY)(LCD_LAYER eLayer, INT x, INT y);
-
-typedef VOID (*PFN_SETGLOBALALPHA)(LCD_LAYER eLayer, UINT8 ui8Alpha);
-typedef VOID (*PFN_SETALPHAPROPERTY)(LCD_LAYER eLayer, BOOL bPremulti, BOOL bGlobal, BOOL bSource);
-typedef VOID (*PFN_SETSRCCKEY)(LCD_LAYER eLayer, BOOL bOn, UINT32 ui32High, UINT32 ui32Low);
-typedef VOID (*PFN_SETDSTCKEY)(LCD_LAYER eLayer, BOOL bOn, UINT32 ui32High, UINT32 ui32Low);
-typedef VOID (*PFN_SETTOPLAYER)(LCD_LAYER eLayer);
-typedef LCD_LAYER (*PFN_GETTOPLAYER)(VOID);
-
-typedef VOID (*PFN_FLIPOVERLAY)(LCD_LAYER eLayer, UINT32 ui32Base, LCD_FLIP_MODE eField);
-
-typedef VOID (*PFN_ENABLEINTERRUPT)(LCD_INTERRUPT_TYPE eType);
-typedef VOID (*PFN_DISABLEINTERRUPT)(LCD_INTERRUPT_TYPE eType);
-typedef VOID (*PFN_CLEARINTERRUPT)(LCD_INTERRUPT_TYPE eType);
-typedef UINT32 (*PFN_ISINTERRUPTED)(LCD_INTERRUPT_TYPE eType);
-
-typedef VOID (*PFN_SETCURSORSHAPE)(UINT32 *pMask, INT iMaskStride, 
-	UINT32 *pColor, INT iXHot, INT iYHot, INT iWidth, INT iHeight);
-typedef VOID (*PFN_MOVECURSOR)(INT iXPos, INT iYPos);
-typedef VOID (*PFN_SETCURSORROTATE)(INT iAngle);
-
-typedef VOID (*PFN_GETGAMMARAMP)(UINT16 *pui16Gamma);
-typedef VOID (*PFN_SETGAMMARAMP)(UINT16 *pui16Gamma);
-typedef VOID (*PFN_GETCOLORCONTROL)(LCD_LAYER eLayer, LCD_COLORCONTROL *pData);
-typedef VOID (*PFN_SETCOLORCONTROL)(LCD_LAYER eLayer, LCD_COLORCONTROL *pData);
-
-typedef VOID* (*PFN_GETVPPTABLE)(VOID);
-
-typedef VOID (*PFN_PRINTREGISTER)(VOID);
-typedef VOID (*PFN_RESET)(VOID);
-typedef VOID (*PFN_CTRLOUTPUT)(BOOL bTurnOOff);
-typedef LCD_CHIP_ID (*PFN_GETCHIPID)(VOID);
-typedef VOID (*PFN_SETPIXELCLOCK) (UINT32 ui32PixelClock);
-typedef UINT32 (*PFN_GETPIXELCLOCK) (VOID);
-
-typedef struct _LCD_FUNCTIONTABLE_
-{
-    PFN_INITIALIZE pfnInitialize;
-    PFN_TERMINATE pfnTerminate;
-    PFN_SLEEP pfnSleep;
-    PFN_WAKEUP pfnWakeup;
-    PFN_GETSCANLINE pfnGetScanLine;
-    PFN_WAITFORVBLANK pfnWaitForVBlank;
-    PFN_GETMODE pfnGetMode;
-    PFN_GETVIDMEM pfnGetVidMem;
-
-    PFN_ALLOCOVERLAY pfnAllocOverlay;
-    PFN_FREEOVERLAY pfnFreeOverlay;
-
-    PFN_SETPARAMETERS pfnSetParameters;
-    PFN_GETPARAMETERS pfnGetParameters;
-    PFN_SHOWOVERLAY pfnShowOverlay;
-    PFN_HIDEOVERLAY pfnHideOverlay;
-    PFN_SETOVERLAYPOS pfnSetOverlayPos;
-	PFN_PANDISPLAY pfnPanDiaplay;
-    PFN_SETGLOBALALPHA pfnSetGlobalAlpha;
-    PFN_SETALPHAPROPERTY pfnSetAlphaProperty;
-    PFN_SETSRCCKEY pfnSetSrcCKey;
-    PFN_SETDSTCKEY pfnSetDstCKey;
-    PFN_SETTOPLAYER pfnSetTopLayer;
-	PFN_GETTOPLAYER pfnGetTopLayer;
-    
-    PFN_FLIPOVERLAY pfnFlipOverlay;
-
-    PFN_ENABLEINTERRUPT pfnEnableInterrupt;
-    PFN_DISABLEINTERRUPT pfnDisableInterrupt;
-    PFN_CLEARINTERRUPT pfnClearInterrupt;
-    PFN_ISINTERRUPTED pfnIsInterrupted;
-
-    
-    PFN_SETCURSORSHAPE pfnSetCursorShape;
-    PFN_MOVECURSOR pfnMoveCursor;
-    PFN_SETCURSORROTATE pfnSetCursorRotate;
-    
-    PFN_GETGAMMARAMP pfnGetGammaRamp;
-    PFN_SETGAMMARAMP pfnSetGammaRamp;
-    PFN_GETCOLORCONTROL pfnGetColorControl;
-    PFN_SETCOLORCONTROL pfnSetColorControl;
-
-    PFN_GETVPPTABLE pfnGetVppTable;
-
-    PFN_PRINTREGISTER pfnPrintRegister;
-    PFN_RESET pfnReset;
-    PFN_CTRLOUTPUT pfnCtrlOutput;
-    PFN_GETCHIPID pfnGetChipID;
-	PFN_SETPIXELCLOCK pfnSetPixelClock;
-	PFN_GETPIXELCLOCK pfnGetPixelClock;
-
-	PFN_CHANGEMODE pfnChangeMode;
-}LCD_FUNCTIONTABLE;
+	void (*pre_power_up) (void);
+	void (*post_power_up) (void);
+	void (*pre_power_down) (void);
+	void (*post_power_down) (void);
+	void (*reset) (void);
+};
 
 
-/***************************************************************************
-** 
-** Declare Fuction
-****************************************************************************/
+struct vdss_lcdc_ops {
+	bool	(*init)			(void *regs, void *vpp_regs,
+					u32 prim_base, unsigned int bpp,
+					struct lcdc_panel_info *panel);
+	void	(*terminate)		(void);
+	void	(*sleep)		(void);
+	bool	(*wakeup)		(void);
+	void	(*get_scanline)		(struct lcdc_scanline *data);
+	void	(*wait_for_vblank)	(struct lcdc_wait_for_vblank *data);
+	void	(*get_mode)		(struct lcdc_mode *disp_mode);
+	void	(*get_video_mem)	(struct lcdc_video_mem *data);
 
-VOID LCD_GetFuncTable(LCD_FUNCTIONTABLE *pData);
-VOID LCD_BootUp(VOID* pLcdRegs, 
-					UINT32 ui32PrimBase, 
-					UINT32 ui32BitPerPixel,
-					LCD_PANEL_INFO *psPanel);
+	int	(*alloc_overlay)	(struct lcdc_overlay *data);
+	void	(*free_overlay)		(int layer);
 
-/***************************************************************************
-** 
-** Debug Fuction
-****************************************************************************/
-#if defined(_WIN32_WCE)
-#define LCD_STR(str)				L"LCD: "L##str
-#define RAW_STR(str)				L##str
-#define LCDDebugMsg					NKDbgPrintfW
-#else
-#define LCD_STR(str)				str
-#define RAW_STR(str)				str
-#define LCDDebugMsg(fmt, args...)	printk("LCD: " fmt, ## args)
-#endif
+	bool	(*set_parameters)	(struct lcdc_parms *parms);
+	void	(*get_parameters)	(struct lcdc_parms *parms);
+	void	(*show_overlay)		(int layer);
+	void	(*hide_overlay)		(int layer);
+	void	(*set_overlay_pos)	(int layer, struct vdss_rect *src_rect,
+					struct vdss_rect *dst_rect);
+	void	(*pan_display)		(int layer, int x, int y);
 
-#if defined(DEBUG)
-#if defined(_WIN32_WCE)
-#define LCD_ASSERT(EXPR) \
-    do \
-    { \
-        if (!(EXPR)) {DebugBreak();} \
-    } while(0)
-#else
-#define LCD_ASSERT(EXPR) \
-	do \
-	{ \
-		if (!(EXPR)) { \
-			printk(KERN_ERR "LCD: " "Assertion failed! %s, %s, %s, line=%d\n", \
-	#EXPR, __FILE__, __func__, __LINE__); \
-		} \
-	} while(0)
-#endif
+	void	(*set_global_alpha)	(int layer, unsigned char alpha);
+	void	(*set_alpha_property)	(int layer, bool premulti,
+					bool global, bool source);
+	void	(*set_src_ckey)		(int layer, bool on, u32 high, u32 low);
+	void	(*set_dst_ckey)		(int layer, bool on, u32 high, u32 low);
+	void	(*set_toplayer)		(int layer);
+	int	(*get_toplayer)		(void);
 
-#define LCD_MSG(X) LCDDebugMsg X
-#define LCD_ENTRY(X)
-#else
-#define LCD_ASSERT(EXPR)
-#define LCD_MSG(X) LCDDebugMsg X
-#define LCD_ENTRY(X)
-#endif
+	void	(*flip_overlay)		(int layer, u32 base,
+					enum lcdc_flip_mode field);
+
+	void	(*enable_interrupt)	(enum lcdc_interrupt_type type);
+	void	(*disable_interrupt)	(enum lcdc_interrupt_type type);
+	void	(*clear_interrupt)	(enum lcdc_interrupt_type type);
+	u32	(*irq_detected)		(enum lcdc_interrupt_type type);
+
+	void	(*set_cursor_shape)	(u32 *mask, int mask_stride,
+					u32 *color, int xhot, int yhot,
+					int width, int height);
+	void	(*move_cursor)		(int xpos, int ypos);
+	void	(*set_cursor_rotate)	(int angle);
+
+	void	(*get_gamma_ramp)	(u16 *gamma);
+	void	(*set_gamma_ramp)	(u16 *gamma);
+	void	(*get_color_ctrl)	(int layer,
+					struct lcdc_color_ctrl *data);
+	void	(*set_color_ctrl)	(int layer,
+					struct lcdc_color_ctrl *data);
+
+	void *	(*load_vpp_ops)		(void);
+
+	void	(*print_register)	(void);
+	void	(*reset)		(void);
+	void	(*output_ctrl)		(bool turnoff);
+	int	(*get_chip_id)		(void);
+	void	(*set_pixel_clk)	(unsigned int pix_clk);
+	u32	(*get_pixel_clk)	(void);
+
+	bool	(*change_mode)		(struct lcdc_panel_info *panel);
+};
 
 
-#if defined(__cplusplus)
-}
-#endif
+void vdss_install_lcdc_ops(struct vdss_lcdc_ops *lcdc_ops);
+
+
+#define LCDC_ERR(fmt, ...)	pr_err(fmt, ## __VA_ARGS__)
+#define LCDC_DEBUG(fmt, ...)	pr_debug(fmt, ## __VA_ARGS__)
+#define LCDC_ENTRY(fmt, ...)
+#define LCDC_DUMP(fmt, ...)	pr_info(fmt, ## __VA_ARGS__)
+
 
 #endif

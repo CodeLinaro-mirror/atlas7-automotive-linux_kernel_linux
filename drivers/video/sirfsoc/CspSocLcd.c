@@ -9,2593 +9,1988 @@
 
 #include "CspSocLcdInternal.h"
 
-/***************************************************************************
-** 
-** OS Dependent
-****************************************************************************/
-#if defined(_WIN32_WCE)
-	
-	VOID OSWaitms(UINT uCount)
-	{
-		msWait(uCount);
-	}
-	
-	VOID OSGetFBBase(LCD_GETVIDMEM_DATA *pData)
-	{
-		pData->ui32PBase = LCD_FRAME_BUF_PHYS_ADDR;
-		pData->ui32VBase = LCD_FRAME_BUF_VIRT_ADDR;
-	}
-	
-	VOID OSGetFBSize(UINT32 *pui32FBSize)
-	{
-		UINT32	ui32Ret, ui32Type = 0, ui32Size, ui32FBSize, ui32SGXSize;
-		HKEY	hConfig = (HKEY)INVALID_HANDLE_VALUE;
-		BOOL bFBMemSet=FALSE; /*, bSGXMemSet=FALSE, bSharedSet=FALSE;*/
-		UINT uiPrimarySize;
-	
-		__LcdSoc_GetPrimarySize(&uiPrimarySize);
-		
-		ui32FBSize = MEM_DISPLAY_SIZE;
-		ui32SGXSize = 0;
-	
-		/*
-			read the registry to get the mode config
-			Open key in the registry.
-		*/
-		ui32Ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, 
-								   TEXT("Drivers\\Display\\LCD"),
-								   0, 0, &hConfig);
-		/* Load the Configuration data for the driver */
-		if (ERROR_SUCCESS == ui32Ret)
-		{
-			/* Read resolution overrides from registry, if they exists */
-			ui32Size = sizeof(ULONG);
-			
-	
-			ui32Ret = RegQueryValueEx (hConfig, TEXT("sizeDCMem"), 0, (LPDWORD)&ui32Type, (PUCHAR)&ui32FBSize, (LPDWORD)&ui32Size);
-			if ((ui32Ret == ERROR_SUCCESS) && (ui32Type == REG_DWORD))		/* Binary format */
-			{
-				bFBMemSet = TRUE;
-				if (ui32FBSize <= uiPrimarySize)
-				{
-					ui32FBSize = uiPrimarySize;
-				}
-				if (ui32FBSize > MEM_DISPLAY_SIZE)
-				{
-					ui32FBSize = MEM_DISPLAY_SIZE;
-				}
-			}
-			ui32Ret = RegQueryValueEx (hConfig, TEXT("sizeSGXMem"), 0, (LPDWORD)&ui32Type, (PUCHAR)&ui32SGXSize, (LPDWORD)&ui32Size);
-			if ((ui32Ret == ERROR_SUCCESS) && (ui32Type == REG_DWORD))		/* Binary format */
-			{
-				/*bSGXMemSet = TRUE;*/
-				if (!bFBMemSet && (MEM_DISPLAY_SIZE - ui32SGXSize)> uiPrimarySize)
-				{
-					ui32FBSize = MEM_DISPLAY_SIZE - ui32SGXSize;
-				}
-				if (ui32SGXSize > MEM_DISPLAY_SIZE)
-				{
-					ui32SGXSize = MEM_DISPLAY_SIZE;
-				}
-			}
-			else
-			{
-				if (ui32FBSize==uiPrimarySize)
-				{
-					ui32SGXSize = MEM_DISPLAY_SIZE - uiPrimarySize;
-				}
-			}
-	
-			if(ui32FBSize+ui32SGXSize > MEM_DISPLAY_SIZE)
-			{
-				ui32SGXSize = MEM_DISPLAY_SIZE - ui32FBSize;
-			}
-			
-			ui32Ret = RegSetValueEx(hConfig, TEXT("sizeDCMemSaved"), 0, REG_DWORD, (BYTE*)&ui32FBSize, 4);
-			if (ui32Ret != ERROR_SUCCESS)
-			{
-				LCD_MSG(("%s: Fail to set registry sizeDCMemSaved", __FUNCTION__));
-			}
-			RegSetValueEx(hConfig, TEXT("sizeSGXMemSaved"), 0, REG_DWORD, (BYTE*)&ui32SGXSize, 4);
-			if (ui32Ret != ERROR_SUCCESS)
-			{
-				LCD_MSG(("%s: Fail to set registry sizeSGXMemSaved", __FUNCTION__));
-			}
-			
-			LCD_MSG(("DCMemSize: 0x%x\n", ui32FBSize));
-			LCD_MSG(("SGXMemSize: 0x%x\n", ui32SGXSize));
-			RegCloseKey(hConfig);
-		}	 
-		else
-		{
-			LCD_MSG(("%s: Fail to open registry", __FUNCTION__));
-		}
-		*pui32FBSize = ui32FBSize;
-	}
-	
-	VOID __LcdSoc_DisableClock(VOID)
-	{
-		
-		WRITE_BITFIELD(struct clkclkenable, &(v_pClkRegs->clk_clkenable), lcd, 0);
-	}
-	
-	VOID *OSMapLcdRegs()
-	{
-		if (CspRegMap(FALSE))
-		{
-			return (VOID*)v_pLcdRegs;
-		}
-		else
-		{
-			LCD_MSG(("OSMapLcdRegs: CspRegMap fail\n"));
-			return NULL;
-		}
-	}
-	
-	VOID OSUnmapLcdRegs()
-	{
-		CspRegUnMap();
-	}
-	
-	VOID *OSGetVppRegs(VOID)
-	{
-		return (VOID*)v_pVppRegs;
-	}
-	
-	BOOL __LcdSoc_GetVPP(VOID)
-	{
-		UINT32	ui32Ret, ui32Type = 0, ui32Size = sizeof(UINT32);
-		HKEY	hConfig = (HKEY)INVALID_HANDLE_VALUE;
-		UINT32 ui32HWVpp;
-		BOOL bRet = FALSE;
-		/*
-			read the registry to get the mode config
-			Open key in the registry.
-		*/
-		ui32Ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, 
-								   TEXT("Drivers\\Display\\LCD"),
-								   0, 0, &hConfig);
-	
-		if (ERROR_SUCCESS == ui32Ret)
-		{	 
-			ui32Ret = RegQueryValueEx (hConfig, TEXT("HWVPP"), 0, &ui32Type, (PUCHAR)&ui32HWVpp, &ui32Size);
-			if ((ui32Ret == ERROR_SUCCESS) && (ui32Type == REG_DWORD))		/* Binary format */
-			{
-				bRet = ui32HWVpp ? TRUE : FALSE;
-			}
-			else
-			{
-				LCD_MSG(("%s: Fail to open registry Drivers\\Display\\LCD\\HWVPP", __FUNCTION__));
-			}
-			RegCloseKey(hConfig);
-		}
-		else
-		{
-			LCD_MSG(("%s: Fail to open registry Drivers\\Display\\LCD", __FUNCTION__));
-		}
-	
-		return bRet;
-	}
-	
-	BOOL OSLoadVpp(VOID* *phVppHandle, VPP_FUNCTIONTABLE *pVppFuncTable)
-	{
-		if(__LcdSoc_GetVPP())
-		{
-			*phVppHandle = LoadLibrary(VPP_MODULE_NAME);
-		}
-		else
-		{
-			*phVppHandle = NULL;
-			return FALSE;
-		}
-		if (*phVppHandle)
-		{
-			PFNVPP_GETFUNCTABLE pfnVPP_GetFuncTable;
-			pfnVPP_GetFuncTable = (PFNVPP_GETFUNCTABLE)GetProcAddress(gsLcdConfig.hVppHandle, _T("VPP_GetFuncTable"));
-			if (pfnVPP_GetFuncTable)
-			{
-				pfnVPP_GetFuncTable(pVppFuncTable);
-			}
-			else
-			{
-				return FALSE;
-			}
-		}
-		return TRUE;
-	}
-	
-	VOID OSUnloadVpp(VOID* hVppHandle)
-	{
-		FreeLibrary(hVppHandle);
-	}
-	
-	
-	
-#else
 
-	VOID OSWaitms(UINT uCount)
-	{
-		msleep(uCount);
-	}
-	
-	VOID OSGetFBBase(LCD_GETVIDMEM_DATA *pData)
-	{
-	}
-	
-	VOID OSGetFBSize(UINT32 *pui32FBSize)
-	{
-	}
-	
-	VOID *OSMapLcdRegs(VOID)
-	{
-		LCD_ASSERT(0);
-		return NULL;
-	}
-	VOID OSUnmapLcdRegs(VOID)
-	{
-	}
-	
-	VOID *OSGetVppRegs(VOID)
-	{
-		return NULL;
-	}
-	BOOL OSLoadVpp(VOID* *phVppHandle, VPP_FUNCTIONTABLE *pVppFuncTable)
-	{
-		*phVppHandle = (VOID *)0xabcdabcd;
-		VPP_GetFuncTable(pVppFuncTable);
-		return TRUE;
-	}
-	
-	VOID OSUnloadVpp(VOID* hVppHandle)
-	{
-	}
-	
-#endif
+static struct vdss_vpp_ops vpp_ops;
+static struct lcdc_config lcdc_config;
+static struct lcdc_panel_info panel_info;
 
-/***************************************************************************
-** 
-** OS Independent
-****************************************************************************/
-
-/* 
-** Exported function declaration 
-*/
-
-VOID LcdSoc_PrintRegister(VOID);
-VOID LcdSoc_Reset(VOID);
-
-BOOL LcdSoc_Initialize(VOID *pLcdRegs, 
-						VOID *pVppRegs,
-						UINT32 ui32PrimBase, 
-						UINT32 ui32BitPerPixel,
-						LCD_PANEL_INFO *psPanel);
-VOID LcdSoc_Terminate(VOID);
-BOOL LcdSoc_Wakeup(VOID);
-VOID LcdSoc_Sleep(VOID);
-VOID LcdSoc_GetScanLine(LCD_GETSCANLINE_DATA *pData);
-VOID LcdSoc_WaitForVBlank(LCD_WAITFORVBLANK_DATA *pVBlankData);
-VOID LcdSoc_GetMode(LCD_GETMODE_DATA *pDisplayMode);
-
-VOID LcdSoc_ClearVsyncInterrupt(VOID);
-VOID LcdSoc_EnableVsyncInterrupt(VOID);
-VOID LcdSoc_DisableVsyncInterrupt(VOID);
-BOOL LcdSoc_IsVsyncInterrupted(VOID);
-VOID LcdSoc_ClearDMAInterrupt(LCD_LAYER eLayer);
-VOID LcdSoc_EnableDMAInterrupt(LCD_LAYER eLayer);
-VOID LcdSoc_DisableDMAInterrupt(LCD_LAYER eLayer);
-BOOL LcdSoc_IsDMAInterrupted(LCD_LAYER eLayer);
-
-VOID LcdSoc_EnableAlphaBlend(LCD_LAYER eLayer, BOOL flag);
-
-LCD_LAYER LcdSoc_AllocOverlay(LCD_ALLOCOVERLAY_DATA *pData);
-VOID LcdSoc_FreeOverlay(LCD_LAYER eLayer);
-
-VOID LcdSoc_ShowOverlay(LCD_LAYER eLayer);
-BOOL LcdSoc_SetParameters(LCD_SETPARAMS_DATA *pData);
-VOID LcdSoc_GetParameters(LCD_SETPARAMS_DATA *pData);
-
-VOID LcdSoc_HideOverlay(LCD_LAYER eLayer);
-VOID LcdSoc_SetOverlayPos(LCD_LAYER eLayer, RECT *pSrc, RECT *pDst);
-VOID LcdSoc_FlipOverlay(LCD_LAYER eLayer, UINT32 ui32Base, LCD_FLIP_MODE eField);
-
-VOID LcdSoc_SetCursorShape(UINT32 *pMask, INT iMaskStride, 
-    UINT32 *pColor, INT iXHot, INT iYHot, INT iWidth, INT iHeight);
-VOID LcdSoc_MoveCursor(INT iXPos, INT iYPos);
-VOID LcdSoc_SetCursorRotate(INT iAngle);
-VOID LcdSoc_SetPixelClock(UINT32 ui32PixelClock);
-UINT32 LcdSoc_GetPixelClock(VOID);
-VOID LcdSoc_ClearInterrupt(LCD_INTERRUPT_TYPE eType);
-VOID LcdSoc_EnableInterrupt(LCD_INTERRUPT_TYPE eType);
-VOID LcdSoc_DisableInterrupt(LCD_INTERRUPT_TYPE eType);
-UINT32 LcdSoc_IsInterrupted(LCD_INTERRUPT_TYPE eType);
-
-
-/*
-** Global variables
-*/
-
-static VPP_FUNCTIONTABLE gsVPPFuncTable;
-LCDSOC_CONFIG gsLcdConfig;
-LCD_PANEL_INFO gsPanelInfo;
-
-UINT32 g_eHwFormatToBpp[] =
-{
-/*Question: BPP of E_LO_CTRL_BPP_RGB666 should be 4?*/
-    4, /*E_LO_CTRL_BPP_RGB666*/
-    2, /*E_LO_CTRL_BPP_RGB565*/
-    2, /*E_LO_CTRL_BPP_RGB556*/
-    2, /*E_LO_CTRL_BPP_RGB655*/
-    4, /*E_LO_CTRL_BPP_RGB888*/
-    4, /*E_LO_CTRL_BPP_TRGB888*/
-    4, /*E_LO_CTRL_BPP_ARGB8888*/
-    2, /*E_LO_CTRL_BPP_UNKNOWN*/
+static unsigned int hwfmt_to_bpp[] = {
+	4,	/* LO_CTRL_BPP_RGB666 */
+	2,	/* LO_CTRL_BPP_RGB565 */
+	2,	/* LO_CTRL_BPP_RGB556 */
+	2,	/* LO_CTRL_BPP_RGB655 */
+	4,	/* LO_CTRL_BPP_RGB888 */
+	4,	/* LO_CTRL_BPP_TRGB888 */
+	4,	/* LO_CTRL_BPP_ARGB8888 */
+	2,	/* LO_CTRL_BPP_UNKNOWN */
 };
 
-ENUM_LO_CTRL_BPP __LcdSoc_EFormatToHwFormat(LCD_PIXELFORMAT eFormat)
+
+static void __lcdc_wait_idle(int layer, bool with_vpp)
 {
-    switch(eFormat)
-    {
-    case LCD_PIXELFORMAT_565:
-        return E_LO_CTRL_BPP_RGB565;
-    case LCD_PIXELFORMAT_556:
-        return E_LO_CTRL_BPP_RGB556;
-    case LCD_PIXELFORMAT_655:
-        return E_LO_CTRL_BPP_RGB655;
-    case LCD_PIXELFORMAT_666:
-        return E_LO_CTRL_BPP_RGB666;
-    case LCD_PIXELFORMAT_BGRX_8880:
-        return E_LO_CTRL_BPP_RGB888;
-    case LCD_PIXELFORMAT_8888:
-        return E_LO_CTRL_BPP_ARGB8888;
-    default:
-        LCD_ASSERT(0);
-        break;
-    }
-    return E_LO_CTRL_BPP_UNKNOWN;
-}
+	int timeout;
 
-LCD_PIXELFORMAT __LcdSoc_HwFormatToEFormat(ENUM_LO_CTRL_BPP hwFormat)
-{
-    switch(hwFormat)
-    {
-    
-    case E_LO_CTRL_BPP_RGB565:
-        return LCD_PIXELFORMAT_565;
-    case E_LO_CTRL_BPP_RGB556:
-        return LCD_PIXELFORMAT_556;
-    case E_LO_CTRL_BPP_RGB655:
-        return LCD_PIXELFORMAT_655;
-    case E_LO_CTRL_BPP_RGB666:
-        return LCD_PIXELFORMAT_666;
-    case E_LO_CTRL_BPP_RGB888:
-        return LCD_PIXELFORMAT_BGRX_8880;
-    case E_LO_CTRL_BPP_ARGB8888:
-        return LCD_PIXELFORMAT_8888;
-    default:
-        LCD_ASSERT(0);
-        break;
-    }
-    return LCD_PIXELFORMAT_UNKNOWN;
-}
-
-/***************************************************************************
- @Function  __LcdSoc_EFormatToBpp
- @Description
- Get bpp of PVRFormat 
-
- @input eFormat: interface format
- @Return   byte per pixel
-****************************************************************************/
-UINT32 __LcdSoc_EFormatToBpp(LCD_PIXELFORMAT eFormat)
-{
-    switch(eFormat)
-    {
-    case LCD_PIXELFORMAT_565:
-    case LCD_PIXELFORMAT_556:
-    case LCD_PIXELFORMAT_655:
-        return 2;
-    case LCD_PIXELFORMAT_666:
-    case LCD_PIXELFORMAT_BGRX_8880:
-    case LCD_PIXELFORMAT_8888:
-        return 4;
-    default:
-        LCD_ASSERT(0);
-        break;
-    }
-    return 2;
-}
-
-VOID __LcdSoc_WaitIdle(LCD_LAYER eLayer, BOOL bWithVpp)
-{
-    int     nTimeout;
-
-    if (bWithVpp)
-    {
-        nTimeout = 0;
-        while(gsVPPFuncTable.pfnIsBusy())
-        {
-            OSWaitms(1);
-            nTimeout ++;
-            if (nTimeout > 1000)
-            {
-                LCD_MSG(("wait vpp idle timeout\r\n"));
-            }
-        }
-    }    
-    nTimeout = 0;
-    while(ReadLcdRegisterValue(DMA_STATUS) & (1<<eLayer))
-    {
-        OSWaitms(1);
-        nTimeout ++;
-        if (nTimeout > 1000)
-        {
-            LCD_MSG(("wait DMA_STATUS timeout\r\n"));
-        }
-    }
-    nTimeout = 0;
-    while(ReadLcdRegisterValue(S0_LAYER_STATUS) & (1<<eLayer))
-    {
-        OSWaitms(1);
-        nTimeout ++;
-        if (nTimeout > 1000)
-        {
-            LCD_MSG(("wait S0_LAYER_STATUS timeout\r\n"));
-        }
-    }
-}
-
-VOID __LcdSoc_DisableLayer(LCD_LAYER eLayer, BOOL bWait)
-{
-    REG_S0_LAYER_SEL reg_S0_LAYER_SEL;
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-
-    reg_S0_LAYER_SEL.DW = ReadLcdRegisterValue(S0_LAYER_SEL);
-    if (reg_S0_LAYER_SEL.LAYER_SEL & (1<<eLayer))
-    {
-        reg_S0_LAYER_SEL.LAYER_SEL &= ~(1<<eLayer);
-        WriteLcdRegisterValue(S0_LAYER_SEL, reg_S0_LAYER_SEL.DW);
-
-        if (psLayerState->bNeedVpp)
-        {
-            REG_L0_DMA_CTRL reg_L0_DMA_CTRL;
-            reg_L0_DMA_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_DMA_CTRL));
-            reg_L0_DMA_CTRL.VPP_PASS_MODE = 0;
-            WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_DMA_CTRL), reg_L0_DMA_CTRL.DW);
-        
-            __LcdSoc_ConfirmLayerSetting(eLayer);
-        }
-
-        if (bWait)
-        {
-            __LcdSoc_WaitIdle(eLayer, psLayerState->bNeedVpp);
-        }
-    }
-}
-
-VOID __LcdSoc_EnableLayer(LCD_LAYER eLayer)
-{
-    
-    REG_S0_LAYER_SEL reg_S0_LAYER_SEL;
-    REG_L0_DMA_CTRL reg_L0_DMA_CTRL;
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-
-    reg_S0_LAYER_SEL.DW = ReadLcdRegisterValue(S0_LAYER_SEL);
-    if (!(reg_S0_LAYER_SEL.LAYER_SEL & (1<<eLayer)))
-    {
-        __LcdSoc_WaitIdle(eLayer, psLayerState->bNeedVpp);
-        __LcdSoc_ResetLayerFifo(eLayer);
-
-        reg_L0_DMA_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_DMA_CTRL));
-        if (psLayerState->bNeedVpp)
-        {
-            reg_L0_DMA_CTRL.VPP_PASS_MODE = 1;
-        }
-        else
-        {
-            reg_L0_DMA_CTRL.VPP_PASS_MODE = 0;
-        }
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_DMA_CTRL), reg_L0_DMA_CTRL.DW);
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-
-        reg_S0_LAYER_SEL.LAYER_SEL |= (1<<eLayer);
-        WriteLcdRegisterValue(S0_LAYER_SEL, reg_S0_LAYER_SEL.DW);
-    }
-}
-
-VOID __LcdSoc_SetDma(LCD_LAYER eLayer, RECT *pRectSrc)
-{
-    REG_L0_DMA_CTRL reg_Lx_DMA_CTRL;
-    REG_L0_FIFO_CHK reg_Lx_FIFO_CHK;
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    UINT32 ui32Bpp = g_eHwFormatToBpp[__LcdSoc_EFormatToHwFormat(psLayerState->eLcdFormat)];
-
-    /*Set DMA register configuration*/
-    UINT32 ui32Width = pRectSrc->right - pRectSrc->left;
-    UINT32 ui32Height = pRectSrc->bottom - pRectSrc->top;
-
-    BOOL bTVMode = __LcdSoc_IsTVMode(&gsPanelInfo);
-    UINT32 ui32DMAUnit = __LcdSoc_DMA_UNIT(bTVMode, eLayer!=LCD_PRIMARY);
-    UINT32 uiOffset = (pRectSrc->top * psLayerState->ui32SurfWidth + pRectSrc->left) * ui32Bpp;
-    UINT32 ui32XSize = (((uiOffset & 7) + ui32Width * ui32Bpp  + ui32DMAUnit -1 ) / ui32DMAUnit) - 1;
-
-	UINT32 ui32YSize, ui32Skip;
-
-	if (bTVMode)
-	{
-		ui32YSize = ui32Height/2 - 1;
-		ui32Skip = (psLayerState->ui32SurfWidth* ui32Bpp)*2 - (ui32XSize * ui32DMAUnit);
-	}
-	else
-	{
-    	ui32YSize = ui32Height - 1; /*in line units*/
-		ui32Skip = (psLayerState->ui32SurfWidth* ui32Bpp) - (ui32XSize * ui32DMAUnit);
+	if (with_vpp) {
+		timeout = 0;
+		while (vpp_ops.is_busy()) {
+			msleep(20);
+			timeout++;
+			if (timeout > 1000)
+				LCDC_DEBUG("wait vpp idle timeout\n");
+		}
 	}
 
-    /*Set overlay surface addr*/
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_BASE0), psLayerState->ui32Base + uiOffset);
-    if (bTVMode)
-    {
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_BASE1), psLayerState->ui32Base + uiOffset + psLayerState->ui32SurfWidth*ui32Bpp);    
-    }
-
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_XSIZE), ui32XSize);
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_YSIZE), ui32YSize);
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_SKIP),  ui32Skip);
-
-    reg_Lx_FIFO_CHK.DW = 0;
-    reg_Lx_FIFO_CHK.L0_LO_CHK = 0xF0;
-    reg_Lx_FIFO_CHK.L0_MI_CHK = 0x80;
-    reg_Lx_FIFO_CHK.L0_REQ_SEL = 1;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_FIFO_CHK), reg_Lx_FIFO_CHK.DW);
-
-    reg_Lx_DMA_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_DMA_CTRL));
-    reg_Lx_DMA_CTRL.SUPPRESS_QW_NUM = 
-        ((ui32XSize + 1) * ui32DMAUnit - ui32Width * ui32Bpp - (uiOffset & 7)) >> 3;
-    reg_Lx_DMA_CTRL.DMA_UNIT = (ui32DMAUnit >> 3) - 1;
-    reg_Lx_DMA_CTRL.DMA_MODE = 1;
-    if (bTVMode)
-    {
-        reg_Lx_DMA_CTRL.DMA_CHAIN_MODE = 1;
-    }
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_DMA_CTRL), reg_Lx_DMA_CTRL.DW);    
-}
-
-UINT32 __LcdSoc_CKValue(LCD_PIXELFORMAT eFormat, BOOL bDuplicate, UINT32 value)
-{
-    if ((eFormat == LCD_PIXELFORMAT_BGRX_8880) ||
-        (eFormat == LCD_PIXELFORMAT_8888))
-    {
-        return value;
-    }
-    else if (eFormat == LCD_PIXELFORMAT_565)
-    {
-        REG_L0_CKEYB_SRC reg_L0_CKEYB_SRC;
-        reg_L0_CKEYB_SRC.DW = 0;
-        reg_L0_CKEYB_SRC.R = ((value>>11) & 0x1f)<<3;
-        reg_L0_CKEYB_SRC.G = ((value>>5) & 0x3f)<<2;
-        reg_L0_CKEYB_SRC.B = (value & 0x1f)<<3;
-
-        if (bDuplicate)
-        {
-            reg_L0_CKEYB_SRC.R |= (reg_L0_CKEYB_SRC.R >> 5);
-            reg_L0_CKEYB_SRC.G |= (reg_L0_CKEYB_SRC.G >> 6);
-            reg_L0_CKEYB_SRC.B |= (reg_L0_CKEYB_SRC.B >> 5);
-        }
-        return reg_L0_CKEYB_SRC.DW;
-    }
-    else if (eFormat >= LCD_PIXELFORMAT_UYVY )
-    {
-        return value;
-    }
-    else
-    {
-        LCD_ASSERT(0);
-        return 0;
-    }
-}
-BOOL __LcdSoc_SetParameters(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_PIXELFORMAT eFormat = psLayerState->eLcdFormat;
-    REG_L0_CTRL reg_L0_CTRL;
-	BOOL bRet = TRUE;
-
-	if (!psLayerState->bShow)
-	{
-	    __LcdSoc_DisableLayer(eLayer, TRUE);
+	timeout = 0;
+	while (lcdc_read_reg(DMA_STATUS) & (1 << layer)) {
+		msleep(20);
+		timeout++;
+		if (timeout > 1000)
+			LCDC_DEBUG("wait DMA_STATUS timeout\n");
 	}
-    reg_L0_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL));
-    if (psLayerState->bNeedVpp)
-    {
-        VPP_SETPARAMS_DATA sVPPParams;
 
-        reg_L0_CTRL.BPP = VPP_TO_LCD_CTRL_BPP;
-        memset(&sVPPParams, 0, sizeof(sVPPParams));
-        sVPPParams.eSrcFormat = eFormat;
-        sVPPParams.ui32SrcBase = psLayerState->ui32Base;
-        sVPPParams.uiSrcWStride_pixel = psLayerState->ui32SurfWidth;
-        sVPPParams.uiSrcHStride_pixel = psLayerState->ui32SurfHeight;
-        sVPPParams.eDstFormat = VPP_TO_LCD_PIXELFORMAT;
-        sVPPParams.ui32DstBase = 0;
-
-        gsVPPFuncTable.pfnLock(TRUE);
-        bRet = gsVPPFuncTable.pfnSetParames(&sVPPParams);
-    }
-    else
-    {
-        reg_L0_CTRL.BPP = __LcdSoc_EFormatToHwFormat(eFormat);
-    }
-
-    reg_L0_CTRL.REPLICATE = psLayerState->bReplicate?1:0;
-    reg_L0_CTRL.PREMULTI_ALPHA = psLayerState->bPremultiAlpha?1:0;    
-    reg_L0_CTRL.CONFIRM = 1;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_L0_CTRL.DW);
-
-    /* Force to update src & dst rect related parameters */
-    __LcdSoc_SetSize(eLayer, TRUE);
-    __LcdSoc_Flip(eLayer, LCD_FLIP_FRAME);
-    
-    __LcdSoc_SetColorKey(eLayer);
-
-    __LcdSoc_SetAlphaProperty(eLayer);
-    __LcdSoc_SetGlobalAlpha(eLayer);
-	__LcdSoc_ConfirmLayerSetting(eLayer);
-
-    if (psLayerState->bShow)
-    {
-        __LcdSoc_EnableLayer(eLayer);
-    }
-	return bRet;
+	timeout = 0;
+	while (lcdc_read_reg(S0_LAYER_STATUS) & (1 << layer)) {
+		msleep(20);
+		timeout++;
+		if (timeout > 1000)
+			LCDC_DEBUG("wait S0_LAYER_STATUS timeout\n");
+	}
 }
 
-VOID __LcdSoc_Lock(LCD_LAYER eLayer, UINT32 ui32Base)
+static void __lcdc_disable_layer(int layer, bool wait)
 {
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    UINT32 timeout = 10;
-    while(ui32Base == psLayerState->ui32BaseOn)
-    {
-        OSWaitms(1);
-        timeout--;
-        LCD_ASSERT(timeout);
-    }
+	u32 s0_layer_sel;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+
+	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
+	if (s0_layer_sel & S0_LS_LAYER_SEL(1 << layer)) {
+		s0_layer_sel &= ~S0_LS_LAYER_SEL(1 << layer);
+		lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+
+		if (layer_state->need_vpp) {
+			u32 lx_dma_ctrl =
+				lcdc_read_reg(reg_offset(layer, L0_DMA_CTRL));
+			lx_dma_ctrl &= ~LX_VPP_PASS_MODE;
+			lcdc_write_reg(reg_offset(layer, L0_DMA_CTRL),
+					lx_dma_ctrl);
+
+			__lcdc_confirm_layer_setting(layer);
+		}
+
+		if (wait)
+			__lcdc_wait_idle(layer, layer_state->need_vpp);
+	}
 }
 
-VOID __LcdSoc_CalcSize(RECT *psRectSrcOrig, RECT *psRectDstOrig, BOOL bNeedVpp, RECT *psRectSrc, RECT *psRectDst)
+static void __lcdc_enable_layer(int layer)
 {
-    INT32 i32SrnWidth;
-    INT32 i32SrnHeight;
+	u32 s0_layer_sel;
+	u32 lx_dma_ctrl;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
 
-    INT32 i32SrcOrigWidth, i32SrcOrigHeight;
-    INT32 i32DstOrigWidth, i32DstOrigHeight;
+	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
+	if (!(s0_layer_sel & S0_LS_LAYER_SEL(1 << layer))) {
+		__lcdc_wait_idle(layer, layer_state->need_vpp);
+		__lcdc_reset_layer_fifo(layer);
 
-    __LcdSoc_GetScreenSize((UINT32*)&i32SrnWidth, (UINT32*)&i32SrnHeight, &gsPanelInfo);
+		lx_dma_ctrl = lcdc_read_reg(reg_offset(layer, L0_DMA_CTRL));
+		if (layer_state->need_vpp)
+			lx_dma_ctrl |= LX_VPP_PASS_MODE;
+		else
+			lx_dma_ctrl &= ~LX_VPP_PASS_MODE;
+		lcdc_write_reg(reg_offset(layer, L0_DMA_CTRL), lx_dma_ctrl);
+		__lcdc_confirm_layer_setting(layer);
 
-    i32SrcOrigWidth = psRectSrcOrig->right - psRectSrcOrig->left;
-    i32DstOrigWidth = psRectDstOrig->right - psRectDstOrig->left;
-    i32SrcOrigHeight = psRectSrcOrig->bottom - psRectSrcOrig->top;
-    i32DstOrigHeight = psRectDstOrig->bottom - psRectDstOrig->top;
+		s0_layer_sel |= S0_LS_LAYER_SEL(1 << layer);
+		lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+	}
+}
 
-    if(psRectDstOrig->left < 0)
-    {
-        psRectDst->left = 0;
-        psRectSrc->left = psRectSrcOrig->left+(i32SrcOrigWidth/i32DstOrigWidth*(-psRectDstOrig->left));
-    }
-    else if(psRectDstOrig->left > (i32SrnWidth-1))
-    {
-        psRectDst->left = i32SrnWidth-1;
-        psRectDst->right = i32SrnWidth;
+static void __lcdc_set_dma(int layer, struct vdss_rect *src_rect)
+{
+	u32 lx_dma_ctrl = 0x0;
+	u32 lx_fifo_chk = 0x0;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	unsigned int bpp = hwfmt_to_bpp[__lcdc_fmt_to_hwfmt(layer_state->fmt)];
 
-        psRectSrc->left = psRectSrcOrig->left;
-        psRectSrc->right = psRectSrcOrig->left+1;;
-    }
-    else
-    {
-        psRectDst->left = psRectDstOrig->left;
-		psRectSrc->left = psRectSrcOrig->left;
-    }
+	/*Set DMA register configuration*/
+	unsigned int width = src_rect->right - src_rect->left;
+	unsigned int height = src_rect->bottom - src_rect->top;
 
-    if(psRectDstOrig->right < 0)
-    {
-    	psRectDst->left = -1;
-		psRectDst->right = 0;
-		psRectSrc->left = psRectSrcOrig->right-1;
-		psRectSrc->right = psRectSrcOrig->right;
-    }
-    else if(psRectDstOrig->right > i32SrnWidth)
-    {
-        psRectDst->right = i32SrnWidth;
-        psRectSrc->right = psRectSrcOrig->right-(i32SrcOrigWidth/i32DstOrigWidth*(psRectDstOrig->right-i32SrnWidth));
-    }
-    else
-    {
-        psRectDst->right = psRectDstOrig->right;
-        psRectSrc->right = psRectSrcOrig->right;
-    }
+	bool tv_mode = __lcdc_is_tvmode(&panel_info);
+	unsigned int dma_unit = __lcdc_dma_unit(tv_mode);
+	unsigned int offset = (src_rect->top * layer_state->surf_width +
+				src_rect->left) * bpp;
+	unsigned int xsize = (((offset & 7) + width * bpp  + dma_unit - 1) /
+				dma_unit) - 1;
+
+	unsigned int ysize, skip;
+
+	if (tv_mode) {
+		ysize = height / 2 - 1;
+		skip = (layer_state->surf_width * bpp) * 2 - (xsize * dma_unit);
+	} else {
+		ysize = height - 1;	/* in line units */
+		skip = (layer_state->surf_width * bpp) - (xsize * dma_unit);
+	}
+
+	/* Set overlay surface addr */
+	lcdc_write_reg(reg_offset(layer, L0_BASE0), layer_state->base + offset);
+	if (tv_mode)
+		lcdc_write_reg(reg_offset(layer, L0_BASE1),
+				layer_state->base + offset +
+				layer_state->surf_width * bpp);
+
+	lcdc_write_reg(reg_offset(layer, L0_XSIZE), xsize);
+	lcdc_write_reg(reg_offset(layer, L0_YSIZE), ysize);
+	lcdc_write_reg(reg_offset(layer, L0_SKIP),  skip);
+
+	lx_fifo_chk = LX_LO_CHK(0xF0) | LX_MI_CHK(0x80) | LX_REQ_SEL;
+	lcdc_write_reg(reg_offset(layer, L0_FIFO_CHK), lx_fifo_chk);
+
+	lx_dma_ctrl = lcdc_read_reg(reg_offset(layer, L0_DMA_CTRL));
+	lx_dma_ctrl &= ~LX_SUPPRESS_QW_NUM_MASK;
+	lx_dma_ctrl &= ~LX_DMA_UNIT_MASK;
+	lx_dma_ctrl |= LX_SUPPRESS_QW_NUM(((xsize + 1) * dma_unit -
+				width * bpp - (offset & 7)) >> 3);
+	lx_dma_ctrl |= LX_DMA_UNIT((dma_unit >> 3) - 1);
+	lx_dma_ctrl |= LX_DMA_MODE;
+	if (tv_mode)
+		lx_dma_ctrl |= LX_DMA_CHAIN_MODE;
+	lcdc_write_reg(reg_offset(layer, L0_DMA_CTRL), lx_dma_ctrl);
+}
+
+static u32 __lcdc_ckey_val(enum vdss_pixelformat fmt,
+			bool duplicate, u32 value)
+{
+	if (fmt == VDSS_PIXELFORMAT_BGRX_8880 ||
+		fmt == VDSS_PIXELFORMAT_8888) {
+		return value;
+	} else if (fmt == VDSS_PIXELFORMAT_565) {
+		u32 ckval;
+
+		ckval = LX_CKEY_R(((value >> 11) & 0x1F) << 3) |
+			LX_CKEY_G(((value >> 5) & 0x3F) << 2) |
+			LX_CKEY_B((value & 0x1F) << 3);
+
+		if (duplicate) {
+			ckval |= ((ckval & LX_CKEY_R_MASK) >> 5) |
+				((ckval & LX_CKEY_G_MASK) >> 6) |
+				((ckval & LX_CKEY_B_MASK) >> 5);
+		}
+		return ckval;
+	} else if (fmt >= VDSS_PIXELFORMAT_UYVY) {
+		return value;
+	} else {
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, fmt);
+		return 0;
+	}
+}
+
+static void __lcdc_cal_size(struct vdss_rect *src_orig_rect,
+			struct vdss_rect *dst_orig_rect,
+			bool need_vpp,
+			struct vdss_rect *src_rect,
+			struct vdss_rect *dst_rect)
+{
+	int scr_width;
+	int scr_height;
+
+	int src_orig_width, src_orig_height;
+	int dst_orig_width, dst_orig_height;
+
+	__lcdc_get_screen_size((u32 *)(&scr_width),
+				(u32 *)(&scr_height),
+				&panel_info);
+
+	src_orig_width = src_orig_rect->right - src_orig_rect->left;
+	dst_orig_width = dst_orig_rect->right - dst_orig_rect->left;
+	src_orig_height = src_orig_rect->bottom - src_orig_rect->top;
+	dst_orig_height = dst_orig_rect->bottom - dst_orig_rect->top;
+
+	if (dst_orig_rect->left < 0) {
+		dst_rect->left = 0;
+		src_rect->left = src_orig_rect->left +
+				(src_orig_width / dst_orig_width *
+				 (-dst_orig_rect->left));
+	} else if (dst_orig_rect->left > (scr_width - 1)) {
+		dst_rect->left = scr_width - 1;
+		dst_rect->right = scr_width;
+
+		src_rect->left = src_orig_rect->left;
+		src_rect->right = src_orig_rect->left + 1;
+	} else {
+		dst_rect->left = dst_orig_rect->left;
+		src_rect->left = src_orig_rect->left;
+	}
+
+	if (dst_orig_rect->right < 0) {
+		dst_rect->left = -1;
+		dst_rect->right = 0;
+		src_rect->left = src_orig_rect->right - 1;
+		src_rect->right = src_orig_rect->right;
+	} else if (dst_orig_rect->right > scr_width) {
+		dst_rect->right = scr_width;
+		src_rect->right = src_orig_rect->right -
+				(src_orig_width / dst_orig_width *
+				 (dst_orig_rect->right - scr_width));
+	} else {
+		dst_rect->right = dst_orig_rect->right;
+		src_rect->right = src_orig_rect->right;
+	}
 
 
-    if(psRectDstOrig->top < 0)
-    {
-        psRectDst->top = 0;
-        psRectSrc->top = psRectSrcOrig->top+(i32SrcOrigHeight/i32DstOrigHeight*(-psRectDstOrig->top));
-    }
-    else if(psRectDstOrig->top > (i32SrnHeight-1))
-    {
-        psRectDst->top = i32SrnHeight-1;
-        psRectDst->bottom = i32SrnHeight;
+	if (dst_orig_rect->top < 0) {
+		dst_rect->top = 0;
+		src_rect->top = src_orig_rect->top +
+				(src_orig_height / dst_orig_height *
+				 (-dst_orig_rect->top));
+	} else if (dst_orig_rect->top > (scr_height - 1)) {
+		dst_rect->top = scr_height - 1;
+		dst_rect->bottom = scr_height;
 
-        psRectSrc->top = psRectSrcOrig->top;
-        psRectSrc->bottom = psRectSrcOrig->top+1;
-    }
-    else
-    {
-        psRectDst->top = psRectDstOrig->top;
-        psRectSrc->top = psRectSrcOrig->top;
-    }
+		src_rect->top = src_orig_rect->top;
+		src_rect->bottom = src_orig_rect->top + 1;
+	} else {
+		dst_rect->top = dst_orig_rect->top;
+		src_rect->top = src_orig_rect->top;
+	}
 
-    if(psRectDstOrig->bottom < 0)
-    {
-    	psRectDst->top = -1;
-		psRectDst->bottom = 0;
-		psRectSrc->top = psRectSrcOrig->bottom-1;
-		psRectSrc->bottom = psRectSrcOrig->bottom;
-    }
-    else if(psRectDstOrig->bottom > i32SrnHeight)
-    {
-        psRectDst->bottom = i32SrnHeight;
-        psRectSrc->bottom = psRectSrcOrig->bottom-(i32SrcOrigHeight/i32DstOrigHeight*(psRectDstOrig->bottom-i32SrnHeight));
-    }
-    else
-    {
-        psRectDst->bottom = psRectDstOrig->bottom;
-        psRectSrc->bottom = psRectSrcOrig->bottom;
-    }
+	if (dst_orig_rect->bottom < 0) {
+		dst_rect->top = -1;
+		dst_rect->bottom = 0;
+		src_rect->top = src_orig_rect->bottom - 1;
+		src_rect->bottom = src_orig_rect->bottom;
+	} else if (dst_orig_rect->bottom > scr_height) {
+		dst_rect->bottom = scr_height;
+		src_rect->bottom = src_orig_rect->bottom -
+				(src_orig_height / dst_orig_height *
+				 (dst_orig_rect->bottom - scr_height));
+	} else {
+		dst_rect->bottom = dst_orig_rect->bottom;
+		src_rect->bottom = src_orig_rect->bottom;
+	}
 
-    /* workaround LCD don't support 1 line display */
-    if((psRectDst->bottom - psRectDst->top) == 1)
-    {
-        psRectDst->top = i32SrnHeight;
-        psRectDst->bottom = i32SrnHeight+2;
+	/* workaround LCD don't support 1 line display */
+	if ((dst_rect->bottom - dst_rect->top) == 1) {
+		dst_rect->top = scr_height;
+		dst_rect->bottom = scr_height + 2;
 
-        psRectSrc->top = 0;
-        psRectSrc->bottom = 2;
-    }
+		src_rect->top = 0;
+		src_rect->bottom = 2;
+	}
 
-    /* workaround RGB overlay stretch, we don't support it, so
-    *  show it as the smaller rect.
-    */
-    if (!bNeedVpp)
-    {
-        INT32   i32WidthSrc, i32HeightSrc;
-        INT32   i32WidthDst, i32HeightDst;
+	/* workaround RGB overlay stretch, we don't support it, so
+	 * show it as the smaller rect.
+	 */
+	if (!need_vpp) {
+		int src_width, src_height;
+		int dst_width, dst_height;
 
-        i32WidthSrc = psRectSrc->right - psRectSrc->left;
-        i32HeightSrc = psRectSrc->bottom - psRectSrc->top;
-        i32WidthDst = psRectDst->right - psRectDst->left;
-        i32HeightDst = psRectDst->bottom - psRectDst->top;
+		src_width = src_rect->right - src_rect->left;
+		src_height = src_rect->bottom - src_rect->top;
+		dst_width = dst_rect->right - dst_rect->left;
+		dst_height = dst_rect->bottom - dst_rect->top;
 
-        if (i32WidthSrc > i32WidthDst)
-        {
-            psRectSrc->right = psRectSrc->left + i32WidthDst;
-        }
-        else if (i32WidthSrc < i32WidthDst)
-        {
-            psRectDst->right = psRectDst->left + i32WidthSrc;
-        }
-        if (i32HeightSrc > i32HeightDst)
-        {
-            psRectSrc->bottom = psRectSrc->top + i32HeightDst;
-        }
-        else if (i32HeightSrc < i32HeightDst)
-        {
-            psRectDst->bottom = psRectDst->top + i32HeightSrc;
-        }
-    }
+		if (src_width > dst_width)
+			src_rect->right = src_rect->left + dst_width;
+		else if (src_width < dst_width)
+			dst_rect->right = dst_rect->left + src_width;
+
+		if (src_height > dst_height)
+			src_rect->bottom = src_rect->top + dst_height;
+		else if (src_height < dst_height)
+			dst_rect->bottom = dst_rect->top + src_height;
+	}
 }
 
 
-VOID __LcdSoc_SetDstRect(LCD_LAYER eLayer, RECT *psRectDstOn)
+static void __lcdc_set_dst_rect(int layer, struct vdss_rect *dst_rect_on)
 {
-    switch(gsPanelInfo.eOutFormat)
-    {
-    case LCD_OUT_8_BIT_RBGRBG:
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_HSTART), (psRectDstOn->left*3)+gsPanelInfo.ui32HStart);
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_HEND), (psRectDstOn->right-1)*3+gsPanelInfo.ui32HStart);
-        break;
-    case LCD_OUT_8_BIT_YUV422:
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_HSTART), (psRectDstOn->left*2)+gsPanelInfo.ui32HStart);
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_HEND), (psRectDstOn->right-1)*2+gsPanelInfo.ui32HStart);
-        break;
-    default:
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_HSTART), psRectDstOn->left+gsPanelInfo.ui32HStart);
-        /*L0_HEND= L0_HSTART + width - 1*/
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_HEND), psRectDstOn->right+gsPanelInfo.ui32HStart-1);
-        break;        
-    }
-    
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_VSTART), (psRectDstOn->top)+gsPanelInfo.ui32VStart);
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_VEND), psRectDstOn->bottom+gsPanelInfo.ui32VStart-1);    
+	switch (panel_info.out_fmt) {
+	case LCDC_OUT_8_BIT_RBGRBG:
+		lcdc_write_reg(reg_offset(layer, L0_HSTART),
+			(dst_rect_on->left * 3) + panel_info.hstart);
+		lcdc_write_reg(reg_offset(layer, L0_HEND),
+			(dst_rect_on->right - 1) * 3 + panel_info.hstart);
+		break;
+	case LCDC_OUT_8_BIT_YUV422:
+		lcdc_write_reg(reg_offset(layer, L0_HSTART),
+			(dst_rect_on->left * 2) + panel_info.hstart);
+		lcdc_write_reg(reg_offset(layer, L0_HEND),
+			(dst_rect_on->right - 1) * 2 + panel_info.hstart);
+		break;
+	default:
+		lcdc_write_reg(reg_offset(layer, L0_HSTART),
+			dst_rect_on->left + panel_info.hstart);
+		lcdc_write_reg(reg_offset(layer, L0_HEND),
+			dst_rect_on->right + panel_info.hstart - 1);
+		break;
+	}
+
+	lcdc_write_reg(reg_offset(layer, L0_VSTART),
+		dst_rect_on->top + panel_info.vstart);
+	lcdc_write_reg(reg_offset(layer, L0_VEND),
+		dst_rect_on->bottom + panel_info.vstart - 1);
 }
 
-VOID __LcdSoc_SetSize(LCD_LAYER eLayer, BOOL bForceUpdate)
+static void __lcdc_set_size(int layer, bool force_update)
 {
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    RECT sRectSrcOn, sRectDstOn;
-    INT iRectSrcOnDiff=0, iRectDstOnDiff=0, iRectDstOnRangeDiff=0;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	struct vdss_rect src_rect_on, dst_rect_on;
+	int src_diff = 0, dst_diff = 0, dst_range_diff = 0;
 
-    __LcdSoc_CalcSize(&psLayerState->sRectSrc, &psLayerState->sRectDst, psLayerState->bNeedVpp, &sRectSrcOn, &sRectDstOn);
-    if (!bForceUpdate)
-    {
-        iRectSrcOnDiff = memcmp(&sRectSrcOn, &psLayerState->sRectSrcOn, sizeof(RECT));
-        iRectDstOnDiff = memcmp(&sRectDstOn, &psLayerState->sRectDstOn, sizeof(RECT));
-        iRectDstOnRangeDiff = 
-            ((sRectDstOn.right - sRectDstOn.left) != (psLayerState->sRectDstOn.right - psLayerState->sRectDstOn.left)) ||
-            ((sRectDstOn.bottom - sRectDstOn.top) != (psLayerState->sRectDstOn.bottom - psLayerState->sRectDstOn.top));
-    }
-    if (psLayerState->bNeedVpp)
-    {
-        if (bForceUpdate || (iRectSrcOnDiff || iRectDstOnRangeDiff))
-        {
-            UINT32  ui32SrcSkip, ui32DstSkip;
-            RECT    sVppRectDst;
+	__lcdc_cal_size(&layer_state->src_rect, &layer_state->dst_rect,
+			layer_state->need_vpp, &src_rect_on, &dst_rect_on);
+	if (!force_update) {
+		src_diff = memcmp(&src_rect_on, &layer_state->src_rect_on,
+							sizeof(src_rect_on));
+		dst_diff = memcmp(&dst_rect_on, &layer_state->dst_rect_on,
+							sizeof(dst_rect_on));
+		dst_range_diff =
+			((dst_rect_on.right - dst_rect_on.left) !=
+			(layer_state->dst_rect_on.right -
+			 layer_state->dst_rect_on.left)) ||
+			((dst_rect_on.bottom - dst_rect_on.top) !=
+			 (layer_state->dst_rect_on.bottom -
+			  layer_state->dst_rect_on.top));
+	}
 
-            if ((psLayerState->eLcdFormat >= LCD_PIXELFORMAT_UYVY) && 
-                (psLayerState->eLcdFormat <= LCD_PIXELFORMAT_VYUY))
-            {
-                ui32SrcSkip = (sRectSrcOn.left & 3);
-            }
-            else
-            {
-                ui32SrcSkip = (sRectSrcOn.left & 15);
-            }
-            if (ui32SrcSkip && sRectSrcOn.right - sRectSrcOn.left)
-            {
-                ui32DstSkip = ui32SrcSkip * (sRectDstOn.right - sRectDstOn.left) / 
-                    (sRectSrcOn.right - sRectSrcOn.left);
-            }
-            else
-            {
-                ui32DstSkip = 0;
-            }
-            sRectSrcOn.left -= ui32SrcSkip;
+	if (layer_state->need_vpp) {
+		if (force_update || (src_diff || dst_range_diff)) {
+			unsigned int  src_skip, dst_skip;
+			struct vdss_rect vpp_dst_rect;
 
-            WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_BASE0), VPP_TO_LCD_BPP * ui32DstSkip);
-            WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_BASE1), VPP_TO_LCD_BPP * ui32DstSkip);
+			if ((layer_state->fmt >= VDSS_PIXELFORMAT_UYVY) &&
+				(layer_state->fmt <= VDSS_PIXELFORMAT_VYUY))
+				src_skip = (src_rect_on.left & 3);
+			else
+				src_skip = (src_rect_on.left & 15);
 
-            memcpy(&sVppRectDst , &sRectDstOn, sizeof(RECT));
-            sVppRectDst.left -= ui32DstSkip;
-            gsVPPFuncTable.pfnSetSize(&sRectSrcOn, &sVppRectDst);  
-			if (gsVPPFuncTable.pfnUpdateCoeff)
-			{
-            	gsVPPFuncTable.pfnUpdateCoeff();
+			if (src_skip && (src_rect_on.right - src_rect_on.left))
+				dst_skip = src_skip *
+					(dst_rect_on.right - dst_rect_on.left) /
+					(src_rect_on.right - src_rect_on.left);
+			else
+				dst_skip = 0;
+			src_rect_on.left -= src_skip;
+
+			lcdc_write_reg(reg_offset(layer, L0_BASE0),
+					VPP_TO_LCDC_BPP * dst_skip);
+			lcdc_write_reg(reg_offset(layer, L0_BASE1),
+					VPP_TO_LCDC_BPP * dst_skip);
+
+			memcpy(&vpp_dst_rect , &dst_rect_on,
+				sizeof(vpp_dst_rect));
+			vpp_dst_rect.left -= dst_skip;
+			vpp_ops.set_size(&src_rect_on, &vpp_dst_rect);
+		}
+	} else {
+		if (force_update || src_diff)
+			__lcdc_set_dma(layer, &src_rect_on);
+	}
+
+	if (force_update || dst_diff)
+		__lcdc_set_dst_rect(layer, &dst_rect_on);
+
+	layer_state->dst_rect_on = dst_rect_on;
+	layer_state->src_rect_on = src_rect_on;
+}
+
+
+static void __lcdc_get_primary_size(unsigned int *primary_size)
+{
+	unsigned int w, h, d;
+	struct lcdc_layer_state *layer_state =
+		&lcdc_config.layer_state[LCDC_PRIMARY];
+	d = (layer_state->fmt == VDSS_PIXELFORMAT_565) ? 16 : 32;
+	__lcdc_get_screen_size(&w, &h, &panel_info);
+	*primary_size = ((byte_stride(w, d) * h) + 0xfff) & 0xfffff000;
+}
+
+static void __lcdc_flip(int layer, enum lcdc_flip_mode flip_mode)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	u32 base = layer_state->base;
+
+	if (layer_state->need_vpp) {
+		if (layer_state->flip_mode != flip_mode) {
+			bool top_field;
+
+			layer_state->flip_mode = flip_mode;
+
+			/* disable layer is needed for programming interlace */
+			if (layer_state->show)
+				__lcdc_disable_layer(layer, true);
+
+			if (flip_mode != LCDC_FLIP_FRAME) {
+				top_field = (flip_mode == LCDC_FLIP_TOP_FIELD);
+				vpp_ops.set_interlace(true, VPP_OUTPUT_P_SINGLE,
+					top_field, top_field, VPP_DI_VMRI,
+					true, 0);
+			} else {
+				vpp_ops.set_interlace(false,
+					VPP_OUTPUT_P_SINGLE,
+					true, true,
+					VPP_DI_RESERVED,
+					true, 0);
 			}
-        }
-    }
-    else
-    {
-        if (bForceUpdate || iRectSrcOnDiff)
-        {
-            __LcdSoc_SetDma(eLayer, &sRectSrcOn);
-        }
-    }
 
-    if (bForceUpdate || iRectDstOnDiff)
-    {
-        __LcdSoc_SetDstRect(eLayer, &sRectDstOn);
-    }
+			if (layer_state->show)
+				__lcdc_enable_layer(layer);
+		}
+		vpp_ops.set_base(base);
+	} else {
+		unsigned char bpp = __lcdc_fmt_to_bpp(layer_state->fmt);
+		unsigned int offset = bpp * (layer_state->src_rect.top *
+			layer_state->surf_width + layer_state->src_rect.left);
 
-    psLayerState->sRectDstOn = sRectDstOn;
-    psLayerState->sRectSrcOn = sRectSrcOn;
-}
-
-
-VOID __LcdSoc_GetPrimarySize(UINT32 *pui32PrimarySize)
-{
-	UINT w, h, d;	
-	LCDSOC_LAYER_STATE *psLayerState = &gsLcdConfig.sLayerState[LCD_PRIMARY];
-	d = (psLayerState->eLcdFormat==LCD_PIXELFORMAT_565)?16:32;
-	__LcdSoc_GetScreenSize(&w, &h, &gsPanelInfo);
-	*pui32PrimarySize = ((BYTE_STRIDE(w, d)*h)+0xfff)&0xfffff000;
-}
-
-VOID __LcdSoc_GetFBSize(UINT32 *pui32FBSize)
-{
-	OSGetFBSize(pui32FBSize);
-}
-
-VOID __LcdSoc_PowerDown(VOID)
-{
-    __LcdSoc_DisableClock();
-}
-
-VOID __LcdSoc_Flip(LCD_LAYER eLayer, LCD_FLIP_MODE eFlipMode)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    UINT32 ui32Base = psLayerState->ui32Base;
-
-    if (psLayerState->bNeedVpp)
-    {
-        if (psLayerState->eFlipMode != eFlipMode)
-        {
-            BOOL             bTopField;
-
-            psLayerState->eFlipMode = eFlipMode;
-
-            /* disable layer is needed for programming interlace */
-            if (psLayerState->bShow)
-            {
-                __LcdSoc_DisableLayer(eLayer, TRUE);
-            }
-
-            if (eFlipMode != LCD_FLIP_FRAME)
-            {
-                bTopField = (eFlipMode == LCD_FLIP_TOP_FIELD);
-                gsVPPFuncTable.pfnSetInterlace(TRUE, VPP_OUTPUT_P_SINGLE, bTopField, bTopField, VPP_DI_VMRI, TRUE, 0);
-            }
-            else
-            {
-                gsVPPFuncTable.pfnSetInterlace(FALSE, VPP_OUTPUT_P_SINGLE, TRUE, TRUE, VPP_DI_RESERVED, TRUE, 0);
-            }
-
-            if (psLayerState->bShow)
-            {
-                __LcdSoc_EnableLayer(eLayer);
-            }
-        }
-        gsVPPFuncTable.pfnSetBase(ui32Base);
-    }
-    else
-    {
-        UINT8 ui8Bpp = __LcdSoc_EFormatToBpp(psLayerState->eLcdFormat);
-        UINT32 ui32Offset = ui8Bpp * (psLayerState->sRectSrc.top*psLayerState->ui32SurfWidth+psLayerState->sRectSrc.left);
-
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_BASE0), ui32Base+ui32Offset);
-        if (__LcdSoc_IsTVMode(&gsPanelInfo))
-        {
-            WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_BASE1), ui32Base+ui32Offset+(ui8Bpp*psLayerState->ui32SurfWidth));
-        }
-    }
-}
-
-__inline UINT16 __LcdSoc_MaskTable(UINT8 bAnd, UINT8 bXor)  
-{ 
-	UINT16 ui16Return   = 0;
-	INT i;
-
-    for(i = 0;i< 8;i++)
-	{
-        ui16Return  |= (bAnd & 1) << (i * 2 + 1 );
-		ui16Return  |= (bXor & 1) << (i * 2);
-		bAnd    >>= 1;
-		bXor    >>= 1;
+		lcdc_write_reg(reg_offset(layer, L0_BASE0), base+offset);
+		if (__lcdc_is_tvmode(&panel_info))
+			lcdc_write_reg(reg_offset(layer, L0_BASE1),
+					base + offset +
+					(bpp * layer_state->surf_width));
 	}
-	return ui16Return;
 }
 
-VOID __LcdSoc_GenCursorFIFO(UINT32 *pColor, UINT32 *pMask, INT iMaskStride)
+static inline u16 __lcdc_mask_table(u8 and, u8 xor)
 {
-    LCDSOC_CURSOR_STATE *psCursorState = &(gsLcdConfig.sCursorState);
-    INT iWidth = psCursorState->iWidth; 
-    INT iHeight = psCursorState->iHeight;
-    UINT32 *pui32Value = &(psCursorState->aui32FIFO[0]);
-    UINT32 *pSrc, *pDst, ui32Value;
+	u16 ret = 0;
+	int i;
 
-   	UINT8 *andPtr, *xorPtr; /*input pointer*/
-	UINT16 ui16Value, *pui16;
-	UINT8 bAnd;
-	UINT8 bXor;
-    INT i, row, col, j, iDstShift;
+	for (i = 0; i < 8; i++) {
+		ret |= (and & 1) << (i * 2 + 1);
+		ret |= (xor & 1) << (i * 2);
+		and >>= 1;
+		xor >>= 1;
+	}
+	return ret;
+}
 
-    /*Don't support color cursor*/
-    if(pColor != NULL)
-    {
-        LCD_ASSERT(0);
-        return;
-    }
+static void __lcdc_gen_cursor_fifo(u32 *color, u32 *mask, int mask_stride)
+{
+	struct lcdc_cursor_state *cursor_state = &(lcdc_config.cursor_state);
+	int width = cursor_state->width;
+	int height = cursor_state->height;
+	u32 *pval = &(cursor_state->fifo[0]);
+	u32 *src, *dst, val;
 
-    if(pMask == NULL)
-    {
-        /* If pMask == NULL, set the cursor to transparent */
-        memset((VOID*)pui32Value, 0xaa, iWidth*iHeight >> 2);
-    }
-    else
-    {
-        pui16 = (UINT16*) pui32Value;
-        andPtr = (UINT8*) pMask;
-        xorPtr = ((UINT8*) pMask) + iHeight*iMaskStride;
-        for (row = 0; row < iHeight; row++)
-        {
-            for (col = 0; col < iWidth/8; col += 2)
-            {
-                bAnd = andPtr[row * iMaskStride + col];
-                bXor = xorPtr[row * iMaskStride + col];
-                
-                ui16Value = __LcdSoc_MaskTable(bAnd,bXor);
+	u8 *and_ptr, *xor_ptr;	/* input pointer */
+	u16 val_16, *pval_16;
+	u8 and;
+	u8 xor;
+	int i, row, col, j, dst_shift;
 
-                bAnd = andPtr[row * iMaskStride + col + 1];
-                bXor = xorPtr[row * iMaskStride + col + 1];
+	if (color != NULL) {
+		LCDC_ERR("%s(%d): do not support color cursor\n",
+			__func__, __LINE__);
+		return;
+	}
 
-                *pui16++ = __LcdSoc_MaskTable(bAnd,bXor);
-                *pui16++ = ui16Value;
-            }
-        }
-    }
+	if (mask == NULL) {
+		/* If mask == NULL, set the cursor to transparent */
+		memset((void *)pval, 0xaa, (width * height) >> 2);
+	} else {
+		pval_16 = (u16 *)pval;
+		and_ptr = (u8 *)mask;
+		xor_ptr = (u8 *)mask + height * mask_stride;
+		for (row = 0; row < height; row++) {
+			for (col = 0; col < width / 8; col += 2) {
+				and = and_ptr[row * mask_stride + col];
+				xor = xor_ptr[row * mask_stride + col];
 
-    /* Must clear the rotation fifo since we only OR the bits */
-    if (psCursorState->iRotate)
-    {
-        memset(pui32Value + 256, 0, sizeof(UINT32) * 256);
-    }
+				val_16 = __lcdc_mask_table(and, xor);
 
-    switch(psCursorState->iRotate)
-    {
-    default:
-    case 0:
-        break;
-    case 270:
-        pSrc      = (UINT32 *)pui32Value;
-        ui32Value = *pSrc++;        
+				and = and_ptr[row * mask_stride + col + 1];
+				xor = xor_ptr[row * mask_stride + col + 1];
 
-        for(i = 0;i < iHeight;i++)
-        {
-            pDst      = (UINT32 *)(pui32Value + 256) + iWidth - 1 - (i >> 4);
-            iDstShift = (i & 0xf) << 1; 
+				*pval_16++ = __lcdc_mask_table(and, xor);
+				*pval_16++ = val_16;
+			}
+		}
+	}
 
-            for(j = 0;j < iWidth; j++)
-            {
-                *pDst    |= (ui32Value & 3) << iDstShift;
-                ui32Value >>= 2;
-                
-                if((j & 0xf) == 0xf) 
-                {
-                    ui32Value = *pSrc ++;
-                    pDst   += 0x20 * (iWidth >> 4);
-                }
-                pDst  -= iWidth >> 4;
-            }
-        }
-        break;
+	/* Must clear the rotation fifo since we only OR the bits */
+	if (cursor_state->rotate)
+		memset(pval + 256, 0, sizeof(u32) * 256);
 
-    case 90:
-        pSrc = (UINT32 *)pui32Value;
-        ui32Value   = *pSrc++;
+	switch (cursor_state->rotate) {
+	case 90:
+		src = (u32 *)pval;
+		val = *src++;
 
-        for(i = 0;i < iHeight;i++)
-        {
-            pDst      = (UINT32 *)(pui32Value + 256) + (iWidth >> 4) * ( iWidth - 0x10) + ( i >> 4);
-            iDstShift = ((i^0xf) & 0xf) << 1; 
+		for (i = 0; i < height; i++) {
+			dst = (u32 *)(pval + 256) + (width >> 4) *
+					(width - 0x10) + (i >> 4);
+			dst_shift = ((i ^ 0xf) & 0xf) << 1;
 
-            for(j = 0;j < iWidth; j++)
-            {
-                *pDst    |= (ui32Value & 3) << iDstShift;
-                ui32Value >>= 2;
-                
-                if((j & 0xf) == 0xf) 
-                {
-                    ui32Value = *pSrc ++;
-                    pDst   -= 0x20 * (iWidth >> 4);
-                }
-                pDst += iWidth >> 4;
-            }
-        }
-        break;
+			for (j = 0; j < width; j++) {
+				*dst |= (val & 3) << dst_shift;
+				val >>= 2;
 
-    case 180:
+				if ((j & 0xf) == 0xf) {
+					val = *src++;
+					dst -= 0x20 * (width >> 4);
+				}
+				dst += width >> 4;
+			}
+		}
+		break;
+	case 180:
+		src = (u32 *)pval;
+		dst = (u32 *)(pval + 256) + (height >> 4) * width - 1;
+		val = *src++;
 
-        pSrc    = (UINT32 *)pui32Value;
-        pDst    = (UINT32 *)(pui32Value + 256) + (iHeight >> 4) *  iWidth - 1 ;
-        ui32Value = *pSrc++;
+		for (i = 0; i < height; i++) {
+			for (j = 0; j < width; j++) {
+				*dst |= (val & 3) << ((width-j-1) & 0xf) * 2;
+				val >>= 2;
 
-        for(i = 0;i < iHeight;i++)
-        {
-            for(j = 0;j < iWidth; j++)
-            {
-                *pDst |= (ui32Value & 3) << ((iWidth - j - 1) & 0xf) * 2;
-                ui32Value >>= 2;
-                
-                if((j & 0xf) == 0xf) 
-                {
-                    ui32Value = *pSrc ++;
-                    pDst--;
-                }
-            }
-        }
-        break;
-    }
+				if ((j & 0xf) == 0xf) {
+					val = *src++;
+					dst--;
+				}
+			}
+		}
+		break;
+	case 270:
+		src = (u32 *)pval;
+		val = *src++;
+
+		for (i = 0; i < height; i++) {
+			dst = (u32 *)(pval + 256) + width - 1 - (i >> 4);
+			dst_shift = (i & 0xf) << 1;
+
+			for (j = 0; j < width; j++) {
+				*dst |= (val & 3) << dst_shift;
+				val >>= 2;
+
+				if ((j & 0xf) == 0xf) {
+					val = *src++;
+					dst += 0x20 * (width >> 4);
+				}
+				dst -= width >> 4;
+			}
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 
-VOID __LcdSoc_CalcCursorRegion(INT iXPos, INT iYPos, 
-    RECT *pRect, INT *piLeftSkip, INT *piTopSkip)
+static void __lcdc_cal_cursor_region(int xpos, int ypos,
+				struct vdss_rect *rect,
+				int *left_skip, int *top_skip)
 {
-    INT32 i32ScreenWidth;
-    INT32 i32ScreenHeight;
-    INT iCurX=0, iCurY=0;     
-    LCDSOC_CURSOR_STATE *psCursorState = &(gsLcdConfig.sCursorState);
-    INT iCursorWidth = psCursorState->iWidth;
-    INT iCursorHeight = psCursorState->iHeight;
+	int screen_width;
+	int screen_height;
+	int cur_x = 0, cur_y = 0;
+	struct lcdc_cursor_state *cursor_state =
+		&(lcdc_config.cursor_state);
+	int cursor_width = cursor_state->width;
+	int cursor_height = cursor_state->height;
 
-    __LcdSoc_GetScreenSize((UINT32*)&i32ScreenWidth, (UINT32*)&i32ScreenHeight, &gsPanelInfo);
+	__lcdc_get_screen_size((u32 *)(&screen_width),
+				(u32 *)(&screen_height),
+				&panel_info);
 
-    switch (psCursorState->iRotate)
-    {
-    default:
-    case 0:
-        pRect->left = iXPos - psCursorState->iXHot;
-        if (pRect->left > i32ScreenWidth - 1)
-            pRect->left = i32ScreenWidth - 1;
-        
-        pRect->right = pRect->left + iCursorWidth;
-        if (pRect->right > i32ScreenWidth)
-            pRect->right = i32ScreenWidth;
-        
-        
-        pRect->top   = iYPos - psCursorState->iYHot;
-        if (pRect->top > i32ScreenHeight - 1)
-            pRect->top = i32ScreenHeight - 1;
-        
-        pRect->bottom = pRect->top + iCursorHeight;
-        if (pRect->bottom > i32ScreenHeight)
-            pRect->bottom = i32ScreenHeight;
-        
-        break;
+	switch (cursor_state->rotate) {
+	default:
+	case 0:
+		rect->left = xpos - cursor_state->xhot;
+		if (rect->left > screen_width - 1)
+			rect->left = screen_width - 1;
 
-    case 270:
-        pRect->top = iXPos - psCursorState->iXHot;
-        if (pRect->top > i32ScreenWidth - 1)
-            pRect->top = i32ScreenWidth - 1;
-        
-        pRect->bottom = pRect->top + iCursorWidth;
-        if (pRect->bottom > i32ScreenWidth)
-            pRect->bottom = i32ScreenWidth;
+		rect->right = rect->left + cursor_width;
+		if (rect->right > screen_width)
+			rect->right = screen_width;
 
+		rect->top = ypos - cursor_state->yhot;
+		if (rect->top > screen_height - 1)
+			rect->top = screen_height - 1;
 
-        pRect->right = iYPos - psCursorState->iYHot;
-        if (pRect->right > i32ScreenHeight)
-            pRect->right = i32ScreenHeight;       
+		rect->bottom = rect->top + cursor_height;
+		if (rect->bottom > screen_height)
+			rect->bottom = screen_height;
 
-        pRect->right   = i32ScreenWidth - pRect->right; 
-        pRect->left    = pRect->right - iCursorHeight;
-        break;
+		break;
 
-    case 90:
-        pRect->bottom  = iXPos - psCursorState->iXHot;
-        if (pRect->bottom > i32ScreenWidth)
-            pRect->bottom = i32ScreenWidth;
-        
-        pRect->bottom = i32ScreenHeight - pRect->bottom;
-        pRect->top    = pRect->bottom - iCursorWidth;
+	case 270:
+		rect->top = xpos - cursor_state->xhot;
+		if (rect->top > screen_width - 1)
+			rect->top = screen_width - 1;
 
-        pRect->left     = iYPos - psCursorState->iYHot;
-        if (pRect->left > i32ScreenHeight - 1)
-            pRect->left = i32ScreenHeight - 1;
-        
-        pRect->right  = pRect->left + iCursorHeight;
-        if (pRect->right > i32ScreenHeight)
-            pRect->right = i32ScreenHeight;
-        break;
+		rect->bottom = rect->top + cursor_width;
+		if (rect->bottom > screen_width)
+			rect->bottom = screen_width;
 
-    case 180:
-        pRect->right   = iXPos - psCursorState->iXHot;
-        if (pRect->right > i32ScreenWidth)
-            pRect->right = i32ScreenWidth;
-        
-        pRect->right = i32ScreenWidth - pRect->right;
-        pRect->left  = pRect->right - iCursorHeight;
+		rect->right = ypos - cursor_state->yhot;
+		if (rect->right > screen_height)
+			rect->right = screen_height;
 
-        pRect->bottom = iYPos - psCursorState->iYHot;
-        if (pRect->bottom > i32ScreenHeight)
-            pRect->bottom = i32ScreenHeight;
-        
-        pRect->bottom  = i32ScreenHeight - pRect->bottom;
-        pRect->top     = pRect->bottom - iCursorHeight;
-        break;
-    }
+		rect->right = screen_width - rect->right;
+		rect->left = rect->right - cursor_height;
+		break;
 
-    if (pRect->left < 0)
-    {
-        iCurX  =- pRect->left;
-        pRect->left = 0;
-    }
-    if (pRect->top < 0)
-    {
-        iCurY  =- pRect->top;
-        pRect->top = 0;
-    }
+	case 90:
+		rect->bottom  = xpos - cursor_state->xhot;
+		if (rect->bottom > screen_width)
+			rect->bottom = screen_width;
 
-    /* TODO: Why we have such requirement? */
-    /* The smallest size is 2x2 */
+		rect->bottom = screen_height - rect->bottom;
+		rect->top = rect->bottom - cursor_width;
+
+		rect->left = ypos - cursor_state->yhot;
+		if (rect->left > screen_height - 1)
+			rect->left = screen_height - 1;
+
+		rect->right = rect->left + cursor_height;
+		if (rect->right > screen_height)
+			rect->right = screen_height;
+		break;
+
+	case 180:
+		rect->right = xpos - cursor_state->xhot;
+		if (rect->right > screen_width)
+			rect->right = screen_width;
+
+		rect->right = screen_width - rect->right;
+		rect->left  = rect->right - cursor_height;
+
+		rect->bottom = ypos - cursor_state->yhot;
+		if (rect->bottom > screen_height)
+			rect->bottom = screen_height;
+
+		rect->bottom = screen_height - rect->bottom;
+		rect->top = rect->bottom - cursor_height;
+		break;
+	}
+
+	if (rect->left < 0) {
+		cur_x  = -(rect->left);
+		rect->left = 0;
+	}
+	if (rect->top < 0) {
+		cur_y  = -(rect->top);
+		rect->top = 0;
+	}
+
 #if 0
-    if ((pRect->right - pRect->left) < 2)
-    {
-        pRect->right = pRect->left + 2;
-    }
-    if ((pRect->bottom - pRect->top) < 2)
-    {
-        pRect->bottom = pRect->top + 2;
-    }
-    if (iCurX == (iCursorWidth-1))
-    {
-        iCurX --;
-    }
-    if (iCurY == (iCursorHeight-1))
-    {
-        iCurY --;
-    }
+	/* TODO: Why we have such requirement? */
+	/* The smallest size is 2x2 */
+
+	if ((rect->right - rect->left) < 2)
+		rect->right = rect->left + 2;
+	if ((rect->bottom - rect->top) < 2)
+		rect->bottom = rect->top + 2;
+	if (cur_x == (cursor_width-1))
+		cur_x--;
+	if (cur_y == (cursor_height-1))
+		cur_y--;
 #endif
 
-    *piLeftSkip = iCurX;
-    *piTopSkip = iCurY;
-
+	*left_skip = cur_x;
+	*top_skip = cur_y;
 }
 
 
-VOID __LcdSoc_SetCursorRegion(RECT *pRect, INT iLeftSkip, INT iTopSkip)
+static void __lcdc_set_cursor_region(struct vdss_rect *rect,
+				int left_skip, int top_skip)
 {
-    REG_CUR0_CURRENT_XY reg_CUR0_CURRENT_XY;
-    reg_CUR0_CURRENT_XY.DW = 0;
-    reg_CUR0_CURRENT_XY.CUR_X = iLeftSkip;
-    reg_CUR0_CURRENT_XY.CUR_Y = iTopSkip;
-    /* Set hstart, hend */
-    switch(gsPanelInfo.eOutFormat)
-    {
-    case LCD_OUT_8_BIT_RBGRBG:
-        WriteLcdRegisterValue(CUR0_HSTART, gsPanelInfo.ui32HStart+(pRect->left*3));
-        WriteLcdRegisterValue(CUR0_HEND, gsPanelInfo.ui32HStart+((pRect->right-1)*3));
-        break;
-    case LCD_OUT_8_BIT_YUV422:
-        WriteLcdRegisterValue(CUR0_HSTART, gsPanelInfo.ui32HStart+(pRect->left*2));
-        WriteLcdRegisterValue(CUR0_HEND, gsPanelInfo.ui32HStart+((pRect->right-1)*2));
-        break;
-    default:
-        WriteLcdRegisterValue(CUR0_HSTART, gsPanelInfo.ui32HStart+pRect->left);
-        WriteLcdRegisterValue(CUR0_HEND, gsPanelInfo.ui32HStart+pRect->right-1);
-        break;        
-    }
-    /* Set vstart, vend */
-    WriteLcdRegisterValue(CUR0_VSTART, gsPanelInfo.ui32VStart+pRect->top);    
-    WriteLcdRegisterValue(CUR0_VEND, gsPanelInfo.ui32VStart+pRect->bottom-1);
-        
-    WriteLcdRegisterValue(CUR0_CURRENT_XY, reg_CUR0_CURRENT_XY.DW);
-    __LcdSoc_ConfirmCursorSetting();
-}
+	u32 cur0_xy = 0x0;
+	cur0_xy = CUR0_CUR_X(left_skip) | CUR0_CUR_Y(top_skip);
 
-
-VOID __LcdSoc_SetCursorShape(VOID)
-{
-    RECT rectVisible;
-    INT iLeftSkip=0, iTopSkip=0;
-    REG_CUR0_CTRL reg_CUR0_CTRL;
-    REG_S0_LAYER_SEL reg_S0_LAYER_SEL;
-    UINT32 *pui32Value;
-    INT i;
-    LCDSOC_CURSOR_STATE *psCursorState = &(gsLcdConfig.sCursorState);
-
-    INT iWidth = psCursorState->iWidth;
-    INT iHeight = psCursorState->iHeight;
-
-    if (psCursorState->iRotate == 0)
-    {
-        pui32Value = &(psCursorState->aui32FIFO[0]);
-    }
-    else
-    {
-        pui32Value = &(psCursorState->aui32FIFO[256]);
-    }
-    
-    /*Only support 32*32, 64*64*/
-    if(!((iWidth == 32) && (iHeight==32)) && !((iWidth == 64) && (iHeight==64)))
-    {
-//        LCD_ASSERT(0);
-        return;
-    }
-
-    reg_S0_LAYER_SEL.DW = ReadLcdRegisterValue(S0_LAYER_SEL);
-    reg_S0_LAYER_SEL.LAYER_SEL &= ~(1<<LCD_CURSOR);
-    WriteLcdRegisterValue(S0_LAYER_SEL, reg_S0_LAYER_SEL.DW);
-
-    reg_CUR0_CTRL.DW = 0;
-    
-    __LcdSoc_CalcCursorRegion(psCursorState->iXPos, psCursorState->iYPos, 
-        &rectVisible, &iLeftSkip, &iTopSkip);
-    __LcdSoc_SetCursorRegion(&rectVisible, iLeftSkip, iTopSkip);
-
-    /* Set Cursor Color */
-    WriteLcdRegisterValue (CUR0_COLOR0, 0x0);
-    WriteLcdRegisterValue (CUR0_COLOR1, 0xffffff);
-    WriteLcdRegisterValue (CUR0_ALPHA, 0xff);
-
-    if(psCursorState->iWidth == 32)
-    {
-        /*256 = 32 * 32 * 2bit / 8*/
-        reg_CUR0_CTRL.MODE = LCD_CURSOR_MODE_32x32x2_2_T;
-        reg_CUR0_CTRL.SRAM_ADDRST = 1;
-        WriteLcdRegisterValue (CUR0_CTRL, reg_CUR0_CTRL.DW);
-        for(i = 0;i< 256 ; i += 4)
-        {
-            WriteLcdRegisterValue (CUR0_FIFODATA + i, *pui32Value ++);
-        }
-    }
-    else
-    {
-        reg_CUR0_CTRL.MODE = LCD_CURSOR_MODE_64x64x2_2_T;
-        reg_CUR0_CTRL.SRAM_ADDRST = 1;
-        WriteLcdRegisterValue (CUR0_CTRL, reg_CUR0_CTRL.DW);
-        /*1024 = 64 * 64 * 2bit / 8*/
-        for(i = 0;i< 1024 ; i += 4)
-        {
-            WriteLcdRegisterValue (CUR0_FIFODATA + i, *pui32Value ++);
-        }
-    }
-    reg_CUR0_CTRL.SRAM_ADDRST = 0;
-    reg_CUR0_CTRL.SETTING_VALID = 1;    
-    WriteLcdRegisterValue (CUR0_CTRL, reg_CUR0_CTRL.DW);
-
-    if (psCursorState->bShow)
-    {
-        reg_S0_LAYER_SEL.LAYER_SEL |= (1<<LCD_CURSOR);
-        WriteLcdRegisterValue(S0_LAYER_SEL, reg_S0_LAYER_SEL.DW);
-    }
-}
-
-
-VOID __LcdSoc_MoveCursor(VOID)
-{
-    RECT rectVisible;
-    INT iLeftSkip=0, iTopSkip=0;
-    LCDSOC_CURSOR_STATE *psCursorState = &(gsLcdConfig.sCursorState);
-    INT iXPos = psCursorState->iXPos;
-    INT iYPos = psCursorState->iYPos;
-    REG_S0_LAYER_SEL reg_S0_LAYER_SEL;
-
-    /*QUESTION: may not disable cursor when move pointer*/
-    /*Disable cursor*/
-    reg_S0_LAYER_SEL.DW = ReadLcdRegisterValue(S0_LAYER_SEL);
-    reg_S0_LAYER_SEL.LAYER_SEL &= ~(1<<LCD_CURSOR);
-    WriteLcdRegisterValue(S0_LAYER_SEL, reg_S0_LAYER_SEL.DW);
-
-    if(psCursorState->bShow && (psCursorState->iWidth>0) && (psCursorState->iHeight>0))
-    {
-        /*Calculate visible region of cursor*/
-        __LcdSoc_CalcCursorRegion(iXPos, iYPos, &rectVisible, &iLeftSkip, &iTopSkip);
-
-        /*Calculate visible region of cursor*/
-        __LcdSoc_SetCursorRegion(&rectVisible, iLeftSkip, iTopSkip);
-
-        /*Enable cursor*/
-        reg_S0_LAYER_SEL.LAYER_SEL |= (1<<LCD_CURSOR);
-        WriteLcdRegisterValue(S0_LAYER_SEL, reg_S0_LAYER_SEL.DW);
-    }
-}
-
-VOID __LcdSoc_SetGlobalAlpha(LCD_LAYER eLayer)
-{
-    REG_L0_ALPHA reg_L0_ALPHA;
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    reg_L0_ALPHA.DW = 0;
-    reg_L0_ALPHA.ALPHA_VAL = psLayerState->ui8Alpha;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_ALPHA), reg_L0_ALPHA.DW);
-}
-
-VOID __LcdSoc_SetAlphaProperty(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    REG_L0_CTRL reg_L0_CTRL;
-    reg_L0_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL));
-    reg_L0_CTRL.GLOBAL_ALPHA = psLayerState->bGlobalAlpha?1:0;
-    if (psLayerState->eLcdFormat == LCD_PIXELFORMAT_8888)
-    {
-        reg_L0_CTRL.PREMULTI_ALPHA = psLayerState->bPremultiAlpha?1:0;
-        reg_L0_CTRL.SOURCE_ALPHA = psLayerState->bSourceAlpha?1:0;
-    }
-    else
-    {
-        /* Spec require following setting for non-ARGB format */
-        reg_L0_CTRL.PREMULTI_ALPHA = 1;
-        reg_L0_CTRL.SOURCE_ALPHA = 0;
-    }
-    reg_L0_CTRL.CONFIRM = 0;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_L0_CTRL.DW);
-}
-
-VOID __LcdSoc_SetColorKey(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_PIXELFORMAT eFormat = psLayerState->eLcdFormat;
-    LCD_PIXELFORMAT ePrimaryFormat = gsLcdConfig.sLayerState[E_PRIMARY].eLcdFormat;
-    BOOL bPrimaryReplicate = gsLcdConfig.sLayerState[E_PRIMARY].bReplicate;
-    REG_L0_CTRL reg_Lx_CTRL;
-
-    reg_Lx_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL));
-
-    if (psLayerState->bCKeyOn)
-    {
-        reg_Lx_CTRL.SRC_CKEY_EN = 1;
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CKEYB_SRC), __LcdSoc_CKValue(eFormat, psLayerState->bReplicate, psLayerState->ui32CKHigh));
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CKEYS_SRC), __LcdSoc_CKValue(eFormat, psLayerState->bReplicate, psLayerState->ui32CKLow));
-    }
-    else
-    {
-        reg_Lx_CTRL.SRC_CKEY_EN = 0;
-    }
-    if (psLayerState->bCKeyDstOn)
-    {
-        reg_Lx_CTRL.DST_CKEY_EN = 1;
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CKEYB_DST), __LcdSoc_CKValue(ePrimaryFormat, bPrimaryReplicate, psLayerState->ui32CKDstHigh));
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CKEYS_DST), __LcdSoc_CKValue(ePrimaryFormat, bPrimaryReplicate, psLayerState->ui32CKDstLow));
-    }
-    else
-    {
-        reg_Lx_CTRL.DST_CKEY_EN = 0;
-    }
-    reg_Lx_CTRL.CONFIRM = 0;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_Lx_CTRL.DW);
-}
-
-VOID __LcdSoc_SetTopLayer(VOID)
-{
-    REG_S0_DISP_MODE reg_S0_DISP_MODE;
-    reg_S0_DISP_MODE.DW = ReadLcdRegisterValue(S0_DISP_MODE);
-    reg_S0_DISP_MODE.TOP_LAYER = gsLcdConfig.eTopLayer;
-    reg_S0_DISP_MODE.FRAME_VALID = 1; /*FRAME_VALID will be 0 if screen_en is 0 even write 1 to this bit*/
-    WriteLcdRegisterValue(S0_DISP_MODE, reg_S0_DISP_MODE.DW);
-}
-
-VOID __LcdSoc_ResetLayerState(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-
-    /* Set default layer state here */
-    memset(psLayerState, 0, sizeof(LCDSOC_LAYER_STATE));
-    psLayerState->bReplicate = LCD_DEFAULT_REPLICATE;
-    psLayerState->bPremultiAlpha = LCD_DEFAULT_PREMULTI_ALPHA;
-}
-
-VOID __LcdSoc_SetGammaRamp(VOID)
-{
-    INT                 i;
-    UINT32              *pui32Value;
-    REG_S0_DISP_MODE    reg_S0_DISP_MODE;
-
-    reg_S0_DISP_MODE.DW = ReadLcdRegisterValue(S0_DISP_MODE);
-    reg_S0_DISP_MODE.GAMMA_COR_EN = 0;
-    reg_S0_DISP_MODE.FRAME_VALID = 1; /*FRAME_VALID will be 0 if screen_en is 0 even write 1 to this bit*/
-    WriteLcdRegisterValue(S0_DISP_MODE, reg_S0_DISP_MODE.DW);
-    pui32Value = (UINT32 *)&gsLcdConfig.aui8Gamma[0];
-    for (i=0; i < 256 * 3; i += 4)
-    {
-        WriteLcdRegisterValue(S0_GAMMAFIFO_R + i, pui32Value[i>>2]);
-    }        
-    reg_S0_DISP_MODE.GAMMA_COR_EN = 1;
-    WriteLcdRegisterValue(S0_DISP_MODE, reg_S0_DISP_MODE.DW);
-}
-
-VOID __LcdSoc_SetInterrupt(VOID)
-{
-    /* Clear interrupt firstly before enable */
-    WriteLcdRegisterValue(INT_CTRL_STATUS, gsLcdConfig.ui32IntState);
-    WriteLcdRegisterValue(INT_MASK, gsLcdConfig.ui32IntState);	
-}
-
-BOOL LcdSoc_ChangeMode(LCD_PANEL_INFO *psPanel)
-{
-	UINT32 ui32PrimBase = gsLcdConfig.sLayerState[psPanel->eLayer].ui32Base;
-	LCD_PIXELFORMAT ui32Format = gsLcdConfig.sLayerState[psPanel->eLayer].eLcdFormat;
-
-	if (psPanel->pfnPrePowerDown)
-		psPanel->pfnPrePowerDown();
-	__LcdSoc_PowerDown();
-	if (psPanel->pfnPostPowerDown)
-		psPanel->pfnPostPowerDown();
-
-	if (psPanel->pfnPrePowerUp)
-		psPanel->pfnPrePowerUp();
-	__LcdSoc_PowerUp(ui32PrimBase, ui32Format, psPanel);
-	if (psPanel->pfnPostPowerUp)
-		psPanel->pfnPostPowerUp();
-
-	gsPanelInfo = *psPanel;
-	return TRUE;
-}
-
-BOOL LcdSoc_Initialize(VOID *pLcdRegs, 
-						VOID *pVppRegs,
-						UINT32 ui32PrimBase, 
-						UINT32 ui32BitPerPixel,
-						LCD_PANEL_INFO *psPanel)
-{
-    LCDSOC_LAYER_STATE *psLayerState;
-    REG_S0_LAYER_SEL reg_S0_LAYER_SEL;
-    INT i;
-	UINT w, h;
-	BOOL bEnabledBefore = TRUE;
-	BOOL bShow = TRUE;
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-
-	if (pLcdRegs)
-	{
-		gpui8LcdRegs = pLcdRegs;
+	/* Set hstart, hend */
+	switch (panel_info.out_fmt) {
+	case LCDC_OUT_8_BIT_RBGRBG:
+		lcdc_write_reg(CUR0_HSTART,
+			panel_info.hstart + (rect->left * 3));
+		lcdc_write_reg(CUR0_HEND,
+			panel_info.hstart + ((rect->right - 1) * 3));
+		break;
+	case LCDC_OUT_8_BIT_YUV422:
+		lcdc_write_reg(CUR0_HSTART,
+			panel_info.hstart + (rect->left * 2));
+		lcdc_write_reg(CUR0_HEND,
+			panel_info.hstart + ((rect->right - 1) * 2));
+		break;
+	default:
+		lcdc_write_reg(CUR0_HSTART, panel_info.hstart + rect->left);
+		lcdc_write_reg(CUR0_HEND, panel_info.hstart + rect->right - 1);
+		break;
 	}
+
+	/* Set vstart, vend */
+	lcdc_write_reg(CUR0_VSTART, panel_info.vstart + rect->top);
+	lcdc_write_reg(CUR0_VEND, panel_info.vstart + rect->bottom - 1);
+
+	lcdc_write_reg(CUR0_CURRENT_XY, cur0_xy);
+	__lcdc_confirm_cursor_setting();
+}
+
+
+static void __lcdc_set_cursor_shape(void)
+{
+	struct vdss_rect vis_rect;
+	int left_skip = 0, top_skip = 0;
+	u32 reg_cur0_ctrl = 0x0;
+	u32 s0_layer_sel;
+	u32 *pval;
+	int i;
+	struct lcdc_cursor_state *cursor_state = &(lcdc_config.cursor_state);
+
+	int width = cursor_state->width;
+	int height = cursor_state->height;
+
+	if (cursor_state->rotate == 0)
+		pval = &(cursor_state->fifo[0]);
 	else
-	{
-	    gpui8LcdRegs = (volatile UINT8 *)OSMapLcdRegs();
-		if (!gpui8LcdRegs)
-		{
-			LCD_MSG(("LcdSoc_Initialize: OSMapLcdRegs fail\n"));
-			return FALSE;
-		}
-	}
+		pval = &(cursor_state->fifo[256]);
 
-	if (psPanel)
-	{
-		gsPanelInfo = *psPanel;
+	/* Only support 32*32, 64*64 */
+	if (!((width == 32) && (height == 32)) &&
+		!((width == 64) && (height == 64)))
+		return;
+
+	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
+	s0_layer_sel &= S0_LS_LAYER_SEL(~(1 << LCDC_CURSOR));
+	lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+
+	__lcdc_cal_cursor_region(cursor_state->xpos, cursor_state->ypos,
+		&vis_rect, &left_skip, &top_skip);
+	__lcdc_set_cursor_region(&vis_rect, left_skip, top_skip);
+
+	/* Set Cursor Color */
+	lcdc_write_reg(CUR0_COLOR0, 0x0);
+	lcdc_write_reg(CUR0_COLOR1, 0xffffff);
+	lcdc_write_reg(CUR0_ALPHA, 0xff);
+
+	if (cursor_state->width == 32) {
+		/* 256 = 32 * 32 * 2bit / 8 */
+		reg_cur0_ctrl |= CUR0_CTRL_MODE(LCDC_CURSOR_MODE_32x32x2_2_T);
+		reg_cur0_ctrl |= CUR0_SRAM_ADDRST;
+		lcdc_write_reg(CUR0_CTRL, reg_cur0_ctrl);
+		for (i = 0; i < 256; i += 4)
+			lcdc_write_reg(CUR0_FIFODATA + i, *pval++);
+	} else {
+		reg_cur0_ctrl |= CUR0_CTRL_MODE(LCDC_CURSOR_MODE_64x64x2_2_T);
+		reg_cur0_ctrl |= CUR0_SRAM_ADDRST;
+		lcdc_write_reg(CUR0_CTRL, reg_cur0_ctrl);
+		/* 1024 = 64 * 64 * 2bit / 8 */
+		for (i = 0; i < 1024; i += 4)
+			lcdc_write_reg(CUR0_FIFODATA + i, *pval++);
 	}
+	reg_cur0_ctrl &= ~CUR0_SRAM_ADDRST;
+	reg_cur0_ctrl |= CUR0_SETTING_VALID;
+	lcdc_write_reg(CUR0_CTRL, reg_cur0_ctrl);
+
+	if (cursor_state->show) {
+		s0_layer_sel |= S0_LS_LAYER_SEL(1 << LCDC_CURSOR);
+		lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+	}
+}
+
+
+static void __lcdc_move_cursor(void)
+{
+	struct vdss_rect vis_rect;
+	int left_skip = 0, top_skip = 0;
+	struct lcdc_cursor_state *cursor_state = &(lcdc_config.cursor_state);
+	int xpos = cursor_state->xpos;
+	int ypos = cursor_state->ypos;
+	u32 s0_layer_sel;
+
+	/* Disable cursor */
+	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
+	s0_layer_sel &= S0_LS_LAYER_SEL(~(1 << LCDC_CURSOR));
+	lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+
+	if (cursor_state->show &&
+		(cursor_state->width > 0) &&
+		(cursor_state->height > 0)) {
+		/* Calculate visible region of cursor */
+		__lcdc_cal_cursor_region(xpos, ypos, &vis_rect,
+					&left_skip, &top_skip);
+
+		/* Calculate visible region of cursor */
+		__lcdc_set_cursor_region(&vis_rect, left_skip, top_skip);
+
+		/* Enable cursor */
+		s0_layer_sel |= S0_LS_LAYER_SEL(1 << LCDC_CURSOR);
+		lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+	}
+}
+
+static void __lcdc_set_global_alpha(int layer)
+{
+	u32 alpha = 0x0;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	alpha = LX_ALPHA_VAL(layer_state->alpha);
+	lcdc_write_reg(reg_offset(layer, L0_ALPHA), alpha);
+}
+
+static void __lcdc_set_alpha_property(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	u32 lx_ctrl;
+	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+	if (layer_state->global_alpha)
+		lx_ctrl |= LX_CTRL_GLOBAL_ALPHA;
 	else
-	{
-		OSGetPanelInfo(&gsPanelInfo);
-	}
+		lx_ctrl &= ~LX_CTRL_GLOBAL_ALPHA;
 
-	/* Enable clock if LCD not boot up in oal */
-	__LcdSoc_EnableClock();
-
-    reg_S0_LAYER_SEL.DW = ReadLcdRegisterValue(S0_LAYER_SEL);
-    if (!(reg_S0_LAYER_SEL.DW & (0x1<<LCD_PRIMARY)))
-    {
-    	LCD_MSG(("%s: bEnabedBefore == FALSE\r\n", __FUNCTION__));
-    	bEnabledBefore = FALSE;
-		if (!ui32PrimBase || !ui32BitPerPixel)
-		{
-			bShow = FALSE;
-			gsPanelInfo.pfnReset();
-
-			if (gsPanelInfo.pfnPrePowerUp)
-				gsPanelInfo.pfnPrePowerUp();
-
-			__LcdSoc_ConfigScreen(&gsPanelInfo);
-
-			if (gsPanelInfo.pfnPostPowerUp)
-				gsPanelInfo.pfnPostPowerUp();
-		}
+	if (layer_state->fmt == VDSS_PIXELFORMAT_8888) {
+		if (layer_state->premulti_alpha)
+			lx_ctrl |= LX_CTRL_PREMULTI_ALPHA;
 		else
-		{
-	        LCD_BootUp((VOID*)gpui8LcdRegs, 
-							ui32PrimBase, 
-							ui32BitPerPixel, 
-							&gsPanelInfo);
-		}
-    }
+			lx_ctrl &= ~LX_CTRL_PREMULTI_ALPHA;
+
+		if (layer_state->source_alpha)
+			lx_ctrl |= LX_CTRL_SOURCE_ALPHA;
+		else
+			lx_ctrl &= ~LX_CTRL_SOURCE_ALPHA;
+	} else {
+		/* Spec require following setting for non-ARGB format */
+		lx_ctrl |= LX_CTRL_PREMULTI_ALPHA;
+		lx_ctrl &= ~LX_CTRL_SOURCE_ALPHA;
+	}
+	lx_ctrl &= ~LX_CTRL_CONFIRM;
+	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+}
+
+static void __lcdc_set_colorkey(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	enum vdss_pixelformat fmt = layer_state->fmt;
+	enum vdss_pixelformat prim_fmt =
+		lcdc_config.layer_state[PRIMARY].fmt;
+	bool prim_replicate = lcdc_config.layer_state[PRIMARY].replicate;
+	u32 lx_ctrl;
+
+	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+
+	if (layer_state->ckey_on) {
+		lx_ctrl |= LX_CTRL_SRC_CKEY_EN;
+		lcdc_write_reg(reg_offset(layer, L0_CKEYB_SRC),
+				__lcdc_ckey_val(fmt,
+						layer_state->replicate,
+						layer_state->ckey_high));
+		lcdc_write_reg(reg_offset(layer, L0_CKEYS_SRC),
+				__lcdc_ckey_val(fmt,
+						layer_state->replicate,
+						layer_state->ckey_low));
+	} else {
+		lx_ctrl &= ~LX_CTRL_SRC_CKEY_EN;
+	}
+
+	if (layer_state->dst_ckey_on) {
+		lx_ctrl |= LX_CTRL_DST_CKEY_EN;
+		lcdc_write_reg(reg_offset(layer, L0_CKEYB_DST),
+				__lcdc_ckey_val(prim_fmt,
+						prim_replicate,
+						layer_state->dst_ckey_high));
+		lcdc_write_reg(reg_offset(layer, L0_CKEYS_DST),
+				__lcdc_ckey_val(prim_fmt,
+						prim_replicate,
+						layer_state->dst_ckey_low));
+	} else {
+		lx_ctrl &= ~LX_CTRL_DST_CKEY_EN;
+	}
+	lx_ctrl &= ~LX_CTRL_CONFIRM;
+	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+}
+
+static void __lcdc_set_toplayer(void)
+{
+	u32 s0_disp_mode;
+	s0_disp_mode = lcdc_read_reg(S0_DISP_MODE);
+	s0_disp_mode &= ~S0_TOP_LAYER_MASK;
+	s0_disp_mode |= S0_TOP_LAYER(lcdc_config.top_layer);
+	s0_disp_mode |= S0_FRAME_VALID;	/* FRAME_VALID will be 0 if screen_en
+					   is 0 even write 1 to this bit */
+	lcdc_write_reg(S0_DISP_MODE, s0_disp_mode);
+}
+
+static bool __lcdc_set_parameters(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	enum vdss_pixelformat fmt = layer_state->fmt;
+	u32 lx_ctrl;
+	bool ret = true;
+
+	if (!layer_state->show)
+		__lcdc_disable_layer(layer, true);
+	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+	if (layer_state->need_vpp) {
+		struct vpp_parms vpp_params;
+
+		lx_ctrl &= ~LX_CTRL_BPP_MASK;
+		lx_ctrl |= LX_CTRL_BPP(VPP_TO_LCDC_CTRL_BPP);
+		memset(&vpp_params, 0, sizeof(vpp_params));
+		vpp_params.src_fmt = fmt;
+		vpp_params.src_base = layer_state->base;
+		vpp_params.src_wstride_pixel = layer_state->surf_width;
+		vpp_params.src_hstride_pixel = layer_state->surf_height;
+		vpp_params.dst_fmt = VPP_TO_LCDC_PIXELFORMAT;
+		vpp_params.dst_base = 0;
+
+		vpp_ops.lock(true);
+		ret = vpp_ops.set_params(&vpp_params);
+	} else {
+		lx_ctrl &= ~LX_CTRL_BPP_MASK;
+		lx_ctrl |= LX_CTRL_BPP(__lcdc_fmt_to_hwfmt(fmt));
+	}
+
+	if (layer_state->replicate)
+		lx_ctrl |= LX_CTRL_REPLICATE;
 	else
-	{
-		REG_L0_CTRL reg_L0_CTRL;
-		reg_L0_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(LCD_PRIMARY, L0_CTRL));
+		lx_ctrl &= ~LX_CTRL_REPLICATE;
+
+	if (layer_state->premulti_alpha)
+		lx_ctrl |= LX_CTRL_PREMULTI_ALPHA;
+	else
+		lx_ctrl &= ~LX_CTRL_PREMULTI_ALPHA;
+
+	lx_ctrl |= LX_CTRL_CONFIRM;
+
+	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+
+	/* Force to update src & dst rect related parameters */
+	__lcdc_set_size(layer, true);
+	__lcdc_flip(layer, LCDC_FLIP_FRAME);
+
+	__lcdc_set_colorkey(layer);
+
+	__lcdc_set_alpha_property(layer);
+	__lcdc_set_global_alpha(layer);
+	__lcdc_confirm_layer_setting(layer);
+
+	if (layer_state->show)
+		__lcdc_enable_layer(layer);
+
+	return ret;
+}
+
+static void __lcdc_reset_layer_state(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+
+	/* Set default layer state here */
+	memset(layer_state, 0, sizeof(*layer_state));
+	layer_state->replicate = LCDC_DEFAULT_REPLICATE;
+	layer_state->premulti_alpha = LCDC_DEFAULT_PREMULTI_ALPHA;
+}
+
+static void __lcdc_set_gamma_ramp(void)
+{
+	int i;
+	u32 *pval;
+	u32 s0_disp_mode;
+
+	s0_disp_mode = lcdc_read_reg(S0_DISP_MODE);
+	s0_disp_mode &= ~S0_GAMMA_COR_EN;
+	s0_disp_mode |= S0_FRAME_VALID;
+	lcdc_write_reg(S0_DISP_MODE, s0_disp_mode);
+
+	pval = (u32 *)(&lcdc_config.gamma[0]);
+	for (i = 0; i < 256 * 3; i += 4)
+		lcdc_write_reg(S0_GAMMAFIFO_R + i, pval[i>>2]);
+	s0_disp_mode |= S0_GAMMA_COR_EN;
+	lcdc_write_reg(S0_DISP_MODE, s0_disp_mode);
+}
+
+static void __lcdc_set_interrupt(void)
+{
+	/* Clear interrupt firstly before enable */
+	lcdc_write_reg(INT_CTRL_STATUS, lcdc_config.int_state);
+	lcdc_write_reg(INT_MASK, lcdc_config.int_state);
+}
+
+static bool lcdc_change_mode(struct lcdc_panel_info *panel)
+{
+	u32 prim_base = lcdc_config.layer_state[panel->layer].base;
+	enum vdss_pixelformat fmt = lcdc_config.layer_state[panel->layer].fmt;
+
+	if (panel->pre_power_down)
+		panel->pre_power_down();
+	if (panel->post_power_down)
+		panel->post_power_down();
+
+	if (panel->pre_power_up)
+		panel->pre_power_up();
+	__lcdc_power_up(prim_base, fmt, panel);
+	if (panel->post_power_up)
+		panel->post_power_up();
+
+	panel_info = *panel;
+	return true;
+}
+
+static bool lcdc_init(void *regs, void *vpp_regs, u32 prim_base,
+		unsigned int bpp, struct lcdc_panel_info *panel)
+{
+	struct lcdc_layer_state *layer_state;
+	u32 s0_layer_sel;
+	int i;
+	unsigned int w, h;
+	bool enabled = true;
+	bool show = true;
+
+	LCDC_ENTRY("%s\n", __func__);
+
+	if (regs)
+		lcdc_regs = regs;
+	else {
+		LCDC_ERR("%s(%d): NULL registers\n",
+			__func__, __LINE__);
+		return false;
+	}
+
+	panel_info = *panel;
+
+	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
+	if (!(s0_layer_sel & S0_LS_LAYER_SEL(1 << LCDC_PRIMARY))) {
+		LCDC_DEBUG("%s: enabled == false\n", __func__);
+		enabled = false;
+		if (!prim_base || !bpp) {
+			show = false;
+			panel_info.reset();
+
+			if (panel_info.pre_power_up)
+				panel_info.pre_power_up();
+
+			__lcdc_config_screen(&panel_info);
+
+			if (panel_info.post_power_up)
+				panel_info.post_power_up();
+		} else {
+			__lcdc_boot_up((void *)lcdc_regs, prim_base,
+						bpp, &panel_info);
+		}
+	} else {
+		u32 lx_ctrl;
+		lx_ctrl = lcdc_read_reg(reg_offset(LCDC_PRIMARY, L0_CTRL));
 
 		/* Driver should keep consistant with UBOOT */
-		if (reg_L0_CTRL.BPP == E_LO_CTRL_BPP_RGB565)
-		{
-			ui32BitPerPixel = 16;
-		}
+		if ((lx_ctrl & LX_CTRL_BPP_MASK) == LO_CTRL_BPP_RGB565)
+			bpp = 16;
 		else
-		{
-			ui32BitPerPixel = 32;
-		}
-		ui32PrimBase = ReadLcdRegisterValue(REG_OFFSET(LCD_PRIMARY, L0_BASE0));
+			bpp = 32;
+		prim_base = lcdc_read_reg(reg_offset(LCDC_PRIMARY, L0_BASE0));
 	}
 
-    memset(&gsLcdConfig, 0, sizeof(gsLcdConfig));
+	memset(&lcdc_config, 0, sizeof(lcdc_config));
 
-	if (bShow)
-	{
-		__LcdSoc_GetScreenSize(&w, &h, &gsPanelInfo);
-	    psLayerState = &gsLcdConfig.sLayerState[LCD_PRIMARY];
-	    psLayerState->ui32Base = ui32PrimBase;
-	    psLayerState->ui32SurfWidth = w;
-	    psLayerState->ui32SurfHeight = h;
-	    psLayerState->eLcdFormat = (ui32BitPerPixel==16)?(LCD_PIXELFORMAT_565):(LCD_PIXELFORMAT_8888);
-	    psLayerState->sRectSrc.left = psLayerState->sRectDst.left = 0;
-	    psLayerState->sRectSrc.top = psLayerState->sRectDst.top = 0;
-	    psLayerState->sRectSrc.right = psLayerState->sRectDst.right = w;
-	    psLayerState->sRectSrc.bottom = psLayerState->sRectDst.bottom = h;
-	    psLayerState->bReplicate = LCD_DEFAULT_REPLICATE;
-	    if (psLayerState->eLcdFormat == LCD_PIXELFORMAT_8888)
-		psLayerState->bSourceAlpha = 1;
-	    else
-		psLayerState->bSourceAlpha = 0;
-	    psLayerState->bPremultiAlpha = LCD_DEFAULT_PREMULTI_ALPHA;
-	    psLayerState->bInUse = TRUE;    
-	    psLayerState->bShow = TRUE;		
-	    __LcdSoc_GetFBSize(&gsLcdConfig.ui32FBSize);
-	}
-	if (OSLoadVpp(&gsLcdConfig.hVppHandle, &gsVPPFuncTable))
-	{
-		if (pVppRegs)
-		{
-			gsVPPFuncTable.pfnInitialize(pVppRegs);
-		}
+	if (show) {
+		__lcdc_get_screen_size(&w, &h, &panel_info);
+		layer_state = &lcdc_config.layer_state[LCDC_PRIMARY];
+		layer_state->base = prim_base;
+		layer_state->surf_width = w;
+		layer_state->surf_height = h;
+		layer_state->fmt = (bpp == 16) ? (VDSS_PIXELFORMAT_565) :
+						(VDSS_PIXELFORMAT_8888);
+		layer_state->src_rect.left = layer_state->dst_rect.left = 0;
+		layer_state->src_rect.top = layer_state->dst_rect.top = 0;
+		layer_state->src_rect.right = layer_state->dst_rect.right = w;
+		layer_state->src_rect.bottom = layer_state->dst_rect.bottom = h;
+		layer_state->replicate = LCDC_DEFAULT_REPLICATE;
+		if (layer_state->fmt == VDSS_PIXELFORMAT_8888)
+			layer_state->source_alpha = 1;
 		else
-		{
-			gsVPPFuncTable.pfnInitialize(OSGetVppRegs());
-		}
+			layer_state->source_alpha = 0;
+		layer_state->premulti_alpha = LCDC_DEFAULT_PREMULTI_ALPHA;
+		layer_state->in_use = true;
+		layer_state->show = true;
 	}
-	gsLcdConfig.eTopLayer = gsPanelInfo.eMaxLayer;
-    gsLcdConfig.bGammaEnable = FALSE;
-    for (i = 0; i < 256; i++)
-    {
-        gsLcdConfig.aui8Gamma[i] = i;
-        gsLcdConfig.aui8Gamma[256 + i] = i;
-        gsLcdConfig.aui8Gamma[512 + i] = i;
-    }
-    for (i = LCD_OVERLAY_1; i <= gsPanelInfo.eMaxLayer; i++)
-    {
-        psLayerState = &gsLcdConfig.sLayerState[i];
-        psLayerState->i32Brightness = 0;
-        psLayerState->i32Contrast = 128;
-        psLayerState->i32Hue = 0;
-        psLayerState->i32Saturation = 128;
-    }
-	return bEnabledBefore;
+
+	lcdc_config.vpp_handle = (void *)0xabcdabcd;
+	vdss_install_vpp_ops(&vpp_ops);
+	if (vpp_regs)
+		vpp_ops.init(vpp_regs);
+	else
+		vpp_ops.init(NULL);
+
+	lcdc_config.top_layer = panel_info.maxlayer;
+	lcdc_config.gamma_enable = false;
+	for (i = 0; i < 256; i++) {
+		lcdc_config.gamma[i] = i;
+		lcdc_config.gamma[256 + i] = i;
+		lcdc_config.gamma[512 + i] = i;
+	}
+	for (i = LCDC_OVERLAY_1; i <= panel_info.maxlayer; i++) {
+		layer_state = &lcdc_config.layer_state[i];
+		layer_state->brightness = 0;
+		layer_state->contrast = 128;
+		layer_state->hue = 0;
+		layer_state->saturation = 128;
+	}
+	return enabled;
 }
 
-VOID LcdSoc_Terminate(VOID)
+static void lcdc_terminate(void)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (gsLcdConfig.hVppHandle)
-    {
-        gsVPPFuncTable.pfnTerminate();
-		OSUnloadVpp(gsLcdConfig.hVppHandle);
-        gsLcdConfig.hVppHandle = NULL;
-    }
+	LCDC_ENTRY("%s\n", __func__);
+	if (lcdc_config.vpp_handle) {
+		vpp_ops.terminate();
+		lcdc_config.vpp_handle = NULL;
+	}
 
-	if (gsPanelInfo.pfnPrePowerDown)
-		gsPanelInfo.pfnPrePowerDown();
-	__LcdSoc_PowerDown();
-	if (gsPanelInfo.pfnPostPowerDown)
-		gsPanelInfo.pfnPostPowerDown();
-
-	OSUnmapLcdRegs();
+	if (panel_info.pre_power_down)
+		panel_info.pre_power_down();
+	if (panel_info.post_power_down)
+		panel_info.post_power_down();
 }
 
 
-VOID LcdSoc_Sleep(VOID)
+static void lcdc_sleep(void)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
+	LCDC_ENTRY("%s\n", __func__);
 
-    if (gsPanelInfo.pfnPrePowerDown)
-        gsPanelInfo.pfnPrePowerDown();
+	if (panel_info.pre_power_down)
+		panel_info.pre_power_down();
 
-    __LcdSoc_DisableClock();
-    if (gsLcdConfig.hVppHandle)
-    {
-        gsVPPFuncTable.pfnSleep();
-    }
+	if (lcdc_config.vpp_handle)
+		vpp_ops.sleep();
 
-    if (gsPanelInfo.pfnPostPowerDown)
-        gsPanelInfo.pfnPostPowerDown();
+	if (panel_info.post_power_down)
+		panel_info.post_power_down();
 }
 
-BOOL LcdSoc_Wakeup(VOID)
+static bool lcdc_wakeup(void)
 {
-    LCD_LAYER eLayer;
-	REG_S0_LAYER_SEL reg_S0_LAYER_SEL;
-	BOOL bEnabledBefore = TRUE;
+	int layer;
+	u32 s0_layer_sel;
+	bool enabled = true;
 
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));    
+	LCDC_ENTRY("%s\n", __func__);
 
-    __LcdSoc_EnableClock();
+	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
 
-    reg_S0_LAYER_SEL.DW = ReadLcdRegisterValue(S0_LAYER_SEL);
-    
-/* accel-hiberation/resume, VCC will not enable. suspend/resume ok.
- * reason:when hiberation, FB will disable VCC via gpio ,
- * and pm suspend will save gpio. after resume back, uboot will init lcd.
- * later pm resume will restore saved gpio, this will disable VCC
- * and FB won't power on lcd since uboot have done, so add workaround here.
- */
-    if (gsPanelInfo.pfnPrePowerUp)
-        gsPanelInfo.pfnPrePowerUp();
+	/* accel-hiberation/resume, VCC will not enable. suspend/resume ok.
+	 * reason: when hiberation, FB will disable VCC via gpio, and pm
+	 * suspend will save gpio. after resume back, uboot will init lcd.
+	 * later pm resume will restore saved gpio, this will disable VCC
+	 * and FB won't power on lcd since uboot have done, so add workaround
+	 * here.
+	 */
+	if (panel_info.pre_power_up)
+		panel_info.pre_power_up();
 
-    if (!(reg_S0_LAYER_SEL.DW & (0x1<<LCD_PRIMARY)))
-    {        
-    	bEnabledBefore = FALSE;
-    	
-	__LcdSoc_ConfigScreen(&gsPanelInfo);
-    }
-    
-    if (gsLcdConfig.hVppHandle)
-    {
-        gsVPPFuncTable.pfnWakeup();
-    }
+	if (!(s0_layer_sel & S0_LS_LAYER_SEL(1 << LCDC_PRIMARY))) {
+		enabled = false;
+		__lcdc_config_screen(&panel_info);
+	}
 
-	__LcdSoc_SetInterrupt();
+	if (lcdc_config.vpp_handle)
+		vpp_ops.wakeup();
 
-    for (eLayer=LCD_PRIMARY; eLayer<=gsPanelInfo.eMaxLayer; eLayer++)
-    {
-        LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-        if (psLayerState->bShow)
-        {
-            __LcdSoc_SetParameters(eLayer);
-        }
-    }
-    
-    if (gsLcdConfig.sCursorState.bShow)
-    {
-        __LcdSoc_SetCursorShape();
-        
-        __LcdSoc_MoveCursor();
-    }
-    
-        __LcdSoc_SetTopLayer();
-    
-    if (gsLcdConfig.bGammaEnable)
-    {
-        __LcdSoc_SetGammaRamp();
-    }
-    
-	/* Fix me */
+	__lcdc_set_interrupt();
+
+	for (layer = LCDC_PRIMARY; layer <= panel_info.maxlayer; layer++) {
+		struct lcdc_layer_state *layer_state =
+			&(lcdc_config.layer_state[layer]);
+		if (layer_state->show)
+			__lcdc_set_parameters(layer);
+	}
+
+	if (lcdc_config.cursor_state.show) {
+		__lcdc_set_cursor_shape();
+		__lcdc_move_cursor();
+	}
+
+	__lcdc_set_toplayer();
+
+	if (lcdc_config.gamma_enable)
+		__lcdc_set_gamma_ramp();
+
 	/* tmp solution to fix hibernation cold boot taishan 8" bl issue */
-	/* if (!bEnabledBefore) */
-    {
-        if (gsPanelInfo.pfnPostPowerUp)
-            gsPanelInfo.pfnPostPowerUp();
-    }
+	/* if (!enabled) */
+		if (panel_info.post_power_up)
+			panel_info.post_power_up();
 
-	return bEnabledBefore;
+	return enabled;
 }
 
 
 
-VOID LcdSoc_GetScanLine(LCD_GETSCANLINE_DATA *pData)
+static void lcdc_get_scanline(struct lcdc_scanline *data)
 {
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    *(pData->pScanLine)= ReadLcdRegisterValue(S0_VCOUNT)-gsPanelInfo.ui32VStart;
+	LCDC_ENTRY(("%s\n", __func__));
+	*(data->scanline) = lcdc_read_reg(S0_VCOUNT) - panel_info.vstart;
 }
 
-VOID LcdSoc_WaitForVBlank(LCD_WAITFORVBLANK_DATA *pVBlankData)
+static void lcdc_wait_for_vblank(struct lcdc_wait_for_vblank *data)
 {
-    INT times = 3000000; /* ~= 18ms */
-   	UINT32 ui32Line, ui32ScnVEnd;
-    BOOL bInVB;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    do
-    {
-        ui32Line = ReadLcdRegisterValue(S0_VCOUNT);
-        ui32ScnVEnd = ReadLcdRegisterValue(S0_ACT_VEND);
-        bInVB = (ui32Line >= ui32ScnVEnd) && 
-            (ui32Line < gsPanelInfo.ui32VStart);
-        times--;
-    }while((times > 0) && (bInVB == pVBlankData->bBlockBegin));
-    return;
-}
+	int times = 3000000;	/* ~= 18ms */
+	unsigned int line, scr_vend;
+	bool in_vb;
+
+	LCDC_ENTRY("%s\n", __func__);
+	do {
+		line = lcdc_read_reg(S0_VCOUNT);
+		scr_vend = lcdc_read_reg(S0_ACT_VEND);
+		in_vb = (line >= scr_vend) &&
+			(line < panel_info.vstart);
+		times--;
+	} while ((times > 0) && (in_vb == data->block_begin));
 
-
-VOID LcdSoc_ClearInterrupt(LCD_INTERRUPT_TYPE eType)
-{
-//    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-
-	if (eType == LCD_INTERRUPT_ALL)
-	{
-	    WriteLcdRegisterValue(INT_CTRL_STATUS, 0xFFFFFFFF);
-	}
-	else
-	{
-		REG_INT_CTRL_STATUS reg_INT_CTRL_STATUS;
-	    reg_INT_CTRL_STATUS.DW = (1<<eType);
-	    WriteLcdRegisterValue(INT_CTRL_STATUS, reg_INT_CTRL_STATUS.DW);
-	}
-}
-VOID LcdSoc_EnableInterrupt(LCD_INTERRUPT_TYPE eType)
-{
-//    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-	if (eType == LCD_INTERRUPT_ALL)
-	{
-		gsLcdConfig.ui32IntState = 0xFFFFFFFF;
-	}
-	else
-	{
-		gsLcdConfig.ui32IntState |= (1<<eType);
-	}
-	__LcdSoc_SetInterrupt();
-}
-VOID LcdSoc_DisableInterrupt(LCD_INTERRUPT_TYPE eType)
-{
-//    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-	if (eType == LCD_INTERRUPT_ALL)
-	{
-		gsLcdConfig.ui32IntState = 0x0;
-	}
-	else
-	{
-		gsLcdConfig.ui32IntState &= (~(1<<eType));
-	}
-	__LcdSoc_SetInterrupt();
-}
-
-UINT32 LcdSoc_IsInterrupted(LCD_INTERRUPT_TYPE eType)
-{
-    REG_INT_CTRL_STATUS reg_INT_CTRL_STATUS;
-	REG_INT_MASK reg_INT_MASK;
-	UINT32 ui32Status;
-//    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    reg_INT_CTRL_STATUS.DW = ReadLcdRegisterValue(INT_CTRL_STATUS);
-	reg_INT_MASK.DW = ReadLcdRegisterValue(INT_MASK);
-#if 0		//for underflow test
-	//here is for underflow test
-	//for continue vsync happen
-	{
-		static DWORD LastInterrupt=0,Count=0;
-		if (reg_INT_CTRL_STATUS.S0_LINE_INT_INT)
-		{
-			LcdSoc_ClearInterrupt(LCD_INTERRUPT_VSYNC);
-			LcdSoc_EnableInterrupt(LCD_INTERRUPT_VSYNC);
-		}
-		//for underflow judge
-		if (reg_INT_CTRL_STATUS.DW&0xf3c0)
-		{
-			if (LastInterrupt!=(reg_INT_CTRL_STATUS.DW&0xf3c0)||Count>1000)
-			{
-				RETAILMSG(1,(TEXT("I=%x\r\n"),reg_INT_CTRL_STATUS.DW));
-				LastInterrupt=reg_INT_CTRL_STATUS.DW&0xf3c0;
-				Count=0;
-			}
-			else
-				Count++;
-	
-			//clear other interrrupts
-			WriteLcdRegisterValue(INT_CTRL_STATUS, 0xf3c0);
-		}
-	}
-#endif	
-
-	ui32Status = reg_INT_CTRL_STATUS.DW & reg_INT_MASK.DW;
-	if (eType == LCD_INTERRUPT_ALL)
-	{
-		return ui32Status;
-	}
-	else
-	{
-		return (ui32Status & (1<<eType));
-	}
-}
-
-VOID LcdSoc_GetMode(LCD_GETMODE_DATA *pDisplayMode)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[LCD_PRIMARY]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if(pDisplayMode)
-    {
-        pDisplayMode->eFormat = psLayerState->eLcdFormat;
-        __LcdSoc_GetScreenSize(&pDisplayMode->ui32Width, &pDisplayMode->ui32Height, &gsPanelInfo);
-        pDisplayMode->ui32ByteStride = 
-            psLayerState->ui32SurfWidth * 
-            (__LcdSoc_EFormatToBpp(pDisplayMode->eFormat));
-        pDisplayMode->ui32RefreshHZ = LCD_DISPLAY_FREQUENCY;
-    }
-}
-
-VOID LcdSoc_GetVidMem(LCD_GETVIDMEM_DATA *pData)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    pData->ui32Size = gsLcdConfig.ui32FBSize;
-
-    __LcdSoc_GetPrimarySize(&pData->ui32PrimarySize);
-	OSGetFBBase(pData);
-}
-
-LCD_LAYER LcdSoc_AllocOverlay(LCD_ALLOCOVERLAY_DATA *pData)
-{
-    LCDSOC_LAYER_STATE *psLayerState;
-    LCD_LAYER eLayer, eRetLayer;
-    BOOL      bNeedVpp = FALSE;
-
-    LCD_ENTRY(("+%s: eLayer:%d eFormat:%d w:%d h:%d\r\n",
-		__FUNCTION__,
-		pData->eLayer, 
-		pData->eLcdFormat, 
-		pData->i32Width, 
-		pData->i32Height));
-
-    if((pData->eLayer != LCD_LAYER_UNKNOWN) && 
-            ((pData->eLayer < LCD_OVERLAY_1) || (pData->eLayer > gsPanelInfo.eMaxLayer)))
-    {
-        LCD_ASSERT(0);
-        LCD_MSG(("Wrong layer to allocate"));
-        return LCD_LAYER_UNKNOWN;
-    }
-
-    /* if support the format */
-    switch (pData->eLcdFormat)
-    {
-    case LCD_PIXELFORMAT_565:
-    case LCD_PIXELFORMAT_556:
-    case LCD_PIXELFORMAT_655:
-
-    case LCD_PIXELFORMAT_BGRX_8880:
-    case LCD_PIXELFORMAT_8888:
-        pData->i32WStrideByte = ((__LcdSoc_EFormatToBpp(pData->eLcdFormat) *
-            pData->i32Width + 7) / 8) * 8;
-        pData->i32HStrideByte = pData->i32WStrideByte * pData->i32Height;
-        pData->i32WStridePixel = pData->i32Width;
-        pData->i32HStridePixel = pData->i32HStrideByte / pData->i32WStrideByte;
-        break;
-    case LCD_PIXELFORMAT_YUYV:
-    case LCD_PIXELFORMAT_UYVY:
-    case LCD_PIXELFORMAT_YUY2:
-    case LCD_PIXELFORMAT_YUNV:
-    case LCD_PIXELFORMAT_YVYU:
-    case LCD_PIXELFORMAT_UYNV:
-    case LCD_PIXELFORMAT_VYUY:
-
-    case LCD_PIXELFORMAT_IMC1:
-    case LCD_PIXELFORMAT_IMC3:
-    case LCD_PIXELFORMAT_YV12:
-    case LCD_PIXELFORMAT_I420:
-    case LCD_PIXELFORMAT_UYVI:
-    case LCD_PIXELFORMAT_NV12:
-    case LCD_PIXELFORMAT_NV21:
-        if (!gsLcdConfig.hVppHandle)
-        {
-            pData->eLcdFormat = LCD_PIXELFORMAT_UNKNOWN;
-	    return LCD_LAYER_UNKNOWN;
-        }
-        if (gsVPPFuncTable.pfnAllocOverlay(pData))
-        {
-            bNeedVpp = TRUE;
-        }
-        else
-        {
-            return LCD_LAYER_UNKNOWN;
-        }
-        break;
-    default:
-        pData->eLcdFormat = LCD_PIXELFORMAT_UNKNOWN;
-        return LCD_LAYER_UNKNOWN;
-    }
-
-    /* if support the dimension */
-    if ((pData->i32Width > LCD_MAX_OVERLAY_WIDTH) ||
-        (pData->i32Height > LCD_MAX_OVERLAY_HEIGHT) ||
-        (pData->eLcdFormat == LCD_PIXELFORMAT_UNKNOWN))
-    {
-        return LCD_LAYER_UNKNOWN;
-    }  
-
-
-    eRetLayer = LCD_LAYER_UNKNOWN;
-    if(pData->eLayer == LCD_LAYER_UNKNOWN)
-    {
-        for (eLayer = LCD_OVERLAY_1; eLayer <= gsPanelInfo.eMaxLayer; eLayer++)
-        {
-            psLayerState =  &(gsLcdConfig.sLayerState[eLayer]);
-            if (!psLayerState->bInUse)
-            {
-                eRetLayer = eLayer;
-                break;
-            }
-        }
-    }
-    else
-    {
-        psLayerState =  &(gsLcdConfig.sLayerState[pData->eLayer]);
-        if (!psLayerState->bInUse)
-        {
-            eRetLayer = pData->eLayer;
-        }    
-    }
-
-    if (eRetLayer != LCD_LAYER_UNKNOWN)
-    {
-        __LcdSoc_ResetLayerState(eRetLayer);
-        psLayerState =  &(gsLcdConfig.sLayerState[eRetLayer]);
-        psLayerState->bInUse = TRUE;
-        psLayerState->bShow = FALSE;
-        psLayerState->bNeedVpp = bNeedVpp;
-        psLayerState->eLcdFormat = pData->eLcdFormat;
-        psLayerState->ui32SurfWidth = pData->i32WStridePixel;
-        psLayerState->ui32SurfHeight = pData->i32HStridePixel;
-        psLayerState->sRectSrc.left = psLayerState->sRectSrc.top = 0;
-        psLayerState->sRectSrc.right = pData->i32Width;
-        psLayerState->sRectSrc.bottom = pData->i32Height;
-    }
-
-    LCD_ENTRY(("-%s: eRetLayer:%d wstride_pixel:%d hstride_pixel:%d\r\n",
-		__FUNCTION__,
-		eRetLayer, 
-		pData->i32WStridePixel, 
-		pData->i32HStridePixel));
-    return eRetLayer;
-}
-
-VOID LcdSoc_FreeOverlay(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if(psLayerState->bInUse && psLayerState->bShow)
-    {
-        LcdSoc_HideOverlay(eLayer);
-    }
-    psLayerState->bInUse = FALSE;
-    return;
-}
-
-VOID LcdSoc_ShowOverlay(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s eLayer=%d\r\n",__FUNCTION__, eLayer));
-
-	if (!psLayerState->bShow &&
-		(psLayerState->sRectDst.right - psLayerState->sRectDst.left != 0) &&
-		(psLayerState->sRectDst.bottom - psLayerState->sRectDst.top != 0))
-	{
-		psLayerState->bShow = TRUE;
-		__LcdSoc_SetParameters(eLayer);
-	}
-}
-
-VOID LcdSoc_PrintParameters(LCD_SETPARAMS_DATA *pData)
-{
-	LCD_MSG(("LCD layer %d parameters:\n", pData->eLayer));
-	LCD_MSG(("eLcdFormat=%d\n", pData->eLcdFormat));
-	LCD_MSG(("i32SurfWidth=%d\n", pData->i32SurfWidth));
-	LCD_MSG(("i32SurfHeight=%d\n", pData->i32SurfHeight));
-	LCD_MSG(("sRectSrc=%d %d %d %d\n", pData->sRectSrc.left, pData->sRectSrc.top, 
-		pData->sRectSrc.right, pData->sRectSrc.bottom));
-	LCD_MSG(("sRectDst=%d %d %d %d\n", pData->sRectDst.left, pData->sRectDst.top, 
-		pData->sRectDst.right, pData->sRectDst.bottom));
-	LCD_MSG(("ui32Base=0x%x\n", pData->ui32Base));
-	LCD_MSG(("bCKeyOn=%d\n", pData->bCKeyOn));
-	LCD_MSG(("ui32CKLow=0x%x\n", pData->ui32CKLow));
-	LCD_MSG(("ui32CKHigh=0x%x\n", pData->ui32CKHigh));
-	LCD_MSG(("bCKeyDstOn=%d\n", pData->bCKeyDstOn));
-	LCD_MSG(("ui32CKDstLow=0x%x\n", pData->ui32CKDstLow));
-	LCD_MSG(("ui32CKDstHigh=0x%x\n", pData->ui32CKDstHigh));
-	LCD_MSG(("bGlobalAlpha=%d\n", pData->bGlobalAlpha));
-	LCD_MSG(("bSourceAlpha=%d\n", pData->bSourceAlpha));
-	LCD_MSG(("bPremultiAlpha=%d\n", pData->bPremultiAlpha));
-	LCD_MSG(("ui8Alpha=0x%x\n", pData->ui8Alpha));
-	
-}
-
-BOOL LcdSoc_SetParameters(LCD_SETPARAMS_DATA *pData)
-{
-    LCD_LAYER eLayer = pData->eLayer;
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-
-    psLayerState->bNeedVpp = __LcdSoc_NeedVpp(pData->eLcdFormat);
-    if ((gsLcdConfig.hVppHandle==NULL) && psLayerState->bNeedVpp)
-    {
-        LCD_ASSERT(0);
-		return FALSE;
-    }
-
-    psLayerState->eLcdFormat = pData->eLcdFormat;
-    psLayerState->ui32SurfWidth = pData->i32SurfWidth;
-    psLayerState->ui32SurfHeight = pData->i32SurfHeight;
-    psLayerState->sRectSrc = pData->sRectSrc;
-    psLayerState->sRectDst = pData->sRectDst;
-    psLayerState->ui32Base = pData->ui32Base;
-    psLayerState->bCKeyOn = pData->bCKeyOn;
-    psLayerState->ui32CKLow = pData->ui32CKLow;
-    psLayerState->ui32CKHigh = pData->ui32CKHigh;
-    psLayerState->bCKeyDstOn = pData->bCKeyDstOn;
-    psLayerState->ui32CKDstLow = pData->ui32CKDstLow;
-    psLayerState->ui32CKDstHigh = pData->ui32CKDstHigh;
-    psLayerState->bGlobalAlpha = pData->bGlobalAlpha;
-    psLayerState->bSourceAlpha = pData->bSourceAlpha;
-    psLayerState->bPremultiAlpha = pData->bPremultiAlpha;
-    psLayerState->ui8Alpha = pData->ui8Alpha;
-    return __LcdSoc_SetParameters(eLayer);
-}
-
-VOID LcdSoc_GetParameters(LCD_SETPARAMS_DATA *pData)
-{
-    LCD_LAYER eLayer = pData->eLayer;
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    
-    if ((gsLcdConfig.hVppHandle==NULL) && (__LcdSoc_NeedVpp(pData->eLcdFormat)))
-    {
-        LCD_ASSERT(0);
-    }
-
-    pData->eLcdFormat = psLayerState->eLcdFormat;
-    pData->i32SurfWidth = psLayerState->ui32SurfWidth;
-    pData->i32SurfHeight = psLayerState->ui32SurfHeight;
-    pData->sRectSrc = psLayerState->sRectSrc;
-    pData->sRectDst = psLayerState->sRectDst;
-    pData->ui32Base = psLayerState->ui32Base;
-    pData->bCKeyOn = psLayerState->bCKeyOn;
-    pData->ui32CKLow = psLayerState->ui32CKLow;
-    pData->ui32CKHigh = psLayerState->ui32CKHigh;
-    pData->bCKeyDstOn = psLayerState->bCKeyDstOn;
-    pData->ui32CKDstLow = psLayerState->ui32CKDstLow;
-    pData->ui32CKDstHigh = psLayerState->ui32CKDstHigh;
-    pData->bGlobalAlpha = psLayerState->bGlobalAlpha;
-    pData->bSourceAlpha = psLayerState->bSourceAlpha;
-    pData->bPremultiAlpha = psLayerState->bPremultiAlpha;
-    pData->ui8Alpha = psLayerState->ui8Alpha;
-}
-
-
-VOID LcdSoc_HideOverlay(LCD_LAYER eLayer)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (psLayerState->bShow)
-    {
-        psLayerState->bShow = FALSE;
-        __LcdSoc_DisableLayer(eLayer, FALSE);
-
-        if (psLayerState->bNeedVpp)
-        {
-            gsVPPFuncTable.pfnUnlock();
-        }
-    }
-}
-
-VOID LcdSoc_PanDisplay(LCD_LAYER eLayer, INT x, INT y)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-	INT w,h;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-	w = psLayerState->sRectSrc.right - psLayerState->sRectSrc.left;
-	h = psLayerState->sRectSrc.bottom - psLayerState->sRectSrc.top;
-	psLayerState->sRectSrc.left = x;
-	psLayerState->sRectSrc.right = x + w;
-	psLayerState->sRectSrc.top = y;
-	psLayerState->sRectSrc.bottom = y + h;
-	__LcdSoc_Flip(eLayer, LCD_FLIP_FRAME);
-	__LcdSoc_ConfirmLayerSetting(eLayer);
-}
-
-VOID LcdSoc_SetOverlayPos(LCD_LAYER eLayer, RECT *pSrc, RECT *pDst)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (pDst)
-    {
-        psLayerState->sRectDst = *pDst;
-    }
-    
-    if (pSrc)
-    {
-        psLayerState->sRectSrc = *pSrc;
-    }
-    if (psLayerState->bShow)
-    {
-        /* Only update src, dst related parameters only when they change */
-        __LcdSoc_SetSize(eLayer, FALSE);
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-    }
-}
-
-VOID LcdSoc_SetGlobalAlpha(LCD_LAYER eLayer, UINT8 ui8Alpha)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psLayerState->ui8Alpha = ui8Alpha;
-    if (psLayerState->bShow)
-    {
-        __LcdSoc_SetGlobalAlpha(eLayer);
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-    }
-}
-
-VOID LcdSoc_SetAlphaProperty(LCD_LAYER eLayer, BOOL bPremulti, BOOL bGlobal, BOOL bSource)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psLayerState->bPremultiAlpha = bPremulti;
-    psLayerState->bGlobalAlpha = bGlobal;
-    psLayerState->bSourceAlpha = bSource;
-    if (psLayerState->bShow)
-    {
-        __LcdSoc_SetAlphaProperty(eLayer);
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-    }
-}
-
-VOID LcdSoc_SetSrcCKey(LCD_LAYER eLayer, BOOL bOn, UINT32 ui32High, UINT32 ui32Low)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psLayerState->bCKeyOn = bOn;
-    psLayerState->ui32CKHigh = ui32High;
-    psLayerState->ui32CKLow = ui32Low;
-    if (psLayerState->bShow)
-    {
-        __LcdSoc_SetColorKey(eLayer);
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-    }
-}
-
-VOID LcdSoc_SetDstCKey(LCD_LAYER eLayer, BOOL bOn, UINT32 ui32High, UINT32 ui32Low)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psLayerState->bCKeyDstOn = bOn;
-    psLayerState->ui32CKDstHigh = ui32High;
-    psLayerState->ui32CKDstLow = ui32Low;
-    if (psLayerState->bShow)
-    {
-        __LcdSoc_SetColorKey(eLayer);		
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-    }
-}
-
-LCD_LAYER LcdSoc_GetTopLayer(VOID)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    return gsLcdConfig.eTopLayer;    
-}
-
-VOID LcdSoc_SetTopLayer(LCD_LAYER eLayer)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsLcdConfig.eTopLayer = eLayer;    
-    __LcdSoc_SetTopLayer();        
-}
-
-
-VOID LcdSoc_FlipOverlay(LCD_LAYER eLayer, UINT32 ui32Base, LCD_FLIP_MODE eField)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psLayerState->ui32Base = ui32Base;
-    if (psLayerState->bShow)
-    {
-        __LcdSoc_Flip(eLayer, eField);
-        __LcdSoc_ConfirmLayerSetting(eLayer);
-    }
-}
-
-VOID LcdSoc_SetCursorShape(UINT32 *pMask, INT iMaskStride, 
-    UINT32 *pColor, INT iXHot, INT iYHot, INT iWidth, INT iHeight)
-{
-    LCDSOC_CURSOR_STATE *psCursorState = &(gsLcdConfig.sCursorState);
-//    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psCursorState->iXHot = iXHot;
-    psCursorState->iYHot = iYHot;
-    psCursorState->iWidth = iWidth;
-    psCursorState->iHeight = iHeight;
-    __LcdSoc_GenCursorFIFO(pColor, pMask, iMaskStride);
-    __LcdSoc_SetCursorShape();
-}
-VOID LcdSoc_MoveCursor(INT iXPos, INT iYPos)
-{
-    LCDSOC_CURSOR_STATE *psCursorState = &(gsLcdConfig.sCursorState);
-//    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    psCursorState->iXPos = iXPos;
-    psCursorState->iYPos = iYPos;
-    psCursorState->bShow = (iXPos != -1);
-    __LcdSoc_MoveCursor();
-}
-
-VOID LcdSoc_SetCursorRotate(INT iAngle)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    gsLcdConfig.sCursorState.iRotate = iAngle;
-}
-
-VOID LcdSoc_Reset(VOID)
-{
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-	__LcdSoc_Reset();
-}
-
-VOID LcdSoc_CtrlOutput(BOOL bTurnOff)
-{
-    /* Wait until scan line go below VSTART */
-    UINT i;
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    do 
-    {
-        i = ReadLcdRegisterValue(S0_VCOUNT);
-    }while(i>=gsPanelInfo.ui32VStart);
-
-	LcdBsp_CtrlOutput(bTurnOff);
-}
-
-VOID LcdSoc_GetGammaRamp(UINT16 *pui16Gamma)
-{
-    INT i;
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (pui16Gamma)
-    {
-        for (i = 0; i < 256 * 3; i++)
-        {
-            pui16Gamma[i] = gsLcdConfig.aui8Gamma[i];
-        }
-    }
-}
-
-VOID LcdSoc_SetGammaRamp(UINT16 *pui16Gamma)
-{
-    INT                 i;
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (pui16Gamma)
-    {
-        for (i = 0; i < 256 * 3; i++)
-        {
-            gsLcdConfig.aui8Gamma[i] = (UINT8)pui16Gamma[i];
-        }
-        gsLcdConfig.bGammaEnable = TRUE;
-        __LcdSoc_SetGammaRamp();
-    }
-}
-
-VOID LcdSoc_GetColorControl(LCD_LAYER eLayer, LCD_COLORCONTROL *pData)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-    
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (pData->ui32Flags & LCD_COLORCONTROL_BRIGHTNESS)
-    {
-        pData->i32Brightness = psLayerState->i32Brightness;
-    }
-    if (pData->ui32Flags & LCD_COLORCONTROL_CONTRAST)
-    {
-        pData->i32Contrast = psLayerState->i32Contrast;
-    }
-    if (pData->ui32Flags & LCD_COLORCONTROL_HUE)
-    {
-        pData->i32Hue = psLayerState->i32Hue;
-    }
-    if (pData->ui32Flags & LCD_COLORCONTROL_SATURATION)
-    {
-        pData->i32Saturation = psLayerState->i32Saturation;
-    }
-}
-
-VOID LcdSoc_SetColorControl(LCD_LAYER eLayer, LCD_COLORCONTROL *pData)
-{
-    LCDSOC_LAYER_STATE *psLayerState = &(gsLcdConfig.sLayerState[eLayer]);
-
-    LCD_ENTRY(("%s\r\n",__FUNCTION__));
-    if (gsLcdConfig.hVppHandle && psLayerState->bNeedVpp)
-    {
-        if (pData->ui32Flags & LCD_COLORCONTROL_BRIGHTNESS)
-        {
-            psLayerState->i32Brightness = pData->i32Brightness;
-            gsVPPFuncTable.pfnUpdateBright(psLayerState->i32Brightness);
-        }
-        if (pData->ui32Flags & LCD_COLORCONTROL_CONTRAST)
-        {
-            psLayerState->i32Contrast = pData->i32Contrast;
-            gsVPPFuncTable.pfnUpdateContrast(pData->i32Contrast);
-        }
-        if (pData->ui32Flags & LCD_COLORCONTROL_HUE)
-        {
-            psLayerState->i32Hue = pData->i32Hue;
-			if (gsVPPFuncTable.pfnUpdateHue)
-			{
-            	gsVPPFuncTable.pfnUpdateHue(pData->i32Hue);
-			}
-        }
-        if (pData->ui32Flags & LCD_COLORCONTROL_SATURATION)
-        {
-            psLayerState->i32Saturation = pData->i32Saturation;
-			if (gsVPPFuncTable.pfnUpdateSaturation)
-			{
-	            gsVPPFuncTable.pfnUpdateSaturation(pData->i32Saturation);
-			}
-        }
-    }
-}
-
-/***************************************************************************
- * Internl functions implementation
-****************************************************************************/
-VOID LcdSoc_PrintRegister(VOID)
-{
-	LCD_MSG(("LCD registers:\n"));
-    LCD_MSG(("S0_HSYNC_PERIOD=0x%08x\r\n",  ReadLcdRegisterValue(S0_HSYNC_PERIOD)));
-    LCD_MSG(("S0_HSYNC_WIDTH=0x%08x\r\n",   ReadLcdRegisterValue(S0_HSYNC_WIDTH)));
-    LCD_MSG(("S0_VSYNC_PERIOD=0x%08x\r\n",  ReadLcdRegisterValue(S0_VSYNC_PERIOD)));
-    LCD_MSG(("S0_VSYNC_WIDTH=0x%08x\r\n",   ReadLcdRegisterValue(S0_VSYNC_WIDTH)));
-    LCD_MSG(("S0_ACT_HSTART=0x%08x\r\n",    ReadLcdRegisterValue(S0_ACT_HSTART)));
-    LCD_MSG(("S0_ACT_VSTART=0x%08x\r\n",    ReadLcdRegisterValue(S0_ACT_VSTART)));
-    LCD_MSG(("S0_ACT_HEND=0x%08x\r\n",      ReadLcdRegisterValue(S0_ACT_HEND)));
-    LCD_MSG(("S0_ACT_VEND=0x%08x\r\n",      ReadLcdRegisterValue(S0_ACT_VEND)));
-    LCD_MSG(("S0_OSC_RATIO=0x%08x\r\n",     ReadLcdRegisterValue(S0_OSC_RATIO)));
-    LCD_MSG(("S0_TIM_CTRL=0x%08x\r\n",      ReadLcdRegisterValue(S0_TIM_CTRL)));
-    LCD_MSG(("S0_TIM_STATUS=0x%08x\r\n",    ReadLcdRegisterValue(S0_TIM_STATUS)));
-    LCD_MSG(("S0_HCOUNT=0x%08x\r\n",        ReadLcdRegisterValue(S0_HCOUNT)));
-    LCD_MSG(("S0_VCOUNT=0x%08x\r\n",        ReadLcdRegisterValue(S0_VCOUNT)));
-    LCD_MSG(("S0_BLANK=0x%08x\r\n",         ReadLcdRegisterValue(S0_BLANK)));
-    LCD_MSG(("S0_BACK_COLOR=0x%08x\r\n",    ReadLcdRegisterValue(S0_BACK_COLOR)));
-    LCD_MSG(("S0_DISP_MODE=0x%08x\r\n",     ReadLcdRegisterValue(S0_DISP_MODE)));
-    LCD_MSG(("S0_LAYER_SEL=0x%08x\r\n",     ReadLcdRegisterValue(S0_LAYER_SEL)));
-    LCD_MSG(("S0_RGB_SEQ=0x%08x\r\n",       ReadLcdRegisterValue(S0_RGB_SEQ)));
-    LCD_MSG(("S0_RGB_YUV_COEF1=0x%08x\r\n", ReadLcdRegisterValue(S0_RGB_YUV_COEF1)));
-    LCD_MSG(("S0_RGB_YUV_COEF2=0x%08x\r\n", ReadLcdRegisterValue(S0_RGB_YUV_COEF2)));
-    LCD_MSG(("S0_RGB_YUV_COEF3=0x%08x\r\n", ReadLcdRegisterValue(S0_RGB_YUV_COEF3)));
-    LCD_MSG(("S0_YUV_CTRL=0x%08x\r\n",      ReadLcdRegisterValue(S0_YUV_CTRL)));
-    LCD_MSG(("S0_TV_FIELD=0x%08x\r\n",      ReadLcdRegisterValue(S0_TV_FIELD)));
-    LCD_MSG(("S0_INT_LINE=0x%08x\r\n",      ReadLcdRegisterValue(S0_INT_LINE)));
-    LCD_MSG(("S0_LAYER_STATUS=0x%08x\r\n",  ReadLcdRegisterValue(S0_LAYER_STATUS)));
-    LCD_MSG(("DMA_STATUS=0x%08x\r\n",       ReadLcdRegisterValue(DMA_STATUS)));
-    LCD_MSG(("SCR_CTRL=0X%08X\r\n",         ReadLcdRegisterValue(SCR_CTRL)));
-    LCD_MSG(("INT_MASK=0X%08X\r\n",         ReadLcdRegisterValue(INT_MASK)));
-    LCD_MSG(("INT_CTRL_STATUS=0X%08X\r\n",  ReadLcdRegisterValue(INT_CTRL_STATUS)));
-    
-
-    /* Lay0 register */
-    LCD_MSG(("L0_CTRL=0x%08x\r\n",        ReadLcdRegisterValue(L0_CTRL)));
-    LCD_MSG(("L0_HSTART=0x%08x\r\n",      ReadLcdRegisterValue(L0_HSTART)));
-    LCD_MSG(("L0_VSTART=0X%08X\r\n",      ReadLcdRegisterValue(L0_VSTART)));
-    LCD_MSG(("L0_HEND=0X%08X\r\n",        ReadLcdRegisterValue(L0_HEND)));
-    LCD_MSG(("L0_VEND=0x%08x\r\n",        ReadLcdRegisterValue(L0_VEND)));
-    LCD_MSG(("L0_BASE0=0x%08x\r\n",       ReadLcdRegisterValue(L0_BASE0)));
-    LCD_MSG(("L0_BASE1=0X%08X\r\n",       ReadLcdRegisterValue(L0_BASE1)));
-    LCD_MSG(("L0_XSIZE=0X%08X\r\n",       ReadLcdRegisterValue(L0_XSIZE)));
-    LCD_MSG(("L0_YSIZE=0x%08x\r\n",       ReadLcdRegisterValue(L0_YSIZE)));
-    LCD_MSG(("L0_SKIP=0x%08x\r\n",        ReadLcdRegisterValue(L0_SKIP)));
-    LCD_MSG(("L0_DMA_CTRL=0X%08X\r\n",    ReadLcdRegisterValue(L0_DMA_CTRL)));
-    LCD_MSG(("L0_ALPHA=0X%08X\r\n",       ReadLcdRegisterValue(L0_ALPHA)));
-    LCD_MSG(("L0_CKEYB_SRC=0x%08x\r\n",   ReadLcdRegisterValue(L0_CKEYB_SRC)));
-    LCD_MSG(("L0_CKEYS_SRC=0X%08X\r\n",   ReadLcdRegisterValue(L0_CKEYS_SRC)));
-    LCD_MSG(("L0_CKEYB_DST=0x%08x\r\n",   ReadLcdRegisterValue(L0_CKEYB_DST)));
-    LCD_MSG(("L0_CKEYS_DST=0X%08X\r\n",   ReadLcdRegisterValue(L0_CKEYS_DST)));
-    LCD_MSG(("L0_FIFO_CHK=0X%08X\r\n",    ReadLcdRegisterValue(L0_FIFO_CHK)));
-    LCD_MSG(("L0_FIFO_STATUS=0x%08x\r\n", ReadLcdRegisterValue(L0_FIFO_STATUS)));
-
-    /* Lay1 Register */
-    LCD_MSG(("L1_CTRL=0x%08x\r\n",        ReadLcdRegisterValue(L1_CTRL)));
-    LCD_MSG(("L1_HSTART=0x%08x\r\n",      ReadLcdRegisterValue(L1_HSTART)));
-    LCD_MSG(("L1_VSTART=0X%08X\r\n",      ReadLcdRegisterValue(L1_VSTART)));
-    LCD_MSG(("L1_HEND=0X%08X\r\n",        ReadLcdRegisterValue(L1_HEND)));
-    LCD_MSG(("L1_VEND=0x%08x\r\n",        ReadLcdRegisterValue(L1_VEND)));
-    LCD_MSG(("L1_BASE0=0x%08x\r\n",       ReadLcdRegisterValue(L1_BASE0)));
-    LCD_MSG(("L1_BASE1=0X%08X\r\n",       ReadLcdRegisterValue(L1_BASE1)));
-    LCD_MSG(("L1_XSIZE=0X%08X\r\n",       ReadLcdRegisterValue(L1_XSIZE)));
-    LCD_MSG(("L1_YSIZE=0x%08x\r\n",       ReadLcdRegisterValue(L1_YSIZE)));
-    LCD_MSG(("L1_SKIP=0x%08x\r\n",        ReadLcdRegisterValue(L1_SKIP)));
-    LCD_MSG(("L1_DMA_CTRL=0X%08X\r\n",    ReadLcdRegisterValue(L1_DMA_CTRL)));
-    LCD_MSG(("L1_ALPHA=0X%08X\r\n",       ReadLcdRegisterValue(L1_ALPHA)));
-    LCD_MSG(("L1_CKEYB_SRC=0x%08x\r\n",   ReadLcdRegisterValue(L1_CKEYB_SRC)));
-    LCD_MSG(("L1_CKEYS_SRC=0X%08X\r\n",   ReadLcdRegisterValue(L1_CKEYS_SRC)));
-    LCD_MSG(("L1_CKEYB_DST=0x%08x\r\n",   ReadLcdRegisterValue(L1_CKEYB_DST)));
-    LCD_MSG(("L1_CKEYS_DST=0X%08X\r\n",   ReadLcdRegisterValue(L1_CKEYS_DST)));
-    LCD_MSG(("L1_FIFO_CHK=0X%08X\r\n",    ReadLcdRegisterValue(L1_FIFO_CHK)));
-    LCD_MSG(("L1_FIFO_STATUS=0x%08x\r\n", ReadLcdRegisterValue(L1_FIFO_STATUS)));
-
-    /* Lay2 Register */
-    LCD_MSG(("L2_CTRL=0x%08x\r\n",        ReadLcdRegisterValue(L2_CTRL)));
-    LCD_MSG(("L2_HSTART=0x%08x\r\n",      ReadLcdRegisterValue(L2_HSTART)));
-    LCD_MSG(("L2_VSTART=0X%08X\r\n",      ReadLcdRegisterValue(L2_VSTART)));
-    LCD_MSG(("L2_HEND=0X%08X\r\n",        ReadLcdRegisterValue(L2_HEND)));
-    LCD_MSG(("L2_VEND=0x%08x\r\n",        ReadLcdRegisterValue(L2_VEND)));
-    LCD_MSG(("L2_BASE0=0x%08x\r\n",       ReadLcdRegisterValue(L2_BASE0)));
-    LCD_MSG(("L2_BASE1=0X%08X\r\n",       ReadLcdRegisterValue(L2_BASE1)));
-    LCD_MSG(("L2_XSIZE=0X%08X\r\n",       ReadLcdRegisterValue(L2_XSIZE)));
-    LCD_MSG(("L2_YSIZE=0x%08x\r\n",       ReadLcdRegisterValue(L2_YSIZE)));
-    LCD_MSG(("L2_SKIP=0x%08x\r\n",        ReadLcdRegisterValue(L2_SKIP)));
-    LCD_MSG(("L2_DMA_CTRL=0X%08X\r\n",    ReadLcdRegisterValue(L2_DMA_CTRL)));
-    LCD_MSG(("L2_ALPHA=0X%08X\r\n",       ReadLcdRegisterValue(L2_ALPHA)));
-    LCD_MSG(("L2_CKEYB_SRC=0x%08x\r\n",   ReadLcdRegisterValue(L2_CKEYB_SRC)));
-    LCD_MSG(("L2_CKEYS_SRC=0X%08X\r\n",   ReadLcdRegisterValue(L2_CKEYS_SRC)));
-    LCD_MSG(("L2_CKEYB_DST=0x%08x\r\n",   ReadLcdRegisterValue(L2_CKEYB_DST)));
-    LCD_MSG(("L2_CKEYS_DST=0X%08X\r\n",   ReadLcdRegisterValue(L2_CKEYS_DST)));
-    LCD_MSG(("L2_FIFO_CHK=0X%08X\r\n",    ReadLcdRegisterValue(L2_FIFO_CHK)));
-    LCD_MSG(("L2_FIFO_STATUS=0x%08x\r\n", ReadLcdRegisterValue(L2_FIFO_STATUS)));
-
-    /* Lay3 Register */
-    LCD_MSG(("L3_CTRL=0x%08x\r\n",        ReadLcdRegisterValue(L3_CTRL)));
-    LCD_MSG(("L3_HSTART=0x%08x\r\n",      ReadLcdRegisterValue(L3_HSTART)));
-    LCD_MSG(("L3_VSTART=0X%08X\r\n",      ReadLcdRegisterValue(L3_VSTART)));
-    LCD_MSG(("L3_HEND=0X%08X\r\n",        ReadLcdRegisterValue(L3_HEND)));
-    LCD_MSG(("L3_VEND=0x%08x\r\n",        ReadLcdRegisterValue(L3_VEND)));
-    LCD_MSG(("L3_BASE0=0x%08x\r\n",       ReadLcdRegisterValue(L3_BASE0)));
-    LCD_MSG(("L3_BASE1=0X%08X\r\n",       ReadLcdRegisterValue(L3_BASE1)));
-    LCD_MSG(("L3_XSIZE=0X%08X\r\n",       ReadLcdRegisterValue(L3_XSIZE)));
-    LCD_MSG(("L3_YSIZE=0x%08x\r\n",       ReadLcdRegisterValue(L3_YSIZE)));
-    LCD_MSG(("L3_SKIP=0x%08x\r\n",        ReadLcdRegisterValue(L3_SKIP)));
-    LCD_MSG(("L3_DMA_CTRL=0X%08X\r\n",    ReadLcdRegisterValue(L3_DMA_CTRL)));
-    LCD_MSG(("L3_ALPHA=0X%08X\r\n",       ReadLcdRegisterValue(L3_ALPHA)));
-    LCD_MSG(("L3_CKEYB_SRC=0x%08x\r\n",   ReadLcdRegisterValue(L3_CKEYB_SRC)));
-    LCD_MSG(("L3_CKEYS_SRC=0X%08X\r\n",   ReadLcdRegisterValue(L3_CKEYS_SRC)));
-    LCD_MSG(("L3_CKEYB_DST=0x%08x\r\n",   ReadLcdRegisterValue(L3_CKEYB_DST)));
-    LCD_MSG(("L3_CKEYS_DST=0X%08X\r\n",   ReadLcdRegisterValue(L3_CKEYS_DST)));
-    LCD_MSG(("L3_FIFO_CHK=0X%08X\r\n",    ReadLcdRegisterValue(L3_FIFO_CHK)));
-    LCD_MSG(("L3_FIFO_STATUS=0x%08x\r\n", ReadLcdRegisterValue(L3_FIFO_STATUS)));
-
-
-    if (gsLcdConfig.hVppHandle)
-    {
-		gsVPPFuncTable.pfnPrintRegister();
-    }
-}
-
-VOID* LcdSoc_GetVppTable(VOID)
-{
-    if (gsLcdConfig.hVppHandle)
-        return &gsVPPFuncTable;
-    else
-        return NULL;
-}
-
-LCD_CHIP_ID LcdSoc_GetChipID(VOID)
-{
-    return LCD_CHIP_V2;
-}
-
-VOID LcdSoc_SetPixelClock(UINT32 ui32PixelClock)
-{
-	REG_S0_OSC_RATIO reg_S0_OSC_RATIO;
-	gsPanelInfo.ui32FreshRate = REFRESH_RATE(ui32PixelClock, 
-		gsPanelInfo.ui32HsyncPeriod, 
-		gsPanelInfo.ui32VsyncPeriod);
-
-	reg_S0_OSC_RATIO.DW = ReadLcdRegisterValue(S0_OSC_RATIO);
-	reg_S0_OSC_RATIO.DIV_RATIO = gsPanelInfo.ui32SysClock/ui32PixelClock - 1;;
-	WriteLcdRegisterValue(S0_OSC_RATIO, reg_S0_OSC_RATIO.DW);	
 	return;
 }
 
-UINT32 LcdSoc_GetPixelClock(VOID)
+
+static void lcdc_clear_interrupt(enum lcdc_interrupt_type type)
 {
-	return PIXEL_CLOCK(gsPanelInfo.ui32FreshRate, 
-		gsPanelInfo.ui32HsyncPeriod, 
-		gsPanelInfo.ui32VsyncPeriod);
+	if (type == LCDC_INTERRUPT_ALL) {
+		lcdc_write_reg(INT_CTRL_STATUS, 0xFFFFFFFF);
+	} else {
+		u32 val;
+		val = 1 << type;
+		lcdc_write_reg(INT_CTRL_STATUS, val);
+	}
 }
 
-VOID LCD_GetFuncTable(LCD_FUNCTIONTABLE *pTable)
+static void lcdc_enable_interrupt(enum lcdc_interrupt_type type)
 {
-    memset(pTable, 0, sizeof(LCD_FUNCTIONTABLE));
+	if (type == LCDC_INTERRUPT_ALL)
+		lcdc_config.int_state = 0xFFFFFFFF;
+	else
+		lcdc_config.int_state |= 1 << type;
 
-    pTable->pfnInitialize = LcdSoc_Initialize;
-    pTable->pfnTerminate = LcdSoc_Terminate;
-    pTable->pfnSleep = LcdSoc_Sleep;
-    pTable->pfnWakeup = LcdSoc_Wakeup;
-    pTable->pfnGetScanLine = LcdSoc_GetScanLine;
-    pTable->pfnWaitForVBlank = LcdSoc_WaitForVBlank;
-    pTable->pfnGetMode = LcdSoc_GetMode;
-    pTable->pfnGetVidMem = LcdSoc_GetVidMem;
+	__lcdc_set_interrupt();
+}
 
-    pTable->pfnAllocOverlay = LcdSoc_AllocOverlay;
-    pTable->pfnFreeOverlay = LcdSoc_FreeOverlay;
+static void lcdc_disable_interrupt(enum lcdc_interrupt_type type)
+{
+	if (type == LCDC_INTERRUPT_ALL)
+		lcdc_config.int_state = 0x0;
+	else
+		lcdc_config.int_state &= ~(1 << type);
 
-    pTable->pfnShowOverlay = LcdSoc_ShowOverlay;
-    pTable->pfnSetParameters = LcdSoc_SetParameters;
-    pTable->pfnGetParameters = LcdSoc_GetParameters;
-    pTable->pfnHideOverlay = LcdSoc_HideOverlay;
-    pTable->pfnSetOverlayPos = LcdSoc_SetOverlayPos;
-	pTable->pfnPanDiaplay = LcdSoc_PanDisplay;
-    pTable->pfnFlipOverlay = LcdSoc_FlipOverlay;
+	__lcdc_set_interrupt();
+}
 
-    pTable->pfnSetGlobalAlpha = LcdSoc_SetGlobalAlpha;
-    pTable->pfnSetAlphaProperty = LcdSoc_SetAlphaProperty;
-    pTable->pfnSetSrcCKey = LcdSoc_SetSrcCKey;
-    pTable->pfnSetDstCKey = LcdSoc_SetDstCKey;
-    pTable->pfnSetTopLayer = LcdSoc_SetTopLayer;
-	pTable->pfnGetTopLayer = LcdSoc_GetTopLayer;
-     
-    pTable->pfnEnableInterrupt = LcdSoc_EnableInterrupt;
-    pTable->pfnDisableInterrupt = LcdSoc_DisableInterrupt;
-    pTable->pfnClearInterrupt = LcdSoc_ClearInterrupt;
-    pTable->pfnIsInterrupted = LcdSoc_IsInterrupted;
-    
-    pTable->pfnSetCursorShape = LcdSoc_SetCursorShape;
-    pTable->pfnMoveCursor = LcdSoc_MoveCursor;
-    pTable->pfnSetCursorRotate = LcdSoc_SetCursorRotate;
+static u32 lcdc_irq_detected(enum lcdc_interrupt_type type)
+{
+	u32 int_stat;
+	u32 int_mask;
+	u32 status;
 
-    pTable->pfnGetGammaRamp = LcdSoc_GetGammaRamp;
-    pTable->pfnSetGammaRamp = LcdSoc_SetGammaRamp;
-    pTable->pfnGetColorControl = LcdSoc_GetColorControl;
-    pTable->pfnSetColorControl = LcdSoc_SetColorControl;
+	int_stat = lcdc_read_reg(INT_CTRL_STATUS);
+	int_mask = lcdc_read_reg(INT_MASK);
 
-    pTable->pfnGetVppTable = LcdSoc_GetVppTable;
+	status = int_stat & int_mask;
 
-    pTable->pfnPrintRegister = LcdSoc_PrintRegister;
-    pTable->pfnReset = LcdSoc_Reset;
-	pTable->pfnCtrlOutput = LcdSoc_CtrlOutput;
-    pTable->pfnGetChipID = LcdSoc_GetChipID;
-	pTable->pfnSetPixelClock = LcdSoc_SetPixelClock;
-	pTable->pfnGetPixelClock = LcdSoc_GetPixelClock;
+	if (type != LCDC_INTERRUPT_ALL)
+		status &= 1 << type;
 
-	pTable->pfnChangeMode = LcdSoc_ChangeMode;
+	return status;
+}
+
+static void lcdc_get_mode(struct lcdc_mode *disp_mode)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[LCDC_PRIMARY]);
+	LCDC_ENTRY("%s\n", __func__);
+
+	if (disp_mode) {
+		disp_mode->fmt = layer_state->fmt;
+		__lcdc_get_screen_size(&disp_mode->width,
+					&disp_mode->height,
+					&panel_info);
+		disp_mode->stride = layer_state->surf_width *
+					__lcdc_fmt_to_bpp(disp_mode->fmt);
+		disp_mode->ref_rate = LCDC_DISPLAY_FREQUENCY;
+	}
+}
+
+static void lcdc_get_video_mem(struct lcdc_video_mem *data)
+{
+	LCDC_ENTRY("%s\n", __func__);
+	data->size = lcdc_config.fb_size;
+
+	__lcdc_get_primary_size(&data->primary_size);
+}
+
+static int lcdc_alloc_overlay(struct lcdc_overlay *data)
+{
+	struct lcdc_layer_state *layer_state;
+	int layer, ret_layer;
+	bool need_vpp = false;
+
+	LCDC_ENTRY("%s: layer:%d fmt:%d w:%d h:%d\n", __func__,
+		data->layer, data->fmt, data->width, data->height);
+
+	if ((data->layer != LCDC_LAYER_UNKNOWN) &&
+		((data->layer < LCDC_OVERLAY_1) ||
+		 (data->layer > panel_info.maxlayer))) {
+		LCDC_ERR("%s(%d): wrong layer to allocate\n",
+			__func__, __LINE__);
+		return LCDC_LAYER_UNKNOWN;
+	}
+
+	/* if support the format */
+	switch (data->fmt) {
+	case VDSS_PIXELFORMAT_565:
+	case VDSS_PIXELFORMAT_556:
+	case VDSS_PIXELFORMAT_655:
+
+	case VDSS_PIXELFORMAT_BGRX_8880:
+	case VDSS_PIXELFORMAT_8888:
+		data->wstride_byte = ((__lcdc_fmt_to_bpp(data->fmt) *
+					data->width + 7) / 8) * 8;
+		data->hstride_byte = data->wstride_byte * data->height;
+		data->wstride_pixel = data->width;
+		data->hstride_pixel = data->hstride_byte / data->wstride_byte;
+		break;
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUNV:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_UYNV:
+	case VDSS_PIXELFORMAT_VYUY:
+
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_YV12:
+	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_UYVI:
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		if (!lcdc_config.vpp_handle) {
+			data->fmt = VDSS_PIXELFORMAT_UNKNOWN;
+			return LCDC_LAYER_UNKNOWN;
+		}
+
+		if (vpp_ops.alloc_overlay(data))
+			need_vpp = true;
+		else
+			return LCDC_LAYER_UNKNOWN;
+
+		break;
+	default:
+		data->fmt = VDSS_PIXELFORMAT_UNKNOWN;
+		return LCDC_LAYER_UNKNOWN;
+	}
+
+	/* if support the dimension */
+	if ((data->width > LCDC_MAX_OVERLAY_WIDTH) ||
+		(data->height > LCDC_MAX_OVERLAY_HEIGHT) ||
+		(data->fmt == VDSS_PIXELFORMAT_UNKNOWN))
+		return LCDC_LAYER_UNKNOWN;
+
+
+	ret_layer = LCDC_LAYER_UNKNOWN;
+	if (data->layer == LCDC_LAYER_UNKNOWN) {
+		for (layer = LCDC_OVERLAY_1;
+			layer <= panel_info.maxlayer;
+			layer++) {
+			layer_state =  &(lcdc_config.layer_state[layer]);
+			if (!layer_state->in_use) {
+				ret_layer = layer;
+				break;
+			}
+		}
+	} else {
+		layer_state =  &(lcdc_config.layer_state[data->layer]);
+		if (!layer_state->in_use)
+			ret_layer = data->layer;
+	}
+
+	if (ret_layer != LCDC_LAYER_UNKNOWN) {
+		__lcdc_reset_layer_state(ret_layer);
+		layer_state =  &(lcdc_config.layer_state[ret_layer]);
+		layer_state->in_use = true;
+		layer_state->show = false;
+		layer_state->need_vpp = need_vpp;
+		layer_state->fmt = data->fmt;
+		layer_state->surf_width = data->wstride_pixel;
+		layer_state->surf_height = data->hstride_pixel;
+		layer_state->src_rect.left = layer_state->src_rect.top = 0;
+		layer_state->src_rect.right = data->width;
+		layer_state->src_rect.bottom = data->height;
+	}
+
+	LCDC_DEBUG("%s: ret_layer:%d wstride_pixel:%d hstride_pixel:%d\n",
+		__func__, ret_layer, data->wstride_pixel, data->hstride_pixel);
+
+	return ret_layer;
+}
+
+static void lcdc_show_overlay(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s layer=%d\n", __func__, layer);
+
+	if (!layer_state->show &&
+		(layer_state->dst_rect.right -
+		 layer_state->dst_rect.left != 0) &&
+		(layer_state->dst_rect.bottom -
+		 layer_state->dst_rect.top != 0)) {
+		layer_state->show = true;
+		__lcdc_set_parameters(layer);
+	}
+}
+
+static void lcdc_hide_overlay(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	if (layer_state->show) {
+		layer_state->show = false;
+		__lcdc_disable_layer(layer, false);
+
+		if (layer_state->need_vpp)
+			vpp_ops.unlock();
+	}
+}
+
+static void lcdc_free_overlay(int layer)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	if (layer_state->in_use && layer_state->show)
+		lcdc_hide_overlay(layer);
+	layer_state->in_use = false;
+	return;
+}
+
+#if 0
+static void lcdc_print_parameters(struct lcdc_parms *data)
+{
+	LCDC_DEBUG("LCD layer %d parameters:\n", data->layer);
+	LCDC_DEBUG("fmt=%d\n", data->fmt);
+	LCDC_DEBUG("surf_width=%d\n", data->surf_width);
+	LCDC_DEBUG("surf_height=%d\n", data->surf_height);
+	LCDC_DEBUG("src_rect=%d %d %d %d\n", data->src_rect.left,
+					data->src_rect.top,
+					data->src_rect.right,
+					data->src_rect.bottom);
+	LCDC_DEBUG("dst_rect=%d %d %d %d\n", data->dst_rect.left,
+					data->dst_rect.top,
+					data->dst_rect.right,
+					data->dst_rect.bottom);
+	LCDC_DEBUG("base=0x%x\n", data->base);
+	LCDC_DEBUG("ckey_on=%d\n", data->ckey_on);
+	LCDC_DEBUG("ckey_low=0x%x\n", data->ckey_low);
+	LCDC_DEBUG("ckey_high=0x%x\n", data->ckey_high);
+	LCDC_DEBUG("dst_ckey_on=%d\n", data->dst_ckey_on);
+	LCDC_DEBUG("dst_ckey_low=0x%x\n", data->dst_ckey_low);
+	LCDC_DEBUG("dst_ckey_high=0x%x\n", data->dst_ckey_high);
+	LCDC_DEBUG("global_alpha=%d\n", data->g_alpha_enabled);
+	LCDC_DEBUG("source_alpha=%d\n", data->src_alpha_enabled);
+	LCDC_DEBUG("premulti_alpha=%d\n", data->pre_alpha_enabled);
+	LCDC_DEBUG("alpha=0x%x\n", data->alpha);
+}
+#endif
+
+static bool lcdc_set_parameters(struct lcdc_parms *data)
+{
+	int layer = data->layer;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+
+	layer_state->need_vpp = __lcdc_need_vpp(data->fmt);
+	if ((lcdc_config.vpp_handle == NULL) && layer_state->need_vpp) {
+		LCDC_ERR("%s(%d)\n", __func__, __LINE__);
+		return false;
+	}
+
+	layer_state->fmt = data->fmt;
+	layer_state->surf_width = data->surf_width;
+	layer_state->surf_height = data->surf_height;
+	layer_state->src_rect = data->src_rect;
+	layer_state->dst_rect = data->dst_rect;
+	layer_state->base = data->base;
+	layer_state->ckey_on = data->ckey_on;
+	layer_state->ckey_low = data->ckey_low;
+	layer_state->ckey_high = data->ckey_high;
+	layer_state->dst_ckey_on = data->dst_ckey_on;
+	layer_state->dst_ckey_low = data->dst_ckey_low;
+	layer_state->dst_ckey_high = data->dst_ckey_high;
+	layer_state->global_alpha = data->g_alpha_enabled;
+	layer_state->source_alpha = data->src_alpha_enabled;
+	layer_state->premulti_alpha = data->pre_alpha_enabled;
+	layer_state->alpha = data->alpha;
+	return __lcdc_set_parameters(layer);
+}
+
+static void lcdc_get_parameters(struct lcdc_parms *data)
+{
+	int layer = data->layer;
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+
+	if ((lcdc_config.vpp_handle == NULL) && __lcdc_need_vpp(data->fmt))
+		LCDC_ERR("%s(%d)\n", __func__, __LINE__);
+
+	data->fmt = layer_state->fmt;
+	data->surf_width = layer_state->surf_width;
+	data->surf_height = layer_state->surf_height;
+	data->src_rect = layer_state->src_rect;
+	data->dst_rect = layer_state->dst_rect;
+	data->base = layer_state->base;
+	data->ckey_on = layer_state->ckey_on;
+	data->ckey_low = layer_state->ckey_low;
+	data->ckey_high = layer_state->ckey_high;
+	data->dst_ckey_on = layer_state->dst_ckey_on;
+	data->dst_ckey_low = layer_state->dst_ckey_low;
+	data->dst_ckey_high = layer_state->dst_ckey_high;
+	data->g_alpha_enabled = layer_state->global_alpha;
+	data->src_alpha_enabled = layer_state->source_alpha;
+	data->pre_alpha_enabled = layer_state->premulti_alpha;
+	data->alpha = layer_state->alpha;
+}
+
+
+static void lcdc_pan_display(int layer, int x, int y)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	int w, h;
+	LCDC_ENTRY("%s\n", __func__);
+	w = layer_state->src_rect.right - layer_state->src_rect.left;
+	h = layer_state->src_rect.bottom - layer_state->src_rect.top;
+	layer_state->src_rect.left = x;
+	layer_state->src_rect.right = x + w;
+	layer_state->src_rect.top = y;
+	layer_state->src_rect.bottom = y + h;
+	__lcdc_flip(layer, LCDC_FLIP_FRAME);
+	__lcdc_confirm_layer_setting(layer);
+}
+
+static void lcdc_set_overlay_pos(int layer, struct vdss_rect *src,
+				struct vdss_rect *dst)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	if (dst)
+		layer_state->dst_rect = *dst;
+	if (src)
+		layer_state->src_rect = *src;
+
+	if (layer_state->show) {
+		/* Only update src, dst related parameters only when they
+		 * change */
+		__lcdc_set_size(layer, false);
+		__lcdc_confirm_layer_setting(layer);
+	}
+}
+
+static void lcdc_set_global_alpha(int layer, u8 alpha)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	layer_state->alpha = alpha;
+	if (layer_state->show) {
+		__lcdc_set_global_alpha(layer);
+		__lcdc_confirm_layer_setting(layer);
+	}
+}
+
+static void lcdc_set_alpha_property(int layer, bool premulti,
+				bool global, bool source)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	layer_state->premulti_alpha = premulti;
+	layer_state->global_alpha = global;
+	layer_state->source_alpha = source;
+	if (layer_state->show) {
+		__lcdc_set_alpha_property(layer);
+		__lcdc_confirm_layer_setting(layer);
+	}
+}
+
+static void lcdc_set_src_ckey(int layer, bool on, u32 high, u32 low)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	layer_state->ckey_on = on;
+	layer_state->ckey_high = high;
+	layer_state->ckey_low = low;
+	if (layer_state->show) {
+		__lcdc_set_colorkey(layer);
+		__lcdc_confirm_layer_setting(layer);
+	}
+}
+
+static void lcdc_set_dst_ckey(int layer, bool on, u32 high, u32 low)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	layer_state->dst_ckey_on = on;
+	layer_state->dst_ckey_high = high;
+	layer_state->dst_ckey_low = low;
+	if (layer_state->show) {
+		__lcdc_set_colorkey(layer);
+		__lcdc_confirm_layer_setting(layer);
+	}
+}
+
+static int lcdc_get_toplayer(void)
+{
+	LCDC_ENTRY("%s\n", __func__);
+	return lcdc_config.top_layer;
+}
+
+static void lcdc_set_toplayer(int layer)
+{
+	LCDC_ENTRY("%s\n", __func__);
+	lcdc_config.top_layer = layer;
+	__lcdc_set_toplayer();
+}
+
+
+static void lcdc_flip_overlay(int layer, u32 base, enum lcdc_flip_mode field)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+	LCDC_ENTRY("%s\n", __func__);
+	layer_state->base = base;
+	if (layer_state->show) {
+		__lcdc_flip(layer, field);
+		__lcdc_confirm_layer_setting(layer);
+	}
+}
+
+static void lcdc_set_cursor_shape(u32 *mask, int mask_stride, u32 *color,
+				int xhot, int yhot, int width, int height)
+{
+	struct lcdc_cursor_state *cursor_state = &(lcdc_config.cursor_state);
+
+	cursor_state->xhot = xhot;
+	cursor_state->yhot = yhot;
+	cursor_state->width = width;
+	cursor_state->height = height;
+	__lcdc_gen_cursor_fifo(color, mask, mask_stride);
+	__lcdc_set_cursor_shape();
+}
+
+static void lcdc_move_cursor(int xpos, int ypos)
+{
+	struct lcdc_cursor_state *cursor_state = &(lcdc_config.cursor_state);
+
+	cursor_state->xpos = xpos;
+	cursor_state->ypos = ypos;
+	cursor_state->show = (xpos != -1);
+	__lcdc_move_cursor();
+}
+
+static void lcdc_set_cursor_rotate(int angle)
+{
+	LCDC_ENTRY("%s\n", __func__);
+	lcdc_config.cursor_state.rotate = angle;
+}
+
+static void lcdc_reset(void)
+{
+	LCDC_ENTRY("%s\n", __func__);
+}
+
+static void lcdc_output_ctrl(bool turn_off)
+{
+	/* Wait until scan line go below VSTART */
+	unsigned int i;
+	LCDC_ENTRY("%s\n", __func__);
+
+	do {
+		i = lcdc_read_reg(S0_VCOUNT);
+	} while (i >= panel_info.vstart);
+}
+
+static void lcdc_get_gamma_ramp(u16 *gamma)
+{
+	int i;
+
+	LCDC_ENTRY("%s\n", __func__);
+	if (gamma)
+		for (i = 0; i < 256 * 3; i++)
+			gamma[i] = lcdc_config.gamma[i];
+}
+
+static void lcdc_set_gamma_ramp(u16 *gamma)
+{
+	int i;
+
+	LCDC_ENTRY("%s\n", __func__);
+	if (gamma) {
+		for (i = 0; i < 256 * 3; i++)
+			lcdc_config.gamma[i] = (u8)gamma[i];
+		lcdc_config.gamma_enable = true;
+		__lcdc_set_gamma_ramp();
+	}
+}
+
+static void lcdc_get_color_ctrl(int layer, struct lcdc_color_ctrl *data)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+
+	LCDC_ENTRY("%s\n", __func__);
+	if (data->flags & LCDC_COLORCONTROL_BRIGHTNESS)
+		data->brightness = layer_state->brightness;
+	if (data->flags & LCDC_COLORCONTROL_CONTRAST)
+		data->contrast = layer_state->contrast;
+	if (data->flags & LCDC_COLORCONTROL_HUE)
+		data->hue = layer_state->hue;
+	if (data->flags & LCDC_COLORCONTROL_SATURATION)
+		data->saturation = layer_state->saturation;
+}
+
+static void lcdc_set_color_ctrl(int layer, struct lcdc_color_ctrl *data)
+{
+	struct lcdc_layer_state *layer_state =
+		&(lcdc_config.layer_state[layer]);
+
+	LCDC_ENTRY("%s\n", __func__);
+	if (lcdc_config.vpp_handle && layer_state->need_vpp) {
+		if (data->flags & LCDC_COLORCONTROL_BRIGHTNESS) {
+			layer_state->brightness = data->brightness;
+			vpp_ops.update_bright(layer_state->brightness);
+		}
+		if (data->flags & LCDC_COLORCONTROL_CONTRAST) {
+			layer_state->contrast = data->contrast;
+			vpp_ops.update_contrast(data->contrast);
+		}
+		if (data->flags & LCDC_COLORCONTROL_HUE)
+			layer_state->hue = data->hue;
+		if (data->flags & LCDC_COLORCONTROL_SATURATION)
+			layer_state->saturation = data->saturation;
+	}
+}
+
+
+static void lcdc_print_register(void)
+{
+	LCDC_DUMP("LCD registers:\n");
+	LCDC_DUMP("S0_HSYNC_PERIOD=0x%08x\n", lcdc_read_reg(S0_HSYNC_PERIOD));
+	LCDC_DUMP("S0_HSYNC_WIDTH=0x%08x\n", lcdc_read_reg(S0_HSYNC_WIDTH));
+	LCDC_DUMP("S0_VSYNC_PERIOD=0x%08x\n", lcdc_read_reg(S0_VSYNC_PERIOD));
+	LCDC_DUMP("S0_VSYNC_WIDTH=0x%08x\n", lcdc_read_reg(S0_VSYNC_WIDTH));
+	LCDC_DUMP("S0_ACT_HSTART=0x%08x\n", lcdc_read_reg(S0_ACT_HSTART));
+	LCDC_DUMP("S0_ACT_VSTART=0x%08x\n", lcdc_read_reg(S0_ACT_VSTART));
+	LCDC_DUMP("S0_ACT_HEND=0x%08x\n", lcdc_read_reg(S0_ACT_HEND));
+	LCDC_DUMP("S0_ACT_VEND=0x%08x\n", lcdc_read_reg(S0_ACT_VEND));
+	LCDC_DUMP("S0_OSC_RATIO=0x%08x\n", lcdc_read_reg(S0_OSC_RATIO));
+	LCDC_DUMP("S0_TIM_CTRL=0x%08x\n", lcdc_read_reg(S0_TIM_CTRL));
+	LCDC_DUMP("S0_TIM_STATUS=0x%08x\n", lcdc_read_reg(S0_TIM_STATUS));
+	LCDC_DUMP("S0_HCOUNT=0x%08x\n", lcdc_read_reg(S0_HCOUNT));
+	LCDC_DUMP("S0_VCOUNT=0x%08x\n", lcdc_read_reg(S0_VCOUNT));
+	LCDC_DUMP("S0_BLANK=0x%08x\n", lcdc_read_reg(S0_BLANK));
+	LCDC_DUMP("S0_BACK_COLOR=0x%08x\n", lcdc_read_reg(S0_BACK_COLOR));
+	LCDC_DUMP("S0_DISP_MODE=0x%08x\n", lcdc_read_reg(S0_DISP_MODE));
+	LCDC_DUMP("S0_LAYER_SEL=0x%08x\n", lcdc_read_reg(S0_LAYER_SEL));
+	LCDC_DUMP("S0_RGB_SEQ=0x%08x\n", lcdc_read_reg(S0_RGB_SEQ));
+	LCDC_DUMP("S0_RGB_YUV_COEF1=0x%08x\n", lcdc_read_reg(S0_RGB_YUV_COEF1));
+	LCDC_DUMP("S0_RGB_YUV_COEF2=0x%08x\n", lcdc_read_reg(S0_RGB_YUV_COEF2));
+	LCDC_DUMP("S0_RGB_YUV_COEF3=0x%08x\n", lcdc_read_reg(S0_RGB_YUV_COEF3));
+	LCDC_DUMP("S0_YUV_CTRL=0x%08x\n", lcdc_read_reg(S0_YUV_CTRL));
+	LCDC_DUMP("S0_TV_FIELD=0x%08x\n", lcdc_read_reg(S0_TV_FIELD));
+	LCDC_DUMP("S0_INT_LINE=0x%08x\n", lcdc_read_reg(S0_INT_LINE));
+	LCDC_DUMP("S0_LAYER_STATUS=0x%08x\n", lcdc_read_reg(S0_LAYER_STATUS));
+	LCDC_DUMP("DMA_STATUS=0x%08x\n", lcdc_read_reg(DMA_STATUS));
+	LCDC_DUMP("SCR_CTRL=0X%08X\n", lcdc_read_reg(SCR_CTRL));
+	LCDC_DUMP("INT_MASK=0X%08X\n", lcdc_read_reg(INT_MASK));
+	LCDC_DUMP("INT_CTRL_STATUS=0X%08X\n", lcdc_read_reg(INT_CTRL_STATUS));
+
+	/* Lay0 register */
+	LCDC_DUMP("L0_CTRL=0x%08x\n", lcdc_read_reg(L0_CTRL));
+	LCDC_DUMP("L0_HSTART=0x%08x\n", lcdc_read_reg(L0_HSTART));
+	LCDC_DUMP("L0_VSTART=0X%08X\n", lcdc_read_reg(L0_VSTART));
+	LCDC_DUMP("L0_HEND=0X%08X\n", lcdc_read_reg(L0_HEND));
+	LCDC_DUMP("L0_VEND=0x%08x\n", lcdc_read_reg(L0_VEND));
+	LCDC_DUMP("L0_BASE0=0x%08x\n", lcdc_read_reg(L0_BASE0));
+	LCDC_DUMP("L0_BASE1=0X%08X\n", lcdc_read_reg(L0_BASE1));
+	LCDC_DUMP("L0_XSIZE=0X%08X\n", lcdc_read_reg(L0_XSIZE));
+	LCDC_DUMP("L0_YSIZE=0x%08x\n", lcdc_read_reg(L0_YSIZE));
+	LCDC_DUMP("L0_SKIP=0x%08x\n", lcdc_read_reg(L0_SKIP));
+	LCDC_DUMP("L0_DMA_CTRL=0X%08X\n", lcdc_read_reg(L0_DMA_CTRL));
+	LCDC_DUMP("L0_ALPHA=0X%08X\n", lcdc_read_reg(L0_ALPHA));
+	LCDC_DUMP("L0_CKEYB_SRC=0x%08x\n", lcdc_read_reg(L0_CKEYB_SRC));
+	LCDC_DUMP("L0_CKEYS_SRC=0X%08X\n", lcdc_read_reg(L0_CKEYS_SRC));
+	LCDC_DUMP("L0_CKEYB_DST=0x%08x\n", lcdc_read_reg(L0_CKEYB_DST));
+	LCDC_DUMP("L0_CKEYS_DST=0X%08X\n", lcdc_read_reg(L0_CKEYS_DST));
+	LCDC_DUMP("L0_FIFO_CHK=0X%08X\n", lcdc_read_reg(L0_FIFO_CHK));
+	LCDC_DUMP("L0_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L0_FIFO_STATUS));
+
+	/* Lay1 Register */
+	LCDC_DUMP("L1_CTRL=0x%08x\n", lcdc_read_reg(L1_CTRL));
+	LCDC_DUMP("L1_HSTART=0x%08x\n", lcdc_read_reg(L1_HSTART));
+	LCDC_DUMP("L1_VSTART=0X%08X\n", lcdc_read_reg(L1_VSTART));
+	LCDC_DUMP("L1_HEND=0X%08X\n", lcdc_read_reg(L1_HEND));
+	LCDC_DUMP("L1_VEND=0x%08x\n", lcdc_read_reg(L1_VEND));
+	LCDC_DUMP("L1_BASE0=0x%08x\n", lcdc_read_reg(L1_BASE0));
+	LCDC_DUMP("L1_BASE1=0X%08X\n", lcdc_read_reg(L1_BASE1));
+	LCDC_DUMP("L1_XSIZE=0X%08X\n", lcdc_read_reg(L1_XSIZE));
+	LCDC_DUMP("L1_YSIZE=0x%08x\n", lcdc_read_reg(L1_YSIZE));
+	LCDC_DUMP("L1_SKIP=0x%08x\n", lcdc_read_reg(L1_SKIP));
+	LCDC_DUMP("L1_DMA_CTRL=0X%08X\n", lcdc_read_reg(L1_DMA_CTRL));
+	LCDC_DUMP("L1_ALPHA=0X%08X\n", lcdc_read_reg(L1_ALPHA));
+	LCDC_DUMP("L1_CKEYB_SRC=0x%08x\n", lcdc_read_reg(L1_CKEYB_SRC));
+	LCDC_DUMP("L1_CKEYS_SRC=0X%08X\n", lcdc_read_reg(L1_CKEYS_SRC));
+	LCDC_DUMP("L1_CKEYB_DST=0x%08x\n", lcdc_read_reg(L1_CKEYB_DST));
+	LCDC_DUMP("L1_CKEYS_DST=0X%08X\n", lcdc_read_reg(L1_CKEYS_DST));
+	LCDC_DUMP("L1_FIFO_CHK=0X%08X\n", lcdc_read_reg(L1_FIFO_CHK));
+	LCDC_DUMP("L1_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L1_FIFO_STATUS));
+
+	/* Lay2 Register */
+	LCDC_DUMP("L2_CTRL=0x%08x\n", lcdc_read_reg(L2_CTRL));
+	LCDC_DUMP("L2_HSTART=0x%08x\n", lcdc_read_reg(L2_HSTART));
+	LCDC_DUMP("L2_VSTART=0X%08X\n", lcdc_read_reg(L2_VSTART));
+	LCDC_DUMP("L2_HEND=0X%08X\n", lcdc_read_reg(L2_HEND));
+	LCDC_DUMP("L2_VEND=0x%08x\n", lcdc_read_reg(L2_VEND));
+	LCDC_DUMP("L2_BASE0=0x%08x\n", lcdc_read_reg(L2_BASE0));
+	LCDC_DUMP("L2_BASE1=0X%08X\n", lcdc_read_reg(L2_BASE1));
+	LCDC_DUMP("L2_XSIZE=0X%08X\n", lcdc_read_reg(L2_XSIZE));
+	LCDC_DUMP("L2_YSIZE=0x%08x\n", lcdc_read_reg(L2_YSIZE));
+	LCDC_DUMP("L2_SKIP=0x%08x\n", lcdc_read_reg(L2_SKIP));
+	LCDC_DUMP("L2_DMA_CTRL=0X%08X\n", lcdc_read_reg(L2_DMA_CTRL));
+	LCDC_DUMP("L2_ALPHA=0X%08X\n", lcdc_read_reg(L2_ALPHA));
+	LCDC_DUMP("L2_CKEYB_SRC=0x%08x\n", lcdc_read_reg(L2_CKEYB_SRC));
+	LCDC_DUMP("L2_CKEYS_SRC=0X%08X\n", lcdc_read_reg(L2_CKEYS_SRC));
+	LCDC_DUMP("L2_CKEYB_DST=0x%08x\n", lcdc_read_reg(L2_CKEYB_DST));
+	LCDC_DUMP("L2_CKEYS_DST=0X%08X\n", lcdc_read_reg(L2_CKEYS_DST));
+	LCDC_DUMP("L2_FIFO_CHK=0X%08X\n", lcdc_read_reg(L2_FIFO_CHK));
+	LCDC_DUMP("L2_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L2_FIFO_STATUS));
+
+	/* Lay3 Register */
+	LCDC_DUMP("L3_CTRL=0x%08x\n", lcdc_read_reg(L3_CTRL));
+	LCDC_DUMP("L3_HSTART=0x%08x\n", lcdc_read_reg(L3_HSTART));
+	LCDC_DUMP("L3_VSTART=0X%08X\n", lcdc_read_reg(L3_VSTART));
+	LCDC_DUMP("L3_HEND=0X%08X\n", lcdc_read_reg(L3_HEND));
+	LCDC_DUMP("L3_VEND=0x%08x\n", lcdc_read_reg(L3_VEND));
+	LCDC_DUMP("L3_BASE0=0x%08x\n", lcdc_read_reg(L3_BASE0));
+	LCDC_DUMP("L3_BASE1=0X%08X\n", lcdc_read_reg(L3_BASE1));
+	LCDC_DUMP("L3_XSIZE=0X%08X\n", lcdc_read_reg(L3_XSIZE));
+	LCDC_DUMP("L3_YSIZE=0x%08x\n", lcdc_read_reg(L3_YSIZE));
+	LCDC_DUMP("L3_SKIP=0x%08x\n", lcdc_read_reg(L3_SKIP));
+	LCDC_DUMP("L3_DMA_CTRL=0X%08X\n", lcdc_read_reg(L3_DMA_CTRL));
+	LCDC_DUMP("L3_ALPHA=0X%08X\n", lcdc_read_reg(L3_ALPHA));
+	LCDC_DUMP("L3_CKEYB_SRC=0x%08x\n", lcdc_read_reg(L3_CKEYB_SRC));
+	LCDC_DUMP("L3_CKEYS_SRC=0X%08X\n", lcdc_read_reg(L3_CKEYS_SRC));
+	LCDC_DUMP("L3_CKEYB_DST=0x%08x\n", lcdc_read_reg(L3_CKEYB_DST));
+	LCDC_DUMP("L3_CKEYS_DST=0X%08X\n", lcdc_read_reg(L3_CKEYS_DST));
+	LCDC_DUMP("L3_FIFO_CHK=0X%08X\n", lcdc_read_reg(L3_FIFO_CHK));
+	LCDC_DUMP("L3_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L3_FIFO_STATUS));
+
+
+	if (lcdc_config.vpp_handle)
+		vpp_ops.print_register();
+}
+
+static void *lcdc_load_vpp_ops(void)
+{
+	if (lcdc_config.vpp_handle)
+		return &vpp_ops;
+	else
+		return NULL;
+}
+
+static int lcdc_get_chip_id(void)
+{
+	return LCDC_CHIP_V2;
+}
+
+static void lcdc_set_pixel_clk(u32 pixel_clk)
+{
+	u32 s0_osc_ratio;
+	panel_info.ref_rate = refresh_rate(pixel_clk,
+				panel_info.hsync_period,
+				panel_info.vsync_period);
+
+	s0_osc_ratio = lcdc_read_reg(S0_OSC_RATIO);
+	s0_osc_ratio &= ~S0_OSC_DIV_RATIO_MASK;
+	s0_osc_ratio |= S0_OSC_DIV_RATIO(panel_info.sys_clk / pixel_clk - 1);
+	lcdc_write_reg(S0_OSC_RATIO, s0_osc_ratio);
+
+	return;
+}
+
+static u32 lcdc_get_pixel_clk(void)
+{
+	return pixel_clock(panel_info.ref_rate,
+			panel_info.hsync_period,
+			panel_info.vsync_period);
+}
+
+void vdss_install_lcdc_ops(struct vdss_lcdc_ops *lcdc_ops)
+{
+	memset(lcdc_ops, 0, sizeof(*lcdc_ops));
+
+	lcdc_ops->init = lcdc_init;
+	lcdc_ops->terminate = lcdc_terminate;
+	lcdc_ops->sleep = lcdc_sleep;
+	lcdc_ops->wakeup = lcdc_wakeup;
+	lcdc_ops->get_scanline = lcdc_get_scanline;
+	lcdc_ops->wait_for_vblank = lcdc_wait_for_vblank;
+	lcdc_ops->get_mode = lcdc_get_mode;
+	lcdc_ops->get_video_mem = lcdc_get_video_mem;
+
+	lcdc_ops->alloc_overlay = lcdc_alloc_overlay;
+	lcdc_ops->free_overlay = lcdc_free_overlay;
+
+	lcdc_ops->show_overlay = lcdc_show_overlay;
+	lcdc_ops->set_parameters = lcdc_set_parameters;
+	lcdc_ops->get_parameters = lcdc_get_parameters;
+	lcdc_ops->hide_overlay = lcdc_hide_overlay;
+	lcdc_ops->set_overlay_pos = lcdc_set_overlay_pos;
+	lcdc_ops->pan_display = lcdc_pan_display;
+	lcdc_ops->flip_overlay = lcdc_flip_overlay;
+
+	lcdc_ops->set_global_alpha = lcdc_set_global_alpha;
+	lcdc_ops->set_alpha_property = lcdc_set_alpha_property;
+	lcdc_ops->set_src_ckey = lcdc_set_src_ckey;
+	lcdc_ops->set_dst_ckey = lcdc_set_dst_ckey;
+	lcdc_ops->set_toplayer = lcdc_set_toplayer;
+	lcdc_ops->get_toplayer = lcdc_get_toplayer;
+
+	lcdc_ops->enable_interrupt = lcdc_enable_interrupt;
+	lcdc_ops->disable_interrupt = lcdc_disable_interrupt;
+	lcdc_ops->clear_interrupt = lcdc_clear_interrupt;
+	lcdc_ops->irq_detected = lcdc_irq_detected;
+
+	lcdc_ops->set_cursor_shape = lcdc_set_cursor_shape;
+	lcdc_ops->move_cursor = lcdc_move_cursor;
+	lcdc_ops->set_cursor_rotate = lcdc_set_cursor_rotate;
+
+	lcdc_ops->get_gamma_ramp = lcdc_get_gamma_ramp;
+	lcdc_ops->set_gamma_ramp = lcdc_set_gamma_ramp;
+	lcdc_ops->get_color_ctrl = lcdc_get_color_ctrl;
+	lcdc_ops->set_color_ctrl = lcdc_set_color_ctrl;
+
+	lcdc_ops->load_vpp_ops = lcdc_load_vpp_ops;
+
+	lcdc_ops->print_register = lcdc_print_register;
+	lcdc_ops->reset = lcdc_reset;
+	lcdc_ops->output_ctrl = lcdc_output_ctrl;
+	lcdc_ops->get_chip_id = lcdc_get_chip_id;
+	lcdc_ops->set_pixel_clk = lcdc_set_pixel_clk;
+	lcdc_ops->get_pixel_clk = lcdc_get_pixel_clk;
+
+	lcdc_ops->change_mode = lcdc_change_mode;
 }
 
 

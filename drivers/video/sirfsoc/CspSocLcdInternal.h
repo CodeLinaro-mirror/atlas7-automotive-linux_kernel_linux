@@ -10,313 +10,285 @@
 #ifndef __CSP_SOC_LCD_INTERNAL_H__
 #define __CSP_SOC_LCD_INTERNAL_H__
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+#include <linux/string.h>
+#include <linux/delay.h>
+#include <linux/io.h>
 
 #include "CspCmnLcd.h"
 #include "LCDV2Regs.h"
 #include "CspCmnVpp.h"
 
-/***************************************************************************
-** 
-** OS Dependent
-****************************************************************************/
 
-#if defined(_WIN32_WCE)
-#include "macros.h"
-#include <drvlib.h>
-#include "CspSocLcdPanel.h"
-#include "BspLcd.h"
-#include "SOC_LCD.h"
-		
-	VOID __LcdSoc_Reset(VOID);
-	VOID __LcdSoc_EnableClock(VOID);
-	VOID __LcdSoc_DisableClock(VOID);
+struct lcdc_cursor_state {
+	int width;
+	int height;
+	int xhot;
+	int yhot;
+	int xpos;
+	int ypos;
+	int rotate;
+	u32 fifo[256 * 2];	/*first 256 for normal, second 256 for rotate*/
+	bool show;
+};
+
+struct lcdc_layer_state {
+	bool show;
+	bool in_use;
+	bool need_vpp;
+
+	struct vdss_rect src_rect;	/* IN: source rectangle */
+	struct vdss_rect dst_rect;	/* IN: destination rectangle */
+
+	struct vdss_rect src_rect_on;	/* HW state: src rect on screen */
+	struct vdss_rect dst_rect_on;	/* HW state: dst rect on screen */
+
+	u32 surf_width;
+	u32 surf_height;
+	enum vdss_pixelformat fmt;
+
+	bool ckey_on;			/* IN: if color key enable */
+	u32 ckey_high;			/* IN: high color key */
+	u32 ckey_low;			/* IN: low color key */
+	u32 base;			/* IN: physical base address */
+	bool global_alpha;		/* IN: if const alpha */
+	u8 alpha;			/* IN: alpha value */
+	bool dst_ckey_on;
+	u32 dst_ckey_high;		/* IN: high color key */
+	u32 dst_ckey_low;		/* IN: low color key */
+	bool source_alpha;
+	bool premulti_alpha;
+	bool replicate;
+
+	enum lcdc_flip_mode flip_mode;
+
+	int brightness;
+	int contrast;
+	int hue;
+	int saturation;
+};
+
+struct lcdc_config {
+	/* Immutable setting from Bootup */
+
+	u32 fb_size;		/* Size of RAM based Video Memory (should be a
+				   multiple of screen pitch) */
+	enum lcdc_layer top_layer;
+	u32 int_state;		/* Interrupt state */
+	struct lcdc_layer_state layer_state[LAYER_NUM];
+	struct lcdc_cursor_state cursor_state;
+	void *vpp_handle;
+	bool gamma_enable;
+	u8 gamma[256 * 3];
+};
+
+extern void __iomem *lcdc_regs;
+
+
+static inline unsigned int pixel_clock(unsigned int disp_freq,
+					unsigned int hpsync,
+					unsigned int vpsync)
+{
+	unsigned int val;
+
+	val = disp_freq * (hpsync + 1) * (vpsync + 1);
+	return val;
+}
+
+static inline unsigned int refresh_rate(unsigned int pixel_clock,
+					unsigned int hpsync,
+					unsigned int vpsync)
+{
+	unsigned int val;
+
+	val = pixel_clock / (hpsync + 1) / (vpsync + 1);
+	return val;
+}
+
+static inline unsigned int byte_stride(unsigned int screen_width,
+					unsigned int bpp)
+{
+	unsigned int val;
+
+	val = ((bpp * (screen_width + 63)) >> 6) << 3;
+	return val;
+}
+
+static inline unsigned int reg_offset(int layer, unsigned int reg_offset)
+{
+	return reg_offset + (layer << LCDC_LAYER_REG_SHIFT);
+}
+
+/*
+ * Register operation
+ */
+static inline unsigned int lcdc_read_reg(unsigned int offset)
+{
+	return readl(lcdc_regs + offset);
+}
+
+static inline void lcdc_write_reg(unsigned int offset, unsigned int value)
+{
+	writel(value, lcdc_regs + offset);
+}
+
+#define LCDC_MAX_OVERLAY_WIDTH	2046
+#define LCDC_MAX_OVERLAY_HEIGHT	2046
+#define LCDC_DISPLAY_FREQUENCY	60
+
+#ifdef VPP_TO_LCDC_8880
+#define VPP_TO_LCDC_CTRL_BPP	LO_CTRL_BPP_RGB888
+#define VPP_TO_LCDC_PIXELFORMAT	VDSS_PIXELFORMAT_BGRX_8880
+#define VPP_TO_LCDC_BPP		4
 #else
-#include <linux/string.h>
-#include <linux/delay.h>
-		
-		
-		/*Just skip the following function for linux*/
-#define LcdBsp_PrePowerDown(args...)
-#define LcdBsp_PostPowerDown(args...)
-#define LcdBsp_PrePowerUp(args...)
-#define LcdBsp_PostPowerUp(args...)
-#define LcdBsp_CtrlOutput(args...)
-		
-#define __LcdSoc_EnableClock(args...)
-#define __LcdSoc_DisableClock(args...)
-#define __LcdSoc_Reset(args...)
+#define VPP_TO_LCDC_CTRL_BPP	LO_CTRL_BPP_RGB565
+#define VPP_TO_LCDC_PIXELFORMAT	VDSS_PIXELFORMAT_565
+#define VPP_TO_LCDC_BPP		2
 #endif
 
 
-typedef struct _LCDSOC_CURSOR_STATE_
+static inline bool __lcdc_need_vpp(enum vdss_pixelformat format)
 {
-    INT iWidth;
-    INT iHeight;
-    INT iXHot;
-    INT iYHot;
-    INT iXPos;
-    INT iYPos;
-    INT iRotate;
-    UINT32 aui32FIFO[256*2]; /*first 256 for normal, second 256 for rotate*/
-    BOOL bShow;
-} LCDSOC_CURSOR_STATE;
-
-typedef struct _LCDSOC_LAYER_STATE_
-{
-    BOOL bShow;
-    BOOL bInUse;
-    BOOL bNeedVpp;
-
-    RECT sRectSrc;                  /* IN: source rectangle */
-    RECT sRectDst;                  /* IN: destination rectangle */
-
-    RECT sRectSrcOn;                /* Current HW state: src rect on screen */
-    RECT sRectDstOn;                /* Current HW state: dst rect on screen */
-    
-    UINT32 ui32SurfWidth;
-    UINT32 ui32SurfHeight;
-    LCD_PIXELFORMAT eLcdFormat;
-
-    BOOL bCKeyOn;                   /* IN: if color key enable */
-    UINT32 ui32CKHigh;              /* IN: high color key */    
-    UINT32 ui32CKLow;               /* IN: low color key */
-    UINT32 ui32Base;                /* IN: physical base address of surface */
-    BOOL bGlobalAlpha;              /* IN: if const alpha */
-    UINT8 ui8Alpha;                 /* IN: alpha value */
-    BOOL bCKeyDstOn;
-    UINT32 ui32CKDstHigh;           /* IN: high color key */    
-    UINT32 ui32CKDstLow;            /* IN: low color key */
-    BOOL bSourceAlpha;
-    BOOL bPremultiAlpha;
-    BOOL bReplicate;
-    UINT32 ui32BaseOn;
-
-    LCD_FLIP_MODE   eFlipMode;
-
-    INT32   i32Brightness;
-    INT32   i32Contrast;
-    INT32   i32Hue;
-    INT32   i32Saturation;
-} LCDSOC_LAYER_STATE;
-
-typedef struct _LCDSOC_CONFIG_
-{
-    /*
-    ** Immutable setting from Bootup
-    */
-    UINT32 ui32FBSize;      /* Size of RAM based Video Memory (should be a multiple of screen Pitch) */
-
-    /*
-    ** Screen setting
-    */
-	LCD_LAYER eTopLayer;
-    /*
-     * Interrupt state
-     */
-    UINT32 ui32IntState;
-
-    /*
-    ** Layer setting
-    */
-    LCDSOC_LAYER_STATE sLayerState[E_LAYER_NUM];
-
-    /*
-    ** Cursor setting
-    */
-    LCDSOC_CURSOR_STATE sCursorState;
-
-    /*
-    ** VPP handle
-    */
-    VOID *hVppHandle;
-
-    /*
-    ** Gamma Ramp Table
-    */
-    BOOL   bGammaEnable;
-    UINT8  aui8Gamma[256 * 3];
-} LCDSOC_CONFIG;
-
-/*
-** Variable exported
-*/
-extern LCD_PANEL_INFO gsPanelInfo;
-extern LCDSOC_CONFIG gsLcdConfig;
-extern volatile UINT8 *gpui8LcdRegs;
-
-
-static INLINE UINT32 PIXEL_CLOCK(UINT32 dispFreq, UINT32 HPSync, UINT32 VPSync)
-{
-    return (dispFreq * (HPSync+1)* (VPSync+1));
+	return (format >= VDSS_PIXELFORMAT_UYVY);
 }
 
-static INLINE UINT32 REFRESH_RATE(UINT32 PixelClock, UINT32 HPSync, UINT32 VPSync)
+static inline bool __lcdc_is_tvmode(struct lcdc_panel_info *panel)
 {
-    return (PixelClock / (HPSync+1) / (VPSync+1));
+	return (panel->out_fmt == LCDC_OUT_8_BIT_YUV422);
 }
 
-static INLINE UINT32 BYTE_STRIDE(UINT32 screenWidth, UINT32 bpp)
+static inline unsigned int __lcdc_dma_unit(bool tvmode)
 {
-    return (((((UINT)bpp) * ((UINT)screenWidth) + 63) >> 6) << 3);
+	if (tvmode)
+		return 32;
+
+	return 128;
 }
 
-static INLINE UINT32 REG_OFFSET(LCD_LAYER eLayer, UINT32 l0RegOffset)
+static inline void __lcdc_reset_layer_fifo(int layer)
 {
-    LCD_ASSERT(l0RegOffset >= L0_CTRL);
-    LCD_ASSERT(l0RegOffset <L1_CTRL);
-    return l0RegOffset + (eLayer<<LCD_LAYER_REG_SHIFT);
+	u32 lx_ctrl;
+
+	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+
+	lx_ctrl |= LX_CTRL_FIFO_RESET;
+	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+
+	lx_ctrl &= ~LX_CTRL_FIFO_RESET;
+	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
 }
 
-/*
-** Register operation
-*/
-static INLINE UINT32 ReadLcdRegisterValue(UINT32 ui32Offset)
+static inline void __lcdc_clear_layer_confirm_setting(int layer)
 {
-	return (*(volatile UINT32 * const)(gpui8LcdRegs + ui32Offset));
+	u32 lx_ctrl;
+
+	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+
+	if (lx_ctrl & LX_CTRL_CONFIRM) {
+		lx_ctrl &= ~LX_CTRL_CONFIRM;
+		lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+	}
 }
 
-static INLINE VOID WriteLcdRegisterValue(UINT32 ui32Offset, UINT32 ui32Value)
+static inline void __lcdc_confirm_layer_setting(int layer)
 {
-#ifdef LCD_LOG
-    LCD_MSG(("Write LCD 0x%08x=0x%08x \r\n",  ui32Offset, ui32Value));
-#endif
-	*(volatile UINT32 * const)(gpui8LcdRegs + ui32Offset) = ui32Value;
+	u32 lx_ctrl;
+
+	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+
+	lx_ctrl |= LX_CTRL_CONFIRM;
+	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
 }
 
-#define LCD_MAX_OVERLAY_WIDTH 2046
-#define LCD_MAX_OVERLAY_HEIGHT 2046
-#define LCD_DISPLAY_FREQUENCY 60
-#define VPP_MODULE_NAME _T("VPP.dll")
-
-//#define VPP_TO_LCD_8880
-#ifdef VPP_TO_LCD_8880
-#define VPP_TO_LCD_CTRL_BPP          E_LO_CTRL_BPP_RGB888
-#define VPP_TO_LCD_PIXELFORMAT       LCD_PIXELFORMAT_BGRX_8880
-#define VPP_TO_LCD_BPP               4               
-#else
-#define VPP_TO_LCD_CTRL_BPP          E_LO_CTRL_BPP_RGB565
-#define VPP_TO_LCD_PIXELFORMAT       LCD_PIXELFORMAT_565
-#define VPP_TO_LCD_BPP               2               
-#endif
-
-/*
-** Inline function
-*/
-static INLINE BOOL __LcdSoc_NeedVpp(LCD_PIXELFORMAT eFormat)
+static inline void __lcdc_confirm_cursor_setting(void)
 {
-    return (eFormat>=LCD_PIXELFORMAT_UYVY);
+	u32 cur0_ctrl;
+
+	cur0_ctrl = lcdc_read_reg(CUR0_CTRL);
+
+	cur0_ctrl |= CUR0_SETTING_VALID;
+	lcdc_write_reg(CUR0_CTRL, cur0_ctrl);
 }
 
 
-static INLINE BOOL __LcdSoc_IsTVMode(LCD_PANEL_INFO *psPanel)
+static inline int __lcdc_fmt_to_hwfmt(enum vdss_pixelformat fmt)
 {
-	return (psPanel->eOutFormat == LCD_OUT_8_BIT_YUV422);
+	switch (fmt) {
+	case VDSS_PIXELFORMAT_565:
+		return LO_CTRL_BPP_RGB565;
+	case VDSS_PIXELFORMAT_556:
+		return LO_CTRL_BPP_RGB556;
+	case VDSS_PIXELFORMAT_655:
+		return LO_CTRL_BPP_RGB655;
+	case VDSS_PIXELFORMAT_666:
+		return LO_CTRL_BPP_RGB666;
+	case VDSS_PIXELFORMAT_BGRX_8880:
+		return LO_CTRL_BPP_RGB888;
+	case VDSS_PIXELFORMAT_8888:
+		return LO_CTRL_BPP_ARGB8888;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, fmt);
+		break;
+	}
+	return LO_CTRL_BPP_UNKNOWN;
 }
 
-static INLINE UINT __LcdSoc_DMA_UNIT(BOOL bTVMode, BOOL bOverlay)
+static inline int __lcdc_hwfmt_to_fmt(enum l0_ctrl_bpp hwfmt)
 {
-    if(bTVMode)
-    {
-        return 32;
-    }
-
-    return 128;
+	switch (hwfmt) {
+	case LO_CTRL_BPP_RGB565:
+		return VDSS_PIXELFORMAT_565;
+	case LO_CTRL_BPP_RGB556:
+		return VDSS_PIXELFORMAT_556;
+	case LO_CTRL_BPP_RGB655:
+		return VDSS_PIXELFORMAT_655;
+	case LO_CTRL_BPP_RGB666:
+		return VDSS_PIXELFORMAT_666;
+	case LO_CTRL_BPP_RGB888:
+		return VDSS_PIXELFORMAT_BGRX_8880;
+	case LO_CTRL_BPP_ARGB8888:
+		return VDSS_PIXELFORMAT_8888;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, hwfmt);
+		break;
+	}
+	return VDSS_PIXELFORMAT_UNKNOWN;
 }
 
-static INLINE VOID __LcdSoc_ResetLayerFifo(LCD_LAYER eLayer)
+static inline int __lcdc_fmt_to_bpp(enum vdss_pixelformat fmt)
 {
-    REG_L0_CTRL reg_L0_CTRL;
-    reg_L0_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL));
-    reg_L0_CTRL.FIFO_RESET = 1;
-    /* Question: Does it matter that write them together? */
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_L0_CTRL.DW);
-    reg_L0_CTRL.FIFO_RESET = 0;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_L0_CTRL.DW);    
-}
-
-static INLINE VOID __LcdSoc_ClearLayerConfirmSetting(LCD_LAYER eLayer)
-{
-    REG_L0_CTRL reg_Lx_CTRL;
-    reg_Lx_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL));
-    if (reg_Lx_CTRL.CONFIRM)
-    {
-        reg_Lx_CTRL.CONFIRM = 0;
-        WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_Lx_CTRL.DW);
-    }
-}
-
-static INLINE VOID __LcdSoc_ConfirmLayerSetting(LCD_LAYER eLayer)
-{
-    REG_L0_CTRL reg_Lx_CTRL;
-    reg_Lx_CTRL.DW = ReadLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL));
-    reg_Lx_CTRL.CONFIRM = 1;
-    WriteLcdRegisterValue(REG_OFFSET(eLayer, L0_CTRL), reg_Lx_CTRL.DW);
-}
-
-static INLINE VOID __LcdSoc_ConfirmCursorSetting(VOID)
-{
-    REG_CUR0_CTRL reg_CUR0_CTRL;
-    reg_CUR0_CTRL.DW = ReadLcdRegisterValue(CUR0_CTRL);
-    reg_CUR0_CTRL.SETTING_VALID = 1;
-    WriteLcdRegisterValue(CUR0_CTRL, reg_CUR0_CTRL.DW);
+	switch (fmt) {
+	case VDSS_PIXELFORMAT_565:
+	case VDSS_PIXELFORMAT_556:
+	case VDSS_PIXELFORMAT_655:
+		return 2;
+	case VDSS_PIXELFORMAT_666:
+	case VDSS_PIXELFORMAT_BGRX_8880:
+	case VDSS_PIXELFORMAT_8888:
+		return 4;
+	default:
+		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+			__func__, __LINE__, fmt);
+		break;
+	}
+	return 2;
 }
 
 
-/*
-** Function declare
-*/
-ENUM_LO_CTRL_BPP __LcdSoc_EFormatToHwFormat(LCD_PIXELFORMAT eFormat);
-LCD_PIXELFORMAT __LcdSoc_HwFormatToEFormat(ENUM_LO_CTRL_BPP hwFormat);
-UINT32 __LcdSoc_EFormatToBpp(LCD_PIXELFORMAT eFormat);
-VOID __LcdSoc_WaitIdle(LCD_LAYER eLayer, BOOL bWithVpp);
-VOID __LcdSoc_DisableLayer(LCD_LAYER eLayer, BOOL bWait);
-VOID __LcdSoc_EnableLayer(LCD_LAYER eLayer);
-VOID __LcdSoc_SetDma(LCD_LAYER eLayer, RECT *pRectSrc);
-UINT32 __LcdSoc_CKValue(LCD_PIXELFORMAT eFormat, BOOL bDuplicate, UINT32 value);
-BOOL __LcdSoc_SetParameters(LCD_LAYER eLayer);
-VOID __LcdSoc_Lock(LCD_LAYER eLayer, UINT32 ui32Base);
-VOID __LcdSoc_CalcSize(RECT *psRectSrcOrig, RECT *psRectDstOrig, BOOL bNeedVpp, RECT *psRectSrc, RECT *psRectDst);
-VOID __LcdSoc_SetDstRect(LCD_LAYER eLayer, RECT *psRectDstOn);
-VOID __LcdSoc_SetSize(LCD_LAYER eLayer, BOOL bForceUpdate);
-VOID __LcdSoc_GetPrimarySize(UINT32 *pui32PrimarySize);
-VOID __LcdSoc_GetFBSize(UINT32 *pui32FBSize);
-VOID __LcdSoc_ConfigScreen(LCD_PANEL_INFO *psPanel);
-VOID __LcdSoc_GetScreenSize(UINT32 *pui32Width, 
-								UINT32 *pui32Height, 
-								LCD_PANEL_INFO *psPanel);
-VOID __LcdSoc_PowerUp(UINT32 ui32PrimBase, 
-					LCD_PIXELFORMAT ui32Format,
-					LCD_PANEL_INFO *psPanel);
-VOID __LcdSoc_PowerDown(VOID);
-VOID __LcdSoc_ISRHandler(LCDSOC_CONFIG *pConfig);
-VOID __LcdSoc_InstallISR(VOID);
-VOID __LcdSoc_Flip(LCD_LAYER eLayer, LCD_FLIP_MODE eField);
-VOID __LcdSoc_GenCursorFIFO(UINT32 *pColor, UINT32 *pMask, INT iMaskStride);
-VOID __LcdSoc_CalcCursorRegion(INT iXPos, INT iYPos, 
-    RECT *pRect, INT *piLeftSkip, INT *piTopSkip);
-VOID __LcdSoc_SetCursorRegion(RECT *pRect, INT iLeftSkip, INT iTopSkip);
-VOID __LcdSoc_SetCursorShape(VOID);
-VOID __LcdSoc_MoveCursor(VOID);
-VOID __LcdSoc_SetGlobalAlpha(LCD_LAYER eLayer);
-VOID __LcdSoc_SetAlphaProperty(LCD_LAYER eLayer);
-VOID __LcdSoc_SetColorKey(LCD_LAYER eLayer);
-
-VOID OSGetPanelInfo(LCD_PANEL_INFO *psPanel);
+void __lcdc_get_screen_size(u32 *width, u32 *height,
+			struct lcdc_panel_info *panel);
+void __lcdc_config_screen(struct lcdc_panel_info *panel);
+void __lcdc_power_up(u32 prim_base, enum vdss_pixelformat fmt,
+				struct lcdc_panel_info *panel);
+void __lcdc_boot_up(void *regs, unsigned long prim_base,
+		unsigned int bpp, struct lcdc_panel_info *panel);
 
 
-/**
-* Default Replicate conversion setting
-**/
-#define LCD_DEFAULT_REPLICATE           1
-#define LCD_DEFAULT_PREMULTI_ALPHA      1
-#define LCD_DEFAULT_REFRESH_RATE        60
+/* Default Replicate conversion setting */
+#define LCDC_DEFAULT_REPLICATE		1
+#define LCDC_DEFAULT_PREMULTI_ALPHA	1
+#define LCDC_DEFAULT_REFRESH_RATE	60
 
-
-#if defined(__cplusplus)
-}
-#endif
 
 #endif
