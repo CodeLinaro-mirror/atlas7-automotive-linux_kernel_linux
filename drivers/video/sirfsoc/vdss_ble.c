@@ -505,7 +505,7 @@ static u32 __ble2d_bitblt(struct ble_context *dcontext,
 
 	if (bltinfo->need_synclast && !first_cmd) {
 		bltcmd[cur_cmdindex++] = FENCE_HEAD(OP_FENCE_WAIT) |
-		    FENCE_ADDR(dcontext->sync_object.phyaddr >> 3);
+		    FENCE_ADDR(dcontext->sync_object.phyaddr);
 		bltcmd[cur_cmdindex++] = dcontext->sync_object.cur_syncid - 1;
 	} else if (first_cmd) {
 		first_cmd = false;
