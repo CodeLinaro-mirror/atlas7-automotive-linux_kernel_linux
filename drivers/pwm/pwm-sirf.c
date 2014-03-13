@@ -64,11 +64,24 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 {
 	u32 period_cycles, high_cycles, low_cycles;
 	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
+	u32 val;
 
 	/* use OSC to generate PWM signals */
 	period_cycles = sirf_pwm_ns_to_cycles(chip, period_ns);
 	if (period_cycles == 1)
 		return -EINVAL;
+
+	/*
+	 * To be refined soon, just work here.
+	 * Only for 32k pwm output,
+	 * source clk: 32k rtc, bypass mode
+	 */
+	val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
+	if (period_ns == 30518)
+		val |= (0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
+	else
+		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
+	writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 
 	high_cycles = sirf_pwm_ns_to_cycles(chip, duty_ns);
 	low_cycles = period_cycles - high_cycles;
@@ -104,8 +117,12 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	/* select preclock source must after disable preclk*/
 	val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
-	val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
 	val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
+
+	/* 32k pwm output */
+	if (pwm->period == 30518)
+		val |= (3 << (SRC_FIELD_SIZE * pwm->hwpwm));
+
 	writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
 
 	/* wait for some time */
