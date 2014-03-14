@@ -252,7 +252,8 @@ static void sirfsoc_camera_callback(void *pdata)
 		struct dma_async_tx_descriptor *rx_desc;
 
 		pcdev->active->state = VIDEOBUF_ACTIVE;
-		pcdev->dma_xt->dst_start = videobuf_to_dma_contig(pcdev->active);
+		pcdev->dma_xt->dst_start =
+			videobuf_to_dma_contig(pcdev->active);
 
 		rx_desc = dmaengine_prep_interleaved_dma(pcdev->dma_chan,
 							pcdev->dma_xt, 0);
@@ -287,7 +288,8 @@ static int sirfsoc_camera_start_dma(
 	if (resetfifo)
 		pcdev->vip_funcs.stop();
 
-	pcdev->dma_xt->sgl[0].size = vb->size/vb->height; /* transfer size in byte*/
+	/* transfer size in byte */
+	pcdev->dma_xt->sgl[0].size = vb->size / vb->height;
 	pcdev->dma_xt->sgl[0].icg = 0;
 	pcdev->dma_xt->frame_size = 1;
 	pcdev->dma_xt->numf = vb->height;
@@ -1205,8 +1207,8 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
 
 	pcdev->dma_chan = dma_request_channel(dma_cap_mask,
-					      (dma_filter_fn)sirfsoc_dma_filter_id,
-					      (void *)dma_ch);
+			(dma_filter_fn)sirfsoc_dma_filter_id,
+			(void *)dma_ch);
 	if (!pcdev->dma_chan) {
 		dev_err(&pdev->dev, "%s: can not allocate vip dma channel\n",
 			__func__);
