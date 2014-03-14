@@ -1,0 +1,123 @@
+/*
+ * DTS file for CSR SiRFatlas7 SoC
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/include/ "skeleton.dtsi"
+/ {
+	compatible = "sirf,atlas7";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	interrupt-parent = <&gic>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <0>;
+		};
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <1>;
+		};
+	};
+
+	axi {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x10000000 0x10000000 0xc0000000>;
+
+		gic: interrupt-controller@10301000 {
+			compatible = "arm,cortex-a9-gic";
+			interrupt-controller;
+			#interrupt-cells = <3>;
+			reg = <0x10301000 0x1000>,
+			     <0x10302000 0x0100>;
+		};
+
+		peri-iobg {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x10000000 0x10000000 0x03000000>,
+			        <0x18000000 0x18000000 0x01000000>;
+
+			timer@10dc0000 {
+				compatible = "sirf,marco-tick";
+				reg = <0x10dc0000 0x1000>;
+				interrupts = <0 0 0>,
+					   <0 1 0>,
+					   <0 2 0>,
+					   <0 49 0>,
+					   <0 50 0>,
+					   <0 51 0>;
+			};
+
+			uart1: uart@18020000 {
+				cell-index = <1>;
+				compatible = "sirf,marco-uart";
+				reg = <0x18020000 0x1000>;
+				interrupts = <0 18 0>;
+				fifosize = <32>;
+			};
+
+		};
+
+		pci-iobg {
+			compatible = "sirf,prima2-pciiobg", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x16000000 0x16000000 0x00200000>,
+				<0x14200000 0x14200000 0x00600000>;
+
+			sd0: sdhci@16000000 {
+				cell-index = <0>;
+				compatible = "sirf,prima2-sdhc";
+				reg = <0x16000000 0x100000>;
+				interrupts = <38>;
+				wp-inverted;
+				broken-cd;
+				non-removable;
+				status = "disabled";
+				bus-width = <8>;
+			};
+
+			sd1: sdhci@16100000 {
+				cell-index = <1>;
+				compatible = "sirf,prima2-sdhc";
+				reg = <0x16100000 0x100000>;
+				interrupts = <38>;
+				status = "disabled";
+				bus-width = <4>;
+			};
+
+			sd2: sdhci@14200000 {
+				cell-index = <2>;
+				compatible = "sirf,prima2-sdhc";
+				reg = <0x14200000 0x100000>;
+				interrupts = <23>;
+				status = "disabled";
+				bus-width = <4>;
+			};
+
+			sd3: sdhci@14300000 {
+				cell-index = <3>;
+				compatible = "sirf,prima2-sdhc";
+				reg = <0x14300000 0x100000>;
+				interrupts = <23>;
+				status = "disabled";
+				bus-width = <4>;
+			};
+		};
+
+	};
+
+};

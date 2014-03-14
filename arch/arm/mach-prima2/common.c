@@ -191,3 +191,21 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.restart	= sirfsoc_restart,
 MACHINE_END
 #endif
+
+#ifdef CONFIG_ARCH_ATLAS7
+static const char *atlas7_dt_match[] __initdata = {
+	"sirf,atlas7",
+	NULL
+};
+
+DT_MACHINE_START(ATLAS7_DT, "Generic ATLAS7 (Flattened Device Tree)")
+	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	.reserve	= sirfsoc_reserve,
+	.smp            = smp_ops(sirfsoc_smp_ops),
+	.map_io         = sirfsoc_map_io,
+	.init_machine   = sirfsoc_init_mach,
+	.init_late	= sirfsoc_init_late,
+	.dt_compat      = atlas7_dt_match,
+	.restart	= sirfsoc_restart,
+MACHINE_END
+#endif
