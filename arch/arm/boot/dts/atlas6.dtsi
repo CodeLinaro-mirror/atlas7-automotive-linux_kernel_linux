@@ -741,6 +741,7 @@
 				sd5: sdhci@56500000 {
 					cell-index = <5>;
 					compatible = "sirf,prima2-sdhc";
+					loop-dma;
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
