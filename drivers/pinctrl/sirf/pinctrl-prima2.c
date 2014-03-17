@@ -935,16 +935,19 @@ static const char * const uart1grp[] = { "uart1grp" };
 static const char * const uart2grp[] = { "uart2grp" };
 static const char * const uart2_nostreamctrlgrp[] = { "uart2_nostreamctrlgrp" };
 static const char * const usp0grp[] = { "usp0grp" };
-static const char * const usp0_uart_nostreamctrl_grp[] =
-					{ "usp0_uart_nostreamctrl_grp" };
+static const char * const usp0_uart_nostreamctrl_grp[] = {
+	"usp0_uart_nostreamctrl_grp"
+};
 static const char * const usp0_only_utfs_grp[] = { "usp0_only_utfs_grp" };
 static const char * const usp0_only_urfs_grp[] = { "usp0_only_urfs_grp" };
 static const char * const usp1grp[] = { "usp1grp" };
-static const char * const usp1_uart_nostreamctrl_grp[] =
-					{ "usp1_uart_nostreamctrl_grp" };
+static const char * const usp1_uart_nostreamctrl_grp[] = {
+	"usp1_uart_nostreamctrl_grp"
+};
 static const char * const usp2grp[] = { "usp2grp" };
-static const char * const usp2_uart_nostreamctrl_grp[] =
-					{ "usp2_uart_nostreamctrl_grp" };
+static const char * const usp2_uart_nostreamctrl_grp[] = {
+	"usp2_uart_nostreamctrl_grp"
+};
 static const char * const i2c0grp[] = { "i2c0grp" };
 static const char * const i2c1grp[] = { "i2c1grp" };
 static const char * const pwm0grp[] = { "pwm0grp" };
