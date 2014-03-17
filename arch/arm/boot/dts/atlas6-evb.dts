@@ -70,6 +70,15 @@
 		default-brightness-level = <6>;
 	};
 	axi {
+		dsp-iobg {
+			gps@a8010000 {
+				compatible = "sirf,prima2-gps";
+				shutdown-gpios = <&gpio 6 0>;
+				grst-gpios = <&gpio 8 0>;
+				clk-out-gpios = <&gpio 61 0>;
+				lan-en-gpios = <&gpio 64 0>;
+			};
+		};
 		peri-iobg {
 			gpio: pinctrl@b0120000 {
 				sirf,pullups = <0 0 0 0 0>;
