@@ -270,7 +270,7 @@ static int gps_open(struct inode *inode, struct file *filp)
 	/*success return 1*/
 	ret = mutex_trylock(&gps_mutex);
 	if (!ret) {
-		ret = 1;
+		ret = -EBUSY;
 		goto out_error;
 	}
 	ret = 0;
