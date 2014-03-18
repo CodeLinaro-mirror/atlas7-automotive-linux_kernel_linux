@@ -58,19 +58,14 @@ static struct map_desc v2m_io_desc[] __initdata = {
 		.pfn		= __phys_to_pfn(V2M_PA_CS7),
 		.length		= SZ_128K,
 		.type		= MT_DEVICE,
+	}, { /* csrvisor */
+		.virtual	= 0xD0000000,
+		.pfn		= __phys_to_pfn(CSRVISOR_PHY_BASE),
+		.length		= SZ_1M,
+		.type		= MT_MEMORY_RWX,
 	},
 #ifndef CONFIG_SECURITY_MODE
-	{ /* csrvisor */
-		.virtual	= 0xD0000000,
-		.pfn		= __phys_to_pfn(0x80000000),
-		.length		= SZ_128K,
-		.type		= MT_DEVICE,
-	}, { /* parameter of SMC call */
-		.virtual	= 0xD0000000 + SZ_128K,
-		.pfn		= __phys_to_pfn(0x80000000 + SZ_128K),
-		.length		= SZ_4K,
-		.type		= MT_DEVICE,
-	}, {   /* Virtio Resource Table */
+	{   /* Virtio Resource Table */
 		.virtual	= 0xD0200000,
 		.pfn		= __phys_to_pfn(CSRVISOR_VIRTIO_BUS_PHY_BASE),
 		.length		= SZ_2M,
