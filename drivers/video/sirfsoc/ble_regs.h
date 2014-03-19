@@ -1,5 +1,5 @@
 /*
- * CSR sirfsoc BLE internal interface
+ * CSR sirfsoc BLE hardware registers
  *
  * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
  * company.
