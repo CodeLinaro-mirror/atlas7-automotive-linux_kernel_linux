@@ -1513,12 +1513,12 @@ out:
 	return ret;
 }
 
-static int ci_udc_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
+static int ci_udc_vbus_draw(struct usb_gadget *_gadget, unsigned ma)
 {
 	struct ci_hdrc *ci = container_of(_gadget, struct ci_hdrc, gadget);
 
-	if (!IS_ERR_OR_NULL(ci->transceiver))
-		return usb_phy_set_power(ci->transceiver, mA);
+	if (ci->transceiver)
+		return usb_phy_set_power(ci->transceiver, ma);
 	return -ENOTSUPP;
 }
 
@@ -1728,10 +1728,8 @@ static irqreturn_t udc_irq(struct ci_hdrc *ci)
 
 	if (intr) {
 		/* order defines priority - do NOT change it */
-		if (USBi_URI & intr) {
+		if (USBi_URI & intr)
 			isr_reset_handler(ci);
-			usb_gadget_set_state(&ci->gadget, USB_STATE_DEFAULT);
-		}
 
 		if (USBi_PCI & intr) {
 			ci->gadget.speed = hw_port_is_high_speed(ci) ?
@@ -1753,8 +1751,6 @@ static irqreturn_t udc_irq(struct ci_hdrc *ci)
 				ci->suspended = 1;
 				spin_unlock(&ci->lock);
 				ci->driver->suspend(&ci->gadget);
-				usb_gadget_set_state(&ci->gadget,
-							USB_STATE_SUSPENDED);
 				spin_lock(&ci->lock);
 			}
 		}
@@ -1806,32 +1802,6 @@ static int udc_start(struct ci_hdrc *ci)
 		goto free_pools;
 
 	ci->gadget.ep0 = &ci->ep0in->ep;
-
-	if (ci->global_phy) {
-		ci->transceiver = usb_get_phy(USB_PHY_TYPE_USB2);
-		if (IS_ERR(ci->transceiver))
-			ci->transceiver = NULL;
-	}
-
-	if (ci->platdata->flags & CI_HDRC_REQUIRE_TRANSCEIVER) {
-		if (IS_ERR_OR_NULL(ci->transceiver)) {
-			retval = ci->transceiver ?
-				PTR_ERR(ci->transceiver) : -ENODEV;
-			goto destroy_eps;
-		}
-	}
-
-	if (ci->transceiver) {
-		retval = otg_set_peripheral(ci->transceiver->otg,
-						&ci->gadget);
-		/*
-		 * If we implement all USB functions using chipidea drivers,
-		 * it doesn't need to call above API, meanwhile, if we only
-		 * use gadget function, calling above API is useless.
-		 */
-		if (retval && retval != -ENOTSUPP)
-			goto put_transceiver;
-	}
 
 	retval = usb_add_gadget_udc(dev, &ci->gadget);
 	if (retval)
@@ -1894,46 +1864,6 @@ static void udc_id_switch_for_host(struct ci_hdrc *ci)
 	}
 }
 
-static int udc_suspend(struct ci_hdrc *ci)
-{
-	unsigned long flags;
-
-	/* stop usb device controller */
-	usb_gadget_disconnect(&ci->gadget);
-
-	if (ci->driver)
-		ci->driver->disconnect(&ci->gadget);
-
-	spin_lock_irqsave(&ci->lock, flags);
-
-	if (!(ci->platdata->flags & CI13XXX_PULLUP_ON_VBUS) ||
-			ci->vbus_active) {
-		/* mask all interrupts */
-		hw_device_state(ci, 0);
-		if (ci->platdata->notify_event)
-			ci->platdata->notify_event(ci,
-			CI13XXX_CONTROLLER_STOPPED_EVENT);
-		spin_unlock_irqrestore(&ci->lock, flags);
-		_gadget_stop_activity(&ci->gadget);
-		spin_lock_irqsave(&ci->lock, flags);
-		pm_runtime_put(&ci->gadget.dev);
-	}
-
-	spin_unlock_irqrestore(&ci->lock, flags);
-
-	return 0;
-}
-
-static int udc_resume(struct ci_hdrc *ci)
-{
-	hw_device_reset(ci, USBMODE_CM_DC);
-	if (ci->driver) {
-		ci_udc_start(&ci->gadget, ci->driver);
-		usb_gadget_connect(&ci->gadget);
-	}
-	return 0;
-}
-
 /**
  * ci_hdrc_gadget_init - initialize device related bits
  * ci: the controller
@@ -1953,8 +1883,6 @@ int ci_hdrc_gadget_init(struct ci_hdrc *ci)
 
 	rdrv->start	= udc_id_switch_for_device;
 	rdrv->stop	= udc_id_switch_for_host;
-	rdrv->suspend	= udc_suspend;
-	rdrv->resume	= udc_resume;
 	rdrv->irq	= udc_irq;
 	rdrv->name	= "gadget";
 	ci->roles[CI_ROLE_GADGET] = rdrv;

@@ -331,34 +331,15 @@ int hw_device_reset(struct ci_hdrc *ci, u32 mode)
 int hw_wait_reg(struct ci_hdrc *ci, enum ci_hw_regs reg, u32 mask,
 				u32 value, unsigned int timeout_ms)
 {
-	struct ci13xxx *ci = container_of(work, struct ci13xxx, work);
-	enum ci_role role = ci_otg_role(ci);
+	unsigned long elapse = jiffies + msecs_to_jiffies(timeout_ms);
 
-	if (role != ci->role) {
-#ifdef CONFIG_ANDROID
-		if (ci->role == CI_ROLE_END) {
-			ci_role_start(ci, role);
-		} else if (ci->role == CI_ROLE_GADGET) {
-			ci_role_suspend(ci);
-			ci_role_start(ci, role);
-		} else {
-			ci_role_stop(ci);
-			if (ci->driver) {
-				ci->role = role;
-				ci_role_resume(ci);
-			} else if (!ci->gadget.name){
-				ci_role_start(ci, role);
-			} else {
-				ci->role = role;
-			}
+	while (hw_read(ci, reg, mask) != value) {
+		if (time_after(jiffies, elapse)) {
+			dev_err(ci->dev, "timeout waiting for %08x in %d\n",
+					mask, reg);
+			return -ETIMEDOUT;
 		}
-#else
-		dev_dbg(ci->dev, "switching from %s to %s\n",
-			ci_role(ci)->name, ci->roles[role]->name);
-
-		ci_role_stop(ci);
-		ci_role_start(ci, role);
-#endif
+		msleep(20);
 	}
 
 	return 0;
@@ -701,46 +682,11 @@ static int ci_hdrc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int ci_hdrc_suspend(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct ci13xxx *ci = platform_get_drvdata(pdev);
-	disable_irq_nosync(ci->irq);
-	return ci_role_suspend(ci);
-}
-
-static int ci_hdrc_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct ci_hdrc *ci = platform_get_drvdata(pdev);
-	int ret;
-
-	ret = ci_role_resume(ci);
-	if (ret) {
-		dev_err(dev, "Failed to resume %s\n",
-					ci_role(ci)->name);
-		return ret;
-	}
-	if (ci->is_otg)
-		hw_write(ci, OP_OTGSC, OTGSC_IDIE, OTGSC_IDIE);
-	enable_irq(ci->irq);
-	return 0;
-}
-
-static const struct dev_pm_ops ci_hdrc_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(ci_hdrc_suspend, ci_hdrc_resume)
-};
-#endif
-
 static struct platform_driver ci_hdrc_driver = {
 	.probe	= ci_hdrc_probe,
 	.remove	= ci_hdrc_remove,
 	.driver	= {
 		.name	= "ci_hdrc",
-#ifdef CONFIG_PM
-		.pm = &ci_hdrc_pm_ops,
-#endif
 	},
 };
 

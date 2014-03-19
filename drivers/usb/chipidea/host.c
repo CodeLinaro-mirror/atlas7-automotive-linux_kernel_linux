@@ -117,24 +117,6 @@ void ci_hdrc_host_destroy(struct ci_hdrc *ci)
 		host_stop(ci);
 }
 
-static int host_suspend(struct ci_hdrc *ci)
-{
-	struct usb_hcd *hcd = ci->hcd;
-	bool do_wakeup = device_may_wakeup(ci->dev);
-
-	return ehci_suspend(hcd, do_wakeup);
-}
-
-static int host_resume(struct ci_hdrc *ci)
-{
-	struct usb_hcd *hcd = ci->hcd;
-
-	hw_device_reset(ci, USBMODE_CM_HC);
-	ehci_resume(hcd, true);
-
-	return 0;
-}
-
 int ci_hdrc_host_init(struct ci_hdrc *ci)
 {
 	struct ci_role_driver *rdrv;
@@ -148,8 +130,6 @@ int ci_hdrc_host_init(struct ci_hdrc *ci)
 
 	rdrv->start	= host_start;
 	rdrv->stop	= host_stop;
-	rdrv->suspend	= host_suspend;
-	rdrv->resume	= host_resume;
 	rdrv->irq	= host_irq;
 	rdrv->name	= "host";
 	ci->roles[CI_ROLE_HOST] = rdrv;
