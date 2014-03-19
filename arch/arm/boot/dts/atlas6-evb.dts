@@ -108,16 +108,6 @@
 				pinctrl-0 = <&vip_pins_a>;
 				rearview-gpio = <&gpio 4 0>;
 			};
-			spi@b00d0000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&spi0_pins_a>;
-				spi@0 {
-					compatible = "spidev";
-					reg = <0>;
-					spi-max-frequency = <1000000>;
-				};
-			};
 			spi@b0170000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&spi1_pins_a>;
@@ -177,6 +167,12 @@
 					status = "okay";
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc2_pins_a>;
+				};
+				sd3: sdhci@56300000 {
+					status = "okay";
+					broken-cd;
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc3_pins_a>;
 				};
 				sd5: sdhci@56500000 {
 					status = "okay";
