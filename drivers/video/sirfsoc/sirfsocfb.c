@@ -812,60 +812,75 @@ static void sirfsocfb_set_layers(struct sirfsocfb *fb,
 {
 	struct lcdc_parms set_parms;
 	struct layer_info *info = &fb->layer_info[0];
-	int i, dirty_index = 0;
+	int i, index = 0;
 
 	mutex_lock(&info->layer_lock);
 
 	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++) {
-		if (param->layer_mask & (1<<i))	{
-			memset(&set_parms, 0, sizeof(set_parms));
-			set_parms.layer = i;
-			if (param->layer_info[dirty_index].enable) {
-				if (param->phys_addr[i])
-					set_parms.base = param->phys_addr[i];
-				if (param->layer_info[dirty_index].format == FORMAT_RGB_565) {
-					set_parms.fmt = VDSS_PIXELFORMAT_565;
-				} else if (param->layer_info[dirty_index].format == FORMAT_BGRA_8888) {
-					set_parms.fmt = VDSS_PIXELFORMAT_8888;
-				} else if (param->layer_info[dirty_index].format == FORMAT_BGRX_8888) {
-					set_parms.fmt = VDSS_PIXELFORMAT_BGRX_8880;
-				} else if (param->layer_info[dirty_index].format == FORMAT_YCbCr_420_P) {
-					set_parms.fmt = VDSS_PIXELFORMAT_I420;
-				} else {
-					FB_ERR_MSG("Unsupported format!\n");
-					mutex_unlock(&info->layer_lock);
-					return;
-				}
-				set_parms.surf_width = param->layer_info[dirty_index].width;
-				set_parms.surf_height = param->layer_info[dirty_index].height;
-				set_parms.src_rect.left = param->layer_info[dirty_index].src_rect.left;
-				set_parms.src_rect.top = param->layer_info[dirty_index].src_rect.top;
-				set_parms.src_rect.right = param->layer_info[dirty_index].src_rect.right;
-				set_parms.src_rect.bottom = param->layer_info[dirty_index].src_rect.bottom;
-				set_parms.dst_rect.left = param->layer_info[dirty_index].dst_rect.left;
-				set_parms.dst_rect.top = param->layer_info[dirty_index].dst_rect.top;
-				set_parms.dst_rect.right = param->layer_info[dirty_index].dst_rect.right;
-				set_parms.dst_rect.bottom = param->layer_info[dirty_index].dst_rect.bottom;
-
-				set_parms.pre_alpha_enabled = 1;
-				if (set_parms.fmt == VDSS_PIXELFORMAT_8888)
-					set_parms.src_alpha_enabled = 1;
-
-				if (!fb->lcdc_ops.set_parameters(&set_parms)) {
-					FB_ERR_MSG("Set parameters failed!\n");
-					mutex_unlock(&info->layer_lock);
-					return;
-				}
-
-				fb->lcdc_ops.show_overlay(i);
-			} else {
-				fb->lcdc_ops.hide_overlay(i);
+		if (!(param->layer_mask & (1 << i))) {
+			if (param->phys_addr[i] != 0) {
+				fb->lcdc_ops.flip_overlay(i,
+				param->phys_addr[i], LCDC_FLIP_FRAME);
 			}
-			dirty_index++;
-		} else {
-			if (param->phys_addr[i] != 0)
-				fb->lcdc_ops.flip_overlay(i, param->phys_addr[i], LCDC_FLIP_FRAME);
+			continue;
 		}
+		memset(&set_parms, 0, sizeof(set_parms));
+		set_parms.layer = i;
+		if (param->layer_info[index].enable) {
+			if (param->phys_addr[i])
+				set_parms.base = param->phys_addr[i];
+			if (param->layer_info[index].format == FORMAT_RGB_565) {
+				set_parms.fmt = VDSS_PIXELFORMAT_565;
+			} else if (param->layer_info[index].format ==
+				FORMAT_BGRA_8888) {
+				set_parms.fmt = VDSS_PIXELFORMAT_8888;
+			} else if (param->layer_info[index].format ==
+				FORMAT_BGRX_8888) {
+				set_parms.fmt = VDSS_PIXELFORMAT_BGRX_8880;
+			} else if (param->layer_info[index].format ==
+				FORMAT_YCbCr_420_P) {
+				set_parms.fmt = VDSS_PIXELFORMAT_I420;
+			} else {
+				FB_ERR_MSG("Unsupported format!\n");
+				mutex_unlock(&info->layer_lock);
+				return;
+			}
+			set_parms.surf_width =
+				param->layer_info[index].width;
+			set_parms.surf_height =
+				param->layer_info[index].height;
+			set_parms.src_rect.left =
+				param->layer_info[index].src_rect.left;
+			set_parms.src_rect.top =
+				param->layer_info[index].src_rect.top;
+			set_parms.src_rect.right =
+				param->layer_info[index].src_rect.right;
+			set_parms.src_rect.bottom =
+				param->layer_info[index].src_rect.bottom;
+			set_parms.dst_rect.left =
+				param->layer_info[index].dst_rect.left;
+			set_parms.dst_rect.top =
+				param->layer_info[index].dst_rect.top;
+			set_parms.dst_rect.right =
+				param->layer_info[index].dst_rect.right;
+			set_parms.dst_rect.bottom =
+				param->layer_info[index].dst_rect.bottom;
+
+			set_parms.pre_alpha_enabled = 1;
+			if (set_parms.fmt == VDSS_PIXELFORMAT_8888)
+				set_parms.src_alpha_enabled = 1;
+
+			if (!fb->lcdc_ops.set_parameters(&set_parms)) {
+				FB_ERR_MSG("Set parameters failed!\n");
+				mutex_unlock(&info->layer_lock);
+				return;
+			}
+
+			fb->lcdc_ops.show_overlay(i);
+		} else {
+			fb->lcdc_ops.hide_overlay(i);
+		}
+		index++;
 	}
 
 	if (param->wait) {
@@ -898,7 +913,7 @@ int sirfsocfb_disable_feature_layer(struct sirfsocfb *fb, int layer)
 		layer_disable(fb, layer);
 		fb->layer_info[layer].feature = NORMAL_LAYER;
 	} else {
-		FB_ERR_MSG("layer %d has feature %d which is not among the supported\n",
+		FB_ERR_MSG("layer %d has feature %d which is not supported\n",
 			layer, fb->layer_info[layer].feature);
 		return -EINVAL;
 	}
@@ -1467,7 +1482,7 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case SIRFSOCFB_SET_LAYERS:
 		if (copy_from_user(&data.layers, (void __user *)arg,
-				   ((struct sirfsocfb_layers_parms *)arg)->size))
+			((struct sirfsocfb_layers_parms *)arg)->size))
 			return -EFAULT;
 		sirfsocfb_set_layers(fb, &data.layers);
 		break;
@@ -1778,7 +1793,7 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 
 		ret = register_framebuffer(&fb->fb[layer]);
 		if (ret) {
-			FB_ERR_MSG("Cannot register framebuffer device for layer %d\n",
+			FB_ERR_MSG("Can't register fbdev for layer %d\n",
 				layer);
 			return ret;
 		}
