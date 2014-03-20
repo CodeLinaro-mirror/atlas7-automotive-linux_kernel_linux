@@ -407,19 +407,6 @@ err_out:
 }
 
 
-static int ch7102_get_fw_version(void)
-{
-	struct i2c_client *client = ch7102_client;
-	u8 value;
-
-	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
-	value = i2c_smbus_read_byte_data(client, FW_VER);
-	if (value != -1)
-		return value;
-	else
-		return FW_VERSION;
-}
-
 static int ch7102_op_start(int input)
 {
 	struct i2c_client *client = ch7102_client;
@@ -520,12 +507,19 @@ static int ch7102_probe(struct i2c_client *client,
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
 	sirfsoc_register_decoder_ops(&ch7102_decoder_ops);
 
-	fw_version = ch7102_get_fw_version();
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	fw_version = i2c_smbus_read_byte_data(client, FW_VER);
+	if (fw_version < 0) {
+		dev_err(&client->dev,
+			"%s: read ch7102 chip firmware version failed\n",
+			__func__);
+		return -EIO;
+	}
 	dev_info(&client->dev,
 		"ch7102 Firmware Version: %x.%x.%x\r\n",
 		(fw_version & 0xF0) >> 4,
 		(fw_version & 0x0C) >> 2,
-		(fw_version&0x03));
+		(fw_version & 0x03));
 
 	return ch7102_video_probe(client);
 }
