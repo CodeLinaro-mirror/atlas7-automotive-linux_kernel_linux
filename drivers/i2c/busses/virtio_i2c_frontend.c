@@ -33,6 +33,7 @@
  * @vq: i2c virtqueue
  * @i2c_nr: i2c bus id that was allocated in backend OS
  * @status: i2c bus status
+ * @lock: i2c bus lock
  * @vq_lock: protects vq,to allow concurrent senders.
  *
  */
@@ -42,6 +43,7 @@ struct virtio_i2c {
 	struct virtqueue *vq;
 	int i2c_nr;
 	int status;
+	struct mutex lock;
 	struct mutex vq_lock;
 	wait_queue_head_t inq;
 };
@@ -248,8 +250,10 @@ static int virti2c_turn_online(struct virtio_device *vdev)
 
 	struct virtio_i2c *vi2c = vdev->priv;
 
+	mutex_lock(&vi2c->lock);
 	/* Set local device status to ready */
 	vi2c->status = 1;
+	mutex_unlock(&vi2c->lock);
 
 	/* try to add this i2c adapter will remote i2c nr */
 	err = i2c_add_numbered_adapter(&vi2c->adapter);
@@ -340,6 +344,7 @@ static int virti2c_probe(struct virtio_device *vdev)
 	vi2c->vdev = vdev;
 	vi2c->status = 0;
 
+	mutex_init(&vi2c->lock);
 	mutex_init(&vi2c->vq_lock);
 	init_waitqueue_head(&vi2c->inq);
 
@@ -375,7 +380,6 @@ free_vi2c:
 
 	return err;
 }
-
 
 static void virti2c_remove(struct virtio_device *vdev)
 {

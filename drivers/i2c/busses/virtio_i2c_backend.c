@@ -46,7 +46,10 @@ struct virtio_i2c_iov {
 /**
  * struct virtio_i2c - virtual remote processor state
  * @vdev: the virtio device
+ * @adapter: the real i2c adapter pointer
  * @vrh: host side vring
+ * @bus_id: the real i2c adapter bus is
+ * @status: the virtio i2c status
  * @vq_lock:protects vq, sleepers, to allow concurrent senders.
  *	sending a message might require waking up a dozing remote
  *	processor, which involves sleeping, hence the mutex.
@@ -55,7 +58,7 @@ struct virtio_i2c {
 	struct virtio_device *vdev;
 	struct i2c_adapter *adapter;
 	struct vringh *vrh;
-	int status;
+	int bus_id;
 	struct mutex vq_lock;
 	struct task_struct *vq_task;
 	wait_queue_head_t outq;
@@ -284,6 +287,38 @@ static int virti2c_turn_online(struct virtio_device *vdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+/* pm callbacks */
+static int virti2c_suspend(struct device *dev)
+{
+	struct virtio_device *vdev = dev_to_virtio(dev);
+	struct virtio_i2c *vi2c = vdev->priv;
+
+	dev_dbg(dev, "do suspend!");
+
+	/* release the real i2c adapter */
+	i2c_put_adapter(vi2c->adapter);
+	return 0;
+}
+
+static int virti2c_resume(struct device *dev)
+{
+	struct virtio_device *vdev = dev_to_virtio(dev);
+	struct virtio_i2c *vi2c = vdev->priv;
+
+	dev_dbg(dev, "do resume!");
+	/* get real i2c adapter with saved bus id */
+	vi2c->adapter = i2c_get_adapter(vi2c->bus_id);
+	if (!vi2c->adapter) {
+		dev_err(dev,
+			"virtio i2c could not open real i2c adapter!\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+#endif
+
 static int virti2c_mmio(struct virtio_device *vdev, u32 offset)
 {
 	u32 value_u = 0;
@@ -334,6 +369,8 @@ static int virti2c_hw_init(struct virtio_device *vdev,
 		return -ENODEV;
 	}
 
+	vi2c->bus_id = vi2c_desc->i2c_adapter_id;
+
 	/* disable notify remote side when we initialize the config space */
 	rproc_virtio_disable_notify(vdev);
 
@@ -372,8 +409,6 @@ static int virti2c_probe(struct virtio_device *vdev)
 		return -ENOMEM;
 
 	vi2c->vdev = vdev;
-	vi2c->status = 0;
-
 	err = virti2c_hw_init(vdev, vi2c);
 	if (err)
 		return err;
@@ -419,7 +454,7 @@ static unsigned int features[] = {
 	VIRTIO_RING_F_INDIRECT_DESC,
 };
 
-
+static SIMPLE_DEV_PM_OPS(virtio_i2c_pm, virti2c_suspend, virti2c_resume);
 static struct virtio_driver virtio_i2c_driver = {
 	.feature_table = features,
 	.feature_table_size = ARRAY_SIZE(features),
@@ -428,6 +463,7 @@ static struct virtio_driver virtio_i2c_driver = {
 	.id_table = id_table,
 	.probe = virti2c_probe,
 	.remove = virti2c_remove,
+	.driver.pm = &virtio_i2c_pm,
 };
 
 static int __init virti2c_init(void)

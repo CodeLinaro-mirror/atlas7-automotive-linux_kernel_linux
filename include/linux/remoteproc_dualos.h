@@ -42,14 +42,22 @@
 #define MMIO_BACK_ONLINE	0x14
 /* backend is offline */
 #define MMIO_BACK_OFFLINE	0x18
+/* device suspend */
+#define MMIO_SUSPEND		0x1C
+/* device resume */
+#define MMIO_RESUME		0x20
+/* device freeze */
+#define MMIO_FREEZE		0x24
+/* device restore */
+#define MMIO_RESTORE		0x28
 /* the private data address of rproc vdev */
-#define MMIO_PRIV_DATA		0x1C
+#define MMIO_PRIV_DATA		0x2C
 /* the size of private data */
-#define MMIO_PRIV_SIZE		0x20
+#define MMIO_PRIV_SIZE		0x30
 /* the last RPROC common MMIO offset,
  * the vdev customized MMIO could use this offset as start base
  */
-#define MMIO_CONFIG_BASE	0x24
+#define MMIO_CONFIG_BASE	0x40
 
 /* return vq or vdev notify id */
 #define GET_NOTIFY_ID(x)    ((x) & 0x0000FFFF)
