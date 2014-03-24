@@ -389,6 +389,10 @@ void rproc_alloc_resource_table(struct rproc *rproc)
 		max_vdev_entry_size +=
 			sizeof(struct fw_rsc_vdev_vring) *
 				RPROC_VDEV_MAX_VRING_NUM;
+	else
+		max_vdev_entry_size +=
+			sizeof(struct fw_rsc_vdev_vring) *
+				RVDEV_NUM_VRINGS;
 
 	/* If this rproc supports device mmio */
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_DEVICE_MMIO))
@@ -414,7 +418,7 @@ void rproc_alloc_resource_table(struct rproc *rproc)
 	}
 
 	/* Set the last entry to RSC_LAST to indicate end. */
-	rsc_hdr->type = RSC_VDEV;
+	rsc_hdr->type = RSC_LAST;
 
 	/* steup the vdev resource table by vdev descriptor table */
 	for (index = 0; index < rproc->vdev_desc_tbl_len; index++) {
