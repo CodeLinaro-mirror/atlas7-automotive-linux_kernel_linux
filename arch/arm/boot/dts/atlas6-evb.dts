@@ -150,6 +150,13 @@
                                         reg = <0x38>;
                                 };
 			};
+			pwm: pwm@b0130000 {
+				/* sigsrc1(pll1) is used for dvfs, ignore it */
+				clocks = <&clks 21>, <&clks 1>, <&clks 3>,
+					<&clks 0>, <&clks 4>;
+				clock-names = "pwmc", "sigsrc0", "sigsrc2",
+					"sigsrc3", "sigsrc4";
+			};
 			adc@b0110000 {
 				tsc {
 					compatible = "sirf,dualtouch-tsc";
