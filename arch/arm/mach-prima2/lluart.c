@@ -15,6 +15,8 @@
 #define SIRFSOC_UART1_PA_BASE          0xb0060000
 #elif defined(CONFIG_DEBUG_SIRFMARCO_UART1)
 #define SIRFSOC_UART1_PA_BASE          0xcc060000
+#elif defined(CONFIG_DEBUG_SIRFATLAS7_UART1)
+#define SIRFSOC_UART1_PA_BASE          0x18020000
 #else
 #define SIRFSOC_UART1_PA_BASE          0
 #endif
