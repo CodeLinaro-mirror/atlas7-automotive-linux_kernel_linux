@@ -64,7 +64,6 @@ enum SIRFSOCFB_FORMAT {
 	FORMAT_RGBX_8888,
 };
 
-#define bYUVFormat(A) (A >= FORMAT_YCbCr_422_SP)
 
 struct sirfsocfb_createlayer {
 	__u32 width;
@@ -88,11 +87,6 @@ struct sirfsocfb_flush_cache_addr {
 	__u32 phy_addr_size;
 	enum SIRFSOCFB_FLUSH_CACHE_OP flush_cache_op;
 };
-
-typedef void (*PFN_ENABLE_INTERRUPT) (void *, int);
-typedef void (*PFN_DISABLE_INTERRUPT) (void *, int);
-typedef void (*PFN_SET_BASE) (void *, int, unsigned int, int);
-typedef int (*PFN_CREATE_LAYER) (void *);
 
 struct sirfsocfb_rect {
 	int left;
@@ -152,7 +146,7 @@ struct sirfsocfb_layers_parms {
 /* not wait blt to complete */
 #define BLT_NOT_WAIT_COMPLETE	0x01000000
 
-struct sirfsocfb_bltparms{
+struct sirfsocfb_bltparms {
 	struct sirfsocfb_surf src;
 	struct sirfsocfb_surf dst;
 	__u32  flag;
@@ -210,7 +204,7 @@ struct sirfsocfb_bltparms_ble {
 	struct sirfsocfb_rect rects[BLE_RECTS_NUM_MAX];
 	/* additional blit control information */
 	__u32 flags;
-	__u32 dst_offset;          	/* destination memory */
+	__u32 dst_offset;		/* destination memory */
 	/* the number of bytes from pixel 0,0 to 0,1 */
 	__u32 dst_stride;
 	/* pixel offset from start of dest surface to start of blt rectangle */
@@ -268,13 +262,6 @@ enum sirfsocfb_feature_layer {
 #define SIRFSOCFB_DISABLE_FEATURE_LAYER	_IO('S', 0x10)
 #define SIRFSOCFB_SET_GAMMA_TABLE	_IOW('S', 0x11, __u16[256 * 3])
 #define SIRFSOCFB_GET_GAMMA_TABLE	_IOR('S', 0x11, __u16[256 * 3])
-
-
-/* LCD interrupt handler defines */
-#define DMA_INT_LAYER(x)	(0+(x))
-#define OFLOW_INT_LAYER(x)	(6+(x))
-#define UFLOW_INT_LAYER(x)	(12+(x))
-#define S0_LINE_INT		(18)
 
 /* Version/name */
 #define SIRFSOCFB_MODULE_NAME		"SIRFSOC-FB"
