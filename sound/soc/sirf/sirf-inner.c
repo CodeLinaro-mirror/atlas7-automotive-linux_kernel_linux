@@ -21,15 +21,22 @@ struct sirf_inner_card {
 	unsigned int            gpio_spk_pa;
 };
 
-static int sirf_inner_hp_event(struct snd_soc_dapm_widget *w,
+static int sirf_inner_hp_ext_amp_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *ctrl, int event)
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
 	struct sirf_inner_card *sinner_card = snd_soc_card_get_drvdata(card);
-	int on = !SND_SOC_DAPM_EVENT_OFF(event);
-	if (gpio_is_valid(sinner_card->gpio_hp_pa))
-		gpio_set_value(sinner_card->gpio_hp_pa, on);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		gpio_set_value(sinner_card->gpio_hp_pa, 1);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		gpio_set_value(sinner_card->gpio_hp_pa, 0);
+		break;
+	}
+
 	return 0;
 }
 
@@ -47,14 +54,16 @@ static int sirf_inner_spk_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
-	SND_SOC_DAPM_HP("Hp", sirf_inner_hp_event),
+	SND_SOC_DAPM_HP("Hp", NULL),
 	SND_SOC_DAPM_SPK("Ext Spk", sirf_inner_spk_event),
 	SND_SOC_DAPM_MIC("Ext Mic", NULL),
+	SND_SOC_DAPM_POST("Headphone Ext Amp", sirf_inner_hp_ext_amp_event),
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
-	{"Hp", NULL, "HPOUTL"},
-	{"Hp", NULL, "HPOUTR"},
+	{"Headphone Ext Amp", NULL, "HPOUTL"},
+	{"Headphone Ext Amp", NULL, "HPOUTR"},
+	{"Hp", NULL, "Headphone Ext Amp"},
 	{"Ext Spk", NULL, "SPKOUT"},
 	{"MICIN1", NULL, "Mic Bias"},
 	{"Mic Bias", NULL, "Ext Mic"},
