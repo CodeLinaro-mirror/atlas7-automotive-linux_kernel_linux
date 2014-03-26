@@ -263,36 +263,4 @@ enum sirfsocfb_feature_layer {
 #define SIRFSOCFB_SET_GAMMA_TABLE	_IOW('S', 0x11, __u16[256 * 3])
 #define SIRFSOCFB_GET_GAMMA_TABLE	_IOR('S', 0x11, __u16[256 * 3])
 
-/* Version/name */
-#define SIRFSOCFB_MODULE_NAME		"SIRFSOC-FB"
-
-/*** Debug/feature defines ***/
-#ifndef FB_DEBUG
-#define FB_DEBUG				0
-#endif
-
-/* messages */
-#define FB_PFX			SIRFSOCFB_MODULE_NAME ": "
-
-#define FB_ERR_MSG(fmt, args...)	printk(KERN_ERR FB_PFX fmt, ## args)
-#define FB_WRN_MSG(fmt, args...)	printk(KERN_WARNING FB_PFX fmt, ## args)
-#define FB_NOT_MSG(fmt, args...)	printk(KERN_NOTICE FB_PFX fmt, ## args)
-#define FB_INF_MSG(fmt, args...)	printk(KERN_INFO FB_PFX fmt, ## args)
-
-#if FB_DEBUG
-#define FB_DBG_MSG(fmt, args...)	printk(FB_PFX fmt, ## args)
-#define FB_FUN_MSG(fmt, args...)
-#define FB_ASSERT(expr) \
-	do { \
-		if (!(expr)) \
-			printk(KERN_ERR FB_PFX "Assertion failed! %s, %s, %s, line=%d\n", \
-				#expr, __FILE__, __func__, __LINE__); \
-	} while (0)
-#else
-#define FB_DBG_MSG(fmt, args...)
-#define FB_FUN_MSG(fmt, args...)
-#define FB_ASSERT(expr)
-
-#endif
-
 #endif /* __SIRFSOC_FB_H_ */

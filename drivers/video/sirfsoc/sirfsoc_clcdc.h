@@ -131,4 +131,35 @@ struct sirfsocfb {
 	ktime_t vsync_timestamp;
 	struct work_struct vsync_work;
 };
+
+/* Version name */
+#define SIRFSOCFB_MODULE_NAME		"SIRFSOC-FB"
+
+/* debug feature defines */
+#ifndef FB_DEBUG
+#define FB_DEBUG			0
+#endif
+
+/* messages */
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#ifdef SIRFSOCFB_MODULE_NAME
+#define pr_fmt(fmt)	SIRFSOCFB_MODULE_NAME ": "fmt
+#else
+#define pr_fmt(fmt)	fmt
+#endif
+#define FB_ERR_MSG(fmt, args...)	pr_err(fmt, ## args)
+#define FB_WRN_MSG(fmt, args...)	pr_warn(fmt, ## args)
+#define FB_NOT_MSG(fmt, args...)	pr_notice(fmt, ## args)
+#define FB_INF_MSG(fmt, args...)	pr_info(fmt, ## args)
+#define FB_ASSERT(expr)			BUG_ON(!(expr))
+#define FB_FUN_MSG(fmt, args...)
+
+#if FB_DEBUG
+#define FB_DBG_MSG(fmt, args...)	pr_info(fmt, ## args)
+#else
+#define FB_DBG_MSG(fmt, args...)
+#endif
+
 #endif
