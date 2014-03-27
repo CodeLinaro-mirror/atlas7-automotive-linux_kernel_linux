@@ -741,7 +741,6 @@ static int sirfsoc_g_ctrl(struct v4l2_ctrl *ctrl)
 	int index;
 	unsigned int status = 0;
 	int ret = 0;
-	unsigned int value = 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_GET_ADDR:
