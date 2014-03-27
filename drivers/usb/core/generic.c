@@ -127,6 +127,17 @@ int usb_choose_configuration(struct usb_device *udev)
 						USB_CLASS_VENDOR_SPEC &&
 				(desc && desc->bInterfaceClass !=
 						USB_CLASS_VENDOR_SPEC)) {
+			/* If it's MFi device of Apple Inc, choose the second
+			* configuration (Audio/HID) by default */
+#define APPLE_VENDOR_ID 0x05ac
+			if (udev->descriptor.idVendor == APPLE_VENDOR_ID &&
+					num_configs > 1) {
+				dev_info(&udev->dev,
+					"Second configuration choosed for Apple MFi device.");
+				c = udev->config;
+				c++;
+			}
+
 			best = c;
 			break;
 		}
