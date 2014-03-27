@@ -667,18 +667,6 @@ static void __ble_enable_interrupt(struct ble_context *dcontext,
 	ble_write_reg(dcontext, INTERRUPT_ENABLE, reg_int_enable);
 }
 
-static void __ble_disable_interrupt(struct ble_context *dcontext,
-				    u32 interrupt_index)
-{
-	u32 reg_int_enable;
-
-	reg_int_enable = ble_read_reg(dcontext, INTERRUPT_ENABLE);
-
-	reg_int_enable &= ~(int)(1 << interrupt_index);
-
-	ble_write_reg(dcontext, INTERRUPT_ENABLE, reg_int_enable);
-}
-
 static void __ble_enable_clock(void)
 {
 }
