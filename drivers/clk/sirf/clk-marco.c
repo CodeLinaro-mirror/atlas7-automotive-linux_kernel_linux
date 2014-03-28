@@ -51,14 +51,17 @@ static void *sirfsoc_clk_vbase, *sirfsoc_rsc_vbase;
  * - 2 oscillators: osc-26MHz, rtc-32.768KHz
  * - 3 standard configurable plls: pll1, pll2 & pll3
  * - 2 exclusive plls: usb phy pll and sata phy pll
- * - 8 clock domains: cpu/cpudiv, mem/memdiv, sys/io, dsp, graphic, multimedia,
- *     display and sdphy.
- *     Each clock domain can select its own clock source from five clock sources,
- *     X_XIN, X_XINW, PLL1, PLL2 and PLL3. The domain clock is used as the source
- *     clock of the group clock.
- *     - dsp domain: gps, mf
- *     - io domain: dmac, nand, audio, uart, i2c, spi, usp, pwm, pulse
- *     - sys domain: security
+ * - 8 clock domains:
+ *	cpu/cpudiv, mem/memdiv, sys/io, dsp, graphic, multimedia,
+ *	display and sdphy.
+ *	Each clock domain can select its own clock source
+ *	from five clock sources,
+ *	X_XIN, X_XINW, PLL1, PLL2 and PLL3.
+ *	The domain clock is used as the source
+ *	clock of the group clock.
+ *	- dsp domain: gps, mf
+ *	- io domain: dmac, nand, audio, uart, i2c, spi, usp, pwm, pulse
+ *	- sys domain: security
  */
 
 struct clk_pll {
@@ -201,7 +204,7 @@ static struct clk_ops std_pll_ops = {
 	.set_rate = pll_clk_set_rate,
 };
 
-static const char *pll_clk_parents[] = {
+static const char * const pll_clk_parents[] = {
 	"osc",
 };
 
@@ -270,7 +273,8 @@ static void usb_pll_clk_disable(struct clk_hw *clk)
 	writel(reg, sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
 }
 
-static unsigned long usb_pll_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long usb_pll_clk_recalc_rate(struct clk_hw *hw,
+	unsigned long parent_rate)
 {
 #ifndef CONFIG_SIRFMARCO_FPGA
 	u32 reg = readl(sirfsoc_rsc_vbase + SIRFSOC_USBPHY_PLL_CTRL);
@@ -301,7 +305,7 @@ static struct clk_hw usb_pll_clk_hw = {
  * clock domains - cpu, mem, sys/io, dsp, gfx
  */
 
-static const char *dmn_clk_parents[] = {
+static const char * const dmn_clk_parents[] = {
 	"rtc",
 	"osc",
 	"pll1",
@@ -676,8 +680,7 @@ static void std_clk_disable(struct clk_hw *hw)
 	reg = SIRFSOC_CLKC_CLK_EN0 + reg * sizeof(reg);
 
 	val = clkc_readl(reg) & ~BIT(bit);
-	/*
-	 * Fixme: some automatic clk_disable() will make system die
+	/* Fixme: some automatic clk_disable() will make system die
 	 * since this driver probably will have no real user, ignore
 	 * here we just enable the support for i2c,spi and dma as marco
 	 * has same IPs with primaII
@@ -685,10 +688,10 @@ static void std_clk_disable(struct clk_hw *hw)
 	if (clk->enable_bit == 32 || clk->enable_bit == 33 ||
 		clk->enable_bit == 43 || clk->enable_bit == 44 ||
 		clk->enable_bit == 46 || clk->enable_bit == 47)
-	clkc_writel(val, reg);
+		clkc_writel(val, reg);
 }
 
-static const char *std_clk_io_parents[] = {
+static const char * const std_clk_io_parents[] = {
 	"io",
 };
 
@@ -978,7 +981,7 @@ static struct clk_std clk_pulse = {
 	},
 };
 
-static const char *std_clk_dsp_parents[] = {
+static const char * const std_clk_dsp_parents[] = {
 	"dsp",
 };
 
@@ -1010,7 +1013,7 @@ static struct clk_std clk_mf = {
 	},
 };
 
-static const char *std_clk_sys_parents[] = {
+static const char * const std_clk_sys_parents[] = {
 	"sys",
 };
 
@@ -1028,7 +1031,7 @@ static struct clk_std clk_security = {
 	},
 };
 
-static const char *std_clk_usb_parents[] = {
+static const char * const std_clk_usb_parents[] = {
 	"usb_pll",
 };
 

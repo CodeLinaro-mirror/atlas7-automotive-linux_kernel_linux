@@ -187,9 +187,14 @@ static int __init sirfsoc_of_pwrc_init(void)
 }
 
 static const struct of_device_id memc_ids[] = {
-	{ .compatible = "sirf,prima2-memc", .data = sirfsoc_prima2_finish_suspend, },
-	{ .compatible = "sirf,marco-memc", .data = sirfsoc_marco_finish_suspend, },
-	{}
+	{
+		.compatible = "sirf,prima2-memc",
+		.data = sirfsoc_prima2_finish_suspend,
+	}, {
+		.compatible = "sirf,marco-memc",
+		.data = sirfsoc_marco_finish_suspend,
+	}, {
+	}
 };
 
 static int sirfsoc_memc_probe(struct platform_device *op)

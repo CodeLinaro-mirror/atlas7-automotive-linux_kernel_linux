@@ -26,11 +26,11 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	return clk_get_rate(priv->clk);
 }
 
-static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host, unsigned short power)
+static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host,
+	unsigned short power)
 {
-       return SDHCI_POWER_300;
+	return SDHCI_POWER_300;
 }
-
 
 static int sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 {
@@ -46,7 +46,7 @@ static int sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 		 */
 		ctrl |= SDHCI_SIRF_8BITBUS;
 	} else {
-		if (host->version >= SDHCI_SPEC_300);
+		if (host->version >= SDHCI_SPEC_300)
 			ctrl &= ~SDHCI_SIRF_8BITBUS;
 		if (width == MMC_BUS_WIDTH_4)
 			ctrl |= SDHCI_CTRL_4BITBUS;
@@ -218,7 +218,8 @@ static int sdhci_sirf_resume(struct device *dev)
 	return ret;
 }
 
-static SIMPLE_DEV_PM_OPS(sdhci_sirf_pm_ops, sdhci_sirf_suspend, sdhci_sirf_resume);
+static SIMPLE_DEV_PM_OPS(sdhci_sirf_pm_ops,
+	sdhci_sirf_suspend, sdhci_sirf_resume);
 #endif
 
 static const struct of_device_id sdhci_sirf_of_match[] = {

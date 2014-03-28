@@ -24,8 +24,8 @@
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
 
-static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *uname,
-	int depth, void *data)
+static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
+	const char *uname, int depth, void *data)
 {
 	__be32 *mem_info;
 	unsigned long len;

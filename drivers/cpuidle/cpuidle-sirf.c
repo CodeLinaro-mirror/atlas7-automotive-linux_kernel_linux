@@ -8,16 +8,17 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/cpuidle.h>
 #include <linux/io.h>
 #include <linux/time.h>
-#include <asm/proc-fns.h>
 #include <linux/clk.h>
 #include <linux/err.h>
-#include <asm/cpuidle.h>
 #include <linux/regulator/consumer.h>
 #include <linux/cpu.h>
 #include <linux/opp.h>
+#include <linux/cpuidle.h>
+
+#include <asm/proc-fns.h>
+#include <asm/cpuidle.h>
 
 #define SIRFSOC_MAX_VOLTAGE	1200000
 
