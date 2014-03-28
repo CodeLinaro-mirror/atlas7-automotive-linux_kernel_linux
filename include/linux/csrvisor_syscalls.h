@@ -42,6 +42,7 @@
 #define T_SMC_FIFO_REG_READ 8	/* fifo register read */
 /* set interrupt set-pending register address */
 #define T_SMC_SET_ISPR_ADDR 0x10
+#define T_SMC_NT_RESUME 0x11
 
 #define NT_SMC_SWITCH 0		/* switch to T */
 #define	 NT_SMC_SWITCH_OK	 0	/* no error */
@@ -52,7 +53,7 @@
 #define NT_SMC_FIFO_REG_WRITE 5	/* fifo register write */
 #define NT_SMC_FIFO_REG_READ 6	/* fifo register read */
 #define NT_SMC_STEAL_GET 0x10   /* get stolen time */
-
+#define T_SMC_NT_SUSPEND 0x11
 
 #ifndef __ASSEMBLY__
 
@@ -176,6 +177,15 @@ csrvisor_prof_get(uint32_t *fiq, uint32_t *irq,
 	: "r0", "r1", "memory");
 }
 
+static inline void csrvisor_nt_resume(void)
+{
+	register unsigned long r0 asm("r0") = T_SMC_NT_RESUME;
+	__asm__ __volatile__(".arch_extension sec\n\t"
+	"smc #0" :			/* no output */
+	: "r"(r0)
+	: "memory");
+}
+
 #else
 /* syscall interfaces to non-secure OS */
 static inline void csrvisor_switch_to_t(int arg0, int arg1)
@@ -190,6 +200,18 @@ static inline void csrvisor_switch_to_t(int arg0, int arg1)
 
 #define CP15_DCACHE_INVALIDATE_CLEAN() \
 	__asm__ __volatile__ ("mcr p15, 0, %0, c7, c14, 0" : : "r"(0))
+
+static inline void csrvisor_nt_suspend(unsigned long func)
+{
+	register unsigned long r0 asm("r0") = T_SMC_NT_SUSPEND;
+	register unsigned long r1 asm("r1") = (unsigned long)func;
+	CP15_DCACHE_INVALIDATE_CLEAN();
+	__asm__ __volatile__(".arch_extension sec\n\t"
+	"smc #0" :                      /* no output */
+	: "r"(r0), "r"(r1)
+	: "memory");
+	CP15_DCACHE_INVALIDATE_CLEAN();
+}
 
 static inline void csrvisor_fifo_write(struct csrvisor_fifo_msg *msg)
 {

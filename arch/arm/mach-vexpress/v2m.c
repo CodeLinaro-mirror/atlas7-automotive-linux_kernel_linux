@@ -23,6 +23,11 @@
 #include <linux/clkdev.h>
 #include <linux/memblock.h>
 #include <linux/jump_label.h>
+#include <linux/csrvisor_syscalls.h>
+#include <linux/suspend.h>
+#include <linux/proc_fs.h>
+#include <linux/completion.h>
+#include <linux/kthread.h>
 
 #include <asm/mach-types.h>
 #include <asm/sizes.h>
@@ -33,6 +38,7 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/timer-sp.h>
 #include <asm/system_misc.h>
+#include <asm/suspend.h>
 
 #include <mach/ct-ca9x4.h>
 #include <mach/motherboard.h>
@@ -41,6 +47,7 @@
 #include <plat/platsmp.h>
 
 #include "core.h"
+
 
 #define V2M_PA_CS0	0x40000000
 #define V2M_PA_CS1	0x44000000
@@ -395,8 +402,85 @@ static void smc_switch_to_non_secure(void)
 		: "I"(SWITCH_TO_NON_SECURE)
 		: "r0", "memory");
 }
-#endif
 
+struct notifier_block s_v2m_pm_nb;
+static struct completion s_v2m_pm_secure_suspend;
+
+#define V2M_PM_SECURE_SOFTIRQ_S		61
+static int v2m_pm_secure_suspend(void *__unused)
+{
+	int leftover;
+	while (1) {
+		leftover = wait_for_completion_timeout(
+		&s_v2m_pm_secure_suspend, 10*HZ);
+		reinit_completion(&s_v2m_pm_secure_suspend);
+		if (leftover)
+			pm_suspend(PM_SUSPEND_MEM);
+	}
+
+	return 0;
+}
+
+static irqreturn_t v2m_pm_secure_irq_handle(int irq, void *data)
+{
+	complete(&s_v2m_pm_secure_suspend);
+	return IRQ_HANDLED;
+}
+
+static int v2m_pm_notify(struct notifier_block *nb,
+			       unsigned long mode, void *_unused)
+{
+	switch (mode) {
+	case PM_POST_SUSPEND:
+		csrvisor_nt_resume();
+		break;
+	}
+
+	return 0;
+}
+
+static int  v2m_pm_secure_irq_init(void)
+{
+	init_completion(&s_v2m_pm_secure_suspend);
+
+	kthread_run(v2m_pm_secure_suspend, NULL,
+			"v2m_pm_secure_suspend");
+
+	return request_irq(V2M_PM_SECURE_SOFTIRQ_S,
+			v2m_pm_secure_irq_handle,
+			0,
+			"v2m_pm_secure_irq_handle",
+			NULL);
+}
+
+#else
+int v2m_nonsecure_finish_suspend(long unsigned int val)
+{
+	csrvisor_nt_suspend(virt_to_phys(cpu_resume));
+	return 0;
+}
+#endif
+static int v2m_pm_enter(suspend_state_t state)
+{
+	switch (state) {
+	case PM_SUSPEND_MEM:
+#ifdef CONFIG_SECURITY_MODE
+	/*go zzz*/
+#else
+	cpu_suspend(0, v2m_nonsecure_finish_suspend);
+#endif
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+
+static const struct platform_suspend_ops v2m_pm_ops = {
+	.enter = v2m_pm_enter,
+	.valid = suspend_valid_only_mem,
+};
 static void __init v2m_init(void)
 {
 	int i;
@@ -425,7 +509,12 @@ static void __init v2m_init(void)
 
 #ifdef CONFIG_SECURITY_MODE
 	arm_pm_idle = smc_switch_to_non_secure;
+
+	v2m_pm_secure_irq_init();
+	s_v2m_pm_nb.notifier_call = v2m_pm_notify;
+	register_pm_notifier(&s_v2m_pm_nb);
 #endif
+	suspend_set_ops(&v2m_pm_ops);
 }
 
 void __init csrvisor_reserve(void)
