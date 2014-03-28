@@ -243,13 +243,23 @@
 				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
 			};
 
-			audio: audio@b0040000 {
+			audio: audio@b00400e0 {
 				compatible = "sirf,prima2-audio";
-				reg = <0xb0040000 0x10000>;
+				reg = <0xb0040000 0x44>;
 				interrupts = <35>;
 				dmas = <&dmac1 3>, <&dmac1 8>;
 				dma-names = "rx", "tx";
 				clocks = <&clks 27>;
+			};
+
+			i2s: i2s@b0040000 {
+				compatible = "sirf,prima2-i2s";
+				reg = <0xb0040000 0xe0>;
+				dmas = <&dmac1 6>, <&dmac1 12>;
+				dma-names = "rx", "tx";
+				clocks = <&clks 27>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2s_pins_a>;
 			};
 
 			uart0: uart@b0050000 {
