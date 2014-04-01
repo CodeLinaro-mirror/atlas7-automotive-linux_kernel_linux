@@ -933,7 +933,8 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 			data->blksz), SDHCI_BLOCK_SIZE);
 		sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
 	} else
-		sdhci_writew(host, SDHCI_MAKE_BLKSZ(LOOPDMA_BUF_SIZE_SHIFT - 3,
+		sdhci_writew(host,
+			SDHCI_MAKE_BLKSZ((LOOPDMA_BUF_SIZE_SHIFT - 3),
 			data->blksz), SDHCI_BLOCK_SIZE);
 }
 
@@ -942,6 +943,9 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 {
 	u16 mode;
 	struct mmc_data *data = cmd->data;
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 
 	if (data == NULL)
 		return;
@@ -967,10 +971,6 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 		mode |= SDHCI_TRNS_READ;
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		mode |= SDHCI_TRNS_DMA;
-
-	/* CSR refine for trig */
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 
 	if (priv->loopdma) {
 		mode &= ~SDHCI_TRNS_BLK_CNT_EN;
@@ -1120,7 +1120,6 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 static void sdhci_finish_command(struct sdhci_host *host)
 {
 	int i;
-
 	/* CSR refine for trig */
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_sirf_priv *priv = pltfm_host->priv;
@@ -2188,12 +2187,13 @@ static void sdhci_tasklet_finish(unsigned long param)
 	struct sdhci_host *host;
 	unsigned long flags;
 	struct mmc_request *mrq;
+	struct sdhci_pltfm_host *pltfm_host;
+	struct sdhci_sirf_priv *priv;
 
 	host = (struct sdhci_host*)param;
-
 	/* CSR refine for trig */
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+	pltfm_host = sdhci_priv(host);
+	priv = pltfm_host->priv;
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -2387,6 +2387,10 @@ static void sdhci_show_adma_error(struct sdhci_host *host) { }
 static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 {
 	u32 command;
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	BUG_ON(intmask == 0);
 
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
@@ -2399,10 +2403,6 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			return;
 		}
 	}
-
-	/* CSR refine for trig */
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 
 	if (!host->data && !priv->loopdma) {
 		/*
@@ -2499,6 +2499,7 @@ DECLARE_COMPLETION(sdio_dma_complete);
 int sdio_dma_int_complete(void)
 {
 	complete(&sdio_dma_complete);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(sdio_dma_int_complete);
 
@@ -2516,7 +2517,6 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	struct sdhci_host *host = dev_id;
 	u32 intmask, unexpected = 0;
 	int cardint = 0, max_loops = 16;
-
 	/* CSR refine for trig */
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_sirf_priv *priv = pltfm_host->priv;
