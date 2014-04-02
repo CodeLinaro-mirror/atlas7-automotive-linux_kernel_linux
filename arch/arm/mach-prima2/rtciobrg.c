@@ -134,7 +134,7 @@ static int __init sirfsoc_rtciobrg_init(void)
 }
 postcore_initcall(sirfsoc_rtciobrg_init);
 
-MODULE_AUTHOR("Zhiwu Song <zhiwu.song@csr.com>, "
-		"Barry Song <baohua.song@csr.com>");
+MODULE_AUTHOR("Zhiwu Song <zhiwu.song@csr.com>");
+MODULE_AUTHOR("Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("CSR SiRFprimaII rtc io bridge");
 MODULE_LICENSE("GPL v2");
