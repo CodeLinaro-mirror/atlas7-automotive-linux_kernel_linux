@@ -139,7 +139,7 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	 *	USB0/USB1 with UTMI interface (integrated PHY)
 	 * AtlasVI
 	 *	USB0 with ULPI interface (external PHY)
-	 *	USB1 with UTMI interface (integrated PHY) and gpio simulated VBus
+	 *	USB1 with UTMI interface (integrated PHY)
 	 */
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas6-usbphy")) {
 		const char *phy_type;
@@ -148,9 +148,12 @@ static int sirf_phy_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "UTMI or ULPI ?\n");
 			return -ENODEV;
 		} else if (!strcasecmp(phy_type, "utmi")) {
-			gpio_vbus = of_get_named_gpio(pdev->dev.of_node, "vbus-gpios", 0);
+			gpio_vbus = of_get_named_gpio(pdev->dev.of_node,
+						      "vbus-gpios", 0);
 			if (gpio_is_valid(gpio_vbus)) {
-				ret = devm_gpio_request(&pdev->dev, gpio_vbus, "ci13xxx_sirf");
+				ret = devm_gpio_request(&pdev->dev,
+							gpio_vbus,
+							"ci13xxx_sirf");
 				if (ret) {
 					dev_err(&pdev->dev, "Failed to request GPIO VBus\n");
 					return -ENODEV;
