@@ -185,6 +185,7 @@ nomem:
 		mpi_free_limb_space(tmp_limb);
 	return rc;
 }
+EXPORT_SYMBOL_GPL(mpi_mul);
 
 int mpi_mulm(MPI w, MPI u, MPI v, MPI m)
 {
@@ -192,3 +193,4 @@ int mpi_mulm(MPI w, MPI u, MPI v, MPI m)
 		return -ENOMEM;
 	return mpi_fdiv_r(w, w, m);
 }
+EXPORT_SYMBOL_GPL(mpi_mulm);

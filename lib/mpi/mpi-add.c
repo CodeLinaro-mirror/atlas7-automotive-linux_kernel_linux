@@ -147,6 +147,7 @@ int mpi_add(MPI w, MPI u, MPI v)
 	w->sign = wsign;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mpi_add);
 
 /****************
  * Subtract the unsigned integer V from the mpi-integer U and store the
@@ -218,6 +219,7 @@ int mpi_sub(MPI w, MPI u, MPI v)
 	}
 	return rc;
 }
+EXPORT_SYMBOL_GPL(mpi_sub);
 
 int mpi_addm(MPI w, MPI u, MPI v, MPI m)
 {
