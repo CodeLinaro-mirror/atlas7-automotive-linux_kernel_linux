@@ -2366,9 +2366,11 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	sirfsocfb_set_ckey(fb, toplayer);
 #endif
 
+#ifndef MODULE
 #if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
 	fb_prepare_logo(&fb->fb[LCDC_PRIMARY], 0);
 	fb_show_logo(&fb->fb[LCDC_PRIMARY], 0);
+#endif
 #endif
 	layer_enable(fb, LCDC_PRIMARY);
 
