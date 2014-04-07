@@ -64,7 +64,7 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
  *      2. SiRFsoc romcode page table,
  * so here reserve the space so as not to let kernel access.
  */
-void __init sirfsoc_pre_reserve()
+void __init sirfsoc_pre_reserve(void)
 {
 	if (!of_scan_flat_dt(sirf_fdt_handle_pre_rsv_mem, NULL))
 		pr_err("failed to find reserved memory.\n");

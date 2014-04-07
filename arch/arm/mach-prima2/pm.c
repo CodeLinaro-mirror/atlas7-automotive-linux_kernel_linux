@@ -132,8 +132,7 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 		const char __user *buf, size_t size, loff_t *ppos)
 {
 	u32 boot_stat = 0;
-	char data[SIRFSOC_BOOT_STATUS_BITS];
-	int i;
+	int ret;
 
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
 		pr_info("boot status mask bits is %d, but write size is %d\n",
@@ -142,10 +141,10 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 		return 0;
 	}
 
-	copy_from_user(data, buf, SIRFSOC_BOOT_STATUS_BITS);
+	ret = kstrtou32_from_user(buf, SIRFSOC_BOOT_STATUS_BITS, 2, &boot_stat);
+	if (ret)
+		return ret;
 
-	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
-		boot_stat |= (((data[i] - 0x30) & 0x1) << i);
 	sirfsoc_rtc_iobrg_writel(boot_stat,
 		sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
 
