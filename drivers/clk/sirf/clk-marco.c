@@ -204,28 +204,28 @@ static struct clk_ops std_pll_ops = {
 	.set_rate = pll_clk_set_rate,
 };
 
-static const char * const pll_clk_parents[] = {
+static char *pll_clk_parents[] = {
 	"osc",
 };
 
 static struct clk_init_data clk_pll1_init = {
 	.name = "pll1",
 	.ops = &std_pll_ops,
-	.parent_names = pll_clk_parents,
+	.parent_names = (const char **)pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
 };
 
 static struct clk_init_data clk_pll2_init = {
 	.name = "pll2",
 	.ops = &std_pll_ops,
-	.parent_names = pll_clk_parents,
+	.parent_names = (const char **)pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
 };
 
 static struct clk_init_data clk_pll3_init = {
 	.name = "pll3",
 	.ops = &std_pll_ops,
-	.parent_names = pll_clk_parents,
+	.parent_names = (const char **)pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
 };
 
@@ -293,7 +293,7 @@ static struct clk_ops usb_pll_ops = {
 static struct clk_init_data clk_usb_pll_init = {
 	.name = "usb_pll",
 	.ops = &usb_pll_ops,
-	.parent_names = pll_clk_parents,
+	.parent_names = (const char **)pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
 };
 
@@ -305,7 +305,7 @@ static struct clk_hw usb_pll_clk_hw = {
  * clock domains - cpu, mem, sys/io, dsp, gfx
  */
 
-static const char * const dmn_clk_parents[] = {
+static char *dmn_clk_parents[] = {
 	"rtc",
 	"osc",
 	"pll1",
@@ -440,7 +440,7 @@ static struct clk_ops msi_ops = {
 static struct clk_init_data clk_mem_init = {
 	.name = "mem",
 	.ops = &msi_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -454,7 +454,7 @@ static struct clk_dmn clk_mem = {
 static struct clk_init_data clk_sys_init = {
 	.name = "sys",
 	.ops = &msi_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 	.flags = CLK_SET_RATE_GATE,
 };
@@ -469,7 +469,7 @@ static struct clk_dmn clk_sys = {
 static struct clk_init_data clk_io_init = {
 	.name = "io",
 	.ops = &msi_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -488,7 +488,7 @@ static struct clk_ops cpu_ops = {
 static struct clk_init_data clk_cpu_init = {
 	.name = "cpu",
 	.ops = &cpu_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 	.flags = CLK_SET_RATE_PARENT,
 };
@@ -516,7 +516,7 @@ static struct clk_ops dmn_ops = {
 static struct clk_init_data clk_dsp_init = {
 	.name = "dsp",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -531,7 +531,7 @@ static struct clk_dmn clk_dsp = {
 static struct clk_init_data clk_gfx_init = {
 	.name = "gfx",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -546,7 +546,7 @@ static struct clk_dmn clk_gfx = {
 static struct clk_init_data clk_mm_init = {
 	.name = "mm",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -561,7 +561,7 @@ static struct clk_dmn clk_mm = {
 static struct clk_init_data clk_lcd_init = {
 	.name = "lcd",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -576,7 +576,7 @@ static struct clk_dmn clk_lcd = {
 static struct clk_init_data clk_vpp_init = {
 	.name = "vpp",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -591,7 +591,7 @@ static struct clk_dmn clk_vpp = {
 static struct clk_init_data clk_mmc01_init = {
 	.name = "mmc01",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -606,7 +606,7 @@ static struct clk_dmn clk_mmc01 = {
 static struct clk_init_data clk_mmc23_init = {
 	.name = "mmc23",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -621,7 +621,7 @@ static struct clk_dmn clk_mmc23 = {
 static struct clk_init_data clk_mmc45_init = {
 	.name = "mmc45",
 	.ops = &dmn_ops,
-	.parent_names = dmn_clk_parents,
+	.parent_names = (const char **)dmn_clk_parents,
 	.num_parents = ARRAY_SIZE(dmn_clk_parents),
 };
 
@@ -691,7 +691,7 @@ static void std_clk_disable(struct clk_hw *hw)
 		clkc_writel(val, reg);
 }
 
-static const char * const std_clk_io_parents[] = {
+static char *std_clk_io_parents[] = {
 	"io",
 };
 
@@ -704,7 +704,7 @@ static struct clk_ops ios_ops = {
 static struct clk_init_data clk_dmac0_init = {
 	.name = "dmac0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -718,7 +718,7 @@ static struct clk_std clk_dmac0 = {
 static struct clk_init_data clk_dmac1_init = {
 	.name = "dmac1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -732,7 +732,7 @@ static struct clk_std clk_dmac1 = {
 static struct clk_init_data clk_nand_init = {
 	.name = "nand",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -746,7 +746,7 @@ static struct clk_std clk_nand = {
 static struct clk_init_data clk_audio_init = {
 	.name = "audio",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -760,7 +760,7 @@ static struct clk_std clk_audio = {
 static struct clk_init_data clk_uart0_init = {
 	.name = "uart0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -774,7 +774,7 @@ static struct clk_std clk_uart0 = {
 static struct clk_init_data clk_uart1_init = {
 	.name = "uart1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -788,7 +788,7 @@ static struct clk_std clk_uart1 = {
 static struct clk_init_data clk_uart2_init = {
 	.name = "uart2",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -802,7 +802,7 @@ static struct clk_std clk_uart2 = {
 static struct clk_init_data clk_usp0_init = {
 	.name = "usp0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -816,7 +816,7 @@ static struct clk_std clk_usp0 = {
 static struct clk_init_data clk_usp1_init = {
 	.name = "usp1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -830,7 +830,7 @@ static struct clk_std clk_usp1 = {
 static struct clk_init_data clk_usp2_init = {
 	.name = "usp2",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -844,7 +844,7 @@ static struct clk_std clk_usp2 = {
 static struct clk_init_data clk_vip0_init = {
 	.name = "vip0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -858,7 +858,7 @@ static struct clk_std clk_vip0 = {
 static struct clk_init_data clk_vip1_init = {
 	.name = "vip1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -872,7 +872,7 @@ static struct clk_std clk_vip1 = {
 static struct clk_init_data clk_spi0_init = {
 	.name = "spi0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -886,7 +886,7 @@ static struct clk_std clk_spi0 = {
 static struct clk_init_data clk_spi1_init = {
 	.name = "spi1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -900,7 +900,7 @@ static struct clk_std clk_spi1 = {
 static struct clk_init_data clk_tsc_init = {
 	.name = "tsc",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -914,7 +914,7 @@ static struct clk_std clk_tsc = {
 static struct clk_init_data clk_i2c0_init = {
 	.name = "i2c0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -928,7 +928,7 @@ static struct clk_std clk_i2c0 = {
 static struct clk_init_data clk_i2c1_init = {
 	.name = "i2c1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -942,7 +942,7 @@ static struct clk_std clk_i2c1 = {
 static struct clk_init_data clk_pwmc_init = {
 	.name = "pwmc",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -956,7 +956,7 @@ static struct clk_std clk_pwmc = {
 static struct clk_init_data clk_efuse_init = {
 	.name = "efuse",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -970,7 +970,7 @@ static struct clk_std clk_efuse = {
 static struct clk_init_data clk_pulse_init = {
 	.name = "pulse",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -981,14 +981,14 @@ static struct clk_std clk_pulse = {
 	},
 };
 
-static const char * const std_clk_dsp_parents[] = {
+static char *std_clk_dsp_parents[] = {
 	"dsp",
 };
 
 static struct clk_init_data clk_gps_init = {
 	.name = "gps",
 	.ops = &ios_ops,
-	.parent_names = std_clk_dsp_parents,
+	.parent_names = (const char **)std_clk_dsp_parents,
 	.num_parents = ARRAY_SIZE(std_clk_dsp_parents),
 };
 
@@ -1002,7 +1002,7 @@ static struct clk_std clk_gps = {
 static struct clk_init_data clk_mf_init = {
 	.name = "mf",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
@@ -1013,14 +1013,14 @@ static struct clk_std clk_mf = {
 	},
 };
 
-static const char * const std_clk_sys_parents[] = {
+static char *std_clk_sys_parents[] = {
 	"sys",
 };
 
 static struct clk_init_data clk_security_init = {
 	.name = "mf",
 	.ops = &ios_ops,
-	.parent_names = std_clk_sys_parents,
+	.parent_names = (const char **)std_clk_sys_parents,
 	.num_parents = ARRAY_SIZE(std_clk_sys_parents),
 };
 
@@ -1031,14 +1031,14 @@ static struct clk_std clk_security = {
 	},
 };
 
-static const char * const std_clk_usb_parents[] = {
+static char *std_clk_usb_parents[] = {
 	"usb_pll",
 };
 
 static struct clk_init_data clk_usb0_init = {
 	.name = "usb0",
 	.ops = &ios_ops,
-	.parent_names = std_clk_usb_parents,
+	.parent_names = (const char **)std_clk_usb_parents,
 	.num_parents = ARRAY_SIZE(std_clk_usb_parents),
 };
 
@@ -1052,7 +1052,7 @@ static struct clk_std clk_usb0 = {
 static struct clk_init_data clk_usb1_init = {
 	.name = "usb1",
 	.ops = &ios_ops,
-	.parent_names = std_clk_usb_parents,
+	.parent_names = (const char **)std_clk_usb_parents,
 	.num_parents = ARRAY_SIZE(std_clk_usb_parents),
 };
 

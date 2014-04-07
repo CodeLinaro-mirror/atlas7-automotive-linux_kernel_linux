@@ -46,7 +46,7 @@ static struct clk_dmn clk_mmc45 = {
 static struct clk_init_data clk_nand_init = {
 	.name = "nand",
 	.ops = &ios_ops,
-	.parent_names = std_clk_io_parents,
+	.parent_names = (const char **)std_clk_io_parents,
 	.num_parents = ARRAY_SIZE(std_clk_io_parents),
 };
 
