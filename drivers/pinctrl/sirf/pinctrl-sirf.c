@@ -493,7 +493,7 @@ static inline struct sirfsoc_gpio_bank *sirfsoc_gpio_to_bank(unsigned int gpio)
 }
 
 static inline struct sirfsoc_gpio_bank *
-	sirfsoc_irqchip_to_bank(struct gpio_chip *chip)
+	sirfsoc_gpiochip_to_bank(struct gpio_chip *chip)
 {
 	return container_of(to_of_mm_gpio_chip(chip),
 		struct sirfsoc_gpio_bank, chip);
@@ -671,7 +671,7 @@ static inline void sirfsoc_gpio_set_input(struct sirfsoc_gpio_bank *bank,
 
 static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpiochip_to_bank(chip);
 	unsigned long flags;
 
 	if (pinctrl_request_gpio(chip->base + offset))
@@ -693,7 +693,7 @@ static int sirfsoc_gpio_request(struct gpio_chip *chip, unsigned offset)
 
 static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpiochip_to_bank(chip);
 	unsigned long flags;
 
 	spin_lock_irqsave(&bank->lock, flags);
@@ -708,7 +708,7 @@ static void sirfsoc_gpio_free(struct gpio_chip *chip, unsigned offset)
 
 static int sirfsoc_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpiochip_to_bank(chip);
 	int idx = sirfsoc_gpio_to_offset(gpio);
 	unsigned long flags;
 	unsigned offset;
@@ -748,7 +748,7 @@ static inline void sirfsoc_gpio_set_output(struct sirfsoc_gpio_bank *bank,
 static int sirfsoc_gpio_direction_output(struct gpio_chip *chip,
 	unsigned gpio, int value)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpiochip_to_bank(chip);
 	int idx = sirfsoc_gpio_to_offset(gpio);
 	u32 offset;
 	unsigned long flags;
@@ -766,7 +766,7 @@ static int sirfsoc_gpio_direction_output(struct gpio_chip *chip,
 
 static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpiochip_to_bank(chip);
 	u32 val;
 	unsigned long flags;
 
@@ -782,7 +782,7 @@ static int sirfsoc_gpio_get_value(struct gpio_chip *chip, unsigned offset)
 static void sirfsoc_gpio_set_value(struct gpio_chip *chip, unsigned offset,
 	int value)
 {
-	struct sirfsoc_gpio_bank *bank = sirfsoc_irqchip_to_bank(chip);
+	struct sirfsoc_gpio_bank *bank = sirfsoc_gpiochip_to_bank(chip);
 	u32 ctrl;
 	unsigned long flags;
 
