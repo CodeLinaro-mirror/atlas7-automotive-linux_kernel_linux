@@ -24,7 +24,7 @@
 
 #include "sirf-audio.h"
 
-struct sirf_soc_inner_audio_reg_bits {
+struct sirf_inner_audio_reg_bits {
 	u32 dig_mic_en_bits;
 	u32 dig_mic_freq_bits;
 	u32 adc14b_12_bits;
@@ -35,21 +35,21 @@ struct sirf_soc_inner_audio_reg_bits {
 	u32 codec_clk_en_bits;
 };
 
-struct sirf_soc_inner_audio {
+struct sirf_inner_audio {
 	void __iomem            *base;
 	struct clk              *clk;
 	spinlock_t              lock;
 	u32			sys_pwrc_reg_base;
-	struct sirf_soc_inner_audio_reg_bits *reg_bits;
+	struct sirf_inner_audio_reg_bits *reg_bits;
 	u32			reg_ctrl0, reg_ctrl1;
 	struct platform_device	*sirf_pcm_pdev;
 };
 
-static struct sirf_soc_inner_audio_reg_bits sirf_soc_inner_audio_reg_bits_prima2 = {
+static struct sirf_inner_audio_reg_bits sirf_inner_audio_reg_bits_prima2 = {
 	20, 21, 22, 23, 24, 25, 26, 27,
 };
 
-static struct sirf_soc_inner_audio_reg_bits sirf_soc_inner_audio_reg_bits_atlas6 = {
+static struct sirf_inner_audio_reg_bits sirf_inner_audio_reg_bits_atlas6 = {
 	22, 23, 24, 25, 26, 27, 28, 29,
 };
 static const char * const input_mode_mux[] = {"Single-ended",
@@ -108,7 +108,7 @@ static int adc_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
 	u32 val;
 
 	switch (event) {
@@ -134,7 +134,7 @@ static int hp_amp_left_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
 	u32 val;
 
 	val = snd_soc_read(codec, AUDIO_IC_CODEC_CTRL1);
@@ -155,7 +155,7 @@ static int hp_amp_right_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
 	u32 val;
 
 	val = snd_soc_read(codec, AUDIO_IC_CODEC_CTRL1);
@@ -176,7 +176,7 @@ static int speaker_output_enable_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
 	u32 val;
 
 	val = snd_soc_read(codec, AUDIO_IC_CODEC_CTRL1);
@@ -207,16 +207,16 @@ static const struct snd_soc_dapm_widget sirf_inner_dapm_widgets[] = {
 	SND_SOC_DAPM_OUT_DRV_E("HP amp left driver", AUDIO_IC_CODEC_CTRL0, 3, 0,
 			NULL, 0, hp_amp_left_event,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUT_DRV_E("HP amp right driver", AUDIO_IC_CODEC_CTRL0, 2, 0,
-			NULL, 0, hp_amp_right_event,
+	SND_SOC_DAPM_OUT_DRV_E("HP amp right driver", AUDIO_IC_CODEC_CTRL0,
+			2, 0, NULL, 0, hp_amp_right_event,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SWITCH("Left dac to speaker lineout", SND_SOC_NOPM, 0, 0,
 			&left_dac_to_speaker_lineout_switch_control),
 	SND_SOC_DAPM_SWITCH("Right dac to speaker lineout", SND_SOC_NOPM, 0, 0,
 			&right_dac_to_speaker_lineout_switch_control),
-	SND_SOC_DAPM_OUT_DRV_E("Speaker output driver", AUDIO_IC_CODEC_CTRL0, 4, 0,
-			NULL, 0, speaker_output_enable_event,
+	SND_SOC_DAPM_OUT_DRV_E("Speaker output driver", AUDIO_IC_CODEC_CTRL0,
+			4, 0, NULL, 0, speaker_output_enable_event,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_OUTPUT("HPOUTL"),
@@ -284,7 +284,7 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 		int cmd,
 		struct snd_soc_dai *dai)
 {
-	struct sirf_soc_inner_audio *sinner_audio = snd_soc_dai_get_drvdata(dai);
+	struct sirf_inner_audio *sinner_audio = snd_soc_dai_get_drvdata(dai);
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct snd_soc_codec *codec = dai->codec;
 	u32 val;
@@ -317,7 +317,8 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		spin_lock(&sinner_audio->lock);
 		if (playback) {
-			snd_soc_write(codec, AUDIO_CTRL_IC_TXFIFO_OP, AUDIO_FIFO_RESET);
+			snd_soc_write(codec, AUDIO_CTRL_IC_TXFIFO_OP,
+				AUDIO_FIFO_RESET);
 			snd_soc_write(codec, AUDIO_CTRL_IC_TXFIFO_INT_MSK, 0);
 			snd_soc_write(codec, AUDIO_CTRL_IC_TXFIFO_OP, 0x0);
 			snd_soc_write(codec, AUDIO_CTRL_IC_TXFIFO_OP,
@@ -328,7 +329,8 @@ static int sirf_inner_codec_trigger(struct snd_pcm_substream *substream,
 			val |= (IC_HSLEN | IC_HSREN);
 			snd_soc_write(codec, AUDIO_IC_CODEC_CTRL0, val);
 		} else {
-			snd_soc_write(codec, AUDIO_CTRL_IC_RXFIFO_OP, AUDIO_FIFO_RESET);
+			snd_soc_write(codec, AUDIO_CTRL_IC_RXFIFO_OP,
+				AUDIO_FIFO_RESET);
 			/* unmask rx fifo interrupt */
 			snd_soc_write(codec, AUDIO_CTRL_IC_RXFIFO_INT_MSK, 0);
 
@@ -401,14 +403,14 @@ static int sirf_inner_codec_remove(struct snd_soc_codec *codec)
 static unsigned int sirf_inner_codec_reg_read(struct snd_soc_codec *codec,
 		unsigned int reg)
 {
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
 	return readl(sinner_audio->base + reg);
 }
 
 static int sirf_inner_codec_reg_write(struct snd_soc_codec *codec,
 	unsigned int reg, unsigned int val)
 {
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(codec->dev);
 	writel(val, sinner_audio->base + reg);
 	return 0;
 }
@@ -460,8 +462,10 @@ static const struct snd_soc_component_driver sirf_soc_inner_component = {
 };
 
 static const struct of_device_id sirf_soc_inner_of_match[] = {
-	{ .compatible = "sirf,prima2-audio", .data = &sirf_soc_inner_audio_reg_bits_prima2 },
-	{ .compatible = "sirf,atlas6-audio", .data = &sirf_soc_inner_audio_reg_bits_atlas6 },
+	{ .compatible = "sirf,prima2-audio",
+		.data = &sirf_inner_audio_reg_bits_prima2 },
+	{ .compatible = "sirf,atlas6-audio",
+		.data = &sirf_inner_audio_reg_bits_atlas6 },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirf_soc_inner_of_match);
@@ -469,7 +473,7 @@ MODULE_DEVICE_TABLE(of, sirf_soc_inner_of_match);
 static int sirf_soc_inner_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct sirf_soc_inner_audio *sinner_audio;
+	struct sirf_inner_audio *sinner_audio;
 	struct resource *mem_res;
 	struct device_node *dn = NULL;
 	const struct of_device_id *match;
@@ -478,12 +482,12 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 	match = of_match_node(sirf_soc_inner_of_match, pdev->dev.of_node);
 
 	sinner_audio = devm_kzalloc(&pdev->dev,
-		sizeof(struct sirf_soc_inner_audio), GFP_KERNEL);
+		sizeof(struct sirf_inner_audio), GFP_KERNEL);
 	if (!sinner_audio)
 		return -ENOMEM;
 
-	sinner_audio->sirf_pcm_pdev = platform_device_register_simple("sirf-pcm-audio",
-			1, NULL, 0);
+	sinner_audio->sirf_pcm_pdev = platform_device_register_simple(
+			"sirf-pcm-audio", 1, NULL, 0);
 	if (IS_ERR(sinner_audio->sirf_pcm_pdev))
 		return PTR_ERR(sinner_audio->sirf_pcm_pdev);
 
@@ -491,13 +495,13 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 
 	dn = of_find_compatible_node(dn, NULL, "sirf,prima2-pwrc");
 	if (!dn) {
-		dev_err(&pdev->dev, "Failed to get sirf,prima2-pwrc  node!\n");
+		dev_err(&pdev->dev, "Get sirf,prima2-pwrc node failed\n");
 		return -ENODEV;
 	}
 
 	ret = of_property_read_u32(dn, "reg", &sinner_audio->sys_pwrc_reg_base);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed tp get pwrc register base address\n");
+		dev_err(&pdev->dev, "Get pwrc register base address failed\n");
 		return -EINVAL;
 	}
 
@@ -518,8 +522,8 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_soc_inner_component,
-		&sirf_soc_inner_dai, 1);
+	ret = devm_snd_soc_register_component(&pdev->dev,
+		&sirf_soc_inner_component, &sirf_soc_inner_dai, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Register Audio SoC dai failed.\n");
 		goto err_clk_put;
@@ -533,7 +537,8 @@ static int sirf_soc_inner_probe(struct platform_device *pdev)
 		goto err_com_unreg;
 	}
 
-	sinner_audio->reg_bits = (struct sirf_soc_inner_audio_reg_bits *)match->data;
+	sinner_audio->reg_bits = (struct sirf_inner_audio_reg_bits *)
+			(match->data);
 	/*
 	 * Always open charge pump, if not, when the charge pump closed the
 	 * adc will not stable
@@ -558,7 +563,7 @@ err_clk_put:
 
 static int sirf_soc_inner_remove(struct platform_device *pdev)
 {
-	struct sirf_soc_inner_audio *sinner_audio = platform_get_drvdata(pdev);
+	struct sirf_inner_audio *sinner_audio = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(sinner_audio->clk);
 	snd_soc_unregister_codec(&(pdev->dev));
@@ -569,7 +574,7 @@ static int sirf_soc_inner_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_RUNTIME
 static int sirf_inner_runtime_suspend(struct device *dev)
 {
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(dev);
 	u32 val;
 	val = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	val &= ~(1 << sinner_audio->reg_bits->codec_clk_en_bits);
@@ -579,7 +584,7 @@ static int sirf_inner_runtime_suspend(struct device *dev)
 
 static int sirf_inner_runtime_resume(struct device *dev)
 {
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(dev);
 	u32 val;
 	val = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	val |= (1 << sinner_audio->reg_bits->codec_clk_en_bits);
@@ -597,10 +602,12 @@ static int sirf_inner_runtime_resume(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int sirf_soc_inner_suspend(struct device *dev)
 {
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(dev);
 
-	sinner_audio->reg_ctrl0 = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
-	sinner_audio->reg_ctrl1 = readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+	sinner_audio->reg_ctrl0 =
+			readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
+	sinner_audio->reg_ctrl1 =
+			readl(sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 	sirf_inner_runtime_suspend(dev);
 	clk_disable_unprepare(sinner_audio->clk);
 
@@ -609,7 +616,7 @@ static int sirf_soc_inner_suspend(struct device *dev)
 
 static int sirf_soc_inner_resume(struct device *dev)
 {
-	struct sirf_soc_inner_audio *sinner_audio = dev_get_drvdata(dev);
+	struct sirf_inner_audio *sinner_audio = dev_get_drvdata(dev);
 	int ret;
 
 	ret = clk_prepare_enable(sinner_audio->clk);
@@ -618,7 +625,8 @@ static int sirf_soc_inner_resume(struct device *dev)
 
 	writel(sinner_audio->reg_ctrl0,
 		sinner_audio->base + AUDIO_IC_CODEC_CTRL0);
-	writel(sinner_audio->reg_ctrl1, sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
+	writel(sinner_audio->reg_ctrl1,
+		sinner_audio->base + AUDIO_IC_CODEC_CTRL1);
 
 	if (!pm_runtime_status_suspended(dev))
 		sirf_inner_runtime_resume(dev);
@@ -628,7 +636,8 @@ static int sirf_soc_inner_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops sirf_inner_pm_ops = {
-	SET_RUNTIME_PM_OPS(sirf_inner_runtime_suspend, sirf_inner_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(sirf_inner_runtime_suspend,
+			sirf_inner_runtime_resume, NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(sirf_soc_inner_suspend, sirf_soc_inner_resume)
 };
 

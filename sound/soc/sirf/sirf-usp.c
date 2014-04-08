@@ -448,7 +448,8 @@ static const struct of_device_id sirf_usp_pcm_of_match[] = {
 MODULE_DEVICE_TABLE(of, sirf_usp_pcm_of_match);
 
 static const struct dev_pm_ops sirf_usp_pcm_pm_ops = {
-	SET_RUNTIME_PM_OPS(sirf_usp_pcm_runtime_suspend, sirf_usp_pcm_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(sirf_usp_pcm_runtime_suspend,
+			sirf_usp_pcm_runtime_resume, NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(sirf_usp_pcm_suspend, sirf_usp_pcm_resume)
 };
 

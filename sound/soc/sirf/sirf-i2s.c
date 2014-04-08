@@ -430,7 +430,8 @@ static const struct of_device_id sirf_i2s_of_match[] = {
 MODULE_DEVICE_TABLE(of, sirf_i2s_of_match);
 
 static const struct dev_pm_ops sirf_i2s_pm_ops = {
-	SET_RUNTIME_PM_OPS(sirf_i2s_runtime_suspend, sirf_i2s_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(sirf_i2s_runtime_suspend,
+			sirf_i2s_runtime_resume, NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(sirf_i2s_suspend, sirf_i2s_resume)
 };
 
