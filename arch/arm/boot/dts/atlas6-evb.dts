@@ -55,11 +55,14 @@
 		compatible = "sirf,sirf-bt-sco";
 		codec-clock-frame-master = <1>;
 	};
-	hdmi-audio-codec {
-		compatible = "hdmi-audio-codec";
+	hdmi_audio: hdmi_audio@0 {
+		compatible = "linux,hdmi-audio";
+		status = "okay";
 	};
 	sirf-hdmi {
 		compatible = "sirf,hdmi-card";
+		i2s-controller = <&i2s>;
+		audio-codec = <&hdmi_audio>;
 	};
 	sirf-backlight {
 		compatible = "pwm-backlight";
