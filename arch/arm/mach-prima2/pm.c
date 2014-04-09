@@ -5,6 +5,7 @@
  *
  * Licensed under GPLv2 or later.
  */
+#define pr_fmt(fmt)        "(sirfsoc_pm): " fmt
 
 #include <linux/kernel.h>
 #include <linux/suspend.h>
@@ -116,10 +117,9 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 	u32 boot_stat = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
 		SIRFSOC_BOOT_STATUS);
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
-		pr_info("boot status mask bits is %d, but read size is %d\n",
+		pr_err("Failed to read boot status, mask bits is %d, but read size is %d\n",
 			SIRFSOC_BOOT_STATUS_BITS, size);
-		pr_info("read failed\n");
-		return 0;
+		return -EINVAL;
 	}
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
@@ -135,10 +135,9 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 	int ret;
 
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
-		pr_info("boot status mask bits is %d, but write size is %d\n",
+		pr_err("Failed to write boot status, mask bits is %d, but write size is %d\n",
 			SIRFSOC_BOOT_STATUS_BITS, size);
-		pr_info("write failed\n");
-		return 0;
+		return -EINVAL;
 	}
 
 	ret = kstrtou32_from_user(buf, SIRFSOC_BOOT_STATUS_BITS, 2, &boot_stat);
