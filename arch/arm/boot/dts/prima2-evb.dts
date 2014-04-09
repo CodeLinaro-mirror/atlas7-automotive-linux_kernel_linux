@@ -98,10 +98,6 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
 			};
-			uart@b0070000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&uart2_noflow_pins_a>;
-			};
 			usp@b0080000 {
 				compatible = "sirf,prima2-usp-pcm";
 				pinctrl-names = "default";
@@ -164,6 +160,10 @@
 					interrupts = <33>;
 					resets = <&rstc 32>;
 				};
+			};
+			pulsec@b0150000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&pulse_count_pins_a>;
 			};
 		};
                 disp-iobg {
