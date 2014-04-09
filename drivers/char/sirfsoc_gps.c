@@ -7,7 +7,7 @@
  */
 
 #include <linux/uaccess.h>
-#include <linux/clk.h>s
+#include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/cpufreq.h>
 #include <linux/device.h>
@@ -33,8 +33,7 @@
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/time.h>
-#include <asm/irq.h>
-#include <asm/mach/irq.h>
+#include <linux/irq.h>
 #include "sirfsoc_gpsdrv.h"
 
 #define GPS_RTC_CLK_SWITCH_OFFSET		0x1C
