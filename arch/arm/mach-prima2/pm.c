@@ -123,7 +123,7 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 	}
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
-		put_user(((boot_stat >> i) & 0x1) + '0', buf + i);
+		put_user("01"[(boot_stat >> i) & 0x1], buf + i);
 
 	return size;
 }
@@ -145,7 +145,7 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 		return -EINVAL;
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
-		boot_stat |= (((data[i] - 0x30) & 0x1) << i);
+		boot_stat |= (((data[i] - '0') & 0x1) << i);
 
 	sirfsoc_rtc_iobrg_writel(boot_stat,
 		sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
