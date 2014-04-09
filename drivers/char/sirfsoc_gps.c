@@ -51,12 +51,12 @@ struct gps_dev {
 	struct clk			*cpuclk;
 	struct clk			*cphclk;
 
-	unsigned long			iface_base;
-	unsigned long			idma_base;
-	unsigned long			gps_rtc_base;
-	unsigned long			intrctrl_base;
-	unsigned long			cphifbg_pa_base;
-	unsigned long			gps_pa_base;
+	void __iomem			*iface_base;
+	void __iomem			*idma_base;
+	void __iomem			*intrctrl_base;
+	u32				gps_rtc_base;
+	u32				cphifbg_pa_base;
+	u32				gps_pa_base;
 	unsigned int			sys_rtc_cn;
 	unsigned int			irq;
 
@@ -222,7 +222,6 @@ static void sirfsoc_gps_reset(struct gps_dev *gdev)
 static void gps_init_interfaces(struct gps_dev *gdev)
 {
 	unsigned long reg_value;
-	struct device_node *pdn;
 
 	/*enable clock and reset */
 	if (clk_prepare_enable(gdev->dspclk))
@@ -306,14 +305,14 @@ static void compose_status(struct gps_dev *dev)
 	dev->p_read = dev->str_status;
 }
 
-static ssize_t gps_read(struct file *filp, char *__user *buf,
+static ssize_t gps_read(struct file *filp, char __user *buf,
 	size_t count, loff_t *f_pos)
 {
 	struct gps_dev *dev = gpsdev;
 	int copy_count = 0;
 
-	while (copy_count < count && *(dev->p_read) != 0) {
-		put_user(*(dev->p_read)++, buf);
+	while (copy_count < count && *dev->p_read != 0) {
+		put_user(*dev->p_read++, buf);
 		buf++;
 		copy_count++;
 	}
@@ -958,8 +957,8 @@ static int sirf_gps_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto free_lan_en;
 	}
-	gps_device->iface_base = (unsigned long)of_iomap(pdn, 0);
-	if (gps_device->iface_base == 0) {
+	gps_device->iface_base = of_iomap(pdn, 0);
+	if (!gps_device->iface_base) {
 		dev_err(&pdev->dev, "GPS: of_iomap failed for dsp-ifreg\n");
 		ret = -EINVAL;
 		goto free_lan_en;
@@ -989,8 +988,8 @@ static int sirf_gps_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto unmap_iface;
 	}
-	gps_device->idma_base = (unsigned long)of_iomap(pdn, 0);
-	if (gps_device->idma_base == 0) {
+	gps_device->idma_base = of_iomap(pdn, 0);
+	if (!gps_device->idma_base) {
 		dev_err(&pdev->dev, "GPS: of_iomap failed for prima2-dsp\n");
 		ret = -EINVAL;
 		goto unmap_iface;
@@ -1030,7 +1029,7 @@ static int sirf_gps_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto unmap_idma;
 	}
-	gps_device->intrctrl_base = (unsigned long)of_iomap(pdn, 0);
+	gps_device->intrctrl_base = of_iomap(pdn, 0);
 	if (gps_device->intrctrl_base == 0) {
 		dev_err(&pdev->dev, "GPS: of_iomap failed for prima2-intc\n");
 		ret = -EINVAL;
