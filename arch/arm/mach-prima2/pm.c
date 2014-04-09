@@ -123,7 +123,7 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 	}
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
-		buf[i] = ((boot_stat >> i) & 0x1) + 0x30;
+		put_user(((boot_stat >> i) & 0x1) + '0', buf + i);
 
 	return size;
 }
