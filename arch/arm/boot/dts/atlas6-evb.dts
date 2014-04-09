@@ -180,7 +180,6 @@
 				};
 				sd3: sdhci@56300000 {
 					status = "okay";
-					broken-cd;
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc3_pins_a>;
 				};
