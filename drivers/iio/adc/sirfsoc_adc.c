@@ -222,7 +222,8 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = of_platform_populate(pdev->dev.of_node, sirfsoc_adc_of_match, NULL, &pdev->dev);
+	ret = of_platform_populate(pdev->dev.of_node, sirfsoc_adc_of_match,
+		NULL, &pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed adding child nodes\n");
 		goto err;
