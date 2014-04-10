@@ -770,13 +770,8 @@ static void sirfsocfb_flush_cache(struct sirfsocfb *fb, int layer,
 				  struct sirfsocfb_flush_cache_addr
 				  *flush_cache_addr)
 {
-	void *flush_start, *flush_end;
+	struct platform_device *pdev = fb->dev;
 	unsigned long addr_start, addr_end;
-
-	/* calculate virtual address */
-	flush_start = flush_cache_addr->phy_addr_start
-	    - fb->fb[layer].fix.smem_start + fb->fb[layer].screen_base;
-	flush_end = flush_start + flush_cache_addr->phy_addr_size;
 
 	/* calculate physical address */
 	addr_start = flush_cache_addr->phy_addr_start;
@@ -784,22 +779,21 @@ static void sirfsocfb_flush_cache(struct sirfsocfb *fb, int layer,
 
 	switch (flush_cache_addr->flush_cache_op) {
 	case FLUSH_CACHE_OP_INVALID:
-		/* invalid L1 cache */
-		dmac_flush_range(flush_start, flush_end);
-		/* invalid L2 cache */
-		outer_inv_range(addr_start, addr_end);
+		/* invalid L1 and L2 cache */
+		dma_sync_single_for_cpu(&pdev->dev, addr_start,
+			flush_cache_addr->phy_addr_size, DMA_FROM_DEVICE);
 		break;
 	case FLUSH_CACHE_OP_CLEAN:
-		/* clean L1 cache */
-		dmac_flush_range(flush_start, flush_end);
-		/* clean L2 cache */
-		outer_clean_range(addr_start, addr_end);
+		/* clean L1 and L2 cache */
+		dma_sync_single_for_device(&pdev->dev, addr_start,
+			flush_cache_addr->phy_addr_size, DMA_TO_DEVICE);
 		break;
 	case FLUSH_CACHE_OP_FLUSH:
-		/* flush L1 cache */
-		dmac_flush_range(flush_start, flush_end);
-		/* flush L2 cache */
-		outer_flush_range(addr_start, addr_end);
+		/* flush L1 and L2 cache */
+		dma_sync_single_for_device(&pdev->dev, addr_start,
+			flush_cache_addr->phy_addr_size, DMA_TO_DEVICE);
+		dma_sync_single_for_cpu(&pdev->dev, addr_start,
+			flush_cache_addr->phy_addr_size, DMA_FROM_DEVICE);
 		break;
 	default:
 		break;
