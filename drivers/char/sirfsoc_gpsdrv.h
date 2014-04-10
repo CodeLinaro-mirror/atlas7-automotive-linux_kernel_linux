@@ -625,7 +625,7 @@ struct SDIO_GPS_MSG {
 struct trig_sdio {
 	struct sdio_func *func;
 	struct sdhci_host *host;
-	u32 loopdma_va_buf[2];
+	void *loopdma_va_buf[2];
 	struct cdev cdev;
 	struct device dev;
 };
@@ -642,9 +642,9 @@ struct trig_dev {
 	struct trig_sdio *ss_trig_sdio;
 	struct task_struct *trigintthread;
 	struct trig_gpios sg_trig_gpios;
-	unsigned long gps_rtc_base;
-	unsigned int pbb_base_addr;
-	unsigned int pbb_phys_addr;
+	u32 gps_rtc_base;
+	void __iomem *pbb_base_addr;
+	u32 pbb_phys_addr;
 
 	unsigned int valid_chan_num;
 	unsigned int thread_exit;
@@ -659,6 +659,5 @@ struct trig_dev {
 	struct TRIG_PARAMETER *trig_param;
 	struct TRIG_CONFIG_PARAM *config_msg_user;
 };
-
 
 #endif

@@ -453,13 +453,13 @@ static int trig_int_thread(void *data)
 		tmp_counter++;
 		if (tmp_counter == 1) {
 			tmp_counter = 0;
-			pr_debug("trig interrupt coming! buffer:
-					ready[0]:%d,ready[1]%d,
-					error[0]:%d,error[1]:%d \r\n",
-					trigdev.ss_sirfsoc->buffer_ready[0],
-					trigdev.ss_sirfsoc->buffer_ready[1],
-					trigdev.ss_sirfsoc->buffer_err[0],
-					trigdev.ss_sirfsoc->buffer_err[1]);
+			pr_debug("trig interrupt coming!");
+			pr_debug("ready[0]:%d,ready[1]%d,\n"
+				trigdev.ss_sirfsoc->buffer_ready[0],
+				trigdev.ss_sirfsoc->buffer_ready[1]);
+			pr_debug("error[0]:%d,error[1]:%d\n",
+				trigdev.ss_sirfsoc->buffer_err[0],
+				trigdev.ss_sirfsoc->buffer_err[1]);
 		}
 #endif
 		/* get loop dma buffer
@@ -557,13 +557,13 @@ static int trig_int_thread(void *data)
 		}
 
 #if 0
-		pr_debug("buffer status: ready[0]:%d,ready[1]%d,
-			error[0]:%d,error[1]:%d,
-			trigdev.dma_to_user_counter:%d \r\n",
+		pr_debug("buffer status: ready[0]:%d,ready[1]%d,\n"
 			trigdev.ss_sirfsoc->buffer_ready[0],
-			trigdev.ss_sirfsoc->buffer_ready[1],
+			trigdev.ss_sirfsoc->buffer_ready[1]);
+		pr_debug("buffer status: error[0]:%d,error[1]:%d,\n"
 			trigdev.ss_sirfsoc->buffer_err[0],
-			trigdev.ss_sirfsoc->buffer_err[1],
+			trigdev.ss_sirfsoc->buffer_err[1]);
+		pr_debug("trigdev.dma_to_user_counter:%d\n",
 			trigdev.dma_to_user_counter);
 #endif
 
@@ -626,7 +626,7 @@ static int trig_sdio_deinit(void)
 	return 1;
 }
 
-static int trig_deinit(void)
+static void trig_deinit(void)
 {
 	int sdhc_rst_value;
 	int intmask;
@@ -681,8 +681,6 @@ static int trig_deinit(void)
 	mmc_detect_change(trigdev.ss_sirfsoc->host->mmc, 0);
 	msleep(200);
 #endif
-	return;
-
 }
 
 static int trig_config_glo_nco(int *glo_channel, int mask)
@@ -741,8 +739,7 @@ static long trig_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	unsigned int addr, value;
 	/*param[0]: addr, param[1]: value*/
 	unsigned int param[2];
-	unsigned int intmask;
-	unsigned int deinitval = 0x0000000f;
+	/*unsigned int deinitval = 0x0000000f;*/
 	unsigned int config_trig_reset;
 
 	switch (cmd) {
@@ -1068,8 +1065,10 @@ static long trig_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case IOCTL_TRIG_GET_LOOPDMA_VIR_ADDR:
 		trigdev.trig_param_buf->dma0_buf_kernerl_vir_addr =
+				(unsigned int)
 				trigdev.ss_trig_sdio->loopdma_va_buf[0];
 		trigdev.trig_param_buf->dma1_buf_kernerl_vir_addr =
+				(unsigned int)
 				trigdev.ss_trig_sdio->loopdma_va_buf[1];
 		trigdev.trig_param_buf->dma0_buf_kernerl_phy_addr =
 				trigdev.ss_sirfsoc->loopdma_buf[0];
@@ -1211,9 +1210,9 @@ static int sirf_trig_probe(struct sdio_func *func,
 	trigdev.ss_trig_sdio->loopdma_va_buf[1] = priv->mem_buf[1];
 
 	trigdev.pbb_phys_addr = sirf_pbb_phy_base;
-	trigdev.pbb_base_addr = (unsigned int)ioremap(sirf_pbb_phy_base,
-						sirf_pbb_phy_size);
-	if (trigdev.pbb_base_addr == 0) {
+	trigdev.pbb_base_addr = ioremap(sirf_pbb_phy_base,
+					sirf_pbb_phy_size);
+	if (!trigdev.pbb_base_addr) {
 		dev_err(&pdev->dev, "GPS: ioremap failed for gps-pbb\n");
 		ret = -EINVAL;
 		return -ENOMEM;

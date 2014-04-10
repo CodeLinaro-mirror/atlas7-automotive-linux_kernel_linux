@@ -1030,7 +1030,7 @@ static int sirf_gps_probe(struct platform_device *pdev)
 		goto unmap_idma;
 	}
 	gps_device->intrctrl_base = of_iomap(pdn, 0);
-	if (gps_device->intrctrl_base == 0) {
+	if (!gps_device->intrctrl_base) {
 		dev_err(&pdev->dev, "GPS: of_iomap failed for prima2-intc\n");
 		ret = -EINVAL;
 		goto unmap_idma;
