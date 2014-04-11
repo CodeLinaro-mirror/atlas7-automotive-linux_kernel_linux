@@ -71,10 +71,11 @@ mpihelp_mod_1(mpi_ptr_t dividend_ptr, mpi_size_t dividend_size,
 
 			divisor_limb <<= normalization_steps;
 
-			/* Compute (2**2N - 2**N * DIVISOR_LIMB) / DIVISOR_LIMB.  The
-			 * result is a (N+1)-bit approximation to 1/DIVISOR_LIMB, with the
-			 * most significant bit (with weight 2**N) implicit.
-			 *
+			/* Compute (2**2N - 2**N * DIVISOR_LIMB)/DIVISOR_LIMB.
+			 * The result is a
+			 * (N+1)-bit approximation to 1/DIVISOR_LIMB,
+			 * with the most significant bit (with weight 2**N)
+			 * implicit.
 			 * Special case for DIVISOR_LIMB == 100...000.
 			 */
 			if (!(divisor_limb << 1))
@@ -89,7 +90,7 @@ mpihelp_mod_1(mpi_ptr_t dividend_ptr, mpi_size_t dividend_size,
 			/* Possible optimization:
 			 * if (r == 0
 			 * && divisor_limb > ((n1 << normalization_steps)
-			 *		   | (dividend_ptr[dividend_size - 2] >> ...)))
+			 *	| (dividend_ptr[dividend_size - 2] >> ...)))
 			 * ...one division less...
 			 */
 			for (i = dividend_size - 2; i >= 0; i--) {
@@ -110,10 +111,11 @@ mpihelp_mod_1(mpi_ptr_t dividend_ptr, mpi_size_t dividend_size,
 		} else {
 			mpi_limb_t divisor_limb_inverted;
 
-			/* Compute (2**2N - 2**N * DIVISOR_LIMB) / DIVISOR_LIMB.  The
-			 * result is a (N+1)-bit approximation to 1/DIVISOR_LIMB, with the
-			 * most significant bit (with weight 2**N) implicit.
-			 *
+			/* Compute (2**2N - 2**N * DIVISOR_LIMB)/DIVISOR_LIMB.
+			 * The result is a
+			 * (N+1)-bit approximation to 1/DIVISOR_LIMB,
+			 * with the most significant bit (with weight 2**N)
+			 * implicit.
 			 * Special case for DIVISOR_LIMB == 100...000.
 			 */
 			if (!(divisor_limb << 1))
@@ -142,7 +144,8 @@ mpihelp_mod_1(mpi_ptr_t dividend_ptr, mpi_size_t dividend_size,
 		if (UDIV_NEEDS_NORMALIZATION) {
 			int normalization_steps;
 
-			normalization_steps = count_leading_zeros(divisor_limb);
+			normalization_steps =
+				count_leading_zeros(divisor_limb);
 			if (normalization_steps) {
 				divisor_limb <<= normalization_steps;
 
@@ -151,9 +154,9 @@ mpihelp_mod_1(mpi_ptr_t dividend_ptr, mpi_size_t dividend_size,
 					   normalization_steps);
 
 				/* Possible optimization:
-				 * if (r == 0
-				 * && divisor_limb > ((n1 << normalization_steps)
-				 *		   | (dividend_ptr[dividend_size - 2] >> ...)))
+				 * if (r == 0 &&
+				 * divisor_limb > ((n1 << normalization_steps)
+				 * |(dividend_ptr[dividend_size - 2] >> ...)))
 				 * ...one division less...
 				 */
 				for (i = dividend_size - 2; i >= 0; i--) {
@@ -172,8 +175,9 @@ mpihelp_mod_1(mpi_ptr_t dividend_ptr, mpi_size_t dividend_size,
 				return r >> normalization_steps;
 			}
 		}
-		/* No normalization needed, either because udiv_qrnnd doesn't require
-		 * it, or because DIVISOR_LIMB is already normalized.  */
+		/* No normalization needed, either because udiv_qrnnd
+		 * doesn't require it, or because DIVISOR_LIMB
+		 * is already normalized.  */
 		i = dividend_size - 1;
 		r = dividend_ptr[i];
 
@@ -215,8 +219,9 @@ mpihelp_divrem(mpi_ptr_t qp, mpi_size_t qextra_limbs,
 
 	switch (dsize) {
 	case 0:
-		/* We are asked to divide by zero, so go ahead and do it!  (To make
-		   the compiler not remove this statement, return the value.)  */
+		/* We are asked to divide by zero, so go ahead and do it!
+		 * (To make the compiler not remove this statement,
+		 * return the value.)  */
 		/*
 		 * existing clients of this function have been modified
 		 * not to call it with dsize == 0, so this should not happen
@@ -274,15 +279,15 @@ mpihelp_divrem(mpi_ptr_t qp, mpi_size_t qextra_limbs,
 					np--;
 				else
 					np[0] = 0;
-
+				/* Q should be either 111..111 or 111..110.
+				 * Need special treatment of this rare case
+				 * as normal division would give overflow.*/
 				if (n1 == d1) {
-					/* Q should be either 111..111 or 111..110.  Need special
-					 * treatment of this rare case as normal division would
-					 * give overflow.  */
 					q = ~(mpi_limb_t) 0;
 
 					r = n0 + d1;
-					if (r < d1) {	/* Carry in the addition? */
+					if (r < d1) {
+						/* Carry in the addition? */
 						add_ssaaaa(n1, n0, r - d0,
 							   np[0], 0, d0);
 						qp[i] = q;
@@ -298,11 +303,12 @@ mpihelp_divrem(mpi_ptr_t qp, mpi_size_t qextra_limbs,
 				n2 = np[0];
 q_test:
 				if (n1 > r || (n1 == r && n0 > n2)) {
-					/* The estimated Q was too large.  */
+					/* The estimated Q was too large.*/
 					q--;
 					sub_ddmmss(n1, n0, n1, n0, 0, d0);
 					r += d1;
-					if (r >= d1)	/* If not carry, test Q again.	*/
+					/* If not carry, test Q again.  */
+					if (r >= d1)
 						goto q_test;
 				}
 
@@ -317,15 +323,15 @@ q_test:
 	default:
 		{
 			mpi_size_t i;
-			mpi_limb_t dX, d1, n0;
+			mpi_limb_t dx, d1, n0;
 
 			np += nsize - dsize;
-			dX = dp[dsize - 1];
+			dx = dp[dsize - 1];
 			d1 = dp[dsize - 2];
 			n0 = np[dsize - 1];
 
-			if (n0 >= dX) {
-				if (n0 > dX
+			if (n0 >= dx) {
+				if (n0 > dx
 				    || mpihelp_cmp(np, dp, dsize - 1) >= 0) {
 					mpihelp_sub_n(np, np, dp, dsize);
 					n0 = np[dsize - 1];
@@ -333,7 +339,8 @@ q_test:
 				}
 			}
 
-			for (i = qextra_limbs + nsize - dsize - 1; i >= 0; i--) {
+			for (i = qextra_limbs + nsize - dsize - 1;
+				i >= 0; i--) {
 				mpi_limb_t q;
 				mpi_limb_t n1, n2;
 				mpi_limb_t cy_limb;
@@ -347,31 +354,36 @@ q_test:
 					np[0] = 0;
 				}
 
-				if (n0 == dX) {
-					/* This might over-estimate q, but it's probably not worth
-					 * the extra code here to find out.  */
+				if (n0 == dx) {
+					/* This might over-estimate q,
+					 * but it's probably not worth
+					 * the extra code here to find out.*/
 					q = ~(mpi_limb_t) 0;
 				} else {
 					mpi_limb_t r;
 
-					udiv_qrnnd(q, r, n0, np[dsize - 1], dX);
+					udiv_qrnnd(q, r, n0, np[dsize - 1], dx);
 					umul_ppmm(n1, n0, d1, q);
 
 					while (n1 > r
 					       || (n1 == r
 						   && n0 > np[dsize - 2])) {
 						q--;
-						r += dX;
-						if (r < dX)	/* I.e. "carry in previous addition?" */
-							break;
+						r += dx;
+						/* I.e. "carry in
+						 * previous addition?"*/
+#define CARRY_IN(x) {if (x < dx) break; }
+						CARRY_IN(r);
 						n1 -= n0 < d1;
 						n0 -= d1;
 					}
 				}
 
-				/* Possible optimization: We already have (q * n0) and (1 * n1)
-				 * after the calculation of q.	Taking advantage of that, we
-				 * could make this loop make two iterations less.  */
+				/* Possible optimization: We already have
+				 * (q * n0) and (1 * n1)
+				 * after the calculation of q.
+				 * Taking advantage of that, we could make
+				 * this loop make two iterations less.  */
 				cy_limb = mpihelp_submul_1(np, dp, dsize, q);
 
 				if (n2 != cy_limb) {
@@ -427,8 +439,9 @@ mpihelp_divmod_1(mpi_ptr_t quot_ptr,
 
 			divisor_limb <<= normalization_steps;
 
-			/* Compute (2**2N - 2**N * DIVISOR_LIMB) / DIVISOR_LIMB.  The
-			 * result is a (N+1)-bit approximation to 1/DIVISOR_LIMB, with the
+			/* Compute (2**2N - 2**N * DIVISOR_LIMB)/DIVISOR_LIMB.
+			 * The result is a
+			 * (N+1)-bit approximation to 1/DIVISOR_LIMB, with the
 			 * most significant bit (with weight 2**N) implicit.
 			 */
 			/* Special case for DIVISOR_LIMB == 100...000.	*/
@@ -444,7 +457,7 @@ mpihelp_divmod_1(mpi_ptr_t quot_ptr,
 			/* Possible optimization:
 			 * if (r == 0
 			 * && divisor_limb > ((n1 << normalization_steps)
-			 *		   | (dividend_ptr[dividend_size - 2] >> ...)))
+			 *	| (dividend_ptr[dividend_size - 2] >> ...)))
 			 * ...one division less...
 			 */
 			for (i = dividend_size - 2; i >= 0; i--) {
@@ -465,8 +478,9 @@ mpihelp_divmod_1(mpi_ptr_t quot_ptr,
 		} else {
 			mpi_limb_t divisor_limb_inverted;
 
-			/* Compute (2**2N - 2**N * DIVISOR_LIMB) / DIVISOR_LIMB.  The
-			 * result is a (N+1)-bit approximation to 1/DIVISOR_LIMB, with the
+			/* Compute (2**2N - 2**N * DIVISOR_LIMB)/DIVISOR_LIMB.
+			 * The result is a
+			 * (N+1)-bit approximation to 1/DIVISOR_LIMB, with the
 			 * most significant bit (with weight 2**N) implicit.
 			 */
 			/* Special case for DIVISOR_LIMB == 100...000.	*/
@@ -496,7 +510,8 @@ mpihelp_divmod_1(mpi_ptr_t quot_ptr,
 		if (UDIV_NEEDS_NORMALIZATION) {
 			int normalization_steps;
 
-			normalization_steps = count_leading_zeros(divisor_limb);
+			normalization_steps =
+				count_leading_zeros(divisor_limb);
 			if (normalization_steps) {
 				divisor_limb <<= normalization_steps;
 
@@ -505,9 +520,9 @@ mpihelp_divmod_1(mpi_ptr_t quot_ptr,
 					   normalization_steps);
 
 				/* Possible optimization:
-				 * if (r == 0
-				 * && divisor_limb > ((n1 << normalization_steps)
-				 *		   | (dividend_ptr[dividend_size - 2] >> ...)))
+				 * if (r == 0 &&
+				 * divisor_limb > ((n1 << normalization_steps)
+				 * | (dividend_ptr[dividend_size - 2] >> ...)))
 				 * ...one division less...
 				 */
 				for (i = dividend_size - 2; i >= 0; i--) {
@@ -526,8 +541,8 @@ mpihelp_divmod_1(mpi_ptr_t quot_ptr,
 				return r >> normalization_steps;
 			}
 		}
-		/* No normalization needed, either because udiv_qrnnd doesn't require
-		 * it, or because DIVISOR_LIMB is already normalized.  */
+		/* No normalization needed, either because udiv_qrnnd doesn't
+		 * require it, or because DIVISOR_LIMB is already normalized.*/
 		i = dividend_size - 1;
 		r = dividend_ptr[i];
 

@@ -61,8 +61,9 @@ int mpi_add_ui(MPI w, const MPI u, unsigned long v)
 		cy = mpihelp_add_1(wp, up, usize, v);
 		wp[usize] = cy;
 		wsize = usize + cy;
-	} else {		/* The signs are different.  Need exact comparison to determine
-				 * which operand to subtract from which.  */
+	} else {		/* The signs are different.
+				* Need exact comparison to determine
+				* which operand to subtract from which.  */
 		if (usize == 1 && up[0] < v) {
 			wp[0] = v - up[0];
 			wsize = 1;
@@ -93,7 +94,7 @@ int mpi_add(MPI w, MPI u, MPI v)
 		wsize = usize + 1;
 		if (RESIZE_IF_NEEDED(w, wsize) < 0)
 			return -ENOMEM;
-		/* These must be after realloc (u or v may be the same as w).  */
+		/* These must be after realloc (u or v may be the same as w).*/
 		up = v->d;
 		vp = u->d;
 	} else {
@@ -104,7 +105,7 @@ int mpi_add(MPI w, MPI u, MPI v)
 		wsize = usize + 1;
 		if (RESIZE_IF_NEEDED(w, wsize) < 0)
 			return -ENOMEM;
-		/* These must be after realloc (u or v may be the same as w).  */
+		/* These must be after realloc (u or v may be the same as w).*/
 		up = u->d;
 		vp = v->d;
 	}
@@ -182,7 +183,8 @@ int mpi_sub_ui(MPI w, MPI u, unsigned long v)
 		cy = mpihelp_add_1(wp, up, usize, v);
 		wp[usize] = cy;
 		wsize = usize + cy;
-	} else {		/* The signs are different.  Need exact comparison to determine
+	} else {		/* The signs are different.
+				 * Need exact comparison to determine
 				 * which operand to subtract from which.  */
 		if (usize == 1 && up[0] < v) {
 			wp[0] = v - up[0];

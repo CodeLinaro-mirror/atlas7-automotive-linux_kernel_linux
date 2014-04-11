@@ -147,7 +147,8 @@ int mpi_mul(MPI w, MPI u, MPI v)
 		}
 	} else {		/* Make U and V not overlap with W.      */
 		if (wp == up) {
-			/* W and U are identical.  Allocate temporary space for U.      */
+			/* W and U are identical.
+			 * Allocate temporary space for U.*/
 			up = tmp_limb = mpi_alloc_limb_space(usize);
 			if (!up)
 				goto nomem;
@@ -157,7 +158,8 @@ int mpi_mul(MPI w, MPI u, MPI v)
 			/* Copy to the temporary space.  */
 			MPN_COPY(up, wp, usize);
 		} else if (wp == vp) {
-			/* W and V are identical.  Allocate temporary space for V.      */
+			/* W and V are identical.
+			 * Allocate temporary space for V.*/
 			vp = tmp_limb = mpi_alloc_limb_space(vsize);
 			if (!vp)
 				goto nomem;

@@ -37,8 +37,9 @@ int mpi_fdiv_r(MPI rem, MPI dividend, MPI divisor)
 	int divisor_sign = divisor->sign;
 	MPI temp_divisor = NULL;
 
-	/* We need the original value of the divisor after the remainder has been
-	 * preliminary calculated.      We have to copy it to temporary space if it's
+	/* We need the original value of the divisor after
+	 * the remainder has been preliminary calculated.
+	 * We have to copy it to temporary space if it's
 	 * the same variable as REM.  */
 	if (rem == divisor) {
 		if (mpi_copy(&temp_divisor, divisor) < 0)
@@ -166,8 +167,8 @@ int mpi_tdiv_qr(MPI quot, MPI rem, MPI num, MPI den)
 			MPN_COPY(rem->d, num->d, nsize);
 		}
 		if (quot) {
-			/* This needs to follow the assignment to rem, in case the
-			 * numerator and quotient are the same.  */
+			/* This needs to follow the assignment to rem,
+			 * in case the numerator and quotient are the same.*/
 			quot->nlimbs = 0;
 			quot->sign = 0;
 		}
@@ -203,8 +204,9 @@ int mpi_tdiv_qr(MPI quot, MPI rem, MPI num, MPI den)
 
 	if (quot) {
 		qp = quot->d;
-		/* Make sure QP and NP point to different objects.  Otherwise the
-		 * numerator would be gradually overwritten by the quotient limbs.  */
+		/* Make sure QP and NP point to different objects.
+		 * Otherwise the numerator would be gradually
+		 * overwritten by the quotient limbs.  */
 		if (qp == np) {	/* Copy NP object to temporary space.  */
 			np = marker[markidx++] = mpi_alloc_limb_space(nsize);
 			MPN_COPY(np, qp, nsize);
@@ -223,8 +225,8 @@ int mpi_tdiv_qr(MPI quot, MPI rem, MPI num, MPI den)
 		mpi_limb_t nlimb;
 
 		/* Shift up the denominator setting the most significant bit of
-		 * the most significant word.  Use temporary storage not to clobber
-		 * the original contents of the denominator.  */
+		 * the most significant word.  Use temporary storage
+		 * not to clobber the original contents of the denominator.*/
 		tp = marker[markidx++] = mpi_alloc_limb_space(dsize);
 		if (!tp)
 			goto nomem;
@@ -232,8 +234,8 @@ int mpi_tdiv_qr(MPI quot, MPI rem, MPI num, MPI den)
 		dp = tp;
 
 		/* Shift up the numerator, possibly introducing a new most
-		 * significant word.  Move the shifted numerator in the remainder
-		 * meanwhile.  */
+		 * significant word.  Move the shifted numerator in the
+		 * remainder meanwhile.  */
 		nlimb = mpihelp_lshift(rp, np, nsize, normalization_steps);
 		if (nlimb) {
 			rp[nsize] = nlimb;
@@ -241,8 +243,9 @@ int mpi_tdiv_qr(MPI quot, MPI rem, MPI num, MPI den)
 		} else
 			rsize = nsize;
 	} else {
-		/* The denominator is already normalized, as required.  Copy it to
-		 * temporary space if it overlaps with the quotient or remainder.  */
+		/* The denominator is already normalized, as required.
+		 * Copy it to temporary space if it overlaps with the
+		 * quotient or remainder.  */
 		if (dp == rp || (quot && (dp == qp))) {
 			mpi_ptr_t tp;
 
