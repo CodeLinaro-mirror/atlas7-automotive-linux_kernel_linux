@@ -820,6 +820,7 @@
 				phy_type = "ulpi";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usb0_upli_drvbus_pins_a>;
+				status = "disabled";
 			};
 
 			usbcontroller0: usbcontroller0@b8000000 {
@@ -829,6 +830,7 @@
 				clocks = <&clks 40>;
 				resets = <&rstc 8>;
 				usbphy = <&usbphy0>;
+				status = "disabled";
 			};
 
 			usbphy1: usbphy1@b8010200 {
