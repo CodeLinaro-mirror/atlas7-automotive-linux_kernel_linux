@@ -186,6 +186,7 @@
 				compatible = "sirf,prima2-gps";
 				reg = <0xa8010000 0x10000>;
 				interrupts = <7>;
+				status = "disabled";
 				clocks = <&clks 9>, <&clks 10>, <&clks 12>;
 				clock-names = "gps", "mf", "cpu";
 				resets = <&rstc 2>;
