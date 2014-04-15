@@ -120,8 +120,6 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_only_utfs_pins_a>;
-				cts-gpios = <&gpio 55 0>;
-				rts-gpios = <&gpio 54 0>;
 			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
