@@ -567,18 +567,10 @@ static struct irq_chip sirfsoc_irq_chip = {
 
 static void sirfsoc_gpio_handle_irq(unsigned int irq, struct irq_desc *desc)
 {
-	struct sirfsoc_gpio_bank *bank;
+	struct sirfsoc_gpio_bank *bank = irq_get_handler_data(irq);
 	u32 status, ctrl;
 	int idx = 0;
 	struct irq_chip *chip = irq_get_chip(irq);
-	int i;
-
-	for (i = 0; i < SIRFSOC_GPIO_BANK_SIZE; i++) {
-		bank = &sgpio_chip.sgpio_bank[i];
-		if (bank->parent_irq == irq)
-			break;
-	}
-	BUG_ON (i == SIRFSOC_GPIO_BANK_SIZE);
 
 	chained_irq_enter(chip, desc);
 
@@ -870,7 +862,7 @@ static int sirfsoc_gpio_probe(struct device_node *np)
 			goto out;
 		}
 
-		gpiochip_set_chained_irqchip(&sgpio_chip.chip.gc,
+		gpiochip_set_chained_irqchip(bank,
 			&sirfsoc_irq_chip,
 			bank->parent_irq,
 			sirfsoc_gpio_handle_irq);
