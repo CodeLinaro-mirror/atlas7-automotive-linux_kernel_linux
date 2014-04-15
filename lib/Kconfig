@@ -408,7 +408,7 @@ config UCS2_STRING
         tristate
 config MPILIB_EXTRA
 	bool "Multiprecision maths library - additional sources"
-	depends on MPILIB
+	select MPILIB
 	help
 	  Multiprecision maths library from GnuPG.
 	  It is used to implement RSA digital signature verification,
