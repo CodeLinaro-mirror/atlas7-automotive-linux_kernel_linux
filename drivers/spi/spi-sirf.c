@@ -299,9 +299,10 @@ static void spi_sirfsoc_dma_fini_callback(void *data)
 }
 
 static int spi_sirfsoc_cmd_transfer(struct spi_device *spi,
-	struct spi_transfer *t, int timeout)
+	struct spi_transfer *t)
 {
 	struct sirfsoc_spi *sspi;
+	int timeout = t->len * 10;
 	u32 cmd;
 
 	sspi = spi_master_get_devdata(spi->master);
@@ -326,10 +327,11 @@ static int spi_sirfsoc_cmd_transfer(struct spi_device *spi,
 }
 
 static void spi_sirfsoc_dma_transfer(struct spi_device *spi,
-	struct spi_transfer *t, int timeout)
+	struct spi_transfer *t)
 {
 	struct sirfsoc_spi *sspi;
 	struct dma_async_tx_descriptor *rx_desc, *tx_desc;
+	int timeout = t->len * 10;
 
 	sspi = spi_master_get_devdata(spi->master);
 	writel(SIRFSOC_SPI_FIFO_RESET, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
@@ -400,9 +402,10 @@ static void spi_sirfsoc_dma_transfer(struct spi_device *spi,
 }
 
 static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
-	struct spi_transfer *t, int timeout)
+		struct spi_transfer *t)
 {
 	struct sirfsoc_spi *sspi;
+	int timeout = t->len * 10;
 
 	sspi = spi_master_get_devdata(spi->master);
 	for (;;) {
@@ -451,7 +454,6 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 {
 	struct sirfsoc_spi *sspi;
-	int timeout = t->len * 10;
 	sspi = spi_master_get_devdata(spi->master);
 
 	sspi->tx = t->tx_buf ? t->tx_buf : sspi->dummypage;
@@ -465,11 +467,11 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	 * completion.
 	 */
 	if (sspi->tx_by_cmd)
-		spi_sirfsoc_cmd_transfer(spi, t, timeout);
+		spi_sirfsoc_cmd_transfer(spi, t);
 	else if (IS_DMA_VALID(t))
-		spi_sirfsoc_dma_transfer(spi, t, timeout);
+		spi_sirfsoc_dma_transfer(spi, t);
 	else
-		spi_sirfsoc_pio_transfer(spi, t, timeout);
+		spi_sirfsoc_pio_transfer(spi, t);
 
 	return t->len - sspi->left_rx_word * sspi->word_width;
 }
