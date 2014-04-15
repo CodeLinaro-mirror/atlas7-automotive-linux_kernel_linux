@@ -28,7 +28,7 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
-#include <linux/input/sirfsoc_adc.h>
+#include <linux/iio/consumer.h>
 
 #define DRIVER_NAME "sirfsoc-battery"
 
@@ -66,13 +66,6 @@ struct sirfsoc_batt_info {
 	struct power_supply *psy_batt;
 };
 
-struct sirfsoc_batt_cali_data {
-	u32 digital_offset;
-	u32 digital_again;
-	u32 digital_ideal;
-	bool is_calibration;
-};
-
 struct sirfsoc_batt {
 	struct sirfsoc_batt_info batt_info;
 	struct sirfsoc_adc_request *req;
@@ -80,6 +73,7 @@ struct sirfsoc_batt {
 	int charge_full;
 	int charge_full_gpio;
 	int status_batt;
+	struct iio_channel *chan;
 };
 
 static struct sirfsoc_batt *sirfsoc_batt;
@@ -180,33 +174,6 @@ static u8 sirfsoc_batt_fifoput(struct sirfsoc_batt_rcv_fifo *pfifo, u32 data)
 	return 1;
 }
 
-/*Functions to get the calibrated voltage*/
-/*static int sirfsoc_get_low_volt(void)
-{
-	u32 pmu_reg, value, low_voltage;
-
-	if (of_machine_is_compatible("sirf,atlas6"))
-		return 3500;
-
-	pmu_reg = sirfsoc_rtc_iobrg_readl(SYS_PWR_BASE + PWRC_PMU_CTRL);
-	value = ((pmu_reg & VOLT_HIGH) | (pmu_reg & VOLT_LOW)) >> 4;
-	switch (value) {
-	case 0:
-		low_voltage = 3200;
-		break;
-	case 1:
-		low_voltage = 3300;
-		break;
-	case 2:
-		low_voltage = 3400;
-		break;
-	case 3:
-		low_voltage = 3500;
-		break;
-	}
-	return low_voltage;
-}
-*/
 static int sirfsoc_batt_get_batt_status(void)
 {
 	u32 pwr_pin_status, value = 0;
@@ -224,122 +191,6 @@ static int sirfsoc_batt_get_batt_status(void)
 		value |= SIRFSOC_BATT_AC_CHG;
 	return value;
 }
-
-
-static u32 sirfsoc_batt_offset_cali(struct sirfsoc_adc_request *req)
-{
-	u32 i, digital_offset = 0, count = 0, sum = 0;
-	/* To set the reigsters in order to get the ADC offset */
-	req->mode = ADC_SEL(11);
-	req->aux = 0x2C;
-	req->s_gain_bits = ADC_SGAIN(7);
-	req->delay_bits = ADC_DEL_SET(4);
-	req->req_status = SIRFSOC_ADC_REQ_NONE;
-
-	for (i = 0; i < 10; i++) {
-		if (unlikely(sirfsoc_adc_sync_request(req)))
-			break;
-		digital_offset = req->adc_data.aux;
-		/* Maybe the value is wrong, so remove it use experience */
-		if (digital_offset < 230 && digital_offset > 130) {
-			sum += digital_offset;
-			count++;
-		}
-	}
-	if (!sum || !count)
-		digital_offset = 170;
-	else
-		digital_offset = sum / count;
-
-	return digital_offset;
-}
-
-
-/* For ADC gain calibration */
-static u32 sirfsoc_batt_gain_cali(struct sirfsoc_adc_request *req)
-{
-	u32 i, digital_gain = 0, count = 0, sum = 0;
-	/* To set the reigsters in order to get the ADC gain */
-	req->mode = ADC_SEL(12);
-	req->aux = 0x2C;
-	req->s_gain_bits = ADC_SGAIN(0);
-	req->delay_bits = ADC_DEL_SET(4);
-	req->req_status = SIRFSOC_ADC_REQ_NONE;
-
-	for (i = 0; i < 10; i++) {
-		if (unlikely(sirfsoc_adc_sync_request(req)))
-			break;
-		digital_gain = req->adc_data.aux;
-		/* Maybe the value is wrong, so remove it use experience */
-		if (digital_gain < 6500 && digital_gain > 5500) {
-			sum += digital_gain;
-			count++;
-		}
-	}
-	if (!sum || !count)
-		digital_gain = 5555;
-	else
-		digital_gain = sum / count;
-
-	return digital_gain;
-}
-
-/* For ADC digital IDEAL */
-static int sirfsoc_batt_adc_cali(struct sirfsoc_adc_request *req,
-				struct sirfsoc_batt_cali_data *cali_data)
-{
-	cali_data->digital_offset = sirfsoc_batt_offset_cali(req);
-	if (!(cali_data->digital_offset))
-		return -EINVAL;
-	cali_data->digital_again = sirfsoc_batt_gain_cali(req);
-	if (!(cali_data->digital_again))
-		return -EINVAL;
-	/* the ideal ADC conversion result for
-		PrimaII A1 which show in the ADC spec */
-	cali_data->digital_ideal = (16384 * 1200) / (14 * 333);
-	return 0;
-}
-
-
-/* For Get battery voltage after ADC conversion */
-static u32 sirfsoc_batt_get_adc_volt(struct sirfsoc_adc_request *req,
-				struct sirfsoc_batt_cali_data *cali_data)
-{
-	u32 digital_out, digital_convert, batt_volt;
-	if (!(cali_data->is_calibration)) {
-		if (sirfsoc_batt_adc_cali(req, cali_data))
-			return 0;
-		cali_data->is_calibration = true;
-	}
-	/* To set the reigsters in order to get the ADC output */
-	req->mode = ADC_SEL(4);
-	req->aux = ADC_AUX0;
-	req->s_gain_bits = ADC_SGAIN(0);
-	req->delay_bits = ADC_DEL_SET(4);
-
-	sirfsoc_adc_sync_request(req);
-	if (req->adc_data.aux) {
-		digital_out = req->adc_data.aux;
-		/*
-		 * The equation is to calibration the digital value out form
-		 * ADC using the offset and absolute gain for PrmaII A1
-		 * which can find in the adc spec
-		 */
-		digital_convert = ((digital_out - 2 * cali_data->digital_offset
-			* 11645 / 140000) * cali_data->digital_ideal)
-			/ (cali_data->digital_again -
-			2 * cali_data->digital_offset
-			* 11645 / 140000);
-		batt_volt = (1200 * digital_convert) / cali_data->digital_ideal;
-		batt_volt = batt_volt * 2;
-
-	} else {
-		return 0;
-	}
-
-	return batt_volt;
-}
-
 
 /* Adjust the voltage value between charging and discharging*/
 static u32 sirfsoc_batt_get_custom_volt(u32 battery)
@@ -360,12 +211,14 @@ static u32 sirfsoc_batt_get_custom_volt(u32 battery)
 	return battery;
 }
 
-static u32 sirfsoc_batt_get_charged_battery(struct sirfsoc_adc_request *req,
-				struct sirfsoc_batt_cali_data *cali_data)
+static u32 sirfsoc_batt_get_charged_battery(struct sirfsoc_batt *batt)
 {
+	int ret;
 	int battery;
 
-	battery = sirfsoc_batt_get_adc_volt(req, cali_data);
+	ret = iio_read_channel_raw(batt->chan, &battery);
+	if (ret < 0)
+		return 0;
 
 	return sirfsoc_batt_get_custom_volt(battery);
 }
@@ -392,10 +245,9 @@ static u32 sirfsoc_batt_get_average_voltage(
 
 static irqreturn_t sirfsoc_batt_charge_full_handler(int irq, void *dev_id)
 {
-	struct sirfsoc_batt *batt =
-				(struct sirfsoc_batt *)dev_id;
-	batt->charge_full =
-			gpio_get_value(batt->charge_full_gpio);
+	struct sirfsoc_batt *batt = (struct sirfsoc_batt *)dev_id;
+
+	batt->charge_full = gpio_get_value(batt->charge_full_gpio);
 
 	return IRQ_HANDLED;
 }
@@ -426,8 +278,7 @@ static int sirfsoc_batt_thread(void *data)
 {
 	u32 battery = 0, capacity = 0, fifo_count = 0;
 	u32 old_battery, new_battery;
-	struct sirfsoc_batt_cali_data cali_data;
-	struct sirfsoc_batt *batt;
+	struct sirfsoc_batt *batt = (struct sirfsoc_batt *)data;
 	u32 new_capacity;
 	bool clear;
 	int old_status_batt;
@@ -437,7 +288,6 @@ static int sirfsoc_batt_thread(void *data)
 		.sched_priority = MAX_USER_RT_PRIO
 	};
 
-	batt = (struct sirfsoc_batt *)data;
 	sirfsoc_batt_fifoinit(&battery_fifo, "battery_voltage");
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	old_status_batt = batt->status_batt;
@@ -471,14 +321,12 @@ static int sirfsoc_batt_thread(void *data)
 			power_supply_changed(&sirfsoc_batt_psy_batt);
 			old_status_batt = batt->status_batt;
 		}
-		battery = sirfsoc_batt_get_charged_battery(batt->req,
-								&cali_data);
+		battery = sirfsoc_batt_get_charged_battery(batt);
 
 		schedule_timeout(2 * HZ);
 		batt->status_batt = sirfsoc_batt_get_batt_status();
 		if (batt->status_batt == 0) {
-			battery = sirfsoc_batt_get_charged_battery(
-					batt->req, &cali_data);
+			battery = sirfsoc_batt_get_charged_battery(batt);
 			capacity = sirfsoc_batt_calculate_capacity(battery);
 			sirfsoc_batt_fifoput(&battery_fifo, battery);
 			if (fifo_count == 0) {
@@ -505,8 +353,7 @@ static int sirfsoc_batt_thread(void *data)
 			batt->batt_info.batt_status =
 						POWER_SUPPLY_STATUS_DISCHARGING;
 		} else {
-			battery = sirfsoc_batt_get_charged_battery(batt->req,
-								&cali_data);
+			battery = sirfsoc_batt_get_charged_battery(batt);
 			capacity = sirfsoc_batt_calculate_capacity(battery);
 			if (battery == 0xAA) {
 				batt->batt_info.batt_capacity = 1;
@@ -669,30 +516,12 @@ static int sirfsoc_batt_resume(struct device *dev)
 	return ret;
 }
 
-static int sirfsoc_batt_freeze(struct device *dev)
-{
-	return sirfsoc_batt_suspend(dev);
-}
-
-static int sirfsoc_batt_thaw(struct device *dev)
-{
-	return 0;
-}
-
-static int sirfsoc_batt_restore(struct device *dev)
-{
-	return sirfsoc_batt_resume(dev);
-}
-
-#else
-#define sirfsoc_batt_suspend NULL
-#define sirfsoc_batt_resume NULL
-#define sirfsoc_batt_freeze NULL
-#define sirfsoc_batt_thaw NULL
-#define sirfsoc_batt_restore NULL
+static const struct dev_pm_ops sirfsoc_batt_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_batt_suspend, sirfsoc_batt_resume)
+};
 #endif
 
-static int sirfsoc_batt_probe(struct  platform_device *pdev)
+static int sirfsoc_batt_probe(struct platform_device *pdev)
 {
 	int ret;
 	int charge_full_irq;
@@ -709,6 +538,13 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 		dev_err(&pdev->dev,
 			"sirfsoc_batt: Cant allocate request batt buffer\n");
 		return -ENOMEM;
+	}
+
+	batt->chan = iio_channel_get(&pdev->dev, NULL);
+	if (IS_ERR(batt->chan)) {
+		dev_err(&pdev->dev, "sirfsoc batt: Unable get the adc channel\n");
+		ret = PTR_ERR(batt->chan);
+		return ret;
 	}
 
 	sirfsoc_batt_init(batt);
@@ -767,8 +603,7 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 		}
 		batt->batt_info.psy_usb = &sirfsoc_batt_psy_usb;
 	}
-	if (!batt->batt_info.psy_ac &&
-		!batt->batt_info.psy_usb) {
+	if (!batt->batt_info.psy_ac && !batt->batt_info.psy_usb) {
 		dev_dbg(&pdev->dev, "%s:No external Power Supply(ACorUSB) is available\n",
 			__func__);
 		return -ENODEV;
@@ -781,12 +616,6 @@ static int sirfsoc_batt_probe(struct  platform_device *pdev)
 	if (ret) {
 		dev_dbg(&pdev->dev, "%s:power_supply_register failed ret = %d\n",
 			__func__, ret);
-		goto err_power_supply_register_batt;
-	}
-	batt->req = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_adc_request),
-				GFP_KERNEL);
-	if (!batt->req) {
-		dev_err(&pdev->dev, "sirfsoc_batt: Cant allocate request buffer\n");
 		goto err_power_supply_register_batt;
 	}
 
@@ -815,6 +644,7 @@ err_power_supply_register_usb:
 	power_supply_unregister(batt->batt_info.psy_usb);
 err_power_supply_register_ac:
 	power_supply_unregister(batt->batt_info.psy_ac);
+	iio_channel_release(batt->chan);
 	return ret;
 }
 
@@ -828,6 +658,7 @@ static int sirfsoc_batt_remove(struct platform_device *pdev)
 		batt->battery_task = NULL;
 	}
 
+	iio_channel_release(batt->chan);
 	power_supply_unregister(batt->batt_info.psy_batt);
 	power_supply_unregister(batt->batt_info.psy_usb);
 	power_supply_unregister(batt->batt_info.psy_ac);
@@ -845,14 +676,6 @@ static const struct of_device_id sirfsoc_batt_ids[] = {
 	{ .compatible = "sirf,prima2-battery" },
 	{ .compatible = "sirf,marco-battery" },
 	{}
-};
-
-static const struct dev_pm_ops sirfsoc_batt_pm_ops = {
-	.suspend = sirfsoc_batt_suspend,
-	.resume = sirfsoc_batt_resume,
-	.freeze = sirfsoc_batt_freeze,
-	.thaw = sirfsoc_batt_thaw,
-	.restore = sirfsoc_batt_restore,
 };
 
 static struct platform_driver sirfsoc_batt_driver = {

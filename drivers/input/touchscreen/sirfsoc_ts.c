@@ -19,17 +19,17 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/reset.h>
-#include <linux/rtc/sirfsoc_rtciobrg.h>
-#include <linux/input/sirfsoc_adc.h>
+#include <linux/iio/consumer.h>
 
 #include "sirfsoc_ts_linear.h"
 
-#define DRIVER_NAME "sirfsoc_tsc"
+#define DRIVER_NAME		"sirfsoc_tsc"
 
-#define PWR_WAKEEN_TSC_SHIFT	23
-#define PWR_WAKEEN_TS_SHIFT	5
-#define SIRFSOC_PWRC_TRIGGER_EN	0x8
-#define SIRFSOC_PWRC_BASE	0x3000
+#define DATA_SHIFT_BITS		14
+#define DATA_XMASK		(0x3FFF << 0)
+#define DATA_YMASK		(0x3FFF << DATA_SHIFT_BITS)
+#define GETX(val)		((val) & DATA_XMASK)
+#define GETY(val)		(((val) & DATA_YMASK) >> DATA_SHIFT_BITS)
 
 /* If new coordinates are close enough to last ones, last values
  * should be used to suppress glitches.
@@ -40,17 +40,17 @@
 #define TS_PREC_BITS		10	/* Precision, must >= 2 */
 #define TS_DUAL_MIN		15	/* Min UAD/UBC of dual touch points */
 /* Dual touch: Fixed parameter */
-#define TS_V_MAX		(1<<DATA_SHIFT_BITS)	/* Full scale AD */
+#define TS_V_MAX		(1 << DATA_SHIFT_BITS)	/* Full scale AD */
 /* Dual touch: Screen dependent parameters */
 #define TS_RX			694	/* X-plane resister */
 #define TS_RY			228	/* Y-plane resister */
 #define TS_V			10800	/* Max AD (LeftUpper corner) */
-#define TS_COEF_MIN		((u32)(0.100f * (1<<TS_PREC_BITS)))
-#define TS_COEF_MAX		((u32)(100.0f * (1<<TS_PREC_BITS)))
-#define TS_COEF_DEFAULT		((u32)(2.000f * (1<<TS_PREC_BITS)))
+#define TS_COEF_MIN		((u32)(0.100f * (1 << TS_PREC_BITS)))
+#define TS_COEF_MAX		((u32)(100.0f * (1 << TS_PREC_BITS)))
+#define TS_COEF_DEFAULT		((u32)(2.000f * (1 << TS_PREC_BITS)))
 #define TS_RTOUCH_NORMAL	700	/* Normal touch resister */
-#define TS_RTOUCH_MIN		(70<<TS_PREC_BITS)	/* 70 Ohm */
-#define TS_RTOUCH_MAX		(1700<<TS_PREC_BITS)	/* 1700 Ohm */
+#define TS_RTOUCH_MIN		(70 << TS_PREC_BITS)	/* 70 Ohm */
+#define TS_RTOUCH_MAX		(1700 << TS_PREC_BITS)	/* 1700 Ohm */
 #define TS_RTOUCH_DUAL_UP	350	/* Upper bound of dual touch */
 #define TS_RTOUCH_SINGLE_LOW	450	/* Lower bound of single touch */
 #define TS_SINGLE_MAXGAP_X	100	/* Max UAD of single touch point */
@@ -84,11 +84,7 @@ enum {
 	AD_SAMPLE_COUNT_DUAL
 };
 
-/* AD registers */
-#define AD_REG_COUNT (AD_SAMPLE_COUNT_DUAL / 2)
-static const u32 sirfsoc_ts_reg[AD_REG_COUNT] = {
-	ADC_COORD, ADC_COORD2, ADC_COORD3, ADC_COORD4
-};
+#define AD_REG_COUNT		(AD_SAMPLE_COUNT_DUAL / 2)
 
 struct sirfsoc_ts {
 	char			phys[32];
@@ -100,6 +96,7 @@ struct sirfsoc_ts {
 	int			sampled_x[2], sampled_y[2];
 	/* Last successfully calculated and issued coordinates */
 	int			issued_x[2], issued_y[2];
+	bool			press_down;
 
 	/* Fingers detected pressing on the screen
 	 * always 1 for single touch driver
@@ -110,12 +107,13 @@ struct sirfsoc_ts {
 	/* Last touching event is a dual touch */
 	bool			last_is_dual;
 
-	struct delayed_work	report_work;
-
 	struct input_dev	*input;
 
 	/* Points to touch specific data */
 	const struct sirfsoc_ts_of_data_touch	*touch;
+
+	/* ADC data channel for ts*/
+	struct iio_channel	*chan;
 };
 
 /* Single/dual touch specific data and routines */
@@ -125,15 +123,10 @@ struct sirfsoc_ts_of_data_touch {
 	/* Max deviation of AD values for stable samples */
 	int	debounce_dev;
 	/* Callback routine to read and calculate coordinates */
-	int	(*get_coord)(struct sirfsoc_ts *);
+	int	(*get_coord_and_pen)(struct sirfsoc_ts *);
 	/* Callback routine to read AD samples */
 	int	(*read_samples)(struct sirfsoc_ts *, u32 *);
 };
-
-static inline int sirfsoc_ts_get_pendown(struct sirfsoc_ts *ts)
-{
-	return sirfsoc_adc_read_reg(ADC_COORD) & PEN_DOWN;
-}
 
 /* Debounce routine shared by single and dual touch
  * sample_count: how many AD samples needs to take care
@@ -175,32 +168,28 @@ static int sirfsoc_ts_debounce(struct sirfsoc_ts *ts, int sample_count)
 
 static int sirfsoc_ts_read_samples_single(struct sirfsoc_ts *ts, u32 *samples)
 {
-	u32 coord;
+	int raw_sample;
+	int ret;
+
+	ret = iio_read_channel_raw(ts->chan, &raw_sample);
+	if (ret < 0) {
+		ts->press_down = false;
+		return ret;
+	}
 
 	/* x sample */
-	sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(SIRFSOC_TS_SEL_X), ADC_CONTROL1);
-	if (sirfsoc_adc_sync_reg() < 0)
-		return -EBUSY;
-	coord = sirfsoc_adc_read_reg(ADC_COORD);
-	coord &= DATA_XMASK;	/* Bits 13~0 */
-	samples[X] = coord;
-
+	samples[X] = GETX(raw_sample);
 	/* y sample */
-	sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(SIRFSOC_TS_SEL_Y), ADC_CONTROL1);
-	if (sirfsoc_adc_sync_reg() < 0)
-		return -EBUSY;
-	coord = sirfsoc_adc_read_reg(ADC_COORD);
-	coord &= DATA_YMASK;	/* Bits 27~14 */
-	coord >>= DATA_SHIFT_BITS;
-	samples[Y] = coord;
+	samples[Y] = GETY(raw_sample);
 
+	ts->press_down = true;
 	return 0;
 }
 
 /* Calculate single touch coordinate
  * coord: (ts->sampled_x[0], y[0])
  */
-static int sirfsoc_ts_get_coord_single(struct sirfsoc_ts *ts)
+static int sirfsoc_ts_get_coord_and_pen_single(struct sirfsoc_ts *ts)
 {
 	int ret;
 
@@ -214,23 +203,24 @@ static int sirfsoc_ts_get_coord_single(struct sirfsoc_ts *ts)
 	return 0;
 }
 
-/* Read eight AD samples from TS controller */
+/* Read eight AD samples from adc */
 static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts, u32 *samples)
 {
-	int i;
+	int i, ret;
+	int raw_samples[AD_REG_COUNT];
 
-	sirfsoc_adc_write_reg(SIRFSOC_TS_CTL1(SIRFSOC_TS_SEL_DUAL),
-			ADC_CONTROL1);
-	if (sirfsoc_adc_sync_reg() < 0)
-		return -EBUSY;
-
-	for (i = 0; i < AD_REG_COUNT; i++) {
-		u32 tmp;
-		tmp = sirfsoc_adc_read_reg(sirfsoc_ts_reg[i]);
-		*samples++ = tmp & DATA_XMASK;
-		*samples++ = (tmp & DATA_YMASK) >> DATA_SHIFT_BITS;
+	ret = iio_read_channel_raw(ts->chan, raw_samples);
+	if (ret < 0) {
+		ts->press_down = false;
+		return ret;
 	}
 
+	for (i = 0; i < AD_REG_COUNT; i++) {
+		*samples++ = GETX(raw_samples[i]);
+		*samples++ = GETY(raw_samples[i]);
+	}
+
+	ts->press_down = true;
 	return 0;
 }
 
@@ -420,7 +410,7 @@ single_touch:
 	}
 }
 
-static int sirfsoc_ts_get_coord_dual(struct sirfsoc_ts *ts)
+static int sirfsoc_ts_get_coord_and_pen_dual(struct sirfsoc_ts *ts)
 {
 	int ret;
 	bool is_dual;
@@ -482,52 +472,43 @@ static void sirfsoc_ts_report_coord(struct sirfsoc_ts *ts)
 	input_sync(ts->input);
 }
 
-static void sirfsoc_ts_report_work(struct work_struct *work)
-{
-	struct delayed_work *dw = container_of(work, struct delayed_work, work);
-	struct sirfsoc_ts *ts = container_of(dw,
-				struct sirfsoc_ts, report_work);
-	struct input_dev *input = ts->input;
-
-	if (sirfsoc_ts_get_pendown(ts)) {
-		if ((*(ts->touch->get_coord))(ts) == 0)
-			sirfsoc_ts_report_coord(ts);
-
-		schedule_delayed_work(&ts->report_work, msecs_to_jiffies(10));
-	} else {
-		input_report_key(input, BTN_TOUCH, 0);
-		input_report_abs(input, ABS_PRESSURE, 0);
-		input_sync(input);
-	}
-}
-
-static irqreturn_t sirfsoc_ts_hard_irq(int irq, void *handle)
+static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 {
 	struct sirfsoc_ts *ts = (struct sirfsoc_ts *)handle;
-	int adc_intr;
+	struct input_dev *input = ts->input;
+	int ret;
 
-	adc_intr = sirfsoc_adc_read_reg(ADC_INTR);
-	if (adc_intr & PEN_INTR)
-		sirfsoc_adc_write_reg(PEN_INTR | PEN_INTR_EN | DATA_INTR_EN,
-			ADC_INTR);
+	/*
+	 * Interrupt comes when press down,
+	 * but no interrput when pressing down
+	 */
+	do {
+		ret = (*(ts->touch->get_coord_and_pen))(ts);
+		if (!ret)
+			sirfsoc_ts_report_coord(ts);
 
-	schedule_delayed_work(&ts->report_work, msecs_to_jiffies(10));
+		msleep(20);
+	} while (ts->press_down);
+
+	input_report_key(input, BTN_TOUCH, 0);
+	input_report_abs(input, ABS_PRESSURE, 0);
+	input_sync(input);
 
 	return IRQ_HANDLED;
 }
 
 static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_single = {
-	.debounce_rep	= 3,
-	.debounce_dev	= 50,
-	.get_coord	= sirfsoc_ts_get_coord_single,
-	.read_samples	= sirfsoc_ts_read_samples_single,
+	.debounce_rep		= 3,
+	.debounce_dev		= 50,
+	.get_coord_and_pen	= sirfsoc_ts_get_coord_and_pen_single,
+	.read_samples		= sirfsoc_ts_read_samples_single,
 };
 
 static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_dual = {
-	.debounce_rep	= 4,
-	.debounce_dev	= 500,
-	.get_coord	= sirfsoc_ts_get_coord_dual,
-	.read_samples	= sirfsoc_ts_read_samples_dual,
+	.debounce_rep		= 4,
+	.debounce_dev		= 500,
+	.get_coord_and_pen	= sirfsoc_ts_get_coord_and_pen_dual,
+	.read_samples		= sirfsoc_ts_read_samples_dual,
 };
 
 static const struct of_device_id sirfsoc_ts_of_match[] = {
@@ -562,6 +543,13 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ts);
 
+	ts->chan = iio_channel_get(&pdev->dev, NULL);
+	if (IS_ERR(ts->chan)) {
+		dev_err(&pdev->dev, "sirfsoc ts: Unable to get the adc channel\n");
+		ret = PTR_ERR(ts->chan);
+		goto out0;
+	}
+
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		dev_err(&pdev->dev,
@@ -569,8 +557,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out1;
 	}
-
-	INIT_DELAYED_WORK(&ts->report_work, sirfsoc_ts_report_work);
 
 	snprintf(ts->phys, sizeof("SIRFSOC-TS"), "SIRFSOC-TS");
 	input_dev->name = "sirfsoc_touchscreen";
@@ -596,19 +582,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	}
 	ts->input = input_dev;
 
-	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(SIRFSOC_PWRC_BASE +
-		SIRFSOC_PWRC_TRIGGER_EN) | (1 << PWR_WAKEEN_TS_SHIFT),
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
-
-	device_reset(&pdev->dev);
-
-	sirfsoc_adc_write_reg(ADC_PRP_MODE3 | ADC_RTOUCH(1) |
-		ADC_DEL_PRE(2) | ADC_DEL_DIS(5), ADC_CONTROL2);
-
-	/* Clear interrupts and enable PEN INTR */
-	sirfsoc_adc_write_reg(sirfsoc_adc_read_reg(ADC_INTR) |
-		PEN_INTR | DATA_INTR | PEN_INTR_EN | DATA_INTR_EN, ADC_INTR);
-
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "sirfsoc tsc: get irq failed!\n");
@@ -616,9 +589,8 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 		goto out3;
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_ts_hard_irq,
-		IRQF_ONESHOT, DRIVER_NAME, ts);
-
+	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+		sirfsoc_ts_thread_irq, IRQF_ONESHOT, DRIVER_NAME, ts);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "sirfsoc ts: regist irq handler failed!\n");
 		ret = -ENODEV;
@@ -643,6 +615,8 @@ out3:
 out2:
 	input_free_device(input_dev);
 out1:
+	iio_channel_release(ts->chan);
+out0:
 	return ret;
 }
 
@@ -650,62 +624,20 @@ static int sirfsoc_ts_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_ts *ts = platform_get_drvdata(pdev);
 
-	cancel_delayed_work_sync(&ts->report_work);
-
+	iio_channel_release(ts->chan);
 	input_unregister_device(ts->input);
 
 	return 0;
 }
-
-#ifdef CONFIG_PM
-static int sirfsoc_ts_suspend(struct device *device)
-{
-	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
-		& ~(1 << PWR_WAKEEN_TSC_SHIFT),
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
-
-	return 0;
-}
-
-static int sirfsoc_ts_resume(struct device *device)
-{
-	int val;
-
-	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
-		| (1 << PWR_WAKEEN_TS_SHIFT),
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
-
-	device_reset(device);
-
-	sirfsoc_adc_write_reg(ADC_PRP_MODE3 | ADC_RTOUCH(1) |
-		ADC_DEL_PRE(2) | ADC_DEL_DIS(5), ADC_CONTROL2);
-
-	val = sirfsoc_adc_read_reg(ADC_INTR);
-
-	/* Clear interrupts and enable PEN INTR */
-	sirfsoc_adc_write_reg(val | PEN_INTR | DATA_INTR |
-		PEN_INTR_EN | DATA_INTR_EN, ADC_INTR);
-	return 0;
-}
-#endif
 
 static void sirfsoc_ts_shutdown(struct platform_device *dev)
 {
 	sirfsoc_ts_remove(dev);
 }
 
-static const struct dev_pm_ops sirfsoc_ts_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(sirfsoc_ts_suspend, sirfsoc_ts_resume)
-};
-
 static struct platform_driver tsc_sirfsoc_driver = {
 	.driver	 = {
 		.name   = DRIVER_NAME,
-#ifdef CONFIG_PM
-		.pm     = &sirfsoc_ts_pm_ops,
-#endif
 		.of_match_table = sirfsoc_ts_of_match,
 	},
 	.probe	  = sirfsoc_ts_probe,
