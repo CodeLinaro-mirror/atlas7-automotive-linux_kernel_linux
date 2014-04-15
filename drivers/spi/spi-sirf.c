@@ -19,7 +19,6 @@
 #include <linux/of_gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
-#include <linux/pinctrl/consumer.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
@@ -134,6 +133,7 @@
 	ALIGNED(x->len) && (x->len < 2 * PAGE_SIZE))
 
 #define SIRFSOC_MAX_CMD_BYTES	4
+
 struct sirfsoc_spi {
 	struct spi_bitbang bitbang;
 	struct completion rx_done;
@@ -142,7 +142,6 @@ struct sirfsoc_spi {
 	void __iomem *base;
 	u32 ctrl_freq;  /* SPI controller clock speed */
 	struct clk *clk;
-	struct pinctrl *p;
 
 	/* rx & tx bufs from the spi_transfer */
 	const void *tx;
@@ -165,7 +164,12 @@ struct sirfsoc_spi {
 	void *dummypage;
 	int word_width; /* in bytes */
 
+	/*
+	 * if tx size is not more than 4 and rx size is NULL, use
+	 * command model
+	 */
 	bool	tx_by_cmd;
+
 	int chipselect[0];
 };
 
@@ -268,6 +272,7 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 				sspi->base + SIRFSOC_SPI_INT_STATUS);
 		return IRQ_HANDLED;
 	}
+
 	/* Error Conditions */
 	if (spi_stat & SIRFSOC_SPI_RX_OFLOW ||
 			spi_stat & SIRFSOC_SPI_TX_UFLOW) {
@@ -610,8 +615,8 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		sspi->tx_by_cmd = false;
 	}
 	/*
-	 * follow bitbang standard's chipselect mechanism setting
-	 * spi controller in RISC chipselect mode
+	 * set spi controller in RISC chipselect mode, we are controlling CS by
+	 * software BITBANG_CS_ACTIVE and BITBANG_CS_INACTIVE.
 	 */
 	regval |= SIRFSOC_SPI_CS_IO_MODE;
 	writel(regval, sspi->base + SIRFSOC_SPI_CTRL);
@@ -672,12 +677,6 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
 
-	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "Unable to get IO resource\n");
-		ret = -ENODEV;
-		goto free_master;
-	}
 	master->num_chipselect = num_cs;
 
 	for (i = 0; i < master->num_chipselect; i++) {
@@ -704,6 +703,7 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 		}
 	}
 
+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sspi->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (IS_ERR(sspi->base)) {
 		ret = PTR_ERR(sspi->base);
@@ -733,23 +733,20 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	sspi->rx_chan = dma_request_slave_channel(&pdev->dev, "rx");
 	if (!sspi->rx_chan) {
 		dev_err(&pdev->dev, "can not allocate rx dma channel\n");
+		ret = -ENODEV;
 		goto free_master;
 	}
 	sspi->tx_chan = dma_request_slave_channel(&pdev->dev, "tx");
 	if (!sspi->tx_chan) {
 		dev_err(&pdev->dev, "can not allocate tx dma channel\n");
+		ret = -ENODEV;
 		goto free_rx_dma;
 	}
-
-	sspi->p = pinctrl_get_select_default(&pdev->dev);
-	ret = IS_ERR(sspi->p);
-	if (ret)
-		goto free_tx_dma;
 
 	sspi->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sspi->clk)) {
 		ret = PTR_ERR(sspi->clk);
-		goto free_pin;
+		goto free_tx_dma;
 	}
 	clk_prepare_enable(sspi->clk);
 	sspi->ctrl_freq = clk_get_rate(sspi->clk);
@@ -765,8 +762,10 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	writel(0, sspi->base + SIRFSOC_SPI_DUMMY_DELAY_CTL);
 
 	sspi->dummypage = kmalloc(2 * PAGE_SIZE, GFP_KERNEL);
-	if (!sspi->dummypage)
+	if (!sspi->dummypage) {
+		ret = -ENOMEM;
 		goto free_clk;
+	}
 
 	ret = spi_bitbang_start(&sspi->bitbang);
 	if (ret)
@@ -780,8 +779,6 @@ free_dummypage:
 free_clk:
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
-free_pin:
-	pinctrl_put(sspi->p);
 free_tx_dma:
 	dma_release_channel(sspi->tx_chan);
 free_rx_dma:
@@ -811,7 +808,6 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 	clk_put(sspi->clk);
 	dma_release_channel(sspi->rx_chan);
 	dma_release_channel(sspi->tx_chan);
-	pinctrl_put(sspi->p);
 	spi_master_put(master);
 	return 0;
 }
