@@ -176,11 +176,6 @@
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc2_pins_a>;
 				};
-				sd3: sdhci@56300000 {
-					status = "okay";
-					pinctrl-names = "default";
-					pinctrl-0 = <&sdmmc3_pins_a>;
-				};
 				sd5: sdhci@56500000 {
 					status = "okay";
 					pinctrl-names = "default";
