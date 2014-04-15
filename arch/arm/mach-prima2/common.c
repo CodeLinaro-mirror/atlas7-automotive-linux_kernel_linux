@@ -12,14 +12,15 @@
 #include <linux/irqchip.h>
 #include <linux/interrupt.h>
 #include <linux/memblock.h>
-#include <asm/sizes.h>
-#include <asm/mach-types.h>
-#include <asm/mach/arch.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/extcon/extcon-gpio.h>
+#include <asm/hardware/cache-l2x0.h>
+#include <asm/sizes.h>
+#include <asm/mach-types.h>
+#include <asm/mach/arch.h>
 #include "common.h"
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
@@ -95,6 +96,8 @@ static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
 
 static void __init sirfsoc_init_mach(void)
 {
+	l2x0_of_init(0, 0xFDFFFFFFUL);
+
 	sirfsoc_add_camera_pdev();
 
 	of_platform_populate(NULL, of_default_bus_match_table,
