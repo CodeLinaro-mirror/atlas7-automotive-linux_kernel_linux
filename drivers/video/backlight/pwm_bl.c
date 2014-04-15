@@ -21,6 +21,8 @@
 #include <linux/pwm_backlight.h>
 #include <linux/slab.h>
 
+#include <linux/async.h>
+
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
@@ -161,7 +163,7 @@ static int pwm_backlight_parse_dt(struct device *dev,
 }
 #endif
 
-static int pwm_backlight_probe(struct platform_device *pdev)
+static int _pwm_backlight_probe(struct platform_device *pdev)
 {
 	struct platform_pwm_backlight_data *data = pdev->dev.platform_data;
 	struct platform_pwm_backlight_data defdata;
@@ -259,6 +261,27 @@ err_alloc:
 	if (data->exit)
 		data->exit(&pdev->dev);
 	return ret;
+}
+
+#ifndef MODULE
+static void __init pwm_backlight_probe_async(void *async_data,
+	async_cookie_t cookie)
+{
+	struct platform_device *pdev = async_data;
+	/* make sure async framebuffer has been ready */
+	async_synchronize_cookie(cookie);
+	_pwm_backlight_probe(pdev);
+}
+#endif
+
+static int pwm_backlight_probe(struct platform_device *pdev)
+{
+#ifdef MODULE
+	return _pwm_backlight_probe(pdev);
+#else
+	async_schedule(pwm_backlight_probe_async, pdev);
+	return 0;
+#endif
 }
 
 static int pwm_backlight_remove(struct platform_device *pdev)
