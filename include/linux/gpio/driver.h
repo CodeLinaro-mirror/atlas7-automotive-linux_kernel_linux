@@ -207,7 +207,7 @@ void gpiod_add_lookup_table(struct gpiod_lookup_table *table);
 
 #ifdef CONFIG_GPIOLIB_IRQCHIP
 
-void gpiochip_set_chained_irqchip(struct gpio_chip *gpiochip,
+void gpiochip_set_chained_irqchip(void *handler_data,
 		struct irq_chip *irqchip,
 		int parent_irq,
 		irq_flow_handler_t parent_handler);
