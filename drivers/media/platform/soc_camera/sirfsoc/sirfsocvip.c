@@ -1026,7 +1026,7 @@ static void sirfsoc_vip_restore_context(void *data)
 {
 	struct sirfsoc_camera_dev *pcdev = data;
 
-	if (devm_request_irq(pcdev->dev, pcdev->irq, sirfsoc_camera_irq,
+	if (request_irq(pcdev->irq, sirfsoc_camera_irq,
 			0, SIRFSOC_CAM_DRV_NAME, pcdev)) {
 		dev_err(pcdev->dev, "%s: request_irq error for VIP\n",
 			__func__);
@@ -1133,13 +1133,13 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 	if (!irq) {
 		dev_err(&pdev->dev, "%s: fail to get vip irq\n", __func__);
 		ret = -EINVAL;
-		goto exit_kfree;
+		goto exit;
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_camera_irq, 0,
-					SIRFSOC_CAM_DRV_NAME, pcdev);
+	ret = request_irq(irq, sirfsoc_camera_irq, 0,
+				SIRFSOC_CAM_DRV_NAME, pcdev);
 	if (ret)
-		goto exit_kfree;
+		goto exit;
 
 	pcdev->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(pcdev->clk)) {
@@ -1180,7 +1180,7 @@ static void sirfsoc_camera_probe_async(void *async_data, async_cookie_t cookie)
 		dev_err(&pdev->dev, "%s: unable to declare dma memory.\n",
 			__func__);
 		ret = -ENXIO;
-		goto exit_iounmap;
+		goto exit_clk;
 	}
 
 	pcdev->video_limit = 10 * SZ_1M;
@@ -1286,14 +1286,10 @@ exit_free_dma_xt:
 	kfree(pcdev->dma_xt);
 exit_release_mem:
 	dma_release_declared_memory(&pdev->dev);
-exit_iounmap:
-	iounmap(base);
 exit_clk:
 	clk_put(pcdev->clk);
 exit_free_irq:
 	free_irq(irq, pcdev);
-exit_kfree:
-	devm_kfree(&pdev->dev, pcdev);
 exit:
 	return;
 }
@@ -1327,10 +1323,7 @@ static int sirfsoc_camera_remove(struct platform_device *pdev)
 	free_irq(pcdev->irq, pcdev);
 	dma_release_declared_memory(&pdev->dev);
 	kfree(pcdev->dma_xt);
-	iounmap(pcdev->base);
 	pinctrl_put(pcdev->p);
-
-	devm_kfree(&pdev->dev, pcdev);
 
 	return 0;
 }
