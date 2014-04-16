@@ -514,8 +514,6 @@ static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_dual = {
 static const struct of_device_id sirfsoc_ts_of_match[] = {
 	{ .compatible = "sirf,prima2-tsc",
 	  .data = &sirfsoc_ts_of_data_single },
-	{ .compatible = "sirf,marco-tsc",
-	  .data = &sirfsoc_ts_of_data_single },
 	{ .compatible = "sirf,dualtouch-tsc",
 	  .data = &sirfsoc_ts_of_data_dual },
 	{}
