@@ -527,9 +527,7 @@ static irqreturn_t sirfsoc_adc_data_irq(int irq, void *handle)
 #ifdef CONFIG_PM_SLEEP
 static int sirfsoc_adc_suspend(struct device *dev)
 {
-	struct platform_device *pdev = container_of(dev,
-					struct platform_device, dev);
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
 
 	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
@@ -543,9 +541,7 @@ static int sirfsoc_adc_suspend(struct device *dev)
 
 static int sirfsoc_adc_resume(struct device *dev)
 {
-	struct platform_device *pdev = container_of(dev,
-					struct platform_device, dev);
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
 	int val;
 
@@ -556,7 +552,7 @@ static int sirfsoc_adc_resume(struct device *dev)
 		| (1 << PWR_WAKEEN_TS_SHIFT),
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
-	device_reset(&pdev->dev);
+	device_reset(dev);
 
 	writel(ADC_PRP_MODE3 | ADC_RTOUCH(1) | ADC_DEL_PRE(2) |
 		ADC_DEL_DIS(5),  adc->base + ADC_CONTROL2);
