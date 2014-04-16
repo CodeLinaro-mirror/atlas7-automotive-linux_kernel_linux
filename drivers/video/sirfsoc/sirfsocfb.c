@@ -2142,20 +2142,20 @@ static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 	if (!panel) {
 		FB_ERR_MSG("Fail to allocate lcd panel!\n");
 		ret = -ENOMEM;
-		goto err_free_fb;
+		goto err;
 	}
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		FB_ERR_MSG("Fail to get lcd regs resource!\n");
 		ret = -EINVAL;
-		goto err_free_panel;
+		goto err;
 	}
 
 	fb->base = devm_request_and_ioremap(&pdev->dev, res);
 	if (fb->base == NULL) {
 		FB_ERR_MSG("Fail to remap lcd regs!\n");
 		ret = -ENOMEM;
-		goto err_free_panel;
+		goto err;
 	}
 
 	fb->clk = clk_get(&pdev->dev, NULL);
@@ -2388,10 +2388,6 @@ err_rel_clk:
 	clk_put(fb->vpp_clk);
 err_unmap:
 	devm_iounmap(&pdev->dev, fb->base);
-err_free_panel:
-	devm_kfree(&pdev->dev, fb->panel);
-err_free_fb:
-	devm_kfree(&pdev->dev, fb);
 err:
 	async_synchronize_cookie(cookie);
 	return;
@@ -2423,10 +2419,6 @@ static int sirfsocfb_remove(struct platform_device *pdev)
 
 	clk_disable(fb->clk);
 	clk_put(fb->clk);
-	iounmap(fb->base);
-
-	devm_kfree(&pdev->dev, fb->panel);
-	devm_kfree(&pdev->dev, fb);
 
 	FB_NOT_MSG("framebuffer driver unregistered!\n");
 	return 0;
