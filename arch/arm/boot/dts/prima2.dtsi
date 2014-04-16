@@ -245,7 +245,7 @@
 
 			audio: audio@b00400e0 {
 				compatible = "sirf,prima2-audio";
-				reg = <0xb0040000 0x44>;
+				reg = <0xb00400e0 0x44>;
 				interrupts = <35>;
 				dmas = <&dmac1 3>, <&dmac1 8>;
 				dma-names = "rx", "tx";
