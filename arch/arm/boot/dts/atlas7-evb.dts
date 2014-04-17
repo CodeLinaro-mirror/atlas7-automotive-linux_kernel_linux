@@ -23,4 +23,14 @@
 		device_type = "memory";
 		reg = <0x40000000 0x02000000>; /* 32 or 512M for PXP */
 	};
+
+	axi {
+		peri-iobg {
+			pci-iobg {
+				sd2: sdhci@14200000 {
+					status = "okay";
+				};
+			};
+		};
+	};
 };

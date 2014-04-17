@@ -82,7 +82,7 @@
 				cell-index = <0>;
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x16000000 0x100000>;
-				interrupts = <38>;
+				interrupts = <0 38 0>;
 				wp-inverted;
 				broken-cd;
 				non-removable;
@@ -94,7 +94,7 @@
 				cell-index = <1>;
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x16100000 0x100000>;
-				interrupts = <38>;
+				interrupts = <0 38 0>;
 				status = "disabled";
 				bus-width = <4>;
 			};
@@ -103,16 +103,16 @@
 				cell-index = <2>;
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x14200000 0x100000>;
-				interrupts = <23>;
+				interrupts = <0 23 0>;
 				status = "disabled";
-				bus-width = <4>;
+				bus-width = <1>;
 			};
 
 			sd3: sdhci@14300000 {
 				cell-index = <3>;
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x14300000 0x100000>;
-				interrupts = <23>;
+				interrupts = <0 23 0>;
 				status = "disabled";
 				bus-width = <4>;
 			};
