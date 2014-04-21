@@ -413,7 +413,7 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 	int timeout = t->len * 10;
 
 	sspi = spi_master_get_devdata(spi->master);
-	for (;;) {
+	do {
 		writel(SIRFSOC_SPI_FIFO_RESET,
 			sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 		writel(SIRFSOC_SPI_FIFO_RESET,
@@ -451,9 +451,7 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 			sspi->rx_word(sspi);
 		writel(0, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 		writel(0, sspi->base + SIRFSOC_SPI_TXFIFO_OP);
-		if (sspi->left_tx_word == 0 && sspi->left_rx_word == 0)
-			break;
-	}
+	} while (sspi->left_tx_word != 0 || sspi->left_rx_word != 0);
 }
 
 static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
