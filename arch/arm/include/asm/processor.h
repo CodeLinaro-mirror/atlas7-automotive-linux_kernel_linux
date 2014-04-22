@@ -63,6 +63,11 @@ struct thread_struct {
 	if (elf_hwcap & HWCAP_THUMB && pc & 1)				\
 		regs->ARM_cpsr |= PSR_T_BIT;				\
 	regs->ARM_cpsr |= PSR_ENDSTATE;					\
+	/*								\
+	 * mask external abort as for the moment, a7da can make		\
+	 * events. drop it when HW is fixed				\
+	 */								\
+	regs->ARM_cpsr |= PSR_A_BIT;					\
 	regs->ARM_pc = pc & ~1;		/* pc */			\
 	regs->ARM_sp = sp;		/* sp */			\
 	nommu_start_thread(regs);					\
