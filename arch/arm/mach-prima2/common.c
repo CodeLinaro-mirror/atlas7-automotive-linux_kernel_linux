@@ -9,15 +9,15 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/memblock.h>
-#include <asm/sizes.h>
-#include <asm/mach-types.h>
-#include <asm/mach/arch.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
 #include <linux/extcon/extcon-gpio.h>
+#include <asm/sizes.h>
+#include <asm/mach/arch.h>
+#include <asm/system_misc.h>
 #include "common.h"
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
@@ -68,8 +68,31 @@ void __init sirfsoc_pre_reserve(void)
 		pr_err("failed to find reserved memory.\n");
 }
 
+#ifdef CONFIG_SECURITY_MODE
+#define SWITCH_TO_NON_SECURE 0
+
+static void smc_switch_to_non_secure(void)
+{
+	__asm__ __volatile__(".arch_extension sec\n\t"
+		"mov r0, %0\n\t"
+		"smc #0\n\t" :
+		: "I"(SWITCH_TO_NON_SECURE)
+		: "r0", "memory");
+}
+#endif
+
+static void __init csrvisor_reserve(void)
+{
+#ifdef CONFIG_SECURITY_MODE
+#define CSRVISOR_PHY_BASE 0x5FC00000UL
+	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
+	arm_pm_idle = smc_switch_to_non_secure;
+#endif
+}
+
 void __init sirfsoc_reserve(void)
 {
+	csrvisor_reserve();
 	sirfsoc_pre_reserve();
 	sirfsoc_nand_reserve_memblock();
 	sirfsoc_gps_reserve_memblock();
