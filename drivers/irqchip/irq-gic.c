@@ -414,8 +414,6 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	csrvisor_set_ispr((unsigned long)base + GIC_DIST_PENDING_SET);
 #endif
 
-#endif
-
 	/*
 	 * Set all global interrupts to be level triggered, active low.
 	 */
@@ -431,6 +429,24 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	for (i = 32; i < gic_irqs; i += 4)
 		writel_relaxed(cpumask, base + GIC_DIST_TARGET + i * 4 / 4);
 
+	for (i = 0; i < 32; i += 4)
+		writel_relaxed(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
+
+	/*
+	 * make security interrupt highest priority
+	 */
+	for (i = 32; i < 64; i += 4) {
+		u32 prio = 0xa0a0a0a0UL;
+		int j;
+		for (j = i; j < i + 4; j++) {
+			if (!(CONFIG_SPI32_IGROUP & BIT(j - 32)))
+				prio &= ~(0xFF << ((j & 0x3) * 8));
+		}
+		writel_relaxed(prio, base + GIC_DIST_PRI + i * 4 / 4);
+		if (prio != 0xa0a0a0a0UL)
+			pr_info("irq %d~%d priority set:%x\n", i, i + 3, prio);
+	}
+
 	/*
 	 * Set priority on all global interrupts.
 	 */
@@ -444,6 +460,7 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	for (i = 32; i < gic_irqs; i += 32)
 		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
 
+#endif
 	writel_relaxed(1, base + GIC_DIST_CTRL);
 }
 
@@ -484,15 +501,11 @@ static void gic_cpu_init(struct gic_chip_data *gic)
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
 
-#ifdef CONFIG_SECURITY_MODE
 	/*
 	 * NS enable:0x2, S enable:0x1, FIQ enable:0x8
 	 * Let security interrupts route to FIQ
 	 */
-	writel_relaxed(0xB, base + GIC_CPU_CTRL);
-#else
-	writel_relaxed(0x1, base + GIC_CPU_CTRL);
-#endif
+	writel_relaxed(0x1FB, base + GIC_CPU_CTRL);
 }
 
 void gic_cpu_if_down(void)
@@ -633,12 +646,7 @@ static void gic_cpu_restore(unsigned int gic_nr)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4);
 
 	writel_relaxed(0xf0, cpu_base + GIC_CPU_PRIMASK);
-
-#ifdef CONFIG_SECURITY_MODE
- 	writel_relaxed(0x0b, cpu_base + GIC_CPU_CTRL);
-#else
- 	writel_relaxed(0x01, cpu_base + GIC_CPU_CTRL);
-#endif
+	writel_relaxed(0x1FB, cpu_base + GIC_CPU_CTRL);
 }
 
 static int gic_notifier(struct notifier_block *self, unsigned long cmd,	void *v)
