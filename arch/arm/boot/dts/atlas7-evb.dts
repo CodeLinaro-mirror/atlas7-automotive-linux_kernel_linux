@@ -27,7 +27,7 @@
 	axi {
 		peri-iobg {
 			pci-iobg {
-				sd2: sdhci@14200000 {
+				sdhci@14200000 {
 					status = "okay";
 				};
 			};
