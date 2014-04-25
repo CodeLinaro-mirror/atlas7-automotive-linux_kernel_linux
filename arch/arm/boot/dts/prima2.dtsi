@@ -353,6 +353,7 @@
 				clocks = <&clks 31>;
 				interrupts = <14>;
 				sirf,vip-dma-rx-channel = <16>;
+				sirf,vip_cma_size = <0xC00000>;
 			};
 
 			spi0: spi@b00d0000 {

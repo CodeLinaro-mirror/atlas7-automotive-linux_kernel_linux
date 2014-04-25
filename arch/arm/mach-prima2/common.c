@@ -17,6 +17,8 @@
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/extcon/extcon-gpio.h>
+#include <linux/dma-mapping.h>
+#include <asm/dma-contiguous.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/sizes.h>
 #include <asm/mach-types.h>
@@ -24,6 +26,7 @@
 #include "common.h"
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
+static struct device fake_cma_dev;
 
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
@@ -71,6 +74,36 @@ void __init sirfsoc_pre_reserve(void)
 		pr_err("failed to find reserved memory.\n");
 }
 
+static int __init sirfsoc_fdt_handle_vip_rsv_mem(unsigned long node,
+						const char *uname,
+						int depth, void *data)
+{
+	__be32 *mem_info;
+	unsigned long len;
+
+	mem_info = of_get_flat_dt_prop(node,
+				"sirf,vip_cma_size", &len);
+	if (!mem_info || (len != sizeof(unsigned long)))
+		return 0;
+
+	*((unsigned long *)data) = be32_to_cpu(mem_info[0]);
+
+	return 1;
+}
+
+static void __init sirfsoc_reserve_cma(void)
+{
+	int ret;
+	unsigned long rsv_size = 0;
+
+	if (!of_scan_flat_dt(sirfsoc_fdt_handle_vip_rsv_mem, &rsv_size))
+		pr_err("failed to get vip reserved memory size from dt\n");
+
+	ret = dma_declare_contiguous(&fake_cma_dev, rsv_size, 0, 0xFFFFFFFF);
+	if (ret)
+		pr_err("%s: failed to reserve cma for vip %d\n", __func__, ret);
+}
+
 void __init sirfsoc_reserve(void)
 {
 	sirfsoc_pre_reserve();
@@ -78,7 +111,7 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_gps_reserve_memblock();
 	sirfsoc_pbb_reserve_memblock();
 	sirfsoc_fb_reserve_memblock();
-	sirfsoc_vip_reserve_memblock();
+	sirfsoc_reserve_cma();
 }
 
 void __init prima2_reserve(void)
@@ -94,6 +127,24 @@ static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
 	{ /* end */ },
 };
 
+static void __init sirfsoc_set_up_cma_areas(void)
+{
+	struct platform_device *pdev;
+	struct device_node *np;
+	struct cma *cma;
+
+	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-vip");
+	if (!np || !of_device_is_available(np)) {
+		pr_err("failed to get vip device node\n");
+		return;
+	}
+	pdev = of_find_device_by_node(np);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	/* wrap vip's cma area with fake device's */
+	cma = dev_get_cma_area(&fake_cma_dev);
+	dev_set_cma_area(&pdev->dev, cma);
+}
+
 static void __init sirfsoc_init_mach(void)
 {
 	l2x0_of_init(0, 0xFDFFFFFFUL);
@@ -104,6 +155,7 @@ static void __init sirfsoc_init_mach(void)
 		sirf_auxdata_lookup, NULL);
 
 	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
+	sirfsoc_set_up_cma_areas();
 }
 
 static void __init sirfsoc_init_late(void)

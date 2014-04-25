@@ -789,9 +789,9 @@ int rearview_thread(void *data)
 	rearview_env.vip_dev = pcdev->dev;
 
 	rearview_env.dma_chan = pcdev->dma_chan;
-	rearview_env.dma_addr = pcdev->rearview_dma_addr;
+	rearview_env.dma_addr = pcdev->rearview.dma_addr;
 
-	rearview_env.gpio = pcdev->rearview_gpio;
+	rearview_env.gpio = pcdev->rearview.gpio;
 	rearview_env.irq = gpio_to_irq(rearview_env.gpio);
 
 	rearview_env.decoder_ops = pcdev->rearview_decoder_ops;
