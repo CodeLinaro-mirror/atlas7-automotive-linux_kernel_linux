@@ -622,8 +622,8 @@ static int sirfsoc_ts_remove(struct platform_device *pdev)
 {
 	struct sirfsoc_ts *ts = platform_get_drvdata(pdev);
 
-	iio_channel_release(ts->chan);
 	input_unregister_device(ts->input);
+	iio_channel_release(ts->chan);
 
 	return 0;
 }
