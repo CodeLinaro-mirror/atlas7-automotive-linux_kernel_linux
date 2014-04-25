@@ -633,7 +633,7 @@ static const char *pwm3_clk_parents[] = {
 	"sys3pll_clk2",
 };
 
-struct atlas7_div_init_data divider_list[] = {
+static __initdata struct atlas7_div_init_data divider_list[] = {
 	/* div_name, parent_name, gate_name, clk_flag, divider_flag, gate_flag, div_offset, shift, wdith, gate_offset, bit_enable, lock */
 	{"sys0pll_qa1", "sys0pll_fixdiv", "sys0pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 0, &usbphy_div_lock},
 	{"sys1pll_qa1", "sys1pll_fixdiv", "sys1pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 4, &usbphy_div_lock},
@@ -998,7 +998,7 @@ static const char *tpiu_clk_parents[] = {
 	"sys2pll_a20",
 };
 
-struct atlas7_mux_init_data mux_list[] = {
+static __initdata struct atlas7_mux_init_data mux_list[] = {
 	/* mux_name, parent_names, parent_num, flags, mux_flags, mux_offset, shift, width */
 	{"i2s_mux", i2s_clk_parents, ARRAY_SIZE(i2s_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 2},
 	{"usbphy_mux", usbphy_clk_parents, ARRAY_SIZE(usbphy_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 3},
@@ -1032,7 +1032,7 @@ struct atlas7_mux_init_data mux_list[] = {
 	{"tpiu_mux", tpiu_clk_parents, ARRAY_SIZE(tpiu_clk_parents), 0, 0, SIRFSOC_CLKC_TPIU_CLK_SEL, 0, 3},
 };
 
-struct atlas7_unit_init_data unit_list[] = {
+static __initdata struct atlas7_unit_init_data unit_list[] = {
 	/* unit_name, parent_name, flags, regofs, bit, lock */
 	{"audmscm_kas", "kas_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 0, &root0_gate_lock},
 	{"gnssm_gnss", "gnss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 1, &root0_gate_lock},
