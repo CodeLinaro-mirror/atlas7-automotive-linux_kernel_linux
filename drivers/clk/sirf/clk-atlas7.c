@@ -204,6 +204,7 @@
 #define SIRFSOC_CLKC_LEAF_CLK_EN8_SET        0x0548
 
 static void *sirfsoc_clk_vbase, *sirfsoc_clk_vbase;
+static struct clk_onecell_data clk_data;
 
 static const struct clk_div_table pll_div_table[] = {
 	{ .val = 0, .div = 1 },
@@ -1032,6 +1033,7 @@ static __initdata struct atlas7_mux_init_data mux_list[] = {
 	{"tpiu_mux", tpiu_clk_parents, ARRAY_SIZE(tpiu_clk_parents), 0, 0, SIRFSOC_CLKC_TPIU_CLK_SEL, 0, 3},
 };
 
+	/* new unit should add start from the tail of list */
 static __initdata struct atlas7_unit_init_data unit_list[] = {
 	/* unit_name, parent_name, flags, regofs, bit, lock */
 	{"audmscm_kas", "kas_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 0, &root0_gate_lock},
@@ -1050,23 +1052,18 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"gnssm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 13, &root0_gate_lock},
 	{"mediam_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 14, &root0_gate_lock},
 	{"topm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 15, &root0_gate_lock},
-	/* 16 is missing */
 	{"btm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 17, &root0_gate_lock},
-	/* 18 is missing */
 	{"mediam_sdphy01", "sdphy01_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 19, &root0_gate_lock},
 	{"vdifm_sdphy23", "sdphy23_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 20, &root0_gate_lock},
 	{"vdifm_sdphy45", "sdphy45_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 21, &root0_gate_lock},
 	{"vdifm_sdphy67", "sdphy67_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 22, &root0_gate_lock},
 	{"audmscm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 23, &root0_gate_lock},
-	/* 24 is missing */
 	{"cpum_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 25, &root0_gate_lock},
 	{"mediam_nand", "nand_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 26, &root0_gate_lock},
-	/* sec as xinw? */
 	{"gnssm_sec", "xinw", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 27, &root0_gate_lock},
 	{"cpum_cpu", "cpu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 28, &root0_gate_lock},
 	{"memm_mem", "mempll_clk1", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 29, &root0_gate_lock},
 	{"gnssm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 30, &root0_gate_lock},
-	/* 31 is missing */
 	{"btm_btss", "btss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 0, &root1_gate_lock},
 	{"mediam_usbphy", "usbphy_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 1, &root1_gate_lock},
 	{"audmscm_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 2, &root1_gate_lock},
@@ -1089,15 +1086,9 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"mediam_vdec", "vdec_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 20, &root1_gate_lock},
 	{"gpum_sdr", "sdr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 21, &root1_gate_lock},
 	{"vdifm_deint", "deint_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 22, &root1_gate_lock},
-	/*
-	{"btm_btslow", "btslow_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 23, &root1_gate_lock},
-	{"spare1", "spare1_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 24, &root1_gate_lock},
-	*/
 	{"rtcm_kas", "kas_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 25, &root1_gate_lock},
 	{"rtcm_sec", "xinw", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 26, &root1_gate_lock},
 	{"cpum_tpiu", "tpiu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 27, &root1_gate_lock},
-	/* missing cgu/pwm */
-	/* leaf clock for unit */
 	{"cvd_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 0, &leaf1_gate_lock},
 	{"timer_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 1, &leaf1_gate_lock},
 	{"pulse_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 2, &leaf1_gate_lock},
@@ -1181,10 +1172,6 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"graphic_gpu", "gpum_gpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 0, &leaf7_gate_lock},
 	{"vss_sdr", "gpum_sdr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 1, &leaf7_gate_lock},
 	{"thgpum_nocr", "gpum_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 2, &leaf7_gate_lock},
-	/*
-	{"a7ca_btslow", "btm_btslow", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 0, &leaf8_gate_lock},
-	{"a7ca_btslow", "btm_btslow", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 1, &leaf8_gate_lock},
-	*/
 	{"a7ca_btss", "btm_btss", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 2, &leaf8_gate_lock},
 	{"dmac4_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 3, &leaf8_gate_lock},
 	{"uart6_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 4, &leaf8_gate_lock},
@@ -1192,6 +1179,27 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"a7ca_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
 	{"thbtm_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 7, &leaf8_gate_lock},
 };
+
+enum atlas7_clk_index {
+	/* 0               1             2          3              4            5              6           7              8             9 */
+	audmscm_kas,   gnssm_gnss,    gpum_gpu,  mediam_g2d,   mediam_jpenc,  vdifm_disp0, vdifm_disp1, vdifm_vip,      audmscm_sys,    mediam_sys,
+	audmscm_i2s,   audmscm_io,    vdifm_io,   gnssm_io,    mediam_io,       topm_io,     btm_io,   mediam_sdphy01,  vdifm_sdphy23,  vdifm_sdphy45,
+	vdifm_sdphy67, audmscm_xin,  cpum_xin, mediam_nand,     gnssm_sec,     cpum_cpu,    memm_mem,    gnssm_xin,      btm_btss,      mediam_usbphy,
+	audmscm_nocd,  vdifm_nocd,   gnssm_nocd,   mediam_nocd,  ddrm_nocd,   cpum_nocd,     gpum_nocd,   audmscm_nocr, vdifm_nocr,    gnssm_nocr,
+	mediam_nocr,   ddrm_nocr,     gpum_nocr,   gnssm_rgmii,  gnssm_can,   mediam_usb,   gnssm_gmac,   mediam_vdec,   gpum_sdr,      vdifm_deint,
+	rtcm_kas,      rtcm_sec,      cpum_tpiu,     cvd_io,     timer_io,    pulse_io,       tsc_io,       tsc_xin,     ioctop_io,     rsc_io,
+	dvm_io,        lvds_xin,      kas_kas,       ac97_kas,   usp0_kas,    usp1_kas,      usp2_kas,     dmac2_kas,    dmac3_kas,     audioif_kas,
+	i2s1_kas,      thaudmscm_io,  analogtest_xin, sys2pci_io, pciarb_io,  pcicopy_io,     rom_io,      sdio23_io,    sdio45_io,      sdio67_io,
+	vip1_io,       vip1_vip,      sdio23_sdphy23, sdio45_sdphy45, sdio67_sdphy67, vpp0_disp0, lcd0_disp0, vpp1_disp1, lcd1_disp1,    dcu_deint,
+	vdifm_dapa_r_nocr, gpio1_io,  thvdifm_io,    gmac_rgmii, gmac_gmac,   uart1_io,       dmac0_io,    uart0_io,     uart2_io,      uart3_io,
+	uart4_io,      uart5_io,      spi1_io,       gnss_gnss,  canbus1_can, ccsec_sec,     ccpub_sec, gnssm_dapa_r_nocr, thgnssm_io, media_vdec,
+	media_jpenc,   g2d_g2d,       i2c0_io,       i2c1_io,    gpio0_io,    nand_io,        sdio01_io,   sys2pci2_io,  sdio01_sdphy01, nand_nand,
+	usb0_usb,      usb1_usb,    usbphy0_usbphy, usbphy1_usbphy, thmediam_io, memc_mem,  dapa_mem,    nocddrm_nocr, thddrm_nocr,  spram1_cpudiv2,
+	spram2_cpudiv2,	coresight_cpudiv2, thcpum_cpudiv4, graphic_gpu, vss_sdr, thgpum_nocr, a7ca_btss,   dmac4_io,     uart6_io,     usp3_io,
+	a7ca_io,	thbtm_io,      maxclk,
+};
+
+static struct clk *atlas7_clks[maxclk];
 
 static int unit_clk_is_enabled(struct clk_hw *hw)
 {
@@ -1502,9 +1510,15 @@ void __init atlas7_clk_init(struct device_node *np)
 
 	for (i = 0; i < ARRAY_SIZE(unit_list); i++) {
 		unit = &unit_list[i];
-		clk = atlas7_unit_clk_register(NULL, unit->unit_name, unit->parent_name,
+		atlas7_clks[i] = atlas7_unit_clk_register(NULL, unit->unit_name, unit->parent_name,
 				unit->flags, unit->regofs, unit->bit, unit->lock);
-		BUG_ON(!clk);
+		BUG_ON(!atlas7_clks[i]);
 	}
+
+	clk_data.clks = atlas7_clks;
+	clk_data.clk_num = maxclk;
+
+	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
+
 }
 CLK_OF_DECLARE(atlas7_clk, "sirf,atlas7-clkc", atlas7_clk_init);
