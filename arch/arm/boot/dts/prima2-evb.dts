@@ -158,7 +158,7 @@
 				tsc {
 					compatible = "sirf,prima2-tsc";
 					interrupts = <33>;
-					io-channels = <&adc 1>;
+					io-channels = <&adc 0>;
 					io-channel-names = "dual_ts";
 				};
 			};
