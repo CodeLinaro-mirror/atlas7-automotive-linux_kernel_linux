@@ -639,7 +639,7 @@ static struct arch_nanddisk_resource arch_nres[] = {
 			{"sirf,prima2-dmac", 0},
 			{"sirf,prima2-rstc", 0},
 			{"sirf,prima2-efuse", 0},
-			{"sirf,prima2-pl310-cache", 0}
+			{"arm,pl310-cache", 0}
 		}
 	},
 	{
