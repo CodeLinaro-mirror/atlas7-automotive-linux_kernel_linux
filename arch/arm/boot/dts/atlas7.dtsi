@@ -59,6 +59,7 @@
 					   <0 49 0>,
 					   <0 50 0>,
 					   <0 51 0>;
+				clocks = <&clks 54>;
 			};
 
 			uart1: uart@18020000 {
@@ -67,6 +68,12 @@
 				reg = <0x18020000 0x1000>;
 				interrupts = <0 18 0>;
 				fifosize = <32>;
+			};
+
+			clks: clock-controller@18620000 {
+				compatible = "sirf,atlas7-clkc";
+				reg = <0x18620000 0x1000>;
+				#clock-cells = <1>;
 			};
 
 		};
