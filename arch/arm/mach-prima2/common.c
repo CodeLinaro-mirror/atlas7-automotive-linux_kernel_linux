@@ -147,7 +147,7 @@ static void __init sirfsoc_set_up_cma_areas(void)
 
 static void __init sirfsoc_init_mach(void)
 {
-	l2x0_of_init(0, 0xFDFFFFFFUL);
+	l2x0_of_init(0, 0xfdffffff);
 
 	sirfsoc_add_camera_pdev();
 
