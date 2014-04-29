@@ -147,8 +147,6 @@ static void __init sirfsoc_set_up_cma_areas(void)
 
 static void __init sirfsoc_init_mach(void)
 {
-	l2x0_of_init(0, 0xfdffffff);
-
 	sirfsoc_add_camera_pdev();
 
 	of_platform_populate(NULL, of_default_bus_match_table,
@@ -204,6 +202,12 @@ static __init void sirfsoc_map_io(void)
 	sirfsoc_map_scu();
 }
 
+static void __init sirfsoc_init_irq(void)
+{
+	l2x0_of_init(0, 0xfdffffff);
+	irqchip_init();
+}
+
 #ifdef CONFIG_ARCH_ATLAS6
 static const char *atlas6_dt_match[] __initconst = {
 	"sirf,atlas6",
@@ -215,7 +219,7 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.nr_irqs	= 128,
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= irqchip_init,
+	.init_irq	= sirfsoc_init_irq,
 	.init_time	= sirfsoc_init_time,
 	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
@@ -235,7 +239,7 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	.reserve	= prima2_reserve,
 	.nr_irqs	= 128,
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= irqchip_init,
+	.init_irq	= sirfsoc_init_irq,
 	.init_time	= sirfsoc_init_time,
 	.init_machine   = sirfsoc_init_mach,
 	.dma_zone_size	= SZ_256M,
@@ -256,7 +260,7 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= irqchip_init,
+	.init_irq	= sirfsoc_init_irq,
 	.init_time	= sirfsoc_init_time,
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
