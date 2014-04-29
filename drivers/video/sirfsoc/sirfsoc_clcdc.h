@@ -94,8 +94,15 @@ struct overlay_pos {
 	int	h;
 };
 
+struct dma_buf {
+	unsigned long   size;
+	void            *base;
+	unsigned long   dma_addr;
+};
+
 struct sirfsocfb {
 	struct fb_info		fb[SIRFSOCFB_MAX_LAYERS];
+	struct dma_buf		dma_buf[SIRFSOCFB_MAX_LAYERS];
 	struct layer_info	layer_info[SIRFSOCFB_MAX_LAYERS];
 	struct overlay_pos	ovl_pos;
 	struct mutex ovl_lock;

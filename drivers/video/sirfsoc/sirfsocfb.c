@@ -78,8 +78,6 @@ MODULE_PARM_DESC(toplayer, "LCD panel default top layer.");
 static u32 sirfsocfb_pseudo_palette[16];
 
 static struct i2c_client *lcd_client;
-static phys_addr_t  sirf_fb_phy_base;
-static phys_addr_t  sirf_fb_phy_size;
 static int vcc;
 static int vdd;
 static int vee;
@@ -1837,8 +1835,9 @@ static int remap_frame_buffers(struct platform_device *pdev,
 			       struct sirfsocfb *fb)
 {
 	int i, ret = 0;
-	unsigned layer_mem_offset = 0;
+	unsigned int size;
 	unsigned int layer_reserve_size[4];
+	dma_addr_t map_dma;
 
 	FB_FUN_MSG("remap_frame_buffers\n");
 
@@ -1856,28 +1855,20 @@ static int remap_frame_buffers(struct platform_device *pdev,
 			fb->fb[i].fix.smem_len = (fb->panel->bpp / 8) *
 				fb->panel->mode.xres * fb->panel->mode.yres * 2;
 
-		if (i == LCDC_PRIMARY) {
-			unsigned int size;
-			dma_addr_t map_dma;
-			size = PAGE_ALIGN(fb->fb[i].fix.smem_len);
-			fb->fb[i].screen_base =
-				dma_alloc_writecombine(&pdev->dev,
-					size, &map_dma, GFP_KERNEL);
-			fb->fb[i].fix.smem_start = map_dma;
-		} else {
-			fb->fb[i].fix.smem_start = sirf_fb_phy_base +
-				layer_mem_offset;
-			layer_mem_offset += PAGE_ALIGN(fb->fb[i].fix.smem_len);
-			fb->fb[i].screen_base =
-				ioremap_wc(fb->fb[i].fix.smem_start,
-					fb->fb[i].fix.smem_len);
-		}
+		size = PAGE_ALIGN(fb->fb[i].fix.smem_len);
+		fb->fb[i].screen_base =
+			dma_alloc_writecombine(&pdev->dev,
+				size, &map_dma, GFP_KERNEL);
+		fb->fb[i].fix.smem_start = map_dma;
 
 		if (fb->fb[i].screen_base == NULL) {
 			FB_ERR_MSG("L%d IO remap failed!\n", i);
 			ret = -ENOMEM;
 			break;
 		}
+		fb->dma_buf[i].size = size;
+		fb->dma_buf[i].base = fb->fb[i].screen_base;
+		fb->dma_buf[i].dma_addr = fb->fb[i].fix.smem_start;
 
 		if (i == LCDC_PRIMARY) {
 			fb->layer_info[i].enabled = (fb->init_enabled) ? 1 : 0;
@@ -2080,34 +2071,6 @@ err:
 	return ret;
 }
 #endif
-
-static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
-						const char *uname,
-						int depth, void *data)
-{
-	__be32 *mem_info;
-	unsigned long len;
-
-	mem_info = of_get_flat_dt_prop(node,
-			"sirf,rsvmem_size", &len);
-	if (!mem_info || (len != 4 * sizeof(unsigned long)))
-		return 0;
-
-	/* fb0 is allocated from dma */
-	sirf_fb_phy_size = be32_to_cpu(mem_info[1]) + be32_to_cpu(mem_info[2]) +
-		be32_to_cpu(mem_info[3]);
-	sirf_fb_phy_base = memblock_alloc(sirf_fb_phy_size, SZ_1M);
-	memblock_remove(sirf_fb_phy_base, sirf_fb_phy_size);
-
-	return 1;
-}
-
-void  __init sirfsoc_fb_reserve_memblock(void)
-{
-	if (!of_scan_flat_dt(sirfsoc_fdt_handle_fb_rsv_mem, NULL))
-		pr_err("failed to get fb reserved memory from dt\n");
-}
-EXPORT_SYMBOL(sirfsoc_fb_reserve_memblock);
 
 static void sirfsocfb_probe_async(void *async_data, async_cookie_t cookie)
 {
@@ -2378,8 +2341,13 @@ err_remove_fifo_underflow_file:
 		&dev_attr_layer_fifo_underflow);
 err_unregister:
 	sirfsocfb_unregister(fb);
-	iounmap(fb->fb[LCDC_PRIMARY].screen_base);
 err_deinit_irq:
+	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++) {
+		if (fb->dma_buf[i].base)
+			dma_free_writecombine(&pdev->dev, fb->dma_buf[i].size,
+				fb->dma_buf[i].base,
+				fb->dma_buf[i].dma_addr);
+	}
 	sirfsocfb_irq_deinit(fb);
 err_rel_clk:
 	clk_disable(fb->clk);
@@ -2407,8 +2375,13 @@ static int sirfsocfb_remove(struct platform_device *pdev)
 	FB_FUN_MSG("sirfsocfb_remove\n");
 
 	sirfsocfb_unregister(fb);
-	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++)
+	for (i = 0; i < SIRFSOCFB_MAX_LAYERS; i++) {
 		kfree(fb->layer_info[i].ovl);
+		if (fb->dma_buf[i].base)
+			dma_free_writecombine(&pdev->dev, fb->dma_buf[i].size,
+				fb->dma_buf[i].base,
+				fb->dma_buf[i].dma_addr);
+	}
 
 	fb->lcdc_ops.terminate();
 	fb->init_enabled = 0;

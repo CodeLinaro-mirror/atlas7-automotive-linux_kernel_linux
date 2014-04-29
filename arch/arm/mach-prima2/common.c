@@ -74,6 +74,25 @@ void __init sirfsoc_pre_reserve(void)
 		pr_err("failed to find reserved memory.\n");
 }
 
+static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
+						const char *uname,
+						int depth, void *data)
+{
+	__be32 *mem_info;
+	unsigned long len;
+
+	mem_info = of_get_flat_dt_prop(node,
+					"sirf,rsvmem_size", &len);
+	if (!mem_info || (len != 4 * sizeof(unsigned long)))
+		return 0;
+
+	/* assume the max reserve size of fb0 is 8M(1024*600,32bpp,tri-buf) */
+	*((unsigned long *)data) = 8 * SZ_1M + be32_to_cpu(mem_info[1]) +
+		be32_to_cpu(mem_info[2]) + be32_to_cpu(mem_info[3]);
+
+	return 1;
+}
+
 static int __init sirfsoc_fdt_handle_vip_rsv_mem(unsigned long node,
 						const char *uname,
 						int depth, void *data)
@@ -94,12 +113,18 @@ static int __init sirfsoc_fdt_handle_vip_rsv_mem(unsigned long node,
 static void __init sirfsoc_reserve_cma(void)
 {
 	int ret;
-	unsigned long rsv_size = 0;
+	unsigned long rsv_size = 0, size;
 
+	if (!of_scan_flat_dt(sirfsoc_fdt_handle_fb_rsv_mem, &rsv_size))
+		pr_err("failed to get fb reserved memory size from dt\n");
+	size = rsv_size;
+
+	rsv_size = 0;
 	if (!of_scan_flat_dt(sirfsoc_fdt_handle_vip_rsv_mem, &rsv_size))
 		pr_err("failed to get vip reserved memory size from dt\n");
+	size += rsv_size;
 
-	ret = dma_declare_contiguous(&fake_cma_dev, rsv_size, 0, 0xFFFFFFFF);
+	ret = dma_declare_contiguous(&fake_cma_dev, size, 0, 0xFFFFFFFF);
 	if (ret)
 		pr_err("%s: failed to reserve cma for vip %d\n", __func__, ret);
 }
@@ -110,7 +135,6 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_nand_reserve_memblock();
 	sirfsoc_gps_reserve_memblock();
 	sirfsoc_pbb_reserve_memblock();
-	sirfsoc_fb_reserve_memblock();
 	sirfsoc_reserve_cma();
 }
 
@@ -133,6 +157,18 @@ static void __init sirfsoc_set_up_cma_areas(void)
 	struct device_node *np;
 	struct cma *cma;
 
+	/* wrap lcd's cma area with fake device's */
+	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-lcd");
+	if (!np || !of_device_is_available(np)) {
+		pr_err("failed to get lcd device node\n");
+		return;
+	}
+	pdev = of_find_device_by_node(np);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	cma = dev_get_cma_area(&fake_cma_dev);
+	dev_set_cma_area(&pdev->dev, cma);
+
+	/* wrap vip's cma area with fake device's */
 	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-vip");
 	if (!np || !of_device_is_available(np)) {
 		pr_err("failed to get vip device node\n");
@@ -140,7 +176,6 @@ static void __init sirfsoc_set_up_cma_areas(void)
 	}
 	pdev = of_find_device_by_node(np);
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	/* wrap vip's cma area with fake device's */
 	cma = dev_get_cma_area(&fake_cma_dev);
 	dev_set_cma_area(&pdev->dev, cma);
 }

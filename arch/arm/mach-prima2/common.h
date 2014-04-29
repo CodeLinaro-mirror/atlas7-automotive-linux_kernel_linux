@@ -27,13 +27,6 @@ extern void __init sirfsoc_of_clk_init(void);
 extern void sirfsoc_restart(char, const char *);
 extern asmlinkage void __exception_irq_entry
 	sirfsoc_handle_irq(struct pt_regs *regs);
-#ifdef CONFIG_FB_SIRF
-extern void sirfsoc_fb_reserve_memblock(void);
-#else
-static inline void sirfsoc_fb_reserve_memblock(void)
-{
-}
-#endif
 
 #ifdef CONFIG_GPS_SIRFSOC
 extern void sirfsoc_gps_reserve_memblock(void);
