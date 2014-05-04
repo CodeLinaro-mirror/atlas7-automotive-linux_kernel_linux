@@ -17,7 +17,7 @@
 #include <linux/of_gpio.h>
 #include <linux/extcon/extcon-gpio.h>
 #include <linux/dma-mapping.h>
-#include <asm/dma-contiguous.h>
+#include <linux/dma-contiguous.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/sizes.h>
 #include <asm/mach-types.h>
@@ -93,6 +93,7 @@ static void __init csrvisor_reserve(void)
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
 	arm_pm_idle = smc_switch_to_non_secure;
 #endif
+}
 
 static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
 						const char *uname,
