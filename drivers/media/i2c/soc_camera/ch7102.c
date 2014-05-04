@@ -135,19 +135,6 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
-static int ch7102_g_chip_ident(struct v4l2_subdev *sd,
-			       struct v4l2_dbg_chip_ident *id)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	/*	select page 12	*/
-	i2c_smbus_write_byte_data(client, PG_SEL, PAGE12);
-	id->ident = i2c_smbus_read_byte_data(client, CHIPID);
-
-	dev_info(&client->dev,
-			 "ch7102 Product ID %0x\n", id->ident);
-	return 0;
-}
-
 static int ch7102_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
