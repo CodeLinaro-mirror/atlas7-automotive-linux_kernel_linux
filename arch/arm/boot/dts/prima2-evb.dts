@@ -31,7 +31,7 @@
 		bt_gpio_reset = <&gpio 3 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pins_a>;
-		pwms = <&pwm 1 0>;
+		pwms = <&pwm 1 30518>;
 	};
 
 	bt-sco {
@@ -41,6 +41,16 @@
 	sirf-bt-sco {
 		compatible = "sirf,sirf-bt-sco";
 		codec-clock-frame-master = <1>;
+	};
+
+	hdmi_audio: hdmi_audio@0 {
+		compatible = "linux,hdmi-audio";
+		status = "okay";
+	};
+	sirf-hdmi {
+		compatible = "sirf,hdmi-card";
+		i2s-controller = <&i2s>;
+		audio-codec = <&hdmi_audio>;
 	};
 
 	sirf-backlight {
@@ -87,10 +97,6 @@
 			uart@b0060000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&uart1_pins_a>;
-			};
-			uart@b0070000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&uart2_noflow_pins_a>;
 			};
 			usp@b0080000 {
 				compatible = "sirf,prima2-usp-pcm";
@@ -141,12 +147,24 @@
                                 };
 
 			};
+			pwm: pwm@b0130000 {
+				/* sigsrc1(pll1) is used for dvfs, ignore it */
+				clocks = <&clks 21>, <&clks 1>, <&clks 3>,
+					<&clks 0>, <&clks 4>;
+				clock-names = "pwmc", "sigsrc0", "sigsrc2",
+					"sigsrc3", "sigsrc4";
+			};
 			adc@b0110000 {
 				tsc {
 					compatible = "sirf,prima2-tsc";
 					interrupts = <33>;
-					resets = <&rstc 32>;
+					io-channels = <&adc 0>;
+					io-channel-names = "dual_ts";
 				};
+			};
+			pulsec@b0150000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&pulse_count_pins_a>;
 			};
 		};
                 disp-iobg {

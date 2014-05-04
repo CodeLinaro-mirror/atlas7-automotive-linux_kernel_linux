@@ -5,6 +5,7 @@
  *
  * Licensed under GPLv2 or later.
  */
+#define pr_fmt(fmt)        "(sirfsoc_pm): " fmt
 
 #include <linux/kernel.h>
 #include <linux/suspend.h>
@@ -116,14 +117,13 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 	u32 boot_stat = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
 		SIRFSOC_BOOT_STATUS);
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
-		pr_info("boot status mask bits is %d, but read size is %d\n",
+		pr_err("Failed to read boot status, mask bits is %d, but read size is %d\n",
 			SIRFSOC_BOOT_STATUS_BITS, size);
-		pr_info("read failed\n");
-		return 0;
+		return -EINVAL;
 	}
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
-		buf[i] = ((boot_stat >> i) & 0x1) + 0x30;
+		put_user("01"[(boot_stat >> i) & 0x1], buf + i);
 
 	return size;
 }
@@ -136,16 +136,17 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 	int i;
 
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
-		pr_info("boot status mask bits is %d, but write size is %d\n",
+		pr_err("Failed to write boot status, mask bits is %d, but write size is %d\n",
 			SIRFSOC_BOOT_STATUS_BITS, size);
-		pr_info("write failed\n");
-		return 0;
+		return -EINVAL;
 	}
 
-	copy_from_user(data, buf, SIRFSOC_BOOT_STATUS_BITS);
+	if (copy_from_user(data, buf, SIRFSOC_BOOT_STATUS_BITS))
+		return -EINVAL;
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
-		boot_stat |= (((data[i] - 0x30) & 0x1) << i);
+		boot_stat |= (((data[i] - '0') & 0x1) << i);
+
 	sirfsoc_rtc_iobrg_writel(boot_stat,
 		sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
 
@@ -187,9 +188,14 @@ static int __init sirfsoc_of_pwrc_init(void)
 }
 
 static const struct of_device_id memc_ids[] = {
-	{ .compatible = "sirf,prima2-memc", .data = sirfsoc_prima2_finish_suspend, },
-	{ .compatible = "sirf,marco-memc", .data = sirfsoc_marco_finish_suspend, },
-	{}
+	{
+		.compatible = "sirf,prima2-memc",
+		.data = sirfsoc_prima2_finish_suspend,
+	}, {
+		.compatible = "sirf,marco-memc",
+		.data = sirfsoc_marco_finish_suspend,
+	}, {
+	}
 };
 
 static int sirfsoc_memc_probe(struct platform_device *op)

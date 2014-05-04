@@ -48,7 +48,7 @@
 		ranges = <0x40000000 0x40000000 0x80000000>;
 
 		l2-cache-controller@80040000 {
-			compatible = "arm,pl310-cache", "sirf,prima2-pl310-cache";
+			compatible = "arm,pl310-cache";
 			reg = <0x80040000 0x1000>;
 			interrupts = <59>;
 			arm,tag-latency = <1 1 1>;
@@ -245,18 +245,23 @@
 				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
 			};
 
-			audiocodec: audiocodec@b0040000 {
-				compatible = "sirf,prima2-audio-codec";
-				reg = <0xb0040000 0x10000>;
+			audio: audio@b00400e0 {
+				compatible = "sirf,prima2-audio";
+				reg = <0xb00400e0 0x44>;
 				interrupts = <35>;
+				dmas = <&dmac1 3>, <&dmac1 8>;
+				dma-names = "rx", "tx";
 				clocks = <&clks 27>;
 			};
 
-			audioport: audioport@b0040000 {
-				compatible = "sirf,audio-port";
-				reg = <0xb0040000 0x10000>;
-				dmas = <&dmac1 3>, <&dmac1 8>;
+			i2s: i2s@b0040000 {
+				compatible = "sirf,prima2-i2s";
+				reg = <0xb0040000 0xe0>;
+				dmas = <&dmac1 6>, <&dmac1 12>;
 				dma-names = "rx", "tx";
+				clocks = <&clks 27>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2s_pins_a>;
 			};
 
 			uart0: uart@b0050000 {
@@ -350,6 +355,7 @@
 				clocks = <&clks 31>;
 				interrupts = <14>;
 				sirf,vip-dma-rx-channel = <16>;
+				sirf,vip_cma_size = <0xC00000>;
 			};
 
 			spi0: spi@b00d0000 {
@@ -404,11 +410,13 @@
 				#size-cells = <0>;
 			};
 
-                        adc@b0110000 {
+                        adc: adc@b0110000 {
                                 compatible = "sirf,prima2-adc";
                                 reg = <0xb0110000 0x10000>;
                                 interrupts = <34>;
                                 clocks = <&clks 16>;
+				resets = <&rstc 32>;
+				#io-channel-cells = <1>;
                         };
 
 			gpio: pinctrl@b0120000 {
@@ -576,10 +584,34 @@
                                                 sirf,function = "sdmmc5";
                                         };
                                 };
+				i2s_mclk_pins_a: i2s_mclk@0 {
+                                        i2s_mclk {
+                                                sirf,pins = "i2smclkgrp";
+                                                sirf,function = "i2s_mclk";
+                                        };
+                                };
+				i2s_ext_clk_input_pins_a: i2s_ext_clk_input@0 {
+                                        i2s_ext_clk_input {
+                                                sirf,pins = "i2s_ext_clk_inputgrp";
+                                                sirf,function = "i2s_ext_clk_input";
+                                        };
+                                };
                                 i2s_pins_a: i2s@0 {
                                         i2s {
                                                 sirf,pins = "i2sgrp";
                                                 sirf,function = "i2s";
+                                        };
+                                };
+				i2s_no_din_pins_a: i2s_no_din@0 {
+                                        i2s_no_din {
+                                                sirf,pins = "i2s_no_dingrp";
+                                                sirf,function = "i2s_no_din";
+                                        };
+                                };
+				i2s_6chn_pins_a: i2s_6chn@0 {
+                                        i2s_6chn {
+                                                sirf,pins = "i2s_6chngrp";
+                                                sirf,function = "i2s_6chn";
                                         };
                                 };
                                 ac97_pins_a: ac97@0 {
@@ -702,8 +734,10 @@
 				compatible = "sirf,prima2-pwm";
 				#pwm-cells = <2>;
 				reg = <0xb0130000 0x10000>;
-				clocks = <&clks 21>, <&clks 1>, <&clks 0>;
-				clock-names = "pwmc", "sigsrc0", "sigsrc3";
+				clocks = <&clks 21>, <&clks 1>, <&clks 2>,
+					<&clks 3>, <&clks 0>, <&clks 4>;
+				clock-names = "pwmc", "sigsrc0", "sigsrc1",
+					"sigsrc2", "sigsrc3", "sigsrc4";
 			};
 
 			efusesys@b0140000 {

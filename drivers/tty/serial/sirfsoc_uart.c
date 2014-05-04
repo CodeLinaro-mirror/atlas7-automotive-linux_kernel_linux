@@ -1313,7 +1313,8 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 		"sirf,uart-has-rtscts");
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart"))
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-usp-uart")) {
+	if (of_device_is_compatible(pdev->dev.of_node,
+		"sirf,prima2-usp-uart")) {
 		sirfport->uart_reg->uart_type =	SIRF_USP_UART;
 		if (!sirfport->hw_flow_ctrl)
 			goto usp_no_flow_control;
@@ -1372,11 +1373,12 @@ usp_no_flow_control:
 	spin_lock_init(&sirfport->rx_lock);
 	spin_lock_init(&sirfport->tx_lock);
 	tasklet_init(&sirfport->rx_dma_complete_tasklet,
-			sirfsoc_uart_rx_dma_complete_tl, (unsigned long)sirfport);
+		sirfsoc_uart_rx_dma_complete_tl, (unsigned long)sirfport);
 	tasklet_init(&sirfport->rx_tmo_process_tasklet,
 			sirfsoc_rx_tmo_process_tl, (unsigned long)sirfport);
 	port->mapbase = res->start;
-	port->membase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	port->membase = devm_ioremap(&pdev->dev,
+			res->start, resource_size(res));
 	if (!port->membase) {
 		dev_err(&pdev->dev, "Cannot remap resource.\n");
 		ret = -ENOMEM;

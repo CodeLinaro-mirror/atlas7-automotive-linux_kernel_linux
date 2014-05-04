@@ -64,7 +64,6 @@ enum SIRFSOCFB_FORMAT {
 	FORMAT_RGBX_8888,
 };
 
-#define bYUVFormat(A) (A >= FORMAT_YCbCr_422_SP)
 
 struct sirfsocfb_createlayer {
 	__u32 width;
@@ -88,11 +87,6 @@ struct sirfsocfb_flush_cache_addr {
 	__u32 phy_addr_size;
 	enum SIRFSOCFB_FLUSH_CACHE_OP flush_cache_op;
 };
-
-typedef void (*PFN_ENABLE_INTERRUPT) (void *, int);
-typedef void (*PFN_DISABLE_INTERRUPT) (void *, int);
-typedef void (*PFN_SET_BASE) (void *, int, unsigned int, int);
-typedef int (*PFN_CREATE_LAYER) (void *);
 
 struct sirfsocfb_rect {
 	int left;
@@ -129,8 +123,10 @@ struct sirfsocfb_layers_parms {
 	__u32 size; /* size of valid data in this struct */
 	__u32 wait;
 	__u32 phys_addr[SIRFSOCFB_MAX_LAYERS];
-	__u32 layer_mask; /* mask to update layer parameters, excludes only update base */
-	struct sirfsocfb_layer_parms layer_info[SIRFSOCFB_MAX_LAYERS]; /* layer parameters needs update */
+	/* mask to update layer parameters, excludes only update base */
+	__u32 layer_mask;
+	/* layer parameters needs update */
+	struct sirfsocfb_layer_parms layer_info[SIRFSOCFB_MAX_LAYERS];
 };
 
 #define BLT_DI_MODE_MASK		0x00000007
@@ -141,13 +137,16 @@ struct sirfsocfb_layers_parms {
 #define BLT_DI_VMRI			0x00000004
 
 #define BLT_BOT_FIELD_FIRST	0x00000008 /* input bottom field first */
-#define BLT_DI_FIELD_BOT	0x00000010 /* bottom field reserved. useless now */
+/* bottom field reserved. useless now */
+#define BLT_DI_FIELD_BOT	0x00000010
+/* lines for even or odd fields are mixed */
+#define BLT_FIELDS_MIX		0x00000020
+/* frame rate will be doubled if deinterlace is enabled */
+#define BLT_DOUBLE_FRATE	0x00000040
+/* not wait blt to complete */
+#define BLT_NOT_WAIT_COMPLETE	0x01000000
 
-#define BLT_FIELDS_MIX		0x00000020 /* lines for even or odd fields are mixed */
-#define BLT_DOUBLE_FRATE	0x00000040 /* frame rate will be doubled if deinterlace is enabled */
-#define BLT_NOT_WAIT_COMPLETE	0x01000000 /* not wait blt to complete */
-
-struct sirfsocfb_bltparms{
+struct sirfsocfb_bltparms {
 	struct sirfsocfb_surf src;
 	struct sirfsocfb_surf dst;
 	__u32  flag;
@@ -165,19 +164,32 @@ enum {
 	BLE_BLT_ALPHA_OP_PREMULTIPLIED     = 2
 };
 
-#define BLE_BLT_DISABLE_ALL		0x00000000	/* disable all additional controls */
-#define BLE_BLT_TRANSPARENT_ENABLE	0x00000001	/* enable transparent blt   */
-#define BLE_BLT_GLOBAL_ALPHA		0x00000002	/* enable standard global alpha */
-#define BLE_BLT_PERPIXEL_ALPHA		0x00000004	/* enable per-pixel alpha bleding */
-#define BLE_BLT_ROT_90			0x00000020	/* apply 90 degree rotation to the blt */
-#define BLE_BLT_ROT_180			0x00000040	/* apply 180 degree rotation to the blt */
-#define BLE_BLT_ROT_270			0x00000080	/* apply 270 degree rotation to the blt */
-#define BLE_BLT_FLIP_H			0x00000100	/* apply mirror in horizontal */
-#define BLE_BLT_FLIP_V			0x00000200	/* apply mirror in vertical     */
-#define BLE_BLT_SRC_COLORKEY		0x00000400	/* Source color Key  enabled    */
-#define BLE_BLT_DST_COLORKEY		0x00000800	/* Destination color Key enabled */
-#define BLE_BLT_COLOR_FILL		0x00001000	/* color fill enabled */
-#define BLE_BLT_WAIT_COMPLETE		0x00100000	/* wait blt to complete */
+/* disable all additional controls */
+#define BLE_BLT_DISABLE_ALL		0x00000000
+/* enable transparent blt   */
+#define BLE_BLT_TRANSPARENT_ENABLE	0x00000001
+/* enable standard global alpha */
+#define BLE_BLT_GLOBAL_ALPHA		0x00000002
+/* enable per-pixel alpha bleding */
+#define BLE_BLT_PERPIXEL_ALPHA		0x00000004
+/* apply 90 degree rotation to the blt */
+#define BLE_BLT_ROT_90			0x00000020
+/* apply 180 degree rotation to the blt */
+#define BLE_BLT_ROT_180			0x00000040
+/* apply 270 degree rotation to the blt */
+#define BLE_BLT_ROT_270			0x00000080
+/* apply mirror in horizontal */
+#define BLE_BLT_FLIP_H			0x00000100
+/* apply mirror in vertical     */
+#define BLE_BLT_FLIP_V			0x00000200
+/* Source color Key  enabled    */
+#define BLE_BLT_SRC_COLORKEY		0x00000400
+/* Destination color Key enabled */
+#define BLE_BLT_DST_COLORKEY		0x00000800
+/* color fill enabled */
+#define BLE_BLT_COLOR_FILL		0x00001000
+/* wait blt to complete */
+#define BLE_BLT_WAIT_COMPLETE		0x00100000
 
 #define FB_ACCEL_BLE	0xFF	/* CSR BLE */
 
@@ -190,20 +202,25 @@ struct sirfsocfb_bltparms_ble {
 	__u8  blend_func;		/* per-pixel alpha-blending function */
 	__u32 num_rects;
 	struct sirfsocfb_rect rects[BLE_RECTS_NUM_MAX];
-	__u32 flags;			/* additional blit control information */
-
-	__u32 dst_offset;          	/* destination memory */
-	__u32 dst_stride;		/* the number of bytes from pixel 0,0 to 0,1 */
-	__u32 dstx, dsty;		/* pixel offset from start of dest surface to start of blt rectangle */
+	/* additional blit control information */
+	__u32 flags;
+	__u32 dst_offset;		/* destination memory */
+	/* the number of bytes from pixel 0,0 to 0,1 */
+	__u32 dst_stride;
+	/* pixel offset from start of dest surface to start of blt rectangle */
+	__u32 dstx, dsty;
 	__u32 dst_sizex, dst_sizey;	/* blt size */
 	__u32 dst_fmt;			/* dest format */
 	__u32 dst_width;		/* size of dest surface in pixels */
 	__u32 dst_height;		/* size of dest surface in pixels */
-
-	__u32 src_offset;		/* source mem, (source fields are also used for patterns) */
-	__u32 src_stride;		/* signed stride, the number of bytes from pixel 0,0 to 0,1 */
-	__u32 srcx, srcy;		/* pixel offset from start of surface to start of source rectangle */
-	__u32 src_sizex, src_sizey;     /* source rectangle size or pattern size in pixels */
+	/* source mem, (source fields are also used for patterns) */
+	__u32 src_offset;
+	/* signed stride, the number of bytes from pixel 0,0 to 0,1 */
+	__u32 src_stride;
+	/* pixel offset from start of surface to start of source rectangle */
+	__u32 srcx, srcy;
+	/* source rectangle size or pattern size in pixels */
+	__u32 src_sizex, src_sizey;
 	__u32 src_fmt;			/* source format */
 	__u32 src_width;		/* size of source surface in pixels */
 	__u32 src_height;		/* size of source surface in pixels */
@@ -245,44 +262,5 @@ enum sirfsocfb_feature_layer {
 #define SIRFSOCFB_DISABLE_FEATURE_LAYER	_IO('S', 0x10)
 #define SIRFSOCFB_SET_GAMMA_TABLE	_IOW('S', 0x11, __u16[256 * 3])
 #define SIRFSOCFB_GET_GAMMA_TABLE	_IOR('S', 0x11, __u16[256 * 3])
-
-
-/* LCD interrupt handler defines */
-#define DMA_INT_LAYER(x)	(0+(x))
-#define OFLOW_INT_LAYER(x)	(6+(x))
-#define UFLOW_INT_LAYER(x)	(12+(x))
-#define S0_LINE_INT		(18)
-
-/* Version/name */
-#define SIRFSOCFB_MODULE_NAME		"SIRFSOC-FB"
-
-/*** Debug/feature defines ***/
-#ifndef FB_DEBUG
-#define FB_DEBUG				0
-#endif
-
-/* messages */
-#define FB_PFX			SIRFSOCFB_MODULE_NAME ": "
-
-#define FB_ERR_MSG(fmt, args...)	printk(KERN_ERR FB_PFX fmt, ## args)
-#define FB_WRN_MSG(fmt, args...)	printk(KERN_WARNING FB_PFX fmt, ## args)
-#define FB_NOT_MSG(fmt, args...)	printk(KERN_NOTICE FB_PFX fmt, ## args)
-#define FB_INF_MSG(fmt, args...)	printk(KERN_INFO FB_PFX fmt, ## args)
-
-#if FB_DEBUG
-#define FB_DBG_MSG(fmt, args...)	printk(FB_PFX fmt, ## args)
-#define FB_FUN_MSG(fmt, args...)
-#define FB_ASSERT(expr) \
-	do { \
-		if (!(expr)) \
-			printk(KERN_ERR FB_PFX "Assertion failed! %s, %s, %s, line=%d\n", \
-				#expr, __FILE__, __func__, __LINE__); \
-	} while (0)
-#else
-#define FB_DBG_MSG(fmt, args...)
-#define FB_FUN_MSG(fmt, args...)
-#define FB_ASSERT(expr)
-
-#endif
 
 #endif /* __SIRFSOC_FB_H_ */

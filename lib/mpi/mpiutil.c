@@ -122,5 +122,35 @@ void mpi_free(MPI a)
 }
 EXPORT_SYMBOL_GPL(mpi_free);
 
+/****************
+ * Note: This copy function should not interpret the MPI
+ *	 but copy it transparently.
+ */
+int mpi_copy(MPI *copied, const MPI a)
+{
+	size_t i;
+	MPI b;
+
+	*copied = NULL;
+
+	if (a) {
+		b = mpi_alloc(a->nlimbs);
+		if (!b)
+			return -ENOMEM;
+
+		b->nlimbs = a->nlimbs;
+		b->sign = a->sign;
+		b->flags = a->flags;
+		b->nbits = a->nbits;
+
+		for (i = 0; i < b->nlimbs; i++)
+			b->d[i] = a->d[i];
+
+		*copied = b;
+	}
+
+	return 0;
+}
+
 MODULE_DESCRIPTION("Multiprecision maths library");
 MODULE_LICENSE("GPL");

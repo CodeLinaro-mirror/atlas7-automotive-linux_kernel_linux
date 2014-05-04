@@ -135,6 +135,19 @@ static int ch7102_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static int ch7102_g_chip_ident(struct v4l2_subdev *sd,
+			       struct v4l2_dbg_chip_ident *id)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	/*	select page 12	*/
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE12);
+	id->ident = i2c_smbus_read_byte_data(client, CHIPID);
+
+	dev_info(&client->dev,
+			 "ch7102 Product ID %0x\n", id->ident);
+	return 0;
+}
+
 static int ch7102_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -183,9 +196,6 @@ static int ch7102_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 static int ch7102_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ch7102_priv *priv = to_ch7102(client);
-
 	a->c.left	= 0;
 	a->c.top	= 0;
 	a->c.width	= WIDTH;
@@ -197,9 +207,6 @@ static int ch7102_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 
 static int ch7102_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ch7102_priv *priv = to_ch7102(client);
-
 	a->bounds.left			= 0;
 	a->bounds.top			= 0;
 	a->bounds.width			= WIDTH;
@@ -215,9 +222,6 @@ static int ch7102_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 static int ch7102_g_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *mf)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ch7102_priv *priv = to_ch7102(client);
-
 	mf->width	= WIDTH;
 	mf->height	= HEIGHT;
 	mf->code	= V4L2_MBUS_FMT_UYVY8_2X8;
@@ -238,9 +242,6 @@ static int ch7102_s_fmt(struct v4l2_subdev *sd,
 static int ch7102_try_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_mbus_framefmt *mf)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ch7102_priv *priv = to_ch7102(client);
-
 	mf->code = V4L2_MBUS_FMT_UYVY8_2X8;
 	mf->colorspace = V4L2_COLORSPACE_JPEG;
 
@@ -313,10 +314,6 @@ static int ch7102_g_mbus_config(struct v4l2_subdev *sd,
 static int ch7102_s_mbus_config(struct v4l2_subdev *sd,
 				const struct v4l2_mbus_config *cfg)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
-	unsigned long flags = soc_camera_apply_board_flags(ssdd, cfg);
-
 	return 0;
 }
 
@@ -324,7 +321,6 @@ static int ch7102_g_input_status(struct v4l2_subdev *sd,
 					unsigned int *status)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ch7102_priv *priv = to_ch7102(client);
 	unsigned int value = 0;
 
 	if (fw_version >= FW_VERSION) {
@@ -360,7 +356,7 @@ static struct v4l2_subdev_ops ch7102_subdev_ops = {
 
 static struct i2c_client *ch7102_client;
 static struct platform_device *pextcon_dev;
-struct gpio_extcon_platform_data hdmi_extcon_data = {
+static struct gpio_extcon_platform_data hdmi_extcon_data = {
 	.name = "hdmi-input",
 	.gpio = 0,
 	.debounce = 0,
@@ -409,19 +405,6 @@ err_out:
 }
 
 
-static int ch7102_get_fw_version(void)
-{
-	struct i2c_client *client = ch7102_client;
-	u8 value;
-
-	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
-	value = i2c_smbus_read_byte_data(client, FW_VER);
-	if (value != -1)
-		return value;
-	else
-		return FW_VERSION;
-}
-
 static int ch7102_op_start(int input)
 {
 	struct i2c_client *client = ch7102_client;
@@ -448,6 +431,8 @@ static int ch7102_op_start(int input)
 		value |= 0x80;
 		i2c_smbus_write_byte_data(client, CONTROL, value);
 	}
+
+	return 0;
 }
 
 static int ch7102_op_stop(void)
@@ -487,8 +472,6 @@ static int ch7102_probe(struct i2c_client *client,
 		to_i2c_adapter(client->dev.parent);
 	struct soc_camera_subdev_desc   *ssdd = soc_camera_i2c_to_desc(client);
 
-	int ret;
-
 	if (!ssdd || !ssdd->drv_priv) {
 		dev_err(&client->dev, "ch7102: missing platform data!\n");
 		return -EINVAL;
@@ -522,12 +505,19 @@ static int ch7102_probe(struct i2c_client *client,
 	pextcon_dev = sirfsoc_hdmi_extcon_init();
 	sirfsoc_register_decoder_ops(&ch7102_decoder_ops);
 
-	fw_version = ch7102_get_fw_version();
+	i2c_smbus_write_byte_data(client, PG_SEL, PAGE2);
+	fw_version = i2c_smbus_read_byte_data(client, FW_VER);
+	if (fw_version < 0) {
+		dev_err(&client->dev,
+			"%s: read ch7102 chip firmware version failed\n",
+			__func__);
+		return -EIO;
+	}
 	dev_info(&client->dev,
 		"ch7102 Firmware Version: %x.%x.%x\r\n",
 		(fw_version & 0xF0) >> 4,
 		(fw_version & 0x0C) >> 2,
-		(fw_version&0x03));
+		(fw_version & 0x03));
 
 	return ch7102_video_probe(client);
 }

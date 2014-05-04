@@ -300,11 +300,23 @@ static void __deinit_fbdev(void)
 
 #ifdef REARVIEW_AUXILIARY
 
-static void rv_aux_drawline(void)
+static void rv_aux_fillrect(struct vcss_rect *rect, void *color, int len)
 {
 	struct fb_info *info = rearview_env.aux_fbi;
 	void *fb_addr = rearview_env.aux_fb_addr;
 	int i, j;
+
+	for (j = rect->top; j < rect->bottom; j++)
+		for (i = rect->left; i < rect->right; i++)
+			memcpy(fb_addr + j * info->fix.line_length + i * len,
+				color, len);
+}
+
+/* draw distance alarm lines on another overlay */
+static void rv_aux_drawline(void)
+{
+	struct fb_info *info = rearview_env.aux_fbi;
+	struct vcss_rect rect;
 
 	unsigned short red16 = 0xf800;
 	unsigned short yellow16 = 0xffe0;
@@ -316,26 +328,38 @@ static void rv_aux_drawline(void)
 
 	switch (info->var.bits_per_pixel) {
 	case 16:
-		for (j = info->var.yres*5/8; j < info->var.yres*5/8 + 5; j++)
-			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
-				memcpy(fb_addr + j*info->fix.line_length + i*2, &green16, 2);
-		for (j = info->var.yres*6/8; j < info->var.yres*6/8 + 5; j++)
-			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
-				memcpy(fb_addr + j*info->fix.line_length + i*2, &yellow16, 2);
-		for (j = info->var.yres*7/8; j < info->var.yres*7/8 + 5; j++)
-			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
-				memcpy(fb_addr + j*info->fix.line_length + i*2, &red16, 2);
+		rect.left = info->var.xres / 4;
+		rect.right = info->var.xres * 3 / 4;
+
+		rect.top = info->var.yres * 5 / 8;
+		rect.bottom = info->var.yres * 5 / 8 + 5;
+		rv_aux_fillrect(&rect, &green16, 2);
+
+		rect.top = info->var.yres * 6 / 8;
+		rect.bottom = info->var.yres * 6 / 8 + 5;
+		rv_aux_fillrect(&rect, &yellow16, 2);
+
+		rect.top = info->var.yres * 7 / 8;
+		rect.bottom = info->var.yres * 7 / 8 + 5;
+		rv_aux_fillrect(&rect, &red16, 2);
+
 		break;
 	case 32:
-		for (j = info->var.yres*5/8; j < info->var.yres*5/8 + 5; j++)
-			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
-				memcpy(fb_addr + j*info->fix.line_length + i*4, &green32, 4);
-		for (j = info->var.yres*6/8; j < info->var.yres*6/8 + 5; j++)
-			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
-				memcpy(fb_addr + j*info->fix.line_length + i*4, &yellow32, 4);
-		for (j = info->var.yres*7/8; j < info->var.yres*7/8 + 5; j++)
-			for (i = info->var.xres/4; i < info->var.xres*3/4; i++)
-				memcpy(fb_addr + j*info->fix.line_length + i*4, &red32, 4);
+		rect.left = info->var.xres / 4;
+		rect.right = info->var.xres * 3 / 4;
+
+		rect.top = info->var.yres * 5 / 8;
+		rect.bottom = info->var.yres * 5 / 8 + 5;
+		rv_aux_fillrect(&rect, &green32, 4);
+
+		rect.top = info->var.yres * 6 / 8;
+		rect.bottom = info->var.yres * 6 / 8 + 5;
+		rv_aux_fillrect(&rect, &yellow32, 4);
+
+		rect.top = info->var.yres * 7 / 8;
+		rect.bottom = info->var.yres * 7 / 8 + 5;
+		rv_aux_fillrect(&rect, &red32, 4);
+
 		break;
 	default:
 		pr_err("%s: bpp %d not supported\n", __func__,
@@ -765,9 +789,9 @@ int rearview_thread(void *data)
 	rearview_env.vip_dev = pcdev->dev;
 
 	rearview_env.dma_chan = pcdev->dma_chan;
-	rearview_env.dma_addr = pcdev->rearview_dma_addr;
+	rearview_env.dma_addr = pcdev->rearview.dma_addr;
 
-	rearview_env.gpio = pcdev->rearview_gpio;
+	rearview_env.gpio = pcdev->rearview.gpio;
 	rearview_env.irq = gpio_to_irq(rearview_env.gpio);
 
 	rearview_env.decoder_ops = pcdev->rearview_decoder_ops;

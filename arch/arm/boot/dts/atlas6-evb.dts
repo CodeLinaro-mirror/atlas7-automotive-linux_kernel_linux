@@ -44,7 +44,7 @@
 		bt_gpio_reset = <&gpio 87 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pwm1_pins_a>;
-		pwms = <&pwm 1 0>;
+		pwms = <&pwm 1 30518>;
 	};
 
 
@@ -60,6 +60,14 @@
 		compatible = "sirf,hdmi-card";
 		sirf,i2s-controller = <&i2s>;
 		sirf,hdmi-audio-codec = <&hdmi>;
+	hdmi_audio: hdmi_audio@0 {
+		compatible = "linux,hdmi-audio";
+		status = "okay";
+	};
+	sirf-hdmi {
+		compatible = "sirf,hdmi-card";
+		i2s-controller = <&i2s>;
+		audio-codec = <&hdmi_audio>;
 	};
 	sirf-backlight {
 		compatible = "pwm-backlight";
@@ -70,6 +78,15 @@
 		default-brightness-level = <6>;
 	};
 	axi {
+		dsp-iobg {
+			gps@a8010000 {
+				compatible = "sirf,prima2-gps";
+				shutdown-gpios = <&gpio 6 0>;
+				grst-gpios = <&gpio 8 0>;
+				clk-out-gpios = <&gpio 61 0>;
+				lan-en-gpios = <&gpio 64 0>;
+			};
+		};
 		peri-iobg {
 			gpio: pinctrl@b0120000 {
 				sirf,pullups = <0 0 0 0 0>;
@@ -99,16 +116,6 @@
 				pinctrl-0 = <&vip_pins_a>;
 				rearview-gpio = <&gpio 4 0>;
 			};
-			spi@b00d0000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&spi0_pins_a>;
-				spi@0 {
-					compatible = "spidev";
-					reg = <0>;
-					spi-max-frequency = <1000000>;
-				};
-			};
 			spi@b0170000 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&spi1_pins_a>;
@@ -118,8 +125,6 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_only_utfs_pins_a>;
-				cts-gpios = <&gpio 55 0>;
-				rts-gpios = <&gpio 54 0>;
 			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
@@ -137,7 +142,6 @@
 				pinctrl-0 = <&i2c1_pins_a>;
 				ch7102@f0 {
 					compatible = "chrontel,ch7102";
-					hp-hdmiinput-gpios = <&gpio 0 0>;
 					reg = <0xf0>;
 				};
 				tangoc-ts@5c{
@@ -152,11 +156,19 @@
                                         reg = <0x38>;
                                 };
 			};
+			pwm: pwm@b0130000 {
+				/* sigsrc1(pll1) is used for dvfs, ignore it */
+				clocks = <&clks 21>, <&clks 1>, <&clks 3>,
+					<&clks 0>, <&clks 4>;
+				clock-names = "pwmc", "sigsrc0", "sigsrc2",
+					"sigsrc3", "sigsrc4";
+			};
 			adc@b0110000 {
 				tsc {
 					compatible = "sirf,dualtouch-tsc";
 					interrupts = <33>;
-					resets = <&rstc 32>;
+					io-channels = <&adc 1>;
+					io-channel-names = "dual_ts";
 				};
 			};
 			pci-iobg {
@@ -169,6 +181,17 @@
 					status = "okay";
 					pinctrl-names = "default";
 					pinctrl-0 = <&sdmmc2_pins_a>;
+				};
+				sd5: sdhci@56500000 {
+					status = "okay";
+					pinctrl-names = "default";
+					pinctrl-0 = <&sdmmc5_pins_a>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					sdio_sirf@0 {
+						compatible = "sirf,trig_sdio";
+						reg = <0x0>;
+					};
 				};
 			};
 		};

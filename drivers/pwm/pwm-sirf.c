@@ -5,16 +5,17 @@
  *
  * Licensed under GPLv2.
  */
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/device.h>
-#include <linux/platform_device.h>
+
 #include <linux/clk.h>
 #include <linux/delay.h>
-#include <linux/pwm.h>
-#include <linux/of.h>
+#include <linux/device.h>
+#include <linux/init.h>
 #include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
+#include <linux/pwm.h>
 
 #define SIRF_PWM_SELECT_PRECLK			0x0
 #define SIRF_PWM_OE				0x4
@@ -30,129 +31,231 @@
 #define BYPASS_MODE_BIT				21
 #define TRANS_MODE_SELECT_BIT			7
 
-struct sirf_pwm {
+#define SIRF_MAX_SRC_CLK			5
+
+struct sirf_pwm_chip {
 	struct pwm_chip	chip;
 	struct mutex mutex;
 	void __iomem *base;
 	struct clk *pwmc_clk;
-	struct clk *sigsrc0_clk;
-	struct clk *sigsrc3_clk;
-	/*
-	 * PWM controller uses OSC(default 26MHz) or RTC(default 32768Hz) clock
-	 * to generate PWM signals instead of the clock of the controller
-	 */
-	unsigned long sigsrc0_clk_rate;
-	unsigned long sigsrc3_clk_rate;
 };
 
-static inline struct sirf_pwm *to_sirf_pwm_chip(struct pwm_chip *chip)
+struct sirf_pwm {
+	u32 sigsrc_clk_idx;
+	struct clk *sigsrc_clk;
+	u32 bypass_mode;
+	u32 duty_ns;
+};
+
+static inline struct sirf_pwm_chip *to_sirf_pwm_chip(struct pwm_chip *chip)
 {
-	return container_of(chip, struct sirf_pwm, chip);
+	return container_of(chip, struct sirf_pwm_chip, chip);
 }
 
-static u32 sirf_pwm_ns_to_cycles(struct pwm_chip *chip, u32 time_ns)
+static int sirf_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
-	u64 dividend;
-	u32 cycle;
+	struct sirf_pwm *spwm;
 
-	dividend = (u64)spwm->sigsrc0_clk_rate * time_ns + NSEC_PER_SEC / 2;
-	do_div(dividend, NSEC_PER_SEC);
+	spwm = devm_kzalloc(chip->dev, sizeof(*spwm), GFP_KERNEL);
+	if (!spwm)
+		return -ENOMEM;
 
-	cycle = dividend;
+	pwm_set_chip_data(pwm, spwm);
 
-	return cycle > 1 ? cycle : 1;
+	return 0;
 }
 
-static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
-			int duty_ns, int period_ns)
+static void sirf_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
+
+	if (!spwm)
+		devm_kfree(chip->dev, spwm);
+}
+
+static u32 sirf_pwm_ns_to_cycles(struct pwm_device *pwm, u32 time_ns)
+{
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
+	u32 src_clk_rate = clk_get_rate(spwm->sigsrc_clk);
+	u64 cycle;
+
+	cycle = div_u64((u64)src_clk_rate * time_ns, NSEC_PER_SEC);
+
+	return (u32)(cycle > 1 ? cycle : 1);
+}
+
+static void _sirf_pwm_hwconfig(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	u32 period_cycles, high_cycles, low_cycles;
-	u32 val;
-	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
-	if (unlikely(period_ns == NSEC_PER_SEC/spwm->sigsrc3_clk_rate)) {
-		/*
-		 * sigsrc 3 is RTC with typical frequency 32KHz,
-		 * bypass RTC clock to WiFi/Bluetooth module
-		 */
-		mutex_lock(&spwm->mutex);
+	struct sirf_pwm_chip *spwmc = to_sirf_pwm_chip(chip);
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
 
-		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
-		val |= 0x1 << (BYPASS_MODE_BIT + pwm->hwpwm);
-		val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
-		val |= 3 << (SRC_FIELD_SIZE * pwm->hwpwm);
-		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
+	period_cycles = sirf_pwm_ns_to_cycles(pwm, pwm_get_period(pwm));
 
-		mutex_unlock(&spwm->mutex);
+	/*
+	 * enter bypass mode, high_cycles and low_cycle
+	 * do not need to config if period_cycles == 1
+	 */
+	if (period_cycles == 1) {
+		spwm->bypass_mode = 1;
 	} else {
-		/* use OSC to generate PWM signals */
-		period_cycles = sirf_pwm_ns_to_cycles(chip, period_ns);
-		if (period_cycles == 1)
-			return -EINVAL;
+		spwm->bypass_mode = 0;
 
-		high_cycles = sirf_pwm_ns_to_cycles(chip, duty_ns);
+		high_cycles = sirf_pwm_ns_to_cycles(pwm, spwm->duty_ns);
 		low_cycles = period_cycles - high_cycles;
 
-		mutex_lock(&spwm->mutex);
-
-		val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
-		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
-		val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
-		writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
-
+		/*
+		 * high_cycles will equal to period_cycles when duty_ns
+		 * is big enough, so low_cycles will be 0,
+		 * a wrong value will be written to register after
+		 * low_cycles minus 1 later.
+		 */
 		if (high_cycles == period_cycles) {
 			high_cycles--;
 			low_cycles = 1;
 		}
 
-		writel(high_cycles - 1,
-			spwm->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
-		writel(low_cycles - 1,
-			spwm->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
+		mutex_lock(&spwmc->mutex);
 
-		mutex_unlock(&spwm->mutex);
+		writel(high_cycles - 1,
+			spwmc->base + SIRF_PWM_GET_WAIT_OFFSET(pwm->hwpwm));
+		writel(low_cycles - 1,
+			spwmc->base + SIRF_PWM_GET_HOLD_OFFSET(pwm->hwpwm));
+
+		mutex_unlock(&spwmc->mutex);
 	}
+}
+
+static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
+			int duty_ns, int period_ns)
+{
+	struct sirf_pwm_chip *spwmc = to_sirf_pwm_chip(chip);
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
+
+	if (!test_bit(PWMF_ENABLED, &pwm->flags)) {
+		u32 src_clk_rate, src_clk_rate_min = ~0;
+		u32 i;
+		u64 cycle;
+		u32 cycle_diff;
+		u32 ns_diff, ns_diff_min = ~0;
+		int ret;
+		char src_clk_name[10];
+		struct clk *sigsrc_clk;
+
+		/*
+		 * select a best source clock for the specific PWM clock
+		 * 1. select the clock with minimal error
+		 * 2. select the slower clock if some of them have
+		 *    the same error
+		 */
+		for (i = 0; i < SIRF_MAX_SRC_CLK; i++) {
+			sprintf(src_clk_name, "sigsrc%d", i);
+			sigsrc_clk = devm_clk_get(chip->dev, src_clk_name);
+			if (IS_ERR(sigsrc_clk))
+				continue;
+
+			src_clk_rate = clk_get_rate(sigsrc_clk);
+
+			cycle = (u64)src_clk_rate * period_ns;
+			div_u64_rem(cycle, NSEC_PER_SEC, &cycle_diff);
+
+			ns_diff = (u32)cycle_diff / src_clk_rate;
+
+			if (ns_diff <= ns_diff_min &&
+					src_clk_rate < src_clk_rate_min) {
+				ns_diff_min = ns_diff;
+				src_clk_rate_min = src_clk_rate;
+				spwm->sigsrc_clk_idx = i;
+				spwm->sigsrc_clk = sigsrc_clk;
+			} else {
+				devm_clk_put(chip->dev, sigsrc_clk);
+			}
+		}
+
+		/*
+		 * enable PWM before writing the register
+		 */
+		ret = clk_prepare_enable(spwmc->pwmc_clk);
+		if (ret)
+			return ret;
+	}
+
+	spwm->duty_ns = duty_ns;
+
+	_sirf_pwm_hwconfig(chip, pwm);
+
+	/*
+	 * if the PWM is not enabled, turn off the clock again
+	 */
+	if (!test_bit(PWMF_ENABLED, &pwm->flags))
+		clk_disable_unprepare(spwmc->pwmc_clk);
 
 	return 0;
 }
 
-static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+static void _sirf_pwm_hwenable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
+	struct sirf_pwm_chip *spwmc = to_sirf_pwm_chip(chip);
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
 	u32 val;
 
-	mutex_lock(&spwm->mutex);
+	mutex_lock(&spwmc->mutex);
 
 	/* disable preclock */
-	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
+	val = readl(spwmc->base + SIRF_PWM_ENABLE_PRECLOCK);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
+	writel(val, spwmc->base + SIRF_PWM_ENABLE_PRECLOCK);
 
-	/* select preclock source must after disable preclk*/
-	val = readl(spwm->base + SIRF_PWM_SELECT_PRECLK);
+	/* select preclock source must after disable preclk */
+	val = readl(spwmc->base + SIRF_PWM_SELECT_PRECLK);
 	val &= ~(0x7 << (SRC_FIELD_SIZE * pwm->hwpwm));
-	writel(val, spwm->base + SIRF_PWM_SELECT_PRECLK);
+	val |= (spwm->sigsrc_clk_idx << (SRC_FIELD_SIZE * pwm->hwpwm));
+
+	if (spwm->bypass_mode == 1)
+		val |= (0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
+	else
+		val &= ~(0x1 << (BYPASS_MODE_BIT + pwm->hwpwm));
+
+	writel(val, spwmc->base + SIRF_PWM_SELECT_PRECLK);
+
 	/* wait for some time */
-	usleep_range(100, 100);
+	usleep_range(100, 200);
 
 	/* enable preclock */
-	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
+	val = readl(spwmc->base + SIRF_PWM_ENABLE_PRECLOCK);
 	val |= (1 << pwm->hwpwm);
-	writel(val, spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
+	writel(val, spwmc->base + SIRF_PWM_ENABLE_PRECLOCK);
 
 	/* enable post clock*/
-	val = readl(spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
+	val = readl(spwmc->base + SIRF_PWM_ENABLE_POSTCLOCK);
 	val |= (1 << pwm->hwpwm);
-	writel(val, spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
+	writel(val, spwmc->base + SIRF_PWM_ENABLE_POSTCLOCK);
 
 	/* enable output */
-	val = readl(spwm->base + SIRF_PWM_OE);
+	val = readl(spwmc->base + SIRF_PWM_OE);
 	val |= 1 << pwm->hwpwm;
 	val |= 1 << (pwm->hwpwm + TRANS_MODE_SELECT_BIT);
 
-	writel(val, spwm->base + SIRF_PWM_OE);
+	writel(val, spwmc->base + SIRF_PWM_OE);
 
-	mutex_unlock(&spwm->mutex);
+	mutex_unlock(&spwmc->mutex);
+}
+
+static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct sirf_pwm_chip *spwmc = to_sirf_pwm_chip(chip);
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
+	u32 ret;
+
+	ret = clk_prepare_enable(spwm->sigsrc_clk);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(spwmc->pwmc_clk);
+	if (ret)
+		return ret;
+
+	_sirf_pwm_hwenable(chip, pwm);
 
 	return 0;
 }
@@ -160,29 +263,36 @@ static int sirf_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 static void sirf_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	u32 val;
-	struct sirf_pwm *spwm = to_sirf_pwm_chip(chip);
+	struct sirf_pwm_chip *spwmc = to_sirf_pwm_chip(chip);
+	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
 
-	mutex_lock(&spwm->mutex);
+	mutex_lock(&spwmc->mutex);
 
 	/* disable output */
-	val = readl(spwm->base + SIRF_PWM_OE);
+	val = readl(spwmc->base + SIRF_PWM_OE);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + SIRF_PWM_OE);
+	writel(val, spwmc->base + SIRF_PWM_OE);
 
 	/* disable postclock */
-	val = readl(spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
+	val = readl(spwmc->base + SIRF_PWM_ENABLE_POSTCLOCK);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + SIRF_PWM_ENABLE_POSTCLOCK);
+	writel(val, spwmc->base + SIRF_PWM_ENABLE_POSTCLOCK);
 
 	/* disable preclock */
-	val = readl(spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
+	val = readl(spwmc->base + SIRF_PWM_ENABLE_PRECLOCK);
 	val &= ~(1 << pwm->hwpwm);
-	writel(val, spwm->base + SIRF_PWM_ENABLE_PRECLOCK);
+	writel(val, spwmc->base + SIRF_PWM_ENABLE_PRECLOCK);
 
-	mutex_unlock(&spwm->mutex);
+	mutex_unlock(&spwmc->mutex);
+
+	clk_disable_unprepare(spwm->sigsrc_clk);
+
+	clk_disable_unprepare(spwmc->pwmc_clk);
 }
 
 static const struct pwm_ops sirf_pwm_ops = {
+	.request = sirf_pwm_request,
+	.free = sirf_pwm_free,
 	.enable = sirf_pwm_enable,
 	.disable = sirf_pwm_disable,
 	.config = sirf_pwm_config,
@@ -191,149 +301,120 @@ static const struct pwm_ops sirf_pwm_ops = {
 
 static int sirf_pwm_probe(struct platform_device *pdev)
 {
-	struct sirf_pwm *spwm;
+	struct sirf_pwm_chip *spwmc;
 	struct resource *mem_res;
 	int ret;
 
-	spwm = devm_kzalloc(&pdev->dev, sizeof(*spwm),
+	spwmc = devm_kzalloc(&pdev->dev, sizeof(*spwmc),
 			GFP_KERNEL);
-	if (!spwm)
+	if (!spwmc)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, spwm);
+	platform_set_drvdata(pdev, spwmc);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	spwm->base = devm_ioremap_resource(&pdev->dev, mem_res);
-	if (!spwm->base)
-		return -ENOMEM;
+	spwmc->base = devm_ioremap_resource(&pdev->dev, mem_res);
+	if (IS_ERR(spwmc->base))
+		return PTR_ERR(spwmc->base);
 
 	/*
-	 * clock for PWM controller
+	 * get clock for PWM controller
 	 */
-	spwm->pwmc_clk = devm_clk_get(&pdev->dev, "pwmc");
-	if (IS_ERR(spwm->pwmc_clk)) {
+	spwmc->pwmc_clk = devm_clk_get(&pdev->dev, "pwmc");
+	if (IS_ERR(spwmc->pwmc_clk)) {
 		dev_err(&pdev->dev, "failed to get PWM controller clock\n");
-		return PTR_ERR(spwm->pwmc_clk);
+		return PTR_ERR(spwmc->pwmc_clk);
 	}
 
-	ret = clk_prepare_enable(spwm->pwmc_clk);
-	if (ret)
-		return ret;
+	spwmc->chip.dev = &pdev->dev;
+	spwmc->chip.ops = &sirf_pwm_ops;
+	spwmc->chip.base = -1;
+	spwmc->chip.npwm = 7;
 
-	/*
-	 * clocks to generate PWM signals
-	 */
-	spwm->sigsrc0_clk = devm_clk_get(&pdev->dev, "sigsrc0");
-	if (IS_ERR(spwm->sigsrc0_clk)) {
-		dev_err(&pdev->dev, "failed to get PWM signal source clock0\n");
-		ret = PTR_ERR(spwm->sigsrc0_clk);
-		goto err_src0_clk;
-	}
+	mutex_init(&spwmc->mutex);
 
-	ret = clk_prepare_enable(spwm->sigsrc0_clk);
-	if (ret)
-		goto err_src0_clk;
-
-	spwm->sigsrc0_clk_rate = clk_get_rate(spwm->sigsrc0_clk);
-
-	spwm->sigsrc3_clk = devm_clk_get(&pdev->dev, "sigsrc3");
-	if (IS_ERR(spwm->sigsrc3_clk)) {
-		dev_err(&pdev->dev, "failed to get PWM signal source clock3\n");
-		ret = PTR_ERR(spwm->sigsrc3_clk);
-		goto err_src3_clk;
-	}
-
-	ret = clk_prepare_enable(spwm->sigsrc3_clk);
-	if (ret)
-		goto err_src3_clk;
-
-	spwm->sigsrc3_clk_rate = clk_get_rate(spwm->sigsrc3_clk);
-
-	spwm->chip.dev = &pdev->dev;
-	spwm->chip.ops = &sirf_pwm_ops;
-	spwm->chip.base = 0;
-	spwm->chip.npwm = 7;
-
-	mutex_init(&spwm->mutex);
-
-	ret = pwmchip_add(&spwm->chip);
+	ret = pwmchip_add(&spwmc->chip);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to register PWM\n");
-		goto err_pwmadd;
+		dev_err(&pdev->dev, "failed to register PWM chip\n");
+		return ret;
 	}
 
 	return 0;
-
-err_pwmadd:
-	clk_disable_unprepare(spwm->sigsrc3_clk);
-err_src3_clk:
-	clk_disable_unprepare(spwm->sigsrc0_clk);
-err_src0_clk:
-	clk_disable_unprepare(spwm->pwmc_clk);
-
-	return ret;
 }
 
 static int sirf_pwm_remove(struct platform_device *pdev)
 {
-	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm_chip *spwmc = platform_get_drvdata(pdev);
 
-	clk_disable_unprepare(spwm->pwmc_clk);
-	clk_disable_unprepare(spwm->sigsrc0_clk);
-	clk_disable_unprepare(spwm->sigsrc3_clk);
-
-	return pwmchip_remove(&spwm->chip);
+	return pwmchip_remove(&spwmc->chip);
 }
 
 #ifdef CONFIG_PM_SLEEP
 static int sirf_pwm_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sirf_pwm *spwm = platform_get_drvdata(pdev);
+	struct sirf_pwm_chip *spwmc = dev_get_drvdata(dev);
+	struct pwm_device *pwm;
+	int i;
 
-	clk_disable_unprepare(spwm->pwmc_clk);
+	for (i = 0; i < spwmc->chip.npwm; i++) {
+		pwm = &spwmc->chip.pwms[i];
+		/*
+		 * disable PWM which is not disabled when user suspend
+		 */
+		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
+				test_bit(PWMF_ENABLED, &pwm->flags))
+			sirf_pwm_disable(pwm->chip, pwm);
+	}
 
 	return 0;
 }
 
-static void sirf_pwm_config_restore(struct sirf_pwm *spwm)
-{
-	struct pwm_device *pwm;
-	int i;
-
-	for (i = 0; i < spwm->chip.npwm; i++) {
-		pwm = &spwm->chip.pwms[i];
-		/*
-		 * while restoring from hibernation, state of pwm is enabled,
-		 * but PWM hardware is not re-enabled
-		 */
-		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
-			test_bit(PWMF_ENABLED, &pwm->flags))
-			sirf_pwm_enable(&spwm->chip, pwm);
-	}
-}
-
 static int sirf_pwm_resume(struct device *dev)
 {
-	struct sirf_pwm *spwm = dev_get_drvdata(dev);
+	struct sirf_pwm_chip *spwmc = dev_get_drvdata(dev);
+	struct pwm_device *pwm;
+	struct sirf_pwm *spwm;
+	int i;
 
-	clk_prepare_enable(spwm->pwmc_clk);
+	for (i = 0; i < spwmc->chip.npwm; i++) {
+		pwm = &spwmc->chip.pwms[i];
+		spwm = pwm_get_chip_data(pwm);
 
-	sirf_pwm_config_restore(spwm);
+		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
+				test_bit(PWMF_ENABLED, &pwm->flags)) {
+			sirf_pwm_config(&spwmc->chip, pwm, spwm->duty_ns,
+					pwm_get_period(pwm));
+			sirf_pwm_enable(&spwmc->chip, pwm);
+		}
+	}
 
 	return 0;
 }
 
 static int sirf_pwm_restore(struct device *dev)
 {
-	struct sirf_pwm *spwm = dev_get_drvdata(dev);
+	struct sirf_pwm_chip *spwmc = dev_get_drvdata(dev);
+	struct pwm_device *pwm;
+	struct sirf_pwm *spwm;
+	int i;
 
-	/* back from hibernation, clock is already enabled */
-	sirf_pwm_config_restore(spwm);
+	for (i = 0; i < spwmc->chip.npwm; i++) {
+		pwm = &spwmc->chip.pwms[i];
+		spwm = pwm_get_chip_data(pwm);
+		/*
+		 * while restoring from hibernation, state of PWM is enabled,
+		 * but PWM hardware is not re-enabled, register about config
+		 * and enable should be restored here
+		 */
+		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
+				test_bit(PWMF_ENABLED, &pwm->flags)) {
+			_sirf_pwm_hwconfig(&spwmc->chip, pwm);
+			_sirf_pwm_hwenable(&spwmc->chip, pwm);
+		}
+	}
 
 	return 0;
 }
-
 #else
 #define sirf_pwm_resume NULL
 #define sirf_pwm_suspend NULL
@@ -361,7 +442,6 @@ static struct platform_driver sirf_pwm_driver = {
 	.probe = sirf_pwm_probe,
 	.remove = sirf_pwm_remove,
 };
-
 module_platform_driver(sirf_pwm_driver);
 
 MODULE_DESCRIPTION("SIRF serial SoC PWM device core driver");

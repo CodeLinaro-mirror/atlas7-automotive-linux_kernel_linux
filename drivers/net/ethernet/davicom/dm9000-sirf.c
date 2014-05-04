@@ -1,16 +1,16 @@
 /*
  *      Davicom DM9000 Fast Ethernet driver for SiRF FPGA Linux.
- * 	Copyright (C) 1997  Sten Wang
+ *	Copyright (C) 1997  Sten Wang
  *
- * 	This program is free software; you can redistribute it and/or
- * 	modify it under the terms of the GNU General Public License
- * 	as published by the Free Software Foundation; either version 2
- * 	of the License, or (at your option) any later version.
+ *	This program is free software; you can redistribute it and/or
+ *	modify it under the terms of the GNU General Public License
+ *	as published by the Free Software Foundation; either version 2
+ *	of the License, or (at your option) any later version.
  *
- * 	This program is distributed in the hope that it will be useful,
- * 	but WITHOUT ANY WARRANTY; without even the implied warranty of
- * 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * 	GNU General Public License for more details.
+ *	This program is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *	GNU General Public License for more details.
  *
  * (C) Copyright 1997-1998 DAVICOM Semiconductor,Inc. All Rights Reserved.
  *
@@ -36,10 +36,9 @@
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include <linux/io.h>
 
-#include <asm/delay.h>
 #include <asm/irq.h>
-#include <asm/io.h>
 
 #include "dm9000.h"
 
@@ -61,27 +60,19 @@
 #endif
 
 #define DM9K_SELECT_IO_ADDR()   \
-	do {			\
-		gpio_direction_output(DM9K_PORT_GPIO, 0); \
-	} while (0)
+		gpio_direction_output(DM9K_PORT_GPIO, 0);
 
 #define DM9K_SELECT_IO_DATA()	\
-	do {			\
-		gpio_direction_output(DM9K_PORT_GPIO, 1); \
-	} while (0)
+		gpio_direction_output(DM9K_PORT_GPIO, 1);
 
 #define DM9000_ID_SIRF          0x90002A46
 
-/*
- * Transmit timeout, default 5 seconds.
- */
+/* Transmit timeout, default 5 seconds. */
 static int watchdog = 5000;
 module_param(watchdog, int, 0400);
 MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
 
-/*
- * Debug messages level
- */
+/* Debug messages level */
 static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "dm9000 debug level (0-4)");
@@ -115,7 +106,7 @@ enum dm9000_type {
 };
 
 /* Structure/enum declaration ------------------------------- */
-typedef struct board_info {
+struct board_info {
 
 	void __iomem	*io_addr;	/* Register I/O base address */
 	void __iomem	*io_data;	/* Data I/O address */
@@ -193,9 +184,7 @@ dm9000_reset(board_info_t *db)
 	udelay(200);
 }
 
-/*
- *   Read a byte from I/O port
- */
+/* Read a byte from I/O port */
 static u8
 ior(board_info_t *db, int reg)
 {
@@ -205,10 +194,7 @@ ior(board_info_t *db, int reg)
 	return readb(db->io_data);
 }
 
-/*
- *   Write a byte to I/O port
- */
-
+/* Write a byte to I/O port */
 static void
 iow(board_info_t *db, int reg, int value)
 {
@@ -374,7 +360,7 @@ static int dm9000_wait_eeprom(board_info_t *db)
 		if ((status & EPCR_ERRE) == 0)
 			break;
 
-		msleep(1);
+		msleep(20);
 
 		if (timeout-- < 0) {
 			dev_dbg(db->dev, "timeout waiting EEPROM\n");
@@ -385,9 +371,7 @@ static int dm9000_wait_eeprom(board_info_t *db)
 	return 0;
 }
 
-/*
- *  Read a word data from EEPROM
- */
+/* Read a word data from EEPROM */
 static void
 dm9000_read_eeprom(board_info_t *db, int offset, u8 *to)
 {
@@ -411,7 +395,7 @@ dm9000_read_eeprom(board_info_t *db, int offset, u8 *to)
 	dm9000_wait_eeprom(db);
 
 	/* delay for at-least 150uS */
-	msleep(1);
+	msleep(20);
 
 	spin_lock_irqsave(&db->lock, flags);
 
@@ -425,9 +409,7 @@ dm9000_read_eeprom(board_info_t *db, int offset, u8 *to)
 	mutex_unlock(&db->addr_lock);
 }
 
-/*
- * Write a word data to SROM
- */
+/* Write a word data to SROM */
 static void
 dm9000_write_eeprom(board_info_t *db, int offset, u8 *data)
 {
@@ -457,7 +439,6 @@ dm9000_write_eeprom(board_info_t *db, int offset, u8 *data)
 }
 
 /* ethtool ops */
-
 static void dm9000_get_drvinfo(struct net_device *dev,
 			       struct ethtool_drvinfo *info)
 {
@@ -746,9 +727,7 @@ static unsigned char dm9000_type_to_char(enum dm9000_type type)
 	return '?';
 }
 
-/*
- *  Set DM9000 multicast address
- */
+/* Set DM9000 multicast address */
 static void
 dm9000_hash_table_unlocked(struct net_device *dev)
 {
@@ -803,9 +782,7 @@ dm9000_hash_table(struct net_device *dev)
 	spin_unlock_irqrestore(&db->lock, flags);
 }
 
-/*
- * Initialize dm9000 board
- */
+/* Initialize dm9000 board */
 static void
 dm9000_init_dm9000(struct net_device *dev)
 {
@@ -829,7 +806,8 @@ dm9000_init_dm9000(struct net_device *dev)
 
 	/* if wol is needed, then always set NCR_WAKEEN otherwise we end
 	 * up dumping the wake events if we disable this. There is already
-	 * a wake-mask in DM9000_WCR */
+	 * a wake-mask in DM9000_WCR
+	 */
 	if (db->wake_supported)
 		ncr |= NCR_WAKEEN;
 
@@ -912,8 +890,7 @@ static void dm9000_send_packet(struct net_device *dev,
 	iow(dm, DM9000_TCR, TCR_TXREQ);	/* Cleared after TX complete */
 }
 
-/*
- *  Hardware start transmission.
+/*  Hardware start transmission.
  *  Send a packet to media from the upper layer.
  */
 static int
@@ -957,11 +934,9 @@ dm9000_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return NETDEV_TX_OK;
 }
 
-/*
- * DM9000 interrupt handler
+/* DM9000 interrupt handler
  * receive the packet to upper layer, free the transmitted packet
  */
-
 static void dm9000_tx_done(struct net_device *dev, board_info_t *db)
 {
 	int tx_status = ior(db, DM9000_NSR);	/* Got TX status */
@@ -983,14 +958,12 @@ static void dm9000_tx_done(struct net_device *dev, board_info_t *db)
 }
 
 struct dm9000_rxhdr {
-	u8	RxPktReady;
-	u8	RxStatus;
-	__le16	RxLen;
+	u8	rx_pkt_ready;
+	u8	rx_status;
+	__le16	rx_len;
 } __packed;
 
-/*
- *  Received a packet and pass to upper layer
- */
+/* Received a packet and pass to upper layer */
 static void
 dm9000_rx(struct net_device *dev)
 {
@@ -998,8 +971,8 @@ dm9000_rx(struct net_device *dev)
 	struct dm9000_rxhdr rxhdr;
 	struct sk_buff *skb;
 	u8 rxbyte, *rdptr;
-	bool GoodPacket;
-	int RxLen;
+	bool good_packet;
+	int rx_len;
 
 	/* Check packet ready or not */
 	do {
@@ -1021,7 +994,7 @@ dm9000_rx(struct net_device *dev)
 			return;
 
 		/* A packet ready now  & Get status/length */
-		GoodPacket = true;
+		good_packet = true;
 
 		DM9K_SELECT_IO_ADDR();
 		writeb(DM9000_MRCMD, db->io_addr);
@@ -1029,39 +1002,38 @@ dm9000_rx(struct net_device *dev)
 		DM9K_SELECT_IO_DATA();
 		(db->inblk)(db->io_data, &rxhdr, sizeof(rxhdr));
 
-		RxLen = le16_to_cpu(rxhdr.RxLen);
+		rx_len = le16_to_cpu(rxhdr.rx_len);
 
 		if (netif_msg_rx_status(db))
 			dev_dbg(db->dev, "RX: status %02x, length %04x\n",
-				rxhdr.RxStatus, RxLen);
+				rxhdr.rx_status, rx_len);
 
 		/* Packet Status check */
-		if (RxLen < 0x40) {
-			GoodPacket = false;
+		if (rx_len < 0x40) {
+			good_packet = false;
 			if (netif_msg_rx_err(db))
 				dev_dbg(db->dev, "RX: Bad Packet (runt)\n");
 		}
 
-		if (RxLen > DM9000_PKT_MAX) {
-			dev_dbg(db->dev, "RST: RX Len:%x\n", RxLen);
-		}
+		if (rx_len > DM9000_PKT_MAX)
+			dev_dbg(db->dev, "RST: RX Len:%x\n", rx_len);
 
-		/* rxhdr.RxStatus is identical to RSR register. */
-		if (rxhdr.RxStatus & (RSR_FOE | RSR_CE | RSR_AE |
+		/* rxhdr.rx_status is identical to RSR register. */
+		if (rxhdr.rx_status & (RSR_FOE | RSR_CE | RSR_AE |
 				      RSR_PLE | RSR_RWTO |
 				      RSR_LCS | RSR_RF)) {
-			GoodPacket = false;
-			if (rxhdr.RxStatus & RSR_FOE) {
+			good_packet = false;
+			if (rxhdr.rx_status & RSR_FOE) {
 				if (netif_msg_rx_err(db))
 					dev_dbg(db->dev, "fifo error\n");
 				dev->stats.rx_fifo_errors++;
 			}
-			if (rxhdr.RxStatus & RSR_CE) {
+			if (rxhdr.rx_status & RSR_CE) {
 				if (netif_msg_rx_err(db))
 					dev_dbg(db->dev, "crc error\n");
 				dev->stats.rx_crc_errors++;
 			}
-			if (rxhdr.RxStatus & RSR_RF) {
+			if (rxhdr.rx_status & RSR_RF) {
 				if (netif_msg_rx_err(db))
 					dev_dbg(db->dev, "length error\n");
 				dev->stats.rx_length_errors++;
@@ -1069,16 +1041,16 @@ dm9000_rx(struct net_device *dev)
 		}
 
 		/* Move data from DM9000 */
-		if (GoodPacket &&
-		    ((skb = netdev_alloc_skb(dev, RxLen + 4)) != NULL)) {
+		skb = netdev_alloc_skb(dev, rx_len + 4);
+		if (good_packet && skb != NULL) {
 			skb_reserve(skb, 2);
-			rdptr = (u8 *) skb_put(skb, RxLen - 4);
+			rdptr = (u8 *) skb_put(skb, rx_len - 4);
 
 			/* Read received packet from RX SRAM */
 
 			DM9K_SELECT_IO_DATA();
-			(db->inblk)(db->io_data, rdptr, RxLen);
-			dev->stats.rx_bytes += RxLen;
+			(db->inblk)(db->io_data, rdptr, rx_len);
+			dev->stats.rx_bytes += rx_len;
 
 			/* Pass to upper layer */
 			skb->protocol = eth_type_trans(skb, dev);
@@ -1095,7 +1067,7 @@ dm9000_rx(struct net_device *dev)
 			/* need to dump the packet's data */
 
 			DM9K_SELECT_IO_DATA();
-			(db->dumpblk)(db->io_data, RxLen);
+			(db->dumpblk)(db->io_data, rx_len);
 		}
 	} while (rxbyte & DM9000_PKT_RDY);
 }
@@ -1182,10 +1154,10 @@ static irqreturn_t dm9000_wol_interrupt(int irq, void *dev_id)
 			dev_info(db->dev, "wake by sample packet\n");
 		if (wcr & WCR_MAGICST)
 			dev_info(db->dev, "wake by magic packet\n");
-		if (!(wcr & (WCR_LINKST | WCR_SAMPLEST | WCR_MAGICST)))
-			dev_err(db->dev, "wake signalled with no reason? "
-				"NSR=0x%02x, WSR=0x%02x\n", nsr, wcr);
-
+		if (!(wcr & (WCR_LINKST | WCR_SAMPLEST | WCR_MAGICST))) {
+			dev_err(db->dev, "wake signalled with no reason?");
+			dev_err(db->dev, "NSR=0x%02x, WSR=0x%02x\n", nsr, wcr);
+		}
 	}
 
 	spin_unlock_irqrestore(&db->lock, flags);
@@ -1194,9 +1166,7 @@ static irqreturn_t dm9000_wol_interrupt(int irq, void *dev_id)
 }
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
-/*
- *Used by netconsole
- */
+/* Used by netconsole */
 static void dm9000_poll_controller(struct net_device *dev)
 {
 	disable_irq(dev->irq);
@@ -1205,8 +1175,7 @@ static void dm9000_poll_controller(struct net_device *dev)
 }
 #endif
 
-/*
- *  Open the interface.
+/*  Open the interface.
  *  The interface is opened whenever "ifconfig" actives it.
  */
 static int
@@ -1219,7 +1188,8 @@ dm9000_open(struct net_device *dev)
 		dev_dbg(db->dev, "enabling %s\n", dev->name);
 
 	/* If there is no IRQ type specified, default to something that
-	 * may work, and tell the user that this is a problem */
+	 * may work, and tell the user that this is a problem
+	 */
 
 	if (irqflags == IRQF_TRIGGER_NONE)
 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
@@ -1248,8 +1218,7 @@ dm9000_open(struct net_device *dev)
 	return 0;
 }
 
-/*
- * Sleep, either by using msleep() or if we are suspending, then
+/* Sleep, either by using msleep() or if we are suspending, then
  * use mdelay() to sleep.
  */
 static void dm9000_msleep(board_info_t *db, unsigned int ms)
@@ -1260,9 +1229,7 @@ static void dm9000_msleep(board_info_t *db, unsigned int ms)
 		msleep(ms);
 }
 
-/*
- *   Read a word from phyxcer
- */
+/* Read a word from phyxcer */
 static int
 dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
 {
@@ -1282,7 +1249,8 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
 	/* Fill the phyxcer register into REG_0C */
 	iow(db, DM9000_EPAR, DM9000_PHY | reg);
 
-	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);	/* Issue phyxcer read command */
+	/* Issue phyxcer read command */
+	iow(db, DM9000_EPCR, EPCR_ERPRR | EPCR_EPOS);
 
 	DM9K_SELECT_IO_ADDR();
 
@@ -1313,9 +1281,7 @@ dm9000_phy_read(struct net_device *dev, int phy_reg_unused, int reg)
 	return ret;
 }
 
-/*
- *   Write a word to phyxcer
- */
+/* Write a word to phyxcer */
 static void
 dm9000_phy_write(struct net_device *dev,
 		 int phyaddr_unused, int reg, int value)
@@ -1341,7 +1307,8 @@ dm9000_phy_write(struct net_device *dev,
 	iow(db, DM9000_EPDRL, value);
 	iow(db, DM9000_EPDRH, value >> 8);
 
-	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);	/* Issue phyxcer write command */
+	/* Issue phyxcer write command */
+	iow(db, DM9000_EPCR, EPCR_EPOS | EPCR_ERPRW);
 
 	DM9K_SELECT_IO_ADDR();
 	writeb(reg_save, db->io_addr);
@@ -1377,8 +1344,7 @@ dm9000_shutdown(struct net_device *dev)
 	iow(db, DM9000_RCR, 0x00);	/* Disable RX */
 }
 
-/*
- * Stop the interface.
+/* Stop the interface.
  * The interface is stopped when it is brought.
  */
 static int
@@ -1418,9 +1384,7 @@ static const struct net_device_ops dm9000_netdev_ops = {
 #endif
 };
 
-/*
- * Search DM9000 board, allocate space and register it
- */
+/* Search DM9000 board, allocate space and register it */
 static int
 dm9000_probe(struct platform_device *pdev)
 {
@@ -1536,7 +1500,8 @@ dm9000_probe(struct platform_device *pdev)
 	/* check to see if anything is being over-ridden */
 	if (pdata != NULL) {
 		/* check to see if the driver wants to over-ride the
-		 * default IO width */
+		 * default IO width
+		 */
 
 		if (pdata->flags & DM9000_PLATF_8BITONLY)
 			dm9000_set_io(db, 1);
@@ -1548,7 +1513,8 @@ dm9000_probe(struct platform_device *pdev)
 			dm9000_set_io(db, 4);
 
 		/* check to see if there are any IO routine
-		 * over-rides */
+		 * over-rides
+		 */
 
 		if (pdata->inblk != NULL)
 			db->inblk = pdata->inblk;
@@ -1647,19 +1613,18 @@ dm9000_probe(struct platform_device *pdev)
 	}
 
 	if (!is_valid_ether_addr(ndev->dev_addr)) {
-		dev_warn(db->dev, "%s: Invalid ethernet MAC address. Please "
-			 "set using ifconfig\n", ndev->name);
+		dev_warn(db->dev, "%s: Invalid ether MAC addr. Using ifconfig\n",
+			 ndev->name);
 
 		eth_hw_addr_random(ndev);
 		mac_src = "random";
 	}
 
-
 	platform_set_drvdata(pdev, ndev);
 	ret = register_netdev(ndev);
 
 	if (ret == 0)
-		printk(KERN_INFO "%s: dm9000%c at %p,%p IRQ %d MAC: %pM (%s)\n",
+		pr_info("%s: dm9000%c at %p,%p IRQ %d MAC: %pM (%s)\n",
 		       ndev->name, dm9000_type_to_char(db->type),
 		       db->io_addr, db->io_data, ndev->irq,
 		       ndev->dev_addr, mac_src);
@@ -1707,7 +1672,8 @@ dm9000_drv_resume(struct device *dev)
 	if (ndev) {
 		if (netif_running(ndev)) {
 			/* reset if we were not in wake mode to ensure if
-			 * the device was powered off it is in a known state */
+			 * the device was powered off it is in a known state
+			 */
 			if (!db->wake_state) {
 				dm9000_reset(db);
 				dm9000_init_dm9000(ndev);
@@ -1755,8 +1721,8 @@ static struct platform_driver dm9000_driver = {
 static struct resource sirf_dm9000_resource[] = {
 	[0] = DEFINE_RES_MEM(0x04000000, 1),
 	[1] = DEFINE_RES_MEM(0x04000000, 1),
-	[2] = DEFINE_RES_NAMED(128 + DM9K_INT_GPIO, 1, NULL, IORESOURCE_IRQ \
-		| IORESOURCE_IRQ_HIGHLEVEL),
+	[2] = DEFINE_RES_NAMED(128 + DM9K_INT_GPIO, 1, NULL, IORESOURCE_IRQ |
+		IORESOURCE_IRQ_HIGHLEVEL),
 };
 
 static struct dm9000_plat_data sirf_dm9000_pdata = {
@@ -1774,18 +1740,14 @@ static struct platform_device sirf_device_eth = {
 	},
 };
 
-extern bool is_sirffpga;
 static int __init
 dm9000_init(void)
 {
-	if (!is_sirffpga)
-		return;
-
 	/* we don't want to pollute arch/arm/mach-prima2 */
 	platform_device_register(&sirf_device_eth);
 	gpio_request(DM9K_PORT_GPIO, "sirf-dm9000-ctrl");
 
-	printk(KERN_INFO "%s Ethernet Driver, V%s\n", CARDNAME, DRV_VERSION);
+	pr_info("%s Ethernet Driver, V%s\n", CARDNAME, DRV_VERSION);
 
 	return platform_driver_register(&dm9000_driver);
 }

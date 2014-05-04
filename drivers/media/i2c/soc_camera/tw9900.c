@@ -404,26 +404,6 @@ static void tw9900_reset(struct i2c_client *client)
 	mdelay(1);
 }
 
-static int tw9900_power(struct i2c_client *client, int enable)
-{
-	int ret;
-	u8 acntl1;
-	u8 acntl2;
-
-	if (enable) {
-		acntl1 = 0;
-		acntl2 = 0;
-	} else {
-		acntl1 = CLK_PDN | Y_PDN | C_PDN;
-		acntl2 = PLL_PDN;
-	}
-
-	ret = tw9900_mask_set(client, ACNTL1, ACNTL1_PDN_MASK, acntl1);
-	if (ret < 0)
-		return ret;
-
-	return tw9900_mask_set(client, ACNTL2, ACNTL2_PDN_MASK, acntl2);
-}
 
 static const struct tw9900_scale_ctrl *tw9900_select_norm(v4l2_std_id norm,
 							  u32 width, u32 height)
@@ -534,39 +514,6 @@ static int tw9900_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	return 0;
-#if 0
-	if (!enable) {
-		switch (priv->revision) {
-		case 0:
-			val = OEN_TRI_SEL_ALL_OFF_r0;
-			break;
-		case 1:
-			val = OEN_TRI_SEL_ALL_OFF_r1;
-			break;
-		default:
-			dev_err(&client->dev, "un-supported revision\n");
-			return -EINVAL;
-		}
-	} else {
-		val = OEN_TRI_SEL_ALL_ON;
-
-		if (!priv->scale) {
-			dev_err(&client->dev, "norm select error\n");
-			return -EPERM;
-		}
-
-		dev_dbg(&client->dev, "%s %dx%d\n",
-			priv->scale->name,
-			priv->scale->width,
-			priv->scale->height);
-	}
-
-	ret = tw9900_mask_set(client, OPFORM, OEN_TRI_SEL_MASK, val);
-	if (ret < 0)
-		return ret;
-
-	return tw9900_power(client, enable);
-#endif
 }
 
 static int tw9900_g_std(struct v4l2_subdev *sd, v4l2_std_id *norm)
@@ -616,7 +563,7 @@ static int tw9900_g_register(struct v4l2_subdev *sd,
 }
 
 static int tw9900_s_register(struct v4l2_subdev *sd,
-			     struct v4l2_dbg_register *reg)
+			const struct v4l2_dbg_register *reg)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
@@ -841,7 +788,6 @@ static int tw9900_try_fmt(struct v4l2_subdev *sd,
 static int tw9900_video_probe(struct i2c_client *client)
 {
 	struct tw9900_priv *priv = to_tw9900(client);
-	s32 id;
 	int ret;
 	u8 value = 0;
 	/*
@@ -885,7 +831,6 @@ static int tw9900_video_probe(struct i2c_client *client)
 
 	priv->norm = V4L2_STD_NTSC;
 
-done:
 	tw9900_s_power(&priv->subdev, 0);
 	return ret;
 }

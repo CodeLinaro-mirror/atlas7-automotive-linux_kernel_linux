@@ -8,22 +8,27 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/irqchip.h>
+#include <linux/interrupt.h>
 #include <linux/memblock.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
-#include <linux/interrupt.h>
 #include <linux/of_gpio.h>
 #include <linux/extcon/extcon-gpio.h>
+#include <linux/dma-mapping.h>
+#include <asm/dma-contiguous.h>
+#include <asm/hardware/cache-l2x0.h>
 #include <asm/sizes.h>
+#include <asm/mach-types.h>
 #include <asm/mach/arch.h>
-#include <asm/system_misc.h>
 #include "common.h"
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
+static struct device fake_cma_dev;
 
-static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node, const char *uname,
-	int depth, void *data)
+static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
+	const char *uname, int depth, void *data)
 {
 	__be32 *mem_info;
 	unsigned long len;
@@ -88,6 +93,60 @@ static void __init csrvisor_reserve(void)
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
 	arm_pm_idle = smc_switch_to_non_secure;
 #endif
+
+static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
+						const char *uname,
+						int depth, void *data)
+{
+	__be32 *mem_info;
+	unsigned long len;
+
+	mem_info = of_get_flat_dt_prop(node,
+					"sirf,rsvmem_size", &len);
+	if (!mem_info || (len != 4 * sizeof(unsigned long)))
+		return 0;
+
+	/* assume the max reserve size of fb0 is 8M(1024*600,32bpp,tri-buf) */
+	*((unsigned long *)data) = 8 * SZ_1M + be32_to_cpu(mem_info[1]) +
+		be32_to_cpu(mem_info[2]) + be32_to_cpu(mem_info[3]);
+
+	return 1;
+}
+
+static int __init sirfsoc_fdt_handle_vip_rsv_mem(unsigned long node,
+						const char *uname,
+						int depth, void *data)
+{
+	__be32 *mem_info;
+	unsigned long len;
+
+	mem_info = of_get_flat_dt_prop(node,
+				"sirf,vip_cma_size", &len);
+	if (!mem_info || (len != sizeof(unsigned long)))
+		return 0;
+
+	*((unsigned long *)data) = be32_to_cpu(mem_info[0]);
+
+	return 1;
+}
+
+static void __init sirfsoc_reserve_cma(void)
+{
+	int ret;
+	unsigned long rsv_size = 0, size;
+
+	if (!of_scan_flat_dt(sirfsoc_fdt_handle_fb_rsv_mem, &rsv_size))
+		pr_err("failed to get fb reserved memory size from dt\n");
+	size = rsv_size;
+
+	rsv_size = 0;
+	if (!of_scan_flat_dt(sirfsoc_fdt_handle_vip_rsv_mem, &rsv_size))
+		pr_err("failed to get vip reserved memory size from dt\n");
+	size += rsv_size;
+
+	ret = dma_declare_contiguous(&fake_cma_dev, size, 0, 0xFFFFFFFF);
+	if (ret)
+		pr_err("%s: failed to reserve cma for vip %d\n", __func__, ret);
 }
 
 void __init sirfsoc_reserve(void)
@@ -97,8 +156,7 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_nand_reserve_memblock();
 	sirfsoc_gps_reserve_memblock();
 	sirfsoc_pbb_reserve_memblock();
-	sirfsoc_fb_reserve_memblock();
-	sirfsoc_vip_reserve_memblock();
+	sirfsoc_reserve_cma();
 }
 
 void __init prima2_reserve(void)
@@ -114,6 +172,35 @@ static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
 	{ /* end */ },
 };
 
+static void __init sirfsoc_set_up_cma_areas(void)
+{
+	struct platform_device *pdev;
+	struct device_node *np;
+	struct cma *cma;
+
+	/* wrap lcd's cma area with fake device's */
+	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-lcd");
+	if (!np || !of_device_is_available(np)) {
+		pr_err("failed to get lcd device node\n");
+		return;
+	}
+	pdev = of_find_device_by_node(np);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	cma = dev_get_cma_area(&fake_cma_dev);
+	dev_set_cma_area(&pdev->dev, cma);
+
+	/* wrap vip's cma area with fake device's */
+	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-vip");
+	if (!np || !of_device_is_available(np)) {
+		pr_err("failed to get vip device node\n");
+		return;
+	}
+	pdev = of_find_device_by_node(np);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	cma = dev_get_cma_area(&fake_cma_dev);
+	dev_set_cma_area(&pdev->dev, cma);
+}
+
 static void __init sirfsoc_init_mach(void)
 {
 	sirfsoc_add_camera_pdev();
@@ -123,6 +210,7 @@ static void __init sirfsoc_init_mach(void)
 
 	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
 	platform_device_register_simple("bt-sco", -1, NULL, 0);
+	sirfsoc_set_up_cma_areas();
 }
 
 static void __init sirfsoc_init_late(void)
@@ -146,6 +234,7 @@ static void __init sirfsoc_init_late(void)
 		IRQF_TRIGGER_FALLING | IRQF_SHARED;
 	h2w_extcon_data.state_on = "1";
 	h2w_extcon_data.state_off = "0";
+	h2w_extcon_data.check_on_resume = true;
 	h2w_extcon_data.gpio_active_low = true;
 	h2w_extcon_data.gpio =
 		of_get_named_gpio(np, "hp-switch-gpios", 0);
@@ -154,12 +243,19 @@ static void __init sirfsoc_init_late(void)
 		&h2w_extcon_data, sizeof(struct gpio_extcon_platform_data));
 
 	of_node_put(np);
+
 }
 
 static __init void sirfsoc_map_io(void)
 {
 	sirfsoc_map_lluart();
 	sirfsoc_map_scu();
+}
+
+static void __init sirfsoc_init_irq(void)
+{
+	l2x0_of_init(0, 0xfdffffff);
+	irqchip_init();
 }
 
 #ifdef CONFIG_ARCH_ATLAS6
@@ -172,6 +268,7 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.reserve	= sirfsoc_reserve,
 	.map_io         = sirfsoc_map_io,
+	.init_irq	= sirfsoc_init_irq,
 	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas6_dt_match,
@@ -189,6 +286,7 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
 	.reserve	= prima2_reserve,
 	.map_io         = sirfsoc_map_io,
+	.init_irq	= sirfsoc_init_irq,
 	.init_machine   = sirfsoc_init_mach,
 	.dma_zone_size	= SZ_256M,
 	.init_late	= sirfsoc_init_late,
@@ -208,6 +306,7 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.reserve	= sirfsoc_reserve,
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
+	.init_irq	= sirfsoc_init_irq,
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = marco_dt_match,

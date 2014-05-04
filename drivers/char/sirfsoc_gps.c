@@ -6,9 +6,7 @@
  *warranty of any kind, whether express or implied.
  */
 
-#include <asm/irq.h>
-#include <asm/mach/irq.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/cpufreq.h>
@@ -35,6 +33,7 @@
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/time.h>
+#include <linux/irq.h>
 #include "sirfsoc_gpsdrv.h"
 
 #define GPS_RTC_CLK_SWITCH_OFFSET		0x1C
@@ -52,13 +51,13 @@ struct gps_dev {
 	struct clk			*cpuclk;
 	struct clk			*cphclk;
 
-	unsigned long			iface_base;
-	unsigned long			idma_base;
-	unsigned long			gps_rtc_base;
-	unsigned long			intrctrl_base;
-	unsigned long			cphifbg_pa_base;
-	unsigned long			gps_pa_base;
-	unsigned int 			sys_rtc_cn;
+	void __iomem			*iface_base;
+	void __iomem			*idma_base;
+	void __iomem			*intrctrl_base;
+	u32				gps_rtc_base;
+	u32				cphifbg_pa_base;
+	u32				gps_pa_base;
+	unsigned int			sys_rtc_cn;
 	unsigned int			irq;
 
 	struct completion		gps_com; /*replace struct semaphore*/
@@ -73,6 +72,7 @@ struct gps_dev {
 
 	struct pm_qos_request qos_request;
 	struct cdev			cdev; /*Char device structure */
+	struct device			dev;
 };
 
 struct sirfsoc_gps_pdata {
@@ -193,65 +193,66 @@ static void sirfsoc_gps_reset(struct gps_dev *gdev)
 
 	pdn = of_find_node_by_path(DSP_NODEPATH_DTS);
 	if (!pdn)
-		pr_err("reset can't find prima2-dsp node\n");
+		dev_err(&gdev->dev, "reset can't find prima2-dsp node\n");
 	pdev = of_find_device_by_node(pdn);
 	ret = device_reset(&pdev->dev);
 	if (ret)
-		dev_err(&pdev->dev, "Failed to reset prima2-dsp,err= %d\n", ret);
+		dev_err(&pdev->dev,
+			"Failed to reset prima2-dsp,err= %d\n", ret);
 
 	pdn = of_find_node_by_path(DSPIF_NODEPATH_DTS);
 	if (!pdn)
-		pr_err("reset can't find prima2-dspif node\n");
+		dev_err(&gdev->dev, "reset can't find prima2-dspif node\n");
 	pdev = of_find_device_by_node(pdn);
 	ret = device_reset(&pdev->dev);
 	if (ret)
-		dev_err(&pdev->dev, "Failed to reset prima2-dspif,err= %d\n", ret);
+		dev_err(&pdev->dev,
+			"Failed to reset prima2-dspif,err= %d\n", ret);
 
 	pdn = of_find_node_by_path(GPS_NODEPATH_DTS);
 	if (!pdn)
-		printk("reset can't find prima2-gps node\n");
+		dev_err(&gdev->dev, "reset can't find prima2-gps node\n");
 	pdev = of_find_device_by_node(pdn);
 	ret = device_reset(&pdev->dev);
 	if (ret)
-		dev_err(&pdev->dev, "Failed to reset prima2-gps,err= %d\n", ret);
+		dev_err(&pdev->dev,
+			"Failed to reset prima2-gps,err= %d\n", ret);
 }
 
-static void gps_init_interfaces(struct gps_dev *dev)
+static void gps_init_interfaces(struct gps_dev *gdev)
 {
 	unsigned long reg_value;
-	struct platform_device *pdev;
-	struct device_node *pdn;
 
 	/*enable clock and reset */
-	if (clk_prepare_enable(dev->dspclk))
-		printk(KERN_ERR " DSP CLK Enable Failed\n");
+	if (clk_prepare_enable(gdev->dspclk))
+		dev_err(&gdev->dev, "DSP CLK Enable Failed\n");
 
 	/*software reset */
-	sirfsoc_gps_reset(dev);
+	sirfsoc_gps_reset(gdev);
 
 	/*Enable RISC interrupt from DSP */
-	reg_value = readl(PORT_ADDR(dev->intrctrl_base, 0x0018));
+	reg_value = readl(PORT_ADDR(gdev->intrctrl_base, 0x0018));
 	reg_value |= 0x80;
-	writel(reg_value, PORT_ADDR(dev->intrctrl_base, 0x0018));
+	writel(reg_value, PORT_ADDR(gdev->intrctrl_base, 0x0018));
 
 	/*Allow DSP access Interrupt Controller */
-	writel(1, PORT_ADDR(dev->intrctrl_base, 0x0030));
+	writel(1, PORT_ADDR(gdev->intrctrl_base, 0x0030));
 
 	/*Let risc take control at opening */
-	writel(1, PORT_ADDR(dev->iface_base, DSP_DIV_CLK));
+	writel(1, PORT_ADDR(gdev->iface_base, DSP_DIV_CLK));
 
-	writel(1, PORT_ADDR(dev->iface_base, DSPREG_MODE));
-	writel(0x30000, PORT_ADDR(dev->iface_base, DSPDMA_MODE));
-	writel(0, PORT_ADDR(dev->iface_base, DSPREG_MODE));
+	writel(1, PORT_ADDR(gdev->iface_base, DSPREG_MODE));
+	writel(0x30000, PORT_ADDR(gdev->iface_base, DSPDMA_MODE));
+	writel(0, PORT_ADDR(gdev->iface_base, DSPREG_MODE));
 
 	/*Enable GPS and Matchfilter clocks */
-	if (clk_prepare_enable(dev->gpsclk))
-		printk(KERN_ERR " GPS CLK Enable Failed\n");
-	if (clk_prepare_enable(dev->mfclk))
-		printk(KERN_ERR " MF CLK Enable Failed\n");
+	if (clk_prepare_enable(gdev->gpsclk))
+		dev_err(&gdev->dev, "GPS CLK Enable Failed\n");
+	if (clk_prepare_enable(gdev->mfclk))
+		dev_err(&gdev->dev, "MF CLK Enable Failed\n");
 	/*Enable CPH IF Bridge clock */
-	if (clk_prepare_enable(dev->cphclk))
-		printk(KERN_ERR " CPH CLK Enable Failed\n");
+	if (clk_prepare_enable(gdev->cphclk))
+		dev_err(&gdev->dev, "CPH CLK Enable Failed\n");
 }
 
 static void gps_uninit_interfaces(struct gps_dev *dev)
@@ -266,17 +267,17 @@ static void gps_uninit_interfaces(struct gps_dev *dev)
 static int gps_open(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
-	struct gps_dev *dev;
+	struct gps_dev *gdev;
 	/*success return 1*/
 	ret = mutex_trylock(&gps_mutex);
 	if (!ret) {
-		ret = 1;
+		ret = -EBUSY;
 		goto out_error;
 	}
 	ret = 0;
-	dev = container_of(inode->i_cdev, struct gps_dev, cdev);
-	printk(KERN_INFO "Enter gps_open fileflag 0x%x\n", filp->f_flags);
-	dev->p_read = dev->str_status;
+	gdev = container_of(inode->i_cdev, struct gps_dev, cdev);
+	dev_info(&gpsdev->dev, "Enter gps_open fileflag 0x%x\n", filp->f_flags);
+	gdev->p_read = gdev->str_status;
 
 out_error:
 	return ret;
@@ -304,14 +305,14 @@ static void compose_status(struct gps_dev *dev)
 	dev->p_read = dev->str_status;
 }
 
-static ssize_t gps_read(struct file *filp, char *__user *buf,
+static ssize_t gps_read(struct file *filp, char __user *buf,
 	size_t count, loff_t *f_pos)
 {
 	struct gps_dev *dev = gpsdev;
 	int copy_count = 0;
 
-	while (copy_count < count && *(dev->p_read) != 0) {
-		__put_user(*(dev->p_read)++, buf);
+	while (copy_count < count && *dev->p_read != 0) {
+		put_user(*dev->p_read++, buf);
 		buf++;
 		copy_count++;
 	}
@@ -320,7 +321,7 @@ static ssize_t gps_read(struct file *filp, char *__user *buf,
 
 static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	struct gps_dev *dev; /*device information */
+	struct gps_dev *gdev; /*device information */
 	struct gps_dev *gps_device;
 	int i, ret, retval = 0;
 	int core, rate;
@@ -338,8 +339,8 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	unsigned long gpsrtc = 0, sysrtc = 0;
 
 	inode = filp->f_dentry->d_inode;
-	dev = container_of(inode->i_cdev, struct gps_dev, cdev);
-	gps_device = dev;
+	gdev = container_of(inode->i_cdev, struct gps_dev, cdev);
+	gps_device = gdev;
 	if (_IOC_TYPE(cmd) != DSP_IOC_MAGIC)
 		return -EINVAL;
 	if (_IOC_NR(cmd) > DSP_IOC_MAXNR)
@@ -348,14 +349,17 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case IOCTL_SET_CPU_FREQ_TO_MAX:
 		if (!cpufreq_get_policy(&policy, 0))
-			/*keep cpuferq max to make sure caculation perfermance in GNSS acquisition channels*/
-			pm_qos_update_request(&qos_request, policy.cpuinfo.max_freq);
+			/*keep cpuferq max to make sure caculation
+			 *perfermance in GNSS acquisition channels*/
+			pm_qos_update_request(&qos_request,
+					policy.cpuinfo.max_freq);
 		break;
 
 	case IOCTL_RESET_CPU_FREQ_TO_DEFAULT:
 		if (!cpufreq_get_policy(&policy, 0))
 			/*set to default after GNSS got fix*/
-			pm_qos_update_request(&qos_request, policy.cpuinfo.min_freq);
+			pm_qos_update_request(&qos_request,
+					policy.cpuinfo.min_freq);
 		break;
 
 	case IOCTL_DSP_READ_DMX_BUFFER:
@@ -367,13 +371,13 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				gps_buffer_info.length))
 			return -EINVAL;
 #endif
-		DSP_IDMA_SET_ADDR(dev, gps_buffer_info.addr);
-		DSP_IDMA_SET_DM(dev);
+		DSP_IDMA_SET_ADDR(gdev, gps_buffer_info.addr);
+		DSP_IDMA_SET_DM(gdev);
 		p_word = (unsigned short __user *)gps_buffer_info.p_buf;
 
 		for (i = 0; i < gps_buffer_info.length; i++) {
-			dataw = DSP_IDMA_GET_DATA(dev);
-			__put_user(dataw, p_word);
+			dataw = DSP_IDMA_GET_DATA(gdev);
+			put_user(dataw, p_word);
 			p_word++;
 		}
 		break;
@@ -388,13 +392,13 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				gps_buffer_info.length))
 			return -EINVAL;
 #endif
-		DSP_IDMA_SET_ADDR(dev, gps_buffer_info.addr);
-		DSP_IDMA_SET_DM(dev);
+		DSP_IDMA_SET_ADDR(gdev, gps_buffer_info.addr);
+		DSP_IDMA_SET_DM(gdev);
 		p_word = (unsigned short __user *)gps_buffer_info.p_buf;
 
 		for (i = 0; i < gps_buffer_info.length; i++) {
-			__get_user(dataw, p_word);
-			DSP_IDMA_PUT_DATA(dev, dataw);
+			get_user(dataw, p_word);
+			DSP_IDMA_PUT_DATA(gdev, dataw);
 			p_word++;
 		}
 		break;
@@ -407,13 +411,13 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (!CHECK_DMY_ADDRESS(gps_buffer_info.addr,
 				gps_buffer_info.length))
 			return -EINVAL;
-		DSP_IDMA_SET_ADDR(dev, gps_buffer_info.addr);
-		DSP_IDMA_SET_CM(dev);
+		DSP_IDMA_SET_ADDR(gdev, gps_buffer_info.addr);
+		DSP_IDMA_SET_CM(gdev);
 		p_word = (unsigned short __user *)gps_buffer_info.p_buf;
 
 		for (i = 0; i < gps_buffer_info.length; i++) {
-			dataw = DSP_IDMA_GET_DATA(dev);
-			__put_user(dataw, p_word);
+			dataw = DSP_IDMA_GET_DATA(gdev);
+			put_user(dataw, p_word);
 			p_word++;
 		}
 		break;
@@ -426,13 +430,13 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (!CHECK_DMY_ADDRESS(gps_buffer_info.addr,
 				gps_buffer_info.length))
 			return -EINVAL;
-		DSP_IDMA_SET_ADDR(dev, gps_buffer_info.addr);
-		DSP_IDMA_SET_CM(dev);
+		DSP_IDMA_SET_ADDR(gdev, gps_buffer_info.addr);
+		DSP_IDMA_SET_CM(gdev);
 		p_word = (unsigned short __user *)gps_buffer_info.p_buf;
 
 		for (i = 0; i < gps_buffer_info.length; i++) {
-			__get_user(dataw, p_word);
-			DSP_IDMA_PUT_DATA(dev, dataw);
+			get_user(dataw, p_word);
+			DSP_IDMA_PUT_DATA(gdev, dataw);
 			p_word++;
 		}
 		break;
@@ -445,14 +449,14 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (!CHECK_PM_ADDRESS(gps_buffer_info.addr,
 				gps_buffer_info.length))
 			return -EINVAL;
-		DSP_IDMA_SET_ADDR(dev, gps_buffer_info.addr);
-		DSP_IDMA_SET_PM(dev);
+		DSP_IDMA_SET_ADDR(gdev, gps_buffer_info.addr);
+		DSP_IDMA_SET_PM(gdev);
 		p_dword = (unsigned long __user *)gps_buffer_info.p_buf;
 
 		for (i = 0; i < gps_buffer_info.length; i++) {
-			datal = DSP_IDMA_GET_DATA(dev);
-			datal |= ((unsigned long)DSP_IDMA_GET_DATA(dev)) << 16;
-			__put_user(datal, p_dword);
+			datal = DSP_IDMA_GET_DATA(gdev);
+			datal |= ((unsigned long)DSP_IDMA_GET_DATA(gdev)) << 16;
+			put_user(datal, p_dword);
 			p_dword++;
 		}
 		break;
@@ -465,14 +469,15 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (!CHECK_PM_ADDRESS(gps_buffer_info.addr,
 				gps_buffer_info.length))
 			return -EINVAL;
-		DSP_IDMA_SET_ADDR(dev, gps_buffer_info.addr);
-		DSP_IDMA_SET_PM(dev);
+		DSP_IDMA_SET_ADDR(gdev, gps_buffer_info.addr);
+		DSP_IDMA_SET_PM(gdev);
 		p_dword = (unsigned long __user *)gps_buffer_info.p_buf;
 
 		for (i = 0; i < gps_buffer_info.length; i++) {
-			__get_user(datal, p_dword);
-			DSP_IDMA_PUT_DATA(dev, (unsigned short)(datal & 0xffff));
-			DSP_IDMA_PUT_DATA(dev, (unsigned short)(datal >> 16));
+			get_user(datal, p_dword);
+			DSP_IDMA_PUT_DATA(gdev,
+					(unsigned short)(datal & 0xffff));
+			DSP_IDMA_PUT_DATA(gdev, (unsigned short)(datal >> 16));
 			p_dword++;
 		}
 		break;
@@ -481,11 +486,11 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/*for simplify, skip DSP running check and wait for DSP
 		 *complete step just trigger the DSP interrupt with the address
 		 */
-		writel(arg, PORT_ADDR(dev->iface_base, RISC_INT_DSP));
+		writel(arg, PORT_ADDR(gdev->iface_base, RISC_INT_DSP));
 		break;
 
 	case IOCTL_DSP_START_DSP:
-		DSP_IDMA_REBOOT(dev);
+		DSP_IDMA_REBOOT(gdev);
 		break;
 
 	case IOCTL_DSP_WAIT_COMPLETE:
@@ -502,7 +507,7 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 		if (gps_gen_reg.index < 0 || gps_gen_reg.index >= 4)
 			return -EINVAL;
-		gps_gen_reg.value = readl(PORT_ADDR(dev->iface_base,
+		gps_gen_reg.value = readl(PORT_ADDR(gdev->iface_base,
 				DSP_GEN_REG0 + ((gps_gen_reg.index) << 2)));
 		if (copy_to_user((void __user *)arg, &gps_gen_reg,
 				sizeof(struct DSP_RW_GENERAL_REG)))
@@ -515,25 +520,25 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 		if (gps_gen_reg.index < 0 || gps_gen_reg.index >= 4)
 			return -EINVAL;
-		writel(gps_gen_reg.value, PORT_ADDR(dev->iface_base,
+		writel(gps_gen_reg.value, PORT_ADDR(gdev->iface_base,
 				DSP_GEN_REG0 + ((gps_gen_reg.index) << 2)));
 		break;
 
 	case IOCTL_DSP_GET_RETUEN_CODE:
-		__put_user((unsigned short)(dev->return_value >> 16),
+		put_user((unsigned short)(gdev->return_value >> 16),
 			(unsigned short __user *)arg);
-		__put_user((unsigned long)(dev->rtc_counter),
+		put_user((unsigned long)(gdev->rtc_counter),
 			(unsigned long __user *)(arg + 4));
-		__put_user(*(unsigned long *)((char *)&dev->timevalofday),
+		put_user(*(unsigned long *)((char *)&gdev->timevalofday),
 			(unsigned long __user *)(arg + 8));
-		__put_user(*(unsigned long *)((char *)&dev->timevalofday + 4),
+		put_user(*(unsigned long *)((char *)&gdev->timevalofday + 4),
 			(unsigned long __user *)(arg + 12));
 		break;
 
 	case IOCTL_DSP_WAIT_INTERRUPT:
 		if (get_user(timeout, (unsigned int __user *)arg))
 			return -EFAULT;
-		ret = wait_for_completion_interruptible_timeout(&dev->gps_com,
+		ret = wait_for_completion_interruptible_timeout(&gdev->gps_com,
 			msecs_to_jiffies(timeout));
 		if (ret > 0)
 			retval = 0;
@@ -544,17 +549,18 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_DSP_GET_CLOCK_INFO:
 		if (copy_from_user(&core, (int __user *) arg, sizeof(int)))
 			return -EINVAL;
-		clk = ((core == CPU_CLOCK) ? gps_device->cpuclk : gps_device->gpsclk);
+		clk = ((core == CPU_CLOCK) ?
+				gps_device->cpuclk : gps_device->gpsclk);
 		rate = clk_get_rate(clk);
 		if (copy_to_user((int __user *) arg, &rate, sizeof(int)))
 			return -EINVAL;
 		break;
 
 	case IOCTL_DSP_GET_RES_MEM_INFO:
-		printk(KERN_DEBUG "DSP: MemResBase 0x%x Size 0x%x\n",
-			(unsigned int)(dev->mem_info.addr),
-			(unsigned int) (dev->mem_info.size));
-		if (copy_to_user((void __user *) arg, &(dev->mem_info),
+		dev_dbg(&gdev->dev, "DSP: MemResBase 0x%x Size 0x%x\n",
+			(unsigned int)(gdev->mem_info.addr),
+			(unsigned int) (gdev->mem_info.size));
+		if (copy_to_user((void __user *) arg, &(gdev->mem_info),
 				sizeof(struct DSP_MEM_INFO)))
 			return -EINVAL;
 		break;
@@ -566,50 +572,52 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_DSP_GPS_RF_RESET:
 		if (get_user(msdly, (unsigned int __user *)arg))
 			return -EFAULT;
-		if (gpio_is_valid(dev->pdata->grst_gpio)) {
-			printk(KERN_ERR "Doing GPS RF Reset: Delay: %d ms\n",
-				msdly);
-			gpio_set_value(dev->pdata->grst_gpio, 0);
+		if (gpio_is_valid(gdev->pdata->grst_gpio)) {
+			dev_info(&gdev->dev,
+				"Doing GPS RF Reset: Delay: %d ms\n", msdly);
+			gpio_set_value(gdev->pdata->grst_gpio, 0);
 			msleep(msdly);
-			gpio_set_value(dev->pdata->grst_gpio, 1);
+			gpio_set_value(gdev->pdata->grst_gpio, 1);
 		} else {
-			printk_once(KERN_ERR "gps: RF reset gpio is not specified!\n");
+			dev_info(&gdev->dev,
+				"gps: RF reset gpio is not specified!\n");
 			return -EINVAL;
 		}
 		break;
 
 	case IOCTL_RF_CLK_OUT:
 		/*
-		 *SHUTDOWN_pin(shutdown_gpio) + TCXO_ONLY_pin(clk_out_gpio) setting:
+		 *SHUTDOWN(shutdown_gpio)+TCXO_ONLY(clk_out_gpio)pin setting:
 		 *High+High, full working: GPS RF works, and output TCXO 26MHz;
 		 *High+Low,  GPS RF stop working, but output TCXO 26MHz;
 		 *Low +Low,  full stop;
 		 *Low +High, full stop;
 		 *Default: High + High.
-		 *
-		 *LAN_EN_pin(lan_en_gpio) should set HIGH to enable signal gain when using internal gps atena.
+		 *LAN_EN_pin(lan_en_gpio) should set HIGH to enable
+		 *signal gain when using internal gps atena.
 		 */
-		if (gpio_is_valid(dev->pdata->clk_out_gpio)) {
-			gpio_set_value(dev->pdata->clk_out_gpio, 0);
+		if (gpio_is_valid(gdev->pdata->clk_out_gpio)) {
+			gpio_set_value(gdev->pdata->clk_out_gpio, 0);
 			msleep(100);
-			gpio_set_value(dev->pdata->clk_out_gpio, 1);
+			gpio_set_value(gdev->pdata->clk_out_gpio, 1);
 		} else {
 			printk_once(KERN_ERR "gps: clock output gpio is not specified!\n");
 			return -EINVAL;
 		}
-		/*SHUTDOWN is not allow to set 0 on TaiShan or LungChing which will never set according GPIO valid here */
-		if (gpio_is_valid(dev->pdata->shutdown_gpio)) {
-			gpio_set_value(dev->pdata->shutdown_gpio, 0);
+		/*SHUTDOWN is not allow to set 0 on TaiShan or LungChing
+		 *which will never set according GPIO valid here */
+		if (gpio_is_valid(gdev->pdata->shutdown_gpio)) {
+			gpio_set_value(gdev->pdata->shutdown_gpio, 0);
 			msleep(100);
-			gpio_set_value(dev->pdata->shutdown_gpio, 1);
+			gpio_set_value(gdev->pdata->shutdown_gpio, 1);
 		} else {
 			printk_once(KERN_ERR "gps: shutdown gpio is not specified!\n");
 			return -EINVAL;
 		}
-		if (gpio_is_valid(dev->pdata->lan_en_gpio)) {
-			gpio_set_value(dev->pdata->lan_en_gpio, 0);
+		if (gpio_is_valid(gdev->pdata->lan_en_gpio)) {
+			gpio_set_value(gdev->pdata->lan_en_gpio, 0);
 			msleep(100);
-			gpio_set_value(dev->pdata->lan_en_gpio, 1);
+			gpio_set_value(gdev->pdata->lan_en_gpio, 1);
 		} else {
 			printk_once(KERN_ERR "gps: lan_en gpio is not specified!\n");
 			return -EINVAL;
@@ -622,66 +630,74 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 
 		sirfsoc_rtc_iobrg_writel(clk_info.clock_id,
-			dev->gps_rtc_base + GPS_RTC_CLK_SWITCH_OFFSET);
+			gdev->gps_rtc_base + GPS_RTC_CLK_SWITCH_OFFSET);
 
 		sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-				dev->gps_rtc_base + GPS_RTC_CLK_SWITCH_OFFSET) | 0x4,
-			dev->gps_rtc_base + GPS_RTC_CLK_SWITCH_OFFSET);
+				gdev->gps_rtc_base +
+					GPS_RTC_CLK_SWITCH_OFFSET) | 0x4,
+				gdev->gps_rtc_base +
+					GPS_RTC_CLK_SWITCH_OFFSET);
 
 		/*read sysrtc counter, then sync gpsrtc with 64*sysrtc */
-		sysrtc = sirfsoc_rtc_iobrg_readl(dev->sys_rtc_cn);
-		sirfsoc_rtc_iobrg_writel(64 * sysrtc, dev->gps_rtc_base);
+		sysrtc = sirfsoc_rtc_iobrg_readl(gdev->sys_rtc_cn);
+		sirfsoc_rtc_iobrg_writel(64 * sysrtc, gdev->gps_rtc_base);
 
 		if (clk_info.divider != -1) {
 			sirfsoc_rtc_iobrg_writel(clk_info.divider,
-				dev->gps_rtc_base + GPS_RTC_CLK_DIV_OFFSET);
+				gdev->gps_rtc_base + GPS_RTC_CLK_DIV_OFFSET);
 		} else {
-			printk(KERN_DEBUG "IOCTL_DSP_SET_CLK_SRC: Using default divider: x%x\n",
-				sirfsoc_rtc_iobrg_readl(dev->gps_rtc_base +
+			dev_dbg(&gdev->dev,
+				"IOCTL_DSP_SET_CLK_SRC: Using default divider: x%x\n",
+				sirfsoc_rtc_iobrg_readl(gdev->gps_rtc_base +
 					GPS_RTC_CLK_DIV_OFFSET));
 		}
 
-		msleep(2);
+		msleep(20);
 		break;
 
 	case IOCTL_DSP_INIT_GPS:
-		gps_init_interfaces(dev);
+		gps_init_interfaces(gdev);
 		break;
 
 	case IOCTL_DSP_UNINIT_GPS:
-		gps_uninit_interfaces(dev);
+		gps_uninit_interfaces(gdev);
 		break;
 
 	case IOCTL_DSP_READ_RTC:
-		gpsrtc = sirfsoc_rtc_iobrg_readl(dev->gps_rtc_base);
-		__put_user(gpsrtc, (unsigned long __user *)arg);
+		gpsrtc = sirfsoc_rtc_iobrg_readl(gdev->gps_rtc_base);
+		put_user(gpsrtc, (unsigned long __user *)arg);
 		break;
 
 	case IOCTL_GPIO_REQUEST:
 		if (rf_type == RF_3IPLUS) {
-			if (gpio_is_valid(gps_device->pdata->grst_gpio)) {
-				if (gpio_request(gps_device->pdata->grst_gpio, "grst") < 0) {
-					printk(KERN_ERR " GRST GPIO-%d Request Failed\n",
-						gps_device->pdata->grst_gpio);
-				}
-				if (gpio_direction_output(gps_device->pdata->grst_gpio, 1) < 0) {
-					printk(KERN_ERR "Can not set GPIO-%d as output GPIO\n",
-						gps_device->pdata->grst_gpio);
-				}
-			}
+			if (!gpio_is_valid(gps_device->pdata->grst_gpio))
+				dev_err(&gdev->dev, "GRST not valid\n");
+			if (!gpio_request(
+				gps_device->pdata->grst_gpio, "grst"))
+				dev_err(&gdev->dev,
+					"GRST GPIO-%d Request Failed\n",
+					gps_device->pdata->grst_gpio);
+			if (!gpio_direction_output(
+				gps_device->pdata->grst_gpio, 1) < 0)
+				dev_err(&gdev->dev,
+					"Can not set GPIO-%d as output GPIO\n",
+					gps_device->pdata->grst_gpio);
 		} else if (rf_type == RF_TRIGLITE) {
-			if (gpio_is_valid(gps_device->pdata->clk_out_gpio)) {
-				if (gpio_request(gps_device->pdata->clk_out_gpio, "grst") < 0) {
-					printk(KERN_ERR " GRST GPIO-%d Request Failed\n",
-						gps_device->pdata->clk_out_gpio);
-				}
-				if (gpio_direction_output(gps_device->pdata->clk_out_gpio, 1) < 0) {
-					printk(KERN_ERR "Can not set GPIO-%d as output GPIO\n",
-						gps_device->pdata->clk_out_gpio);
-				}
-			}
+			if (!gpio_is_valid(gps_device->pdata->clk_out_gpio))
+				dev_err(&gdev->dev, "CLK_OUT not valid\n");
+			if (!gpio_request(gps_device->pdata->clk_out_gpio,
+						"clk-out-gpios"))
+				dev_err(&gdev->dev,
+					"GRST GPIO-%d Request Failed\n",
+					gps_device->pdata->clk_out_gpio);
+			if (!gpio_direction_output(
+					gps_device->pdata->clk_out_gpio, 1))
+				dev_err(&gdev->dev,
+					"Can not set GPIO-%d as output GPIO\n",
+					gps_device->pdata->clk_out_gpio);
 		} else {
-			printk_once(KERN_INFO "gps: IOCTL_GPIO_REQUEST not need!\n");
+			dev_info(&gdev->dev,
+				"gps: IOCTL_GPIO_REQUEST not need!\n");
 		}
 		break;
 
@@ -695,19 +711,21 @@ static long gps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	}
-	compose_status(dev);
+	compose_status(gdev);
 	return retval;
 }
 
 static int gps_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	struct gps_dev *dev = gpsdev;
+	struct gps_dev *gdev = gpsdev;
 
-	if (((vma->vm_pgoff<<PAGE_SHIFT) != dev->cphifbg_pa_base) &&
-		((vma->vm_pgoff<<PAGE_SHIFT) != (dev->gps_pa_base + 0x4000)) &&
-		((vma->vm_pgoff<<PAGE_SHIFT) != dev->mem_info.addr)) {
-		if (pgprot_val(vma->vm_page_prot) != pgprot_val(PAGE_READONLY)) {
-			printk(KERN_ERR "GPS/CPHB: ReadOnly mapping is not allowed\n");
+	if (((vma->vm_pgoff<<PAGE_SHIFT) != gdev->cphifbg_pa_base) &&
+		((vma->vm_pgoff<<PAGE_SHIFT) != (gdev->gps_pa_base + 0x4000)) &&
+		((vma->vm_pgoff<<PAGE_SHIFT) != gdev->mem_info.addr)) {
+		if (pgprot_val(vma->vm_page_prot) !=
+				pgprot_val(PAGE_READONLY)) {
+			dev_err(&gdev->dev,
+				"GPS/CPHB: ReadOnly mapping is not allowed\n");
 			return -EINVAL;
 		} else {
 			if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
@@ -717,9 +735,9 @@ static int gps_mmap(struct file *filp, struct vm_area_struct *vma)
 			}
 			return 0;
 		}
-	} else if (((vma->vm_pgoff<<PAGE_SHIFT) != dev->mem_info.addr) &&
+	} else if (((vma->vm_pgoff<<PAGE_SHIFT) != gdev->mem_info.addr) &&
 		((vma->vm_end - vma->vm_start) > 0x1000)) {
-		printk(KERN_ERR " MMap for more than 4K is not allowed\n");
+		dev_err(&gdev->dev, "MMap for more than 4K is not allowed\n");
 		return -EINVAL;
 	} else {
 		if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
@@ -769,10 +787,12 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	match = of_match_node(sirfsoc_gps_of_match, pdev->dev.of_node);
 	gps_device = kzalloc(sizeof(struct gps_dev), GFP_KERNEL);
 	if (gps_device == NULL) {
-		printk(KERN_ERR "GPS: MemAlloc Failed\n");
+		dev_err(&pdev->dev, "GPS: MemAlloc Failed\n");
 		ret = -ENOMEM;
 		goto end;
 	}
+
+	gps_device->dev = pdev->dev;
 
 	/*original dsp-mem belong reserve space alloced by sirfsoc_reserve*/
 	gps_device->mem_info.addr = sirf_gps_phy_base;
@@ -780,14 +800,14 @@ static int sirf_gps_probe(struct platform_device *pdev)
 
 	gps_device->pdata = (struct sirfsoc_gps_pdata *)match->data;
 	if (gps_device->pdata == NULL) {
-		printk(KERN_ERR "GPS: Platform data is NULL\n");
+		dev_err(&pdev->dev, "GPS: Platform data is NULL\n");
 		ret = -EINVAL;
 		goto rel_gpsdev;
 	}
 
 	plat_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (plat_res == NULL) {
-		printk(KERN_ERR "GPS:can't get prima2-gps resource\n");
+		dev_err(&pdev->dev, "GPS:can't get prima2-gps resource\n");
 		ret = -EINVAL;
 		goto rel_gpsdev;
 	}
@@ -797,7 +817,8 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	gps_device->gpsclk = devm_clk_get(&pdev->dev, "gps");
 	if (IS_ERR(gps_device->gpsclk)) {
 		dev_err(&pdev->dev,
-			"Failed to get gpsclk,err= %ld\n", PTR_ERR(gps_device->gpsclk));
+			"Failed to get gpsclk,err= %ld\n",
+					PTR_ERR(gps_device->gpsclk));
 		ret = -EINVAL;
 		goto rel_gpsdev;
 	}
@@ -805,7 +826,8 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	gps_device->mfclk = devm_clk_get(&pdev->dev, "mf");
 	if (IS_ERR(gps_device->mfclk)) {
 		dev_err(&pdev->dev,
-			"Failed to get mfclk,err= %ld\n", PTR_ERR(gps_device->mfclk));
+			"Failed to get mfclk,err= %ld\n",
+					PTR_ERR(gps_device->mfclk));
 		ret = -EINVAL;
 		goto rel_gpsdev;
 	}
@@ -813,7 +835,8 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	gps_device->cpuclk = devm_clk_get(&pdev->dev, "cpu");
 	if (IS_ERR(gps_device->cpuclk)) {
 		dev_err(&pdev->dev,
-			"Failed to get cpuclk,err= %ld\n", PTR_ERR(gps_device->cpuclk));
+			"Failed to get cpuclk,err= %ld\n",
+					PTR_ERR(gps_device->cpuclk));
 		ret = -EINVAL;
 		goto rel_gpsdev;
 	}
@@ -832,69 +855,81 @@ static int sirf_gps_probe(struct platform_device *pdev)
 
 	if (rf_type == RF_3IPLUS) {
 		if (gpio_is_valid(gps_device->pdata->grst_gpio)) {
-			if (gpio_request(gps_device->pdata->grst_gpio, "grst")) {
-				printk(KERN_ERR " GRST GPIO-%d Request Failed\n",
+			if (gpio_request(
+				gps_device->pdata->grst_gpio, "grst")) {
+				dev_err(&pdev->dev,
+					"GRST GPIO-%d Request Failed\n",
 					gps_device->pdata->grst_gpio);
 				ret = -EINVAL;
 				goto rel_gpsdev;
 			}
-			if (gpio_direction_output(gps_device->pdata->grst_gpio,
-					1) < 0) {
-				printk(KERN_ERR "Can not set GPIO-%d as output GPIO\n",
+			if (gpio_direction_output(
+				gps_device->pdata->grst_gpio, 1) < 0) {
+				dev_err(&pdev->dev,
+					"Can not set GPIO-%d as output GPIO\n",
 					gps_device->pdata->grst_gpio);
 				goto free_grst;
 			}
 		}
 	} else if (rf_type == RF_TRIGLITE) {
 		if (gpio_is_valid(gps_device->pdata->clk_out_gpio)) {
-			if (gpio_request(gps_device->pdata->clk_out_gpio, "clk-out")) {
-				printk(KERN_ERR " GRST GPIO-%d Request Failed\n",
+			if (gpio_request(
+				gps_device->pdata->clk_out_gpio, "clk-out")) {
+				dev_err(&pdev->dev,
+					"GRST GPIO-%d Request Failed\n",
 					gps_device->pdata->clk_out_gpio);
 				ret = -EINVAL;
 				goto free_grst;
 			}
-			if (gpio_direction_output(gps_device->pdata->clk_out_gpio,
-					1) < 0) {
-				printk(KERN_ERR "Can not set GPIO-%d as output GPIO\n",
+			if (gpio_direction_output(
+				gps_device->pdata->clk_out_gpio, 1) < 0) {
+				dev_err(&pdev->dev,
+					"Can not set GPIO-%d as output GPIO\n",
 					gps_device->pdata->clk_out_gpio);
 				goto free_clk_out;
 			}
 		}
 
 		if (gpio_is_valid(gps_device->pdata->shutdown_gpio)) {
-			if (gpio_request(gps_device->pdata->shutdown_gpio, "shutdown")) {
-				printk(KERN_ERR " GRST GPIO-%d Request Failed\n",
+			if (gpio_request(
+				gps_device->pdata->shutdown_gpio, "shutdown")) {
+				dev_err(&pdev->dev,
+					"GRST GPIO-%d Request Failed\n",
 					gps_device->pdata->shutdown_gpio);
 				ret = -EINVAL;
 				goto free_clk_out;
 			}
-			if (gpio_direction_output(gps_device->pdata->shutdown_gpio, 1) < 0) {
-				printk(KERN_ERR "Can not set GPIO-%d as input GPIO\n",
+			if (gpio_direction_output(
+				gps_device->pdata->shutdown_gpio, 1) < 0) {
+				dev_err(&pdev->dev,
+					"Can not set GPIO-%d as input GPIO\n",
 					gps_device->pdata->shutdown_gpio);
 				goto free_shutdown;
 			}
 		}
 
 		if (gpio_is_valid(gps_device->pdata->lan_en_gpio)) {
-			if (gpio_request(gps_device->pdata->lan_en_gpio, "lan_en")) {
-				printk(KERN_ERR " GRST GPIO-%d Request Failed\n",
+			if (gpio_request(
+				gps_device->pdata->lan_en_gpio, "lan_en")) {
+				dev_err(&pdev->dev,
+					"GRST GPIO-%d Request Failed\n",
 					gps_device->pdata->lan_en_gpio);
 				ret = -EINVAL;
 				goto free_shutdown;
 			}
-			if (gpio_direction_output(gps_device->pdata->lan_en_gpio, 1) < 0) {
-				printk(KERN_ERR "Can not set GPIO-%d as output GPIO\n",
+			if (gpio_direction_output(
+				gps_device->pdata->lan_en_gpio, 1) < 0) {
+				dev_err(&pdev->dev,
+					"Can not set GPIO-%d as output GPIO\n",
 					gps_device->pdata->lan_en_gpio);
 				goto free_lan_en;
 			}
 		}
-	} else {
-		printk(KERN_INFO "GPS: not need request gpio for this RF type\n");
 	}
 
 	pdn = of_find_node_by_path(CPHIF_NODEPATH_DTS);
 	if (!pdn) {
-		printk(KERN_ERR "GPS: can't find node name cphifbg!\n");
+		dev_err(&pdev->dev, "GPS: can't find node name cphifbg!\n");
 		goto free_lan_en;
 	}
 	platdev = of_find_device_by_node(pdn);
@@ -902,14 +937,15 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	gps_device->cphclk = devm_clk_get(&platdev->dev, NULL);
 	if (IS_ERR(gps_device->cphclk)) {
 		dev_err(&platdev->dev,
-			"Failed to get cphclk,err= %ld\n", PTR_ERR(gps_device->cphclk));
+			"Failed to get cphclk,err= %ld\n",
+					PTR_ERR(gps_device->cphclk));
 		ret = -EINVAL;
 		goto free_lan_en;
 	}
 	/*get cphif pa base*/
 	of_address_to_resource(pdn, 0, plat_res);
 	if (plat_res == NULL) {
-		printk(KERN_ERR "GPS:can't get cphifbg resource\n");
+		dev_err(&pdev->dev, "GPS:can't get cphifbg resource\n");
 		ret = -EINVAL;
 		goto free_lan_en;
 	}
@@ -917,20 +953,20 @@ static int sirf_gps_probe(struct platform_device *pdev)
 
 	pdn = of_find_node_by_path(DSPIF_NODEPATH_DTS);
 	if (!pdn) {
-		printk(KERN_ERR "GPS: can't find node name dspif!\n");
+		dev_err(&pdev->dev, "GPS: can't find node name dspif!\n");
 		ret = -EINVAL;
 		goto free_lan_en;
 	}
-	gps_device->iface_base = (unsigned long)of_iomap(pdn, 0);
-	if (gps_device->iface_base == 0) {
-		printk(KERN_ERR "GPS: of_iomap failed for dsp-ifreg\n");
+	gps_device->iface_base = of_iomap(pdn, 0);
+	if (!gps_device->iface_base) {
+		dev_err(&pdev->dev, "GPS: of_iomap failed for dsp-ifreg\n");
 		ret = -EINVAL;
 		goto free_lan_en;
 	}
 
 	pdn = of_find_node_by_path(DSP_NODEPATH_DTS);
 	if (!pdn) {
-		printk(KERN_ERR "GPS: can't find node name dsp\n");
+		dev_err(&pdev->dev, "GPS: can't find node name dsp\n");
 		goto unmap_iface;
 	}
 	platdev = of_find_device_by_node(pdn);
@@ -939,20 +975,22 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	/*clear any pending interrupt before enable interrupt */
 	writel(1, PORT_ADDR(gps_device->iface_base, DSP_INT_RISC));
 
-	if (devm_request_irq(&platdev->dev, gps_device->irq, gps_interrupt, 0, "prima2-dsp", gps_device))
-		printk(KERN_INFO "DSP failed to request_irq\n");
+	if (devm_request_irq(&platdev->dev, gps_device->irq,
+				gps_interrupt, 0, "prima2-dsp", gps_device))
+		dev_err(&pdev->dev, "GPS:DSP failed to request_irq\n");
 
 	/*get dsp clock*/
 	gps_device->dspclk = devm_clk_get(&platdev->dev, NULL);
 	if (IS_ERR(gps_device->dspclk)) {
 		dev_err(&platdev->dev,
-			"Failed to get dspclk,err= %ld\n", PTR_ERR(gps_device->dspclk));
+			"Failed to get dspclk,err= %ld\n",
+					PTR_ERR(gps_device->dspclk));
 		ret = -EINVAL;
 		goto unmap_iface;
 	}
-	gps_device->idma_base = (unsigned long)of_iomap(pdn, 0);
-	if (gps_device->idma_base == 0) {
-		printk(KERN_ERR "GPS: of_iomap failed for prima2-dsp\n");
+	gps_device->idma_base = of_iomap(pdn, 0);
+	if (!gps_device->idma_base) {
+		dev_err(&pdev->dev, "GPS: of_iomap failed for prima2-dsp\n");
 		ret = -EINVAL;
 		goto unmap_iface;
 	}
@@ -960,7 +998,7 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	/*get gps_rtc_base */
 	pdn = of_find_node_by_path(GPSRTC_NODEPATH_DTS);
 	if (!pdn) {
-		printk(KERN_ERR "GPS: can't find node name gpsrtc\n");
+		dev_err(&pdev->dev, "GPS: can't find node name gpsrtc\n");
 		ret = -EINVAL;
 		goto unmap_idma;
 	}
@@ -974,7 +1012,7 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	/*get sys_rtc_base */
 	pdn = of_find_node_by_path(SYSRTC_NODEPATH_DTS);
 	if (!pdn) {
-		printk(KERN_ERR "GPS: can't find node name sysrtc\n");
+		dev_err(&pdev->dev, "GPS: can't find node name sysrtc\n");
 		ret = -EINVAL;
 		goto unmap_idma;
 	}
@@ -987,13 +1025,13 @@ static int sirf_gps_probe(struct platform_device *pdev)
 
 	pdn = of_find_node_by_path(INTC_NODEPATH_DTS);
 	if (!pdn) {
-		printk(KERN_ERR "GPS: can't find node name intc\n");
+		dev_err(&pdev->dev, "GPS: can't find node name intc\n");
 		ret = -EINVAL;
 		goto unmap_idma;
 	}
-	gps_device->intrctrl_base = (unsigned long)of_iomap(pdn, 0);
-	if (gps_device->intrctrl_base == 0) {
-		printk(KERN_ERR "GPS: of_iomap failed for prima2-intc\n");
+	gps_device->intrctrl_base = of_iomap(pdn, 0);
+	if (!gps_device->intrctrl_base) {
+		dev_err(&pdev->dev, "GPS: of_iomap failed for prima2-intc\n");
 		ret = -EINVAL;
 		goto unmap_idma;
 	}
@@ -1003,13 +1041,14 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	gpsdev = gps_device;
 
 	if (device_create_file(&(pdev->dev), &dev_attr_status) < 0) {
-		printk(KERN_ERR "GPS:Error in Creating 'status' sys attribute\n");
+		dev_err(&pdev->dev,
+			"GPS:Error in Creating 'status' sys attribute\n");
 		goto unmap_intrctrl;
 	}
 
 	ret = register_chrdev_region(MKDEV(BH2X0BD_DSP_MAJOR, 0), 1, "gps");
 	if (ret < 0) {
-		printk(KERN_ERR "GPS: can't register device\n");
+		dev_err(&pdev->dev, "GPS: can't register device\n");
 		goto remove_sys_entry;
 	}
 
@@ -1018,12 +1057,12 @@ static int sirf_gps_probe(struct platform_device *pdev)
 	gps_device->cdev.ops = &gps_fops;
 	ret = cdev_add(&(gps_device->cdev), MKDEV(BH2X0BD_DSP_MAJOR, 0), 1);
 	if (ret) {
-		printk(KERN_ERR "GPS: Error adding dsp\n");
+		dev_err(&pdev->dev, "GPS: Error adding dsp\n");
 		goto unreg_char;
 	} else {
 		init_completion(&(gps_device->gps_com));
 		compose_status(gps_device);
-		printk(KERN_INFO "SIRFSOC-GPS: Ready to operate!");
+		dev_info(&pdev->dev, "Ready to operate!");
 		return 0;
 	}
 

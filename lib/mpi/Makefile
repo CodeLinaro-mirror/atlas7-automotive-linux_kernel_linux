@@ -20,3 +20,8 @@ mpi-y = \
 	mpih-mul.o			\
 	mpi-pow.o			\
 	mpiutil.o
+
+mpi-$(CONFIG_MPILIB_EXTRA) += \
+	mpi-add.o			\
+	mpi-div.o			\
+	mpi-mul.o			\

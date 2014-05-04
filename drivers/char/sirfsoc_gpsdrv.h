@@ -9,8 +9,8 @@
 #ifndef __SIRFSOC_GPSDRV_H__
 #define __SIRFSOC_GPSDRV_H__
 
-#include <asm-generic/ioctl.h>
 #include <linux/cdev.h>
+#include <asm-generic/ioctl.h>
 
 /*device node used by DSP&TriG*/
 #define GPS_NODEPATH_DTS	"/axi/dsp-iobg/gps@a8010000"
@@ -153,334 +153,334 @@ struct GPS_RTC_CLK_INFO {
 
 /*regs for TriG
 *Imported from \depot\digital\chips\trig\dev\source\fpga\rtl\io_map.v */
-#define ISP_BE_ON_OFF_CTL                                0x0278   /*  RW  28 bits */
-#define ISP_BE_STAGGER_CFG                               0x027C   /*  RW   4 bits */
-#define ISP_CWREM_FINE_LAT_CFG                           0x0280   /*  RW   2 bits */
-#define ISP_TC_0_LOOPS_CFG                               0x0284   /*  RW  18 bits */
-#define ISP_TC_0_FREQ_CFG                                0x0288   /*  RW  24 bits */
-#define ISP_TC_0_GAIN_CFG                                0x028C   /*  RW  20 bits */
-#define ISP_TC_1_LOOPS_CFG                               0x0298   /*  RW  18 bits */
-#define ISP_TC_1_FREQ_CFG                                0x029C   /*  RW  24 bits */
-#define ISP_TC_1_GAIN_CFG                                0x02A0   /*  RW  20 bits */
-#define ISP_GPS_QUANT_CFG_A                              0x02AC   /*  RW  32 bits */
-#define ISP_GPS_QUANT_CFG_B                              0x02B0   /*  RW   5 bits */
-#define ISP_GLO_QUANT_CFG_A                              0x02B8   /*  RW  32 bits */
-#define ISP_GLO_QUANT_CFG_B                              0x02BC   /*  RW   5 bits */
-#define ISP_SPEC_LDR_0_QUANT_CFG_A                       0x02CC   /*  RW  32 bits */
-#define ISP_SPEC_LDR_0_QUANT_CFG_B                       0x02D0   /*  RW   5 bits */
-#define ISP_SPEC_LDR_1_QUANT_CFG_A                       0x02E0   /*  RW  32 bits */
-#define ISP_SPEC_LDR_1_QUANT_CFG_B                       0x02E4   /*  RW   5 bits */
-#define ISP_CWDET_0_RUN_CTL                              0x033C   /*  RW   5 bits */
-#define ISP_CWDET_0_SCAN_RANGE_CFG                       0x0344   /*  RW  19 bits */
-#define ISP_CWDET_0_FREQ_BLOCK_CFG                       0x0348   /*  RW  24 bits */
-#define ISP_CWDET_0_SCAN_DWELL_CFG                       0x034C   /*  RW  19 bits */
-#define ISP_CWDET_0_SCAN_DELTA_FREQ_CFG                  0x0350   /*  RW  24 bits */
-#define ISP_CWDET_0_SCAN_START_FREQ_CFG                  0x0354   /*  RW  24 bits */
-#define ISP_CWDET_0_SCAN_NOISE_PERIOD_CFG                0x0358   /*  RW  12 bits */
-#define ISP_CWDET_0_MON_NUM_CFG                          0x03A0   /*  RW   3 bits */
-#define ISP_CWDET_0_MON_FREQ0_CFG                        0x03A4   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ1_CFG                        0x03A8   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ2_CFG                        0x03AC   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ3_CFG                        0x03B0   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ4_CFG                        0x03B4   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ5_CFG                        0x03B8   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ6_CFG                        0x03BC   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_FREQ7_CFG                        0x03C0   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DWELL0_CFG                       0x03C4   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL1_CFG                       0x03C8   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL2_CFG                       0x03CC   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL3_CFG                       0x03D0   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL4_CFG                       0x03D4   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL5_CFG                       0x03D8   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL6_CFG                       0x03DC   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DWELL7_CFG                       0x03E0   /*  RW  19 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ0_CFG                  0x03E4   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ1_CFG                  0x03E8   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ2_CFG                  0x03EC   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ3_CFG                  0x03F0   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ4_CFG                  0x03F4   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ5_CFG                  0x03F8   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ6_CFG                  0x03FC   /*  RW  24 bits */
-#define ISP_CWDET_0_MON_DELTA_FREQ7_CFG                  0x0400   /*  RW  24 bits */
-#define ISP_CWDET_1_RUN_CTL                              0x0464   /*  RW   5 bits */
-#define ISP_CWDET_1_SCAN_RANGE_CFG                       0x046C   /*  RW  19 bits */
-#define ISP_CWDET_1_FREQ_BLOCK_CFG                       0x0470   /*  RW  24 bits */
-#define ISP_CWDET_1_SCAN_DWELL_CFG                       0x0474   /*  RW  19 bits */
-#define ISP_CWDET_1_SCAN_DELTA_FREQ_CFG                  0x0478   /*  RW  24 bits */
-#define ISP_CWDET_1_SCAN_START_FREQ_CFG                  0x047C   /*  RW  24 bits */
-#define ISP_CWDET_1_SCAN_NOISE_PERIOD_CFG                0x0480   /*  RW  12 bits */
-#define ISP_CWDET_1_MON_NUM_CFG                          0x04C8   /*  RW   3 bits */
-#define ISP_CWDET_1_MON_FREQ0_CFG                        0x04CC   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ1_CFG                        0x04D0   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ2_CFG                        0x04D4   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ3_CFG                        0x04D8   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ4_CFG                        0x04DC   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ5_CFG                        0x04E0   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ6_CFG                        0x04E4   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_FREQ7_CFG                        0x04E8   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DWELL0_CFG                       0x04EC   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL1_CFG                       0x04F0   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL2_CFG                       0x04F4   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL3_CFG                       0x04F8   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL4_CFG                       0x04FC   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL5_CFG                       0x0500   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL6_CFG                       0x0504   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DWELL7_CFG                       0x0508   /*  RW  19 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ0_CFG                  0x050C   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ1_CFG                  0x0510   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ2_CFG                  0x0514   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ3_CFG                  0x0518   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ4_CFG                  0x051C   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ5_CFG                  0x0520   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ6_CFG                  0x0524   /*  RW  24 bits */
-#define ISP_CWDET_1_MON_DELTA_FREQ7_CFG                  0x0528   /*  RW  24 bits */
-#define ISP_CWREM_CFG                                    0x058C   /*  RW   1 bits */
-#define ISP_CWREM_BINS_31_0                              0x0590   /*  RW  32 bits */
-#define ISP_CWREM_BINS_63_32                             0x0594   /*  RW  32 bits */
-#define ISP_CWREM_BINS_95_64                             0x0598   /*  RW  32 bits */
-#define ISP_CWREM_BINS_127_96                            0x059C   /*  RW  32 bits */
-#define ISP_CWREM_BINS_159_128                           0x05A0   /*  RW  32 bits */
-#define ISP_CWREM_BINS_191_160                           0x05A4   /*  RW  32 bits */
-#define ISP_CWREM_BINS_223_192                           0x05A8   /*  RW  32 bits */
-#define ISP_CWREM_BINS_255_224                           0x05AC   /*  RW  32 bits */
-#define ISP_TC_2_LOOPS_CFG                               0x0D0C   /*  RW  18 bits */
-#define ISP_TC_2_FREQ_CFG                                0x0D10   /*  RW  24 bits */
-#define ISP_TC_2_GAIN_CFG                                0x0D14   /*  RW  20 bits */
-#define ISP_TC_3_LOOPS_CFG                               0x0D20   /*  RW  18 bits */
-#define ISP_TC_3_FREQ_CFG                                0x0D24   /*  RW  24 bits */
-#define ISP_TC_3_GAIN_CFG                                0x0D28   /*  RW  20 bits */
-#define ISP_TC_4_LOOPS_CFG                               0x0D34   /*  RW  18 bits */
-#define ISP_TC_4_FREQ_CFG                                0x0D38   /*  RW  24 bits */
-#define ISP_TC_4_GAIN_CFG                                0x0D3C   /*  RW  20 bits */
-#define ISP_TC_5_LOOPS_CFG                               0x0D48   /*  RW  18 bits */
-#define ISP_TC_5_FREQ_CFG                                0x0D4C   /*  RW  24 bits */
-#define ISP_TC_5_GAIN_CFG                                0x0D50   /*  RW  20 bits */
+#define ISP_BE_ON_OFF_CTL                   0x0278   /*  RW  28 bits */
+#define ISP_BE_STAGGER_CFG                  0x027C   /*  RW   4 bits */
+#define ISP_CWREM_FINE_LAT_CFG              0x0280   /*  RW   2 bits */
+#define ISP_TC_0_LOOPS_CFG                  0x0284   /*  RW  18 bits */
+#define ISP_TC_0_FREQ_CFG                   0x0288   /*  RW  24 bits */
+#define ISP_TC_0_GAIN_CFG                   0x028C   /*  RW  20 bits */
+#define ISP_TC_1_LOOPS_CFG                  0x0298   /*  RW  18 bits */
+#define ISP_TC_1_FREQ_CFG                   0x029C   /*  RW  24 bits */
+#define ISP_TC_1_GAIN_CFG                   0x02A0   /*  RW  20 bits */
+#define ISP_GPS_QUANT_CFG_A                 0x02AC   /*  RW  32 bits */
+#define ISP_GPS_QUANT_CFG_B                 0x02B0   /*  RW   5 bits */
+#define ISP_GLO_QUANT_CFG_A                 0x02B8   /*  RW  32 bits */
+#define ISP_GLO_QUANT_CFG_B                 0x02BC   /*  RW   5 bits */
+#define ISP_SPEC_LDR_0_QUANT_CFG_A          0x02CC   /*  RW  32 bits */
+#define ISP_SPEC_LDR_0_QUANT_CFG_B          0x02D0   /*  RW   5 bits */
+#define ISP_SPEC_LDR_1_QUANT_CFG_A          0x02E0   /*  RW  32 bits */
+#define ISP_SPEC_LDR_1_QUANT_CFG_B          0x02E4   /*  RW   5 bits */
+#define ISP_CWDET_0_RUN_CTL                 0x033C   /*  RW   5 bits */
+#define ISP_CWDET_0_SCAN_RANGE_CFG          0x0344   /*  RW  19 bits */
+#define ISP_CWDET_0_FREQ_BLOCK_CFG          0x0348   /*  RW  24 bits */
+#define ISP_CWDET_0_SCAN_DWELL_CFG          0x034C   /*  RW  19 bits */
+#define ISP_CWDET_0_SCAN_DELTA_FREQ_CFG     0x0350   /*  RW  24 bits */
+#define ISP_CWDET_0_SCAN_START_FREQ_CFG     0x0354   /*  RW  24 bits */
+#define ISP_CWDET_0_SCAN_NOISE_PERIOD_CFG   0x0358   /*  RW  12 bits */
+#define ISP_CWDET_0_MON_NUM_CFG             0x03A0   /*  RW   3 bits */
+#define ISP_CWDET_0_MON_FREQ0_CFG           0x03A4   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ1_CFG           0x03A8   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ2_CFG           0x03AC   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ3_CFG           0x03B0   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ4_CFG           0x03B4   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ5_CFG           0x03B8   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ6_CFG           0x03BC   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_FREQ7_CFG           0x03C0   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DWELL0_CFG          0x03C4   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL1_CFG          0x03C8   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL2_CFG          0x03CC   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL3_CFG          0x03D0   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL4_CFG          0x03D4   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL5_CFG          0x03D8   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL6_CFG          0x03DC   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DWELL7_CFG          0x03E0   /*  RW  19 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ0_CFG     0x03E4   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ1_CFG     0x03E8   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ2_CFG     0x03EC   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ3_CFG     0x03F0   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ4_CFG     0x03F4   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ5_CFG     0x03F8   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ6_CFG     0x03FC   /*  RW  24 bits */
+#define ISP_CWDET_0_MON_DELTA_FREQ7_CFG     0x0400   /*  RW  24 bits */
+#define ISP_CWDET_1_RUN_CTL                 0x0464   /*  RW   5 bits */
+#define ISP_CWDET_1_SCAN_RANGE_CFG          0x046C   /*  RW  19 bits */
+#define ISP_CWDET_1_FREQ_BLOCK_CFG          0x0470   /*  RW  24 bits */
+#define ISP_CWDET_1_SCAN_DWELL_CFG          0x0474   /*  RW  19 bits */
+#define ISP_CWDET_1_SCAN_DELTA_FREQ_CFG     0x0478   /*  RW  24 bits */
+#define ISP_CWDET_1_SCAN_START_FREQ_CFG     0x047C   /*  RW  24 bits */
+#define ISP_CWDET_1_SCAN_NOISE_PERIOD_CFG   0x0480   /*  RW  12 bits */
+#define ISP_CWDET_1_MON_NUM_CFG             0x04C8   /*  RW   3 bits */
+#define ISP_CWDET_1_MON_FREQ0_CFG           0x04CC   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ1_CFG           0x04D0   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ2_CFG           0x04D4   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ3_CFG           0x04D8   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ4_CFG           0x04DC   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ5_CFG           0x04E0   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ6_CFG           0x04E4   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_FREQ7_CFG           0x04E8   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DWELL0_CFG          0x04EC   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL1_CFG          0x04F0   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL2_CFG          0x04F4   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL3_CFG          0x04F8   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL4_CFG          0x04FC   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL5_CFG          0x0500   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL6_CFG          0x0504   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DWELL7_CFG          0x0508   /*  RW  19 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ0_CFG     0x050C   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ1_CFG     0x0510   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ2_CFG     0x0514   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ3_CFG     0x0518   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ4_CFG     0x051C   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ5_CFG     0x0520   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ6_CFG     0x0524   /*  RW  24 bits */
+#define ISP_CWDET_1_MON_DELTA_FREQ7_CFG     0x0528   /*  RW  24 bits */
+#define ISP_CWREM_CFG                       0x058C   /*  RW   1 bits */
+#define ISP_CWREM_BINS_31_0                 0x0590   /*  RW  32 bits */
+#define ISP_CWREM_BINS_63_32                0x0594   /*  RW  32 bits */
+#define ISP_CWREM_BINS_95_64                0x0598   /*  RW  32 bits */
+#define ISP_CWREM_BINS_127_96               0x059C   /*  RW  32 bits */
+#define ISP_CWREM_BINS_159_128              0x05A0   /*  RW  32 bits */
+#define ISP_CWREM_BINS_191_160              0x05A4   /*  RW  32 bits */
+#define ISP_CWREM_BINS_223_192              0x05A8   /*  RW  32 bits */
+#define ISP_CWREM_BINS_255_224              0x05AC   /*  RW  32 bits */
+#define ISP_TC_2_LOOPS_CFG                  0x0D0C   /*  RW  18 bits */
+#define ISP_TC_2_FREQ_CFG                   0x0D10   /*  RW  24 bits */
+#define ISP_TC_2_GAIN_CFG                   0x0D14   /*  RW  20 bits */
+#define ISP_TC_3_LOOPS_CFG                  0x0D20   /*  RW  18 bits */
+#define ISP_TC_3_FREQ_CFG                   0x0D24   /*  RW  24 bits */
+#define ISP_TC_3_GAIN_CFG                   0x0D28   /*  RW  20 bits */
+#define ISP_TC_4_LOOPS_CFG                  0x0D34   /*  RW  18 bits */
+#define ISP_TC_4_FREQ_CFG                   0x0D38   /*  RW  24 bits */
+#define ISP_TC_4_GAIN_CFG                   0x0D3C   /*  RW  20 bits */
+#define ISP_TC_5_LOOPS_CFG                  0x0D48   /*  RW  18 bits */
+#define ISP_TC_5_FREQ_CFG                   0x0D4C   /*  RW  24 bits */
+#define ISP_TC_5_GAIN_CFG                   0x0D50   /*  RW  20 bits */
 
 /*Addresses of read only registers*/
-#define ISP_TC_0_FREQ_STAT                               0x0290   /*  R   24 bits */
-#define ISP_TC_0_GAIN_STAT                               0x0294   /*  R   12 bits */
-#define ISP_TC_1_FREQ_STAT                               0x02A4   /*  R   24 bits */
-#define ISP_TC_1_GAIN_STAT                               0x02A8   /*  R   12 bits */
-#define ISP_GPS_QUANT_STAT                               0x02B4   /*  R   23 bits */
-#define ISP_GLO_QUANT_STAT                               0x02C0   /*  R   23 bits */
-#define ISP_SPEC_LDR_0_QUANT_STAT                        0x02D4   /*  R   23 bits */
-#define ISP_SPEC_LDR_1_QUANT_STAT                        0x02E8   /*  R   23 bits */
-#define ISP_CWDET_0_RUN_STAT                             0x0340   /*  R    2 bits */
-#define ISP_CWDET_0_SCAN_NOISE_STAT                      0x035C   /*  R   24 bits */
-#define ISP_CWDET_0_SCAN_PKID0_STAT                      0x0360   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID1_STAT                      0x0364   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID2_STAT                      0x0368   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID3_STAT                      0x036C   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID4_STAT                      0x0370   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID5_STAT                      0x0374   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID6_STAT                      0x0378   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKID7_STAT                      0x037C   /*  R   26 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL0_STAT                    0x0380   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL1_STAT                    0x0384   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL2_STAT                    0x0388   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL3_STAT                    0x038C   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL4_STAT                    0x0390   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL5_STAT                    0x0394   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL6_STAT                    0x0398   /*  R   14 bits */
-#define ISP_CWDET_0_SCAN_PKAMPL7_STAT                    0x039C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL0_STAT                      0x0404   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL1_STAT                      0x0408   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL2_STAT                      0x040C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL3_STAT                      0x0410   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL4_STAT                      0x0414   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL5_STAT                      0x0418   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL6_STAT                      0x041C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_LAMPL7_STAT                      0x0420   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL0_STAT                      0x0424   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL1_STAT                      0x0428   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL2_STAT                      0x042C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL3_STAT                      0x0430   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL4_STAT                      0x0434   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL5_STAT                      0x0438   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL6_STAT                      0x043C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_CAMPL7_STAT                      0x0440   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL0_STAT                      0x0444   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL1_STAT                      0x0448   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL2_STAT                      0x044C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL3_STAT                      0x0450   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL4_STAT                      0x0454   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL5_STAT                      0x0458   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL6_STAT                      0x045C   /*  R   14 bits */
-#define ISP_CWDET_0_MON_UAMPL7_STAT                      0x0460   /*  R   14 bits */
-#define ISP_CWDET_1_RUN_STAT                             0x0468   /*  R    2 bits */
-#define ISP_CWDET_1_SCAN_NOISE_STAT                      0x0484   /*  R   24 bits */
-#define ISP_CWDET_1_SCAN_PKID0_STAT                      0x0488   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID1_STAT                      0x048C   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID2_STAT                      0x0490   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID3_STAT                      0x0494   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID4_STAT                      0x0498   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID5_STAT                      0x049C   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID6_STAT                      0x04A0   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKID7_STAT                      0x04A4   /*  R   26 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL0_STAT                    0x04A8   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL1_STAT                    0x04AC   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL2_STAT                    0x04B0   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL3_STAT                    0x04B4   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL4_STAT                    0x04B8   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL5_STAT                    0x04BC   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL6_STAT                    0x04C0   /*  R   14 bits */
-#define ISP_CWDET_1_SCAN_PKAMPL7_STAT                    0x04C4   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL0_STAT                      0x052C   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL1_STAT                      0x0530   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL2_STAT                      0x0534   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL3_STAT                      0x0538   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL4_STAT                      0x053C   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL5_STAT                      0x0540   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL6_STAT                      0x0544   /*  R   14 bits */
-#define ISP_CWDET_1_MON_LAMPL7_STAT                      0x0548   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL0_STAT                      0x054C   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL1_STAT                      0x0550   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL2_STAT                      0x0554   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL3_STAT                      0x0558   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL4_STAT                      0x055C   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL5_STAT                      0x0560   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL6_STAT                      0x0564   /*  R   14 bits */
-#define ISP_CWDET_1_MON_CAMPL7_STAT                      0x0568   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL0_STAT                      0x056C   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL1_STAT                      0x0570   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL2_STAT                      0x0574   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL3_STAT                      0x0578   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL4_STAT                      0x057C   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL5_STAT                      0x0580   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL6_STAT                      0x0584   /*  R   14 bits */
-#define ISP_CWDET_1_MON_UAMPL7_STAT                      0x0588   /*  R   14 bits */
-#define ISP_TC_2_FREQ_STAT                               0x0D18   /*  R   24 bits */
-#define ISP_TC_2_GAIN_STAT                               0x0D1C   /*  R   12 bits */
-#define ISP_TC_3_FREQ_STAT                               0x0D2C   /*  R   24 bits */
-#define ISP_TC_3_GAIN_STAT                               0x0D30   /*  R   12 bits */
-#define ISP_TC_4_FREQ_STAT                               0x0D40   /*  R   24 bits */
-#define ISP_TC_4_GAIN_STAT                               0x0D44   /*  R   12 bits */
-#define ISP_TC_5_FREQ_STAT                               0x0D54   /*  R   24 bits */
-#define ISP_TC_5_GAIN_STAT                               0x0D58   /*  R   12 bits */
+#define ISP_TC_0_FREQ_STAT                  0x0290   /*  R   24 bits */
+#define ISP_TC_0_GAIN_STAT                  0x0294   /*  R   12 bits */
+#define ISP_TC_1_FREQ_STAT                  0x02A4   /*  R   24 bits */
+#define ISP_TC_1_GAIN_STAT                  0x02A8   /*  R   12 bits */
+#define ISP_GPS_QUANT_STAT                  0x02B4   /*  R   23 bits */
+#define ISP_GLO_QUANT_STAT                  0x02C0   /*  R   23 bits */
+#define ISP_SPEC_LDR_0_QUANT_STAT           0x02D4   /*  R   23 bits */
+#define ISP_SPEC_LDR_1_QUANT_STAT           0x02E8   /*  R   23 bits */
+#define ISP_CWDET_0_RUN_STAT                0x0340   /*  R    2 bits */
+#define ISP_CWDET_0_SCAN_NOISE_STAT         0x035C   /*  R   24 bits */
+#define ISP_CWDET_0_SCAN_PKID0_STAT         0x0360   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID1_STAT         0x0364   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID2_STAT         0x0368   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID3_STAT         0x036C   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID4_STAT         0x0370   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID5_STAT         0x0374   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID6_STAT         0x0378   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKID7_STAT         0x037C   /*  R   26 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL0_STAT       0x0380   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL1_STAT       0x0384   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL2_STAT       0x0388   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL3_STAT       0x038C   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL4_STAT       0x0390   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL5_STAT       0x0394   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL6_STAT       0x0398   /*  R   14 bits */
+#define ISP_CWDET_0_SCAN_PKAMPL7_STAT       0x039C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL0_STAT         0x0404   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL1_STAT         0x0408   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL2_STAT         0x040C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL3_STAT         0x0410   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL4_STAT         0x0414   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL5_STAT         0x0418   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL6_STAT         0x041C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_LAMPL7_STAT         0x0420   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL0_STAT         0x0424   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL1_STAT         0x0428   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL2_STAT         0x042C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL3_STAT         0x0430   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL4_STAT         0x0434   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL5_STAT         0x0438   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL6_STAT         0x043C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_CAMPL7_STAT         0x0440   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL0_STAT         0x0444   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL1_STAT         0x0448   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL2_STAT         0x044C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL3_STAT         0x0450   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL4_STAT         0x0454   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL5_STAT         0x0458   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL6_STAT         0x045C   /*  R   14 bits */
+#define ISP_CWDET_0_MON_UAMPL7_STAT         0x0460   /*  R   14 bits */
+#define ISP_CWDET_1_RUN_STAT                0x0468   /*  R    2 bits */
+#define ISP_CWDET_1_SCAN_NOISE_STAT         0x0484   /*  R   24 bits */
+#define ISP_CWDET_1_SCAN_PKID0_STAT         0x0488   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID1_STAT         0x048C   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID2_STAT         0x0490   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID3_STAT         0x0494   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID4_STAT         0x0498   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID5_STAT         0x049C   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID6_STAT         0x04A0   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKID7_STAT         0x04A4   /*  R   26 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL0_STAT       0x04A8   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL1_STAT       0x04AC   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL2_STAT       0x04B0   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL3_STAT       0x04B4   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL4_STAT       0x04B8   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL5_STAT       0x04BC   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL6_STAT       0x04C0   /*  R   14 bits */
+#define ISP_CWDET_1_SCAN_PKAMPL7_STAT       0x04C4   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL0_STAT         0x052C   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL1_STAT         0x0530   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL2_STAT         0x0534   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL3_STAT         0x0538   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL4_STAT         0x053C   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL5_STAT         0x0540   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL6_STAT         0x0544   /*  R   14 bits */
+#define ISP_CWDET_1_MON_LAMPL7_STAT         0x0548   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL0_STAT         0x054C   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL1_STAT         0x0550   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL2_STAT         0x0554   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL3_STAT         0x0558   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL4_STAT         0x055C   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL5_STAT         0x0560   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL6_STAT         0x0564   /*  R   14 bits */
+#define ISP_CWDET_1_MON_CAMPL7_STAT         0x0568   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL0_STAT         0x056C   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL1_STAT         0x0570   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL2_STAT         0x0574   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL3_STAT         0x0578   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL4_STAT         0x057C   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL5_STAT         0x0580   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL6_STAT         0x0584   /*  R   14 bits */
+#define ISP_CWDET_1_MON_UAMPL7_STAT         0x0588   /*  R   14 bits */
+#define ISP_TC_2_FREQ_STAT                  0x0D18   /*  R   24 bits */
+#define ISP_TC_2_GAIN_STAT                  0x0D1C   /*  R   12 bits */
+#define ISP_TC_3_FREQ_STAT                  0x0D2C   /*  R   24 bits */
+#define ISP_TC_3_GAIN_STAT                  0x0D30   /*  R   12 bits */
+#define ISP_TC_4_FREQ_STAT                  0x0D40   /*  R   24 bits */
+#define ISP_TC_4_GAIN_STAT                  0x0D44   /*  R   12 bits */
+#define ISP_TC_5_FREQ_STAT                  0x0D54   /*  R   24 bits */
+#define ISP_TC_5_GAIN_STAT                  0x0D58   /*  R   12 bits */
 
 /*ISP control and status registers*/
 
 /*Addresses of read/write registers*/
-#define ISP_FE_ON_OFF_CTL                                0x0200   /*  RW  18 bits */
-#define ISP_FE_STAGGER_CFG                               0x0204   /*  RW   1 bits */
-#define ISP_GPS_8F0_FINE_LAT_CFG                         0x0208   /*  RW   3 bits */
-#define ISP_ADC_CFG                                      0x020C   /*  RW   8 bits */
-#define ISP_AGC_0_CFG_A                                  0x0210   /*  RW  30 bits */
-#define ISP_AGC_0_CFG_B                                  0x0214   /*  RW  10 bits */
-#define ISP_AGC_0_GAIN_CFG                               0x0218   /*  RW   5 bits */
-#define ISP_AGC_1_CFG_A                                  0x0224   /*  RW  30 bits */
-#define ISP_AGC_1_CFG_B                                  0x0228   /*  RW  10 bits */
-#define ISP_AGC_1_GAIN_CFG                               0x022C   /*  RW   5 bits */
-#define ISP_BLANK_0_CFG                                  0x0238   /*  RW   6 bits */
-#define ISP_ACTIVE_BLANK_0_CFG                           0x0244   /*  RW  30 bits */
-#define ISP_BLANK_1_CFG                                  0x024C   /*  RW   6 bits */
-#define ISP_ACTIVE_BLANK_1_CFG                           0x0258   /*  RW  30 bits */
-#define ISP_GPS_LPF_CFG                                  0x0270   /*  RW   2 bits */
-#define ISP_LO_AGILITY_CFG                               0x0274   /*  RW  13 bits */
-#define ISP_ACTIVE_BLANK_0_CFG_B                         0x0C0C   /*  RW  25 bits */
-#define ISP_ACTIVE_BLANK_1_CFG_B                         0x0C10   /*  RW  25 bits */
+#define ISP_FE_ON_OFF_CTL                   0x0200   /*  RW  18 bits */
+#define ISP_FE_STAGGER_CFG                  0x0204   /*  RW   1 bits */
+#define ISP_GPS_8F0_FINE_LAT_CFG            0x0208   /*  RW   3 bits */
+#define ISP_ADC_CFG                         0x020C   /*  RW   8 bits */
+#define ISP_AGC_0_CFG_A                     0x0210   /*  RW  30 bits */
+#define ISP_AGC_0_CFG_B                     0x0214   /*  RW  10 bits */
+#define ISP_AGC_0_GAIN_CFG                  0x0218   /*  RW   5 bits */
+#define ISP_AGC_1_CFG_A                     0x0224   /*  RW  30 bits */
+#define ISP_AGC_1_CFG_B                     0x0228   /*  RW  10 bits */
+#define ISP_AGC_1_GAIN_CFG                  0x022C   /*  RW   5 bits */
+#define ISP_BLANK_0_CFG                     0x0238   /*  RW   6 bits */
+#define ISP_ACTIVE_BLANK_0_CFG              0x0244   /*  RW  30 bits */
+#define ISP_BLANK_1_CFG                     0x024C   /*  RW   6 bits */
+#define ISP_ACTIVE_BLANK_1_CFG              0x0258   /*  RW  30 bits */
+#define ISP_GPS_LPF_CFG                     0x0270   /*  RW   2 bits */
+#define ISP_LO_AGILITY_CFG                  0x0274   /*  RW  13 bits */
+#define ISP_ACTIVE_BLANK_0_CFG_B            0x0C0C   /*  RW  25 bits */
+#define ISP_ACTIVE_BLANK_1_CFG_B            0x0C10   /*  RW  25 bits */
 
 /*Addresses of read only registers*/
-#define ISP_AGC_0_GAIN_STAT                              0x021C   /*  R   24 bits */
-#define ISP_AGC_0_ONES_DENS_STAT                         0x0220   /*  R   14 bits */
-#define ISP_AGC_1_GAIN_STAT                              0x0230   /*  R   24 bits */
-#define ISP_AGC_1_ONES_DENS_STAT                         0x0234   /*  R   14 bits */
-#define ISP_BLANK_0_START_TIME_STAT                      0x023C   /*  R   32 bits */
-#define ISP_BLANK_0_STOP_TIME_STAT                       0x0240   /*  R   32 bits */
-#define ISP_ACTIVE_BLANK_0_STAT                          0x0248   /*  R    2 bits */
-#define ISP_BLANK_1_START_TIME_STAT                      0x0250   /*  R   32 bits */
-#define ISP_BLANK_1_STOP_TIME_STAT                       0x0254   /*  R   32 bits */
-#define ISP_ACTIVE_BLANK_1_STAT                          0x025C   /*  R    2 bits */
-#define ISP_GPS_DCOC_STAT                                0x0260   /*  R   28 bits */
-#define ISP_GPS_IQ_BAL_STAT                              0x0264   /*  R   10 bits */
-#define ISP_GLO_DCOC_STAT                                0x0268   /*  R   28 bits */
-#define ISP_GLO_IQ_BAL_STAT                              0x026C   /*  R   10 bits */
+#define ISP_AGC_0_GAIN_STAT                 0x021C   /*  R   24 bits */
+#define ISP_AGC_0_ONES_DENS_STAT            0x0220   /*  R   14 bits */
+#define ISP_AGC_1_GAIN_STAT                 0x0230   /*  R   24 bits */
+#define ISP_AGC_1_ONES_DENS_STAT            0x0234   /*  R   14 bits */
+#define ISP_BLANK_0_START_TIME_STAT         0x023C   /*  R   32 bits */
+#define ISP_BLANK_0_STOP_TIME_STAT          0x0240   /*  R   32 bits */
+#define ISP_ACTIVE_BLANK_0_STAT             0x0248   /*  R    2 bits */
+#define ISP_BLANK_1_START_TIME_STAT         0x0250   /*  R   32 bits */
+#define ISP_BLANK_1_STOP_TIME_STAT          0x0254   /*  R   32 bits */
+#define ISP_ACTIVE_BLANK_1_STAT             0x025C   /*  R    2 bits */
+#define ISP_GPS_DCOC_STAT                   0x0260   /*  R   28 bits */
+#define ISP_GPS_IQ_BAL_STAT                 0x0264   /*  R   10 bits */
+#define ISP_GLO_DCOC_STAT                   0x0268   /*  R   28 bits */
+#define ISP_GLO_IQ_BAL_STAT                 0x026C   /*  R   10 bits */
 
 /*ISP control and status registers specific to the TriG chip*/
 
 /*Addresses of read/write registers*/
-#define ISP_P2_GPS_QUANT_CFG_A                           0x0F00   /*  RW  32 bits */
-#define ISP_P2_GPS_QUANT_CFG_B                           0x0F04   /*  RW   5 bits */
-#define ISP_P2_GLO_QUANT_CFG_A                           0x0F0C   /*  RW  32 bits */
-#define ISP_P2_GLO_QUANT_CFG_B                           0x0F10   /*  RW   5 bits */
-#define ISP_P2_CONTROL                                   0x0F30   /*  RW  32 bits */
-#define ISP_P2_GLO1_NCO                                  0x0F34   /*  RW  32 bits */
-#define ISP_P2_GLO2_NCO                                  0x0F38   /*  RW  32 bits */
-#define ISP_P2_GLO3_NCO                                  0x0F3C   /*  RW  32 bits */
-#define ISP_P2_GLO4_NCO                                  0x0F40   /*  RW  32 bits */
-#define ISP_P2_GLO5_NCO                                  0x0F44   /*  RW  32 bits */
-#define ISP_P2_GLO6_NCO                                  0x0F48   /*  RW  32 bits */
-#define ISP_P2_GLO7_NCO                                  0x0F4C   /*  RW  32 bits */
-#define ISP_P3_CONTROL                                   0x0F50   /*  RW   2 bits */
+#define ISP_P2_GPS_QUANT_CFG_A              0x0F00   /*  RW  32 bits */
+#define ISP_P2_GPS_QUANT_CFG_B              0x0F04   /*  RW   5 bits */
+#define ISP_P2_GLO_QUANT_CFG_A              0x0F0C   /*  RW  32 bits */
+#define ISP_P2_GLO_QUANT_CFG_B              0x0F10   /*  RW   5 bits */
+#define ISP_P2_CONTROL                      0x0F30   /*  RW  32 bits */
+#define ISP_P2_GLO1_NCO                     0x0F34   /*  RW  32 bits */
+#define ISP_P2_GLO2_NCO                     0x0F38   /*  RW  32 bits */
+#define ISP_P2_GLO3_NCO                     0x0F3C   /*  RW  32 bits */
+#define ISP_P2_GLO4_NCO                     0x0F40   /*  RW  32 bits */
+#define ISP_P2_GLO5_NCO                     0x0F44   /*  RW  32 bits */
+#define ISP_P2_GLO6_NCO                     0x0F48   /*  RW  32 bits */
+#define ISP_P2_GLO7_NCO                     0x0F4C   /*  RW  32 bits */
+#define ISP_P3_CONTROL                      0x0F50   /*  RW   2 bits */
 
 /*Addresses of read only registers*/
-#define ISP_P2_GPS_QUANT_STAT                            0x0F08   /*  R   23 bits */
-#define ISP_P2_GLO1_QUANT_STAT                           0x0F14   /*  R   23 bits */
-#define ISP_P2_GLO2_QUANT_STAT                           0x0F18   /*  R   23 bits */
-#define ISP_P2_GLO3_QUANT_STAT                           0x0F1C   /*  R   23 bits */
-#define ISP_P2_GLO4_QUANT_STAT                           0x0F20   /*  R   23 bits */
-#define ISP_P2_GLO5_QUANT_STAT                           0x0F24   /*  R   23 bits */
-#define ISP_P2_GLO6_QUANT_STAT                           0x0F28   /*  R   23 bits */
-#define ISP_P2_GLO7_QUANT_STAT                           0x0F2C   /*  R   23 bits */
+#define ISP_P2_GPS_QUANT_STAT               0x0F08   /*  R   23 bits */
+#define ISP_P2_GLO1_QUANT_STAT              0x0F14   /*  R   23 bits */
+#define ISP_P2_GLO2_QUANT_STAT              0x0F18   /*  R   23 bits */
+#define ISP_P2_GLO3_QUANT_STAT              0x0F1C   /*  R   23 bits */
+#define ISP_P2_GLO4_QUANT_STAT              0x0F20   /*  R   23 bits */
+#define ISP_P2_GLO5_QUANT_STAT              0x0F24   /*  R   23 bits */
+#define ISP_P2_GLO6_QUANT_STAT              0x0F28   /*  R   23 bits */
+#define ISP_P2_GLO7_QUANT_STAT              0x0F2C   /*  R   23 bits */
 
 /*TriG control and status registers*/
 
 /*Addresses of read/write registers*/
-#define TRIG_CTRL                                        0x1000   /*  RW  14 bits */
-#define TRIG_INT_EN_MASK                                 0x1008   /*  RW  22 bits */
-#define TRIG_IO_CTRL1                                    0x1010   /*  RW  30 bits */
-#define TRIG_IO_CTRL2                                    0x1014   /*  RW  30 bits */
-#define TRIG_IO_CTRL3                                    0x1018   /*  RW  32 bits */
-#define TRIG_TEST                                        0x101C   /*  RW  21 bits */
+#define TRIG_CTRL                           0x1000   /*  RW  14 bits */
+#define TRIG_INT_EN_MASK                    0x1008   /*  RW  22 bits */
+#define TRIG_IO_CTRL1                       0x1010   /*  RW  30 bits */
+#define TRIG_IO_CTRL2                       0x1014   /*  RW  30 bits */
+#define TRIG_IO_CTRL3                       0x1018   /*  RW  32 bits */
+#define TRIG_TEST                           0x101C   /*  RW  21 bits */
 
 /*Addresses of read only registers*/
-#define TRIG_INT_STATUS                                  0x1004   /*  R   14 bits */
-#define TRIG_ID                                          0x100C   /*  R   16 bits */
+#define TRIG_INT_STATUS                     0x1004   /*  R   14 bits */
+#define TRIG_ID                             0x100C   /*  R   16 bits */
 
 /*GNSS analogue control/status registers for Trig*/
 
 /*Addresses of read/write registers*/
-#define TRIG_GNSS_ANA_CTRL_POWER_ENABLES                 0x0000   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_BIAS                          0x0004   /*  RW  28 bits */
-#define TRIG_GNSS_ANA_CTRL_CLK_A                         0x0008   /*  RW  29 bits */
-#define TRIG_GNSS_ANA_CTRL_CLK_B                         0x000C   /*  RW  31 bits */
-#define TRIG_GNSS_ANA_CTRL_IFA_ADC                       0x0014   /*  RW  13 bits */
-#define TRIG_GNSS_ANA_CTRL_RFA_PWR_DET                   0x0018   /*  RW   9 bits */
-#define TRIG_GNSS_ANA_CTRL_TESTA                         0x0020   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_TESTB                         0x0024   /*  RW  29 bits */
-#define TRIG_GNSS_ANA_CTRL_MIXER                         0x0028   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_GLO_AGC                       0x002C   /*  RW   9 bits */
-#define TRIG_GNSS_ANA_CTRL_GPS_AGC                       0x0030   /*  RW   9 bits */
-#define TRIG_GNSS_ANA_CTRL_PRODUCTION_TEST               0x0034   /*  RW  17 bits */
-#define TRIG_GNSS_ANA_CTRL_CSM                           0x0040   /*  RW  26 bits */
-#define TRIG_GNSS_ANA_CTRL_BOXO                          0x0048   /*  RW   6 bits */
-#define TRIG_GNSS_ANA_CTRL_VCO                           0x0050   /*  RW  18 bits */
-#define TRIG_GNSS_ANA_CTRL_DDS                           0x0058   /*  RW  21 bits */
-#define TRIG_GNSS_ANA_CTRL_DDS_RISE1                     0x005C   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_DDS_RISE2                     0x0060   /*  RW  16 bits */
-#define TRIG_GNSS_ANA_CTRL_IFCAL_A                       0x0068   /*  RW  22 bits */
-#define TRIG_GNSS_ANA_CTRL_IFCAL_B                       0x006C   /*  RW  25 bits */
-#define TRIG_GNSS_ANA_CTRL_IFCAL_C                       0x0070   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_RFCAL                         0x0078   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_ALL_DCOC                      0x0088   /*  RW  10 bits */
-#define TRIG_GNSS_ANA_CTRL_GPS_DCOC                      0x008C   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_GLO_DCOC                      0x0094   /*  RW  32 bits */
-#define TRIG_GNSS_ANA_CTRL_IP2CAL_A                      0x009C   /*  RW  20 bits */
-#define TRIG_GNSS_ANA_CTRL_IP2CAL_B                      0x00A0   /*  RW  29 bits */
+#define TRIG_GNSS_ANA_CTRL_POWER_ENABLES    0x0000   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_BIAS             0x0004   /*  RW  28 bits */
+#define TRIG_GNSS_ANA_CTRL_CLK_A            0x0008   /*  RW  29 bits */
+#define TRIG_GNSS_ANA_CTRL_CLK_B            0x000C   /*  RW  31 bits */
+#define TRIG_GNSS_ANA_CTRL_IFA_ADC          0x0014   /*  RW  13 bits */
+#define TRIG_GNSS_ANA_CTRL_RFA_PWR_DET      0x0018   /*  RW   9 bits */
+#define TRIG_GNSS_ANA_CTRL_TESTA            0x0020   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_TESTB            0x0024   /*  RW  29 bits */
+#define TRIG_GNSS_ANA_CTRL_MIXER            0x0028   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_GLO_AGC          0x002C   /*  RW   9 bits */
+#define TRIG_GNSS_ANA_CTRL_GPS_AGC          0x0030   /*  RW   9 bits */
+#define TRIG_GNSS_ANA_CTRL_PRODUCTION_TEST  0x0034   /*  RW  17 bits */
+#define TRIG_GNSS_ANA_CTRL_CSM              0x0040   /*  RW  26 bits */
+#define TRIG_GNSS_ANA_CTRL_BOXO             0x0048   /*  RW   6 bits */
+#define TRIG_GNSS_ANA_CTRL_VCO              0x0050   /*  RW  18 bits */
+#define TRIG_GNSS_ANA_CTRL_DDS              0x0058   /*  RW  21 bits */
+#define TRIG_GNSS_ANA_CTRL_DDS_RISE1        0x005C   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_DDS_RISE2        0x0060   /*  RW  16 bits */
+#define TRIG_GNSS_ANA_CTRL_IFCAL_A          0x0068   /*  RW  22 bits */
+#define TRIG_GNSS_ANA_CTRL_IFCAL_B          0x006C   /*  RW  25 bits */
+#define TRIG_GNSS_ANA_CTRL_IFCAL_C          0x0070   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_RFCAL            0x0078   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_ALL_DCOC         0x0088   /*  RW  10 bits */
+#define TRIG_GNSS_ANA_CTRL_GPS_DCOC         0x008C   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_GLO_DCOC         0x0094   /*  RW  32 bits */
+#define TRIG_GNSS_ANA_CTRL_IP2CAL_A         0x009C   /*  RW  20 bits */
+#define TRIG_GNSS_ANA_CTRL_IP2CAL_B         0x00A0   /*  RW  29 bits */
 
 /*Addresses of read only registers*/
-#define TRIG_GNSS_ANA_STATUS_RFA_PWR_DET                 0x001C   /*  R    5 bits */
-#define TRIG_GNSS_ANA_STATUS_CHIP_ID                     0x0038   /*  R    8 bits */
-#define TRIG_GNSS_ANA_STATUS_CSM                         0x0044   /*  R   15 bits */
-#define TRIG_GNSS_ANA_STATUS_BOXO                        0x004C   /*  R    6 bits */
-#define TRIG_GNSS_ANA_STATUS_VCO                         0x0054   /*  R   12 bits */
-#define TRIG_GNSS_ANA_STATUS_DDS                         0x0064   /*  R   30 bits */
-#define TRIG_GNSS_ANA_STATUS_IFCAL                       0x0074   /*  R   18 bits */
-#define TRIG_GNSS_ANA_STATUS_RFCAL                       0x007C   /*  R   28 bits */
-#define TRIG_GNSS_ANA_STATUS_GPS_DCOC                    0x0090   /*  R   24 bits */
-#define TRIG_GNSS_ANA_STATUS_GLO_DCOC                    0x0098   /*  R   24 bits */
-#define TRIG_GNSS_ANA_STATUS_IP2CAL_A                    0x00A4   /*  R   24 bits */
-#define TRIG_GNSS_ANA_STATUS_IP2CAL_B                    0x00A8   /*  R   22 bits */
+#define TRIG_GNSS_ANA_STATUS_RFA_PWR_DET    0x001C   /*  R    5 bits */
+#define TRIG_GNSS_ANA_STATUS_CHIP_ID        0x0038   /*  R    8 bits */
+#define TRIG_GNSS_ANA_STATUS_CSM            0x0044   /*  R   15 bits */
+#define TRIG_GNSS_ANA_STATUS_BOXO           0x004C   /*  R    6 bits */
+#define TRIG_GNSS_ANA_STATUS_VCO            0x0054   /*  R   12 bits */
+#define TRIG_GNSS_ANA_STATUS_DDS            0x0064   /*  R   30 bits */
+#define TRIG_GNSS_ANA_STATUS_IFCAL          0x0074   /*  R   18 bits */
+#define TRIG_GNSS_ANA_STATUS_RFCAL          0x007C   /*  R   28 bits */
+#define TRIG_GNSS_ANA_STATUS_GPS_DCOC       0x0090   /*  R   24 bits */
+#define TRIG_GNSS_ANA_STATUS_GLO_DCOC       0x0098   /*  R   24 bits */
+#define TRIG_GNSS_ANA_STATUS_IP2CAL_A       0x00A4   /*  R   24 bits */
+#define TRIG_GNSS_ANA_STATUS_IP2CAL_B       0x00A8   /*  R   22 bits */
 
 #define CWI_SCAN_EN_ONLY  0x00000004
 #define CWI_MON_EN_ONLY   0x00000008
@@ -597,36 +597,37 @@ struct TRIG_PARA_BUF {
 
 struct TRIG_CONFIG_PARAM {
 	/*0--trig, 1--file*/
-	int runningMode;
+	int running_mode;
 	/*0--93, 1--141;*/
-	int triGMode;
-	int triGValidChannelNum;
-	int triGSvId[MAX_GLONASS_CHNUM];
+	int trig_mode;
+	int trig_valid_ch_num;
+	int trig_svid[MAX_GLONASS_CHNUM];
 };
 
 struct TRIG_PARAMETER {
-	int m_gloOffsetinDword;
-	int m_eachGloPacketByte;
-	int m_eachWrAddrIncreaeinSample;
-	int m_packetTimeStamp;
-	int m_gloChNum;
-	int m_fifoNum;
+	int m_glo_offset_in_dword;
+	int m_each_glo_packet_byte;
+	int m_each_wraddr_increae_in_sample;
+	int m_packet_time_stamp;
+	int m_glo_ch_num;
+	int m_fifo_num;
 	/*int m_wrAddrPosition;*/
-	int nextWrAddr[15];
+	int next_wr_addr[15];
 };
 
 struct SDIO_GPS_MSG {
-	unsigned int rtcTick;
-	unsigned int bufAdrs;
-	unsigned int bufLen;
-	bool isAnyLost;
+	unsigned int rtc_tick;
+	unsigned int buf_adrs;
+	unsigned int buf_len;
+	bool is_any_lost;
 };
 
 struct trig_sdio {
 	struct sdio_func *func;
 	struct sdhci_host *host;
-	u32 loopdma_va_buf[2];
+	void *loopdma_va_buf[2];
 	struct cdev cdev;
+	struct device dev;
 };
 
 struct trig_gpios {
@@ -641,9 +642,9 @@ struct trig_dev {
 	struct trig_sdio *ss_trig_sdio;
 	struct task_struct *trigintthread;
 	struct trig_gpios sg_trig_gpios;
-	unsigned long gps_rtc_base;
-	unsigned int pbb_base_addr;
-	unsigned int pbb_phys_addr;
+	u32 gps_rtc_base;
+	void __iomem *pbb_base_addr;
+	u32 pbb_phys_addr;
 
 	unsigned int valid_chan_num;
 	unsigned int thread_exit;
@@ -658,6 +659,5 @@ struct trig_dev {
 	struct TRIG_PARAMETER *trig_param;
 	struct TRIG_CONFIG_PARAM *config_msg_user;
 };
-
 
 #endif

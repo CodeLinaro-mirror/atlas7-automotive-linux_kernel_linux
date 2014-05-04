@@ -171,11 +171,12 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 
 		spin_lock(&schan->lock);
 
-		sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
-			node);
+		sdesc = list_first_entry(&schan->active,
+			struct sirfsoc_dma_desc, node);
 		if (!sdesc->cyclic) {
 			/* Execute queued descriptors */
-			list_splice_tail_init(&schan->active, &schan->completed);
+			list_splice_tail_init(&schan->active,
+				&schan->completed);
 			dma_cookie_complete(&sdesc->desc);
 			if (!list_empty(&schan->queued))
 				sirfsoc_dma_execute(schan);
@@ -232,8 +233,8 @@ static void sirfsoc_dma_process_completed(struct sirfsoc_dma *sdma)
 			}
 
 			/* for cyclic channel, desc is always in active list */
-			sdesc = list_first_entry(&schan->active, struct sirfsoc_dma_desc,
-				node);
+			sdesc = list_first_entry(&schan->active,
+				struct sirfsoc_dma_desc, node);
 
 			/* cyclic DMA */
 			happened_cyclic = schan->happened_cyclic;
@@ -260,7 +261,8 @@ static void sirfsoc_dma_tasklet(unsigned long data)
 /* Submit descriptor to hardware */
 static dma_cookie_t sirfsoc_dma_tx_submit(struct dma_async_tx_descriptor *txd)
 {
-	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(txd->chan);
+	struct sirfsoc_dma_chan *schan =
+		dma_chan_to_sirfsoc_dma_chan(txd->chan);
 	struct sirfsoc_dma_desc *sdesc;
 	unsigned long flags;
 	dma_cookie_t cookie;
@@ -303,8 +305,9 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 	if (!sdma->is_marco) {
 		writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) &
 			~(1 << cid), sdma->base + SIRFSOC_DMA_INT_EN);
-		writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
-			& ~((1 << cid) | 1 << (cid + 16)),
+		writel_relaxed(readl_relaxed(sdma->base +
+			SIRFSOC_DMA_CH_LOOP_CTRL) &
+			~((1 << cid) | 1 << (cid + 16)),
 			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
 	} else {
 		writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_INT_EN_CLR);
@@ -406,7 +409,8 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 	for (i = 0; i < SIRFSOC_DMA_DESCRIPTORS; i++) {
 		sdesc = kzalloc(sizeof(*sdesc), GFP_KERNEL);
 		if (!sdesc) {
-			dev_notice(sdma->dma.dev, "Memory allocation error. "
+			dev_notice(sdma->dma.dev, "Memory allocation error. ");
+			dev_notice(sdma->dma.dev,
 				"Allocated only %u descriptors\n", i);
 			break;
 		}
@@ -641,7 +645,8 @@ err:
 static struct dma_async_tx_descriptor *
 sirfsoc_dma_prep_cyclic(struct dma_chan *chan, dma_addr_t addr,
 	size_t buf_len, size_t period_len,
-	enum dma_transfer_direction direction, unsigned long flags, void *context)
+	enum dma_transfer_direction direction,
+	unsigned long flags, void *context)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc = NULL;
@@ -999,7 +1004,8 @@ static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 }
 
 static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
-	SET_RUNTIME_PM_OPS(sirfsoc_dma_runtime_suspend, sirfsoc_dma_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(sirfsoc_dma_runtime_suspend,
+		sirfsoc_dma_runtime_resume, NULL)
 	.suspend_noirq = sirfsoc_dma_pm_suspend_noirq,
 	.resume_noirq = sirfsoc_dma_pm_resume_noirq,
 	.freeze_noirq = sirfsoc_dma_pm_suspend_noirq,
@@ -1038,7 +1044,7 @@ static void __exit sirfsoc_dma_exit(void)
 subsys_initcall(sirfsoc_dma_init);
 module_exit(sirfsoc_dma_exit);
 
-MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>, "
-	"Barry Song <baohua.song@csr.com>");
+MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>");
+MODULE_AUTHOR("Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("SIRFSOC DMA control driver");
 MODULE_LICENSE("GPL v2");

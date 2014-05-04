@@ -178,13 +178,17 @@
 				compatible = "sirf,prima2-dspif";
 				reg = <0xa8000000 0x10000>;
 				interrupts = <9>;
+				resets = <&rstc 1>;
 			};
 
 			gps@a8010000 {
 				compatible = "sirf,prima2-gps";
 				reg = <0xa8010000 0x10000>;
 				interrupts = <7>;
-				clocks = <&clks 9>;
+				status = "disabled";
+				clocks = <&clks 9>, <&clks 10>, <&clks 12>;
+				clock-names = "gps", "mf", "cpu";
+				resets = <&rstc 2>;
 			};
 
 			dsp@a9000000 {
@@ -192,6 +196,7 @@
 				reg = <0xa9000000 0x1000000>;
 				interrupts = <8>;
 				clocks = <&clks 8>;
+				resets = <&rstc 0>;
 			};
 		};
 
@@ -220,23 +225,18 @@
 				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
 			};
 
-			audiocodec: audiocodec@b0040000 {
-				compatible = "sirf,atlas6-audio-codec";
-				reg = <0xb0040000 0x10000>;
+			audio: audio@b00400e0 {
+				compatible = "sirf,atlas6-audio";
+				reg = <0xb00400e0 0x44>;
 				interrupts = <35>;
-				clocks = <&clks 27>;
-			};
-
-			audioport: audioport@b0040000 {
-				compatible = "sirf,audio-port";
-				reg = <0xb0040000 0x10000>;
 				dmas = <&dmac1 3>, <&dmac1 8>;
 				dma-names = "rx", "tx";
+				clocks = <&clks 27>;
 			};
 
 			i2s: i2s@b0040000 {
 				compatible = "sirf,prima2-i2s";
-				reg = <0xb0040000 0x10000>;
+				reg = <0xb0040000 0xe0>;
 				dmas = <&dmac1 6>, <&dmac1 12>;
 				dma-names = "rx", "tx";
 				clocks = <&clks 27>;
@@ -325,6 +325,7 @@
 				clocks = <&clks 31>;
 				interrupts = <14>;
 				sirf,vip-dma-rx-channel = <16>;
+				sirf,vip_cma_size = <0xC00000>;
 			};
 
 			spi0: spi@b00d0000 {
@@ -379,11 +380,13 @@
 				clocks = <&clks 18>;
 			};
 
-			adc@b0110000 {
+			adc: adc@b0110000 {
 				compatible = "sirf,prima2-adc";
 				reg = <0xb0110000 0x10000>;
 				interrupts = <34>;
 				clocks = <&clks 16>;
+				resets = <&rstc 32>;
+				#io-channel-cells = <1>;
 			};
 
 			gpio: pinctrl@b0120000 {
@@ -551,6 +554,18 @@
                                                 sirf,function = "sdmmc5";
                                         };
                                 };
+				i2s_mclk_pins_a: i2s_mclk@0 {
+                                        i2s_mclk {
+                                                sirf,pins = "i2smclkgrp";
+                                                sirf,function = "i2s_mclk";
+                                        };
+                                };
+				i2s_ext_clk_input_pins_a: i2s_ext_clk_input@0 {
+                                        i2s_ext_clk_input {
+                                                sirf,pins = "i2s_ext_clk_inputgrp";
+                                                sirf,function = "i2s_ext_clk_input";
+                                        };
+                                };
                                 i2s_pins_a: i2s@0 {
                                         i2s {
                                                 sirf,pins = "i2sgrp";
@@ -672,8 +687,10 @@
 				compatible = "sirf,prima2-pwm";
 				#pwm-cells = <2>;
 				reg = <0xb0130000 0x10000>;
-				clocks = <&clks 21>, <&clks 1>, <&clks 0>;
-				clock-names = "pwmc", "sigsrc0", "sigsrc3";
+				clocks = <&clks 21>, <&clks 1>, <&clks 2>,
+					<&clks 3>, <&clks 0>, <&clks 4>;
+				clock-names = "pwmc", "sigsrc0", "sigsrc1",
+					"sigsrc2", "sigsrc3", "sigsrc4";
 			};
 
 			efusesys@b0140000 {
@@ -741,6 +758,7 @@
 				sd5: sdhci@56500000 {
 					cell-index = <5>;
 					compatible = "sirf,prima2-sdhc";
+					loop-dma;
 					reg = <0x56500000 0x100000>;
 					interrupts = <39>;
 					status = "disabled";
@@ -805,6 +823,7 @@
 				phy_type = "ulpi";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usb0_upli_drvbus_pins_a>;
+				status = "disabled";
 			};
 
 			usbcontroller0: usbcontroller0@b8000000 {
@@ -814,6 +833,7 @@
 				clocks = <&clks 40>;
 				resets = <&rstc 8>;
 				usbphy = <&usbphy0>;
+				status = "disabled";
 			};
 
 			usbphy1: usbphy1@b8010200 {

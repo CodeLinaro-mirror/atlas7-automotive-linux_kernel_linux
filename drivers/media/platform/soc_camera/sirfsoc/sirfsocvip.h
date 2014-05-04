@@ -53,6 +53,13 @@ struct sirfsoc_camera_platform_data {
 	unsigned long sirfsoc_camera_single:1;
 };
 
+struct rearview_data {
+	unsigned long		dma_size;
+	void			*base;
+	unsigned long           dma_addr;
+	unsigned                gpio;
+};
+
 struct sirfsoc_camera_dev {
 	struct device		*dev;
 	/* current active device (At a time sirfsoc is only supposed to
@@ -89,9 +96,7 @@ struct sirfsoc_camera_dev {
 	struct sirfsoc_decoder_ops      *vip_decoder_ops;
 	struct sirfsoc_decoder_ops      *rearview_decoder_ops;
 
-	/* start address of dma buf reserved for rearview */
-	unsigned long		rearview_dma_addr;
-	unsigned		rearview_gpio;
+	struct rearview_data	rearview;
 
 	/* callbacks filled by vip, rearview--->vip */
 	void (*save_vip_context)(void *data);

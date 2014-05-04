@@ -1,10 +1,9 @@
 obj-y += rstc.o
 obj-y += common.o
 obj-y += rtciobrg.o
+obj-y += camera.o
 
-obj-$(CONFIG_VIDEO_SIRFSOC_VIP)         += camera.o
 obj-$(CONFIG_DEBUG_LL) += lluart.o
-obj-$(CONFIG_CACHE_L2X0) += l2x0.o
 obj-$(CONFIG_SUSPEND) += pm.o sleep-prima2.o sleep-marco.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_HOTPLUG_CPU)  += hotplug.o

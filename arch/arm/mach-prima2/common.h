@@ -1,5 +1,6 @@
 /*
- * This file contains common function prototypes to avoid externs in the c files.
+ * This file contains common function prototypes to
+ *	avoid externs in the c files.
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -24,8 +25,6 @@ extern void sirfsoc_cpu_die(unsigned int cpu);
 
 extern int __init sirfsoc_add_camera_pdev(void);
 extern void __init sirfsoc_of_irq_init(void);
-extern void sirfsoc_restart(enum reboot_mode, const char *);
-extern asmlinkage void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs);
 #ifdef CONFIG_FB_SIRF
 extern void sirfsoc_fb_reserve_memblock(void);
 #else
@@ -33,6 +32,9 @@ static inline void sirfsoc_fb_reserve_memblock(void)
 {
 }
 #endif
+extern void sirfsoc_restart(char, const char *);
+extern asmlinkage void __exception_irq_entry
+	sirfsoc_handle_irq(struct pt_regs *regs);
 
 #ifdef CONFIG_GPS_SIRFSOC
 extern void sirfsoc_gps_reserve_memblock(void);
@@ -54,14 +56,6 @@ static inline void sirfsoc_pbb_reserve_memblock(void)
 {
 }
 static inline void sirfsoc_pbb_nosave_memblock(void)
-{
-}
-#endif
-
-#ifdef CONFIG_VIDEO_SIRFSOC_VIP
-extern void sirfsoc_vip_reserve_memblock(void);
-#else
-static inline void sirfsoc_vip_reserve_memblock(void)
 {
 }
 #endif

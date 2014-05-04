@@ -80,7 +80,9 @@ struct sirfsoc_i2c {
 
 	u32 sda_delay;		/* For suspend/resume */
 	u32 clk_div;
-	int last;		/* Last message in transfer, STOP cmd can be sent */
+
+	/* Last message in transfer, STOP cmd can be sent */
+	int last;
 
 	struct completion done;	/* indicates completion of message transfer */
 	struct i2c_adapter adapter;
@@ -172,7 +174,8 @@ static irqreturn_t i2c_sirfsoc_irq(int irq, void *dev_id)
 		else /* Fill a new CMD buffer for left data */
 			i2c_sirfsoc_queue_cmd(siic);
 
-		writel(SIRFSOC_I2C_STAT_CMD_DONE, siic->base + SIRFSOC_I2C_STATUS);
+		writel(SIRFSOC_I2C_STAT_CMD_DONE,
+			siic->base + SIRFSOC_I2C_STATUS);
 	}
 
 	return IRQ_HANDLED;
@@ -182,7 +185,8 @@ static void i2c_sirfsoc_set_address(struct sirfsoc_i2c *siic,
 	struct i2c_msg *msg)
 {
 	unsigned char addr;
-	u32 regval = SIRFSOC_I2C_START | SIRFSOC_I2C_CMD_RP(0) | SIRFSOC_I2C_WRITE;
+	u32 regval = SIRFSOC_I2C_START | SIRFSOC_I2C_CMD_RP(0) |
+		SIRFSOC_I2C_WRITE;
 
 	/* no data and last message -> add STOP */
 	if (siic->last && (msg->len == 0))
@@ -478,6 +482,6 @@ subsys_initcall(i2c_sirfsoc_init);
 module_exit(i2c_sirfsoc_exit);
 
 MODULE_DESCRIPTION("SiRF SoC I2C master controller driver");
-MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>, "
-	"Xiangzhen Ye <Xiangzhen.Ye@csr.com>");
+MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>");
+MODULE_AUTHOR("Xiangzhen Ye <Xiangzhen.Ye@csr.com>");
 MODULE_LICENSE("GPL v2");

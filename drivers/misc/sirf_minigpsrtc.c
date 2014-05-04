@@ -43,8 +43,7 @@ static unsigned int  minigpsdata_mmc_base = 0x00b00000;
 
 static int param_set_minigpsinfo(const char *val, struct kernel_param *kp)
 {
-	kstrtoul(val, 0, (unsigned long *)kp->arg);
-	return 0;
+	return kstrtoul(val, 0, (unsigned long *)kp->arg);
 }
 module_param_call(minigps_data_offset,
 		param_set_minigpsinfo, NULL, &minigpsdata_mmc_base, 0);

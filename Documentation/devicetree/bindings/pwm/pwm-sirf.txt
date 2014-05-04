@@ -3,20 +3,27 @@ SiRF prima2 & atlas6 PWM drivers
 Required properties:
 - compatible: "sirf,prima2-pwm"
 - reg: physical base address and length of the controller's registers
-- #pwm-cells: should be 2.  The first cell specifies the per-chip index
-  of the PWM to use and the second cell is the period in nanoseconds.
-- clocks: from common clock binding: the 1st clock is for PWM controller
-  the other clocks are the sources to generate PWM signals
-- clock-names : The first one is the name of the clock for PWM, others
-  are names of clock sources to generate PWM signal. So the first one
-  is "pwmc", others will have names like "sigsrc0"~"sigsrc4".
-
+- #pwm-cells: should be 2. See pwm.txt in this directory for a description of
+  the cells format.
+- clocks: Must contain an entry for each entry in clock-names.
+  See ../clock/prima2-clock.txt for details.
+- clock-names: Must include the following entries:
+  of clock sources to generate PWM signal,
+  - pwmc: PWM controller clock
+  - sigsrc0: source clock 0 for PWM
+  - sigsrc1: source clock 1 for PWM
+  - sigsrc2: source clock 2 for PWM
+  - sigsrc3: source clock 3 for PWM
+  - sigsrc4: source clock 4 for PWM
 
 Example:
+
 pwm: pwm@b0130000 {
 	compatible = "sirf,prima2-pwm";
 	#pwm-cells = <2>;
 	reg = <0xb0130000 0x10000>;
-	clocks = <&clks 21>, <&clks 1>, <&clks 0>;
-	clock-names = "pwmc", "sigsrc0", "sigsrc3";
+	clocks = <&clks 21>, <&clks 1>, <&clks 2>,
+	       <&clks 3>, <&clks 0>, <&clks 4>;
+	clock-names = "pwmc", "sigsrc0", "sigsrc1",
+		"sigsrc2", "sigsrc3", "sigsrc4";
 };
