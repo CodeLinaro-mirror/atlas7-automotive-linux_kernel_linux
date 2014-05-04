@@ -31,8 +31,6 @@
 	};
 	sound {
 		compatible = "sirf,sirf-audio-card";
-		sirf,audio-codec = <&audiocodec>;
-		sirf,audio-platform = <&audioport>;
 		hp-pa-gpios = <&gpio 44 0>;
 		spk-pa-gpios = <&gpio 46 0>;
 		hp-switch-gpios = <&gpio 45 0>;
@@ -53,13 +51,6 @@
 		sirf,usp-controller = <&usp0>;
 		bt-sco-master;
 	};
-	hdmi: hdmi {
-		compatible = "hdmi-audio-codec";
-	};
-	sirf-hdmi {
-		compatible = "sirf,hdmi-card";
-		sirf,i2s-controller = <&i2s>;
-		sirf,hdmi-audio-codec = <&hdmi>;
 	hdmi_audio: hdmi_audio@0 {
 		compatible = "linux,hdmi-audio";
 		status = "okay";
