@@ -462,8 +462,8 @@ static int spi_sirfsoc_transfer(struct spi_device *spi, struct spi_transfer *t)
 	sspi->tx = t->tx_buf ? t->tx_buf : sspi->dummypage;
 	sspi->rx = t->rx_buf ? t->rx_buf : sspi->dummypage;
 	sspi->left_tx_word = sspi->left_rx_word = t->len / sspi->word_width;
-	INIT_COMPLETION(sspi->rx_done);
-	INIT_COMPLETION(sspi->tx_done);
+	reinit_completion(&sspi->rx_done);
+	reinit_completion(&sspi->tx_done);
 	/*
 	 * in the transfer, if transfer data using command register with rx_buf
 	 * null, just fill command data into command register and wait for its
