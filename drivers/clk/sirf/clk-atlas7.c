@@ -12,6 +12,7 @@
 #include <linux/clk-provider.h>
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
+#include <linux/slab.h>
 
 #define SIRFSOC_CLKC_MEMPLL_AB_FREQ          0x0000
 #define SIRFSOC_CLKC_MEMPLL_AB_SSC           0x0004
@@ -55,23 +56,155 @@
 #define SIRFSOC_ABPLL_CTRL0_BYPASS   0x00000010
 #define SIRFSOC_ABPLL_CTRL0_RESET    0x00000001
 
-#define SIRFSOC_CLKC_AUDIO_DTO_INC	     0x0088
-#define SIRFSOC_CLKC_DISP0_DTO_INC	     0x008c
-#define SIRFSOC_CLKC_DISP1_DTO_INC	     0x0090
+#define SIRFSOC_CLKC_AUDIO_DTO_INC           0x0088
+#define SIRFSOC_CLKC_DISP0_DTO_INC           0x008c
+#define SIRFSOC_CLKC_DISP1_DTO_INC           0x0090
 
 #define SIRFSOC_CLKC_AUDIO_DTO_SRC           0x0094
-#define SIRFSOC_CLKC_AUDIO_DTO_ENA	     0x0098
-#define SIRFSOC_CLKC_AUDIO_DTO_DROFF	     0x009c
+#define SIRFSOC_CLKC_AUDIO_DTO_ENA           0x0098
+#define SIRFSOC_CLKC_AUDIO_DTO_DROFF         0x009c
 
 #define SIRFSOC_CLKC_DISP0_DTO_SRC           0x00a0
-#define SIRFSOC_CLKC_DISP0_DTO_ENA	     0x00a4
-#define SIRFSOC_CLKC_DISP0_DTO_DROFF	     0x00a8
+#define SIRFSOC_CLKC_DISP0_DTO_ENA           0x00a4
+#define SIRFSOC_CLKC_DISP0_DTO_DROFF         0x00a8
 
 #define SIRFSOC_CLKC_DISP1_DTO_SRC           0x00ac
-#define SIRFSOC_CLKC_DISP1_DTO_ENA	     0x00b0
-#define SIRFSOC_CLKC_DISP1_DTO_DROFF	     0x00b4
+#define SIRFSOC_CLKC_DISP1_DTO_ENA           0x00b0
+#define SIRFSOC_CLKC_DISP1_DTO_DROFF         0x00b4
+
+#define SIRFSOC_CLKC_I2S_CLK_SEL             0x00b8
+#define SIRFSOC_CLKC_I2S_SEL_STAT            0x00bc
+
+#define SIRFSOC_CLKC_USBPHY_CLKDIV_CFG       0x00c0
+#define SIRFSOC_CLKC_USBPHY_CLKDIV_ENA       0x00c4
+#define SIRFSOC_CLKC_USBPHY_CLK_SEL          0x00c8
+#define SIRFSOC_CLKC_USBPHY_CLK_SEL_STAT     0x00cc
+
+#define SIRFSOC_CLKC_BTSS_CLKDIV_CFG         0x00d0
+#define SIRFSOC_CLKC_BTSS_CLKDIV_ENA         0x00d4
+#define SIRFSOC_CLKC_BTSS_CLK_SEL            0x00d8
+#define SIRFSOC_CLKC_BTSS_CLK_SEL_STAT       0x00dc
+
+#define SIRFSOC_CLKC_RGMII_CLKDIV_CFG        0x00e0
+#define SIRFSOC_CLKC_RGMII_CLKDIV_ENA        0x00e4
+#define SIRFSOC_CLKC_RGMII_CLK_SEL           0x00e8
+#define SIRFSOC_CLKC_RGMII_CLK_SEL_STAT      0x00ec
+
+#define SIRFSOC_CLKC_CPU_CLKDIV_CFG          0x00f0
+#define SIRFSOC_CLKC_CPU_CLKDIV_ENA          0x00f4
+#define SIRFSOC_CLKC_CPU_CLK_SEL             0x00f8
+#define SIRFSOC_CLKC_CPU_CLK_SEL_STAT        0x00fc
+
+#define SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG      0x0100
+#define SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA      0x0104
+#define SIRFSOC_CLKC_SDPHY01_CLK_SEL         0x0108
+#define SIRFSOC_CLKC_SDPHY01_CLK_SEL_STAT    0x010c
+
+#define SIRFSOC_CLKC_SDPHY23_CLKDIV_CFG      0x0110
+#define SIRFSOC_CLKC_SDPHY23_CLKDIV_ENA      0x0114
+#define SIRFSOC_CLKC_SDPHY23_CLK_SEL         0x0118
+#define SIRFSOC_CLKC_SDPHY23_CLK_SEL_STAT    0x011c
+
+#define SIRFSOC_CLKC_SDPHY45_CLKDIV_CFG      0x0120
+#define SIRFSOC_CLKC_SDPHY45_CLKDIV_ENA      0x0124
+#define SIRFSOC_CLKC_SDPHY45_CLK_SEL         0x0128
+#define SIRFSOC_CLKC_SDPHY45_CLK_SEL_STAT    0x012c
+
+#define SIRFSOC_CLKC_SDPHY67_CLKDIV_CFG      0x0130
+#define SIRFSOC_CLKC_SDPHY67_CLKDIV_ENA      0x0134
+#define SIRFSOC_CLKC_SDPHY67_CLK_SEL         0x0138
+#define SIRFSOC_CLKC_SDPHY67_CLK_SEL_STAT    0x013c
+
+#define SIRFSOC_CLKC_CAN_CLKDIV_CFG          0x0140
+#define SIRFSOC_CLKC_CAN_CLKDIV_ENA          0x0144
+#define SIRFSOC_CLKC_CAN_CLK_SEL             0x0148
+#define SIRFSOC_CLKC_CAN_CLK_SEL_STAT        0x014c
+
+#define SIRFSOC_CLKC_DEINT_CLKDIV_CFG        0x0150
+#define SIRFSOC_CLKC_DEINT_CLKDIV_ENA        0x0154
+#define SIRFSOC_CLKC_DEINT_CLK_SEL           0x0158
+#define SIRFSOC_CLKC_DEINT_CLK_SEL_STAT      0x015c
+
+#define SIRFSOC_CLKC_NAND_CLKDIV_CFG         0x0160
+#define SIRFSOC_CLKC_NAND_CLKDIV_ENA         0x0164
+#define SIRFSOC_CLKC_NAND_CLK_SEL            0x0168
+#define SIRFSOC_CLKC_NAND_CLK_SEL_STAT       0x016c
+
+#define SIRFSOC_CLKC_DISP0_CLKDIV_CFG        0x0170
+#define SIRFSOC_CLKC_DISP0_CLKDIV_ENA        0x0174
+#define SIRFSOC_CLKC_DISP0_CLK_SEL           0x0178
+#define SIRFSOC_CLKC_DISP0_CLK_SEL_STAT      0x017c
+
+#define SIRFSOC_CLKC_DISP1_CLKDIV_CFG        0x0180
+#define SIRFSOC_CLKC_DISP1_CLKDIV_ENA        0x0184
+#define SIRFSOC_CLKC_DISP1_CLK_SEL           0x0188
+#define SIRFSOC_CLKC_DISP1_CLK_SEL_STAT      0x018c
+
+#define SIRFSOC_CLKC_GPU_CLKDIV_CFG          0x0190
+#define SIRFSOC_CLKC_GPU_CLKDIV_ENA          0x0194
+#define SIRFSOC_CLKC_GPU_CLK_SEL             0x0198
+#define SIRFSOC_CLKC_GPU_CLK_SEL_STAT        0x019c
+
+#define SIRFSOC_CLKC_GNSS_CLKDIV_CFG         0x01a0
+#define SIRFSOC_CLKC_GNSS_CLKDIV_ENA         0x01a4
+#define SIRFSOC_CLKC_GNSS_CLK_SEL            0x01a8
+#define SIRFSOC_CLKC_GNSS_CLK_SEL_STAT       0x01ac
+
+#define SIRFSOC_CLKC_SHARED_DIVIDER_CFG0     0x01b0
+#define SIRFSOC_CLKC_SHARED_DIVIDER_CFG1     0x01b4
+#define SIRFSOC_CLKC_SHARED_DIVIDER_ENA      0x01b8
+
+#define SIRFSOC_CLKC_SYS_CLK_SEL             0x01bc
+#define SIRFSOC_CLKC_SYS_CLK_SEL_STAT        0x01c0
+#define SIRFSOC_CLKC_IO_CLK_SEL              0x01c4
+#define SIRFSOC_CLKC_IO_CLK_SEL_STAT         0x01c8
+#define SIRFSOC_CLKC_G2D_CLK_SEL             0x01cc
+#define SIRFSOC_CLKC_G2D_CLK_SEL_STAT        0x01d0
+#define SIRFSOC_CLKC_JPENC_CLK_SEL           0x01d4
+#define SIRFSOC_CLKC_JPENC_CLK_SEL_STAT      0x01d8
+#define SIRFSOC_CLKC_VDEC_CLK_SEL            0x01dc
+#define SIRFSOC_CLKC_VDEC_CLK_SEL_STAT       0x01e0
+#define SIRFSOC_CLKC_GMAC_CLK_SEL            0x01e4
+#define SIRFSOC_CLKC_GMAC_CLK_SEL_STAT       0x01e8
+#define SIRFSOC_CLKC_USB_CLK_SEL             0x01ec
+#define SIRFSOC_CLKC_USB_CLK_SEL_STAT        0x01f0
+#define SIRFSOC_CLKC_KAS_CLK_SEL             0x01f4
+#define SIRFSOC_CLKC_KAS_CLK_SEL_STAT        0x01f8
+#define SIRFSOC_CLKC_SEC_CLK_SEL             0x01fc
+#define SIRFSOC_CLKC_SEC_CLK_SEL_STAT        0x0200
+#define SIRFSOC_CLKC_SDR_CLK_SEL             0x0204
+#define SIRFSOC_CLKC_SDR_CLK_SEL_STAT        0x0208
+#define SIRFSOC_CLKC_VIP_CLK_SEL             0x020c
+#define SIRFSOC_CLKC_VIP_CLK_SEL_STAT        0x0210
+#define SIRFSOC_CLKC_NOCD_CLK_SEL            0x0214
+#define SIRFSOC_CLKC_NOCD_CLK_SEL_STAT       0x0218
+#define SIRFSOC_CLKC_NOCR_CLK_SEL            0x021c
+#define SIRFSOC_CLKC_NOCR_CLK_SEL_STAT       0x0220
+#define SIRFSOC_CLKC_TPIU_CLK_SEL            0x0224
+#define SIRFSOC_CLKC_TPIU_CLK_SEL_STAT       0x0228
+
+#define SIRFSOC_CLKC_ROOT_CLK_EN0_SET        0x022c
+#define SIRFSOC_CLKC_ROOT_CLK_EN0_CLR        0x0230
+#define SIRFSOC_CLKC_ROOT_CLK_EN0_STAT       0x0234
+#define SIRFSOC_CLKC_ROOT_CLK_EN1_SET        0x0238
+#define SIRFSOC_CLKC_ROOT_CLK_EN1_CLR        0x023c
+#define SIRFSOC_CLKC_ROOT_CLK_EN1_STAT       0x0240
+
+#define SIRFSOC_CLKC_LEAF_CLK_EN0_SET        0x0244
+#define SIRFSOC_CLKC_LEAF_CLK_EN0_CLR        0x0248
+#define SIRFSOC_CLKC_LEAF_CLK_EN0_STAT       0x024c
+
+#define SIRFSOC_CLKC_LEAF_CLK_EN1_SET        0x04a0
+#define SIRFSOC_CLKC_LEAF_CLK_EN2_SET        0x04b8
+#define SIRFSOC_CLKC_LEAF_CLK_EN3_SET        0x04d0
+#define SIRFSOC_CLKC_LEAF_CLK_EN4_SET        0x04e8
+#define SIRFSOC_CLKC_LEAF_CLK_EN5_SET        0x0500
+#define SIRFSOC_CLKC_LEAF_CLK_EN6_SET        0x0518
+#define SIRFSOC_CLKC_LEAF_CLK_EN7_SET        0x0530
+#define SIRFSOC_CLKC_LEAF_CLK_EN8_SET        0x0548
 
 static void *sirfsoc_clk_vbase, *sirfsoc_clk_vbase;
+static struct clk_onecell_data clk_data;
 
 static const struct clk_div_table pll_div_table[] = {
 	{ .val = 0, .div = 1 },
@@ -95,6 +228,48 @@ struct clk_dto {
 };
 #define to_dtoclk(_hw) container_of(_hw, struct clk_dto, hw)
 
+struct clk_unit {
+	struct clk_hw hw;
+	unsigned short regofs;
+	unsigned short bit;
+	spinlock_t *lock;
+};
+#define to_unitclk(_hw) container_of(_hw, struct clk_unit, hw)
+
+struct atlas7_div_init_data {
+	const char *div_name;
+	const char *parent_name;
+	const char *gate_name;
+	unsigned long flags;
+	u8 divider_flags;
+	u8 gate_flags;
+	u32 div_offset;
+	u8 shift;
+	u8 width;
+	u32 gate_offset;
+	u8 gate_bit;
+	spinlock_t *lock;
+};
+
+struct atlas7_mux_init_data {
+	const char *mux_name;
+	const char **parent_names;
+	u8 parent_num;
+	unsigned long flags;
+	u8 mux_flags;
+	u32 mux_offset;
+	u8 shift;
+	u8 width;
+};
+
+struct atlas7_unit_init_data {
+	const char *unit_name;
+	const char *parent_name;
+	unsigned long flags;
+	u32 regofs;
+	u8 bit;
+	spinlock_t *lock;
+};
 
 static DEFINE_SPINLOCK(cpupll_ctrl1_lock);
 static DEFINE_SPINLOCK(mempll_ctrl1_lock);
@@ -102,6 +277,34 @@ static DEFINE_SPINLOCK(sys0pll_ctrl1_lock);
 static DEFINE_SPINLOCK(sys1pll_ctrl1_lock);
 static DEFINE_SPINLOCK(sys2pll_ctrl1_lock);
 static DEFINE_SPINLOCK(sys3pll_ctrl1_lock);
+static DEFINE_SPINLOCK(usbphy_div_lock);
+static DEFINE_SPINLOCK(btss_div_lock);
+static DEFINE_SPINLOCK(rgmii_div_lock);
+static DEFINE_SPINLOCK(cpu_div_lock);
+static DEFINE_SPINLOCK(sdphy01_div_lock);
+static DEFINE_SPINLOCK(sdphy23_div_lock);
+static DEFINE_SPINLOCK(sdphy45_div_lock);
+static DEFINE_SPINLOCK(sdphy67_div_lock);
+static DEFINE_SPINLOCK(can_div_lock);
+static DEFINE_SPINLOCK(deint_div_lock);
+static DEFINE_SPINLOCK(nand_div_lock);
+static DEFINE_SPINLOCK(disp0_div_lock);
+static DEFINE_SPINLOCK(disp1_div_lock);
+static DEFINE_SPINLOCK(gpu_div_lock);
+static DEFINE_SPINLOCK(gnss_div_lock);
+/* gate register shared */
+static DEFINE_SPINLOCK(share_div_lock);
+static DEFINE_SPINLOCK(root0_gate_lock);
+static DEFINE_SPINLOCK(root1_gate_lock);
+static DEFINE_SPINLOCK(leaf0_gate_lock);
+static DEFINE_SPINLOCK(leaf1_gate_lock);
+static DEFINE_SPINLOCK(leaf2_gate_lock);
+static DEFINE_SPINLOCK(leaf3_gate_lock);
+static DEFINE_SPINLOCK(leaf4_gate_lock);
+static DEFINE_SPINLOCK(leaf5_gate_lock);
+static DEFINE_SPINLOCK(leaf6_gate_lock);
+static DEFINE_SPINLOCK(leaf7_gate_lock);
+static DEFINE_SPINLOCK(leaf8_gate_lock);
 
 static inline unsigned long clkc_readl(unsigned reg)
 {
@@ -309,7 +512,7 @@ static long dto_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 static int dto_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long parent_rate)
 {
-	u64 dividend = rate * 1 << 29;
+	u64 dividend = rate * (1 << 29);
 	struct clk_dto *clk = to_dtoclk(hw);
 
 	do_div(dividend, parent_rate);
@@ -431,19 +634,94 @@ static const char *pwm3_clk_parents[] = {
 	"sys3pll_clk2",
 };
 
+static __initdata struct atlas7_div_init_data divider_list[] = {
+	/* div_name, parent_name, gate_name, clk_flag, divider_flag, gate_flag, div_offset, shift, wdith, gate_offset, bit_enable, lock */
+	{"sys0pll_qa1", "sys0pll_fixdiv", "sys0pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 0, &usbphy_div_lock},
+	{"sys1pll_qa1", "sys1pll_fixdiv", "sys1pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 4, &usbphy_div_lock},
+	{"sys2pll_qa1", "sys2pll_fixdiv", "sys2pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 8, &usbphy_div_lock},
+	{"sys3pll_qa1", "sys3pll_fixdiv", "sys3pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 12, &usbphy_div_lock},
+	{"sys0pll_qa2", "sys0pll_fixdiv", "sys0pll_a2", 0, 0, 0, SIRFSOC_CLKC_BTSS_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_BTSS_CLKDIV_ENA, 0, &btss_div_lock},
+	{"sys1pll_qa2", "sys1pll_fixdiv", "sys1pll_a2", 0, 0, 0, SIRFSOC_CLKC_BTSS_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_BTSS_CLKDIV_ENA, 4, &btss_div_lock},
+	{"sys2pll_qa2", "sys2pll_fixdiv", "sys2pll_a2", 0, 0, 0, SIRFSOC_CLKC_BTSS_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_BTSS_CLKDIV_ENA, 8, &btss_div_lock},
+	{"sys3pll_qa2", "sys3pll_fixdiv", "sys3pll_a2", 0, 0, 0, SIRFSOC_CLKC_BTSS_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_BTSS_CLKDIV_ENA, 12, &btss_div_lock},
+	{"sys0pll_qa3", "sys0pll_fixdiv", "sys0pll_a3", 0, 0, 0, SIRFSOC_CLKC_RGMII_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_RGMII_CLKDIV_ENA, 0, &rgmii_div_lock},
+	{"sys1pll_qa3", "sys1pll_fixdiv", "sys1pll_a3", 0, 0, 0, SIRFSOC_CLKC_RGMII_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_RGMII_CLKDIV_ENA, 4, &rgmii_div_lock},
+	{"sys2pll_qa3", "sys2pll_fixdiv", "sys2pll_a3", 0, 0, 0, SIRFSOC_CLKC_RGMII_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_RGMII_CLKDIV_ENA, 8, &rgmii_div_lock},
+	{"sys3pll_qa3", "sys3pll_fixdiv", "sys3pll_a3", 0, 0, 0, SIRFSOC_CLKC_RGMII_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_RGMII_CLKDIV_ENA, 12, &rgmii_div_lock},
+	{"sys0pll_qa4", "sys0pll_fixdiv", "sys0pll_a4", 0, 0, 0, SIRFSOC_CLKC_CPU_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_CPU_CLKDIV_ENA, 0, &cpu_div_lock},
+	{"sys1pll_qa4", "sys1pll_fixdiv", "sys1pll_a4", 0, 0, 0, SIRFSOC_CLKC_CPU_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_CPU_CLKDIV_ENA, 4, &cpu_div_lock},
+	{"sys0pll_qa5", "sys0pll_fixdiv", "sys0pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 0, &sdphy01_div_lock},
+	{"sys1pll_qa5", "sys1pll_fixdiv", "sys1pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 4, &sdphy01_div_lock},
+	{"sys2pll_qa5", "sys2pll_fixdiv", "sys2pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 8, &sdphy01_div_lock},
+	{"sys3pll_qa5", "sys3pll_fixdiv", "sys3pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 12, &sdphy01_div_lock},
+	{"sys0pll_qa6", "sys0pll_fixdiv", "sys0pll_a6", 0, 0, 0, SIRFSOC_CLKC_SDPHY23_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_SDPHY23_CLKDIV_ENA, 0, &sdphy23_div_lock},
+	{"sys1pll_qa6", "sys1pll_fixdiv", "sys1pll_a6", 0, 0, 0, SIRFSOC_CLKC_SDPHY23_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_SDPHY23_CLKDIV_ENA, 4, &sdphy23_div_lock},
+	{"sys2pll_qa6", "sys2pll_fixdiv", "sys2pll_a6", 0, 0, 0, SIRFSOC_CLKC_SDPHY23_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_SDPHY23_CLKDIV_ENA, 8, &sdphy23_div_lock},
+	{"sys3pll_qa6", "sys3pll_fixdiv", "sys3pll_a6", 0, 0, 0, SIRFSOC_CLKC_SDPHY23_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_SDPHY23_CLKDIV_ENA, 12, &sdphy23_div_lock},
+	{"sys0pll_qa7", "sys0pll_fixdiv", "sys0pll_a7", 0, 0, 0, SIRFSOC_CLKC_SDPHY45_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_SDPHY45_CLKDIV_ENA, 0, &sdphy45_div_lock},
+	{"sys1pll_qa7", "sys1pll_fixdiv", "sys1pll_a7", 0, 0, 0, SIRFSOC_CLKC_SDPHY45_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_SDPHY45_CLKDIV_ENA, 4, &sdphy45_div_lock},
+	{"sys2pll_qa7", "sys2pll_fixdiv", "sys2pll_a7", 0, 0, 0, SIRFSOC_CLKC_SDPHY45_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_SDPHY45_CLKDIV_ENA, 8, &sdphy45_div_lock},
+	{"sys3pll_qa7", "sys3pll_fixdiv", "sys3pll_a7", 0, 0, 0, SIRFSOC_CLKC_SDPHY45_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_SDPHY45_CLKDIV_ENA, 12, &sdphy45_div_lock},
+	{"sys0pll_qa8", "sys0pll_fixdiv", "sys0pll_a8", 0, 0, 0, SIRFSOC_CLKC_SDPHY67_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_SDPHY67_CLKDIV_ENA, 0, &sdphy67_div_lock},
+	{"sys1pll_qa8", "sys1pll_fixdiv", "sys1pll_a8", 0, 0, 0, SIRFSOC_CLKC_SDPHY67_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_SDPHY67_CLKDIV_ENA, 4, &sdphy67_div_lock},
+	{"sys2pll_qa8", "sys2pll_fixdiv", "sys2pll_a8", 0, 0, 0, SIRFSOC_CLKC_SDPHY67_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_SDPHY67_CLKDIV_ENA, 8, &sdphy67_div_lock},
+	{"sys3pll_qa8", "sys3pll_fixdiv", "sys3pll_a8", 0, 0, 0, SIRFSOC_CLKC_SDPHY67_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_SDPHY67_CLKDIV_ENA, 12, &sdphy67_div_lock},
+	{"sys0pll_qa9", "sys0pll_fixdiv", "sys0pll_a9", 0, 0, 0, SIRFSOC_CLKC_CAN_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_CAN_CLKDIV_ENA, 0, &can_div_lock},
+	{"sys1pll_qa9", "sys1pll_fixdiv", "sys1pll_a9", 0, 0, 0, SIRFSOC_CLKC_CAN_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_CAN_CLKDIV_ENA, 4, &can_div_lock},
+	{"sys2pll_qa9", "sys2pll_fixdiv", "sys2pll_a9", 0, 0, 0, SIRFSOC_CLKC_CAN_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_CAN_CLKDIV_ENA, 8, &can_div_lock},
+	{"sys3pll_qa9", "sys3pll_fixdiv", "sys3pll_a9", 0, 0, 0, SIRFSOC_CLKC_CAN_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_CAN_CLKDIV_ENA, 12, &can_div_lock},
+	{"sys0pll_qa10", "sys0pll_fixdiv", "sys0pll_a10", 0, 0, 0, SIRFSOC_CLKC_DEINT_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_DEINT_CLKDIV_ENA, 0, &deint_div_lock},
+	{"sys1pll_qa10", "sys1pll_fixdiv", "sys1pll_a10", 0, 0, 0, SIRFSOC_CLKC_DEINT_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_DEINT_CLKDIV_ENA, 4, &deint_div_lock},
+	{"sys2pll_qa10", "sys2pll_fixdiv", "sys2pll_a10", 0, 0, 0, SIRFSOC_CLKC_DEINT_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_DEINT_CLKDIV_ENA, 8, &deint_div_lock},
+	{"sys3pll_qa10", "sys3pll_fixdiv", "sys3pll_a10", 0, 0, 0, SIRFSOC_CLKC_DEINT_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_DEINT_CLKDIV_ENA, 12, &deint_div_lock},
+	{"sys0pll_qa11", "sys0pll_fixdiv", "sys0pll_a11", 0, 0, 0, SIRFSOC_CLKC_NAND_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_NAND_CLKDIV_ENA, 0, &nand_div_lock},
+	{"sys1pll_qa11", "sys1pll_fixdiv", "sys1pll_a11", 0, 0, 0, SIRFSOC_CLKC_NAND_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_NAND_CLKDIV_ENA, 4, &nand_div_lock},
+	{"sys2pll_qa11", "sys2pll_fixdiv", "sys2pll_a11", 0, 0, 0, SIRFSOC_CLKC_NAND_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_NAND_CLKDIV_ENA, 8, &nand_div_lock},
+	{"sys3pll_qa11", "sys3pll_fixdiv", "sys3pll_a11", 0, 0, 0, SIRFSOC_CLKC_NAND_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_NAND_CLKDIV_ENA, 12, &nand_div_lock},
+	{"sys0pll_qa12", "sys0pll_fixdiv", "sys0pll_a12", 0, 0, 0, SIRFSOC_CLKC_DISP0_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_DISP0_CLKDIV_ENA, 0, &disp0_div_lock},
+	{"sys1pll_qa12", "sys1pll_fixdiv", "sys1pll_a12", 0, 0, 0, SIRFSOC_CLKC_DISP0_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_DISP0_CLKDIV_ENA, 4, &disp0_div_lock},
+	{"sys2pll_qa12", "sys2pll_fixdiv", "sys2pll_a12", 0, 0, 0, SIRFSOC_CLKC_DISP0_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_DISP0_CLKDIV_ENA, 8, &disp0_div_lock},
+	{"sys3pll_qa12", "sys3pll_fixdiv", "sys3pll_a12", 0, 0, 0, SIRFSOC_CLKC_DISP0_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_DISP0_CLKDIV_ENA, 12, &disp0_div_lock},
+	{"sys0pll_qa13", "sys0pll_fixdiv", "sys0pll_a13", 0, 0, 0, SIRFSOC_CLKC_DISP1_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_DISP1_CLKDIV_ENA, 0, &disp1_div_lock},
+	{"sys1pll_qa13", "sys1pll_fixdiv", "sys1pll_a13", 0, 0, 0, SIRFSOC_CLKC_DISP1_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_DISP1_CLKDIV_ENA, 4, &disp1_div_lock},
+	{"sys2pll_qa13", "sys2pll_fixdiv", "sys2pll_a13", 0, 0, 0, SIRFSOC_CLKC_DISP1_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_DISP1_CLKDIV_ENA, 8, &disp1_div_lock},
+	{"sys3pll_qa13", "sys3pll_fixdiv", "sys3pll_a13", 0, 0, 0, SIRFSOC_CLKC_DISP1_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_DISP1_CLKDIV_ENA, 12, &disp1_div_lock},
+	{"sys0pll_qa14", "sys0pll_fixdiv", "sys0pll_a14", 0, 0, 0, SIRFSOC_CLKC_GPU_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_GPU_CLKDIV_ENA, 0, &gpu_div_lock},
+	{"sys1pll_qa14", "sys1pll_fixdiv", "sys1pll_a14", 0, 0, 0, SIRFSOC_CLKC_GPU_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_GPU_CLKDIV_ENA, 4, &gpu_div_lock},
+	{"sys2pll_qa14", "sys2pll_fixdiv", "sys2pll_a14", 0, 0, 0, SIRFSOC_CLKC_GPU_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_GPU_CLKDIV_ENA, 8, &gpu_div_lock},
+	{"sys3pll_qa14", "sys3pll_fixdiv", "sys3pll_a14", 0, 0, 0, SIRFSOC_CLKC_GPU_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_GPU_CLKDIV_ENA, 12, &gpu_div_lock},
+	{"sys0pll_qa15", "sys0pll_fixdiv", "sys0pll_a15", 0, 0, 0, SIRFSOC_CLKC_GNSS_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_GNSS_CLKDIV_ENA, 0, &gnss_div_lock},
+	{"sys1pll_qa15", "sys1pll_fixdiv", "sys1pll_a15", 0, 0, 0, SIRFSOC_CLKC_GNSS_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_GNSS_CLKDIV_ENA, 4, &gnss_div_lock},
+	{"sys2pll_qa15", "sys2pll_fixdiv", "sys2pll_a15", 0, 0, 0, SIRFSOC_CLKC_GNSS_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_GNSS_CLKDIV_ENA, 8, &gnss_div_lock},
+	{"sys3pll_qa15", "sys3pll_fixdiv", "sys3pll_a15", 0, 0, 0, SIRFSOC_CLKC_GNSS_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_GNSS_CLKDIV_ENA, 12, &gnss_div_lock},
+	{"sys1pll_qa18", "sys1pll_fixdiv", "sys1pll_a18", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 24, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 12, &share_div_lock},
+	{"sys1pll_qa19", "sys1pll_fixdiv", "sys1pll_a19", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 16, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 8, &share_div_lock},
+	{"sys1pll_qa20", "sys1pll_fixdiv", "sys1pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 8, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 4, &share_div_lock},
+	{"sys2pll_qa20", "sys2pll_fixdiv", "sys2pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 0, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 0, &share_div_lock},
+	{"sys1pll_qa17", "sys1pll_fixdiv", "sys1pll_a17", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 8, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 20, &share_div_lock},
+	{"sys0pll_qa20", "sys0pll_fixdiv", "sys0pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 0, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 16, &share_div_lock},
+};
+
+static const char *i2s_clk_parents[] = {
+	"xin",
+	"xinw",
+	"audio_dto",
+	/* "pwm_i2s01" */
+};
+
 static const char *usbphy_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a1"
+	"sys0pll_a1",
 	"sys1pll_a1",
 	"sys2pll_a1",
 	"sys3pll_a1",
 };
 
-static const char *bt_clk_parents[] = {
+static const char *btss_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a2"
+	"sys0pll_a2",
 	"sys1pll_a2",
 	"sys2pll_a2",
 	"sys3pll_a2",
@@ -452,7 +730,7 @@ static const char *bt_clk_parents[] = {
 static const char *rgmii_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a3"
+	"sys0pll_a3",
 	"sys1pll_a3",
 	"sys2pll_a3",
 	"sys3pll_a3",
@@ -461,15 +739,15 @@ static const char *rgmii_clk_parents[] = {
 static const char *cpu_clk_parents[] = {
 	"xin",
 	"xinw",
-	"cpupll_clk1"
 	"sys0pll_a4",
 	"sys1pll_a4",
+	"cpupll_clk1",
 };
 
 static const char *sdphy01_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a5"
+	"sys0pll_a5",
 	"sys1pll_a5",
 	"sys2pll_a5",
 	"sys3pll_a5",
@@ -478,7 +756,7 @@ static const char *sdphy01_clk_parents[] = {
 static const char *sdphy23_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a6"
+	"sys0pll_a6",
 	"sys1pll_a6",
 	"sys2pll_a6",
 	"sys3pll_a6",
@@ -487,7 +765,7 @@ static const char *sdphy23_clk_parents[] = {
 static const char *sdphy45_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a7"
+	"sys0pll_a7",
 	"sys1pll_a7",
 	"sys2pll_a7",
 	"sys3pll_a7",
@@ -496,7 +774,7 @@ static const char *sdphy45_clk_parents[] = {
 static const char *sdphy67_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a8"
+	"sys0pll_a8",
 	"sys1pll_a8",
 	"sys2pll_a8",
 	"sys3pll_a8",
@@ -505,7 +783,7 @@ static const char *sdphy67_clk_parents[] = {
 static const char *can_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a9"
+	"sys0pll_a9",
 	"sys1pll_a9",
 	"sys2pll_a9",
 	"sys3pll_a9",
@@ -514,7 +792,7 @@ static const char *can_clk_parents[] = {
 static const char *deint_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a10"
+	"sys0pll_a10",
 	"sys1pll_a10",
 	"sys2pll_a10",
 	"sys3pll_a10",
@@ -523,26 +801,26 @@ static const char *deint_clk_parents[] = {
 static const char *nand_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a11"
+	"sys0pll_a11",
 	"sys1pll_a11",
 	"sys2pll_a11",
 	"sys3pll_a11",
 };
 
-static const char *disp0vpp0_clk_parents[] = {
+static const char *disp0_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a12"
+	"sys0pll_a12",
 	"sys1pll_a12",
 	"sys2pll_a12",
 	"sys3pll_a12",
 	"disp0_dto",
 };
 
-static const char *disp1vpp1_clk_parents[] = {
+static const char *disp1_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a13"
+	"sys0pll_a13",
 	"sys1pll_a13",
 	"sys2pll_a13",
 	"sys3pll_a13",
@@ -552,7 +830,7 @@ static const char *disp1vpp1_clk_parents[] = {
 static const char *gpu_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a14"
+	"sys0pll_a14",
 	"sys1pll_a14",
 	"sys2pll_a14",
 	"sys3pll_a14",
@@ -561,43 +839,10 @@ static const char *gpu_clk_parents[] = {
 static const char *gnss_clk_parents[] = {
 	"xin",
 	"xinw",
-	"sys0pll_a15"
+	"sys0pll_a15",
 	"sys1pll_a15",
 	"sys2pll_a15",
 	"sys3pll_a15",
-};
-
-static const char *spar1_clk_parents[] = {
-	"xin",
-	"xinw",
-	"sys0pll_a16"
-	"sys1pll_a16",
-	"sys2pll_16",
-	"sys3pll_a16",
-};
-
-static const char *sys0a20_clk_parents[] = {
-	"sys0pll_fixdiv",
-};
-
-static const char *sys1a17_clk_parents[] = {
-	"sys1pll_fixdiv",
-};
-
-static const char *sys1a18_clk_parents[] = {
-	"sys1pll_fixdiv",
-};
-
-static const char *sys1a19_clk_parents[] = {
-	"sys1pll_fixdiv",
-};
-
-static const char *sys1a20_clk_parents[] = {
-	"sys1pll_fixdiv",
-};
-
-static const char *sys2a20_clk_parents[] = {
-	"sys2pll_fixdiv",
 };
 
 static const char *sys_clk_parents[] = {
@@ -633,7 +878,7 @@ static const char *g2d_clk_parents[] = {
 	"sys2pll_a20",
 };
 
-static const char *jpegc_clk_parents[] = {
+static const char *jpenc_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a20",
@@ -754,17 +999,300 @@ static const char *tpiu_clk_parents[] = {
 	"sys2pll_a20",
 };
 
+static __initdata struct atlas7_mux_init_data mux_list[] = {
+	/* mux_name, parent_names, parent_num, flags, mux_flags, mux_offset, shift, width */
+	{"i2s_mux", i2s_clk_parents, ARRAY_SIZE(i2s_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 2},
+	{"usbphy_mux", usbphy_clk_parents, ARRAY_SIZE(usbphy_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 3},
+	{"btss_mux", btss_clk_parents, ARRAY_SIZE(btss_clk_parents), 0, 0, SIRFSOC_CLKC_BTSS_CLK_SEL, 0, 3},
+	{"rgmii_mux", rgmii_clk_parents, ARRAY_SIZE(rgmii_clk_parents), 0, 0, SIRFSOC_CLKC_RGMII_CLK_SEL, 0, 3},
+	{"cpu_mux", cpu_clk_parents, ARRAY_SIZE(cpu_clk_parents), 0, 0, SIRFSOC_CLKC_CPU_CLK_SEL, 0, 3},
+	{"sdphy01_mux", sdphy01_clk_parents, ARRAY_SIZE(sdphy01_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY01_CLK_SEL, 0, 3},
+	{"sdphy23_mux", sdphy23_clk_parents, ARRAY_SIZE(sdphy23_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY23_CLK_SEL, 0, 3},
+	{"sdphy45_mux", sdphy45_clk_parents, ARRAY_SIZE(sdphy45_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY45_CLK_SEL, 0, 3},
+	{"sdphy67_mux", sdphy67_clk_parents, ARRAY_SIZE(sdphy67_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY67_CLK_SEL, 0, 3},
+	{"can_mux", can_clk_parents, ARRAY_SIZE(can_clk_parents), 0, 0, SIRFSOC_CLKC_CAN_CLK_SEL, 0, 3},
+	{"deint_mux", deint_clk_parents, ARRAY_SIZE(deint_clk_parents), 0, 0, SIRFSOC_CLKC_DEINT_CLK_SEL, 0, 3},
+	{"nand_mux", nand_clk_parents, ARRAY_SIZE(nand_clk_parents), 0, 0, SIRFSOC_CLKC_NAND_CLK_SEL, 0, 3},
+	{"disp0_mux", disp0_clk_parents, ARRAY_SIZE(disp0_clk_parents), 0, 0, SIRFSOC_CLKC_DISP0_CLK_SEL, 0, 3},
+	{"disp1_mux", disp1_clk_parents, ARRAY_SIZE(disp1_clk_parents), 0, 0, SIRFSOC_CLKC_DISP1_CLK_SEL, 0, 3},
+	{"gpu_mux", gpu_clk_parents, ARRAY_SIZE(gpu_clk_parents), 0, 0, SIRFSOC_CLKC_GPU_CLK_SEL, 0, 3},
+	{"gnss_mux", gnss_clk_parents, ARRAY_SIZE(gnss_clk_parents), 0, 0, SIRFSOC_CLKC_GNSS_CLK_SEL, 0, 3},
+	{"sys_mux", sys_clk_parents, ARRAY_SIZE(sys_clk_parents), 0, 0, SIRFSOC_CLKC_SYS_CLK_SEL, 0, 3},
+	{"io_mux", io_clk_parents, ARRAY_SIZE(io_clk_parents), 0, 0, SIRFSOC_CLKC_IO_CLK_SEL, 0, 3},
+	{"g2d_mux", g2d_clk_parents, ARRAY_SIZE(g2d_clk_parents), 0, 0, SIRFSOC_CLKC_G2D_CLK_SEL, 0, 3},
+	{"jpenc_mux", jpenc_clk_parents, ARRAY_SIZE(jpenc_clk_parents), 0, 0, SIRFSOC_CLKC_JPENC_CLK_SEL, 0, 3},
+	{"vdec_mux", vdec_clk_parents, ARRAY_SIZE(vdec_clk_parents), 0, 0, SIRFSOC_CLKC_VDEC_CLK_SEL, 0, 3},
+	{"gmac_mux", gmac_clk_parents, ARRAY_SIZE(gmac_clk_parents), 0, 0, SIRFSOC_CLKC_GMAC_CLK_SEL, 0, 3},
+	{"usb_mux", usb_clk_parents, ARRAY_SIZE(usb_clk_parents), 0, 0, SIRFSOC_CLKC_USB_CLK_SEL, 0, 3},
+	{"kas_mux", kas_clk_parents, ARRAY_SIZE(kas_clk_parents), 0, 0, SIRFSOC_CLKC_KAS_CLK_SEL, 0, 3},
+	{"sec_mux", sec_clk_parents, ARRAY_SIZE(sec_clk_parents), 0, 0, SIRFSOC_CLKC_SEC_CLK_SEL, 0, 3},
+	{"sdr_mux", sdr_clk_parents, ARRAY_SIZE(sdr_clk_parents), 0, 0, SIRFSOC_CLKC_SDR_CLK_SEL, 0, 3},
+	{"vip_mux", vip_clk_parents, ARRAY_SIZE(vip_clk_parents), 0, 0, SIRFSOC_CLKC_VIP_CLK_SEL, 0, 3},
+	{"nocd_mux", nocd_clk_parents, ARRAY_SIZE(nocd_clk_parents), 0, 0, SIRFSOC_CLKC_NOCD_CLK_SEL, 0, 3},
+	{"nocr_mux", nocr_clk_parents, ARRAY_SIZE(nocr_clk_parents), 0, 0, SIRFSOC_CLKC_NOCR_CLK_SEL, 0, 3},
+	{"tpiu_mux", tpiu_clk_parents, ARRAY_SIZE(tpiu_clk_parents), 0, 0, SIRFSOC_CLKC_TPIU_CLK_SEL, 0, 3},
+};
+
+	/* new unit should add start from the tail of list */
+static __initdata struct atlas7_unit_init_data unit_list[] = {
+	/* unit_name, parent_name, flags, regofs, bit, lock */
+	{"audmscm_kas", "kas_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 0, &root0_gate_lock},
+	{"gnssm_gnss", "gnss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 1, &root0_gate_lock},
+	{"gpum_gpu", "gpu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 2, &root0_gate_lock},
+	{"mediam_g2d", "g2d_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 3, &root0_gate_lock},
+	{"mediam_jpenc", "jpenc_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 4, &root0_gate_lock},
+	{"vdifm_disp0", "disp0_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 5, &root0_gate_lock},
+	{"vdifm_disp1", "disp1_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 6, &root0_gate_lock},
+	{"vdifm_vip", "vip_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 7, &root0_gate_lock},
+	{"audmscm_sys", "sys_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 8, &root0_gate_lock},
+	{"mediam_sys", "sys_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 9, &root0_gate_lock},
+	{"audmscm_i2s", "i2s_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 10, &root0_gate_lock},
+	{"audmscm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 11, &root0_gate_lock},
+	{"vdifm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 12, &root0_gate_lock},
+	{"gnssm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 13, &root0_gate_lock},
+	{"mediam_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 14, &root0_gate_lock},
+	{"topm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 15, &root0_gate_lock},
+	{"btm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 17, &root0_gate_lock},
+	{"mediam_sdphy01", "sdphy01_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 19, &root0_gate_lock},
+	{"vdifm_sdphy23", "sdphy23_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 20, &root0_gate_lock},
+	{"vdifm_sdphy45", "sdphy45_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 21, &root0_gate_lock},
+	{"vdifm_sdphy67", "sdphy67_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 22, &root0_gate_lock},
+	{"audmscm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 23, &root0_gate_lock},
+	{"cpum_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 25, &root0_gate_lock},
+	{"mediam_nand", "nand_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 26, &root0_gate_lock},
+	{"gnssm_sec", "xinw", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 27, &root0_gate_lock},
+	{"cpum_cpu", "cpu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 28, &root0_gate_lock},
+	{"memm_mem", "mempll_clk1", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 29, &root0_gate_lock},
+	{"gnssm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 30, &root0_gate_lock},
+	{"btm_btss", "btss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 0, &root1_gate_lock},
+	{"mediam_usbphy", "usbphy_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 1, &root1_gate_lock},
+	{"audmscm_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 2, &root1_gate_lock},
+	{"vdifm_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 3, &root1_gate_lock},
+	{"gnssm_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 4, &root1_gate_lock},
+	{"mediam_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 5, &root1_gate_lock},
+	{"ddrm_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 6, &root1_gate_lock},
+	{"cpum_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 7, &root1_gate_lock},
+	{"gpum_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 8, &root1_gate_lock},
+	{"audmscm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 9, &root1_gate_lock},
+	{"vdifm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 10, &root1_gate_lock},
+	{"gnssm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 11, &root1_gate_lock},
+	{"mediam_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 12, &root1_gate_lock},
+	{"ddrm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 13, &root1_gate_lock},
+	{"gpum_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 15, &root1_gate_lock},
+	{"gnssm_rgmii", "rgmii_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 16, &root1_gate_lock},
+	{"gnssm_can", "can_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 17, &root1_gate_lock},
+	{"mediam_usb", "usb_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 18, &root1_gate_lock},
+	{"gnssm_gmac", "gmac_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 19, &root1_gate_lock},
+	{"mediam_vdec", "vdec_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 20, &root1_gate_lock},
+	{"gpum_sdr", "sdr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 21, &root1_gate_lock},
+	{"vdifm_deint", "deint_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 22, &root1_gate_lock},
+	{"rtcm_kas", "kas_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 25, &root1_gate_lock},
+	{"rtcm_sec", "xinw", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 26, &root1_gate_lock},
+	{"cpum_tpiu", "tpiu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 27, &root1_gate_lock},
+	{"cvd_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 0, &leaf1_gate_lock},
+	{"timer_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 1, &leaf1_gate_lock},
+	{"pulse_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 2, &leaf1_gate_lock},
+	{"tsc_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 3, &leaf1_gate_lock},
+	{"tsc_xin", "audmscm_xin", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 21, &leaf1_gate_lock},
+	{"ioctop_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 4, &leaf1_gate_lock},
+	{"rsc_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 5, &leaf1_gate_lock},
+	{"dvm_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 6, &leaf1_gate_lock},
+	{"lvds_xin", "audmscm_xin", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 7, &leaf1_gate_lock},
+	{"kas_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 8, &leaf1_gate_lock},
+	{"ac97_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 9, &leaf1_gate_lock},
+	{"usp0_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 10, &leaf1_gate_lock},
+	{"usp1_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 11, &leaf1_gate_lock},
+	{"usp2_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 12, &leaf1_gate_lock},
+	{"dmac2_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 13, &leaf1_gate_lock},
+	{"dmac3_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 14, &leaf1_gate_lock},
+	{"audioif_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 15, &leaf1_gate_lock},
+	{"i2s1_kas", "audmscm_kas", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 17, &leaf1_gate_lock},
+	{"thaudmscm_io", "audmscm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 22, &leaf1_gate_lock},
+	{"analogtest_xin", "audmscm_xin", 0, SIRFSOC_CLKC_LEAF_CLK_EN1_SET, 23, &leaf1_gate_lock},
+	{"sys2pci_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 0, &leaf2_gate_lock},
+	{"pciarb_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 1, &leaf2_gate_lock},
+	{"pcicopy_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 2, &leaf2_gate_lock},
+	{"rom_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 3, &leaf2_gate_lock},
+	{"sdio23_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 4, &leaf2_gate_lock},
+	{"sdio45_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 5, &leaf2_gate_lock},
+	{"sdio67_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 6, &leaf2_gate_lock},
+	{"vip1_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 7, &leaf2_gate_lock},
+	{"vip1_vip", "vdifm_vip", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 16, &leaf2_gate_lock},
+	{"sdio23_sdphy23", "vdifm_sdphy23", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 8, &leaf2_gate_lock},
+	{"sdio45_sdphy45", "vdifm_sdphy45", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 9, &leaf2_gate_lock},
+	{"sdio67_sdphy67", "vdifm_sdphy67", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 10, &leaf2_gate_lock},
+	{"vpp0_disp0", "vdifm_disp0", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 11, &leaf2_gate_lock},
+	{"lcd0_disp0", "vdifm_disp0", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 12, &leaf2_gate_lock},
+	{"vpp1_disp1", "vdifm_disp1", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 13, &leaf2_gate_lock},
+	{"lcd1_disp1", "vdifm_disp1", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 14, &leaf2_gate_lock},
+	{"dcu_deint", "vdifm_deint", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 15, &leaf2_gate_lock},
+	{"vdifm_dapa_r_nocr", "vdifm_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 17, &leaf2_gate_lock},
+	{"gpio1_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 18, &leaf2_gate_lock},
+	{"thvdifm_io", "vdifm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN2_SET, 19, &leaf2_gate_lock},
+	{"gmac_rgmii", "gnssm_rgmii", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 0, &leaf3_gate_lock},
+	{"gmac_gmac", "gnssm_gmac", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 1, &leaf3_gate_lock},
+	{"uart1_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 2, &leaf3_gate_lock},
+	{"dmac0_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 3, &leaf3_gate_lock},
+	{"uart0_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 4, &leaf3_gate_lock},
+	{"uart2_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 5, &leaf3_gate_lock},
+	{"uart3_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 6, &leaf3_gate_lock},
+	{"uart4_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 7, &leaf3_gate_lock},
+	{"uart5_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 8, &leaf3_gate_lock},
+	{"spi1_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 9, &leaf3_gate_lock},
+	{"gnss_gnss", "gnssm_gnss", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 10, &leaf3_gate_lock},
+	{"canbus1_can", "gnssm_can", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 12, &leaf3_gate_lock},
+	{"ccsec_sec", "gnssm_sec", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 15, &leaf3_gate_lock},
+	{"ccpub_sec", "gnssm_sec", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 16, &leaf3_gate_lock},
+	{"gnssm_dapa_r_nocr", "gnssm_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 13, &leaf3_gate_lock},
+	{"thgnssm_io", "gnssm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN3_SET, 14, &leaf3_gate_lock},
+	{"media_vdec", "mediam_vdec", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 0, &leaf4_gate_lock},
+	{"media_jpenc", "mediam_jpenc", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 1, &leaf4_gate_lock},
+	{"g2d_g2d", "mediam_g2d", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 2, &leaf4_gate_lock},
+	{"i2c0_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 3, &leaf4_gate_lock},
+	{"i2c1_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 4, &leaf4_gate_lock},
+	{"gpio0_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 5, &leaf4_gate_lock},
+	{"nand_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 6, &leaf4_gate_lock},
+	{"sdio01_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 7, &leaf4_gate_lock},
+	{"sys2pci2_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 8, &leaf4_gate_lock},
+	{"sdio01_sdphy01", "mediam_sdphy01", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 9, &leaf4_gate_lock},
+	{"nand_nand", "mediam_nand", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 10, &leaf4_gate_lock},
+	{"usb0_usb", "mediam_usb", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 11, &leaf4_gate_lock},
+	{"usb1_usb", "mediam_usb", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 12, &leaf4_gate_lock},
+	{"usbphy0_usbphy", "mediam_usbphy", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 13, &leaf4_gate_lock},
+	{"usbphy1_usbphy", "mediam_usbphy", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 14, &leaf4_gate_lock},
+	{"thmediam_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 15, &leaf4_gate_lock},
+	{"memc_mem", "mempll_clk1", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 0, &leaf5_gate_lock},
+	{"dapa_mem", "mempll_clk1", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 1, &leaf5_gate_lock},
+	{"nocddrm_nocr", "ddrm_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 2, &leaf5_gate_lock},
+	{"thddrm_nocr", "ddrm_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 3, &leaf5_gate_lock},
+	{"spram1_cpudiv2", "cpum_cpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN6_SET, 0, &leaf6_gate_lock},
+	{"spram2_cpudiv2", "cpum_cpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN6_SET, 1, &leaf6_gate_lock},
+	{"coresight_cpudiv2", "cpum_cpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN6_SET, 2, &leaf6_gate_lock},
+	{"thcpum_cpudiv4", "cpum_cpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN6_SET, 3, &leaf6_gate_lock},
+	{"graphic_gpu", "gpum_gpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 0, &leaf7_gate_lock},
+	{"vss_sdr", "gpum_sdr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 1, &leaf7_gate_lock},
+	{"thgpum_nocr", "gpum_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 2, &leaf7_gate_lock},
+	{"a7ca_btss", "btm_btss", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 2, &leaf8_gate_lock},
+	{"dmac4_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 3, &leaf8_gate_lock},
+	{"uart6_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 4, &leaf8_gate_lock},
+	{"usp3_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 5, &leaf8_gate_lock},
+	{"a7ca_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
+	{"thbtm_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 7, &leaf8_gate_lock},
+};
+
+enum atlas7_clk_index {
+	/* 0               1             2          3              4            5              6           7              8             9 */
+	audmscm_kas,   gnssm_gnss,    gpum_gpu,  mediam_g2d,   mediam_jpenc,  vdifm_disp0, vdifm_disp1, vdifm_vip,      audmscm_sys,    mediam_sys,
+	audmscm_i2s,   audmscm_io,    vdifm_io,   gnssm_io,    mediam_io,       topm_io,     btm_io,   mediam_sdphy01,  vdifm_sdphy23,  vdifm_sdphy45,
+	vdifm_sdphy67, audmscm_xin,  cpum_xin, mediam_nand,     gnssm_sec,     cpum_cpu,    memm_mem,    gnssm_xin,      btm_btss,      mediam_usbphy,
+	audmscm_nocd,  vdifm_nocd,   gnssm_nocd,   mediam_nocd,  ddrm_nocd,   cpum_nocd,     gpum_nocd,   audmscm_nocr, vdifm_nocr,    gnssm_nocr,
+	mediam_nocr,   ddrm_nocr,     gpum_nocr,   gnssm_rgmii,  gnssm_can,   mediam_usb,   gnssm_gmac,   mediam_vdec,   gpum_sdr,      vdifm_deint,
+	rtcm_kas,      rtcm_sec,      cpum_tpiu,     cvd_io,     timer_io,    pulse_io,       tsc_io,       tsc_xin,     ioctop_io,     rsc_io,
+	dvm_io,        lvds_xin,      kas_kas,       ac97_kas,   usp0_kas,    usp1_kas,      usp2_kas,     dmac2_kas,    dmac3_kas,     audioif_kas,
+	i2s1_kas,      thaudmscm_io,  analogtest_xin, sys2pci_io, pciarb_io,  pcicopy_io,     rom_io,      sdio23_io,    sdio45_io,      sdio67_io,
+	vip1_io,       vip1_vip,      sdio23_sdphy23, sdio45_sdphy45, sdio67_sdphy67, vpp0_disp0, lcd0_disp0, vpp1_disp1, lcd1_disp1,    dcu_deint,
+	vdifm_dapa_r_nocr, gpio1_io,  thvdifm_io,    gmac_rgmii, gmac_gmac,   uart1_io,       dmac0_io,    uart0_io,     uart2_io,      uart3_io,
+	uart4_io,      uart5_io,      spi1_io,       gnss_gnss,  canbus1_can, ccsec_sec,     ccpub_sec, gnssm_dapa_r_nocr, thgnssm_io, media_vdec,
+	media_jpenc,   g2d_g2d,       i2c0_io,       i2c1_io,    gpio0_io,    nand_io,        sdio01_io,   sys2pci2_io,  sdio01_sdphy01, nand_nand,
+	usb0_usb,      usb1_usb,    usbphy0_usbphy, usbphy1_usbphy, thmediam_io, memc_mem,  dapa_mem,    nocddrm_nocr, thddrm_nocr,  spram1_cpudiv2,
+	spram2_cpudiv2,	coresight_cpudiv2, thcpum_cpudiv4, graphic_gpu, vss_sdr, thgpum_nocr, a7ca_btss,   dmac4_io,     uart6_io,     usp3_io,
+	a7ca_io,	thbtm_io,      maxclk,
+};
+
+static struct clk *atlas7_clks[maxclk];
+
+static int unit_clk_is_enabled(struct clk_hw *hw)
+{
+	struct clk_unit *clk = to_unitclk(hw);
+	u32 reg;
+
+	reg = clk->regofs + SIRFSOC_CLKC_ROOT_CLK_EN0_STAT - SIRFSOC_CLKC_ROOT_CLK_EN0_SET;
+
+	return !!(clkc_readl(reg) & BIT(clk->bit));
+}
+
+static int unit_clk_enable(struct clk_hw *hw)
+{
+	u32 val, reg;
+	struct clk_unit *clk = to_unitclk(hw);
+	unsigned long flags = 0;
+
+	reg = clk->regofs;
+
+	spin_lock_irqsave(clk->lock, flags);
+	val = clkc_readl(reg) | BIT(clk->bit);
+	clkc_writel(val, reg);
+	spin_unlock_irqrestore(clk->lock, flags);
+	return 0;
+}
+
+static void unit_clk_disable(struct clk_hw *hw)
+{
+	u32 val, reg;
+	struct clk_unit *clk = to_unitclk(hw);
+	unsigned long flags = 0;
+
+	reg = clk->regofs + SIRFSOC_CLKC_ROOT_CLK_EN0_CLR - SIRFSOC_CLKC_ROOT_CLK_EN0_SET;
+
+	spin_lock_irqsave(clk->lock, flags);
+	val = clkc_readl(reg) | BIT(clk->bit);
+	clkc_writel(val, reg);
+	spin_unlock_irqrestore(clk->lock, flags);
+}
+
+static struct clk_ops unit_clk_ops = {
+	.is_enabled = unit_clk_is_enabled,
+	.enable = unit_clk_enable,
+	.disable = unit_clk_disable,
+};
+
+static struct clk * __init
+atlas7_unit_clk_register(struct device *dev, const char *name,
+		 const char *parent_name, unsigned long flags,
+		 u8 regofs, u8 bit, spinlock_t *lock)
+{
+	struct clk *clk;
+	struct clk_unit *unit;
+	struct clk_init_data init;
+
+	unit = kzalloc(sizeof(*unit), GFP_KERNEL);
+	if (!unit) {
+		pr_err("could not alloc unit clock %s\n",
+			name);
+		return ERR_PTR(-ENOMEM);
+	}
+	init.name = name;
+	init.parent_names = (parent_name ? &parent_name : NULL);
+	init.num_parents = (parent_name ? 1 : 0);
+	init.ops = &unit_clk_ops;
+	init.flags = flags;
+
+	unit->hw.init = &init;
+	unit->regofs = regofs;
+	unit->bit = bit;
+	unit->lock = lock;
+
+	clk = clk_register(dev, &unit->hw);
+	if (IS_ERR(clk))
+		kfree(unit);
+
+	return clk;
+}
+
 void __init atlas7_clk_init(struct device_node *np)
 {
 	struct clk *clk;
-
+	struct atlas7_div_init_data *div;
+	struct atlas7_mux_init_data *mux;
+	struct atlas7_unit_init_data *unit;
+	int i;
 
 	sirfsoc_clk_vbase = of_iomap(np, 0);
 	if (!sirfsoc_clk_vbase)
 		panic("unable to map clkc registers\n");
 
 	of_node_put(np);
-	/* These are always available (32k osc xinw and 26MHz OSC xin) */
+	/* These are always available (32k osc xinw and 26MHz osc xin) */
 	clk_register_fixed_rate(NULL, "xinw", NULL,
 		CLK_IS_ROOT, 32768);
 	clk_register_fixed_rate(NULL, "xin", NULL,
@@ -946,7 +1474,7 @@ void __init atlas7_clk_init(struct device_node *np)
 	BUG_ON(!clk);
 	clk = clk_register_gate(NULL, "sys3pll_clk3", "sys3pll_div3",
 		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1,
-				14, 0, &sys0pll_ctrl1_lock);
+				14, 0, &sys3pll_ctrl1_lock);
 	BUG_ON(!clk);
 
 	clk = clk_register(NULL, &clk_audio_dto.hw);
@@ -957,6 +1485,40 @@ void __init atlas7_clk_init(struct device_node *np)
 
 	clk = clk_register(NULL, &clk_disp1_dto.hw);
 	BUG_ON(!clk);
+
+	for (i = 0; i < ARRAY_SIZE(divider_list); i++) {
+		div = &divider_list[i];
+		clk = clk_register_divider(NULL, div->div_name,
+			div->parent_name, 0, sirfsoc_clk_vbase + div->div_offset,
+			div->shift, div->width, 0, div->lock);
+		BUG_ON(!clk);
+		clk = clk_register_gate(NULL, div->gate_name, div->div_name,
+			CLK_SET_RATE_NO_REPARENT, sirfsoc_clk_vbase + div->gate_offset,
+				div->gate_bit, 0, div->lock);
+		BUG_ON(!clk);
+	}
+	/* ignore selector status register check */
+	for (i = 0; i < ARRAY_SIZE(mux_list); i++) {
+		mux = &mux_list[i];
+		clk = clk_register_mux(NULL, mux->mux_name, mux->parent_names,
+			       mux->parent_num, mux->flags,
+			       sirfsoc_clk_vbase + mux->mux_offset,
+			       mux->shift, mux->width,
+			       mux->mux_flags, NULL);
+		BUG_ON(!clk);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(unit_list); i++) {
+		unit = &unit_list[i];
+		atlas7_clks[i] = atlas7_unit_clk_register(NULL, unit->unit_name, unit->parent_name,
+				unit->flags, unit->regofs, unit->bit, unit->lock);
+		BUG_ON(!atlas7_clks[i]);
+	}
+
+	clk_data.clks = atlas7_clks;
+	clk_data.clk_num = maxclk;
+
+	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 
 }
 CLK_OF_DECLARE(atlas7_clk, "sirf,atlas7-clkc", atlas7_clk_init);

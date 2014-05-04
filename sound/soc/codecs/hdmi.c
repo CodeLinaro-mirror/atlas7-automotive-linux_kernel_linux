@@ -75,21 +75,6 @@ static struct snd_soc_codec_driver hdmi_codec = {
 	.num_dapm_routes = ARRAY_SIZE(hdmi_routes),
 };
 
-#ifdef CONFIG_OF
-static const struct of_device_id hdmi_audio_codec_ids[] = {
-	{ .compatible = "linux,hdmi-audio", },
-	{ }
-};
-MODULE_DEVICE_TABLE(of, hdmi_audio_codec_ids);
-#endif
-
-static struct snd_soc_codec_driver hdmi_codec = {
-	.dapm_widgets = hdmi_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(hdmi_widgets),
-	.dapm_routes = hdmi_routes,
-	.num_dapm_routes = ARRAY_SIZE(hdmi_routes),
-};
-
 static int hdmi_codec_probe(struct platform_device *pdev)
 {
 	return snd_soc_register_codec(&pdev->dev, &hdmi_codec,
@@ -101,6 +86,14 @@ static int hdmi_codec_remove(struct platform_device *pdev)
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
+
+#ifdef CONFIG_OF
+static const struct of_device_id hdmi_audio_codec_ids[] = {
+	{ .compatible = "hdmi-audio-codec", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, hdmi_audio_codec_ids);
+#endif
 
 static struct platform_driver hdmi_codec_driver = {
 	.driver		= {

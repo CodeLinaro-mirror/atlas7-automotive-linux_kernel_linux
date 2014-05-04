@@ -8,6 +8,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/cpuidle.h>
 #include <linux/io.h>
 #include <linux/time.h>
 #include <linux/clk.h>
@@ -15,7 +16,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/cpu.h>
 #include <linux/pm_opp.h>
-
 #include <asm/proc-fns.h>
 #include <asm/cpuidle.h>
 
