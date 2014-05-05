@@ -147,7 +147,7 @@ static void __init sirfsoc_reserve_cma(void)
 
 	ret = dma_declare_contiguous(&fake_cma_dev, size, 0, 0xFFFFFFFF);
 	if (ret)
-		pr_err("%s: failed to reserve cma for vip %d\n", __func__, ret);
+		pr_err("%s: failed to reserve cma %d\n", __func__, ret);
 }
 
 void __init sirfsoc_reserve(void)
