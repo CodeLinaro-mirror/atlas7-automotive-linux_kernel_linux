@@ -16,12 +16,12 @@
 
 	chosen {
 		/* bootargs = "console=ttySiRF1,115200 earlyprintk lpj=7970816 initrd=0x43008000,0x500000"; */
-		bootargs = "console=ttySiRF1,115200 earlyprintk lpj=7970816 ";
+		bootargs = "console=ttySiRF1,115200 earlyprintk clk_ignore_unused";
 	};
 
 	memory {
 		device_type = "memory";
-		reg = <0x40000000 0x02000000>; /* 32 or 512M for PXP */
+		reg = <0x40000000 0x20000000>; /* 512M for PXP */
 	};
 
 	axi {
