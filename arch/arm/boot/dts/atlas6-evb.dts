@@ -30,7 +30,9 @@
 		reg = <0x00000000 0x20000000>;
 	};
 	sound {
-		compatible = "sirf,sirf-audio-card";
+		compatible = "sirf,sirf-inner";
+		sirf,inner-codec = <&audio>;
+		sirf,inner-platform = <&audio>;
 		hp-pa-gpios = <&gpio 44 0>;
 		spk-pa-gpios = <&gpio 46 0>;
 		hp-switch-gpios = <&gpio 45 0>;
@@ -46,10 +48,12 @@
 	};
 
 
+	bt-sco {
+		compatible = "bt-sco";
+	};
 	sirf-bt-sco {
 		compatible = "sirf,sirf-bt-sco";
-		sirf,usp-controller = <&usp0>;
-		bt-sco-master;
+		codec-clock-frame-master = <1>;
 	};
 	hdmi_audio: hdmi_audio@0 {
 		compatible = "linux,hdmi-audio";
