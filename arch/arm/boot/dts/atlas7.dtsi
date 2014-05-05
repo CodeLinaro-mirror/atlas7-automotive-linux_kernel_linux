@@ -67,6 +67,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18020000 0x1000>;
 				interrupts = <0 18 0>;
+				clocks = <&clks 95>;
 				fifosize = <32>;
 			};
 
