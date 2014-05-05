@@ -208,8 +208,9 @@ static void __init sirfsoc_set_up_cma_areas(void)
 
 static void __init sirfsoc_init_mach(void)
 {
+#ifdef CONFIG_VIDEO_SIRFSOC_VIP
 	sirfsoc_add_camera_pdev();
-
+#endif
 	of_platform_populate(NULL, of_default_bus_match_table,
 		sirf_auxdata_lookup, NULL);
 
