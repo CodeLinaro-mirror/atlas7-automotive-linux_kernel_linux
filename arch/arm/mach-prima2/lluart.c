@@ -21,8 +21,8 @@
 #define SIRFSOC_UART1_PA_BASE          0
 #endif
 
-#define SIRFSOC_UART1_VA_BASE          SIRFSOC_VA(0x060000)
-#define SIRFSOC_UART1_SIZE		SZ_4K
+#define SIRFSOC_UART1_VA_BASE          SIRFSOC_VA(SIRFSOC_UART1_PA_BASE & 0x000FFFFF)
+#define SIRFSOC_UART1_SIZE             SZ_4K
 
 void __init sirfsoc_map_lluart(void)
 {
