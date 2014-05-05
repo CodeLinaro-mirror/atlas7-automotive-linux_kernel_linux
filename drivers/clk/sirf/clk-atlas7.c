@@ -339,6 +339,13 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	u32 ssmod = regssc & (BIT(8) - 1);
 	u32 ssn;
 
+	/*
+	   hardcode sys1pll_vco as 1600M until hw provide formula for SS mode
+	   this will let io as 200M to match actual pxp setting
+	 */
+	if (strcmp(__clk_get_name(hw->clk), "sys1pll_vco") == 0)
+		return 1600000000;
+
 	if (regctrl0 & SIRFSOC_ABPLL_CTRL0_BYPASS)
 		return fin;
 
