@@ -61,7 +61,6 @@ static void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs)
 static int __init sirfsoc_irq_init(struct device_node *np,
 	struct device_node *parent)
 {
-	int i;
 	void __iomem *base = of_iomap(np, 0);
 	if (!base)
 		panic("unable to map intc cpu registers\n");
