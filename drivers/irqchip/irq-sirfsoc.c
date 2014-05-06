@@ -47,8 +47,7 @@ sirfsoc_alloc_gc(void __iomem *base, unsigned int irq_start, unsigned int num)
 	ct->regs.mask = SIRFSOC_INT_RISC_MASK0;
 }
 
-static asmlinkage void __exception_irq_entry
-	sirfsoc_handle_irq(struct pt_regs *regs)
+static void __exception_irq_entry sirfsoc_handle_irq(struct pt_regs *regs)
 {
 	void __iomem *base = sirfsoc_irqdomain->host_data;
 	u32 irqstat, irqnr;
@@ -78,9 +77,6 @@ static int __init sirfsoc_irq_init(struct device_node *np,
 
 	writel_relaxed(0, base + SIRFSOC_INT_RISC_MASK0);
 	writel_relaxed(0, base + SIRFSOC_INT_RISC_MASK1);
-
-	for (i = 0; i < SIRFSOC_NUM_IRQS; i++)
-		irq_set_status_flags(i, IRQ_LEVEL);
 
 	set_handle_irq(sirfsoc_handle_irq);
 
