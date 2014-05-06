@@ -273,6 +273,12 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
+	if (sspi->tx_by_cmd && (spi_stat & SIRFSOC_SPI_FRM_END)) {
+		complete(&sspi->tx_done);
+		writel(0x0, sspi->base + SIRFSOC_SPI_INT_EN);
+		return IRQ_HANDLED;
+	}
+
 	/* Error Conditions */
 	if (spi_stat & SIRFSOC_SPI_RX_OFLOW ||
 			spi_stat & SIRFSOC_SPI_TX_UFLOW) {
@@ -541,11 +547,6 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_8;
 		sspi->rx_word = spi_sirfsoc_rx_word_u8;
 		sspi->tx_word = spi_sirfsoc_tx_word_u8;
-		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
-					SIRFSOC_SPI_FIFO_WIDTH_BYTE;
-		rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
-					SIRFSOC_SPI_FIFO_WIDTH_BYTE;
-		sspi->word_width = 1;
 		break;
 	case 12:
 	case 16:
@@ -554,25 +555,21 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 			SIRFSOC_SPI_TRAN_DAT_FORMAT_16;
 		sspi->rx_word = spi_sirfsoc_rx_word_u16;
 		sspi->tx_word = spi_sirfsoc_tx_word_u16;
-		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
-					SIRFSOC_SPI_FIFO_WIDTH_WORD;
-		rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
-					SIRFSOC_SPI_FIFO_WIDTH_WORD;
-		sspi->word_width = 2;
 		break;
 	case 32:
 		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_32;
 		sspi->rx_word = spi_sirfsoc_rx_word_u32;
 		sspi->tx_word = spi_sirfsoc_tx_word_u32;
-		txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
-					SIRFSOC_SPI_FIFO_WIDTH_DWORD;
-		rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
-					SIRFSOC_SPI_FIFO_WIDTH_DWORD;
-		sspi->word_width = 4;
 		break;
 	default:
 		BUG();
 	}
+
+	sspi->word_width = DIV_ROUND_UP(bits_per_word, 8);
+	txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
+					   sspi->word_width;
+	rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(SIRFSOC_SPI_FIFO_SIZE / 2) |
+					   sspi->word_width;
 
 	if (!(spi->mode & SPI_CS_HIGH))
 		regval |= SIRFSOC_SPI_CS_IDLE_STAT;
@@ -808,6 +805,11 @@ static int spi_sirfsoc_suspend(struct device *dev)
 {
 	struct spi_master *master = dev_get_drvdata(dev);
 	struct sirfsoc_spi *sspi = spi_master_get_devdata(master);
+	int ret;
+
+	ret = spi_master_suspend(master);
+	if (ret)
+		return ret;
 
 	clk_disable(sspi->clk);
 	return 0;
@@ -824,13 +826,12 @@ static int spi_sirfsoc_resume(struct device *dev)
 	writel(SIRFSOC_SPI_FIFO_START, sspi->base + SIRFSOC_SPI_RXFIFO_OP);
 	writel(SIRFSOC_SPI_FIFO_START, sspi->base + SIRFSOC_SPI_TXFIFO_OP);
 
-	return 0;
+	return spi_master_resume(master);
 }
 #endif
 
-static const struct dev_pm_ops spi_sirfsoc_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(spi_sirfsoc_suspend, spi_sirfsoc_resume)
-};
+static SIMPLE_DEV_PM_OPS(spi_sirfsoc_pm_ops, spi_sirfsoc_suspend,
+			 spi_sirfsoc_resume);
 
 static const struct of_device_id spi_sirfsoc_of_match[] = {
 	{ .compatible = "sirf,prima2-spi", },

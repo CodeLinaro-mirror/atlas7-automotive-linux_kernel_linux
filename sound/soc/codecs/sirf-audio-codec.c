@@ -283,10 +283,16 @@ static int sirf_audio_codec_trigger(struct snd_pcm_substream *substream,
 		int cmd,
 		struct snd_soc_dai *dai)
 {
+<<<<<<< HEAD
 	struct snd_soc_codec *codec = dai->codec;
 	u32 val = 0;
 	if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
 		return 0;
+=======
+	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	struct snd_soc_codec *codec = dai->codec;
+	u32 val = 0;
+>>>>>>> v3.15-rc4
 
 	/*
 	 * This is a workaround, When stop playback,
@@ -300,13 +306,23 @@ static int sirf_audio_codec_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+<<<<<<< HEAD
 		val = IC_HSLEN | IC_HSREN;
+=======
+		if (playback)
+			val = IC_HSLEN | IC_HSREN;
+>>>>>>> v3.15-rc4
 		break;
 	default:
 		return -EINVAL;
 	}
 
+<<<<<<< HEAD
 	snd_soc_update_bits(codec, AUDIO_IC_CODEC_CTRL0,
+=======
+	if (playback)
+		snd_soc_update_bits(codec, AUDIO_IC_CODEC_CTRL0,
+>>>>>>> v3.15-rc4
 			IC_HSLEN | IC_HSREN, val);
 	return 0;
 }
@@ -336,6 +352,7 @@ struct snd_soc_dai_driver sirf_audio_codec_dai = {
 
 static int sirf_audio_codec_probe(struct snd_soc_codec *codec)
 {
+<<<<<<< HEAD
 	int ret;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct sirf_audio_codec *sirf_audio_codec = snd_soc_codec_get_drvdata(codec);
@@ -348,6 +365,11 @@ static int sirf_audio_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
 		return ret;
 	}
+=======
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+
+	pm_runtime_enable(codec->dev);
+>>>>>>> v3.15-rc4
 
 	if (of_device_is_compatible(codec->dev->of_node, "sirf,prima2-audio-codec")) {
 		snd_soc_dapm_new_controls(dapm,

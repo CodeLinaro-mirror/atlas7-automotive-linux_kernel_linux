@@ -307,7 +307,6 @@
 				interrupts = <12>;
 				clocks = <&clks 24>;
 				#dma-cells = <1>;
-				#dma-channels = <16>;
 			};
 
 			dmac1: dma-controller@b0160000 {
@@ -317,7 +316,6 @@
 				interrupts = <13>;
 				clocks = <&clks 25>;
 				#dma-cells = <1>;
-				#dma-channels = <16>;
 			};
 
 			vip@b00C0000 {

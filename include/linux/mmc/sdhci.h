@@ -100,8 +100,11 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_BROKEN_HOST_CONTROL		(1<<5)
 /* Controller does not support HS200 */
 #define SDHCI_QUIRK2_BROKEN_HS200			(1<<6)
+/* Controller does not support DDR50 */
+#define SDHCI_QUIRK2_BROKEN_DDR50			(1<<7)
 /* For better performance for SDMA controller, alloc a buffer for combined */
-#define SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER	(1<<7)
+#define SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER	(1<<8)
+
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */

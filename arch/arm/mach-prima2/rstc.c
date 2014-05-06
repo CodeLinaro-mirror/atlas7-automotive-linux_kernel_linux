@@ -17,6 +17,7 @@
 #include <linux/reset-controller.h>
 #include <linux/reboot.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
+#include <asm/system_misc.h>
 #include "pm.h"
 
 #define SIRFSOC_RSTBIT_NUM	64
@@ -80,10 +81,23 @@ static struct reset_controller_dev sirfsoc_reset_controller = {
 	.nr_resets = SIRFSOC_RSTBIT_NUM,
 };
 
+#define SIRFSOC_SYS_RST_BIT  BIT(31)
+
+static void sirfsoc_restart(enum reboot_mode mode, const char *cmd)
+{
+	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
+		sirfsoc_rtc_iobrg_writel(
+			sirfsoc_rtc_iobrg_readl(
+			sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS)
+			| RECOVERY_MODE,
+			sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
+
+	writel(SIRFSOC_SYS_RST_BIT, sirfsoc_rstc_base);
+}
+
 static int sirfsoc_rstc_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct device_node *pwrc_np;
 	sirfsoc_rstc_base = of_iomap(np, 0);
 	if (!sirfsoc_rstc_base) {
 		dev_err(&pdev->dev, "unable to map rstc cpu registers\n");
@@ -91,12 +105,10 @@ static int sirfsoc_rstc_probe(struct platform_device *pdev)
 	}
 
 	sirfsoc_reset_controller.of_node = np;
+	arm_pm_restart = sirfsoc_restart;
 
-	reset_controller_register(&sirfsoc_reset_controller);
-
-	pwrc_np = of_find_compatible_node(NULL, NULL, "sirf,prima2-pwrc");
-	if (of_property_read_u32(pwrc_np, "reg", &sirfsoc_pwrc_base))
-		panic("unable to find pwrc-base offset\n");
+	if (IS_ENABLED(CONFIG_RESET_CONTROLLER))
+		reset_controller_register(&sirfsoc_reset_controller);
 
 	return 0;
 }
@@ -121,17 +133,3 @@ static int __init sirfsoc_rstc_init(void)
 	return platform_driver_register(&sirfsoc_rstc_driver);
 }
 subsys_initcall(sirfsoc_rstc_init);
-
-#define SIRFSOC_SYS_RST_BIT  BIT(31)
-
-void sirfsoc_restart(enum reboot_mode mode, const char *cmd)
-{
-	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
-		sirfsoc_rtc_iobrg_writel(
-			sirfsoc_rtc_iobrg_readl(
-			sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS)
-			| RECOVERY_MODE,
-			sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
-
-	writel(SIRFSOC_SYS_RST_BIT, sirfsoc_rstc_base);
-}

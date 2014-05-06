@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/sysctl.h>
-#include <asm/system.h>
 
 #include "sirfsoc_ts_linear.h"
 

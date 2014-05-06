@@ -725,18 +725,6 @@ bool sirfsoc_dma_filter_id(struct dma_chan *chan, void *chan_id)
 }
 EXPORT_SYMBOL(sirfsoc_dma_filter_id);
 
-static struct dma_chan *of_dma_sirfsoc_xlate(struct of_phandle_args *dma_spec,
-	struct of_dma *ofdma)
-{
-	struct sirfsoc_dma *sdma = ofdma->of_dma_data;
-	unsigned int request = dma_spec->args[0];
-
-	if (request > SIRFSOC_DMA_CHANNELS)
-		return NULL;
-
-	return dma_get_slave_channel(&(sdma->channels[request].chan));
-}
-
 #define SIRFSOC_DMA_BUSWIDTHS \
 	(BIT(DMA_SLAVE_BUSWIDTH_UNDEFINED) | \
 	BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
@@ -754,6 +742,18 @@ static int sirfsoc_dma_device_slave_caps(struct dma_chan *dchan,
 	caps->cmd_terminate = true;
 
 	return 0;
+}
+
+static struct dma_chan *of_dma_sirfsoc_xlate(struct of_phandle_args *dma_spec,
+	struct of_dma *ofdma)
+{
+	struct sirfsoc_dma *sdma = ofdma->of_dma_data;
+	unsigned int request = dma_spec->args[0];
+
+	if (request >= SIRFSOC_DMA_CHANNELS)
+		return NULL;
+
+	return dma_get_slave_channel(&sdma->channels[request].chan);
 }
 
 static int sirfsoc_dma_probe(struct platform_device *op)

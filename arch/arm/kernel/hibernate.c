@@ -17,6 +17,7 @@
 
 #include <linux/mm.h>
 #include <linux/suspend.h>
+#include <linux/slab.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 #include <asm/system_misc.h>

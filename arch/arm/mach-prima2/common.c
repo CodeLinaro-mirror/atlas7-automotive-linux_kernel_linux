@@ -278,7 +278,6 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas6_dt_match,
-	.restart	= sirfsoc_restart,
 MACHINE_END
 #endif
 
@@ -297,7 +296,6 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	.dma_zone_size	= SZ_256M,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = prima2_dt_match,
-	.restart	= sirfsoc_restart,
 MACHINE_END
 #endif
 
@@ -316,7 +314,6 @@ DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = marco_dt_match,
-	.restart	= sirfsoc_restart,
 MACHINE_END
 #endif
 
@@ -334,6 +331,5 @@ DT_MACHINE_START(ATLAS7_DT, "Generic ATLAS7 (Flattened Device Tree)")
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas7_dt_match,
-	.restart	= sirfsoc_restart,
 MACHINE_END
 #endif

@@ -2,6 +2,7 @@
 #include <linux/suspend_ioctls.h>
 #include <linux/utsname.h>
 #include <linux/freezer.h>
+#include <linux/compiler.h>
 
 struct swsusp_info {
 	struct new_utsname	uts;
@@ -12,7 +13,7 @@ struct swsusp_info {
 	unsigned long		pages;
 	unsigned long		size;
 	char			archdata[1024];
-} __attribute__((aligned(PAGE_SIZE)));
+} __aligned(PAGE_SIZE);
 
 #ifdef CONFIG_HIBERNATION
 /* kernel/power/snapshot.c */
@@ -51,6 +52,8 @@ extern void __weak swsusp_arch_add_info(char *archdata, size_t size);
  * their .suspend() routines without breaking the suspend to disk.
  */
 #define SPARE_PAGES	((1024 * 1024) >> PAGE_SHIFT)
+
+asmlinkage int swsusp_save(void);
 
 /* kernel/power/hibernate.c */
 extern bool freezer_test_done;

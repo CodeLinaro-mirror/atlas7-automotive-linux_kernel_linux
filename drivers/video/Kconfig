@@ -21,17 +21,19 @@ source "drivers/gpu/vga/Kconfig"
 
 source "drivers/gpu/host1x/Kconfig"
 
+menu "Direct Rendering Manager"
 source "drivers/gpu/drm/Kconfig"
+endmenu
+
+menu "Frame buffer Devices"
+source "drivers/video/fbdev/Kconfig"
+endmenu
+
+source "drivers/video/backlight/Kconfig"
 
 config VGASTATE
        tristate
        default n
-
-config VIDEO_OUTPUT_CONTROL
-	tristate "Lowlevel video output switch controls"
-	help
-	  This framework adds support for low-level control of the video 
-	  output switch.
 
 config VIDEOMODE_HELPERS
 	bool
@@ -1831,8 +1833,6 @@ config FB_WMT_GE_ROPS
 	  This adds support for accelerated raster operations on the
 	  VIA VT8500 and Wondermedia 85xx series SoCs.
 
-source "drivers/video/geode/Kconfig"
-
 config FB_HIT
 	tristate "HD64461 Frame Buffer support"
 	depends on FB && HD64461
@@ -2500,10 +2500,6 @@ config FB_SIMPLE
 	  Configuration re: surface address, size, and format must be provided
 	  through device tree, or plain old platform data.
 
-source "drivers/video/omap/Kconfig"
-source "drivers/video/omap2/Kconfig"
-source "drivers/video/exynos/Kconfig"
-source "drivers/video/mmp/Kconfig"
 source "drivers/video/backlight/Kconfig"
 
 if VT
@@ -2512,33 +2508,8 @@ endif
 
 if FB || SGI_NEWPORT_CONSOLE
 	source "drivers/video/logo/Kconfig"
+
 endif
 
-config FB_SH_MOBILE_MERAM
-	tristate "SuperH Mobile MERAM read ahead support"
-	depends on (SUPERH || ARCH_SHMOBILE)
-	select GENERIC_ALLOCATOR
-	---help---
-	  Enable MERAM support for the SuperH controller.
-
-	  This will allow for caching of the framebuffer to provide more
-	  reliable access under heavy main memory bus traffic situations.
-	  Up to 4 memory channels can be configured, allowing 4 RGB or
-	  2 YCbCr framebuffers to be configured.
-
-config FB_SSD1307
-	tristate "Solomon SSD1307 framebuffer support"
-	depends on FB && I2C
-	depends on OF
-	depends on GPIOLIB
-	select FB_SYS_FOPS
-	select FB_SYS_FILLRECT
-	select FB_SYS_COPYAREA
-	select FB_SYS_IMAGEBLIT
-	select FB_DEFERRED_IO
-	select PWM
-	help
-	  This driver implements support for the Solomon SSD1307
-	  OLED controller over I2C.
 
 endmenu
