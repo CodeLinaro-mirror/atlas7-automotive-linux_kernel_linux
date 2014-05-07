@@ -255,7 +255,6 @@ static void __init sirfsoc_init_late(void)
 static __init void sirfsoc_map_io(void)
 {
 	sirfsoc_map_lluart();
-	sirfsoc_map_scu();
 }
 
 static void __init sirfsoc_init_irq(void)
