@@ -453,6 +453,45 @@ static int  v2m_pm_secure_irq_init(void)
 			NULL);
 }
 
+static int v2m_mapped_to_frontend_thread(void *__unused)
+{
+	/*
+	 * we map the whole Frontend OS as a thread in Backend Linux
+	 * and Frontend is "guaranteed" to execute a budget in every
+	 * period.
+	 * this is simulating we use a timer in hypervisor to assign
+	 * time slots to two guests
+	 */
+	struct sched_param param = { .sched_priority = 50 };
+	sched_setscheduler(current, SCHED_FIFO, &param);
+
+#define FRONTEND_PERIOD 10
+#define FRONTEND_DUTY   5
+	do {
+		unsigned long timeout = jiffies + FRONTEND_DUTY;
+		/*
+		 * for every "period", we give frontend a "duty" to run
+		 */
+		while (!time_after(jiffies, timeout))
+			smc_switch_to_non_secure();
+
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout(FRONTEND_PERIOD - FRONTEND_DUTY);
+	} while (1);
+
+	return 0;
+}
+
+static int __init v2m_frontend_switch_init(void)
+{
+	kthread_run(v2m_mapped_to_frontend_thread, NULL,
+			"v2m_pm_frontos_mapped");
+
+	return 0;
+}
+
+late_initcall(v2m_frontend_switch_init);
+
 #else
 int v2m_nonsecure_finish_suspend(long unsigned int val)
 {
