@@ -462,9 +462,20 @@ static int v2m_mapped_to_frontend_thread(void *__unused)
 	 * this is simulating we use a timer in hypervisor to assign
 	 * time slots to two guests
 	 */
+#if 0
+	/*
+	 * Fix me:decide the policy and priority based on real user
+	 * scenarios
+	 */
 	struct sched_param param = { .sched_priority = 50 };
 	sched_setscheduler(current, SCHED_FIFO, &param);
+#else
+	set_user_nice(current, -5);
+#endif
 
+	/*
+	 * Fix me:decide the budget based on real scenarios
+	 */
 #define FRONTEND_PERIOD 10
 #define FRONTEND_DUTY   5
 	do {
