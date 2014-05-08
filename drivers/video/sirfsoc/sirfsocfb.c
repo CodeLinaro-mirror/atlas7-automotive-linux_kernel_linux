@@ -1672,6 +1672,8 @@ static void sirfsocfb_irq_deinit(struct sirfsocfb *fb)
 static int sirfsocfb_register(struct sirfsocfb *fb)
 {
 	int ret, layer;
+	unsigned int sysclk, div;
+	u64 pixclk = 1000000000000ULL;
 
 	FB_FUN_MSG("sirfsocfb_register\n");
 
@@ -1716,7 +1718,10 @@ static int sirfsocfb_register(struct sirfsocfb *fb)
 		    var.xres_virtual * SIRFSOCFB_BYTES(var.bits_per_pixel);
 
 		var.grayscale = fb->panel->grayscale;
-		var.pixclock = fb->panel->mode.pixclock;
+		sysclk = clk_get_rate(fb->clk);
+		div = sysclk / (sysclk / fb->panel->mode.pixclock);
+		do_div(pixclk, div);
+		var.pixclock = pixclk;
 		var.left_margin = fb->panel->mode.left_margin;
 		var.right_margin = fb->panel->mode.right_margin;
 		var.upper_margin = fb->panel->mode.upper_margin;
