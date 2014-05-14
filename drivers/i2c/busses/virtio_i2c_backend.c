@@ -226,7 +226,7 @@ static int virti2c_vrh_ist(void *vi2c_ptr)
 	struct virtio_i2c_req *req;
 
 	do {
-		wait_event(vi2c->outq,
+		wait_event_interruptible(vi2c->outq,
 			(req = virti2c_get_request(vi2c)));
 
 		vringh_notify_disable_kern(vi2c->vrh);
