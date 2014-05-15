@@ -506,10 +506,13 @@ late_initcall(v2m_frontend_switch_init);
 #else
 int v2m_nonsecure_finish_suspend(long unsigned int val)
 {
+#ifdef CONFIG_PM_SLEEP
 	csrvisor_nt_suspend(virt_to_phys(cpu_resume));
+#endif
 	return 0;
 }
 #endif
+
 static int v2m_pm_enter(suspend_state_t state)
 {
 	switch (state) {
@@ -517,7 +520,9 @@ static int v2m_pm_enter(suspend_state_t state)
 #ifdef CONFIG_SECURITY_MODE
 	/*go zzz*/
 #else
+#ifdef CONFIG_PM_SLEEP
 	cpu_suspend(0, v2m_nonsecure_finish_suspend);
+#endif /* CONFIG_PM_SLEEP */
 #endif
 		break;
 	default:
@@ -525,7 +530,6 @@ static int v2m_pm_enter(suspend_state_t state)
 	}
 	return 0;
 }
-
 
 static const struct platform_suspend_ops v2m_pm_ops = {
 	.enter = v2m_pm_enter,
