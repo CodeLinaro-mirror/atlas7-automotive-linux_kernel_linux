@@ -161,6 +161,16 @@ config VIRTIO_CONSOLE
 	  the port which can be used by udev scripts to create a
 	  symlink to the device.
 
+config VIRTIO_RPROC_SERIAL_BACKEND
+	tristate "Virtio remoteproc serial backend driver"
+	depends on VIRTIO && TTY && CSRVISOR_REMOTEPROC_BACKEND
+	help
+	  Virtio remoteproc serial can be drived by virtio console in
+	  guest OS or frontend OS.
+
+	  Character devices at /dev/vportN will be created. where N is
+	  the device number.
+
 config IBM_BSR
 	tristate "IBM POWER Barrier Synchronization Register support"
 	depends on PPC_PSERIES

@@ -116,6 +116,16 @@ struct port_buffer {
 	/* DMA address of buffer */
 	dma_addr_t dma;
 
+	/* Virtual Address of DMA address of buffer
+	 * sg_init_one will invoke virt_to_phys to translate
+	 * virtual address to physical address. but if this
+	 * buffer is allocated by dma_alloc_coherent, the translation of
+	 * port_buffer->buf will be wrong.
+	 * here we added a dma_va to make rproc_serial compatible with
+	 * the sg_init_one.
+	 */
+	void *dma_va;
+
 	/* Device we got DMA memory from */
 	struct device *dev;
 
@@ -439,6 +449,8 @@ static struct port_buffer *alloc_buf(struct virtqueue *vq, size_t buf_size,
 		return buf;
 	}
 
+	buf->dma = 0;
+	buf->dma_va = NULL;
 	if (is_rproc_serial(vq->vdev)) {
 		/*
 		 * Allocate DMA memory from ancestor. When a virtio
@@ -464,6 +476,10 @@ static struct port_buffer *alloc_buf(struct virtqueue *vq, size_t buf_size,
 
 	if (!buf->buf)
 		goto free_buf;
+
+	if (buf->dma)
+		buf->dma_va = phys_to_virt(buf->dma);
+
 	buf->len = 0;
 	buf->offset = 0;
 	buf->size = buf_size;
@@ -504,7 +520,10 @@ static int add_inbuf(struct virtqueue *vq, struct port_buffer *buf)
 	struct scatterlist sg[1];
 	int ret;
 
-	sg_init_one(sg, buf->buf, buf->size);
+	if (buf->dma_va)
+		sg_init_one(sg, buf->dma_va, buf->size);
+	else
+		sg_init_one(sg, buf->buf, buf->size);
 
 	ret = virtqueue_add_inbuf(vq, sg, 1, buf, GFP_ATOMIC);
 	virtqueue_kick(vq);
@@ -851,7 +870,10 @@ static ssize_t port_fops_write(struct file *filp, const char __user *ubuf,
 	 * through to the host.
 	 */
 	nonblock = true;
-	sg_init_one(sg, buf->buf, count);
+	if (buf->dma_va)
+		sg_init_one(sg, buf->dma_va, count);
+	else
+		sg_init_one(sg, buf->buf, count);
 	ret = __send_to_port(port, sg, 1, count, buf, nonblock);
 
 	if (nonblock && ret > 0)
@@ -1393,6 +1415,10 @@ static int add_port(struct ports_device *portdev, u32 id)
 	dev_t devt;
 	unsigned int nr_added_bufs;
 	int err;
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+	int port_id;
+	char port_name[CONSOLE_MMIO_NAME_LEN];
+#endif
 
 	port = kmalloc(sizeof(*port), GFP_KERNEL);
 	if (!port) {
@@ -1434,9 +1460,19 @@ static int add_port(struct ports_device *portdev, u32 id)
 			"Error %d adding cdev for port %u\n", err, id);
 		goto free_cdev;
 	}
+
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+	/* read virtio i2c config info from mmio */
+	port_id = virtio_cread32(port->portdev->vdev, CONSOLE_MMIO_PORT_ID);
+	virtio_cread_bytes(port->portdev->vdev, CONSOLE_MMIO_NAME,
+				port_name, CONSOLE_MMIO_NAME_LEN);
+	port->dev = device_create(pdrvdata.class, &port->portdev->vdev->dev,
+				  devt, port, "%s%u", port_name, port_id);
+#else
 	port->dev = device_create(pdrvdata.class, &port->portdev->vdev->dev,
 				  devt, port, "vport%up%u",
 				  port->portdev->vdev->index, id);
+#endif
 	if (IS_ERR(port->dev)) {
 		err = PTR_ERR(port->dev);
 		dev_err(&port->portdev->vdev->dev,
@@ -1966,6 +2002,26 @@ static void remove_controlq_data(struct ports_device *portdev)
 		free_buf(buf, true);
 }
 
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+static int virtcons_mmio(struct virtio_device *vdev, u32 offset)
+{
+	switch (offset) {
+	/************* RPROC Defined MMIO Handlers *****************/
+	case MMIO_BACK_ONLINE:
+		break;
+
+	case MMIO_BACK_OFFLINE:
+		break;
+
+	/*************** Customized MMIO Handlers *******************/
+	default:
+		dev_err(&vdev->dev, "Bad MMIO offset:%d\n", offset);
+		break;
+	}
+	return 0;
+}
+#endif
+
 /*
  * Once we're further in boot, we get probed like any other virtio
  * device.
@@ -2065,6 +2121,14 @@ static int virtcons_probe(struct virtio_device *vdev)
 	 */
 	if (multiport && early)
 		wait_for_completion(&early_console_added);
+
+#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+	rproc_set_mmio_handler(vdev, virtcons_mmio);
+	/* Tell the remote processor, front is online. */
+	virtio_cwrite32(vdev, MMIO_FRONT_ONLINE, vdev->index);
+
+	dev_info(&vdev->dev, "online\n");
+#endif
 
 	return 0;
 

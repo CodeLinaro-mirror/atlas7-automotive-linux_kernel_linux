@@ -35,6 +35,22 @@
 #include <linux/virtio_ids.h>
 #include <linux/virtio_config.h>
 
+#ifdef CONFIG_CSRVISOR_REMOTEPROC
+
+#include <linux/remoteproc.h>
+#include <linux/remoteproc_dualos.h>
+
+#define CONSOLE_MMIO_PORT_ID	MMIO_CONFIG_BASE
+#define CONSOLE_MMIO_NAME	(CONSOLE_MMIO_PORT_ID + 0x04)
+#define CONSOLE_MMIO_NAME_LEN	0x20
+
+struct virtio_rproc_console_desc {
+	u32 id;
+	char name[CONSOLE_MMIO_NAME_LEN];
+};
+
+#endif
+
 /* Feature bits */
 #define VIRTIO_CONSOLE_F_SIZE	0	/* Does host provide console size? */
 #define VIRTIO_CONSOLE_F_MULTIPORT 1	/* Does host provide multiple ports? */

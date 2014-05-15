@@ -21,6 +21,7 @@
 #include <linux/virtio_ids.h>
 #include <linux/rpmsg.h>
 #include <linux/virtio_i2c.h>
+#include <linux/virtio_console.h>
 #endif
 
 #include "remoteproc_internal.h"
@@ -76,10 +77,6 @@ struct csrvisor_rproc {
 	struct csrvisor_fifo_msg *fifo_msg_tx;
 	struct csrvisor_fifo_io_req *fifo_iomem;
 	int irq;
-#ifdef RPROC_STATISTIC
-	unsigned int irq_gen_count;
-	unsigned int irq_get_count;
-#endif
 };
 
 static void fifo_register_write(struct csrvisor_rproc *srproc,
@@ -278,7 +275,6 @@ static void csrvisor_rproc_unmap_resource(struct csrvisor_rproc *srproc)
 		srproc->rsc_table_pa = 0;
 		srproc->rsc_table_len = 0;
 	}
-	return;
 }
 
 static int csrvisor_rproc_start(struct rproc *rproc)
@@ -314,6 +310,11 @@ static struct virtio_i2c_desc s_virtio_i2c_descs[] = {
 	{ 1, "CSR Virtual I2C Adapter#1" },
 };
 
+/* This table defined the virtio console device descriptors */
+static struct virtio_rproc_console_desc s_virtio_console_descs[] = {
+	{ 0, "vport" },
+};
+
 /* This table defined the virtio device will be create on remoteproc bus */
 static struct rproc_vdev_desc s_rproc_vdev_desc[] = {
 	/* virtio rpmsg bus device descriptor */
@@ -328,8 +329,13 @@ static struct rproc_vdev_desc s_rproc_vdev_desc[] = {
 	{ VIRTIO_ID_I2C, 1, 256, { VIRTIO_RING_F_INDIRECT_DESC, }, 1,
 		RPROC_VDEV_MMIO_SIZE,
 		&s_virtio_i2c_descs[1], sizeof(struct virtio_i2c_desc) },
+	/* virtio console device#0 descriptor */
+	{ VIRTIO_ID_RPROC_SERIAL, 2, 256, {}, 0,
+		RPROC_VDEV_MMIO_SIZE,
+		&s_virtio_console_descs[0],
+		sizeof(struct virtio_rproc_console_desc) },
 };
-#endif
+#endif /* CONFIG_CSRVISOR_REMOTEPROC_BACKEND */
 
 static void csrvisor_rproc_resource(struct rproc *rproc)
 {
