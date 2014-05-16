@@ -97,5 +97,7 @@ extern int sirfsoc_pm_init(void);
 #else
 static inline int sirfsoc_pm_init(void) { return 0; }
 #endif
-
+#ifdef CONFIG_SECURITY_MODE
+extern void (*arm_pm_idle)(void);
+#endif
 #endif

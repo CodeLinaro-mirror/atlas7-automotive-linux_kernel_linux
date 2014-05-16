@@ -22,11 +22,24 @@
 #include <asm/sizes.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/mach/map.h>
 #include "common.h"
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
 static struct device fake_cma_dev;
 
+#ifdef CONFIG_SECURITY_MODE
+#define CSRVISOR_PHY_BASE 0x5FC00000UL
+
+static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
+	 { /* csrvisor */
+		 .virtual = 0xCFC00000,
+		 .pfn = __phys_to_pfn(CSRVISOR_PHY_BASE),
+		 .length = SZ_1M,
+		 .type = MT_MEMORY_RWX,
+	 },
+};
+#endif
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
@@ -89,7 +102,6 @@ static void smc_switch_to_non_secure(void)
 static void __init csrvisor_reserve(void)
 {
 #ifdef CONFIG_SECURITY_MODE
-#define CSRVISOR_PHY_BASE 0x5FC00000UL
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
 	arm_pm_idle = smc_switch_to_non_secure;
 #endif
@@ -255,6 +267,9 @@ static void __init sirfsoc_init_late(void)
 static __init void sirfsoc_map_io(void)
 {
 	sirfsoc_map_lluart();
+#ifdef CONFIG_SECURITY_MODE
+	iotable_init(sirfsoc_csrvisor_map, ARRAY_SIZE(sirfsoc_csrvisor_map));
+#endif
 }
 
 static void __init sirfsoc_init_irq(void)
