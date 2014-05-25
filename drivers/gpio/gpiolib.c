@@ -1351,20 +1351,24 @@ static struct gpio_chip *find_chip_by_name(const char *name)
 
 /**
  * gpiochip_add_chained_irqchip() - adds a chained irqchip to a gpiochip
- * @handler_data: handler_data which will be used by ISR of interrupt parent
+ * @gpiochip: the gpiochip to add the irqchip to
  * @irqchip: the irqchip to add to the gpiochip
  * @parent_irq: the irq number corresponding to the parent IRQ for this
  * chained irqchip
  * @parent_handler: the parent interrupt handler for the accumulated IRQ
  * coming out of the gpiochip
  */
-void gpiochip_set_chained_irqchip(void *handler_data,
+void gpiochip_set_chained_irqchip(struct gpio_chip *gpiochip,
 				  struct irq_chip *irqchip,
 				  int parent_irq,
 				  irq_flow_handler_t parent_handler)
 {
 	irq_set_chained_handler(parent_irq, parent_handler);
-	irq_set_handler_data(parent_irq, handler_data);
+	/*
+	 * The parent irqchip is already using the chip_data for this
+	 * irqchip, so our callbacks simply use the handler_data.
+	 */
+	irq_set_handler_data(parent_irq, gpiochip);
 }
 EXPORT_SYMBOL_GPL(gpiochip_set_chained_irqchip);
 
