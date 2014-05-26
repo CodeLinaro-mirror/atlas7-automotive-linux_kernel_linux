@@ -341,7 +341,7 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 				uint_st->sirfsoc_rxd_brk |		\
 		((port->line > 2) ? 0 : uint_st->sirfsoc_parity_err))
 #define SIRFUART_RX_IO_INT_EN(port, uint_en)				\
-				(uint_en->sirfsoc_rx_timeout_en |\
+				(uint_en->sirfsoc_rx_done_en |\
 				 uint_en->sirfsoc_rxfifo_thd_en |\
 				 uint_en->sirfsoc_rxfifo_full_en |\
 				 uint_en->sirfsoc_frm_err_en |\
@@ -349,9 +349,9 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 				 uint_en->sirfsoc_rxd_brk_en |\
 		((port->line > 2) ? 0 : uint_en->sirfsoc_parity_err_en))
 #define SIRFUART_RX_IO_INT_ST(uint_st)				\
-				(uint_st->sirfsoc_rx_timeout |\
-				 uint_st->sirfsoc_rxfifo_thd |\
-				 uint_st->sirfsoc_rxfifo_full)
+				(uint_st->sirfsoc_rxfifo_thd |\
+				 uint_st->sirfsoc_rxfifo_full|\
+				 uint_st->sirfsoc_rx_done)
 #define SIRFUART_CTS_INT_ST(uint_st)	(uint_st->sirfsoc_cts)
 #define SIRFUART_RX_DMA_INT_EN(port, uint_en)				\
 				(uint_en->sirfsoc_rx_timeout_en |\
