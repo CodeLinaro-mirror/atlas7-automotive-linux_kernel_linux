@@ -91,6 +91,7 @@
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x16000000 0x100000>;
 				interrupts = <0 38 0>;
+				clocks = <&clks 116>;
 				wp-inverted;
 				broken-cd;
 				non-removable;
@@ -103,6 +104,7 @@
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x16100000 0x100000>;
 				interrupts = <0 38 0>;
+				clocks = <&clks 116>;
 				status = "disabled";
 				bus-width = <4>;
 			};
@@ -112,8 +114,9 @@
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x14200000 0x100000>;
 				interrupts = <0 23 0>;
+				clocks = <&clks 77>;
 				status = "disabled";
-				bus-width = <1>;
+				bus-width = <4>;
 			};
 
 			sd3: sdhci@14300000 {
@@ -121,6 +124,7 @@
 				compatible = "sirf,prima2-sdhc";
 				reg = <0x14300000 0x100000>;
 				interrupts = <0 23 0>;
+				clocks = <&clks 77>;
 				status = "disabled";
 				bus-width = <4>;
 			};

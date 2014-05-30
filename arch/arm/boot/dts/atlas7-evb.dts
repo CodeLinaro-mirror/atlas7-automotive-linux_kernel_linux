@@ -25,11 +25,13 @@
 	};
 
 	axi {
-		peri-iobg {
-			pci-iobg {
-				sdhci@14200000 {
-					status = "okay";
-				};
+		pci-iobg {
+			sdhci@16000000 {
+				status = "okay";
+			};
+
+			sdhci@14200000 {
+				status = "okay";
 			};
 		};
 	};
