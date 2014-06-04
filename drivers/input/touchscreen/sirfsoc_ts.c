@@ -487,7 +487,7 @@ static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 		if (!ret)
 			sirfsoc_ts_report_coord(ts);
 
-		msleep(20);
+		usleep_range(5000, 8000);
 	} while (ts->press_down);
 
 	input_report_key(input, BTN_TOUCH, 0);
