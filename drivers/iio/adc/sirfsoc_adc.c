@@ -561,7 +561,7 @@ static int sirfsoc_adc_resume(struct device *dev)
 
 	val = readl(adc->base + ADC_INTR);
 
-	/* Clear interrupts and enable PEN INTR */
+	/* Clear interrupts and enable PEN interrupt */
 	writel(val | PEN_INTR | DATA_INTR | PEN_INTR_EN |
 		DATA_INTR_EN,  adc->base + ADC_INTR);
 
@@ -582,6 +582,7 @@ static struct iio_chan_spec const sirfsoc_adc_iio_channels[] = {
 	SIRFSOC_ADC_CHANNEL(CHANNEL_COORD),
 	SIRFSOC_ADC_CHANNEL(CHANNEL_COORD_DUAL),
 	SIRFSOC_ADC_CHANNEL(CHANNEL_AUX1),
+	/* AtlasVI has no AUX2 and AUX3 */
 	SIRFSOC_ADC_CHANNEL(CHANNEL_AUX4),
 	SIRFSOC_ADC_CHANNEL(CHANNEL_AUX5),
 	SIRFSOC_ADC_CHANNEL(CHANNEL_AUX6),
