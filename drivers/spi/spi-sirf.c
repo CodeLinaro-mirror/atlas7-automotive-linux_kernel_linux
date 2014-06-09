@@ -717,7 +717,7 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	/* We are not using dummy delay between command and data */
 	writel(0, sspi->base + SIRFSOC_SPI_DUMMY_DELAY_CTL);
 
-	sspi->dummypage = kmalloc(2 * PAGE_SIZE, GFP_KERNEL);
+	sspi->dummypage = devm_kzalloc(&pdev->dev, 2 * PAGE_SIZE, GFP_KERNEL);
 	if (!sspi->dummypage) {
 		ret = -ENOMEM;
 		goto free_clk;
@@ -725,27 +725,25 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 
 	ret = spi_bitbang_start(&sspi->bitbang);
 	if (ret)
-		goto free_dummypage;
+		goto free_clk;
 	for (i = 0; master->cs_gpios && i < master->num_chipselect; i++) {
 		if (master->cs_gpios[i] == -ENOENT)
 			continue;
 		if (!gpio_is_valid(master->cs_gpios[i])) {
 			dev_err(&pdev->dev, "no valid gpio\n");
 			ret = -EINVAL;
-			goto free_dummypage;
+			goto free_clk;
 		}
 		ret = devm_gpio_request(&pdev->dev,
 				master->cs_gpios[i], DRIVER_NAME);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to request gpio\n");
-			goto free_dummypage;
+			goto free_clk;
 		}
 	}
 	dev_info(&pdev->dev, "registerred, bus number = %d\n", master->bus_num);
 
 	return 0;
-free_dummypage:
-	kfree(sspi->dummypage);
 free_clk:
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
@@ -766,9 +764,7 @@ static int  spi_sirfsoc_remove(struct platform_device *pdev)
 
 	master = platform_get_drvdata(pdev);
 	sspi = spi_master_get_devdata(master);
-
 	spi_bitbang_stop(&sspi->bitbang);
-	kfree(sspi->dummypage);
 	clk_disable_unprepare(sspi->clk);
 	clk_put(sspi->clk);
 	dma_release_channel(sspi->rx_chan);
