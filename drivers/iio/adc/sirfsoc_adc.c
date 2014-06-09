@@ -1,7 +1,7 @@
 /*
 * ADC Driver for CSR SiRFprimaII/AtlasVI
 *
-* Copyright (c) 2012 Cambridge Silicon Radio Limited, a CSR plc group company.
+* Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
 *
 * Licensed under GPLv2.
 */
@@ -659,7 +659,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		dev_err(&pdev->dev, "sirfsoc adc: get irq failed!\n");
+		dev_err(&pdev->dev, "Failed to get IRQ!\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -668,7 +668,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		0, DRIVER_NAME, indio_dev);
 
 	if (ret < 0) {
-		dev_err(&pdev->dev, "sirfsoc adc: regist irq handler failed!\n");
+		dev_err(&pdev->dev, "Failed to register irq handler\n");
 		ret = -ENODEV;
 		goto err;
 	}
@@ -676,13 +676,13 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	ret = of_platform_populate(pdev->dev.of_node, sirfsoc_adc_of_match,
 		NULL, &pdev->dev);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "failed adding child nodes\n");
+		dev_err(&pdev->dev, "Failed to add child nodes\n");
 		goto err;
 	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret) {
-		dev_err(&pdev->dev, "failed register adc iio dev\n");
+		dev_err(&pdev->dev, "Failed to register adc iio dev\n");
 		goto err;
 	}
 
