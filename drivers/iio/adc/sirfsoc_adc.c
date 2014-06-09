@@ -1,9 +1,9 @@
 /*
-* sirfsoc ADC Driver
+* ADC Driver for CSR SiRFprimaII/AtlasVI
 *
-* Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+* Copyright (c) 2012 Cambridge Silicon Radio Limited, a CSR plc group company.
 *
-* Licensed under GPLv2 or later.
+* Licensed under GPLv2.
 */
 
 #include <linux/module.h>
@@ -308,7 +308,7 @@ static u32 sirfsoc_adc_offset_cali(struct sirfsoc_adc_request *req)
 }
 
 
-/* For ADC gain calibration */
+/* Gain Calibration calibrates the ADC gain error */
 static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 {
 	u32 i, digital_gain = 0, count = 0, sum = 0;
@@ -337,7 +337,7 @@ static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 	return digital_gain;
 }
 
-/* For ADC digital IDEAL */
+/* absolute gain calibration */
 static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 				struct sirfsoc_adc_cali_data *cali_data)
 {
@@ -347,14 +347,16 @@ static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 	cali_data->digital_again = sirfsoc_adc_gain_cali(req);
 	if (!(cali_data->digital_again))
 		return -EINVAL;
-	/* the ideal ADC conversion result for
-		PrimaII A1 which show in the ADC spec */
+	/*
+	 * see Equation 3.2 of SiRFprimaII™ Internal ADC and Touch
+	 * User Guide
+	 */
 	cali_data->digital_ideal = (16384 * 1200) / (14 * 333);
 	return 0;
 }
 
 
-/* For Get voltage after ADC conversion */
+/* get voltage after ADC conversion */
 static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 				struct sirfsoc_adc_cali_data *cali_data)
 {
@@ -365,7 +367,6 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 			return 0;
 		cali_data->is_calibration = true;
 	}
-	/* To set the reigsters in order to get the ADC output */
 	req->s_gain_bits = ADC_SGAIN(0);
 	req->delay_bits = ADC_DEL_SET(4);
 
@@ -373,9 +374,7 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 	if (req->adc_data.aux) {
 		digital_out = req->adc_data.aux;
 		/*
-		 * The equation is to calibration the digital value out form
-		 * ADC using the offset and absolute gain for PrmaII A1
-		 * which can find in the adc spec
+		 * see Equation 3.3 of SiRFprimaII™ Internal ADC and Touch
 		 */
 		digital_convert = ((digital_out - 2 * cali_data->digital_offset
 			* 11645 / 140000) * cali_data->digital_ideal)
@@ -392,7 +391,7 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 	return volt;
 }
 
-/*Get the single touch coord*/
+/* get touchscreen coordinates for single touch */
 static int sirfsoc_adc_single_ts_sample(struct sirfsoc_adc *adc, int *sample)
 {
 	int adc_intr;
@@ -402,7 +401,7 @@ static int sirfsoc_adc_single_ts_sample(struct sirfsoc_adc *adc, int *sample)
 		writel(PEN_INTR | PEN_INTR_EN | DATA_INTR_EN,
 			adc->base + ADC_INTR);
 
-	/*check if the touch lift up*/
+	/* check pen status */
 	if (!(readl(adc->base + ADC_COORD) & PEN_DOWN))
 		return -EINVAL;
 
@@ -422,7 +421,7 @@ static const u32 sirfsoc_adc_ts_reg[SIRFSOC_ADC_TS_SAMPLE_SIZE] = {
 	ADC_COORD, ADC_COORD2, ADC_COORD3, ADC_COORD4
 };
 
-/*Get the dual touch coords*/
+/* get touchscreen coordinates for dual touch */
 static int sirfsoc_adc_dual_ts_sample(struct sirfsoc_adc *adc, int *samples)
 {
 	int adc_intr;
@@ -433,7 +432,7 @@ static int sirfsoc_adc_dual_ts_sample(struct sirfsoc_adc *adc, int *samples)
 		writel(PEN_INTR | PEN_INTR_EN | DATA_INTR_EN,
 			adc->base + ADC_INTR);
 
-	/*check if the touch lift up*/
+	/* check pen status */
 	if (!(readl(adc->base + ADC_COORD) & PEN_DOWN))
 		return -EINVAL;
 
@@ -471,7 +470,6 @@ static int sirfsoc_read_raw(struct iio_dev *indio_dev,
 			ret = sirfsoc_adc_dual_ts_sample(adc, val);
 			break;
 		case CHANNEL_AUX1:
-			/* TO set reigsters to get corresponding output */
 			adc->req.mode = ADC_SEL(SIRFSOC_ADC_AUX1_SEL);
 			adc->req.aux = ADC_AUX1;
 			*val = sirfsoc_adc_get_adc_volt(adc,
@@ -543,6 +541,7 @@ static int sirfsoc_adc_resume(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
+	int ret;
 	int val;
 
 	clk_prepare_enable(adc->clk);
@@ -552,7 +551,11 @@ static int sirfsoc_adc_resume(struct device *dev)
 		| (1 << PWR_WAKEEN_TS_SHIFT),
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
-	device_reset(dev);
+	ret = device_reset(dev);
+	if (ret) {
+		dev_err(dev, "Failed to reset\n");
+		return ret;
+	}
 
 	writel(ADC_PRP_MODE3 | ADC_RTOUCH(1) | ADC_DEL_PRE(2) |
 		ADC_DEL_DIS(5),  adc->base + ADC_CONTROL2);
@@ -613,7 +616,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	adc->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(adc->clk)) {
-		dev_err(&pdev->dev, "sirfsoc adc: get adc clk err\n");
+		dev_err(&pdev->dev, "get adc clk err\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -621,14 +624,14 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem_res) {
-		dev_err(&pdev->dev, "sirfsoc adc: Unalbe to get io resource\n");
+		dev_err(&pdev->dev, "Unalbe to get io resource\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
 	adc->base = devm_request_and_ioremap(&pdev->dev, mem_res);
 	if (adc->base == NULL) {
-		dev_err(&pdev->dev, "sirfsoc adc: IO remap failed!\n");
+		dev_err(&pdev->dev, "IO remap failed!\n");
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -640,7 +643,9 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		SIRFSOC_PWRC_TRIGGER_EN) | (1 << PWR_WAKEEN_TS_SHIFT),
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
-	device_reset(&pdev->dev);
+	ret = device_reset(&pdev->dev);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to reset\n");
 
 	writel(ADC_PRP_MODE3 | ADC_RTOUCH(1) | ADC_DEL_PRE(2) |
 		ADC_DEL_DIS(5),  adc->base + ADC_CONTROL2);
@@ -711,4 +716,4 @@ module_platform_driver(sirfsoc_adc_driver);
 
 MODULE_AUTHOR("Guoying Zhang <Guoying.Zhang@csr.com>");
 MODULE_DESCRIPTION("SiRF SoC On-chip ADC driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
