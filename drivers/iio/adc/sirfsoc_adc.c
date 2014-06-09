@@ -644,8 +644,10 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
 	ret = device_reset(&pdev->dev);
-	if (ret)
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to reset\n");
+		goto err;
+	}
 
 	writel(ADC_PRP_MODE3 | ADC_RTOUCH(1) | ADC_DEL_PRE(2) |
 		ADC_DEL_DIS(5),  adc->base + ADC_CONTROL2);
