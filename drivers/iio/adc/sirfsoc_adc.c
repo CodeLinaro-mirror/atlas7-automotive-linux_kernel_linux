@@ -43,7 +43,7 @@
 #define ADC_AUX4		0x20
 #define ADC_AUX5		0x24
 #define ADC_AUX6		0x28
-#define ADC_CB			0x2C
+#define ADC_CB			0x2C /* Read Back calibration register */
 #define ADC_COORD2		0x30
 #define ADC_COORD3		0x34
 #define ADC_COORD4		0x38
@@ -252,7 +252,7 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 	case ADC_SEL(11):
 	case ADC_SEL(12):
 	case ADC_SEL(13):
-		reg_offset = 0x2C;
+		reg_offset = ADC_CB;
 		data = readl(adc->base + reg_offset);
 		if ((data & DATA_AUXVALID)) {
 			req->adc_data.aux = data & DATA_AUXMASK;
@@ -284,7 +284,7 @@ static u32 sirfsoc_adc_offset_cali(struct sirfsoc_adc_request *req)
 	u32 i, digital_offset = 0, count = 0, sum = 0;
 	/* To set the reigsters in order to get the ADC offset */
 	req->mode = ADC_SEL(11);
-	req->aux = 0x2C;
+	req->aux = ADC_CB;
 	req->s_gain_bits = ADC_SGAIN(7);
 	req->delay_bits = ADC_DEL_SET(4);
 	req->req_status = SIRFSOC_ADC_REQ_NONE;
@@ -314,7 +314,7 @@ static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 	u32 i, digital_gain = 0, count = 0, sum = 0;
 	/* To set the reigsters in order to get the ADC gain */
 	req->mode = ADC_SEL(12);
-	req->aux = 0x2C;
+	req->aux = ADC_CB;
 	req->s_gain_bits = ADC_SGAIN(0);
 	req->delay_bits = ADC_DEL_SET(4);
 	req->req_status = SIRFSOC_ADC_REQ_NONE;
