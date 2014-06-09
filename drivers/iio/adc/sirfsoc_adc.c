@@ -193,7 +193,6 @@ struct sirfsoc_adc_request {
 struct sirfsoc_adc {
 	struct clk	*clk;
 	void __iomem	*base;
-	int		irq;
 	struct sirfsoc_adc_request req;
 	struct completion	done;
 	struct mutex	adc_lock;
@@ -595,10 +594,11 @@ static const struct iio_info sirfsoc_adc_info = {
 
 static int sirfsoc_adc_probe(struct platform_device *pdev)
 {
-	int ret = 0;
 	struct resource	*mem_res;
 	struct sirfsoc_adc *adc;
 	struct iio_dev *indio_dev;
+	int irq;
+	int ret = 0;
 
 	indio_dev = iio_device_alloc(sizeof(struct sirfsoc_adc));
 	if (!indio_dev)
@@ -656,14 +656,14 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	writel(readl(adc->base + ADC_INTR) | PEN_INTR | DATA_INTR |
 		PEN_INTR_EN | DATA_INTR_EN,  adc->base + ADC_INTR);
 
-	adc->irq = platform_get_irq(pdev, 0);
-	if (adc->irq < 0) {
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
 		dev_err(&pdev->dev, "sirfsoc adc: get irq failed!\n");
 		ret = -ENOMEM;
 		goto err;
 	}
 
-	ret = devm_request_irq(&pdev->dev, adc->irq, sirfsoc_adc_data_irq,
+	ret = devm_request_irq(&pdev->dev, irq, sirfsoc_adc_data_irq,
 		0, DRIVER_NAME, indio_dev);
 
 	if (ret < 0) {
