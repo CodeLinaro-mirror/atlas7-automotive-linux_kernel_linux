@@ -142,7 +142,7 @@ static int sirfsoc_ts_debounce(struct sirfsoc_ts *ts, int sample_count)
 
 	/* Debouncing
 	 * - Condition for a stable reading: Three (debounce_rep) continuous
-	 *   reading with AD samples deviation less than 50 (debounce_dev)
+	 *   reading with AD samples deviation in bound (debounce_dev)
 	 * - ts->samples[] stores sum of previous readings
 	 * - samples[] stored current reading
 	 */
@@ -499,7 +499,7 @@ static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 
 static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_single = {
 	.debounce_rep		= 3,
-	.debounce_dev		= 50,
+	.debounce_dev		= 200,
 	.get_coord_and_pen	= sirfsoc_ts_get_coord_and_pen_single,
 	.read_samples		= sirfsoc_ts_read_samples_single,
 };
