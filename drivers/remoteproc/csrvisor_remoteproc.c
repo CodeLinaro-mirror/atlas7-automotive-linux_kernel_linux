@@ -199,10 +199,11 @@ static int fifo_writel(struct rproc *rproc, int value)
 	return -EBUSY;
 }
 
-/* FIFO interrupt handle thread, this thread must be pin to CPU0,
+/*
+ * FIFO interrupt handle, this ISR must be pin to CPU0,
  * because fifo_readl will call SMC
  */
-static irqreturn_t fifo_ist(int irq, void *data)
+static irqreturn_t fifo_isr(int irq, void *data)
 {
 	struct rproc *rproc = (struct rproc *)data;
 	int notifyid = 0;
@@ -497,8 +498,7 @@ static int __csrvisor_rproc_probe(struct platform_device *pdev)
 
 	srproc->fifo_avail = true;
 
-	ret = request_threaded_irq(srproc->irq, NULL, fifo_ist, IRQF_ONESHOT,
-					"csrvisor_sw_fifo", rproc);
+	ret = request_irq(srproc->irq, fifo_isr, 0, "csrvisor_sw_fifo", rproc);
 	if (ret) {
 		dev_err(&rproc->dev,
 			"request_threaded_irq %d error: %d\n",
