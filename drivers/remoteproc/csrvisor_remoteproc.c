@@ -70,9 +70,7 @@ struct csrvisor_rproc {
 	struct rproc *rproc;
 	void *rsc_table_pa;
 	u32 rsc_table_len;
-	struct mutex fifo_rx_lock, fifo_tx_lock;
-	wait_queue_head_t tx_avail_wq;
-	bool fifo_avail;
+	spinlock_t fifo_rx_lock, fifo_tx_lock;
 	struct csrvisor_fifo_msg *fifo_msg_rx;
 	struct csrvisor_fifo_msg *fifo_msg_tx;
 	struct csrvisor_fifo_io_req *fifo_iomem;
@@ -131,28 +129,26 @@ static int fifo_readl(struct rproc *rproc)
 	rx_stat = srproc->fifo_msg_rx->rx_stat;
 	tx_stat = srproc->fifo_msg_rx->tx_stat;
 
+#if 0
+
 	/*
 	 * We don't need to ack the tx done interrupt,
 	 * because we disable TX done intr in csrvisor.
 	 * But TX err intr will be generated when tx failed.
 	 */
-#if 0
-	if (irq_tx_stat & SW_FIFO_INTR_TX_DONE)
+	if (tx_stat & SW_FIFO_INTR_TX_DONE)
 		dev_dbg(&rproc->dev, "SW_FIFO_INTR_TX_DONE\n");
-#endif
 
 	/* FIFO is busy, there is no enough space for new data */
 	if (tx_stat & SW_FIFO_INTR_BUSY)
-		srproc->fifo_avail = false;
+		dev_dbg(&rproc->dev, "SW_FIFO_INTR_BUSY\n");
 
 	/*
 	 * FIFO is available, there is enough space for new data.
 	 * wake up the waiting queue
 	 */
-	if (tx_stat & SW_FIFO_INTR_AVAIL) {
-		srproc->fifo_avail = true;
-		wake_up(&srproc->tx_avail_wq);
-	}
+	if (tx_stat & SW_FIFO_INTR_AVAIL)
+		dev_dbg(&rproc->dev, "SW_FIFO_INTR_AVAIL\n");
 
 	/* The data is tring to be written into FIFO is too big.
 	 * Its size is larger than FIFO's capacity
@@ -161,6 +157,7 @@ static int fifo_readl(struct rproc *rproc)
 		dev_err(&rproc->dev, "SW_FIFO_INTR_BIG_SIZE\n");
 		BUG_ON(1);
 	}
+#endif
 
 	/* There is no data had been placed at RX dma memory */
 	if (rx_stat & SW_FIFO_INTR_EMPTY)
@@ -372,16 +369,15 @@ static void csrvisor_rproc_release(struct rproc *rproc)
 
 static void __csrvisor_rproc_kick(struct rproc *rproc, int notify_id)
 {
-	struct csrvisor_rproc *srproc = rproc->priv;
 	int ret;
 
-	do {
-		ret = fifo_writel(rproc, notify_id);
-		if (!ret)
-			break;
-		wait_event_interruptible(srproc->tx_avail_wq,
-			srproc->fifo_avail);
-	} while (1);
+	ret = fifo_writel(rproc, notify_id);
+	if (ret) {
+		dev_err(&rproc->dev,
+			"%s could not completed, err=%d\n",
+			__func__, ret);
+		WARN_ON(ret);
+	}
 }
 
 /* Generate a interrupt in other side. (kick a virtqueue).
@@ -392,7 +388,6 @@ static void __csrvisor_rproc_kick(struct rproc *rproc, int notify_id)
 static void csrvisor_rproc_kick(struct rproc *rproc, int notify_id)
 {
 	struct csrvisor_rproc *srproc = rproc->priv;
-
 #if defined(CONFIG_SMP) && defined(CONFIG_CSRVISOR_REMOTEPROC_FRONTEND)
 	struct smc_task *task;
 
@@ -402,14 +397,14 @@ static void csrvisor_rproc_kick(struct rproc *rproc, int notify_id)
 
 	task->id = notify_id;
 
-	mutex_lock(&srproc->fifo_tx_lock);
+	spin_lock(&srproc->fifo_tx_lock);
 	list_add_tail(&task->node, &s_smc_task_head);
-	mutex_unlock(&srproc->fifo_tx_lock);
+	spin_unlock(&srproc->fifo_tx_lock);
 	wake_up(&s_smc_task_wq);
 #else
-	mutex_lock(&srproc->fifo_tx_lock);
+	spin_lock(&srproc->fifo_tx_lock);
 	__csrvisor_rproc_kick(rproc, notify_id);
-	mutex_unlock(&srproc->fifo_tx_lock);
+	spin_unlock(&srproc->fifo_tx_lock);
 #endif
 }
 
@@ -492,11 +487,8 @@ static int __csrvisor_rproc_probe(struct platform_device *pdev)
 	srproc = rproc->priv;
 	srproc->rproc = rproc;
 
-	mutex_init(&srproc->fifo_rx_lock);
-	mutex_init(&srproc->fifo_tx_lock);
-	init_waitqueue_head(&srproc->tx_avail_wq);
-
-	srproc->fifo_avail = true;
+	spin_lock_init(&srproc->fifo_rx_lock);
+	spin_lock_init(&srproc->fifo_tx_lock);
 
 	ret = request_irq(srproc->irq, fifo_isr, 0, "csrvisor_sw_fifo", rproc);
 	if (ret) {
