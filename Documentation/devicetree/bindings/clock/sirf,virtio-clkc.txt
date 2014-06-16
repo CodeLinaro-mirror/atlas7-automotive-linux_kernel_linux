@@ -1,0 +1,11 @@
+SIRF Virtio Clock Controller Binding
+------------------------------------------------
+
+Required properties :
+- compatible : shall contain only one of the following:
+
+			"sirf,virtio-clkc"
+Example:
+	vclkc {
+		compatible = "sirf,virtio-clkc";
+	};

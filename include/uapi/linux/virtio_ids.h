@@ -45,5 +45,6 @@
 
 /* virtio i2c */
 #define VIRTIO_ID_I2C		(VIRTIO_ID_CSR_BASE | 0x01)
+#define VIRTIO_ID_CLOCK		(VIRTIO_ID_CSR_BASE | 0x02)
 
 #endif /* _LINUX_VIRTIO_IDS_H */

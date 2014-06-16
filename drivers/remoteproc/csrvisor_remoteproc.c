@@ -22,6 +22,7 @@
 #include <linux/rpmsg.h>
 #include <linux/virtio_i2c.h>
 #include <linux/virtio_console.h>
+#include <linux/virtio_clk.h>
 #endif
 
 #include "remoteproc_internal.h"
@@ -313,8 +314,27 @@ static struct virtio_rproc_console_desc s_virtio_console_descs[] = {
 	{ 0, "vport" },
 };
 
+/*
+ * The compatible string of virtual device where all virtual
+ * clock units connected.
+ */
+static const char s_virtio_clk_np_string[] = "sirf,virtio-clkc";
+
 /* This table defined the virtio device will be create on remoteproc bus */
 static struct rproc_vdev_desc s_rproc_vdev_desc[] = {
+	/* virtio clock device descriptor */
+	{ VIRTIO_ID_CLOCK, 1, 256,
+		{	/* Prepare Features */
+			VIRTIO_CLK_F_PREPARE,
+			VIRTIO_CLK_F_UNPREPARE,
+			VIRTIO_CLK_F_IS_PREPARED,
+			/* Control Features */
+			VIRTIO_CLK_F_ENABLE,
+			VIRTIO_CLK_F_DISABLE,
+			VIRTIO_CLK_F_IS_ENABLED,
+		}, 6, RPROC_VDEV_MMIO_SIZE,
+		s_virtio_clk_np_string,
+		ARRAY_SIZE(s_virtio_clk_np_string)},
 	/* virtio rpmsg bus device descriptor */
 	{ VIRTIO_ID_RPMSG, 2, 256, { VIRTIO_RPMSG_F_NS, }, 1,
 		RPROC_VDEV_MMIO_SIZE,
