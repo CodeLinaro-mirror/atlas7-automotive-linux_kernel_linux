@@ -30,17 +30,31 @@
 #define SIRFSOC_DMA_CH_XLEN                     0x04
 #define SIRFSOC_DMA_CH_YLEN                     0x08
 #define SIRFSOC_DMA_CH_CTRL                     0x0C
-
 #define SIRFSOC_DMA_WIDTH_0                     0x100
 #define SIRFSOC_DMA_CH_VALID                    0x140
 #define SIRFSOC_DMA_CH_INT                      0x144
 #define SIRFSOC_DMA_INT_EN                      0x148
-#define SIRFSOC_DMA_INT_EN_CLR			0x14C
+#define SIRFSOC_DMA_INT_EN_CLR                  0x14C
 #define SIRFSOC_DMA_CH_LOOP_CTRL                0x150
 #define SIRFSOC_DMA_CH_LOOP_CTRL_CLR            0x154
+#define SIRFSOC_DMA_WIDTH_ATLAS7                0x10
+#define SIRFSOC_DMA_VALID_ATLAS7                0x14
+#define SIRFSOC_DMA_INT_ATLAS7                  0x18
+#define SIRFSOC_DMA_INT_EN_ATLAS7               0x1c
+#define SIRFSOC_DMA_LOOP_CTRL_ATLAS7            0x20
+#define SIRFSOC_DMA_MUL_ATLAS7                  0x38
+#define SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7         0x158
+#define SIRFSOC_DMA_CH_LOOP_CTRL_CLR_ATLAS7     0x15C
 
 #define SIRFSOC_DMA_MODE_CTRL_BIT               4
 #define SIRFSOC_DMA_DIR_CTRL_BIT                5
+#define SIRFSOC_DMA_MODE_CTRL_BIT_ATLAS7        2
+#define SIRFSOC_DMA_CHAIN_CTRL_BIT_ATLAS7       3
+#define SIRFSOC_DMA_DIR_CTRL_BIT_ATLAS7         4
+#define SIRFSOC_DMA_TAB_NUM_ATLAS7              7
+#define SIRFSOC_DMA_CHAIN_INT_BIT_ATLAS7        5
+#define SIRFSOC_DMA_CHAIN_FLAG_SHIFT_ATLAS7     25
+#define SIRFSOC_DMA_CHAIN_ADDR_SHIFT_ATLAS7     32
 
 /* xlen and dma_width register is in 4 bytes boundary */
 #define SIRFSOC_DMA_WORD_LEN			4
@@ -56,6 +70,7 @@ struct sirfsoc_dma_desc {
 	int             width;          /* DMA width */
 	int             dir;
 	bool            cyclic;         /* is loop DMA? */
+	bool            chain;          /* is chain DMA? */
 	u32             addr;		/* DMA buffer address */
 };
 
@@ -88,13 +103,23 @@ struct sirfsoc_dma {
 	void __iomem			*base;
 	int				irq;
 	struct clk			*clk;
-	bool				is_marco;
+	bool				is_atlas7_dma_v1;
+	bool				is_atlas7_dma_v2;
 	struct sirfsoc_dma_regs		regs_save;
+};
+
+enum sirfsoc_dma_chain_flag {
+	SIRFSOC_DMA_CHAIN_NORMAL = 0x01,
+	SIRFSOC_DMA_CHAIN_PAUSE = 0x02,
+	SIRFSOC_DMA_CHAIN_LOOP = 0x03,
+	SIRFSOC_DMA_CHAIN_END = 0x04
 };
 
 #define DRV_NAME	"sirfsoc_dma"
 
 static int sirfsoc_dma_runtime_suspend(struct device *dev);
+
+static u64 sirfsoc_dma_chain_array[SIRFSOC_DMA_DESCRIPTORS];
 
 /* Convert struct dma_chan to struct sirfsoc_dma_chan */
 static inline
@@ -127,19 +152,45 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	/* Move the first queued descriptor to active list */
 	list_move_tail(&sdesc->node, &schan->active);
 
+	if (sdma->is_atlas7_dma_v2)
+		cid = 0;
+
 	/* Start the DMA transfer */
-	writel_relaxed(sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_0 +
-		cid * 4);
-	writel_relaxed(cid | (schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
-		(sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT),
-		sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_CTRL);
-	writel_relaxed(sdesc->xlen, sdma->base + cid * 0x10 +
-		SIRFSOC_DMA_CH_XLEN);
-	writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 +
-		SIRFSOC_DMA_CH_YLEN);
+	if ((sdesc->chain) && (sdma->is_atlas7_dma_v2)) {
+		writel_relaxed(
+			sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_ATLAS7);
+		writel_relaxed(
+			(schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT_ATLAS7) |
+			(sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT_ATLAS7) |
+			(sdesc->chain << SIRFSOC_DMA_CHAIN_CTRL_BIT_ATLAS7) |
+			(sdesc->ylen << SIRFSOC_DMA_TAB_NUM_ATLAS7),
+			SIRFSOC_DMA_CH_CTRL);
+	} else {
+		writel_relaxed(sdesc->width, sdma->base + SIRFSOC_DMA_WIDTH_0 +
+			cid * 4);
+		writel_relaxed(cid |
+			(schan->mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
+			(sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT),
+			sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_CTRL);
+		writel_relaxed(sdesc->xlen, sdma->base + cid * 0x10 +
+			SIRFSOC_DMA_CH_XLEN);
+		writel_relaxed(sdesc->ylen, sdma->base + cid * 0x10 +
+			SIRFSOC_DMA_CH_YLEN);
+
+		if (sdma->is_atlas7_dma_v2)
+				writel_relaxed(
+				(sdesc->width*((sdesc->ylen+1)>>1)),
+				sdma->base + SIRFSOC_DMA_MUL_ATLAS7);
+	}
+
+	if ((sdesc->chain) && (sdma->is_atlas7_dma_v2)) {
+		writel_relaxed(
+			(1 << SIRFSOC_DMA_CHAIN_INT_BIT_ATLAS7),
+			sdma->base + SIRFSOC_DMA_INT_EN_ATLAS7);
+	} else {
 	writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) |
 		(1 << cid), sdma->base + SIRFSOC_DMA_INT_EN);
-
+	}
 	/*
 	 * writel has an implict memory write barrier to make sure data is
 	 * flushed into memory before starting DMA
@@ -147,9 +198,23 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	writel(sdesc->addr >> 2, sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR);
 
 	if (sdesc->cyclic) {
-		writel((1 << cid) | 1 << (cid + 16) |
-			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL),
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
+		if (sdma->is_atlas7_dma_v2) {
+			writel(0x10001,
+			sdma->base + SIRFSOC_DMA_LOOP_CTRL_ATLAS7);
+		} else if (sdma->is_atlas7_dma_v1) {
+			writel(
+				(1 << cid) | 1 << (cid + 16) |
+				readl_relaxed(sdma->base
+				+ SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7),
+				sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7);
+		} else {
+			writel(
+				(1 << cid) | 1 << (cid + 16) |
+				readl_relaxed(sdma->base
+					+ SIRFSOC_DMA_CH_LOOP_CTRL),
+					sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
+		}
+
 		schan->happened_cyclic = schan->completed_cyclic = 0;
 	}
 }
@@ -162,11 +227,25 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	struct sirfsoc_dma_desc *sdesc = NULL;
 	u32 is;
 	int ch;
+	u32 base;
 
-	is = readl(sdma->base + SIRFSOC_DMA_CH_INT);
+	if (sdma->is_atlas7_dma_v2) {
+		is = readl(sdma->base + SIRFSOC_DMA_INT_ATLAS7);
+		is &= 0x21;
+		base = sdma->base + SIRFSOC_DMA_INT_ATLAS7;
+	} else {
+		is = readl(sdma->base + SIRFSOC_DMA_CH_INT);
+		base = sdma->base + SIRFSOC_DMA_CH_INT;
+	}
+
 	while ((ch = fls(is) - 1) >= 0) {
 		is &= ~(1 << ch);
-		writel_relaxed(1 << ch, sdma->base + SIRFSOC_DMA_CH_INT);
+
+		writel_relaxed(1 << ch, base);
+
+		if ((sdma->is_atlas7_dma_v2) && (ch > 0))
+			ch = 0;
+
 		schan = &sdma->channels[ch];
 
 		spin_lock(&schan->lock);
@@ -302,20 +381,24 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 
 	spin_lock_irqsave(&schan->lock, flags);
 
-	if (!sdma->is_marco) {
+	if (sdma->is_atlas7_dma_v1) {
+		writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_INT_EN_CLR);
+		writel_relaxed((1 << cid) | 1 << (cid + 16),
+			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_CLR_ATLAS7);
+		writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_CH_VALID);
+	} else if (sdma->is_atlas7_dma_v2) {
+		writel_relaxed(0, sdma->base + SIRFSOC_DMA_INT_EN_ATLAS7);
+		writel_relaxed(0, sdma->base + SIRFSOC_DMA_LOOP_CTRL_ATLAS7);
+		writel_relaxed(0, sdma->base + SIRFSOC_DMA_VALID_ATLAS7);
+	} else {
 		writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) &
 			~(1 << cid), sdma->base + SIRFSOC_DMA_INT_EN);
 		writel_relaxed(readl_relaxed(sdma->base +
 			SIRFSOC_DMA_CH_LOOP_CTRL) &
 			~((1 << cid) | 1 << (cid + 16)),
 			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
-	} else {
-		writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_INT_EN_CLR);
-		writel_relaxed((1 << cid) | 1 << (cid + 16),
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_CLR);
+		writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_CH_VALID);
 	}
-
-	writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_CH_VALID);
 
 	list_splice_tail_init(&schan->active, &schan->free);
 	list_splice_tail_init(&schan->queued, &schan->free);
@@ -333,14 +416,17 @@ static int sirfsoc_dma_pause_chan(struct sirfsoc_dma_chan *schan)
 
 	spin_lock_irqsave(&schan->lock, flags);
 
-	if (!sdma->is_marco)
-		writel_relaxed(readl_relaxed(
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
+	if (sdma->is_atlas7_dma_v1) {
+		writel_relaxed((1 << cid) | 1 << (cid + 16),
+			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_CLR_ATLAS7);
+	} else if (sdma->is_atlas7_dma_v2) {
+		writel_relaxed(0, sdma->base + SIRFSOC_DMA_LOOP_CTRL_ATLAS7);
+	} else {
+		writel_relaxed(
+			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
 			& ~((1 << cid) | 1 << (cid + 16)),
 			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
-	else
-		writel_relaxed((1 << cid) | 1 << (cid + 16),
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_CLR);
+	}
 
 	spin_unlock_irqrestore(&schan->lock, flags);
 
@@ -355,14 +441,18 @@ static int sirfsoc_dma_resume_chan(struct sirfsoc_dma_chan *schan)
 
 	spin_lock_irqsave(&schan->lock, flags);
 
-	if (!sdma->is_marco)
-		writel_relaxed(readl_relaxed(
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
+	if (sdma->is_atlas7_dma_v1) {
+		writel_relaxed((1 << cid) | 1 << (cid + 16),
+			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7);
+	} else if (sdma->is_atlas7_dma_v2) {
+		writel_relaxed(0x10001,
+			sdma->base + SIRFSOC_DMA_LOOP_CTRL_ATLAS7);
+	} else {
+		writel_relaxed(
+			readl_relaxed(sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL)
 			| ((1 << cid) | 1 << (cid + 16)),
 			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
-	else
-		writel_relaxed((1 << cid) | 1 << (cid + 16),
-			sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL);
+	}
 
 	spin_unlock_irqrestore(&schan->lock, flags);
 
@@ -509,6 +599,10 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 		dma_request_bytes = sdesc->xlen * SIRFSOC_DMA_WORD_LEN;
 
 	ret = dma_cookie_status(chan, cookie, txstate);
+
+	if (sdma->is_atlas7_dma_v2)
+		cid = 0;
+
 	dma_pos = readl_relaxed(sdma->base + cid * 0x10 + SIRFSOC_DMA_CH_ADDR)
 		<< 2;
 	residue = dma_request_bytes - (dma_pos - sdesc->addr);
@@ -592,6 +686,7 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	unsigned int sg_len, enum dma_transfer_direction direction,
 	unsigned long flags, void *context)
 {
+	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *first_sdesc;
 	struct sirfsoc_dma_desc *sdesc;
@@ -600,11 +695,10 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	struct scatterlist *sg;
 	int desc_cnt = 0, i;
 	int ret;
+	int flag = 0;
+	dma_addr_t addr;
+	unsigned int len;
 
-	/*
-	 * the hardware doesn't support sg, here we use software list
-	 * to simulate sg, so make sure we have enough desc nodes
-	 */
 	spin_lock_irqsave(&schan->lock, iflags);
 	list_for_each(l, &schan->free)
 		desc_cnt++;
@@ -618,22 +712,63 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	first_sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
 			node);
 
-	for_each_sg(sgl, sg, sg_len, i) {
-		dma_addr_t addr = sg_dma_address(sg);
-		unsigned int len = sg_dma_len(sg);
+	/*
+	 * DMAC V2 in A7DA support H/W chain mode
+	 */
+	if (sdma->is_atlas7_dma_v2) {
+		list_del(&first_sdesc->node);
 
-		sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
-			node);
-		list_del(&sdesc->node);
+		for_each_sg(sgl, sg, sg_len, i) {
+			addr = sg_dma_address(sg);
+			len = sg_dma_len(sg);
 
-		sdesc->addr = addr;
-		sdesc->dir = (direction == DMA_MEM_TO_DEV ? 1 : 0);
-		sdesc->cyclic = 0;
-		sdesc->xlen = len / SIRFSOC_DMA_WORD_LEN;
-		sdesc->width = sdesc->xlen;
-		sdesc->ylen = 0;
+			if (sg_len > 1) {
+				if (i == (sg_len - 1))
+					flag = SIRFSOC_DMA_CHAIN_END;
+				else
+					flag = SIRFSOC_DMA_CHAIN_NORMAL;
+
+				sirfsoc_dma_chain_array[i] = (
+				addr << SIRFSOC_DMA_CHAIN_ADDR_SHIFT_ATLAS7)
+				| (flag << SIRFSOC_DMA_CHAIN_FLAG_SHIFT_ATLAS7)
+				| len;
+			}
+		}
+
+		first_sdesc->addr = ((sg_len > 1)
+			? virt_to_phys(sirfsoc_dma_chain_array)
+			: addr);
+		first_sdesc->dir = (direction == DMA_MEM_TO_DEV ? 1 : 0);
+		first_sdesc->cyclic = 0;
+		first_sdesc->chain = ((sg_len > 1) ? 1 : 0);
+		first_sdesc->xlen = len / SIRFSOC_DMA_WORD_LEN;
+		first_sdesc->width = sdesc->xlen;
+		/*use this for sg len*/
+		first_sdesc->ylen = ((sg_len > 1) ? sg_len : 0);
 
 		list_add_tail(&sdesc->node, &schan->prepared);
+	} else {
+	/*
+	 * the hardware doesn't support sg, here we use software list
+	 * to simulate sg, so make sure we have enough desc nodes
+	 */
+		for_each_sg(sgl, sg, sg_len, i) {
+			addr = sg_dma_address(sg);
+			len = sg_dma_len(sg);
+
+			sdesc = list_first_entry(&schan->free,
+						struct sirfsoc_dma_desc, node);
+			list_del(&sdesc->node);
+
+			sdesc->addr = addr;
+			sdesc->dir = (direction == DMA_MEM_TO_DEV ? 1 : 0);
+			sdesc->cyclic = 0;
+			sdesc->xlen = len / SIRFSOC_DMA_WORD_LEN;
+			sdesc->width = sdesc->xlen;
+			sdesc->ylen = 0;
+
+			list_add_tail(&sdesc->node, &schan->prepared);
+		}
 	}
 	spin_unlock_irqrestore(&schan->lock, iflags);
 
@@ -774,8 +909,11 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 		return -ENOMEM;
 	}
 
-	if (of_device_is_compatible(dn, "sirf,marco-dmac"))
-		sdma->is_marco = true;
+	if (of_device_is_compatible(dn, "sirf,atlas7-dmac"))
+		sdma->is_atlas7_dma_v1 = true;
+
+	if (of_device_is_compatible(dn, "sirf,atlas7-dmac-v2"))
+		sdma->is_atlas7_dma_v2 = true;
 
 	if (of_property_read_u32(dn, "cell-index", &id)) {
 		dev_err(dev, "Fail to get DMAC index\n");
@@ -835,6 +973,8 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	dma_cap_set(DMA_SLAVE, dma->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dma->cap_mask);
 	dma_cap_set(DMA_INTERLEAVE, dma->cap_mask);
+	if (sdma->is_atlas7_dma_v2)
+		dma_cap_set(DMA_SG, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
 
 	for (i = 0; i < dma->chancnt; i++) {
@@ -905,6 +1045,7 @@ static int sirfsoc_dma_runtime_suspend(struct device *dev)
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 
 	clk_disable_unprepare(sdma->clk);
+
 	return 0;
 }
 
@@ -918,6 +1059,7 @@ static int sirfsoc_dma_runtime_resume(struct device *dev)
 		dev_err(dev, "clk_enable failed: %d\n", ret);
 		return ret;
 	}
+
 	return 0;
 }
 
@@ -929,6 +1071,8 @@ static int sirfsoc_dma_pm_suspend_noirq(struct device *dev)
 	struct sirfsoc_dma_chan *schan;
 	int ch;
 	int ret;
+	int count;
+	u32 int_offset;
 
 	/*
 	 * if we were runtime-suspended before, resume to enable clock
@@ -940,11 +1084,19 @@ static int sirfsoc_dma_pm_suspend_noirq(struct device *dev)
 			return ret;
 	}
 
+	if (sdma->is_atlas7_dma_v2) {
+		count = 1;
+		int_offset = SIRFSOC_DMA_INT_EN_ATLAS7;
+	} else {
+		count = SIRFSOC_DMA_CHANNELS;
+		int_offset = SIRFSOC_DMA_INT_EN;
+	}
+
 	/*
 	 * DMA controller will lose all registers while suspending
 	 * so we need to save registers for active channels
 	 */
-	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
+	for (ch = 0; ch < count; ch++) {
 		schan = &sdma->channels[ch];
 		if (list_empty(&schan->active))
 			continue;
@@ -954,7 +1106,7 @@ static int sirfsoc_dma_pm_suspend_noirq(struct device *dev)
 		save->ctrl[ch] = readl_relaxed(sdma->base +
 			ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
 	}
-	save->interrupt_en = readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN);
+	save->interrupt_en = readl_relaxed(sdma->base + int_offset);
 
 	/* Disable clock */
 	sirfsoc_dma_runtime_suspend(dev);
@@ -970,14 +1122,27 @@ static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 	struct sirfsoc_dma_chan *schan;
 	int ch;
 	int ret;
+	int count;
+	u32 int_offset;
+	u32 width_offset;
 
 	/* Enable clock before accessing register */
 	ret = sirfsoc_dma_runtime_resume(dev);
 	if (ret < 0)
 		return ret;
 
-	writel_relaxed(save->interrupt_en, sdma->base + SIRFSOC_DMA_INT_EN);
-	for (ch = 0; ch < SIRFSOC_DMA_CHANNELS; ch++) {
+	if (sdma->is_atlas7_dma_v2) {
+		count = 1;
+		int_offset = SIRFSOC_DMA_INT_EN_ATLAS7;
+		width_offset = SIRFSOC_DMA_WIDTH_ATLAS7;
+	} else {
+		count = SIRFSOC_DMA_CHANNELS;
+		int_offset = SIRFSOC_DMA_INT_EN;
+		width_offset = SIRFSOC_DMA_WIDTH_0;
+	}
+
+	writel_relaxed(save->interrupt_en, sdma->base + int_offset);
+	for (ch = 0; ch < count; ch++) {
 		schan = &sdma->channels[ch];
 		if (list_empty(&schan->active))
 			continue;
@@ -985,7 +1150,7 @@ static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 			struct sirfsoc_dma_desc,
 			node);
 		writel_relaxed(sdesc->width,
-			sdma->base + SIRFSOC_DMA_WIDTH_0 + ch * 4);
+			sdma->base + width_offset + ch * 4);
 		writel_relaxed(sdesc->xlen,
 			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_XLEN);
 		writel_relaxed(sdesc->ylen,
@@ -1016,7 +1181,8 @@ static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
 
 static struct of_device_id sirfsoc_dma_match[] = {
 	{ .compatible = "sirf,prima2-dmac", },
-	{ .compatible = "sirf,marco-dmac", },
+	{ .compatible = "sirf,atlas7-dmac", },
+	{ .compatible = "sirf,atlas7-dmac-v2", },
 	{},
 };
 
