@@ -31,7 +31,8 @@
 #define GETX(val)		((val) & DATA_XMASK)
 #define GETY(val)		(((val) & DATA_YMASK) >> DATA_SHIFT_BITS)
 
-/* If new coordinates are close enough to last ones, last values
+/*
+ * If new coordinates are close enough to last ones, last values
  * should be used to suppress glitches.
  */
 #define TS_GLITCH_GAP		60
@@ -128,7 +129,8 @@ struct sirfsoc_ts_of_data_touch {
 	int	(*read_samples)(struct sirfsoc_ts *, u32 *);
 };
 
-/* Debounce routine shared by single and dual touch
+/*
+ * Debounce routine shared by single and dual touch
  * sample_count: how many AD samples needs to take care
  */
 static int sirfsoc_ts_debounce(struct sirfsoc_ts *ts, int sample_count)
@@ -186,7 +188,8 @@ static int sirfsoc_ts_read_samples_single(struct sirfsoc_ts *ts, u32 *samples)
 	return 0;
 }
 
-/* Calculate single touch coordinate
+/*
+ * Calculate single touch coordinate
  * coord: (ts->sampled_x[0], y[0])
  */
 static int sirfsoc_ts_get_coord_and_pen_single(struct sirfsoc_ts *ts)
@@ -224,7 +227,8 @@ static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts, u32 *samples)
 	return 0;
 }
 
-/* Calculate dual touch coordinates
+/*
+ * Calculate dual touch coordinates
  *
  * - Schematic
  *
@@ -252,7 +256,8 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 				   negative if LeftUpper and RightDown */
 	u32 *samples = ts->samples;
 
-	/* Step 1: Calculate Rtouch
+	/*
+	 * Step 1: Calculate Rtouch
 	 *
 	 * Rtouch depends on pressure and single/dual touch,
 	 * Dual touch halves the value approximately.
@@ -272,7 +277,8 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 	if (rtouch < TS_RTOUCH_MIN || rtouch > TS_RTOUCH_MAX)
 		return -EINVAL;	/* Unstable reading */
 
-	/* Step2: Check single touch
+	/*
+	 * Step2: Check single touch
 	 *
 	 * As single touch is the dominant case, it should be handled first.
 	 * Chance is prominent that we may skip all dual touch related messes.
@@ -293,14 +299,16 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 	if (rtouch > (TS_RTOUCH_SINGLE_LOW<<TS_PREC_BITS))
 		goto single_touch;
 
-	/* Step 3: Calculate intermediate value x (slope)
+	/*
+	 * Step 3: Calculate intermediate value x (slope)
 	 *
 	 * CAUTION:
 	 * x is multiplied by 1024 to keep enough precision bits
 	 */
 	x = TS_COEF_DEFAULT;	/* Fixed slope at about +/-45 degree */
 
-	/* Step4: Calculate RX2 & RY2
+	/*
+	 * Step4: Calculate RX2 & RY2
 	 *
 	 * Solve equation a*y^2 - b*y - c = 0, where:
 	 * a = |UA-UD| + x * TS_V
@@ -392,7 +400,8 @@ static int sirfsoc_ts_calculate_dual(struct sirfsoc_ts *ts)
 
 	/* Fall back to single touch */
 single_touch:
-	/* Make sure it's not a misdetected dual touch:
+	/*
+	 * Make sure it's not a misdetected dual touch:
 	 * - Touch resister must be above upper bound of dual touch
 	 * - |UB-UC| and |UA-UD| are below upper bound of single touch
 	 */
@@ -425,7 +434,8 @@ static int sirfsoc_ts_get_coord_and_pen_dual(struct sirfsoc_ts *ts)
 	if (ret < 0)
 		return ret;
 
-	/* First switching from single to dual or dual to single are
+	/*
+	 * First switching from single to dual or dual to single are
 	 * sometimes unstable, drop it.
 	 */
 	is_dual = (ts->fingers == 2);	/* Current is dual touch? */
@@ -449,7 +459,8 @@ static void sirfsoc_ts_report_coord(struct sirfsoc_ts *ts)
 		/* Filter small glitches */
 		if (abs(ts->sampled_x[i] - ts->issued_x[i]) < TS_GLITCH_GAP &&
 		    abs(ts->sampled_y[i] - ts->issued_y[i]) < TS_GLITCH_GAP) {
-			/* New coord is very close to last checking,
+			/*
+			 * New coord is very close to last checking,
 			 * adopt old coord instead
 			 */
 			ts->sampled_x[i] = ts->issued_x[i];
@@ -479,8 +490,7 @@ static irqreturn_t sirfsoc_ts_thread_irq(int irq, void *handle)
 	int ret;
 
 	/*
-	 * Interrupt comes when press down,
-	 * but no interrput when pressing down
+	 * we have pen down interrupt, but before pen up, no more will come
 	 */
 	do {
 		ret = (*(ts->touch->get_coord_and_pen))(ts);
