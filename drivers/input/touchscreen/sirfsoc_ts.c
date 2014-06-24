@@ -528,6 +528,7 @@ static const struct of_device_id sirfsoc_ts_of_match[] = {
 	  .data = &sirfsoc_ts_of_data_dual },
 	{}
 };
+MODULE_DEVICE_TABLE(of, sirfsoc_ts_of_match);
 
 static int sirfsoc_ts_probe(struct platform_device *pdev)
 {
