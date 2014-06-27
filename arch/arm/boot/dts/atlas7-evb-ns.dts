@@ -1,0 +1,52 @@
+/*
+ * DTS file for CSR SiRFatlas7 Evaluation Board
+ *
+ * Copyright (c) 2012 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/dts-v1/;
+
+/include/ "atlas7.dtsi"
+
+/ {
+	model = "CSR SiRFatlas7 Evaluation Board";
+	compatible = "sirf,atlas7-cb", "sirf,atlas7";
+
+	chosen {
+		bootargs = "console=ttySiRF0 earlyprintk lpj=7970816 clk_ignore_unused";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x10000000>; /* 256M for NS */
+	};
+
+	axi {
+		peri-iobg {
+			timer@10dc0000 {
+				status = "disabled";
+			};
+			uart1: uart@18020000 {
+				status = "disabled";
+			};
+			timerb@10dc8000 {
+				status = "okay";
+			};
+			uart0: uart@18010000 {
+				status = "okay";
+			};
+		};
+
+		pci-iobg {
+			sdhci@16000000 {
+				status = "okay";
+			};
+
+			sdhci@14200000 {
+				status = "okay";
+			};
+		};
+	};
+};
