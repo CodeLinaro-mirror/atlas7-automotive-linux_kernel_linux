@@ -855,155 +855,155 @@ static const char *gnss_clk_parents[] = {
 static const char *sys_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *io_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *g2d_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *jpenc_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *vdec_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *gmac_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *usb_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *kas_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *sec_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *sdr_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *vip_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *nocd_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *nocr_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static const char *tpiu_clk_parents[] = {
 	"xin",
 	"xinw",
+	"sys2pll_a20",
+	"sys1pll_a20",
+	"sys1pll_a19",
+	"sys1pll_a18",
 	"sys0pll_a20",
 	"sys1pll_a17",
-	"sys1pll_a18",
-	"sys1pll_a19",
-	"sys1pll_a20",
-	"sys2pll_a20",
 };
 
 static __initdata struct atlas7_mux_init_data mux_list[] = {
