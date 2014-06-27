@@ -39,6 +39,14 @@ static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
 		 .type = MT_MEMORY_RWX,
 	 },
 };
+#else
+/*
+ * SMP code reside relocated uboot,which last MB of DRAM size
+ * will release it after smp is completed.
+ */
+#define DRAM_PHY_BASE	0x40000000UL
+#define DRAM_SIZE		0x10000000UL
+#define SMP_PHY_BASE (DRAM_PHY_BASE + DRAM_SIZE - SZ_1M)
 #endif
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
@@ -104,6 +112,8 @@ static void __init csrvisor_reserve(void)
 #ifdef CONFIG_SECURITY_MODE
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
 	arm_pm_idle = smc_switch_to_non_secure;
+#else
+	memblock_reserve(SMP_PHY_BASE, SZ_1M);
 #endif
 }
 
@@ -240,6 +250,11 @@ static void __init sirfsoc_init_late(void)
 	sirfsoc_pbb_nosave_memblock();
 	sirfsoc_nand_nosave_memblock();
 
+#ifndef CONFIG_SECURITY_MODE
+	/*free smp bring up code here*/
+	free_reserved_area(__va(SMP_PHY_BASE),
+			__va(SMP_PHY_BASE+SZ_1M), -1, "smp bringup");
+#endif
 	np = of_find_node_by_path("/sound");
 	if (!np) {
 		pr_err("No sound node found\n");
