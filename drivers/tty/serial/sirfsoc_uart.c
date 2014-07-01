@@ -953,7 +953,9 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (unlikely(clk_div_reg == 0))
 			clk_div_reg = sirfsoc_uart_calc_sample_div(baud_rate,
 					ioclk_rate, &set_baud);
+#ifndef CONFIG_A7DA_FPGA
 		wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
+#endif
 	} else {
 		clk_div_reg = sirfsoc_usp_calc_sample_div(baud_rate,
 				ioclk_rate, &sample_div_reg);
@@ -1380,13 +1382,16 @@ usp_no_flow_control:
 		goto err;
 	}
 	port->irq = res->start;
-
+#ifdef CONFIG_A7DA_FPGA
+	port->uartclk = 20000000;
+#else
 	sirfport->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sirfport->clk)) {
 		ret = PTR_ERR(sirfport->clk);
 		goto err;
 	}
 	port->uartclk = clk_get_rate(sirfport->clk);
+#endif
 
 	port->ops = &sirfsoc_uart_ops;
 	spin_lock_init(&port->lock);

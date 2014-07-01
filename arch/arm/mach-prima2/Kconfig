@@ -67,4 +67,8 @@ config SIRFMARCO_FPGA
 	select I2C_MUX_SIRFFPGACPLD
 	select I2C_MUX
 
+config A7DA_FPGA
+        bool "CSR A7DA FPGA with clock workaround"
+        default n
+
 endif

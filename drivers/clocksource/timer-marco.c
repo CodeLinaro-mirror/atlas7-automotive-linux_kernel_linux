@@ -258,10 +258,13 @@ static void __init sirfsoc_marco_timer_init(struct device_node *np)
 	u32 timer_div;
 	struct clk *clk;
 
+#ifdef CONFIG_A7DA_FPGA
+	rate = 20000000;
+#else
 	clk = of_clk_get(np, 0);
 	BUG_ON(IS_ERR(clk));
 	rate = clk_get_rate(clk);
-
+#endif
 	BUG_ON(rate < MARCO_CLOCK_FREQ);
 	BUG_ON(rate % MARCO_CLOCK_FREQ);
 
