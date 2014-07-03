@@ -102,10 +102,6 @@ struct nanddisk_device {
 
 static struct nanddisk_device   nand_dev;
 
-/* param area in uboot is 2K */
-#define BOOT_IMAGE_SECURE_HEADER_SIZE 0x800
-
-#define UBOOT_MAX_SECTOR 1024
 #define UBOOT_MAX_LENGTH 0x80000
 
 static int __init sirf_fdt_handle_rsv_mem(unsigned long node, const char *uname,
@@ -214,94 +210,34 @@ static int nanddisk_zone_io(unsigned sector, unsigned  nsect, char *buffer,
 	struct NAND_IO nand_io;
 	unsigned async_status;
 	unsigned flag_wearlevel = 0;
-	unsigned i;
-	unsigned uboot_commit_flag_sector =
-		   nand_dev.uboot_commit_flag >> nand_dev.sector_size_shift;
 
 	if (nsect == 0)
 		return 0;
 
-	if (write && nand_dev.nandinsert
-		&& sector >= nand_dev.boot_zone_log_sector_start
-		&& sector + nsect <= nand_dev.boot_zone_log_sector_start
-		+ nand_dev.boot_zone_log_sector_num) {
-		if (sector == uboot_commit_flag_sector) {
-			unsigned phy_sector_size =
-				nand_dev.nand_chip_info.
-				phy_bdev_info.byte_per_sector;
-			nand_io.start_sector =
-				nand_dev.boot_zone_log_sector_start;
-			/* phy sector size align */
-			nand_io.sector_num = (((nand_dev.uboot_sec_num <<
-				nand_dev.sector_size_shift) +
-				phy_sector_size - 1) & ~(phy_sector_size - 1))
-				>> nand_dev.sector_size_shift;
-			nand_io.sector_buf = (void *)nand_dev.uboot_buf;
-			pr_info("sync boot_zone, total %d sector.\n",
-				nand_io.sector_num);
-			for (i = 0; i < nand_dev.uboot_sec_num; i++) {
-				if (!nand_dev.uboot_write_map[i]) {
-					pr_info("sect %d is not valid.\n", i);
-					return -1;
-				}
-			}
-			nand_dev.uboot_sec_num = 0;
+	nand_io.start_sector = sector;
+	nand_io.sector_num = nsect;
+	nand_io.sector_buf = (void *)buffer;
 
-			if (!nand_dev.pfn_ioctrl(
-				MAP_HANDLE,
-				NAND_IOCTRL_WRITE_SECTOR,
-				&nand_io, sizeof(nand_io),
-				NULL, 0, NULL))	{
-				pr_info("%s:write %d,%d,0x%p) failed.\n",
-					__func__, sector, nand_io.sector_num,
-					nand_dev.uboot_buf);
-				vfree(nand_dev.uboot_buf);
-				return -1;
-			}
-			pr_info("%s: write boot zone successfully\n", __func__);
-			vfree(nand_dev.uboot_buf);
-		} else {
-			for (i = sector - nand_dev.boot_zone_log_sector_start;
-				i < sector + nsect -
-				nand_dev.boot_zone_log_sector_start;
-				i++) {
-				memcpy(nand_dev.uboot_buf +
-					(i << nand_dev.sector_size_shift),
-					(void *)buffer,
-					(1 << nand_dev.sector_size_shift));
-				if (!nand_dev.uboot_write_map[i]) {
-					nand_dev.uboot_write_map[i] = 1;
-					nand_dev.uboot_sec_num++;
-				} else {
-					pr_info("%d is written again!\n", i);
-				}
-				buffer += (1 << nand_dev.sector_size_shift);
-			}
-		}
-	} else {
-		nand_io.start_sector = sector;
-		nand_io.sector_num = nsect;
-		nand_io.sector_buf = (void *)buffer;
-		if (nanddisk_io_session(
+	if (nanddisk_io_session(
 			MAP_HANDLE,
 			write ? NAND_IOCTRL_WRITE_SECTOR :
-				NAND_IOCTRL_READ_SECTOR,
+			NAND_IOCTRL_READ_SECTOR,
 			&nand_io, sizeof(nand_io),
 			&flag_wearlevel,
 			sizeof(flag_wearlevel),
 			&async_status)) {
-			pr_err("%s:pfn_ioctrl(%s,%d,%d,0x%x) failed.\n"
+		pr_err("%s:pfn_ioctrl(%s,%d,%d,0x%x) failed.\n"
 				, __func__, write ? "NAND_IOCTRL_WRITE_SECTOR" :
-						"NAND_IOCTRL_READ_SECTOR",
+				"NAND_IOCTRL_READ_SECTOR",
 				(int)sector, (int)nsect, (unsigned)buffer);
-			return -1;
-		}
+		return -EIO;
 	}
 
 	if (flag_wearlevel) {
 		nand_dev.need_wearlevel = 1;
 		wake_up_process(nand_dev.wearlevel_task);
 	}
+
 	return 0;
 }
 
@@ -605,6 +541,20 @@ static int nanddisk_init(struct platform_device *pdev)
 		dev_err(dev, "err! not set zone map!\r\n");
 		return -1;
 	}
+
+	nand_dev.uboot_buf = vmalloc(UBOOT_MAX_LENGTH);
+	if (!nand_dev.uboot_buf)
+		return -ENOMEM;
+
+	memset(nand_dev.uboot_buf, 0, UBOOT_MAX_LENGTH);
+
+	if (!nand_dev.pfn_ioctrl(0, NAND_IOCTRL_BOOT_BUFFER, nand_dev.uboot_buf,
+		sizeof(nand_dev.uboot_buf), NULL, 0, NULL)) {
+		vfree(nand_dev.uboot_buf);
+		dev_err(dev, "NAND_IOCTRL_BOOT_BUFFER failed.\r\n");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -990,17 +940,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 		goto err_vmalloc_data_buf;
 	}
 
-	nand_dev.uboot_buf = vmalloc(
-			UBOOT_MAX_LENGTH + UBOOT_MAX_SECTOR);
-	if (!nand_dev.uboot_buf) {
-		error = -ENOMEM;
-		goto err_vmalloc_uboot_buf;
-	}
-	nand_dev.uboot_write_map = (unsigned char *)(
-			nand_dev.uboot_buf + UBOOT_MAX_LENGTH);
-	memset(nand_dev.uboot_buf, 0, UBOOT_MAX_LENGTH);
-	memset(nand_dev.uboot_write_map, 0, UBOOT_MAX_SECTOR);
-
 	nand_dev.major_num = register_blkdev(nand_dev.major_num, "nandblk");
 	if (nand_dev.major_num <= 0) {
 		dev_err(dev, "unable to register blkdev.\n");
@@ -1063,12 +1002,11 @@ err_kthread_run_wearlevel_task:
 err_alloc_disk:
 	unregister_blkdev(nand_dev.major_num, "nandblk");
 err_register_blkdev:
-	vfree(nand_dev.uboot_buf);
-err_vmalloc_uboot_buf:
 	vfree(nand_dev.data_buf);
 err_vmalloc_data_buf:
 	blk_cleanup_queue(nand_dev.queue);
 err_blk_init_queue:
+	vfree(nand_dev.uboot_buf);
 err_nanddisk_init:
 	clk_disable_unprepare(nand_dev.nand_clk);
 err_clk_get:
