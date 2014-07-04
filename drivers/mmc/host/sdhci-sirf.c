@@ -87,18 +87,18 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "sirf,atlas7-sdhc")) {
 		clk = devm_clk_get(&pdev->dev, "core");
 		if (IS_ERR(clk)) {
-			dev_err(&pdev->dev, "unable to core clock");
+			dev_err(&pdev->dev, "unable to get core clock");
 			return PTR_ERR(clk);
 		}
 		pclk = devm_clk_get(&pdev->dev, "iface");
 		if (IS_ERR(pclk)) {
-			dev_err(&pdev->dev, "unable to interface clock");
+			dev_err(&pdev->dev, "unable to get interface clock");
 			return PTR_ERR(pclk);
 		}
 	} else {
 		clk = devm_clk_get(&pdev->dev, NULL);
 		if (IS_ERR(clk)) {
-			dev_err(&pdev->dev, "unable to clock");
+			dev_err(&pdev->dev, "unable to get clock");
 			return PTR_ERR(clk);
 		}
 	}
@@ -201,6 +201,9 @@ static int sdhci_sirf_remove(struct platform_device *pdev)
 		mmc_gpio_free_cd(host->mmc);
 
 	clk_disable_unprepare(priv->clk);
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-sdhc"))
+		clk_disable_unprepare(priv->pclk);
+
 	return 0;
 }
 
@@ -217,6 +220,8 @@ static int sdhci_sirf_suspend(struct device *dev)
 		return ret;
 
 	clk_disable(priv->clk);
+	if (of_device_is_compatible(dev->of_node, "sirf,atlas7-sdhc"))
+		clk_disable(priv->pclk);
 
 	return 0;
 }
@@ -232,6 +237,15 @@ static int sdhci_sirf_resume(struct device *dev)
 	if (ret) {
 		dev_dbg(dev, "Resume: Error enabling clock\n");
 		return ret;
+	}
+
+	if (of_device_is_compatible(dev->of_node, "sirf,atlas7-sdhc")) {
+		ret = clk_enable(priv->pclk);
+		if (ret) {
+			dev_dbg(dev, "Resume: Error enable interface clock\n");
+			clk_disable(priv->clk);
+			return ret;
+		}
 	}
 
 	ret = sdhci_resume_host(host);
