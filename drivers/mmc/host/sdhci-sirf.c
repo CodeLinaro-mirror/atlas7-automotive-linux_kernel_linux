@@ -78,17 +78,32 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	struct sdhci_host *host;
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_sirf_priv *priv;
-	struct clk *clk;
+	struct clk *clk, *pclk;
+	struct device_node *np;
 	int gpio_cd;
 	int ret;
 
-	clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(clk)) {
-		dev_err(&pdev->dev, "unable to get clock");
-		return PTR_ERR(clk);
+	np = pdev->dev.of_node;
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc")) {
+		clk = devm_clk_get(&pdev->dev, "core");
+		if (IS_ERR(clk)) {
+			dev_err(&pdev->dev, "unable to core clock");
+			return PTR_ERR(clk);
+		}
+		pclk = devm_clk_get(&pdev->dev, "iface");
+		if (IS_ERR(pclk)) {
+			dev_err(&pdev->dev, "unable to interface clock");
+			return PTR_ERR(pclk);
+		}
+	} else {
+		clk = devm_clk_get(&pdev->dev, NULL);
+		if (IS_ERR(clk)) {
+			dev_err(&pdev->dev, "unable to clock");
+			return PTR_ERR(clk);
+		}
 	}
 
-	if (pdev->dev.of_node)
+	if (np)
 		gpio_cd = of_get_named_gpio(pdev->dev.of_node, "cd-gpios", 0);
 	else
 		gpio_cd = -EINVAL;
@@ -106,6 +121,8 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
 
 	priv->clk = clk;
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
+		priv->pclk = pclk;
 	priv->gpio_cd = gpio_cd;
 
 	sdhci_get_of_property(pdev);
@@ -114,6 +131,12 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(priv->clk);
 	if (ret)
 		goto err_clk_prepare;
+
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc")) {
+		ret = clk_prepare_enable(priv->pclk);
+		if (ret)
+			goto err_pclk_prepare;
+	}
 
 	ret = sdhci_add_host(host);
 	if (ret)
@@ -156,6 +179,9 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 err_request_cd:
 	sdhci_remove_host(host, 0);
 err_sdhci_add:
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
+		clk_disable_unprepare(priv->pclk);
+err_pclk_prepare:
 	clk_disable_unprepare(priv->clk);
 err_clk_prepare:
 	sdhci_pltfm_free(pdev);
@@ -223,6 +249,7 @@ static SIMPLE_DEV_PM_OPS(sdhci_sirf_pm_ops,
 
 static const struct of_device_id sdhci_sirf_of_match[] = {
 	{ .compatible = "sirf,prima2-sdhc" },
+	{ .compatible = "sirf,atlas7-sdhc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_sirf_of_match);

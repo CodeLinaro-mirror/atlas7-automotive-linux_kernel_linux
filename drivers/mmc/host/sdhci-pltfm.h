@@ -35,6 +35,7 @@ struct sdhci_pltfm_host {
 /* CSR refine for trig */
 struct sdhci_sirf_priv {
 	struct clk *clk;
+	struct clk *pclk;
 	int gpio_cd;
 
 	/* structure members towards CSR hacked SDIO ctl for TriG */
