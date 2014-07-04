@@ -702,10 +702,10 @@ static __initdata struct atlas7_div_init_data divider_list[] = {
 	{"sys2pll_qa15", "sys2pll_fixdiv", "sys2pll_a15", 0, 0, 0, SIRFSOC_CLKC_GNSS_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_GNSS_CLKDIV_ENA, 8, &gnss_div_lock},
 	{"sys3pll_qa15", "sys3pll_fixdiv", "sys3pll_a15", 0, 0, 0, SIRFSOC_CLKC_GNSS_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_GNSS_CLKDIV_ENA, 12, &gnss_div_lock},
 	{"sys1pll_qa18", "sys1pll_fixdiv", "sys1pll_a18", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 24, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 12, &share_div_lock},
-	{"sys1pll_qa19", "sys1pll_fixdiv", "sys1pll_a19", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 16, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 8, &share_div_lock},
+	{"sys1pll_qa19", "sys1pll_fixdiv", "sys1pll_a19", 0, 0, CLK_IGNORE_UNUSED, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 16, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 8, &share_div_lock},
 	{"sys1pll_qa20", "sys1pll_fixdiv", "sys1pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 8, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 4, &share_div_lock},
 	{"sys2pll_qa20", "sys2pll_fixdiv", "sys2pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 0, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 0, &share_div_lock},
-	{"sys1pll_qa17", "sys1pll_fixdiv", "sys1pll_a17", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 8, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 20, &share_div_lock},
+	{"sys1pll_qa17", "sys1pll_fixdiv", "sys1pll_a17", 0, 0, CLK_IGNORE_UNUSED, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 8, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 20, &share_div_lock},
 	{"sys0pll_qa20", "sys0pll_fixdiv", "sys0pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 0, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 16, &share_div_lock},
 };
 
@@ -1496,11 +1496,11 @@ void __init atlas7_clk_init(struct device_node *np)
 	for (i = 0; i < ARRAY_SIZE(divider_list); i++) {
 		div = &divider_list[i];
 		clk = clk_register_divider(NULL, div->div_name,
-			div->parent_name, 0, sirfsoc_clk_vbase + div->div_offset,
+			div->parent_name, div->divider_flags, sirfsoc_clk_vbase + div->div_offset,
 			div->shift, div->width, 0, div->lock);
 		BUG_ON(!clk);
 		clk = clk_register_gate(NULL, div->gate_name, div->div_name,
-			CLK_SET_RATE_NO_REPARENT, sirfsoc_clk_vbase + div->gate_offset,
+			div->gate_flags, sirfsoc_clk_vbase + div->gate_offset,
 				div->gate_bit, 0, div->lock);
 		BUG_ON(!clk);
 	}

@@ -16,7 +16,7 @@
 
 	chosen {
 		/* bootargs = "console=ttySiRF1,115200 earlyprintk lpj=7970816 initrd=0x43008000,0x500000"; */
-		bootargs = "console=ttySiRF1,115200 earlyprintk clk_ignore_unused";
+		bootargs = "console=ttySiRF1,115200 earlyprintk";
 	};
 
 	memory {
