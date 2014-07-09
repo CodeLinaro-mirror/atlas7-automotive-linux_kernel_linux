@@ -296,7 +296,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ft5x0x_ts_data *ft5x0x_ts;
 	struct input_dev *input_dev;
-	struct device_node *np = client->dev.of_node;
 	int err = 0;
 	u8 tmp = 0;
 #if CFG_SUPPORT_TOUCH_KEY
@@ -320,18 +319,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	this_client = client;
 	i2c_set_clientdata(client, ft5x0x_ts);
-
-	ft5x0x_ts->touch_pin = of_get_named_gpio(np, "touch-gpio", 0);
-	if (!gpio_is_valid(ft5x0x_ts->touch_pin)) {
-		dev_err(&client->dev, "invalid touch_pin supplied\n");
-		return -EINVAL;
-	}
-	if (devm_gpio_request(&client->dev, ft5x0x_ts->touch_pin, "touch-gpio")) {
-		dev_err(&client->dev, "request touch gpio failed\n");
-		return -EINVAL;
-	}
-	gpio_direction_input(ft5x0x_ts->touch_pin);
-	this_client->irq = gpio_to_irq(ft5x0x_ts->touch_pin);
 
 	err = devm_request_threaded_irq(&this_client->dev,
 		this_client->irq,
