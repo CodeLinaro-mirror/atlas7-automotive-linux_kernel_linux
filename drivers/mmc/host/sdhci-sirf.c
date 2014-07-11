@@ -84,11 +84,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	int ret;
 
 	np = pdev->dev.of_node;
-	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
-		priv->has_pclk = true;
-	else
-		priv->has_pclk = false;
-	if (priv->has_pclk) {
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc")) {
 		clk = devm_clk_get(&pdev->dev, "core");
 		if (IS_ERR(clk)) {
 			dev_err(&pdev->dev, "unable to get core clock");
@@ -125,7 +121,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
 
 	priv->clk = clk;
-	if (priv->has_pclk)
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
 		priv->pclk = pclk;
 	priv->gpio_cd = gpio_cd;
 
@@ -136,7 +132,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk_prepare;
 
-	if (priv->has_pclk) {
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc")) {
 		ret = clk_prepare_enable(priv->pclk);
 		if (ret)
 			goto err_pclk_prepare;
@@ -183,7 +179,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 err_request_cd:
 	sdhci_remove_host(host, 0);
 err_sdhci_add:
-	if (priv->has_pclk)
+	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
 		clk_disable_unprepare(priv->pclk);
 err_pclk_prepare:
 	clk_disable_unprepare(priv->clk);
@@ -205,7 +201,7 @@ static int sdhci_sirf_remove(struct platform_device *pdev)
 		mmc_gpio_free_cd(host->mmc);
 
 	clk_disable_unprepare(priv->clk);
-	if (priv->has_pclk)
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-sdhc"))
 		clk_disable_unprepare(priv->pclk);
 
 	return 0;
@@ -224,7 +220,7 @@ static int sdhci_sirf_suspend(struct device *dev)
 		return ret;
 
 	clk_disable(priv->clk);
-	if (priv->has_pclk)
+	if (of_device_is_compatible(dev->of_node, "sirf,atlas7-sdhc"))
 		clk_disable(priv->pclk);
 
 	return 0;
@@ -243,7 +239,7 @@ static int sdhci_sirf_resume(struct device *dev)
 		return ret;
 	}
 
-	if (priv->has_pclk) {
+	if (of_device_is_compatible(dev->of_node, "sirf,atlas7-sdhc")) {
 		ret = clk_enable(priv->pclk);
 		if (ret) {
 			dev_dbg(dev, "Resume: Error enable interface clock\n");
