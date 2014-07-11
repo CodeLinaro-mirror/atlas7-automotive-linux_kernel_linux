@@ -587,6 +587,10 @@ struct NAND_IO {
 #define NAND_MAX_BUFFER_SIZE      (128*1024)
 #define NAND_MIN_BUFFER_SIZE      (32*1024)
 
+struct BOOT_BUFFER {
+	void       *buf;
+	unsigned   size;
+};
 /*
  * NAND_IOCTRL_DRAIN_BUFFER
  *   handle: ignored

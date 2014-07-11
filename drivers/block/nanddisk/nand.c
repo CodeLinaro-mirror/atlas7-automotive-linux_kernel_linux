@@ -53,7 +53,7 @@ struct nanddisk_device {
 	void *data_buf;
 
 	/* buffer for u-boot */
-	void *uboot_buf;
+	struct BOOT_BUFFER uboot_buf;
 	unsigned char *uboot_write_map;
 	unsigned uboot_sec_num;
 
@@ -542,15 +542,17 @@ static int nanddisk_init(struct platform_device *pdev)
 		return -1;
 	}
 
-	nand_dev.uboot_buf = vmalloc(UBOOT_MAX_LENGTH);
-	if (!nand_dev.uboot_buf)
+	nand_dev.uboot_buf.buf = vmalloc(UBOOT_MAX_LENGTH);
+	if (!nand_dev.uboot_buf.buf)
 		return -ENOMEM;
 
-	memset(nand_dev.uboot_buf, 0, UBOOT_MAX_LENGTH);
+	memset(nand_dev.uboot_buf.buf, 0, UBOOT_MAX_LENGTH);
+	nand_dev.uboot_buf.size = UBOOT_MAX_LENGTH;
 
-	if (!nand_dev.pfn_ioctrl(0, NAND_IOCTRL_BOOT_BUFFER, nand_dev.uboot_buf,
+	if (!nand_dev.pfn_ioctrl(0, NAND_IOCTRL_BOOT_BUFFER,
+		&nand_dev.uboot_buf,
 		sizeof(nand_dev.uboot_buf), NULL, 0, NULL)) {
-		vfree(nand_dev.uboot_buf);
+		vfree(nand_dev.uboot_buf.buf);
 		dev_err(dev, "NAND_IOCTRL_BOOT_BUFFER failed.\r\n");
 		return -1;
 	}
@@ -1006,7 +1008,7 @@ err_register_blkdev:
 err_vmalloc_data_buf:
 	blk_cleanup_queue(nand_dev.queue);
 err_blk_init_queue:
-	vfree(nand_dev.uboot_buf);
+	vfree(nand_dev.uboot_buf.buf);
 err_nanddisk_init:
 	clk_disable_unprepare(nand_dev.nand_clk);
 err_clk_get:
@@ -1038,7 +1040,7 @@ static int sirfsoc_nand_remove(struct platform_device *pdev)
 
 	vfree(nand_dev.data_buf);
 
-	vfree(nand_dev.uboot_buf);
+	vfree(nand_dev.uboot_buf.buf);
 
 	return 0;
 }
