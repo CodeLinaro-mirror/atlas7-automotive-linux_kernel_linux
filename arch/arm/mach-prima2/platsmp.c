@@ -119,7 +119,9 @@ static int sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 struct smp_operations sirfsoc_smp_ops __initdata = {
 	.smp_secondary_init     = sirfsoc_secondary_init,
+#ifndef CONFIG_SECURITY_MODE
 	.smp_boot_secondary     = sirfsoc_boot_secondary,
+#endif
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_die                = sirfsoc_cpu_die,
 #endif
