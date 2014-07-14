@@ -351,7 +351,8 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFUART_RX_IO_INT_ST(uint_st)				\
 				(uint_st->sirfsoc_rxfifo_thd |\
 				 uint_st->sirfsoc_rxfifo_full|\
-				 uint_st->sirfsoc_rx_done)
+				 uint_st->sirfsoc_rx_done |\
+				 uint_st->sirfsoc_rx_timeout)
 #define SIRFUART_CTS_INT_ST(uint_st)	(uint_st->sirfsoc_cts)
 #define SIRFUART_RX_DMA_INT_EN(port, uint_en)				\
 				(uint_en->sirfsoc_rx_timeout_en |\

@@ -675,9 +675,37 @@ recv_char:
 		if (intr_status & uint_st->sirfsoc_rx_done)
 			sirfsoc_uart_handle_rx_done(sirfport);
 	} else {
-		if (intr_status & SIRFUART_RX_IO_INT_ST(uint_st))
-			sirfsoc_uart_pio_rx_chars(port,
+		if (intr_status & SIRFUART_RX_IO_INT_ST(uint_st)) {
+			/*
+			 * chip will trigger continuous RX_TIMEOUT interrupt
+			 * in RXFIFO empty and not trigger if RXFIFO recevice
+			 * data in limit time, original method use RX_TIMEOUT
+			 * will trigger lots of useless interrupt in RXFIFO
+			 * empty.RXFIFO received one byte will trigger RX_DONE
+			 * interrupt.use RX_DONE to wait for data received
+			 * into RXFIFO, use RX_THD/RX_FULL for lots data receive
+			 * and use RX_TIMEOUT for the last left data.
+			 */
+			if (intr_status & uint_st->sirfsoc_rx_done) {
+				wr_regl(port, ureg->sirfsoc_int_en_reg,
+					rd_regl(port, ureg->sirfsoc_int_en_reg)
+					& ~(uint_en->sirfsoc_rx_done_en));
+				wr_regl(port, ureg->sirfsoc_int_en_reg,
+					rd_regl(port, ureg->sirfsoc_int_en_reg)
+					| (uint_en->sirfsoc_rx_timeout_en));
+			} else {
+				if (intr_status & uint_st->sirfsoc_rx_timeout) {
+					wr_regl(port, ureg->sirfsoc_int_en_reg,
+					rd_regl(port, ureg->sirfsoc_int_en_reg)
+					& ~(uint_en->sirfsoc_rx_timeout_en));
+					wr_regl(port, ureg->sirfsoc_int_en_reg,
+					rd_regl(port, ureg->sirfsoc_int_en_reg)
+					| (uint_en->sirfsoc_rx_done_en));
+				}
+				sirfsoc_uart_pio_rx_chars(port,
 					SIRFSOC_UART_IO_RX_MAX_CNT);
+			}
+		}
 	}
 	spin_unlock(&port->lock);
 	tty_flip_buffer_push(&state->port);
