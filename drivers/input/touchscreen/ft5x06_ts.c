@@ -277,13 +277,21 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 #ifdef CONFIG_PM_SLEEP
 static int ft5x0x_ts_suspend(struct device *dev)
 {
-	disable_irq(this_client->irq);
+	struct i2c_client *client = to_i2c_client(dev);
+
+	if (device_may_wakeup(&client->dev))
+		enable_irq_wake(client->irq);
+
 	return 0;
 }
 
 static int ft5x0x_ts_resume(struct device *dev)
 {
-	enable_irq(this_client->irq);
+	struct i2c_client *client = to_i2c_client(dev);
+
+	if (device_may_wakeup(&client->dev))
+		disable_irq_wake(client->irq);
+
 	return 0;
 }
 
@@ -323,14 +331,12 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	err = devm_request_threaded_irq(&this_client->dev,
 		this_client->irq,
 		NULL, ft5x0x_ts_interrupt,
-		IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
+		IRQF_ONESHOT,
 		"ft5x0x_ts", ft5x0x_ts);
 	if (err) {
 		dev_err(&client->dev, "\nFailed to register interrupt\n");
 		goto exit_irq_request_failed;
 	}
-
-	disable_irq(this_client->irq);
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
@@ -382,15 +388,12 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_input_register_device_failed;
 	}
 
-	enable_irq(this_client->irq);
-
 	dev_dbg(&this_client->dev, "[FTS] ==probe over =\n");
 	return 0;
 
 exit_input_register_device_failed:
 	input_free_device(input_dev);
 exit_input_dev_alloc_failed:
-	free_irq(this_client->irq, ft5x0x_ts);
 exit_irq_request_failed:
 	dev_err(&this_client->dev, "==singlethread error =\n");
 	i2c_set_clientdata(client, NULL);
@@ -405,7 +408,6 @@ static int ft5x0x_ts_remove(struct i2c_client *client)
 	struct ft5x0x_ts_data *ft5x0x_ts;
 	dev_dbg(&this_client->dev, "==ft5x0x_ts_remove=\n");
 	ft5x0x_ts = i2c_get_clientdata(client);
-	free_irq(this_client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
 	kfree(ft5x0x_ts);
 	i2c_set_clientdata(client, NULL);
