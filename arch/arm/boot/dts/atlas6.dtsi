@@ -380,7 +380,7 @@
 			};
 
 			adc: adc@b0110000 {
-				compatible = "sirf,prima2-adc";
+				compatible = "sirf,atlas6-adc";
 				reg = <0xb0110000 0x10000>;
 				interrupts = <34>;
 				clocks = <&clks 16>;

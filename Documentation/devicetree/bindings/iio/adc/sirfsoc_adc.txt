@@ -1,0 +1,33 @@
+Sirfsoc inner Analog to Digital Converter bindings
+
+The devicetree bindings are for the new ADC driver written for
+Prima2/Atlas6 CSR.
+
+Required properties:
+- compatible: Should be one of
+	* "sirf,prima2-adc": When use Prima2 SOC
+	* "sirf,atlas6-adc": When use Atlas6 SOC
+- reg: Offset and length of the register set for the device
+- interrupts: Should contain the interrupt for the device
+- clocks: The clock is needed by the ADC controller
+- resets: The reset for the device
+- #io-channel-cells: Should be set to <1>
+
+Example:
+	adc: adc@b0110000 {
+		compatible = "sirf,prima2-adc";
+		reg = <0xb0110000 0x10000>;
+		interrupts = <34>;
+		clocks = <&clks 16>;
+		resets = <&rstc 32>;
+		#io-channel-cells = <1>;
+	};
+
+	adc: adc@b0110000 {
+		compatible = "sirf,atlas6-adc";
+		reg = <0xb0110000 0x10000>;
+		interrupts = <34>;
+		clocks = <&clks 16>;
+		resets = <&rstc 32>;
+		#io-channel-cells = <1>;
+	};
