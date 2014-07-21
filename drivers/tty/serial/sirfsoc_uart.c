@@ -186,8 +186,9 @@ static void sirfsoc_uart_stop_tx(struct uart_port *port)
 				uint_en->sirfsoc_txfifo_empty_en);
 		}
 	} else {
-		wr_regl(port, ureg->sirfsoc_tx_rx_en, rd_regl(port,
-			ureg->sirfsoc_tx_rx_en) & ~SIRFUART_TX_EN);
+		if (sirfport->uart_reg->uart_type == SIRF_USP_UART)
+			wr_regl(port, ureg->sirfsoc_tx_rx_en, rd_regl(port,
+				ureg->sirfsoc_tx_rx_en) & ~SIRFUART_TX_EN);
 		if (!sirfport->is_marco)
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
 				rd_regl(port, ureg->sirfsoc_int_en_reg) &
@@ -292,8 +293,9 @@ static void sirfsoc_uart_start_tx(struct uart_port *port)
 	if (sirfport->tx_dma_chan)
 		sirfsoc_uart_tx_with_dma(sirfport);
 	else {
-		wr_regl(port, ureg->sirfsoc_tx_rx_en, rd_regl(port,
-			ureg->sirfsoc_tx_rx_en) | SIRFUART_TX_EN);
+		if (sirfport->uart_reg->uart_type == SIRF_USP_UART)
+			wr_regl(port, ureg->sirfsoc_tx_rx_en, rd_regl(port,
+				ureg->sirfsoc_tx_rx_en) | SIRFUART_TX_EN);
 		sirfsoc_uart_pio_tx_chars(sirfport,
 			SIRFSOC_UART_IO_TX_REASONABLE_CNT);
 		wr_regl(port, ureg->sirfsoc_tx_fifo_op, SIRFUART_FIFO_START);
