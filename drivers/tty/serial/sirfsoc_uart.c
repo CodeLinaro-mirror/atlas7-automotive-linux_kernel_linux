@@ -953,9 +953,9 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (unlikely(clk_div_reg == 0))
 			clk_div_reg = sirfsoc_uart_calc_sample_div(baud_rate,
 					ioclk_rate, &set_baud);
-#ifndef CONFIG_A7DA_FPGA
-		wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
-#endif
+
+		if (!of_machine_is_compatible("sirf,atlas7"))
+			wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
 	} else {
 		clk_div_reg = sirfsoc_usp_calc_sample_div(baud_rate,
 				ioclk_rate, &sample_div_reg);
