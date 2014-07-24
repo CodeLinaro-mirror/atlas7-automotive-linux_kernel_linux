@@ -251,8 +251,8 @@ static void __init sirfsoc_init_late(void)
 	sirfsoc_nand_nosave_memblock();
 
 #ifndef CONFIG_SECURITY_MODE
-	/*free smp bring up code here*/
-	free_reserved_area(__va(SMP_PHY_BASE),
+	if (of_machine_is_compatible("sirf,atlas7"))
+		free_reserved_area(__va(SMP_PHY_BASE),
 			__va(SMP_PHY_BASE+SZ_1M), -1, "smp bringup");
 #endif
 	np = of_find_node_by_path("/sound");
