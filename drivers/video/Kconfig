@@ -2465,16 +2465,6 @@ config FB_PUV3_UNIGFX
 	  Choose this option if you want to use the Unigfx device as a
 	  framebuffer device. Without the support of PCI & AGP.
 
-config FB_SIRF
-	tristate "SiRF SoC Framebuffer support"
-	depends on FB && ARCH_SIRF
-	select FB_CFB_FILLRECT
-	select FB_CFB_COPYAREA
-	select FB_CFB_IMAGEBLIT
-	help
-	  Say Y here if you want to support the built-in frame buffer of
-	  the SiRF family of SoCs.
-
 config FB_HYPERV
 	tristate "Microsoft Hyper-V Synthetic Video support"
 	depends on FB && HYPERV
