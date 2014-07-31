@@ -43,6 +43,13 @@
 			     <0x10302000 0x0100>;
 		};
 
+		ipc@13240000 {
+			compatible = "sirf,atlas7-ipc";
+			ranges = <0x13240000 0x13240000 0x00010000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
 		peri-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
