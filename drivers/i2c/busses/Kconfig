@@ -1038,7 +1038,7 @@ config SCx200_ACB
 
 config VIRTIO_I2C_BACKEND
 	tristate "VIRTIO I2C bus for backend OS"
-	depends on CSRVISOR_REMOTEPROC_BACKEND
+	depends on REMOTEPROC && OF && SECURITY_MODE
 	help
 	  Enable the use of the Virtio i2c backend driver.
 	  If you don't know what to do here, say N.
@@ -1046,7 +1046,7 @@ config VIRTIO_I2C_BACKEND
 
 config VIRTIO_I2C_FRONTEND
 	tristate "VIRTIO I2C bus for frontend OS"
-	depends on CSRVISOR_REMOTEPROC_FRONTEND
+	depends on REMOTEPROC && !SECURITY_MODE
 	help
 	  Enable the use of the Virtio i2c frontend driver.
 	  If you don't know what to do here, say N.
