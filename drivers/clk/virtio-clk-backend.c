@@ -290,32 +290,37 @@ static int virtio_clk_mmio(struct virtio_device *vdev, u32 offset)
 static int virtio_clk_hw_init(struct virtio_device *vdev,
 				struct virtio_clk *vclk)
 {
-	char *np_str;
 	int len;
+	const char *compat;
 
-	np_str = (char *)virtio_cread32(vdev, MMIO_PRIV_DATA);
-	vclk->np = of_find_compatible_node(NULL, NULL, np_str);
-	if (!vclk->np) {
-		dev_err(&vdev->dev,
-			"Could not find virtual clock table in DTS\n"
-			"\rCompatible string is [%s]\n", np_str);
-		return -EINVAL;
-	}
+	vclk->np = (void *)virtio_cread32(vdev, MMIO_PRIV_DATA);
+	if (!vclk->np)
+		return -ENODEV;
 
-	if (of_property_read_u32(vclk->np, "clock_num",	&vclk->maxclk)) {
+	vclk->np = of_parse_phandle(vclk->np, "vclk-controller", 0);
+	if (!vclk->np)
+		return -ENODEV;
+
+	if (of_property_read_u32(vclk->np, "clock_num", &vclk->maxclk)) {
 		dev_err(&vdev->dev,
 			"Unable to find clock units number in device node.\n");
-		return -EFAULT;
+		return -ENODEV;
+	}
+
+	if (of_property_read_string(vclk->np, "compatible", &compat)) {
+		dev_err(&vdev->dev,
+			"Unable to find compatible string.\n");
+		return -ENODEV;
 	}
 
 	/* disable notify remote side when we initialize the config space */
 	rproc_virtio_disable_notify(vdev);
 
-	len = strlen(np_str) + sizeof(char);
+	len = strlen(compat) + sizeof(char);
 
 	virtio_cwrite32(vdev, VCLK_MMIO_UNIT_NUM, vclk->maxclk);
 	virtio_cwrite32(vdev, VCLK_MMIO_UNIT_LEN, len);
-	vdev->config->set(vdev, VCLK_MMIO_UNIT_DATA, np_str, len);
+	vdev->config->set(vdev, VCLK_MMIO_UNIT_DATA, compat, len);
 
 	/* enable notify remote side */
 	rproc_virtio_enable_notify(vdev);
