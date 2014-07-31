@@ -29,4 +29,16 @@ config HSEM_U8500
 
 	  If unsure, say N.
 
+config HWSPINLOCK_SIRF
+	tristate "SIRF Hardware Spinlock device"
+	depends on ARCH_SIRF
+	select HWSPINLOCK
+	help
+	  Say y here to support the SIRF Hardware Spinlock device, which
+	  provides a synchronisation mechanism for the various processor
+	  on the SoC.
+
+	  It's safe to say n here if you're not interested in SIRF hardware
+	  spinlock or just want a bare minimum kernel.
+
 endmenu

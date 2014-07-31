@@ -48,6 +48,13 @@
 			ranges = <0x13240000 0x13240000 0x00010000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			hwspinlock {
+				compatible = "sirf,hwspinlock";
+				reg = <0x13240000 0x00010000>;
+
+				num-spinlocks = <30>;
+			};
 		};
 
 		peri-iobg {

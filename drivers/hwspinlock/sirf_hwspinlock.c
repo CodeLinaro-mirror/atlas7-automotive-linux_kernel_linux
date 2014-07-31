@@ -1,0 +1,144 @@
+/*
+ * SIRF hardware spinlock driver
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/bitops.h>
+#include <linux/pm_runtime.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/hwspinlock.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+
+#include "hwspinlock_internal.h"
+
+struct sirf_hwspinlock {
+	void __iomem *io_base;
+	struct hwspinlock_device bank;
+};
+
+/* Hardware spinlock register offsets */
+#define HW_SPINLOCK_RD_DEBUG	0x400
+#define HW_SPINLOCK_BASE	0x404
+#define HW_SPINLOCK_OFFSET(x)	(HW_SPINLOCK_BASE + 0x4 * (x))
+
+/* Possible values of HW_SPINLOCK_REG */
+#define HW_SPINLOCK_LOCKED	0
+#define HW_SPINLOCK_FREE	1
+
+static int sirf_hwspinlock_trylock(struct hwspinlock *lock)
+{
+	void __iomem *lock_addr = lock->priv;
+
+	/* attempt to acquire the lock by reading its value */
+	return (HW_SPINLOCK_FREE == readl(lock_addr));
+}
+
+static void sirf_hwspinlock_unlock(struct hwspinlock *lock)
+{
+	void __iomem *lock_addr = lock->priv;
+
+	/* release the lock by writing 0 to it */
+	writel(HW_SPINLOCK_LOCKED, lock_addr);
+}
+
+static void sirf_hwspinlock_relax(struct hwspinlock *lock)
+{
+	ndelay(50);
+}
+
+static const struct hwspinlock_ops sirf_hwspinlock_ops = {
+	.trylock = sirf_hwspinlock_trylock,
+	.unlock = sirf_hwspinlock_unlock,
+	.relax = sirf_hwspinlock_relax,
+};
+
+static int sirf_hwspinlock_probe(struct platform_device *pdev)
+{
+	struct sirf_hwspinlock *hwspin;
+	struct hwspinlock *hwlock;
+	u32 num_of_locks;
+	int idx, ret;
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+			"num-spinlocks", &num_of_locks);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Unable to find hwspinlock number. ret=%d\n", ret);
+		return -ENODEV;
+	}
+
+	hwspin = devm_kzalloc(&pdev->dev, sizeof(*hwspin) +
+			sizeof(*hwlock) * num_of_locks, GFP_KERNEL);
+	if (!hwspin)
+		return -ENOMEM;
+
+	/* retrieve io base */
+	hwspin->io_base = of_iomap(pdev->dev.of_node, 0);
+	if (!hwspin->io_base)
+		ret = -ENOMEM;
+
+	for (idx = 0; idx < num_of_locks; idx++) {
+		hwlock = &hwspin->bank.lock[idx];
+		hwlock->priv = hwspin->io_base + HW_SPINLOCK_OFFSET(idx);
+	}
+
+	platform_set_drvdata(pdev, hwspin);
+
+	ret = hwspin_lock_register(&hwspin->bank, &pdev->dev,
+				&sirf_hwspinlock_ops, 0, num_of_locks);
+	if (ret)
+		goto unmap_io;
+
+	return 0;
+
+unmap_io:
+	iounmap(hwspin->io_base);
+
+	return ret;
+}
+
+static int sirf_hwspinlock_remove(struct platform_device *pdev)
+{
+	struct sirf_hwspinlock *hwspin = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = hwspin_lock_unregister(&hwspin->bank);
+	if (ret) {
+		dev_err(&pdev->dev, "%s failed: %d\n", __func__, ret);
+		return ret;
+	}
+
+	iounmap(hwspin->io_base);
+
+	return 0;
+}
+
+static struct platform_device_id sirf_hwpinlock_ids[] = {
+	{ .name = "atlas7-hwspinlock", },
+};
+
+static struct platform_driver sirf_hwspinlock_driver = {
+	.probe = sirf_hwspinlock_probe,
+	.remove = sirf_hwspinlock_remove,
+	.driver = {
+		.name = "sirfsoc_hwspinlock",
+		.owner = THIS_MODULE,
+	},
+	.id_table = sirf_hwpinlock_ids,
+};
+
+module_platform_driver(sirf_hwspinlock_driver);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("SIRF Hardware spinlock driver");
