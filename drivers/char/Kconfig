@@ -147,7 +147,7 @@ source "drivers/tty/hvc/Kconfig"
 
 config VIRTIO_CONSOLE
 	tristate "Virtio console"
-	depends on VIRTIO && TTY
+	depends on VIRTIO && TTY && !SECURITY_MODE
 	select HVC_DRIVER
 	help
 	  Virtio console for use with lguest and other hypervisors.
@@ -163,7 +163,7 @@ config VIRTIO_CONSOLE
 
 config VIRTIO_RPROC_SERIAL_BACKEND
 	tristate "Virtio remoteproc serial backend driver"
-	depends on VIRTIO && TTY && CSRVISOR_REMOTEPROC_BACKEND
+	depends on VIRTIO && TTY && REMOTEPROC && SECURITY_MODE && OF
 	help
 	  Virtio remoteproc serial can be drived by virtio console in
 	  guest OS or frontend OS.

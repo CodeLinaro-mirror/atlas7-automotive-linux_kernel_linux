@@ -35,7 +35,7 @@
 #include <linux/virtio_ids.h>
 #include <linux/virtio_config.h>
 
-#ifdef CONFIG_CSRVISOR_REMOTEPROC
+#ifdef CONFIG_REMOTEPROC
 
 #include <linux/remoteproc.h>
 #include <linux/remoteproc_dualos.h>

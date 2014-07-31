@@ -1415,7 +1415,7 @@ static int add_port(struct ports_device *portdev, u32 id)
 	dev_t devt;
 	unsigned int nr_added_bufs;
 	int err;
-#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+#ifdef CONFIG_REMOTEPROC
 	int port_id;
 	char port_name[CONSOLE_MMIO_NAME_LEN];
 #endif
@@ -1461,7 +1461,7 @@ static int add_port(struct ports_device *portdev, u32 id)
 		goto free_cdev;
 	}
 
-#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+#ifdef CONFIG_REMOTEPROC
 	/* read virtio i2c config info from mmio */
 	port_id = virtio_cread32(port->portdev->vdev, CONSOLE_MMIO_PORT_ID);
 	virtio_cread_bytes(port->portdev->vdev, CONSOLE_MMIO_NAME,
@@ -2002,7 +2002,7 @@ static void remove_controlq_data(struct ports_device *portdev)
 		free_buf(buf, true);
 }
 
-#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+#ifdef CONFIG_REMOTEPROC
 static int virtcons_mmio(struct virtio_device *vdev, u32 offset)
 {
 	switch (offset) {
@@ -2122,7 +2122,7 @@ static int virtcons_probe(struct virtio_device *vdev)
 	if (multiport && early)
 		wait_for_completion(&early_console_added);
 
-#ifdef CONFIG_CSRVISOR_REMOTEPROC_FRONTEND
+#ifdef CONFIG_REMOTEPROC
 	rproc_set_mmio_handler(vdev, virtcons_mmio);
 	/* Tell the remote processor, front is online. */
 	virtio_cwrite32(vdev, MMIO_FRONT_ONLINE, vdev->index);
