@@ -406,6 +406,13 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	writel_relaxed(CONFIG_SPI32_IGROUP, base + GIC_DIST_IGROUP + 32 * 4 / 32);
 
 	/*
+	 * Set IPC interrupts to TGT0 secure. IRQ 116~121 (add 32 is 148 ~ 153)
+	 */
+	if (of_machine_is_compatible("sirf,atlas7"))
+		writel_relaxed(0xfc0fffff,
+			base + GIC_DIST_IGROUP + 128 * 4 / 32);
+
+	/*
 	 * Secure Linux will run in single core, so make all SGI non-secure
 	 * for IPI in non-secure Linux
 	 */
@@ -444,13 +451,26 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	/*
 	 * make security interrupt highest priority
 	 */
-	for (i = 32; i < 64; i += 4) {
+	for (i = 32; i < gic_irqs; i += 4) {
 		u32 prio = 0xa0a0a0a0UL;
+		u32 igroup;
 		int j;
+
 		for (j = i; j < i + 4; j++) {
-			if (!(CONFIG_SPI32_IGROUP & BIT(j - 32)))
+			if (j < 64)
+				/* SPI32 setting */
+				igroup = CONFIG_SPI32_IGROUP;
+			else if (j >= 128 && j < 160 &&
+				of_machine_is_compatible("sirf,atlas7"))
+				/* IPC interrupt to secure core */
+				igroup = 0xfc0fffffUL;
+			else
+				igroup = 0xffffffffUL;
+
+			if (!(igroup & BIT(j - i / 32 * 32)))
 				prio &= ~(0xFF << ((j & 0x3) * 8));
 		}
+
 		writel_relaxed(prio, base + GIC_DIST_PRI + i * 4 / 4);
 		if (prio != 0xa0a0a0a0UL)
 			pr_info("irq %d~%d priority set:%x\n", i, i + 3, prio);
