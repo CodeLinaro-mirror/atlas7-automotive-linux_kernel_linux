@@ -45,9 +45,10 @@ static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
  * will release it after smp is completed.
  */
 #define DRAM_PHY_BASE	0x40000000UL
-#define DRAM_SIZE		0x10000000UL
+#define DRAM_SIZE	0x10000000UL
 #define SMP_PHY_BASE (DRAM_PHY_BASE + DRAM_SIZE - SZ_1M)
 #endif
+
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
@@ -79,6 +80,53 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 		pr_err("failed to reserve dqs memory(0x%x bytes at 0x%x)\n",
 			dqs_addr, dqs_sz);
 
+	return 1;
+}
+
+#ifndef CONFIG_SECURITY_MODE
+static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
+	const char *uname, int depth, void *data)
+{
+	__be32 *mem_info;
+	unsigned long len;
+	unsigned long ipc_addr, ipc_vaddr, ipc_sz;
+	struct map_desc ipc_map[1];
+	mem_info = of_get_flat_dt_prop(node, "sirf,ipc-mem", &len);
+	if (!mem_info || (len != 3 * sizeof(unsigned long)))
+		return 0;
+
+	ipc_addr = be32_to_cpu(mem_info[0]);
+	ipc_vaddr = be32_to_cpu(mem_info[1]);
+	ipc_sz = be32_to_cpu(mem_info[2]);
+
+	memset(&ipc_map[0], 0, sizeof(struct map_desc));
+	ipc_map[0].virtual = ipc_vaddr;
+	ipc_map[0].pfn = __phys_to_pfn(ipc_addr);
+	ipc_map[0].length = ipc_sz;
+	ipc_map[0].type = MT_DEVICE;
+	iotable_init(ipc_map, ARRAY_SIZE(ipc_map));
+
+	return 1;
+}
+#endif
+
+static int __init sirf_fdt_handle_ipc_rsv_mem(unsigned long node,
+	const char *uname, int depth, void *data)
+{
+	__be32 *mem_info;
+	unsigned long len;
+	unsigned long ipc_addr, ipc_sz;
+
+	mem_info = of_get_flat_dt_prop(node, "sirf,ipc-mem", &len);
+	if (!mem_info || (len != 3 * sizeof(unsigned long)))
+		return 0;
+
+	ipc_addr = be32_to_cpu(mem_info[0]);
+	ipc_sz = be32_to_cpu(mem_info[2]);
+
+	if (memblock_reserve(ipc_addr, ipc_sz))
+		pr_err("failed to reserve ipc memory(0x%lx bytes at 0x%lx)\n",
+			ipc_addr, ipc_sz);
 	return 1;
 }
 
@@ -191,6 +239,8 @@ void __init prima2_reserve(void)
 void __init atlas7_reserve(void)
 {
 	csrvisor_reserve();
+	if (!of_scan_flat_dt(sirf_fdt_handle_ipc_rsv_mem, NULL))
+		pr_err("failed to reserve ipc memory.\n");
 }
 
 /* specific device names for some device node */
@@ -284,6 +334,9 @@ static __init void sirfsoc_map_io(void)
 	sirfsoc_map_lluart();
 #ifdef CONFIG_SECURITY_MODE
 	iotable_init(sirfsoc_csrvisor_map, ARRAY_SIZE(sirfsoc_csrvisor_map));
+#else
+	if (!of_scan_flat_dt(sirf_fdt_handle_ipc_map_mem, NULL))
+		pr_err("failed to map ipc memory.\n");
 #endif
 }
 
