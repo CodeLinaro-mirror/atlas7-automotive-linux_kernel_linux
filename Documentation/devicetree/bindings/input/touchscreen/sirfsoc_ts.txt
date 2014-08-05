@@ -1,0 +1,26 @@
+* SIRFSOC Touch Screen
+
+Required properties:
+- compatible: should be "sirf,prima2-tsc"
+- interrupt: touch controller interrupt
+- io-channels: adc iio channels which ts data from
+- io-channel-names: iio channels names
+
+Example:
+adc@b0110000 {
+	tsc {
+		compatible = "sirf,prima2-tsc";
+		interrupts = <33>;
+		io-channels = <&adc 0>, <&adc 1>;
+		io-channel-names = "single_ts", "dual_ts";
+	};
+};
+
+adc@b0110000 {
+	tsc {
+		compatible = "sirf,prima2-tsc";
+		interrupts = <33>;
+		io-channels = <&adc 0>;
+		io-channel-names = "single_ts";
+	};
+};

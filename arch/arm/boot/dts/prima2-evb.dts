@@ -208,7 +208,7 @@
 					compatible = "sirf,prima2-tsc";
 					interrupts = <33>;
 					io-channels = <&adc 0>;
-					io-channel-names = "dual_ts";
+					io-channel-names = "single_ts";
 				};
 			};
 			pulsec@b0150000 {

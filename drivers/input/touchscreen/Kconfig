@@ -981,6 +981,18 @@ config TOUCHSCREEN_SIRFSOC
 	 that there could be a race condition if TS modules are
 	 inserted when ADC is running.
 
+if TOUCHSCREEN_SIRFSOC
+config TOUCHSCREEN_SIRFSOC_DUAL_TOUCH
+	bool "SiRFSoC touchscreen dual touch mode"
+	depends on ARCH_ATLAS6
+	help
+	 Say Y here, The sirfsoc touch will work use dual touch mode
+	 If say N, the sirfsoc touch work use single touch mode
+
+	 If unsure, say N.
+
+endif
+
 config TOUCHSCREEN_ZFORCE
 	tristate "Neonode zForce infrared touchscreens"
 	depends on I2C

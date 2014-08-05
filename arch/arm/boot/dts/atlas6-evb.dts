@@ -213,8 +213,9 @@
 				tsc {
 					compatible = "sirf,dualtouch-tsc";
 					interrupts = <33>;
-					io-channels = <&adc 1>;
-					io-channel-names = "dual_ts";
+					io-channels = <&adc 0>, <&adc 1>;
+					io-channel-names = "single_ts",
+							"dual_ts";
 				};
 			};
 			pci-iobg {

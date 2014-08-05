@@ -206,6 +206,7 @@ static int sirfsoc_ts_get_coord_and_pen_single(struct sirfsoc_ts *ts)
 	return 0;
 }
 
+#ifdef CONFIG_TOUCHSCREEN_SIRFSOC_DUAL_TOUCH
 /* Read eight AD samples from adc */
 static int sirfsoc_ts_read_samples_dual(struct sirfsoc_ts *ts, u32 *samples)
 {
@@ -446,6 +447,7 @@ static int sirfsoc_ts_get_coord_and_pen_dual(struct sirfsoc_ts *ts)
 
 	return 0;
 }
+#endif
 
 /* Report touch events to event driver */
 static void sirfsoc_ts_report_coord(struct sirfsoc_ts *ts)
@@ -514,18 +516,17 @@ static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_single = {
 	.read_samples		= sirfsoc_ts_read_samples_single,
 };
 
+#ifdef CONFIG_TOUCHSCREEN_SIRFSOC_DUAL_TOUCH
 static const struct sirfsoc_ts_of_data_touch sirfsoc_ts_of_data_dual = {
 	.debounce_rep		= 4,
 	.debounce_dev		= 500,
 	.get_coord_and_pen	= sirfsoc_ts_get_coord_and_pen_dual,
 	.read_samples		= sirfsoc_ts_read_samples_dual,
 };
+#endif
 
 static const struct of_device_id sirfsoc_ts_of_match[] = {
-	{ .compatible = "sirf,prima2-tsc",
-	  .data = &sirfsoc_ts_of_data_single },
-	{ .compatible = "sirf,dualtouch-tsc",
-	  .data = &sirfsoc_ts_of_data_dual },
+	{ .compatible = "sirf,prima2-tsc", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_ts_of_match);
@@ -537,7 +538,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 	int				ret;
 	int				i;
 	int				irq;
-	const struct of_device_id	*match;
 
 	const unsigned int codes[] = {
 		KEY_HOME, KEY_MENU, KEY_BACK, KEY_SEARCH,
@@ -552,7 +552,14 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ts);
 
-	ts->chan = iio_channel_get(&pdev->dev, NULL);
+/* Touch mode specific */
+#ifdef CONFIG_TOUCHSCREEN_SIRFSOC_DUAL_TOUCH
+	ts->touch = &sirfsoc_ts_of_data_dual;
+	ts->chan = iio_channel_get(&pdev->dev, "dual_ts");
+#else
+	ts->touch = &sirfsoc_ts_of_data_single;
+	ts->chan = iio_channel_get(&pdev->dev, "single_ts");
+#endif
 	if (IS_ERR(ts->chan)) {
 		dev_err(&pdev->dev, "sirfsoc ts: Unable to get the adc channel\n");
 		ret = PTR_ERR(ts->chan);
@@ -613,10 +620,6 @@ static int sirfsoc_ts_probe(struct platform_device *pdev)
 
 	/* Default to single touch */
 	ts->fingers = 1;
-
-	/* Touch specific data */
-	match = of_match_device(of_match_ptr(sirfsoc_ts_of_match), &pdev->dev);
-	ts->touch = match->data;
 
 	return 0;
 out3:
