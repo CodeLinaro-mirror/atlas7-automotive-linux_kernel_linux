@@ -935,7 +935,19 @@ config ARCH_MULTI_CPU_AUTO
 
 endmenu
 
-menu "ARM Trustzone"
+menuconfig CSRVISOR_DUALOS
+	bool "CSRVisor Dual OS Support"
+	default n
+	help
+	  CSRVisor is a ARM TrustZone based Hypervisor. Enable this
+	  will make Linux has the ability of running on CSRVisor based
+	  Dual OS environment. If this option is enabled, the Linux
+	  can be configured to be running on security mode or non-
+	  security-mode.
+
+	  If in doubt, say N here.
+
+if CSRVISOR_DUALOS
 
 config SECURITY_MODE
 	bool "Linux running in security mode"
@@ -974,7 +986,7 @@ config SPI32_IGROUP
 	  0: The corresponding interrupt is Secure.
 	  1: The corresponding interrupt is Non-secure.
 
-endmenu
+endif # CSRVISOR_DUALOS
 
 config ARCH_VIRT
 	bool "Dummy Virtual Machine" if ARCH_MULTI_V7
