@@ -320,7 +320,7 @@ static inline void clkc_writel(u32 val, unsigned reg)
   ABPLL
   interger_n mode: Fvco = Fin * 2 * NF / NR
   Spread Spectrum mode: Fvco = Fin * SSN / NR
-  SSN = 2^24 / (ssdiv | (ssmod << ssdepth))
+  SSN = 2^24 / (256 * ((ssdiv >> ssdepth) << ssdepth) + (ssmod << ssdepth))
  */
 static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
@@ -350,7 +350,8 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 		return fin;
 
 	if (regctrl0 & SIRFSOC_ABPLL_CTRL0_SSEN) {
-		ssn = (1 << 24) / (ssdiv | (ssmod << ssdepth));
+		ssn = (1 << 24) / (256 * ((ssdiv >> ssdepth) << ssdepth)
+			+ ssmod << ssdepth);
 		return fin * ssn / nr;
 	} else
 		return 2 * fin * nf / nr;
