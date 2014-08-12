@@ -322,7 +322,6 @@ enum NAND_IOCTRL_CATEGORY {
  */
 #define NAND_IOCTRL_BUFFER_SIZE             NAND_IOCTRL_CODE(BUF, 0)
 #define NAND_IOCTRL_DRAIN_BUFFER            NAND_IOCTRL_CODE(BUF, 1)
-#define NAND_IOCTRL_BOOT_BUFFER            NAND_IOCTRL_CODE(BUF, 2)
 
 /*sector map IOCTRL */
 #define NAND_IOCTRL_SET_ZONEMAP            NAND_IOCTRL_CODE(ZONEMAP, 0)
@@ -587,10 +586,6 @@ struct NAND_IO {
 #define NAND_MAX_BUFFER_SIZE      (128*1024)
 #define NAND_MIN_BUFFER_SIZE      (32*1024)
 
-struct BOOT_BUFFER {
-	void       *buf;
-	unsigned   size;
-};
 /*
  * NAND_IOCTRL_DRAIN_BUFFER
  *   handle: ignored

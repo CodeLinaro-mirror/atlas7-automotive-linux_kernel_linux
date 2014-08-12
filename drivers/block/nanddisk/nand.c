@@ -52,11 +52,6 @@ struct nanddisk_device {
 	/* data for transferring */
 	void *data_buf;
 
-	/* buffer for u-boot */
-	struct BOOT_BUFFER uboot_buf;
-	unsigned char *uboot_write_map;
-	unsigned uboot_sec_num;
-
 	/* nand info */
 	struct NAND_CHIP_INFO	nand_chip_info;
 	unsigned bytes_per_block;
@@ -101,8 +96,6 @@ struct nanddisk_device {
 };
 
 static struct nanddisk_device   nand_dev;
-
-#define UBOOT_MAX_LENGTH 0x80000
 
 static int __init sirf_fdt_handle_rsv_mem(unsigned long node, const char *uname,
 				int depth, void *data)
@@ -539,21 +532,6 @@ static int nanddisk_init(struct platform_device *pdev)
 
 	if (!nand_dev.sectors_num) {
 		dev_err(dev, "err! not set zone map!\r\n");
-		return -1;
-	}
-
-	nand_dev.uboot_buf.buf = vmalloc(UBOOT_MAX_LENGTH);
-	if (!nand_dev.uboot_buf.buf)
-		return -ENOMEM;
-
-	memset(nand_dev.uboot_buf.buf, 0, UBOOT_MAX_LENGTH);
-	nand_dev.uboot_buf.size = UBOOT_MAX_LENGTH;
-
-	if (!nand_dev.pfn_ioctrl(0, NAND_IOCTRL_BOOT_BUFFER,
-		&nand_dev.uboot_buf,
-		sizeof(nand_dev.uboot_buf), NULL, 0, NULL)) {
-		vfree(nand_dev.uboot_buf.buf);
-		dev_err(dev, "NAND_IOCTRL_BOOT_BUFFER failed.\r\n");
 		return -1;
 	}
 
@@ -1008,7 +986,6 @@ err_register_blkdev:
 err_vmalloc_data_buf:
 	blk_cleanup_queue(nand_dev.queue);
 err_blk_init_queue:
-	vfree(nand_dev.uboot_buf.buf);
 err_nanddisk_init:
 	clk_disable_unprepare(nand_dev.nand_clk);
 err_clk_get:
@@ -1039,8 +1016,6 @@ static int sirfsoc_nand_remove(struct platform_device *pdev)
 	dma_release_channel(nand_dev.rw_chan);
 
 	vfree(nand_dev.data_buf);
-
-	vfree(nand_dev.uboot_buf.buf);
 
 	return 0;
 }
