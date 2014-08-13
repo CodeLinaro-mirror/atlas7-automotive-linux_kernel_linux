@@ -1,7 +1,8 @@
 * CSR SiRFprimaII Serial Peripheral Interface
 
 Required properties:
-- compatible : Should be "sirf,prima2-spi"
+- compatible : Should be "sirf,prima2-spi" or "sirf,marco-spi" or
+		"sirf,prima2-usp-spi" or "sirf,marco-usp-spi"
 - reg : Offset and length of the register set for the device
 - interrupts : Should contain SPI interrupt
 - sirf,spi-num-chipselects : Contains the number of the chipselect
