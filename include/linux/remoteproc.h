@@ -347,7 +347,7 @@ struct rproc_ops {
 	void (*kick)(struct rproc *rproc, int vqid);
 	void (*resource)(struct rproc *rproc);
 	void (*release)(struct rproc *rproc);
-	u32 (*features)(void);
+	u32 (*features)(struct device *dev);
 };
 
 /* Definition of remoteproc features */

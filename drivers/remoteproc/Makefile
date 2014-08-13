@@ -12,3 +12,4 @@ obj-$(CONFIG_OMAP_REMOTEPROC)		+= omap_remoteproc.o
 obj-$(CONFIG_STE_MODEM_RPROC)	 	+= ste_modem_rproc.o
 obj-$(CONFIG_DA8XX_REMOTEPROC)		+= da8xx_remoteproc.o
 obj-$(CONFIG_CSRVISOR_REMOTEPROC)	+= csrvisor_remoteproc.o
+obj-$(CONFIG_SIRF_REMOTEPROC)	+= sirf_remoteproc.o

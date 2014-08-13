@@ -55,5 +55,14 @@
                         };
                 };
 
+		ipc@13240000 {
+			s_ns_rproc {
+				compatible = "sirf,s2ns0-rproc";
+				reg = <0x13240000 0x00010000>;
+				interrupts = <0 116 0>;
+
+				sirf,ipc-mem = <0x4FD00000 0xD0D00000 0x100000>;
+			};
+		};
 	};
 };

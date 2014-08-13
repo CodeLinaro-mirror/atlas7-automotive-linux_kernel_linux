@@ -1343,6 +1343,13 @@ int rproc_add(struct rproc *rproc)
 	struct device *dev = &rproc->dev;
 	int ret;
 
+	if (!RPROC_HAS_FEATURE(rproc, RPROC_F_BACKEND | RPROC_F_FRONTEND))
+		goto add_rproc_dev;
+
+	rproc_alloc_resource_table(rproc);
+	rproc_task_thread_setup(rproc);
+
+add_rproc_dev:
 	ret = device_add(dev);
 	if (ret < 0)
 		return ret;
@@ -1475,7 +1482,7 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 		return NULL;
 
 	if (ops->features)
-		features = ops->features();
+		features = ops->features(dev);
 	else
 		features = (RPROC_F_FIRMWARE | RPROC_F_LIFECYCLE);
 
@@ -1565,9 +1572,6 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 
 	INIT_LIST_HEAD(&rproc->bus_task_head);
 	INIT_LIST_HEAD(&rproc->async_kick_head);
-
-	rproc_alloc_resource_table(rproc);
-	rproc_task_thread_setup(rproc);
 
 	if (RPROC_HAS_FEATURE(rproc, RPROC_F_LIFECYCLE))
 		goto save_instance;

@@ -1,0 +1,28 @@
+SIRF Atlas7 Remote processor Device Binding
+------------------------------------------------
+1) Main node
+	Required properties :
+
+	- compatible : "sirf,s2ns0-rproc", "sirf,ns2s0-rproc",
+	  "sirf,s2m30-rproc", "sirf,s2kal0-rproc",
+	  "sirf,ns2m30-rproc", "sirf,ns2kal0-rproc",
+	  "sirf,s2ns1-rproc", "sirf,ns2s1-rproc",
+	  "sirf,s2m31-rproc", "sirf,s2kal1-rproc",
+	  "sirf,ns2m31-rproc", "sirf,ns2kal1-rproc"
+
+	- reg : register address of remoteproc device
+
+	- sirf,ipc-mem : the shared memory which is used to store virtual
+	  device info and used as fifo buffers. It has 3 member, the first
+	  is physical address, the second is virtual address which will be
+	  used in static io map of frontend OS, the third is the size of
+	  shared memory
+
+2) Example:
+	s_ns_rproc {
+		compatible = "sirf,s2ns0-rproc";
+		reg = <0x13240000 0x00010000>;
+		interrupts = <0 116 0>;
+
+		sirf,ipc-mem = <0x4FD00000 0xD0D00000 0x100000>;
+	};
