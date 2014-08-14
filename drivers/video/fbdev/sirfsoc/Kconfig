@@ -1,0 +1,5 @@
+if ARCH_SIRF
+
+source "drivers/video/fbdev/sirfsoc/vdss/Kconfig"
+
+endif

@@ -1,0 +1,19 @@
+menuconfig SIRF_VDSS
+        tristate "SIRFSOC Video Display Subsystem support"
+	select VIDEOMODE_HELPERS
+        help
+	  SiRF Soc Video Display Subsystem support. The VDSS exposes a series
+	  of APIs to the user interface drivers like V4L2 and Frame buffer
+	  device. It also exposes the functions for registering/de-registering
+	  of the various display devices like LCD and LVDS to the VDSS.
+
+if SIRF_VDSS
+
+config SIRF_VDSS_DEBUG
+	bool "Debug support"
+	default n
+	help
+	  This enables printing of debug messages.
+
+endif
+
