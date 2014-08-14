@@ -245,6 +245,13 @@ struct NAND_ZONE {
 	unsigned     inuse_log_block_num;
 	struct ZONE_MAP     zone_map;
 
+	/*
+	 * sector map of boot zone
+	 */
+	unsigned        boot_sec_num;
+	unsigned        *boot_sec_map;
+
+
 };
 
 
