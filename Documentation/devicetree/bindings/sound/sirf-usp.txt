@@ -15,12 +15,11 @@ Required properties:
 - pinctrl-NNN: One property must exist for each entry in pinctrl-names.
 
 Example:
-
-usp1: usp@b0090000 {
+usp0: usp@b0080000 {
 	compatible = "sirf,prima2-usp-pcm";
-	reg = <0xb0090000 0x10000>;
-	clocks = <&clks 29>;
-	dmas = <&dmac0 14>, <&dmac0 15>;
+	reg = <0xb0080000 0x10000>;
+	clocks = <&clks 28>;
+	dmas = <&dmac1 1>, <&dmac1 2>;
 	dma-names = "rx", "tx";
 	pinctrl-names = "default";
 	pinctrl-0 = <&usp0_only_utfs_pins_a>;

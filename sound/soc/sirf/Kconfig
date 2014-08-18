@@ -32,3 +32,9 @@ config SND_SOC_SIRF_HDMI
 	depends on SND_SOC_SIRF
 	select SND_SOC_SIRF_I2S
 	select SND_SOC_HDMI_CODEC
+
+config SND_SOC_SIRF_USP
+	tristate "SoC Audio (I2S protocol) for SiRF SoC USP interface"
+	depends on SND_SOC_SIRF
+	select REGMAP_MMIO
+	tristate

@@ -1,5 +1,5 @@
 /*
- * SiRF USP audio transfer interface like I2S
+ * SiRF USP in I2S/DSP mode
  *
  * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -11,22 +11,17 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <sound/soc.h>
+#include <sound/pcm_params.h>
 #include <sound/dmaengine_pcm.h>
 
 #include "sirf-usp.h"
-
-#define FIFO_RESET  0
-#define FIFO_START	1
-#define FIFO_STOP	2
-
-#define AUDIO_WORD_SIZE 16
 
 struct sirf_usp {
 	struct regmap *regmap;
 	struct clk *clk;
 	u32 mode1_reg;
 	u32 mode2_reg;
-	int master;
+	int daifmt_format;
 	struct snd_dmaengine_dai_dma_data playback_dma_data;
 	struct snd_dmaengine_dai_dma_data capture_dma_data;
 };
@@ -88,184 +83,49 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBS_CFS:
-		usp->master = 1;
-		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		usp->master = 0;
 		break;
 	default:
+		dev_err(dai->dev, "Only CBM and CFM supported\n");
+		return -EINVAL;
+	}
+
+	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+	case SND_SOC_DAIFMT_I2S:
+	case SND_SOC_DAIFMT_DSP_A:
+		usp->daifmt_format = (fmt & SND_SOC_DAIFMT_FORMAT_MASK);
+		break;
+	default:
+		dev_err(dai->dev, "Only I2S and DSP_A format supported\n");
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
-		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
+static void sirf_usp_i2s_init(struct sirf_usp *usp)
 {
-	struct sirf_usp *usp = snd_soc_dai_get_drvdata(dai);
-	u32 mode1;
-	u32 mode2;
-	u32 rate = params_rate(params);
-	u32 clk_rate, clk_div, clk_div_hi, clk_div_lo;
-
-	regmap_read(usp->regmap, USP_MODE1, &mode1);
-	regmap_read(usp->regmap, USP_MODE2, &mode2);
-	if (usp->master) {
-		mode1 &= ~USP_CLOCK_MODE_SLAVE;
-		mode2 &= ~USP_TFS_CLK_SLAVE_MODE;
-		mode2 &= ~USP_RFS_CLK_SLAVE_MODE;
-	} else {
-		mode1 |= USP_CLOCK_MODE_SLAVE;
-		mode2 |= USP_TFS_CLK_SLAVE_MODE;
-		mode2 |= USP_RFS_CLK_SLAVE_MODE;
-	}
-	regmap_write(usp->regmap, USP_MODE1, mode1);
-	regmap_write(usp->regmap, USP_MODE2, mode2);
-
-	clk_rate = clk_get_rate(usp->clk);
-	if (clk_rate < rate * 2) {
-		dev_err(dai->dev, "Can't get rate(%d) by need.\n", rate);
-		return -EINVAL;
-	}
-
-	clk_div = (clk_rate / (2 * rate)) - 1;
-	clk_div_hi = (clk_div & 0xC00) >> 10;
-	clk_div_lo = (clk_div & 0x3FF);
-
-	regmap_update_bits(usp->regmap, USP_MODE2, USP_CLK_DIVISOR_MASK,
-		clk_div_lo << USP_CLK_DIVISOR_OFFSET);
-
-	regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
-		USP_TXC_CLK_DIVISOR_MASK,
-		clk_div_hi << USP_TXC_CLK_DIVISOR_OFFSET);
-
-	return 0;
-}
-
-static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
-				struct snd_soc_dai *dai)
-{
-	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
-	struct sirf_usp *usp = snd_soc_dai_get_drvdata(dai);
-
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (playback)
-			sirf_usp_tx_enable(usp);
-		else
-			sirf_usp_rx_enable(usp);
-		break;
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (playback)
-			sirf_usp_tx_disable(usp);
-		else
-			sirf_usp_rx_disable(usp);
-		break;
-	}
-
-	return 0;
-}
-
-static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
-	.trigger = sirf_usp_pcm_trigger,
-	.set_fmt = sirf_usp_pcm_set_dai_fmt,
-	.hw_params = sirf_usp_pcm_hw_params,
-};
-
-static struct snd_soc_dai_driver sirf_usp_pcm_dai = {
-	.probe = sirf_usp_pcm_dai_probe,
-	.name		= "sirf-usp-pcm",
-	.id			= 0,
-	.playback = {
-		.stream_name = "SiRF USP PCM Playback",
-		.channels_min = 1,
-		.channels_max = 1,
-		.rates = SNDRV_PCM_RATE_48000
-			| SNDRV_PCM_RATE_44100
-			| SNDRV_PCM_RATE_32000
-			| SNDRV_PCM_RATE_22050
-			| SNDRV_PCM_RATE_16000
-			| SNDRV_PCM_RATE_11025
-			| SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-	.capture = {
-		.stream_name = "SiRF USP PCM Capture",
-		.channels_min = 1,
-		.channels_max = 1,
-		.rates = SNDRV_PCM_RATE_48000
-			| SNDRV_PCM_RATE_44100
-			| SNDRV_PCM_RATE_32000
-			| SNDRV_PCM_RATE_22050
-			| SNDRV_PCM_RATE_16000
-			| SNDRV_PCM_RATE_11025
-			| SNDRV_PCM_RATE_8000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-	.ops = &sirf_usp_pcm_dai_ops,
-};
-
-static void sirf_usp_controller_init(struct sirf_usp *usp)
-{
-	u32 val;
-
 	/* Configure RISC mode */
 	regmap_update_bits(usp->regmap, USP_RISC_DSP_MODE,
 		USP_RISC_DSP_SEL, ~USP_RISC_DSP_SEL);
 
-	/* Clear all interrupts status */
-	regmap_read(usp->regmap, USP_INT_STATUS, &val);
-	regmap_write(usp->regmap, USP_INT_STATUS, val);
-
-	/* Configure DMA IO Length register */
+	/*
+	 * Configure DMA IO Length register
+	 * Set no limit, USP can receive data continuously until it is diabled
+	 */
 	regmap_write(usp->regmap, USP_TX_DMA_IO_LEN, 0);
 	regmap_write(usp->regmap, USP_RX_DMA_IO_LEN, 0);
 
-	/* Configure RX Frame Control */
-	val = (AUDIO_WORD_SIZE * 2 - 1) << USP_RXC_DATA_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_RXC_FRAME_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_RXC_SHIFTER_LEN_OFFSET;
-	val |= USP_SINGLE_SYNC_MODE;
-	regmap_write(usp->regmap, USP_RX_FRAME_CTRL, val);
-
-	/* Configure TX Frame Control */
-	val = (AUDIO_WORD_SIZE * 2 - 1) << USP_TXC_DATA_LEN_OFFSET;
-	val |= 0 << USP_TXC_SYNC_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_TXC_FRAME_LEN_OFFSET;
-	val |= (AUDIO_WORD_SIZE * 2 - 1) << USP_TXC_SHIFTER_LEN_OFFSET;
-	val |= USP_TXC_SLAVE_CLK_SAMPLE;
-	regmap_write(usp->regmap, USP_TX_FRAME_CTRL, val);
-
 	/* Configure Mode2 register */
-	val = (1 << USP_RXD_DELAY_LEN_OFFSET) | (0 << USP_TXD_DELAY_LEN_OFFSET);
-	val &= ~USP_ENA_CTRL_MODE;
-	val &= ~USP_FRAME_CTRL_MODE;
-	val &= ~USP_TFS_SOURCE_MODE;
-	regmap_write(usp->regmap, USP_MODE2, val);
+	regmap_write(usp->regmap, USP_MODE2, (1 << USP_RXD_DELAY_LEN_OFFSET) |
+		(0 << USP_TXD_DELAY_LEN_OFFSET) |
+		USP_TFS_CLK_SLAVE_MODE | USP_RFS_CLK_SLAVE_MODE);
 
 	/* Configure Mode1 register */
-	val = USP_SYNC_MODE;
-	val |= USP_ENDIAN_CTRL_LSBF;
-	val |= USP_EN;
-	val |= USP_RXD_ACT_EDGE_FALLING;
-	val &= ~USP_TXD_ACT_EDGE_FALLING;
-	val |= USP_RFS_ACT_LEVEL_LOGIC1;
-	val |= USP_TFS_ACT_LEVEL_LOGIC1;
-	val |= USP_SCLK_IDLE_MODE_TOGGLE;
-	val |= USP_SCLK_IDLE_LEVEL_LOGIC1;
-	val &= ~USP_SCLK_PIN_MODE_IO;
-	val &= ~USP_RFS_PIN_MODE_IO;
-	val &= ~USP_TFS_PIN_MODE_IO;
-	val &= ~USP_RXD_PIN_MODE_IO;
-	val &= ~USP_TXD_PIN_MODE_IO;
-	val |= USP_TX_UFLOW_REPEAT_ZERO;
-	regmap_write(usp->regmap, USP_MODE1, val);
+	regmap_write(usp->regmap, USP_MODE1,
+		USP_SYNC_MODE | USP_EN | USP_TXD_ACT_EDGE_FALLING |
+		USP_RFS_ACT_LEVEL_LOGIC1 | USP_TFS_ACT_LEVEL_LOGIC1 |
+		USP_TX_UFLOW_REPEAT_ZERO | USP_CLOCK_MODE_SLAVE);
 
 	/* Configure RX DMA IO Control register */
 	regmap_write(usp->regmap, USP_RX_DMA_IO_CTRL, 0);
@@ -286,34 +146,132 @@ static void sirf_usp_controller_init(struct sirf_usp *usp)
 	regmap_write(usp->regmap, USP_TX_FIFO_CTRL,
 		(USP_TX_FIFO_THRESHOLD << USP_TX_FIFO_THD_OFFSET) |
 		(USP_TX_RX_FIFO_WIDTH_DWORD << USP_TX_FIFO_WIDTH_OFFSET));
-
 	/* Congiure TX FIFO Level Check register */
 	regmap_write(usp->regmap, USP_TX_FIFO_LEVEL_CHK,
 		TX_FIFO_SC(0x1B) | TX_FIFO_LC(0x0E) | TX_FIFO_HC(0x04));
-
-	/* Configure RX FIFO */
-	regmap_update_bits(usp->regmap, USP_RX_FIFO_OP,
-		USP_RX_FIFO_RESET, USP_RX_FIFO_RESET);
-	regmap_write(usp->regmap, USP_RX_FIFO_OP, 0);
-
-	/* Configure TX FIFO */
-	regmap_update_bits(usp->regmap, USP_TX_FIFO_OP,
-		USP_TX_FIFO_RESET, USP_TX_FIFO_RESET);
-	regmap_write(usp->regmap, USP_TX_FIFO_OP, 0);
 }
 
-static void sirf_usp_controller_uninit(struct sirf_usp *usp)
+static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
-	/* Disable RX/TX */
-	regmap_write(usp->regmap, USP_INT_ENABLE, 0);
-	regmap_write(usp->regmap, USP_TX_RX_ENABLE, 0);
+	struct sirf_usp *usp = snd_soc_dai_get_drvdata(dai);
+	u32 data_len, frame_len, shifter_len;
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		data_len = 16;
+		frame_len = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		data_len = 24;
+		frame_len = 32;
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		data_len = 24;
+		frame_len = 24;
+		break;
+	default:
+		dev_err(dai->dev, "Format unsupported\n");
+		return -EINVAL;
+	}
+
+	shifter_len = data_len;
+
+	switch (usp->daifmt_format) {
+	case SND_SOC_DAIFMT_I2S:
+		regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
+			USP_I2S_SYNC_CHG, USP_I2S_SYNC_CHG);
+		break;
+	case SND_SOC_DAIFMT_DSP_A:
+		regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
+			USP_I2S_SYNC_CHG, 0);
+		frame_len = data_len * params_channels(params);
+		data_len = frame_len;
+		break;
+	default:
+		dev_err(dai->dev, "Only support I2S and DSP_A mode\n");
+		return -EINVAL;
+	}
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
+			USP_TXC_DATA_LEN_MASK | USP_TXC_FRAME_LEN_MASK
+			| USP_TXC_SHIFTER_LEN_MASK | USP_TXC_SLAVE_CLK_SAMPLE,
+			((data_len - 1) << USP_TXC_DATA_LEN_OFFSET)
+			| ((frame_len - 1) << USP_TXC_FRAME_LEN_OFFSET)
+			| ((shifter_len - 1) << USP_TXC_SHIFTER_LEN_OFFSET)
+			| USP_TXC_SLAVE_CLK_SAMPLE);
+	else
+		regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
+			USP_RXC_DATA_LEN_MASK | USP_RXC_FRAME_LEN_MASK
+			| USP_RXC_SHIFTER_LEN_MASK | USP_SINGLE_SYNC_MODE,
+			((data_len - 1) << USP_RXC_DATA_LEN_OFFSET)
+			| ((frame_len - 1) << USP_RXC_FRAME_LEN_OFFSET)
+			| ((shifter_len - 1) << USP_RXC_SHIFTER_LEN_OFFSET)
+			| USP_SINGLE_SYNC_MODE);
+
+	return 0;
 }
 
-#ifdef CONFIG_PM_RUNTIME
+static int sirf_usp_pcm_trigger(struct snd_pcm_substream *substream, int cmd,
+				struct snd_soc_dai *dai)
+{
+	struct sirf_usp *usp = snd_soc_dai_get_drvdata(dai);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			sirf_usp_tx_enable(usp);
+		else
+			sirf_usp_rx_enable(usp);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			sirf_usp_tx_disable(usp);
+		else
+			sirf_usp_rx_disable(usp);
+		break;
+	}
+
+	return 0;
+}
+
+static const struct snd_soc_dai_ops sirf_usp_pcm_dai_ops = {
+	.trigger = sirf_usp_pcm_trigger,
+	.set_fmt = sirf_usp_pcm_set_dai_fmt,
+	.hw_params = sirf_usp_pcm_hw_params,
+};
+
+static struct snd_soc_dai_driver sirf_usp_pcm_dai = {
+	.probe = sirf_usp_pcm_dai_probe,
+	.name = "sirf-usp-pcm",
+	.id = 0,
+	.playback = {
+		.stream_name = "SiRF USP PCM Playback",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			SNDRV_PCM_FMTBIT_S24_3LE,
+	},
+	.capture = {
+		.stream_name = "SiRF USP PCM Capture",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			SNDRV_PCM_FMTBIT_S24_3LE,
+	},
+	.ops = &sirf_usp_pcm_dai_ops,
+};
+
 static int sirf_usp_pcm_runtime_suspend(struct device *dev)
 {
 	struct sirf_usp *usp = dev_get_drvdata(dev);
-	sirf_usp_controller_uninit(usp);
 	clk_disable_unprepare(usp->clk);
 	return 0;
 }
@@ -323,12 +281,13 @@ static int sirf_usp_pcm_runtime_resume(struct device *dev)
 	struct sirf_usp *usp = dev_get_drvdata(dev);
 	int ret;
 	ret = clk_prepare_enable(usp->clk);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "clk_enable failed: %d\n", ret);
 		return ret;
-	sirf_usp_controller_init(usp);
+	}
+	sirf_usp_i2s_init(usp);
 	return 0;
 }
-#endif
 
 #ifdef CONFIG_PM_SLEEP
 static int sirf_usp_pcm_suspend(struct device *dev)
@@ -385,7 +344,6 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, usp);
 
-
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap(&pdev->dev, mem_res->start,
 		resource_size(mem_res));
@@ -403,6 +361,11 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
+	if (!pm_runtime_enabled(&pdev->dev)) {
+		ret = sirf_usp_pcm_runtime_resume(&pdev->dev);
+		if (ret)
+			return ret;
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_usp_component,
 		&sirf_usp_pcm_dai, 1);
@@ -415,7 +378,10 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 
 static int sirf_usp_pcm_remove(struct platform_device *pdev)
 {
-	pm_runtime_disable(&pdev->dev);
+	if (!pm_runtime_enabled(&pdev->dev))
+		sirf_usp_pcm_runtime_suspend(&pdev->dev);
+	else
+		pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
@@ -426,7 +392,8 @@ static const struct of_device_id sirf_usp_pcm_of_match[] = {
 MODULE_DEVICE_TABLE(of, sirf_usp_pcm_of_match);
 
 static const struct dev_pm_ops sirf_usp_pcm_pm_ops = {
-	SET_RUNTIME_PM_OPS(sirf_usp_pcm_runtime_suspend, sirf_usp_pcm_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(sirf_usp_pcm_runtime_suspend,
+		sirf_usp_pcm_runtime_resume, NULL)
 	SET_SYSTEM_SLEEP_PM_OPS(sirf_usp_pcm_suspend, sirf_usp_pcm_resume)
 };
 

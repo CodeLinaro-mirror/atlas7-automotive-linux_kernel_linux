@@ -39,7 +39,7 @@ static int sirfsoc_reset_module(struct reset_controller_dev *rcdev,
 	if (of_device_is_compatible(rcdev->of_node, "sirf,prima2-rstc")) {
 		/*
 		 * Writing 1 to this bit resets corresponding block.
-		 * Writing 0 to this bit de-asserts reset signal ofthe
+		 * Writing 0 to this bit de-asserts reset signal of the
 		 * corresponding block. datasheet doesn't require explicit
 		 * delay between the set and clear of reset bit. it could
 		 * be shorter if tests pass.

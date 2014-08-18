@@ -66,6 +66,7 @@ int radeon_vce_init(struct radeon_device *rdev)
 	case CHIP_BONAIRE:
 	case CHIP_KAVERI:
 	case CHIP_KABINI:
+	case CHIP_HAWAII:
 	case CHIP_MULLINS:
 		fw_name = FIRMWARE_BONAIRE;
 		break;
@@ -125,7 +126,7 @@ int radeon_vce_init(struct radeon_device *rdev)
 	size = RADEON_GPU_PAGE_ALIGN(rdev->vce_fw->size) +
 	       RADEON_VCE_STACK_SIZE + RADEON_VCE_HEAP_SIZE;
 	r = radeon_bo_create(rdev, size, PAGE_SIZE, true,
-			     RADEON_GEM_DOMAIN_VRAM, NULL, &rdev->vce.vcpu_bo);
+			     RADEON_GEM_DOMAIN_VRAM, 0, NULL, &rdev->vce.vcpu_bo);
 	if (r) {
 		dev_err(rdev->dev, "(%d) failed to allocate VCE bo\n", r);
 		return r;

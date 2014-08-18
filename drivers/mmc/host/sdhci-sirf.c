@@ -59,9 +59,12 @@ static int sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 }
 
 static struct sdhci_ops sdhci_sirf_ops = {
+	.set_clock = sdhci_set_clock,
 	.get_max_clock	= sdhci_sirf_get_max_clk,
 	.get_power_config  = sdhci_sirf_get_power_config,
-	.platform_bus_width = sdhci_sirf_set_bus_width,
+	.set_bus_width = sdhci_sirf_set_bus_width,
+	.reset = sdhci_reset,
+	.set_uhs_signaling = sdhci_set_uhs_signaling,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {

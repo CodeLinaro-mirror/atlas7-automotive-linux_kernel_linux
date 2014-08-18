@@ -107,7 +107,7 @@ ENTRY(cpu_resume_mmu)
 	instr_sync
 	mov	r0, r0
 	mov	r0, r0
-	mov	pc, r3			@ jump to virtual address
+	ret	r3			@ jump to virtual address
 ENDPROC(cpu_resume_mmu)
 	.popsection
 cpu_resume_after_mmu:
@@ -127,6 +127,10 @@ ENDPROC(cpu_resume_after_mmu)
 	.align
 ENTRY(cpu_resume)
 ARM_BE8(setend be)			@ ensure we are in BE mode
+#ifdef CONFIG_ARM_VIRT_EXT
+	bl	__hyp_stub_install_secondary
+#endif
+	safe_svcmode_maskall r1
 	mov	r1, #0
 	ALT_SMP(mrc p15, 0, r0, c0, c0, 5)
 	ALT_UP_B(1f)
@@ -144,7 +148,6 @@ ARM_BE8(setend be)			@ ensure we are in BE mode
 	ldr	r0, [r0, #SLEEP_SAVE_SP_PHYS]
 	ldr	r0, [r0, r1, lsl #2]
 
-	setmode	PSR_I_BIT | PSR_F_BIT | SVC_MODE, r1  @ set SVC, irqs off
 	@ load phys pgd, stack, resume fn
   ARM(	ldmia	r0!, {r1, sp, pc}	)
 THUMB(	ldmia	r0!, {r1, r2, r3}	)
@@ -160,22 +163,3 @@ mpidr_hash_ptr:
 ENTRY(sleep_save_sp)
 _sleep_save_sp:
 	.space	SLEEP_SAVE_SP_SZ		@ struct sleep_save_sp
-
-#ifdef CONFIG_HIBERNATION
-	.align
-ENTRY(cpu_resume_restore_nosave)
-	ldr	r0, =__nosave_backup_phys
-	and	r0, #0x3FFFFFFF
-	ldr	r0, [r0]
-	ldr	r1, =__nosave_begin_phys
-	and	r1, #0x3FFFFFFF
-	ldr	r1, [r1]
-	ldr	r2, =__nosave_end_phys
-	and	r2, #0x3FFFFFFF
-	ldr	r2, [r2]
-1:	ldmia	r0!, {r3-r10}
-	stmia	r1!, {r3-r10}
-	cmp	r1, r2
-	bne	1b
-	b	cpu_resume
-#endif

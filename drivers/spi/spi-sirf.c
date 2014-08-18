@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+#include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -276,6 +277,8 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 	if (sspi->tx_by_cmd && (spi_stat & SIRFSOC_SPI_FRM_END)) {
 		complete(&sspi->tx_done);
 		writel(0x0, sspi->base + SIRFSOC_SPI_INT_EN);
+		writel(SIRFSOC_SPI_INT_MASK_ALL,
+				sspi->base + SIRFSOC_SPI_INT_STATUS);
 		return IRQ_HANDLED;
 	}
 
