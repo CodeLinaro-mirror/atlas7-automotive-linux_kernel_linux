@@ -9,10 +9,408 @@
 #ifndef __SIRFSOC_VDSS_H
 #define __SIRFSOC_VDSS_H
 
+#include <linux/list.h>
+#include <linux/kobject.h>
+#include <linux/device.h>
+#include <linux/interrupt.h>
+
+#include <video/videomode.h>
+
+#define LCDC_INT_L0_DMA		BIT(0)
+#define LCDC_INT_L1_DMA		BIT(1)
+#define LCDC_INT_L2_DMA		BIT(2)
+#define LCDC_INT_L3_DMA		BIT(3)
+#define LCDC_INT_L0_OFLOW	BIT(6)
+#define LCDC_INT_L1_OFLOW	BIT(7)
+#define LCDC_INT_L2_OFLOW	BIT(8)
+#define LCDC_INT_L3_OFLOW	BIT(9)
+#define LCDC_INT_L0_UFLOW	BIT(12)
+#define LCDC_INT_L1_UFLOW	BIT(13)
+#define LCDC_INT_L2_UFLOW	BIT(14)
+#define LCDC_INT_L3_UFLOW	BIT(15)
+#define LCDC_INT_VSYNC		BIT(18)
+#define LCDC_INT_ALL		0xFFFFFFFF
+
+enum sirfsoc_panel_type {
+	SIRFSOC_PANEL_NONE,
+	SIRFSOC_PANEL_RGB,
+	SIRFSOC_PANEL_LVDS,
+};
+
+enum vdss_output {
+	SIRFSOC_VDSS_OUTPUT_RGB,
+	SIRFSOC_VDSS_OUTPUT_LVDS1,
+	SIRFSOC_VDSS_OUTPUT_LVDS2,
+};
+
+enum vdss_layer {
+	SIRFSOC_VDSS_LAYER0	= 0,
+	SIRFSOC_VDSS_LAYER1,
+	SIRFSOC_VDSS_LAYER2,
+	SIRFSOC_VDSS_LAYER3,
+	SIRFSOC_VDSS_CURSOR	= 6,
+};
+
+enum vdss_screen {
+	SIRFSOC_VDSS_SCREEN0,
+	SIRFSOC_VDSS_SCREEN1,
+};
+
+struct vdss_rect {
+	int	left;
+	int	top;
+	int	right;
+	int	bottom;
+};
+
+enum vdss_pixelformat {
+	VDSS_PIXELFORMAT_UNKNOWN = 0,
+
+	/* RGB format goes here */
+	VDSS_PIXELFORMAT_1BPP = 1,
+	VDSS_PIXELFORMAT_2BPP = 2,
+	VDSS_PIXELFORMAT_4BPP = 3,
+	VDSS_PIXELFORMAT_8BPP = 4,
+
+	VDSS_PIXELFORMAT_565 = 5,
+	VDSS_PIXELFORMAT_5551 = 6,
+	VDSS_PIXELFORMAT_4444 = 7,
+	VDSS_PIXELFORMAT_5550 = 8,
+	VDSS_PIXELFORMAT_BGRX_8880 = 9,
+	VDSS_PIXELFORMAT_8888 = 10,
+
+	VDSS_PIXELFORMAT_556 = 11,
+	VDSS_PIXELFORMAT_655 = 12,
+	VDSS_PIXELFORMAT_RGBX_8880 = 13,	/* R8G8B8 format */
+	VDSS_PIXELFORMAT_666 = 14,		/* CSR only */
+
+	VDSS_PIXELFORMAT_15BPPGENERIC = 15,	/* some generic types */
+	VDSS_PIXELFORMAT_16BPPGENERIC = 16,
+	VDSS_PIXELFORMAT_24BPPGENERIC = 17,
+	VDSS_PIXELFORMAT_32BPPGENERIC = 18,
+
+	/* FOURCC format goes here */
+	VDSS_PIXELFORMAT_UYVY = 19,
+	VDSS_PIXELFORMAT_UYNV = 20,
+	VDSS_PIXELFORMAT_YUY2 = 21,
+	VDSS_PIXELFORMAT_YUYV = 22,
+	VDSS_PIXELFORMAT_YUNV = 23,
+	VDSS_PIXELFORMAT_YVYU = 24,
+	VDSS_PIXELFORMAT_VYUY = 25,
+
+	VDSS_PIXELFORMAT_IMC2 = 26,		/* 4:2:0 planar YUV formats */
+	VDSS_PIXELFORMAT_YV12 = 27,
+	VDSS_PIXELFORMAT_I420 = 28,
+
+	VDSS_PIXELFORMAT_IMC1 = 29,
+	VDSS_PIXELFORMAT_IMC3 = 30,
+	VDSS_PIXELFORMAT_IMC4 = 31,
+	VDSS_PIXELFORMAT_NV12 = 32,
+	VDSS_PIXELFORMAT_NV21 = 33,
+	VDSS_PIXELFORMAT_UYVI = 34,
+	VDSS_PIXELFORMAT_VLVQ = 35,
+
+	VDSS_PIXELFORMAT_CUSTOM = 0X1000
+};
+
+enum vdss_signal_level {
+	SIRFSOC_VDSS_SIG_ACTIVE_LOW,
+	SIRFSOC_VDSS_SIG_ACTIVE_HIGH
+};
+
+enum vdss_signal_edge {
+	SIRFSOC_VDSS_SIG_FALLING_EDGE,
+	SIRFSOC_VDSS_SIG_RISING_EDGE
+};
+
+enum vdss_panel_state {
+	SIRFSOC_VDSS_PANEL_DISABLED,
+	SIRFSOC_VDSS_PANEL_ENABLED,
+};
+
+struct sirfsoc_vdss_screen;
+struct sirfsoc_vdss_panel;
+struct sirfsoc_vdss_output;
+
+struct sirfsoc_video_timings {
+	/* Unit: pixels */
+	u16 xres;
+	/* Unit: pixels */
+	u16 yres;
+	/* Unit: KHz */
+	u32 pixel_clock;
+	/* Unit: pixel clocks */
+	u16 hsw;	/* Horizontal synchronization pulse width */
+	/* Unit: pixel clocks */
+	u16 hfp;	/* Horizontal front porch */
+	/* Unit: pixel clocks */
+	u16 hbp;	/* Horizontal back porch */
+	/* Unit: line clocks */
+	u16 vsw;	/* Vertical synchronization pulse width */
+	/* Unit: line clocks */
+	u16 vfp;	/* Vertical front porch */
+	/* Unit: line clocks */
+	u16 vbp;	/* Vertical back porch */
+
+	/* Vsync logic level */
+	enum vdss_signal_level vsync_level;
+	/* Hsync logic level */
+	enum vdss_signal_level hsync_level;
+	/* Interlaced or Progressive timings */
+	bool interlace;
+	/* Pixel clock edge to drive LCD data */
+	enum vdss_signal_edge pclk_edge;
+	/* Data enable logic level */
+	enum vdss_signal_level de_level;
+};
+
+struct sirfsoc_vdss_layer_info {
+	enum vdss_pixelformat fmt;
+	u32 base;
+	struct vdss_rect src_rect;	/* source rect offset */
+	struct vdss_rect dst_rect;	/* destination rect offset */
+	struct vdss_rect src_rect_on;
+	struct vdss_rect dst_rect_on;
+
+	int surf_width;			/* surface width/stride */
+	int surf_height;		/* surface height */
+
+	bool ckey_on;
+	u32 ckey;
+
+	bool dst_ckey_on;
+	u32 dst_ckey;
+
+	bool global_alpha;
+	u8 alpha;
+	bool pre_mult_alpha;
+	bool source_alpha;
+};
+
+struct sirfsoc_vdss_layer {
+	struct list_head list;
+
+	/* static fields */
+	const char *name;
+	enum vdss_layer id;
+	enum vdss_pixelformat supported_fmts;
+	int caps;
+
+	/* dynamic fields */
+	struct sirfsoc_vdss_screen *screen;
+
+	/*
+	 * The following functions do not block:
+	 *
+	 * is_enabled
+	 * set_overlay_info
+	 * get_overlay_info
+	 *
+	 * The rest of the functions may block and cannot be called from
+	 * interrupt context
+	 */
+
+	int (*enable)(struct sirfsoc_vdss_layer *layer);
+	int (*disable)(struct sirfsoc_vdss_layer *layer);
+	bool (*is_enabled)(struct sirfsoc_vdss_layer *layer);
+
+	int (*set_screen)(struct sirfsoc_vdss_layer *layer,
+		struct sirfsoc_vdss_screen *screen);
+	int (*unset_screen)(struct sirfsoc_vdss_layer *layer);
+
+	int (*set_info)(struct sirfsoc_vdss_layer *layer,
+		struct sirfsoc_vdss_layer_info *info);
+	void (*get_info)(struct sirfsoc_vdss_layer *layer,
+		struct sirfsoc_vdss_layer_info *info);
+	struct sirfsoc_vdss_panel *(*get_panel)(
+		struct sirfsoc_vdss_layer *layer);
+	int (*flip)(enum vdss_layer layer, u32 srcbase);
+};
+
+struct sirfsoc_vdss_screen_info {
+	enum vdss_layer top_layer;
+	u32 blank_color;
+	u32 back_color;
+};
+
+struct sirfsoc_vdss_screen {
+	/* static fields */
+	const char *name;
+	enum vdss_screen id;
+	struct list_head layers;
+	int caps;
+	enum sirfsoc_panel_type supported_panels;
+	enum vdss_output supported_outputs;
+
+	/* dynamic fields */
+	struct sirfsoc_vdss_output *output;
+
+	int (*set_output)(struct sirfsoc_vdss_screen *screen,
+		struct sirfsoc_vdss_output *output);
+	int (*unset_output)(struct sirfsoc_vdss_screen *screen);
+
+	int (*set_info)(struct sirfsoc_vdss_screen *screen,
+			struct sirfsoc_vdss_screen_info *info);
+	void (*get_info)(struct sirfsoc_vdss_screen *screen,
+			struct sirfsoc_vdss_screen_info *info);
+
+	int (*apply)(struct sirfsoc_vdss_screen *screen);
+	int (*wait_for_vsync)(struct sirfsoc_vdss_screen *screen);
+
+	struct sirfsoc_vdss_panel *(*get_panel)(
+		struct sirfsoc_vdss_screen *screen);
+};
+
+struct sirfsoc_vdss_rgb_ops {
+	int (*connect)(struct sirfsoc_vdss_output *out,
+		struct sirfsoc_vdss_panel *panel);
+	void (*disconnect)(struct sirfsoc_vdss_output *out,
+		struct sirfsoc_vdss_panel *panel);
+
+	int (*enable)(struct sirfsoc_vdss_output *out);
+	void (*disable)(struct sirfsoc_vdss_output *out);
+
+	int (*check_timings)(struct sirfsoc_vdss_output *out,
+			struct sirfsoc_video_timings *timings);
+	void (*set_timings)(struct sirfsoc_vdss_output *out,
+			struct sirfsoc_video_timings *timings);
+	void (*get_timings)(struct sirfsoc_vdss_output *out,
+			struct sirfsoc_video_timings *timings);
+
+	void (*set_data_lines)(struct sirfsoc_vdss_output *out,
+		int data_lines);
+};
+
+struct sirfsoc_vdss_panel {
+	struct device *dev;
+
+	struct module *owner;
+
+	struct list_head list;
+
+	/* alias in the form of "display%d" */
+	char alias[16];
+
+	enum sirfsoc_panel_type type;
+
+	union {
+		struct {
+			u8 data_lines;
+		} rgb;
+	} phy;
+
+	const char *name;
+
+	struct sirfsoc_video_timings timings;
+
+	struct sirfsoc_vdss_driver *driver;
+
+	struct sirfsoc_vdss_output *src;
+
+	enum vdss_panel_state state;
+	/* helper variable for driver suspend/resume */
+	bool activate_after_resume;
+};
+
+struct sirfsoc_vdss_output {
+	struct device *dev;
+
+	struct module *owner;
+
+	struct list_head list;
+
+	const char *name;
+
+
+	union {
+		const struct sirfsoc_vdss_rgb_ops *rgb;
+		const struct sirfsoc_vdss_lvds_ops *lvds;
+	} ops;
+
+	/* panel type supported by the output */
+	enum sirfsoc_panel_type type;
+
+
+	/* screen for this output */
+	enum vdss_screen screen_id;
+
+	/* output instance */
+	enum vdss_output id;
+
+	/* dynamic fields */
+	struct sirfsoc_vdss_screen *screen;
+
+	struct sirfsoc_vdss_panel *dst;
+};
+struct sirfsoc_vdss_driver {
+	int (*probe)(struct sirfsoc_vdss_panel *panel);
+	void (*remove)(struct sirfsoc_vdss_panel *panel);
+
+	int (*connect)(struct sirfsoc_vdss_panel *panel);
+	void (*disconnect)(struct sirfsoc_vdss_panel *panel);
+
+	int (*enable)(struct sirfsoc_vdss_panel *panel);
+	void (*disable)(struct sirfsoc_vdss_panel *panel);
+
+
+	void (*get_resolution)(struct sirfsoc_vdss_panel *panel,
+		u16 *xres, u16 *yres);
+	void (*get_dimensions)(struct sirfsoc_vdss_panel *panel,
+		u32 *width, u32 *height);
+	int (*get_recommended_bpp)(struct sirfsoc_vdss_panel *panel);
+
+	int (*check_timings)(struct sirfsoc_vdss_panel *panel,
+			struct sirfsoc_video_timings *timings);
+	void (*set_timings)(struct sirfsoc_vdss_panel *panel,
+			struct sirfsoc_video_timings *timings);
+	void (*get_timings)(struct sirfsoc_vdss_panel *panel,
+			struct sirfsoc_video_timings *timings);
+};
+
 struct sirfsoc_vdss_board_info {
 	const char *default_display_name;
 };
 
 bool sirfsoc_vdss_is_initialized(void);
 const char *sirfsoc_vdss_get_default_panel_name(void);
+
+int sirfsoc_vdss_register_panel(struct sirfsoc_vdss_panel *panel);
+void sirfsoc_vdss_unregister_panel(struct sirfsoc_vdss_panel *panel);
+struct sirfsoc_vdss_panel *sirfsoc_vdss_get_panel(
+	struct sirfsoc_vdss_panel *panel);
+void sirfsoc_vdss_put_panel(struct sirfsoc_vdss_panel *panel);
+#define for_each_vdss_panel(p) \
+	for (p = sirfsoc_vdss_get_next_panel(p); p != NULL; \
+		p = sirfsoc_vdss_get_next_panel(p))
+struct sirfsoc_vdss_panel *sirfsoc_vdss_get_next_panel(
+	struct sirfsoc_vdss_panel *from);
+void videomode_to_sirfsoc_video_timings(const struct videomode *vm,
+	struct sirfsoc_video_timings *ovt);
+void sirfsoc_video_timings_to_videomode(
+	const struct sirfsoc_video_timings *timings,
+	struct videomode *vm);
+
+int sirfsoc_vdss_output_set_panel(struct sirfsoc_vdss_output *out,
+	struct sirfsoc_vdss_panel *panel);
+int sirfsoc_vdss_output_unset_panel(struct sirfsoc_vdss_output *out);
+int sirfsoc_vdss_register_output(struct sirfsoc_vdss_output *out);
+void sirfsoc_vdss_unregister_output(struct sirfsoc_vdss_output *out);
+struct sirfsoc_vdss_output *sirfsoc_vdss_get_output(enum vdss_output id);
+struct sirfsoc_vdss_output *sirfsoc_vdss_find_output(const char *name);
+struct sirfsoc_vdss_output *sirfsoc_vdss_find_output_from_panel(
+	struct sirfsoc_vdss_panel *panel);
+struct sirfsoc_vdss_screen *sirfsoc_vdss_find_screen_from_panel
+	(struct sirfsoc_vdss_panel *panel);
+
+int sirfsoc_vdss_get_num_screens(void);
+struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(int num);
+int sirfsoc_vdss_get_num_layers(void);
+struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(int num);
+struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
+	struct sirfsoc_vdss_screen *scn);
+
+typedef void (*sirfsoc_lcdc_isr_t) (void *arg, u32 mask);
+int sirfsoc_lcdc_register_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask);
+int sirfsoc_lcdc_unregister_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask);
+
 #endif
