@@ -17,7 +17,7 @@
 #include "sdhci-pltfm.h"
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
-#define SDHCI_SIRF_8BITBUS (0x1 << 3)
+#define SDHCI_SIRF_8BITBUS BIT(3)
 
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
@@ -41,8 +41,8 @@ static void sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 		&& (host->caps & MMC_CAP_8_BIT_DATA)) {
 		ctrl &= ~SDHCI_CTRL_4BITBUS;
 		/*
-		 * CSR host 8 bit setting is bit3,
-		 * while stardard host is bit 5
+		 * 8bit-width enable bit of CSR MMC hosts is 3,
+		 * while stardard hosts use bit 5
 		 */
 		ctrl |= SDHCI_SIRF_8BITBUS;
 	} else {
