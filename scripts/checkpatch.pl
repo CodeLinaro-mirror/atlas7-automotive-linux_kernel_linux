@@ -1810,7 +1810,7 @@ sub process {
 
 	my $in_header_lines = $file ? 0 : 1;
 	my $in_commit_log = 0;		#Scanning lines before patch
-	my $reported_maintainer_file = 0;
+	my $reported_maintainer_file = 1;
 	my $non_utf8_charset = 0;
 
 	my $last_blank_line = 0;
