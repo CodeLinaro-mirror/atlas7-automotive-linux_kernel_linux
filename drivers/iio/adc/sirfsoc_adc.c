@@ -656,13 +656,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	clk_prepare_enable(adc->clk);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "Unable to get io resource\n");
-		ret = -ENODEV;
-		goto err;
-	}
-
-	adc->base = devm_request_and_ioremap(&pdev->dev, mem_res);
+	adc->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (!adc->base) {
 		dev_err(&pdev->dev, "IO remap failed!\n");
 		ret = -ENOMEM;
