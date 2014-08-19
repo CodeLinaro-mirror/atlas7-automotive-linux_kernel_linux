@@ -32,7 +32,7 @@ static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host,
 	return SDHCI_POWER_300;
 }
 
-static int sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
+static void sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 {
 	u8 ctrl;
 
@@ -54,8 +54,6 @@ static int sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 			ctrl &= ~SDHCI_CTRL_4BITBUS;
 	}
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
-
-	return 0;
 }
 
 static struct sdhci_ops sdhci_sirf_ops = {
