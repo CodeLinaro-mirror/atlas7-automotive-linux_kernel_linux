@@ -31,7 +31,7 @@ static struct ts_calibration {
 	int cali_mode;
 } cal;
 
-static ctl_table ts_proc_calibration_table[] = {
+static struct ctl_table ts_proc_calibration_table[] = {
 	{
 	.procname = "cali_param",
 	.data = cal.param,
@@ -48,7 +48,7 @@ static ctl_table ts_proc_calibration_table[] = {
 	{}
 };
 
-static ctl_table ts_proc_root[] = {
+static struct ctl_table ts_proc_root[] = {
 	{
 	.procname = "ts_device",
 	.mode = 0555,
@@ -57,7 +57,7 @@ static ctl_table ts_proc_root[] = {
 	{}
 };
 
-static ctl_table ts_dev_root[] = {
+static struct ctl_table ts_dev_root[] = {
 	{
 	.procname = "dev",
 	.mode = 0555,
