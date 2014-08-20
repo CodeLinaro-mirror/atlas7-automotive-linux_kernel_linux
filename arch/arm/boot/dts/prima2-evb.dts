@@ -34,13 +34,23 @@
 		pwms = <&pwm 1 30518>;
 	};
 
-	bt-sco {
+	bt_sco: bt_sco@0 {
+		#sound-dai-cells = <0>;
 		compatible = "bt-sco";
+		status = "okay";
 	};
 
 	sirf-bt-sco {
-		compatible = "sirf,sirf-bt-sco";
-		codec-clock-frame-master = <1>;
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,cpu {
+			sound-dai = <&usp0>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco>;
+			bitclock-master;
+			frame-master;
+		};
 	};
 
 	hdmi_codec: hdmi_codec@0 {
@@ -108,6 +118,7 @@
 				pinctrl-0 = <&uart1_pins_a>;
 			};
 			usp@b0080000 {
+				#sound-dai-cells = <0>;
 				compatible = "sirf,prima2-usp-pcm";
 				pinctrl-names = "default";
 				pinctrl-0 = <&usp0_only_utfs_pins_a>;

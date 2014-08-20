@@ -13,21 +13,11 @@ config SND_SOC_SIRF_AUDIO
 	select SND_SOC_SIRF_AUDIO_CODEC
 	select SND_SOC_SIRF_AUDIO_PORT
 
-config SND_SOC_SIRF_USP
-	select REGMAP_MMIO
-	tristate
-
 config SND_SOC_SIRF_I2S
 	tristate "SoC Audio support for SiRF I2S interface"
 	depends on SND_SOC_SIRF
 	select REGMAP_MMIO
 	tristate
-
-config SND_SOC_SIRF_BT_SCO
-	tristate "SoC Audio support for BT SCO"
-	depends on SND_SOC_SIRF
-	select SND_SOC_BT_SCO
-	select SND_SOC_SIRF_USP
 
 config SND_SOC_SIRF_USP
 	tristate "SoC Audio (I2S protocol) for SiRF SoC USP interface"

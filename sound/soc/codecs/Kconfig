@@ -397,7 +397,7 @@ config SND_SOC_DA9055
 	tristate
 
 config SND_SOC_BT_SCO
-	tristate
+	tristate "BT SCO stub CODEC"
 
 config SND_SOC_DMIC
 	tristate
