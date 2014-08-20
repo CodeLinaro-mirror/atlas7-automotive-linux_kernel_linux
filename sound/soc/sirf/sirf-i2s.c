@@ -44,7 +44,9 @@ static void sirf_i2s_tx_enable(struct sirf_i2s *i2s)
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
 		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
-		AUDIO_FIFO_START, AUDIO_FIFO_RESET);
+		AUDIO_FIFO_RESET, 0);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
+		AUDIO_FIFO_START, AUDIO_FIFO_START);
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
 		I2S_TX_ENABLE | I2S_DOUT_OE,
 		I2S_TX_ENABLE | I2S_DOUT_OE);
@@ -63,6 +65,8 @@ static void sirf_i2s_rx_enable(struct sirf_i2s *i2s)
 	/* First start the FIFO, then enable the tx/rx */
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
 		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
+		AUDIO_FIFO_RESET, 0);
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
 		AUDIO_FIFO_START, AUDIO_FIFO_START);
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
