@@ -114,8 +114,8 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
 	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
-	u32 i2s_ctrl;
-	u32 i2s_tx_rx_ctrl;
+	u32 i2s_ctrl = 0;
+	u32 i2s_tx_rx_ctrl = 0;
 	u32 left_len, frame_len;
 	int channels = params_channels(params);
 	u32 bitclk;
@@ -127,8 +127,6 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	 * I2S_SIX_CHANNELS bit clear: select 2 channels mode.
 	 * I2S_SIX_CHANNELS bit set: select 6 channels mode.
 	 */
-	regmap_read(i2s->regmap, AUDIO_CTRL_I2S_CTRL, &i2s_ctrl);
-	regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, &i2s_tx_rx_ctrl);
 	switch (channels) {
 	case 2:
 		i2s_ctrl &= ~I2S_SIX_CHANNELS;
@@ -160,11 +158,9 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	frame_len = left_len * 2;
-	i2s_ctrl &= ~(I2S_L_CHAN_LEN_MASK | I2S_FRAME_LEN_MASK);
 	/* Fill the actual len - 1 */
 	i2s_ctrl |= ((frame_len - 1) << I2S_FRAME_LEN_SHIFT)
-		| ((left_len - 1) << I2S_L_CHAN_LEN_SHIFT)
-		| (0 << I2S_MCLK_DIV_SHIFT) | (3 << I2S_BITCLK_DIV_SHIFT);
+		| ((left_len - 1) << I2S_L_CHAN_LEN_SHIFT);
 
 	if (i2s->master) {
 		i2s_ctrl &= ~I2S_SLAVE_MODE;
