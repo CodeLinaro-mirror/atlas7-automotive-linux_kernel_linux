@@ -43,14 +43,23 @@
 		codec-clock-frame-master = <1>;
 	};
 
-	hdmi_audio: hdmi_audio@0 {
+	hdmi_codec: hdmi_codec@0 {
+		#sound-dai-cells = <0>;
 		compatible = "linux,hdmi-audio";
 		status = "okay";
 	};
+
 	sirf-hdmi {
-		compatible = "sirf,hdmi-card";
-		i2s-controller = <&i2s>;
-		audio-codec = <&hdmi_audio>;
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,cpu {
+			sound-dai = <&i2s>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&hdmi_codec>;
+			bitclock-master;
+			frame-master;
+		};
 	};
 
 	sirf-backlight {

@@ -241,6 +241,7 @@
 			};
 
 			i2s: i2s@b0040000 {
+				#sound-dai-cells = <0>;
 				compatible = "sirf,prima2-i2s";
 				reg = <0xb0040000 0xe0>;
 				dmas = <&dmac1 6>, <&dmac1 12>;
