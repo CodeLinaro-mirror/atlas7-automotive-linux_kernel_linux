@@ -25,7 +25,7 @@ struct sirf_i2s {
 	u32 i2s_ctrl_tx_rx_en;
 	bool master;
 	int ext_clk;
-	int src_clk_rate;
+	int sysclk;
 	struct snd_dmaengine_dai_dma_data playback_dma_data;
 	struct snd_dmaengine_dai_dma_data capture_dma_data;
 };
@@ -166,7 +166,7 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		i2s_ctrl &= ~I2S_SLAVE_MODE;
 		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
 		bitclk = params_rate(params) * frame_len;
-		div = i2s->src_clk_rate / bitclk;
+		div = i2s->sysclk / bitclk;
 		/* MCLK divide-by-2 from source clk */
 		div /= 2;
 		bclk_div = div / 2 - 1;
@@ -231,12 +231,12 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
 	return 0;
 }
 
-static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id,
-	int src_rate)
+static int sirf_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
+	unsigned int freq, int dir)
 {
 	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
-	switch (div_id) {
+	switch (clk_id) {
 	case SIRF_I2S_EXT_CLK:
 		i2s->ext_clk = 1;
 		break;
@@ -247,7 +247,7 @@ static int sirf_i2s_set_clkdiv(struct snd_soc_dai *dai, int div_id,
 		return -EINVAL;
 	}
 
-	i2s->src_clk_rate = src_rate;
+	i2s->sysclk = freq;
 	return 0;
 }
 
@@ -255,7 +255,7 @@ struct snd_soc_dai_ops sirfsoc_i2s_dai_ops = {
 	.trigger	= sirf_i2s_trigger,
 	.hw_params	= sirf_i2s_hw_params,
 	.set_fmt	= sirf_i2s_set_dai_fmt,
-	.set_clkdiv	= sirf_i2s_set_clkdiv,
+	.set_sysclk	= sirf_i2s_set_sysclk,
 };
 
 static struct snd_soc_dai_driver sirf_i2s_dai = {
