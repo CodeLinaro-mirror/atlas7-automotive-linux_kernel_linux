@@ -1250,11 +1250,17 @@ static int sirfsoc_lcdc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id lcdc_of_match[] = {
+	{.compatible = "sirf,lcdc",},
+	{},
+};
+
 static struct platform_driver sirfsoc_lcdc_driver = {
 	.remove         = sirfsoc_lcdc_remove,
 	.driver         = {
 		.name   = "sirfsoc_lcdc",
 		.owner  = THIS_MODULE,
+		.of_match_table = lcdc_of_match,
 	},
 };
 
