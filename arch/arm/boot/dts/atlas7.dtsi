@@ -57,6 +57,62 @@
 			};
 		};
 
+		gnssm {
+			compatible = "arteris, flexnoc", "simple-bus";
+			ranges = <0x18000000 0x18000000 0x0000ffff>;
+
+			dmac0: dma-controller@18000000 {
+				cell-index = <0>;
+				compatible = "sirf,atlas7-dmac";
+				reg = <0x18000000 0x1000>;
+				interrupts = <0 12 0>;
+				#clocks = <&clks 24>;
+				#dma-cells = <1>;
+				#dma-channels = <16>;
+			};
+		};
+
+		audmscm {
+			compatible = "arteris, flexnoc", "simple-bus";
+			ranges = <0x10d50000 0x10d50000 0x0000ffff>,
+			        <0x10d60000 0x10d60000 0x0000ffff>;
+
+			dmac2: dma-controller@10d50000 {
+				cell-index = <2>;
+				compatible = "sirf,atlas7-dmac";
+				reg = <0x10d50000 0xffff>;
+				interrupts = <0 55 0>;
+				#clocks = <&clks 25>;
+				#dma-cells = <1>;
+				#dma-channels = <16>;
+			};
+
+			dmac3: dma-controller@10d60000 {
+				cell-index = <3>;
+				compatible = "sirf,atlas7-dmac";
+				reg = <0x10d60000 0xffff>;
+				interrupts = <0 56 0>;
+				#clocks = <&clks 24>;
+				#dma-cells = <1>;
+				#dma-channels = <16>;
+			};
+		};
+
+		btm {
+			compatible = "arteris, flexnoc", "simple-bus";
+			ranges = <0x11002000 0x11002000 0x0000ffff>;
+
+			dmac4: dma-controller@11002000 {
+				cell-index = <4>;
+				compatible = "sirf,atlas7-dmac";
+				reg = <0x11002000 0x1000>;
+				interrupts = <0 99 0>;
+				#clocks = <&clks 25>;
+				#dma-cells = <1>;
+				#dma-channels = <16>;
+			};
+		};
+
 		peri-iobg {
 			compatible = "simple-bus";
 			#address-cells = <1>;
@@ -153,7 +209,7 @@
 					<&clks 136>, <&clks 137>, <&clks 138>, <&clks 139>,
 					<&clks 140>, <&clks 141>;
 			};
-		};
+	};
 
 		pci-iobg {
 			compatible = "sirf,prima2-pciiobg", "simple-bus";
@@ -208,58 +264,7 @@
 				status = "disabled";
 				bus-width = <4>;
 			};
-
-			dmac0: dma-controller@18000000 {
-				cell-index = <0>;
-				compatible = "sirf,atlas7-dmac";
-				reg = <0x18000000 0x10000>;
-				interrupts = <12>;
-				#clocks = <&clks 24>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
-			};
-
-			dmac2: dma-controller@10d50000 {
-				cell-index = <2>;
-				compatible = "sirf,atlas7-dmac";
-				reg = <0x10d50000 0x10000>;
-				interrupts = <55>;
-				#clocks = <&clks 25>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
-			};
-
-			dmac3: dma-controller@10d60000 {
-				cell-index = <3>;
-				compatible = "sirf,atlas7-dmac";
-				reg = <0x10d60000 0x10000>;
-				interrupts = <56>;
-				#clocks = <&clks 24>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
-			};
-
-			dmac4: dma-controller@11002000 {
-				cell-index = <4>;
-				compatible = "sirf,atlas7-dmac";
-				reg = <0x11002000 0x10000>;
-				interrupts = <99>;
-				#clocks = <&clks 25>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
-			};
-
-			dmaccvd: dma-controller@10db0400 {
-				cell-index = <5>;
-				compatible = "sirf,atlas7-dmac-v2";
-				reg = <0x10db0400 0x100>;
-				interrupts = <85>;
-				#clocks = <&clks 25>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
-			};
 		};
-
 	};
 
 };
