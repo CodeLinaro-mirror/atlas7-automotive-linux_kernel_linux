@@ -972,8 +972,6 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	dma_cap_set(DMA_SLAVE, dma->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dma->cap_mask);
 	dma_cap_set(DMA_INTERLEAVE, dma->cap_mask);
-	if (sdma->is_atlas7_dma_v2)
-		dma_cap_set(DMA_SG, dma->cap_mask);
 	dma_cap_set(DMA_PRIVATE, dma->cap_mask);
 
 	for (i = 0; i < dma->chancnt; i++) {
