@@ -815,6 +815,7 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 	bool reinit)
 {
 	int err;
+	int oldro, ro = -1;
 
 	if (!reinit) {
 		/*
@@ -861,23 +862,28 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 	/*
 	 * Check if read-only switch is active.
 	 */
-	if (!reinit) {
-		int ro = -1;
 
-		if (host->ops->get_ro) {
-			mmc_host_clk_hold(card->host);
-			ro = host->ops->get_ro(host);
-			mmc_host_clk_release(card->host);
-		}
+	if (host->ops->get_ro) {
+		mmc_host_clk_hold(card->host);
+		ro = host->ops->get_ro(host);
+		mmc_host_clk_release(card->host);
+	}
 
-		if (ro < 0) {
-			pr_warning("%s: host does not "
-				"support reading read-only "
-				"switch. assuming write-enable.\n",
-				mmc_hostname(host));
-		} else if (ro > 0) {
-			mmc_card_set_readonly(card);
-		}
+	if (ro < 0)
+		pr_warning("%s: host does not "
+			"support reading read-only "
+			"switch. assuming write-enable.\n",
+			mmc_hostname(host));
+
+	if (!reinit && (ro > 0))
+		mmc_card_set_readonly(card);
+	else if (reinit && (ro >= 0)) {
+		/* check if the write-protection lock is changed */
+		oldro = mmc_card_readonly(card) ? 1 : 0;
+		ro = (ro > 0) ? 1 : 0;
+
+		if (oldro ^ ro)
+			return -ENOENT;
 	}
 
 	return 0;
