@@ -1,0 +1,103 @@
+SirfSoc Video Display Subsystem
+========================================
+
+Generic Description
+-------------------
+
+This document is a generic description of the Video Display Subsystem(VDSS)
+bindings.
+
+The Video Display Subsystem hardware consists of LCDC module(layer,screen
+and overlay control) and a number of output modules.
+
+LCDC is the lcd controller, which contains layer, screen and overlay control
+hardware logic, and it reads pixels from the memory and outputs a RGB or YUV
+pixel stream to the outputs.
+
+The output modules like rgb panel or LVDS panel receiving RGB/YUV pixel stream.
+
+SirfSoc Video Display Subsystem device tree properties
+-----------------------------------------------------
+
+SirfSoc LCDC:
+
+Required properties:
+- compatible : "sirf,lcdc"
+- reg : should contain 1 register ranges(address and length).
+- interrupts : lcd controller interrupt.
+- reset-bit: lcd reset index in the SOC reset controller.
+Required nodes:
+- clock: lcd clock index in the SOC clock system.
+
+Example:
+  lcd@90010000 {
+	compatible = "sirf,lcdc";
+	reg = <0x90010000 0x20000>;
+	interrupts = <30>;
+	clocks = <&clks 34>;
+	resets = <&rstc 5>;
+  };
+
+SirfSoc Panel:
+
+Required properties:
+- compatible : "simple-panel"
+- reg : should contain 1 register ranges(address and length).
+
+Example:
+  panel@40{
+	compatible = "simple-panel";
+	reg = <0x40>;
+  };
+
+SirfSoc display and the timing:
+
+Required properties:
+ - compatible: specify the panel type
+ - source: 	the output source of the lcdc
+ - bl-gpios:	backlight control gpio
+ - vcc-gpios: panel power vcc gpio control, because some socs only have
+   hardware logic to control VDD and VEE, the VCC is controlled by GPIOs.
+ - power-vdd: panel power vdd control, high word for vdd enable,low word
+   for vdd disable
+ - power-vee: panel power vee control, high word for vee enable,low word
+   for vee disable
+ - power-vcc: panel power vcc control, high word for vcc enable,low word
+   for vcc disable
+ - data-lines: available data pins from the lcdc controller to panel
+ - display-timings: display timing properties of the panel
+
+See Documentation/devicetree/bindings/video/display-timing.txt for generic
+description about display timing properties.
+
+An example of vdss panel control parameters and the display timing properties:
+
+display0: display@0 {
+	compatible = "panel-rgb";
+	source = "rgb.0";
+
+	bl-gpios = <&gpio 7 0>;
+	vcc-gpios = <&gpio 4 0>;
+	power-vdd  = <0x00160015>;
+	power-vee  = <0x00180017>;
+	data-lines = <24>;
+
+	display-timings {
+	        native-mode = <&timing0>;
+	        timing0: timing0 {
+			clock-frequency = <51200000>;
+	                hactive = <1024>;
+	                vactive = <600>;
+	                hfront-porch = <288>;
+	                hback-porch = <28>;
+	                hsync-len = <4>;
+	                vback-porch = <8>;
+	                vfront-porch = <24>;
+	                vsync-len = <3>;
+	                hsync-active = <0>;
+	                vsync-active = <0>;
+	                de-active = <0>;
+	                pixelclk-active = <0>;
+	        };
+	};
+};
