@@ -73,7 +73,7 @@ description about display timing properties.
 An example of vdss panel control parameters and the display timing properties:
 
 display0: display@0 {
-	compatible = "panel-rgb";
+	compatible = "Innolux,WSVGA-panel", "rgb-panel";
 	source = "rgb.0";
 
 	bl-gpios = <&gpio 7 0>;
