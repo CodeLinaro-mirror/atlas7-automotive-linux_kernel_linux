@@ -39,14 +39,14 @@ static void sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
 	ctrl &= ~(SDHCI_CTRL_4BITBUS | SDHCI_SIRF_8BITBUS);
 
-	if (width == MMC_BUS_WIDTH_8) {
-		/*
-		 * CSR atlas7 and prima2 SD host version is not 3.0
-		 * 8bit-width enable bit of CSR SD hosts is 3,
-		 * while stardard hosts use bit 5
-		 */
+	/*
+	 * CSR atlas7 and prima2 SD host version is not 3.0
+	 * 8bit-width enable bit of CSR SD hosts is 3,
+	 * while stardard hosts use bit 5
+	 */
+	if (width == MMC_BUS_WIDTH_8)
 		ctrl |= SDHCI_SIRF_8BITBUS;
-	} else if (width == MMC_BUS_WIDTH_4)
+	else if (width == MMC_BUS_WIDTH_4)
 		ctrl |= SDHCI_CTRL_4BITBUS;
 
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
