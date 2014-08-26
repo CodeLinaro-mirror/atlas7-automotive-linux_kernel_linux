@@ -49,9 +49,12 @@ static int sirfsoc_vdss_pm_notif(struct notifier_block *b,
 	switch (v) {
 	case PM_SUSPEND_PREPARE:
 		VDSSDBG("suspending displays\n");
+		return vdss_suspend_all_panels();
 
 	case PM_POST_SUSPEND:
 		VDSSDBG("resuming displays\n");
+		return vdss_resume_all_panels();
+
 	default:
 		return 0;
 	}
