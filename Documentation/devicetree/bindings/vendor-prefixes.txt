@@ -135,6 +135,7 @@ stericsson	ST-Ericsson
 synology	Synology, Inc.
 ti	Texas Instruments
 tlm	Trusted Logic Mobility
+tm	Tianma Micro-electronics Co., Ltd.
 toradex	Toradex AG
 toshiba	Toshiba Corporation
 toumaz	Toumaz
