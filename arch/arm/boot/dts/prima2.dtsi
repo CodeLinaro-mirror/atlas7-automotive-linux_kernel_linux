@@ -135,16 +135,11 @@
 			ranges = <0x90010000 0x90010000 0x30000>;
 
 			lcd@90010000 {
-				compatible = "sirf,prima2-lcd";
+				compatible = "sirf,lcdc";
 				reg = <0x90010000 0x20000>;
 				interrupts = <30>;
 				clocks = <&clks 34>;
-				display = <&display>;
-				vcc-gpios = <&gpio 4 0>;
 				resets = <&rstc 5>;
-				power-vdd  = <0x00180017>;
-				power-vee  = <0x00160015>;
-				sirf,rsvmem_size = <0 0x3800000 0x500000 0x200000>;
 			};
 
 			vpp@90020000 {

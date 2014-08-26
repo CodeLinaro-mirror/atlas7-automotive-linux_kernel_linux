@@ -140,8 +140,8 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins_a>;
 				clock-frequency = <40000>;
-				lcd@40{
-					compatible = "sirf,lcd";
+				panel@40{
+					compatible = "simple-panel";
 					reg = <0x40>;
 				};
 
@@ -192,43 +192,36 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
-				avail-panels = <&panel0 &panel1>;
-				default-panel = <&panel0>;
-				/*layer enable info,default only enable layer1 */
-				layer-ctrl = <0x000000f>;
 		      };
 		};
 	};
 
-	display: display@0 {
-		panels {
-			panel0: panel@0 {
-				panel-name = "Samsung WVGA";
-				hactive = <800>;
-				vactive = <480>;
-				left-margin = <13>;
-				right-margin = <8>;
-				upper-margin = <5>;
-				lower-margin = <5>;
-				hsync-len = <3>;
-				vsync-len = <3>;
-				pixclock = <24000000>;
-				sync = <3>;
-				timing = <0xA8>;
-			};
-			panel1: panel@1 {
-				panel-name = "Innolux WSVGA";
+	display0: display@0 {
+		compatible = "tm,WSVGA-panel", "rgb-panel";
+		source = "rgb.0";
+
+		bl-gpios = <&gpio 7 0>;
+		vcc-gpios = <&gpio 4 0>;
+		power-vdd  = <0x00160015>;
+		power-vee  = <0x00180017>;
+		data-lines = <24>;
+
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing0 {
+				clock-frequency = <51200000>;
 				hactive = <1024>;
 				vactive = <600>;
-				left-margin = <28>;
-				right-margin = <288>;
-				upper-margin = <8>;
-				lower-margin = <24>;
+				hfront-porch = <288>;
+				hback-porch = <28>;
 				hsync-len = <4>;
+				vback-porch = <8>;
+				vfront-porch = <24>;
 				vsync-len = <3>;
-				pixclock = <51200000>;
-				sync = <3>;
-				timing = <0xA0>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <0>;
+				pixelclk-active = <0>;
 			};
 		};
 	};
