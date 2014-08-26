@@ -413,4 +413,16 @@ typedef void (*sirfsoc_lcdc_isr_t) (void *arg, u32 mask);
 int sirfsoc_lcdc_register_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask);
 int sirfsoc_lcdc_unregister_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask);
 
+static inline bool sirfsoc_vdss_panel_is_connected(
+		struct sirfsoc_vdss_panel *panel)
+{
+	return panel->src;
+}
+
+static inline bool sirfsoc_vdss_panel_is_enabled(
+		struct sirfsoc_vdss_panel *panel)
+{
+	return panel->state == SIRFSOC_VDSS_PANEL_ENABLED;
+}
+
 #endif

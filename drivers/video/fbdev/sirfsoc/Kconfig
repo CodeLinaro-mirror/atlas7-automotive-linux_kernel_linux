@@ -1,5 +1,6 @@
 if ARCH_SIRF
 
 source "drivers/video/fbdev/sirfsoc/vdss/Kconfig"
+source "drivers/video/fbdev/sirfsoc/panels/Kconfig"
 
 endif

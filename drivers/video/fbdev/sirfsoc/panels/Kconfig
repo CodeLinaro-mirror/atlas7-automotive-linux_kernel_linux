@@ -1,0 +1,9 @@
+menu "SiRF Soc Panel Drivers"
+        depends on SIRF_VDSS
+
+config DISPLAY_PANEL_RGB
+	tristate "Generic RGB panel"
+	help
+	  Driver for generic RGB panels.
+
+endmenu
