@@ -77,6 +77,12 @@ static int __init sirfsoc_vdss_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void sirfsoc_vdss_shutdown(struct platform_device *pdev)
+{
+	VDSSDBG("shutdown\n");
+	vdss_disable_all_panels();
+}
+
 static int sirfsoc_vdss_remove(struct platform_device *pdev)
 {
 	unregister_pm_notifier(&sirfsoc_vdss_pm_notif_block);
@@ -86,6 +92,7 @@ static int sirfsoc_vdss_remove(struct platform_device *pdev)
 
 static struct platform_driver sirfsoc_vdss_driver = {
 	.remove         = sirfsoc_vdss_remove,
+	.shutdown	= sirfsoc_vdss_shutdown,
 	.driver         = {
 		.name   = "sirfsoc_vdss",
 		.owner  = THIS_MODULE,
