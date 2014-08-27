@@ -62,30 +62,6 @@ struct csrvisor_fifo_io_req;
 
 #ifdef CONFIG_SECURITY_MODE
 
-struct csrvisor_smc_args {
-	void *arg0;
-	void *arg1;
-	void *arg2;
-	void *arg3;
-	void *arg4;
-};
-
-/* syscall interfaces to secure OS */
-static inline void csrvisor_switch_to_nt(volatile struct csrvisor_smc_args
-	*ret_args)
-{
-	ret_args->arg0 = (void *)T_SMC_SWITCH_OK;
-	while (1) {
-		__asm__ __volatile__(".arch_extension sec\n\t"
-		"mov r0, %0\n\t" "mov r1, %1\n\t"
-		"smc 0\n\t" :	/* no output */
-		: "I"(T_SMC_SWITCH), "r"(ret_args)
-		: "r0", "r1", "memory");
-		if (ret_args->arg0 != (void *)T_SMC_SWITCH_OK)
-			return;
-	}
-}
-
 static inline void csrvisor_set_ispr(unsigned long ispr_addr)
 {
 	register unsigned long r0 asm("r0") = T_SMC_SET_ISPR_ADDR;
