@@ -126,33 +126,6 @@ static inline void csrvisor_reboot_nt(void)
 	: "r0", "memory");
 }
 
-static inline void csrvisor_prof_init(void)
-{
-	__asm__ __volatile__(".arch_extension sec\n\t"
-	"mov r0, %0\n\t"
-	"smc 0\n\t" :	/* no output */
-	: "I"(T_SMC_PROF_INIT)
-	: "r0", "memory");
-}
-
-static inline void
-csrvisor_prof_get(uint32_t *fiq, uint32_t *irq,
-		  uint32_t *nt2t, uint32_t *t2nt)
-{
-	struct csrvisor_smc_args args;
-
-	args.arg0 = fiq;
-	args.arg1 = irq;
-	args.arg2 = nt2t;
-	args.arg3 = t2nt;
-
-	__asm__ __volatile__(".arch_extension sec\n\t"
-	"mov r0, %0\n\t" "mov r1, %1\n\t"
-	"smc 0\n\t" :	/* no output */
-	: "I"(T_SMC_PROF_GET), "r"(&args)
-	: "r0", "r1", "memory");
-}
-
 static inline void csrvisor_nt_resume(void)
 {
 	register unsigned long r0 asm("r0") = T_SMC_NT_RESUME;
