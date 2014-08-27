@@ -28,14 +28,6 @@
 #define	 T_SMC_PROF_INIT_OK	  0	/* no error */
 #define	 T_SMC_PROF_INIT_ERR	 1	/* error, return to T */
 
-#define T_SMC_PROF_GET  3	/* get profile data */
-#define	 T_SMC_PROF_GET_OK	  0	/* no error */
-#define	 T_SMC_PROF_GET_ERR	 1	/* error, return to T */
-
-#define T_SMC_PROF_GET_PTR  4	/* get profile data pointer */
-#define	 T_SMC_PROF_GET_PTR_OK	  0	/* no error */
-#define	 T_SMC_PROF_GET_PTR_ERR	 1	/* error, return to T */
-
 #define T_SMC_FIFO_WRITE 5	/* write to fifo */
 #define T_SMC_FIFO_READ  6	/* read from fifo */
 #define T_SMC_FIFO_REG_WRITE 7	/* fifo register write */
@@ -136,16 +128,6 @@ static inline void csrvisor_nt_resume(void)
 }
 
 #else
-/* syscall interfaces to non-secure OS */
-static inline void csrvisor_switch_to_t(int arg0, int arg1)
-{
-	__asm__ __volatile__(".arch_extension sec\n\t"
-	"mov r0, %0\n\t" "mov r1, %1\n\t"
-	"mov r2, %2\n\t" "smc 0\n\t" :	/* no output */
-	: "I"(NT_SMC_SWITCH), "r"(arg0), "r"(arg1)
-	: "r0", "r1", "r2", "memory");
-}
-
 
 #define CP15_DCACHE_INVALIDATE_CLEAN() \
 	__asm__ __volatile__ ("mcr p15, 0, %0, c7, c14, 0" : : "r"(0))
