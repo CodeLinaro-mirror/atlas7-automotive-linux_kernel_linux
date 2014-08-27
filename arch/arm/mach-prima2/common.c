@@ -28,7 +28,7 @@
 static struct gpio_extcon_platform_data h2w_extcon_data;
 static struct device fake_cma_dev;
 
-#ifdef CONFIG_SECURITY_MODE
+#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 #define CSRVISOR_PHY_BASE 0x5FC00000UL
 
 static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
@@ -83,7 +83,7 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	return 1;
 }
 
-#ifndef CONFIG_SECURITY_MODE
+#if defined(CONFIG_CSRVISOR_DUALOS) && !defined(CONFIG_SECURITY_MODE)
 static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
@@ -142,7 +142,7 @@ void __init sirfsoc_pre_reserve(void)
 		pr_err("failed to find reserved memory.\n");
 }
 
-#ifdef CONFIG_SECURITY_MODE
+#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 #define SWITCH_TO_NON_SECURE 0
 
 static void smc_switch_to_non_secure(void)
@@ -157,10 +157,13 @@ static void smc_switch_to_non_secure(void)
 
 static void __init csrvisor_reserve(void)
 {
-#ifdef CONFIG_SECURITY_MODE
+#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
 	arm_pm_idle = smc_switch_to_non_secure;
 #else
+	/*
+	 * FIXME: we need the SMP wake-up codes in uboot yet
+	 */
 	memblock_reserve(SMP_PHY_BASE, SZ_1M);
 #endif
 }
@@ -300,7 +303,7 @@ static void __init sirfsoc_init_late(void)
 	sirfsoc_pbb_nosave_memblock();
 	sirfsoc_nand_nosave_memblock();
 
-#ifndef CONFIG_SECURITY_MODE
+#if defined(CONFIG_CSRVISOR_DUALOS) && !defined(CONFIG_SECURITY_MODE)
 	if (of_machine_is_compatible("sirf,atlas7"))
 		free_reserved_area(__va(SMP_PHY_BASE),
 			__va(SMP_PHY_BASE+SZ_1M), -1, "smp bringup");
@@ -332,11 +335,13 @@ static void __init sirfsoc_init_late(void)
 static __init void sirfsoc_map_io(void)
 {
 	sirfsoc_map_lluart();
+#if defined(CONFIG_CSRVISOR_DUALOS)
 #ifdef CONFIG_SECURITY_MODE
 	iotable_init(sirfsoc_csrvisor_map, ARRAY_SIZE(sirfsoc_csrvisor_map));
 #else
 	if (!of_scan_flat_dt(sirf_fdt_handle_ipc_map_mem, NULL))
 		pr_err("failed to map ipc memory.\n");
+#endif
 #endif
 }
 
