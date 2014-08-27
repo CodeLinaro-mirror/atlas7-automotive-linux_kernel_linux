@@ -115,6 +115,17 @@ static inline void csrvisor_nt_resume(void)
 #define CP15_DCACHE_INVALIDATE_CLEAN() \
 	__asm__ __volatile__ ("mcr p15, 0, %0, c7, c14, 0" : : "r"(0))
 
+#define CSRVISOR_FASTCALL_BASE 0x80000000UL
+
+static inline void csrvisor_dummy_fastcall(void)
+{
+	__asm__ __volatile__(".arch_extension sec\n\t"
+		"mov r0, %0\n\t"
+		"smc #0\n\t" :
+		: "I"(CSRVISOR_FASTCALL_BASE)
+		: "r0", "memory");
+}
+
 static inline void csrvisor_nt_suspend(unsigned long func)
 {
 	register unsigned long r0 asm("r0") = T_SMC_NT_SUSPEND;
