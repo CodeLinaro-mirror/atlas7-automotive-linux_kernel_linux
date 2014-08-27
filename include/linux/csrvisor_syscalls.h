@@ -13,20 +13,7 @@
  * CSRVISOR System Monitor Calls
  */
 #define T_SMC_SWITCH  0		/* switch to NT */
-#define	 T_SMC_SWITCH_OK	  0	/* no error */
-#define	 T_SMC_SWITCH_ERR	 1	/* error, return to T */
-#define	 T_SMC_SWITCH_HANDLER 2	/* NT returns, raise csrvisor handler */
-#define	 T_SMC_SWITCH_RET	 3	/* NT returns */
-#define	 T_SMC_SWITCH_SHVAR   4	/* NT returns, arg1 = shared variable */
-#define	 T_SMC_SWITCH_VERIFY  5	/* obj_csrvisor_monitor */
-
-#define T_SMC_REBOOT  1		/* reboot NT */
-#define	 T_SMC_REBOOT_OK	  0	/* no error */
-#define	 T_SMC_REBOOT_ERR	 1	/* error, return to T */
-
 #define T_SMC_PROF_INIT  2	/* initialize profile data */
-#define	 T_SMC_PROF_INIT_OK	  0	/* no error */
-#define	 T_SMC_PROF_INIT_ERR	 1	/* error, return to T */
 
 #define T_SMC_FIFO_WRITE 5	/* write to fifo */
 #define T_SMC_FIFO_READ  6	/* read from fifo */
@@ -35,10 +22,6 @@
 /* set interrupt set-pending register address */
 #define T_SMC_SET_ISPR_ADDR 0x10
 #define T_SMC_NT_RESUME 0x11
-
-#define NT_SMC_SWITCH 0		/* switch to T */
-#define	 NT_SMC_SWITCH_OK	 0	/* no error */
-#define	 NT_SMC_SWITCH_ERR	1	/* error, return to NT */
 
 #define NT_SMC_FIFO_WRITE 3	/* write to fifo */
 #define NT_SMC_FIFO_READ  4	/* read from fifo */
