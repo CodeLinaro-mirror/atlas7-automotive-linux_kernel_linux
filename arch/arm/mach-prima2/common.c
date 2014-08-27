@@ -28,9 +28,9 @@
 static struct gpio_extcon_platform_data h2w_extcon_data;
 static struct device fake_cma_dev;
 
-#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 #define CSRVISOR_PHY_BASE 0x5FC00000UL
 
+#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
 	 { /* csrvisor */
 		 .virtual = 0xCFC00000,
@@ -157,8 +157,8 @@ static void smc_switch_to_non_secure(void)
 
 static void __init csrvisor_reserve(void)
 {
-#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
+#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	arm_pm_idle = smc_switch_to_non_secure;
 #else
 	/*
