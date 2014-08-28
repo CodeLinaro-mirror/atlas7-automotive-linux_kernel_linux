@@ -32,6 +32,7 @@
 
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
+#include <linux/mmc/sdio.h>
 
 #define DRIVER_NAME "sdhci"
 
@@ -751,6 +752,10 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	struct mmc_data *data = cmd->data;
 	int ret;
 
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	WARN_ON(host->data);
 
 	if (data || (cmd->flags & MMC_RSP_BUSY)) {
@@ -837,7 +842,7 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 		}
 	}
 
-	if (host->flags & SDHCI_REQ_USE_DMA) {
+	if ((host->flags & SDHCI_REQ_USE_DMA) && !priv->loopdma) {
 		if (host->flags & SDHCI_USE_ADMA) {
 			ret = sdhci_adma_table_pre(host, data);
 			if (ret) {
@@ -913,10 +918,15 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 
 	sdhci_set_transfer_irqs(host);
 
+	/* CSR refine for trig */
 	/* Set the DMA boundary value and block size */
-	sdhci_writew(host, SDHCI_MAKE_BLKSZ(SDHCI_DEFAULT_BOUNDARY_ARG,
-		data->blksz), SDHCI_BLOCK_SIZE);
-	sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
+	if (!priv->loopdma) {
+		sdhci_writew(host, SDHCI_MAKE_BLKSZ(SDHCI_DEFAULT_BOUNDARY_ARG,
+			data->blksz), SDHCI_BLOCK_SIZE);
+		sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
+	} else
+		sdhci_writew(host, SDHCI_MAKE_BLKSZ(LOOPDMA_BUF_SIZE_SHIFT - 3,
+			data->blksz), SDHCI_BLOCK_SIZE);
 }
 
 static void sdhci_set_transfer_mode(struct sdhci_host *host,
@@ -924,6 +934,9 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 {
 	u16 mode;
 	struct mmc_data *data = cmd->data;
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 
 	if (data == NULL) {
 		/* clear Auto CMD settings for no data CMDs */
@@ -955,7 +968,23 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		mode |= SDHCI_TRNS_DMA;
 
+
+	if (priv->loopdma) {
+		mode &= ~SDHCI_TRNS_BLK_CNT_EN;
+		mode |= SDHCI_TRNS_MULTI;
+	}
+
 	sdhci_writew(host, mode, SDHCI_TRANSFER_MODE);
+
+	/* CSR refine for trig */
+	if (priv->loopdma) {
+		sdhci_writel(host, priv->loopdma_buf[0], SD_SYS_LOOPDMA_ADDR0);
+		sdhci_writel(host, priv->loopdma_buf[1], SD_SYS_LOOPDMA_ADDR1);
+		sdhci_writel(host, priv->loopdma_buf[0], SDHCI_DMA_ADDRESS);
+		sdhci_writel(host,
+			sdhci_readb(host, SDHCI_HOST_CONTROL) | LOOP_DMA_EN,
+			SDHCI_HOST_CONTROL);
+	}
 }
 
 static void sdhci_finish_data(struct sdhci_host *host)
@@ -1099,6 +1128,10 @@ static void sdhci_finish_command(struct sdhci_host *host)
 {
 	int i;
 
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	BUG_ON(host->cmd == NULL);
 
 	if (host->cmd->flags & MMC_RSP_PRESENT) {
@@ -1129,7 +1162,10 @@ static void sdhci_finish_command(struct sdhci_host *host)
 		if (host->data && host->data_early)
 			sdhci_finish_data(host);
 
-		if (!host->cmd->data)
+		/* CSR refine for trig */
+		if (!host->cmd->data ||
+			(priv->loopdma &&
+			host->cmd->opcode == SD_IO_RW_EXTENDED))
 			tasklet_schedule(&host->finish_tasklet);
 
 		host->cmd = NULL;
@@ -2345,6 +2381,10 @@ static void sdhci_show_adma_error(struct sdhci_host *host) { }
 static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 {
 	u32 command;
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
+
 	BUG_ON(intmask == 0);
 
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
@@ -2358,7 +2398,8 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		}
 	}
 
-	if (!host->data) {
+
+	if (!host->data && !priv->loopdma) {
 		/*
 		 * The "data complete" interrupt is also used to
 		 * indicate that a busy state has ended. See comment
@@ -2443,12 +2484,37 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	}
 }
 
+/*
+ * FIXME:
+ * trig needs explictly call this function from user space to
+ * forcely complete from wait, maybe needs refine later
+ */
+/* CSR refine for trig */
+DECLARE_COMPLETION(sdio_dma_complete);
+int sdio_dma_int_complete(void)
+{
+	complete(&sdio_dma_complete);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sdio_dma_int_complete);
+
+int sdio_dma_int_handler(void)
+{
+	wait_for_completion(&sdio_dma_complete);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sdio_dma_int_handler);
+
 static irqreturn_t sdhci_irq(int irq, void *dev_id)
 {
 	irqreturn_t result = IRQ_NONE;
 	struct sdhci_host *host = dev_id;
 	u32 intmask, mask, unexpected = 0;
 	int max_loops = 16;
+
+	/* CSR refine for trig */
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_sirf_priv *priv = pltfm_host->priv;
 
 	spin_lock(&host->lock);
 
@@ -2463,11 +2529,16 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 		goto out;
 	}
 
+	/* CSR refine for trig */
+	if (priv)
+		priv->buffer_crc_err = 0;
+
 	do {
 		/* Clear selected interrupts. */
 		mask = intmask & (SDHCI_INT_CMD_MASK | SDHCI_INT_DATA_MASK |
 				  SDHCI_INT_BUS_POWER);
 		sdhci_writel(host, mask, SDHCI_INT_STATUS);
+
 
 		DBG("*** %s got interrupt: 0x%08x\n",
 			mmc_hostname(host->mmc), intmask);
@@ -2502,12 +2573,37 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 			result = IRQ_WAKE_THREAD;
 		}
 
+		/* CSR refine loop dma handler */
+		if (priv->loopdma && (intmask & SDHCI_INT_DMA_END)) {
+			sdhci_writel(host, intmask & SDHCI_INT_DMA_END,
+				SDHCI_INT_STATUS);
+			priv->buffer_dma_int = 1;
+
+			complete(&sdio_dma_complete);
+
+			intmask &= ~(SDHCI_INT_DMA_END |
+				LOOPDMA_BUFF0_RDY_FLAG |
+				LOOPDMA_BUFF1_RDY_FLAG |
+				LOOPDMA_BUFF0_ERR_FLAG |
+				LOOPDMA_BUFF1_ERR_FLAG);
+		}
+
 		if (intmask & SDHCI_INT_CMD_MASK)
 			sdhci_cmd_irq(host, intmask & SDHCI_INT_CMD_MASK);
 
-		if (intmask & SDHCI_INT_DATA_MASK)
-			sdhci_data_irq(host, intmask & SDHCI_INT_DATA_MASK);
+		if (intmask & SDHCI_INT_DATA_MASK) {
 
+			/* CSR refine for trig */
+			if (priv->loopdma && (intmask & SDHCI_INT_DATA_CRC))
+				priv->buffer_crc_err = 1;
+
+			sdhci_writel(host, intmask & SDHCI_INT_DATA_MASK,
+				SDHCI_INT_STATUS);
+			/* shutdown trig will cause data crc irq, ignore here */
+			if (!priv->loopdma)
+				sdhci_data_irq(host,
+					intmask & SDHCI_INT_DATA_MASK);
+		}
 		if (intmask & SDHCI_INT_BUS_POWER)
 			pr_err("%s: Card is consuming too much power!\n",
 				mmc_hostname(host->mmc));
@@ -2522,6 +2618,12 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 			     SDHCI_INT_CMD_MASK | SDHCI_INT_DATA_MASK |
 			     SDHCI_INT_ERROR | SDHCI_INT_BUS_POWER |
 			     SDHCI_INT_CARD_INT);
+
+		/* CSR refine for trig */
+		/* in case DMA_END is not set and LOOPDMA
+			related bits are not cleared */
+		intmask &= ~(LOOPDMA_BUFF0_RDY_FLAG | LOOPDMA_BUFF1_RDY_FLAG |
+			LOOPDMA_BUFF0_ERR_FLAG | LOOPDMA_BUFF1_ERR_FLAG);
 
 		if (intmask) {
 			unexpected |= intmask;
