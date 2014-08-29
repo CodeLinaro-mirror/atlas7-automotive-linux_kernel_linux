@@ -1,33 +1,10 @@
-/*
- * DTS file for CSR SiRFatlas7 SoC
- *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
- *
- * Licensed under GPLv2 or later.
- */
+Device tree bindings for A7DA NOC
+properties:
+- compatible : Should be "arteris, flexnoc"
+- reg : Address and length of the register set for the device
 
-/include/ "skeleton.dtsi"
-/ {
-	compatible = "sirf,atlas7";
-	#address-cells = <1>;
-	#size-cells = <1>;
-	interrupt-parent = <&gic>;
-
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		cpu@0 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a7";
-			reg = <0>;
-		};
-		cpu@1 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a7";
-			reg = <1>;
-		};
-	};
+Sub-nodes:
+All the devices connected to noc are described using sub-node to noc
 
 	noc {
 		compatible = "simple-bus";
@@ -329,4 +306,3 @@
 		};
 
 	};
-};

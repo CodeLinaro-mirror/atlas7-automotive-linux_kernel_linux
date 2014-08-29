@@ -3,6 +3,7 @@ obj-y += common.o
 obj-y += rtciobrg.o
 obj-y += camera.o
 
+obj-$(CONFIG_ATLAS7DA_NOC) += noc.o
 obj-$(CONFIG_DEBUG_LL) += lluart.o
 obj-$(CONFIG_SUSPEND) += pm.o sleep-prima2.o sleep-marco.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o

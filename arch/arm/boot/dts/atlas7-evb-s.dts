@@ -23,30 +23,37 @@
 		reg = <0x50000000 0x10000000>; /* 256M for S */
 	};
 
-	axi {
-		peri-iobg {
+	noc {
+		audiom {
 			timer@10dc0000 {
-				status = "okay";
-			};
-			uart1: uart@18020000 {
 				status = "okay";
 			};
 			timerb@10dc8000 {
 				status = "disabled";
 			};
-			uart0: uart@18010000 {
+		};
+
+	        mediam {
+                        sdhci@16000000 {
+                                status = "okay";
+                        };
+                };
+
+                vdifm {
+                        sdhci@14200000 {
+                                status = "okay";
+                        };
+                };
+
+                gnssm {
+                        uart1: uart@18020000 {
+				status = "okay";
+                        };
+
+                        uart0: uart@18010000 {
 				status = "disabled";
-			};
-		};
+                        };
+                };
 
-		pci-iobg {
-			sdhci@16000000 {
-				status = "okay";
-			};
-
-			sdhci@14200000 {
-				status = "okay";
-			};
-		};
 	};
 };
