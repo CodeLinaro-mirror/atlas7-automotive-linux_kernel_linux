@@ -38,15 +38,15 @@ Example:
 	resets = <&rstc 5>;
   };
 
-SirfSoc Panel:
+SirfSoc Panel Control:
 
 Required properties:
-- compatible : "simple-panel"
+- compatible : "sirf,lcd-mcu"
 - reg : should contain 1 register ranges(address and length).
 
 Example:
-  panel@40{
-	compatible = "simple-panel";
+lcd_mcu: lcd_mcu@40{
+	compatible = "sirf,lcd-mcu";
 	reg = <0x40>;
   };
 
@@ -55,6 +55,7 @@ SirfSoc display and the timing:
 Required properties:
  - compatible: specify the panel type
  - source: 	the output source of the lcdc
+ - panel-ctrl: the mcu to power on/off the panel through i2c bus
  - bl-gpios:	backlight control gpio
  - vcc-gpios: panel power vcc gpio control, because some socs only have
    hardware logic to control VDD and VEE, the VCC is controlled by GPIOs.
@@ -75,6 +76,8 @@ An example of vdss panel control parameters and the display timing properties:
 display0: display@0 {
 	compatible = "Innolux,WSVGA-panel", "rgb-panel";
 	source = "rgb.0";
+
+	panel-ctrl = <&lcd_mcu>;
 
 	bl-gpios = <&gpio 7 0>;
 	vcc-gpios = <&gpio 4 0>;
