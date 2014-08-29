@@ -1,7 +1,6 @@
 obj-y += rstc.o
 obj-y += common.o
 obj-y += rtciobrg.o
-obj-y += camera.o
 
 obj-$(CONFIG_ATLAS7DA_NOC) += noc.o
 obj-$(CONFIG_DEBUG_LL) += lluart.o
