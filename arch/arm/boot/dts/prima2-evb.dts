@@ -140,8 +140,8 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins_a>;
 				clock-frequency = <40000>;
-				panel@40{
-					compatible = "simple-panel";
+				lcd_mcu: lcd_mcu@40{
+					compatible = "sirf,lcd-mcu";
 					reg = <0x40>;
 				};
 
@@ -198,6 +198,7 @@
 
 	display0: display@0 {
 		compatible = "tm,WSVGA-panel", "rgb-panel";
+		panel-ctrl = <&lcd_mcu>;
 		source = "rgb.0";
 
 		bl-gpios = <&gpio 7 0>;
