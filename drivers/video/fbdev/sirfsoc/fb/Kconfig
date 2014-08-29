@@ -1,0 +1,31 @@
+menuconfig FB_SIRF
+        tristate "SiRF Soc frame buffer support"
+        depends on FB && SIRF_VDSS
+        select FB_CFB_FILLRECT
+        select FB_CFB_COPYAREA
+        select FB_CFB_IMAGEBLIT
+        help
+	  This is the frame buffer device driver for SiRF Soc series boards.
+	  Say Y if you have such SiRF Soc board like SiRFAtlasVI/SiRFPrimaII
+	  /SiRFAltas7DA.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be named as sirfsocfb.
+
+config FB_SIRF_DEBUG_SUPPORT
+        bool "Debug support for SiRF Soc FB"
+	default y
+	depends on FB_SIRF
+	help
+	  Say Y here if you want the frame buffer driver to output all sorts
+	  of debugging information to provide to the maintainer when something
+	  goes wrong. You have to enable the actual printing with 'debug'
+	  module parameter.
+
+config FB_SIRF_NUM_FBS
+	int "Number of framebuffers"
+	range 1 10
+	default 3
+	depends on FB_SIRF
+	help
+	  Select the number of framebuffers created.
