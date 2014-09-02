@@ -789,9 +789,11 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	}
 	sspi->word_width = DIV_ROUND_UP(bits_per_word, 8);
 	txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(sspi,
-			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) | sspi->word_width;
+			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) |
+			(sspi->word_width >> 1);
 	rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(sspi,
-			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) | sspi->word_width;
+			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) |
+			(sspi->word_width >> 1);
 	if (sspi->spi_type == SIRF_USP_SPI) {
 		tx_frm_ctl = 0;
 		tx_frm_ctl |= ((bits_per_word - 1) & SIRFSOC_USP_TX_DATA_MASK)
