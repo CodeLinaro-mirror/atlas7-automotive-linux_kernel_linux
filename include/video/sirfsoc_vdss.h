@@ -38,9 +38,9 @@ enum sirfsoc_panel_type {
 };
 
 enum vdss_output {
-	SIRFSOC_VDSS_OUTPUT_RGB,
-	SIRFSOC_VDSS_OUTPUT_LVDS1,
-	SIRFSOC_VDSS_OUTPUT_LVDS2,
+	SIRFSOC_VDSS_OUTPUT_RGB	= 1,
+	SIRFSOC_VDSS_OUTPUT_LVDS1 = 2,
+	SIRFSOC_VDSS_OUTPUT_LVDS2 = 4,
 };
 
 enum vdss_layer {
