@@ -46,6 +46,10 @@
 #define SCREEN_MAX_Y    600
 #define PRESS_MAX       50
 
+#define FT5X0X_REG_FIRMID	0xa6
+/* Only the special version firmware not need reverse xy */
+#define FT5X0X_SPECIAL_FW_VER	0x15
+
 /*touch key, HOME, SEARCH, RETURN etc*/
 #define CFG_SUPPORT_TOUCH_KEY   0
 #define CFG_MAX_TOUCH_POINTS    5
@@ -72,6 +76,7 @@ struct ft5x0x_ts_data {
 	struct input_dev	*input_dev;
 	struct ts_event		event;
 	unsigned int touch_pin;
+	bool is_reverse_xy;
 };
 
 #if CFG_SUPPORT_TOUCH_KEY
@@ -104,6 +109,42 @@ enum {
 	ERR_DL_PROGRAM_FAIL,
 	ERR_DL_VERIFY_FAIL
 };
+
+/* read register of ft5x0x */
+static int ft5x0x_ts_read_reg(u8 addr, u8 *pdata)
+{
+	int ret;
+	u8 buf[2];
+	struct i2c_msg msgs[2];
+
+	/*register address*/
+	buf[0] = addr;
+
+	msgs[0].addr = this_client->addr;
+	msgs[0].flags = 0;
+	msgs[0].len = 1;
+	msgs[0].buf = buf;
+	msgs[1].addr = this_client->addr;
+	msgs[1].flags = I2C_M_RD;
+	msgs[1].len = 1;
+	msgs[1].buf = buf;
+
+	ret = i2c_transfer(this_client->adapter, msgs, 2);
+	if (ret < 0)
+		dev_err(&this_client->dev,
+			"msg %s i2c read error: %d\n", __func__, ret);
+
+	*pdata = buf[0];
+	return ret;
+}
+
+/* read touchscreen controler firmware version */
+static u8 ft5x0x_ts_read_fw_ver(void)
+{
+	u8 ver;
+	ft5x0x_ts_read_reg(FT5X0X_REG_FIRMID, &ver);
+	return ver;
+}
 
 static void ft5x0x_ts_release(void)
 {
@@ -164,10 +205,17 @@ static int ft5x0x_read_data(void)
 		event->touch_point = CFG_MAX_TOUCH_POINTS;
 
 	for (i = 0; i < event->touch_point; i++) {
-		event->au16_x[i] = (s16)(buf[3 + 6 * i] & 0x0F)<<8 |
+		if (data->is_reverse_xy) {
+			event->au16_y[i] = (s16)(buf[3 + 6 * i] & 0x0F) << 8 |
 							(s16)buf[4 + 6 * i];
-		event->au16_y[i] = (s16)(buf[5 + 6 * i] & 0x0F) << 8 |
+			event->au16_x[i] = (s16)(buf[5 + 6 * i] & 0x0F) << 8 |
 							(s16)buf[6 + 6 * i];
+		} else {
+			event->au16_x[i] = (s16)(buf[3 + 6 * i] & 0x0F) << 8 |
+							(s16)buf[4 + 6 * i];
+			event->au16_y[i] = (s16)(buf[5 + 6 * i] & 0x0F) << 8 |
+							(s16)buf[6 + 6 * i];
+		}
 		event->au8_touch_event[i] = buf[0x3 + 6*i] >> 6;
 		event->au8_finger_id[i] = (buf[5 + 6 * i]) >> 4;
 	}
@@ -223,13 +271,13 @@ static void ft5x0x_report_value(void)
 	int i;
 
 	for (i = 0; i < event->touch_point; i++) {
-		if (event->au16_y[i] < SCREEN_MAX_X &&
-				event->au16_x[i] < SCREEN_MAX_Y) {
+		if (event->au16_x[i] < SCREEN_MAX_X &&
+				event->au16_y[i] < SCREEN_MAX_Y) {
 			/*LCD view area*/
 			input_report_abs(data->input_dev,
-					ABS_MT_POSITION_X, event->au16_y[i]);
+					ABS_MT_POSITION_X, event->au16_x[i]);
 			input_report_abs(data->input_dev,
-					ABS_MT_POSITION_Y, event->au16_x[i]);
+					ABS_MT_POSITION_Y, event->au16_y[i]);
 			input_report_abs(data->input_dev,
 					ABS_MT_WIDTH_MAJOR, 30);
 			input_report_abs(data->input_dev,
@@ -304,6 +352,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ft5x0x_ts_data *ft5x0x_ts;
 	struct input_dev *input_dev;
+	u8 fw_ver = 0;
 	int err = 0;
 	u8 tmp = 0;
 #if CFG_SUPPORT_TOUCH_KEY
@@ -337,6 +386,12 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(&client->dev, "\nFailed to register interrupt\n");
 		goto exit_irq_request_failed;
 	}
+
+	/* use firmware version to check if need reverse xy */
+	ft5x0x_ts->is_reverse_xy = true;
+	fw_ver = ft5x0x_ts_read_fw_ver();
+	if (fw_ver == FT5X0X_SPECIAL_FW_VER)
+		ft5x0x_ts->is_reverse_xy = false;
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
