@@ -541,14 +541,10 @@ static int noc_abort_handler(unsigned long addr, unsigned int fsr,
 		struct pt_regs *regs)
 {
 	int ret;
-	/*
-	* If it was an imprecise abort, then we need to correct the
-	* return address to be _after_ the instruction.
-	*/
+
 	ret = noc_dump_errlog(&noc_macro_list[CPUM_IDX]);
 	if (0 != ret)
 		return 1;
-	regs->ARM_pc += 4;
 	return 0;
 }
 /*handler noc audio macro interrupt*/
