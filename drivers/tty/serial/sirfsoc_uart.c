@@ -152,6 +152,14 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	unsigned int val = assert ? SIRFUART_AFC_CTRL_RX_THD : 0x0;
 	unsigned int current_val;
 
+	if (mctrl & TIOCM_LOOP)
+		wr_regl(port, ureg->sirfsoc_line_ctrl,
+			rd_regl(port, ureg->sirfsoc_line_ctrl) |
+			SIRFUART_LOOP_BACK);
+	else
+		wr_regl(port, ureg->sirfsoc_line_ctrl,
+			rd_regl(port, ureg->sirfsoc_line_ctrl) &
+			~SIRFUART_LOOP_BACK);
 	if (!sirfport->hw_flow_ctrl || !sirfport->ms_enabled)
 		return;
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
