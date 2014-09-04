@@ -62,29 +62,29 @@
 
 		spramfw {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x10250000 0x10250000 0x4000>;
+			ranges = <0x10250000 0x10250000 0x3000>;
 			spramfw@10820000 {
 				compatible = "sirf,nocfw-spramfw";
-				reg = <0x10250000 0x4000>;
+				reg = <0x10250000 0x3000>;
 			};
 		};
 
 		cpum {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x10200000 0x10200000 0x4000>;
+			ranges = <0x10200000 0x10200000 0x3000>;
 			cpum@10200000 {
 				compatible = "sirf,nocfw-cpum";
-				reg = <0x10200000 0x4000>;
+				reg = <0x10200000 0x3000>;
 			};
 		};
 		cgum {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x18641000 0x18641000 0x4000>,
+			ranges = <0x18641000 0x18641000 0x3000>,
 					 <0x18620000 0x18620000 0x1000>;
 
 			cgum@18641000 {
 				compatible = "sirf,nocfw-cgum";
-				reg = <0x18641000 0x4000>;
+				reg = <0x18641000 0x3000>;
 			};
 			clks: clock-controller@18620000 {
 				compatible = "sirf,atlas7-clkc";
@@ -139,7 +139,7 @@
 			ranges = <0x18000000 0x18000000 0x0000ffff>,
 				<0x18010000 0x18010000 0x1000>,
 				<0x18020000 0x18020000 0x1000>,
-				<0x18100000 0x18100000 0x4000>;
+				<0x18100000 0x18100000 0x3000>;
 
 			dmac0: dma-controller@18000000 {
 				cell-index = <0>;
@@ -152,7 +152,7 @@
 			};
 			gnssmfw@0x18100000 {
 				compatible = "sirf,nocfw-gnssm";
-				reg = <0x18100000 0x4000>;
+				reg = <0x18100000 0x3000>;
 			};
 
 			uart0: uart@18010000 {
@@ -176,20 +176,20 @@
 
 		gpum {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x13000000 0x13000000 0x4000>;
+			ranges = <0x13000000 0x13000000 0x3000>;
 			gpum@0x13000000 {
 				compatible = "sirf,nocfw-gpum";
-				reg = <0x13000000 0x4000>;
+				reg = <0x13000000 0x3000>;
 			};
 		};
 
 		mediam {
 			compatible = "arteris, flexnoc", "simple-bus";
 			ranges = <0x16000000 0x16000000 0x00200000>,
-				 <0x170A0000 0x170A0000 0x4000>;
+				 <0x170A0000 0x170A0000 0x3000>;
 			mediam@170A0000 {
 				compatible = "sirf,nocfw-mediam";
-				reg = <0x170A0000 0x4000>;
+				reg = <0x170A0000 0x3000>;
 			};
                         sd0: sdhci@16000000 {
                                 cell-index = <0>;
@@ -209,12 +209,12 @@
 
 		vdifm {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x13290000 0x13290000 0x4000>,
+			ranges = <0x13290000 0x13290000 0x3000>,
                      <0x14200000 0x14200000 0x600000>;
 
 			vdifm@13290000 {
 				compatible = "sirf,nocfw-vdifm";
-				reg = <0x13290000 0x4000>;
+				reg = <0x13290000 0x3000>;
 			};
 
 			sd2: sdhci@14200000 {
@@ -237,7 +237,7 @@
 			compatible = "arteris, flexnoc", "simple-bus";
 			ranges = <0x10d50000 0x10d50000 0x0000ffff>,
 			        <0x10d60000 0x10d60000 0x0000ffff>,
-					<0x10ED0000 0x10ED0000 0x4000>,
+					<0x10ED0000 0x10ED0000 0x3000>,
 					<0x10dc8000 0x10dc8000 0x1000>,
 					<0x10dc0000 0x10dc0000 0x1000>;
 
@@ -286,17 +286,17 @@
 			};
 			audiom@10ED0000 {
 				compatible = "sirf,nocfw-audiom";
-				reg = <0x10ED0000 0x4000>;
+				reg = <0x10ED0000 0x3000>;
 				interrupts = <0 102 0>;
 			};
 		};
 
 		ddrm {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x10820000 0x10820000 0x4000>;
+			ranges = <0x10820000 0x10820000 0x3000>;
 			ddrm@10820000 {
 				compatible = "sirf,nocfw-ddrm";
-				reg = <0x10820000 0x4000>;
+				reg = <0x10820000 0x3000>;
 				interrupts = <0 105 0>;
 			};
 		};
@@ -304,7 +304,7 @@
 		btm {
 			compatible = "arteris, flexnoc", "simple-bus";
 			ranges = <0x11002000 0x11002000 0x0000ffff>,
-				<0x11010000 0x11010000 0x4000>;
+				<0x11010000 0x11010000 0x3000>;
 
 			dmac4: dma-controller@11002000 {
 				cell-index = <4>;
@@ -317,16 +317,16 @@
 			};
 			btm@11010000 {
 				compatible = "sirf,nocfw-btm";
-				reg = <0x11010000 0x4000>;
+				reg = <0x11010000 0x3000>;
 			};
 		};
 
 		rtcm {
 			compatible = "arteris, flexnoc", "simple-bus";
-			ranges = <0x18810000 0x18810000 0x4000>;
+			ranges = <0x18810000 0x18810000 0x3000>;
 			rtcm@18810000 {
 				compatible = "sirf,nocfw-rtcm";
-				reg = <0x18810000 0x4000>;
+				reg = <0x18810000 0x3000>;
 				interrupts = <0 109 0>;
 			};
 		};
