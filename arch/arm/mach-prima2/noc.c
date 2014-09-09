@@ -545,8 +545,17 @@ static int noc_abort_handler(unsigned long addr, unsigned int fsr,
 	ret = noc_dump_errlog(&noc_macro_list[CPUM_IDX]);
 	if (0 != ret)
 		return 1;
+	/*
+	* If it was not an imprecise abort (Bit10==0),
+	* then we need to correct the
+	* return address to be _after_ the instruction.
+	*/
+	if (!(fsr & (1 << 10)))
+		regs->ARM_pc += 4;
+
 	return 0;
 }
+
 /*handler noc audio macro interrupt*/
 static irqreturn_t noc_irq_handle(int irq, void *data)
 {
@@ -928,11 +937,11 @@ static struct platform_driver sirf_nocfw_driver = {
 static __init int sirfsoc_noc_init(void)
 {
 	if (of_machine_is_compatible("sirf,atlas7")) {
-		/*b10110 Asynchronous external abort.*/
-		hook_fault_code(0x8, noc_abort_handler, SIGBUS, 0,
-			"async external abort");
+		/*sync and precise abort*/
+		hook_fault_code(8, noc_abort_handler, SIGBUS, 0,
+			"external abort on non-linefetch");
 
-		hook_fault_code(0x16, noc_abort_handler, SIGBUS, 0,
+		hook_fault_code(22, noc_abort_handler, SIGBUS, 0,
 			"imprecise external abort");
 	}
 
