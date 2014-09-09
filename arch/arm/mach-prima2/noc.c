@@ -937,7 +937,6 @@ static struct platform_driver sirf_nocfw_driver = {
 static __init int sirfsoc_noc_init(void)
 {
 	if (of_machine_is_compatible("sirf,atlas7")) {
-		/*sync and precise abort*/
 		hook_fault_code(8, noc_abort_handler, SIGBUS, 0,
 			"external abort on non-linefetch");
 
