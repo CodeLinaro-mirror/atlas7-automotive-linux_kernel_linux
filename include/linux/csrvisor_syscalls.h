@@ -92,15 +92,6 @@ static inline void csrvisor_fifo_reg_read(struct csrvisor_fifo_io_req *req)
 	: "memory");
 }
 
-static inline void csrvisor_reboot_nt(void)
-{
-	__asm__ __volatile__(".arch_extension sec\n\t"
-	"mov r0, %0\n\t"
-	"smc 0\n\t" :	/* no output */
-	: "I"(T_SMC_REBOOT)
-	: "r0", "memory");
-}
-
 static inline void csrvisor_nt_resume(void)
 {
 	register unsigned long r0 asm("r0") = T_SMC_NT_RESUME;
