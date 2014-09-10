@@ -336,11 +336,7 @@ static struct platform_driver panel_rgb_driver = {
 
 static int __init panel_rgb_init(void)
 {
-	int r;
-
-	r = platform_driver_probe(&panel_rgb_driver, panel_rgb_probe);
-	if (r)
-		return r;
+	return platform_driver_probe(&panel_rgb_driver, panel_rgb_probe);
 }
 
 subsys_initcall(panel_rgb_init);
