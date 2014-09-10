@@ -79,9 +79,3 @@ config VIDEO_ATMEL_ISI
 	  This module makes the ATMEL Image Sensor Interface available
 	  as a v4l2 device.
 
-config VIDEO_SIRFSOC_VIP
-        tristate "SIRFSOC Video Input Port driver"
-	depends on VIDEO_DEV && ARCH_SIRF && SOC_CAMERA && FB_SIRF
-	select VIDEOBUF_DMA_CONTIG
-	---help---
-	  This is a v4l2 driver for the SIRFSOC Video Input Port
