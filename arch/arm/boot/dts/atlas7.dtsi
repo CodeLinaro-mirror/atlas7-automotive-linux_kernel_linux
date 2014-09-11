@@ -192,19 +192,29 @@
 				reg = <0x170A0000 0x3000>;
 			};
                         sd0: sdhci@16000000 {
-                                cell-index = <0>;
-                                compatible = "sirf,atlas7-sdhc";
-                                reg = <0x16000000 0x100000>;
-                                interrupts = <0 38 0>;
-                                clocks = <&clks 116>, <&clks 118>;
-                                clock-names = "core", "iface";
-                                wp-inverted;
-                                broken-cd;
-                                non-removable;
-                                status = "disabled";
-                                bus-width = <8>;
+				cell-index = <0>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x16000000 0x100000>;
+				interrupts = <0 38 0>;
+				clocks = <&clks 116>, <&clks 118>;
+				clock-names = "core", "iface";
+				wp-inverted;
+				broken-cd;
+				non-removable;
+				status = "disabled";
+				bus-width = <8>;
                         };
-
+                        sd1: sdhci@16100000 {
+				cell-index = <1>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x16000000 0x100000>;
+				interrupts = <0 38 0>;
+				clocks = <&clks 116>, <&clks 118>;
+				clock-names = "core", "iface";
+				non-removable;
+				status = "disabled";
+				bus-width = <8>;
+                        };
 		};
 
 		vdifm {
@@ -218,17 +228,62 @@
 			};
 
 			sd2: sdhci@14200000 {
-					cell-index = <2>;
-					compatible = "sirf,atlas7-sdhc";
-					reg = <0x14200000 0x100000>;
-					interrupts = <0 23 0>;
-					clocks = <&clks 77>, <&clks 82>;
-					clock-names = "core", "iface";
-					wp-inverted;
-					broken-cd;
-					non-removable;
-					status = "disabled";
-					bus-width = <4>;
+				cell-index = <2>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x14200000 0x100000>;
+				interrupts = <0 23 0>;
+				clocks = <&clks 77>, <&clks 82>;
+				clock-names = "core", "iface";
+				wp-inverted;
+				broken-cd;
+				non-removable;
+				status = "disabled";
+				bus-width = <4>;
+			};
+
+			sd3: sdhci@14300000 {
+				cell-index = <3>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x14200000 0x100000>;
+				interrupts = <0 23 0>;
+				clocks = <&clks 77>, <&clks 82>;
+				clock-names = "core", "iface";
+				status = "disabled";
+				bus-width = <4>;
+			};
+
+			sd5: sdhci@14500000 {
+				cell-index = <5>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x14500000 0x100000>;
+				interrupts = <0 39 0>;
+				clocks = <&clks 78>, <&clks 83>;
+				clock-names = "core", "iface";
+				status = "disabled";
+				bus-width = <4>;
+				loop-dma;
+			};
+
+			sd6: sdhci@14600000 {
+				cell-index = <6>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x14600000 0x100000>;
+				interrupts = <0 98 0>;
+				clocks = <&clks 79>, <&clks 83>;
+				clock-names = "core", "iface";
+				status = "disabled";
+				bus-width = <4>;
+			};
+
+			sd7: sdhci@14700000 {
+				cell-index = <7>;
+				compatible = "sirf,atlas7-sdhc";
+				reg = <0x14700000 0x100000>;
+				interrupts = <0 98 0>;
+				clocks = <&clks 79>, <&clks 83>;
+				clock-names = "core", "iface";
+				status = "disabled";
+				bus-width = <4>;
 			};
 
 		};
