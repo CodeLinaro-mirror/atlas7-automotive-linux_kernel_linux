@@ -207,7 +207,7 @@
                         sd1: sdhci@16100000 {
 				cell-index = <1>;
 				compatible = "sirf,atlas7-sdhc";
-				reg = <0x16000000 0x100000>;
+				reg = <0x16100000 0x100000>;
 				interrupts = <0 38 0>;
 				clocks = <&clks 116>, <&clks 118>;
 				clock-names = "core", "iface";
@@ -244,7 +244,7 @@
 			sd3: sdhci@14300000 {
 				cell-index = <3>;
 				compatible = "sirf,atlas7-sdhc";
-				reg = <0x14200000 0x100000>;
+				reg = <0x14300000 0x100000>;
 				interrupts = <0 23 0>;
 				clocks = <&clks 77>, <&clks 82>;
 				clock-names = "core", "iface";
