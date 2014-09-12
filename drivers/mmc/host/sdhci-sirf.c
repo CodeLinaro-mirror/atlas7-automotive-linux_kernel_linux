@@ -214,7 +214,8 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		}
 	}
 
-	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
+	if (of_device_is_compatible(np, "sirf,prima2-sdhc"))
+		sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
 
 	host->quirks2 = SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
 	host->combined_dma_buffer = dma_alloc_coherent(&pdev->dev,
