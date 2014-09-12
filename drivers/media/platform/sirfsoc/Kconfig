@@ -1,0 +1,20 @@
+menuconfig VIDEO_SIRFSOC
+	tristate "SiRF Soc Video Subsystem"
+        depends on VIDEO_DEV && ARCH_SIRF
+	help
+		SiRF Soc V4L2 Video Subsystem support
+
+if VIDEO_SIRFSOC
+
+config VIDEO_SIRFSOC_VIP
+    tristate "SiRFSOC Video Input Port driver"
+	depends on VIDEO_DEV && ARCH_SIRF && VIDEO_V4L2 && HAS_DMA && I2C
+	select VIDEOBUF_GEN
+	select VIDEOBUF_DMA_CONTIG
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_DMA_CONTIG
+	default n
+	help
+	  This is a v4l2 driver for the SiRFSOC Video Input Port
+endif
+

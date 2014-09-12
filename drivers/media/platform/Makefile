@@ -48,6 +48,7 @@ obj-$(CONFIG_SOC_CAMERA)		+= soc_camera/
 obj-$(CONFIG_VIDEO_RENESAS_VSP1)	+= vsp1/
 
 obj-y	+= davinci/
+obj-y	+= sirfsoc/
 
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
 
