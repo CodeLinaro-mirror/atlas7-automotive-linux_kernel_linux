@@ -44,7 +44,6 @@ static void __lcdc_wait_idle(int layer)
 static void __lcdc_disable_layer(enum vdss_layer layer, bool wait)
 {
 	u32 s0_layer_sel;
-	u32 lx_dma_ctrl;
 
 	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
 	if (s0_layer_sel & S0_LS_LAYER_SEL(1 << layer)) {
@@ -96,13 +95,12 @@ static u32 __lcdc_ckey_val(enum vdss_pixelformat fmt,
 				((ckval & LX_CKEY_B_MASK) >> 5);
 		}
 		return ckval;
-	} else if (fmt >= VDSS_PIXELFORMAT_UYVY) {
+	} else if (fmt >= VDSS_PIXELFORMAT_UYVY)
 		return value;
-	} else {
-		LCDC_ERR("%s(%d): unknown format 0x%x\n",
+
+	LCDC_ERR("%s(%d): unknown format 0x%x\n",
 			__func__, __LINE__, fmt);
-		return 0;
-	}
+	return 0;
 }
 
 static void lcdc_layer_check_size(
@@ -281,8 +279,8 @@ static void lcdc_layer_set_fmt(enum vdss_layer layer, int fmt)
 static void lcdc_layer_set_alpha(enum vdss_layer layer, int fmt,
 	bool premulti, bool source, bool global, u8 alpha)
 {
-
 	u32 lx_ctrl;
+
 	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
 	if (global)
 		lx_ctrl |= LX_CTRL_GLOBAL_ALPHA;
@@ -341,18 +339,6 @@ static void lcdc_layer_set_ckey(enum vdss_layer layer, bool ckey_on,
 	}
 	lx_ctrl &= ~LX_CTRL_CONFIRM;
 	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
-}
-
-static void lcdc_layer_set_base(enum vdss_layer layer,
-	struct vdss_rect *src_rect,
-	int surf_width, int surf_height,
-	int fmt, u32 base)
-{
-	unsigned int bpp = hwfmt_to_bpp[__lcdc_fmt_to_hwfmt(fmt)];
-	unsigned int offset =
-		(src_rect->top * surf_width + src_rect->left) * bpp;
-
-	lcdc_write_reg(reg_offset(layer, L0_BASE0), base + offset);
 }
 
 static void lcdc_layer_set_dst(enum vdss_layer layer,
@@ -747,14 +733,6 @@ static struct {
 	struct sirfsoc_vdss_output output;
 } rgb;
 
-static struct {
-	struct platform_device *pdev;
-	struct mutex lock;
-	struct sirfsoc_video_timings timings;
-	int data_lines;
-
-	struct sirfsoc_vdss_output output;
-} lvds;
 
 unsigned int lcdc_read_reg(unsigned int offset)
 {
@@ -888,6 +866,7 @@ static int rgb_init_output(struct platform_device *pdev)
 static void rgb_deinit_output(void)
 {
 	struct sirfsoc_vdss_output *out = &rgb.output;
+
 	sirfsoc_vdss_unregister_output(out);
 }
 
@@ -1179,7 +1158,7 @@ static void lcdc_deinit_irq(void)
 	lcdc_free_irq(&lcdc_irq);
 }
 
-static int sirfsoc_lcdc_probe(struct platform_device *pdev)
+static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 {
 	int r = 0;
 	struct resource *res;
@@ -1235,7 +1214,7 @@ static int sirfsoc_lcdc_probe(struct platform_device *pdev)
 
 }
 
-static int sirfsoc_lcdc_remove(struct platform_device *pdev)
+static int __exit sirfsoc_lcdc_remove(struct platform_device *pdev)
 {
 	int i;
 
@@ -1246,6 +1225,8 @@ static int sirfsoc_lcdc_remove(struct platform_device *pdev)
 
 	vdss_uninit_screens();
 	vdss_uninit_layers();
+
+	lcdc_deinit_irq();
 
 	return 0;
 }

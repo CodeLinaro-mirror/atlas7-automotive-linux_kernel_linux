@@ -22,25 +22,10 @@
 #define pr_fmt(fmt) fmt
 #endif
 
-#define VDSSDBG(format, ...) pr_debug(format)
-
-#ifdef VDSS_SUBSYS_NAME
-#define VDSSERR(format, ...) pr_err(format)
-#else
-#define VDSSERR(format, ...) pr_err(format)
-#endif
-
-#ifdef VDSS_SUBSYS_NAME
-#define VDSSINFO(format, ...) pr_info(format)
-#else
-#define VDSSINFO(format, ...) pr_info(format)
-#endif
-
-#ifdef VDSS_SUBSYS_NAME
-#define VDSSWARN(format, ...) pr_warn(format)
-#else
-#define VDSSWARN(format, ...) pr_warn(format)
-#endif
+#define VDSSDBG(fmt, ...)	pr_debug(fmt, ##__VA_ARGS__)
+#define VDSSINFO(fmt, ...)	pr_info(fmt, ##__VA_ARGS__)
+#define VDSSWARN(fmt, ...)	pr_warn(fmt, ##__VA_ARGS__)
+#define VDSSERR(fmt, ...)	pr_err(fmt, ##__VA_ARGS__)
 
 /* functions export from layer_screen.c and used by other vdss core files*/
 int vdss_init_screens(void);
