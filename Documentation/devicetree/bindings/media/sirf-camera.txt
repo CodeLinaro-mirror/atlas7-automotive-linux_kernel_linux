@@ -1,0 +1,37 @@
+SiRFSOC camera host interface
+
+Required properties:
+ - compatible: suppose to be "sirf,prima2-vip"
+ - reg: register base and size
+ - interrupts: the interrupt number
+ - dmas: dma channels
+ - dma-names: dma transfer direction(receive)
+ - sirf,vip_cma_size: the cma memory size used by vip host driver
+ - any other required properties defined in video-interfaces.txt
+
+Optional properties:
+ - clocks: input clock (see clock-bindings.txt)
+
+Example:
+
+	vip@b00C0000 {
+		compatible = "sirf,prima2-vip";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vip_pins_a>;
+		reg = <0xb00C0000 0x10000>;
+		clocks = <&clks 31>;
+		interrupts = <14>;
+		dmas = <&dmac1 16>;
+		dma-names = "rx";
+		sirf,vip_cma_size = <0xC00000>;
+		port {
+			#address-cells = <1>;
+		        #size-cells = <0>;
+		        vip0_0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&tw9900_1>;
+				data-shift = <1>;       /* select pxd_data[7:0] as valid data */
+		        };
+		};
+	};
