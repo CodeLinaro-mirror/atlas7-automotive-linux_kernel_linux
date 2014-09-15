@@ -53,6 +53,8 @@
 
 		dramfw {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x10830000 0x10830000 0x18000>;
 			dramfw@10820000 {
 				compatible = "sirf,nocfw-dramfw";
@@ -62,6 +64,8 @@
 
 		spramfw {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x10250000 0x10250000 0x3000>;
 			spramfw@10820000 {
 				compatible = "sirf,nocfw-spramfw";
@@ -71,6 +75,8 @@
 
 		cpum {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x10200000 0x10200000 0x3000>;
 			cpum@10200000 {
 				compatible = "sirf,nocfw-cpum";
@@ -79,6 +85,8 @@
 		};
 		cgum {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x18641000 0x18641000 0x3000>,
 					 <0x18620000 0x18620000 0x1000>;
 
@@ -136,6 +144,8 @@
 		};
 		gnssm {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x18000000 0x18000000 0x0000ffff>,
 				<0x18010000 0x18010000 0x1000>,
 				<0x18020000 0x18020000 0x1000>,
@@ -176,6 +186,8 @@
 
 		gpum {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x13000000 0x13000000 0x3000>;
 			gpum@0x13000000 {
 				compatible = "sirf,nocfw-gpum";
@@ -185,6 +197,8 @@
 
 		mediam {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x16000000 0x16000000 0x00200000>,
 				 <0x170A0000 0x170A0000 0x3000>;
 			mediam@170A0000 {
@@ -219,6 +233,8 @@
 
 		vdifm {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x13290000 0x13290000 0x3000>,
                      <0x14200000 0x14200000 0x600000>;
 
@@ -290,6 +306,8 @@
 
 		audiom {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x10d50000 0x10d50000 0x0000ffff>,
 			        <0x10d60000 0x10d60000 0x0000ffff>,
 					<0x10ED0000 0x10ED0000 0x3000>,
@@ -348,6 +366,8 @@
 
 		ddrm {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x10820000 0x10820000 0x3000>;
 			ddrm@10820000 {
 				compatible = "sirf,nocfw-ddrm";
@@ -358,6 +378,8 @@
 
 		btm {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x11002000 0x11002000 0x0000ffff>,
 				<0x11010000 0x11010000 0x3000>;
 
@@ -378,6 +400,8 @@
 
 		rtcm {
 			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			ranges = <0x18810000 0x18810000 0x3000>;
 			rtcm@18810000 {
 				compatible = "sirf,nocfw-rtcm";
