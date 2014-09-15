@@ -65,4 +65,46 @@
 			};
 		};
 	};
+
+	vclks: clock-controller {
+		compatible = "sirf,virtio-clkc";
+		#clock-cells = <1>;
+		clock_num = <142>;
+		clocks = <&clks 0>, <&clks 1>, <&clks 2>, <&clks 3>,
+		      <&clks 4>, <&clks 5>, <&clks 6>, <&clks 7>,
+		      <&clks 8>, <&clks 9>, <&clks 10>, <&clks 11>,
+		      <&clks 12>, <&clks 13>, <&clks 14>, <&clks 15>,
+		      <&clks 16>, <&clks 17>, <&clks 18>, <&clks 19>,
+		      <&clks 20>, <&clks 21>, <&clks 22>, <&clks 23>,
+		      <&clks 24>, <&clks 25>, <&clks 26>, <&clks 27>,
+		      <&clks 28>, <&clks 29>, <&clks 30>, <&clks 31>,
+		      <&clks 32>, <&clks 33>, <&clks 34>, <&clks 35>,
+		      <&clks 36>, <&clks 37>, <&clks 38>, <&clks 39>,
+		      <&clks 40>, <&clks 41>, <&clks 42>, <&clks 43>,
+		      <&clks 44>, <&clks 45>, <&clks 46>, <&clks 47>,
+		      <&clks 48>, <&clks 49>, <&clks 50>, <&clks 51>,
+		      <&clks 52>, <&clks 53>, <&clks 54>, <&clks 55>,
+		      <&clks 56>, <&clks 57>, <&clks 58>, <&clks 59>,
+		      <&clks 60>, <&clks 61>, <&clks 62>, <&clks 63>,
+		      <&clks 64>, <&clks 65>, <&clks 66>, <&clks 67>,
+		      <&clks 68>, <&clks 69>, <&clks 70>, <&clks 71>,
+		      <&clks 72>, <&clks 73>, <&clks 74>, <&clks 75>,
+		      <&clks 76>, <&clks 77>, <&clks 78>, <&clks 79>,
+		      <&clks 80>, <&clks 81>, <&clks 82>, <&clks 83>,
+		      <&clks 84>, <&clks 85>, <&clks 86>, <&clks 87>,
+		      <&clks 88>, <&clks 89>, <&clks 90>, <&clks 91>,
+		      <&clks 92>, <&clks 93>, <&clks 94>, <&clks 95>,
+		      <&clks 96>, <&clks 97>, <&clks 98>, <&clks 99>,
+		      <&clks 100>, <&clks 101>, <&clks 102>, <&clks 103>,
+		      <&clks 104>, <&clks 105>, <&clks 106>, <&clks 107>,
+		      <&clks 108>, <&clks 109>, <&clks 110>, <&clks 111>,
+		      <&clks 112>, <&clks 113>, <&clks 114>, <&clks 115>,
+		      <&clks 116>, <&clks 117>, <&clks 118>, <&clks 119>,
+		      <&clks 120>, <&clks 121>, <&clks 122>, <&clks 123>,
+		      <&clks 124>, <&clks 125>, <&clks 126>, <&clks 127>,
+		      <&clks 128>, <&clks 129>, <&clks 130>, <&clks 131>,
+		      <&clks 132>, <&clks 133>, <&clks 134>, <&clks 135>,
+		      <&clks 136>, <&clks 137>, <&clks 138>, <&clks 139>,
+		      <&clks 140>, <&clks 141>;
+       };
 };
