@@ -54,24 +54,14 @@ static int sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
 	struct device_node *np;
-#ifdef CONFIG_A7DA_FPGA
-	void __iomem *smp_base;
-#endif
 
 	np = of_find_matching_node(NULL, clk_ids);
 	if (!np)
 		return -ENODEV;
 
-#ifdef CONFIG_A7DA_FPGA
-	smp_base = ioremap(0x4008000, 0x100);
-	if (!smp_base)
-		return -ENOMEM;
-#else
 	clk_base = of_iomap(np, 0);
 	if (!clk_base)
 		return -ENOMEM;
-#endif
-
 
 	/*
 	 * write the address of secondary startup into the clkc register
@@ -79,24 +69,14 @@ static int sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * clkc register at offset 0x2b8, which is what boot rom code is
 	 * waiting for. This would wake up the secondary core from WFE
 	 */
-
-#ifdef CONFIG_A7DA_FPGA
-#define SIRFSOC_CPU1_JUMPADDR_OFFSET 0x4
-	__raw_writel(virt_to_phys(sirfsoc_secondary_startup),
-		smp_base + SIRFSOC_CPU1_JUMPADDR_OFFSET);
-
-#define SIRFSOC_CPU1_WAKEMAGIC_OFFSET 0x0
-	__raw_writel(0x3CAF5D62,
-		smp_base + SIRFSOC_CPU1_WAKEMAGIC_OFFSET);
-#else
 #define SIRFSOC_CPU1_JUMPADDR_OFFSET 0x2bc
-		__raw_writel(virt_to_phys(sirfsoc_secondary_startup),
-	clk_base + SIRFSOC_CPU1_JUMPADDR_OFFSET);
+	__raw_writel(virt_to_phys(sirfsoc_secondary_startup),
+		clk_base + SIRFSOC_CPU1_JUMPADDR_OFFSET);
 
 #define SIRFSOC_CPU1_WAKEMAGIC_OFFSET 0x2b8
-		__raw_writel(0x3CAF5D62,
-	 clk_base + SIRFSOC_CPU1_WAKEMAGIC_OFFSET);
-#endif
+	__raw_writel(0x3CAF5D62,
+		clk_base + SIRFSOC_CPU1_WAKEMAGIC_OFFSET);
+
 	/* make sure write buffer is drained */
 	mb();
 
