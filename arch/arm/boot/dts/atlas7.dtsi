@@ -213,6 +213,12 @@
 				non-removable;
 				status = "disabled";
 				bus-width = <4>;
+				vqmmc: vqmmc@2 {
+					regulator-min-microvolt = <1650000>;
+					regulator-max-microvolt = <1950000>;
+					regulator-name = "vqmmc-ldo";
+					regulator-type = "voltage";
+				};
 			};
 
 			sd3: sdhci@14300000 {
@@ -259,7 +265,6 @@
 				status = "disabled";
 				bus-width = <4>;
 			};
-
 		};
 
 		audiom {

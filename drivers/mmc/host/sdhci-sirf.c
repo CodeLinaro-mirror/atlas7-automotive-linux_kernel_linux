@@ -14,10 +14,100 @@
 #include <linux/of_gpio.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/dma-mapping.h>
+#include <linux/regmap.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/of_regulator.h>
 #include "sdhci-pltfm.h"
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
 #define SDHCI_SIRF_8BITBUS BIT(3)
+#define SDHCI_SIRF_LDO_CNTL 0x6c
+
+static const unsigned int sirf_vqmmc_voltages[] = {
+	1650000,
+	1700000,
+	1750000,
+	1800000,
+	1850000,
+	1900000,
+	1950000,
+};
+
+static struct regulator_ops sirf_vqmmc_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.enable      = regulator_enable_regmap,
+	.disable     = regulator_disable_regmap,
+	.is_enabled  = regulator_is_enabled_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+};
+
+static int sirf_vqmmc_reg_read(void *context, unsigned int reg,
+	unsigned int *val)
+{
+	struct sdhci_host *host = (struct sdhci_host *)context;
+
+	*val = sdhci_readb(host, reg);
+
+	return 0;
+}
+
+static int sirf_vqmmc_reg_write(void *context, unsigned int reg,
+	unsigned int val)
+{
+	struct sdhci_host *host = (struct sdhci_host *)context;
+
+	sdhci_writeb(host, val, reg);
+
+	return 0;
+}
+
+static struct regmap_config sirf_vqmmc_regmap_config = {
+	.reg_read = sirf_vqmmc_reg_read,
+	.reg_write = sirf_vqmmc_reg_write,
+	.reg_bits = 8,
+	.val_bits = 8,
+};
+
+static struct regulator_desc vqmmc_regulator = {
+	.name = "VQMMC",
+	.id   = 0,
+	.ops  = &sirf_vqmmc_ops,
+	.type = REGULATOR_VOLTAGE,
+	.owner = THIS_MODULE,
+	.n_voltages = ARRAY_SIZE(sirf_vqmmc_voltages),
+	.volt_table = sirf_vqmmc_voltages,
+	.enable_reg = SDHCI_SIRF_LDO_CNTL,
+	.enable_is_inverted = 1,
+	.enable_mask = (0x1 << 4),
+	.vsel_reg = SDHCI_SIRF_LDO_CNTL,
+	.vsel_mask = 0x7,
+};
+
+static int sirf_vqmmc_regulator_init(struct platform_device *pdev,
+	struct sdhci_host *host, struct device_node *np)
+{
+	struct regulator_config config = { };
+	struct regulator_dev *vqmmc;
+
+	/* Register VQMMC regulator */
+	config.dev = &pdev->dev;
+	config.regmap = devm_regmap_init(&pdev->dev, NULL, host,
+		&sirf_vqmmc_regmap_config);
+	config.of_node = np;
+	config.init_data = of_get_regulator_init_data(&pdev->dev, np);
+
+	vqmmc = devm_regulator_register(&pdev->dev,
+					&vqmmc_regulator, &config);
+	if (IS_ERR(vqmmc)) {
+		dev_err(&pdev->dev,
+			"error initializing sirf VQMMC regulator\n");
+		return PTR_ERR(vqmmc);
+	}
+
+	dev_info(&pdev->dev, "initialized sirf VQMMC regulator\n");
+	return 0;
+}
 
 static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
@@ -127,7 +217,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_sirf_priv *priv;
 	struct clk *clk, *pclk;
-	struct device_node *np;
+	struct device_node *np, *child;
 	int gpio_cd;
 	int ret;
 #ifdef CONFIG_A7DA_FPGA
@@ -171,6 +261,13 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to get clock");
 			return PTR_ERR(clk);
 		}
+	}
+
+	child = of_get_child_by_name(np, "vqmmc");
+	if (child) {
+		ret = sirf_vqmmc_regulator_init(pdev, host, child);
+		if (ret)
+			return ret;
 	}
 #endif
 	if (np)
