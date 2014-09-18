@@ -45,7 +45,6 @@
 #include <linux/i2c.h>
 
 #include "vip_capture.h"
-#include "vip.h"
 
 
 #ifndef MODULE
