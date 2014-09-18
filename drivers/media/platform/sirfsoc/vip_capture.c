@@ -64,7 +64,7 @@ static int brestart;
 
 static void vip_callback(void *pdata);
 static int vip_start_dma(struct vip_dev *vip);
-
+static void vip_hw_stop(struct vip_dev *vip);
 
 /* VIP supported formats */
 static const struct vip_format vip_formats[] = {
@@ -1353,7 +1353,7 @@ static int vidioc_s_register(struct file *file, void *fh,
 /*
  * file system operation interfaces.
  */
-static int vip_open(struct file *file)
+static int sirfsoc_camera_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct vip_subdev_info *subdev;
@@ -1427,7 +1427,7 @@ exit_module_put:
 	return ret;
 }
 
-static int vip_close(struct file *file)
+static int sirfsoc_camera_close(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct vip_subdev_info *subdev = file->private_data;
@@ -1460,7 +1460,7 @@ static int vip_close(struct file *file)
 	return 0;
 }
 
-static ssize_t vip_read(struct file *file, char __user *buf,
+static ssize_t sirfsoc_camera_read(struct file *file, char __user *buf,
 			       size_t count, loff_t *ppos)
 {
 	struct vip_subdev_info *subdev = file->private_data;
@@ -1477,7 +1477,7 @@ static ssize_t vip_read(struct file *file, char __user *buf,
 	return -EINVAL;
 }
 
-static int vip_mmap(struct file *file, struct vm_area_struct *vma)
+static int sirfsoc_camera_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct vip_subdev_info *subdev = file->private_data;
 	struct vip_dev *vip = subdev->host;
@@ -1500,7 +1500,7 @@ static int vip_mmap(struct file *file, struct vm_area_struct *vma)
 	return err;
 }
 
-static unsigned int vip_poll(struct file *file, poll_table *pt)
+static unsigned int sirfsoc_camera_poll(struct file *file, poll_table *pt)
 {
 	struct vip_subdev_info *subdev = file->private_data;
 	struct vip_dev *vip = subdev->host;
@@ -1513,17 +1513,17 @@ static unsigned int vip_poll(struct file *file, poll_table *pt)
 	return ret;
 }
 
-static struct v4l2_file_operations vip_fops = {
+static struct v4l2_file_operations sirfsoc_camera_fops = {
 	.owner		= THIS_MODULE,
-	.open		= vip_open,
-	.release	= vip_close,
+	.open		= sirfsoc_camera_open,
+	.release	= sirfsoc_camera_close,
 	.unlocked_ioctl	= video_ioctl2,
-	.read		= vip_read,
-	.mmap		= vip_mmap,
-	.poll		= vip_poll,
+	.read		= sirfsoc_camera_read,
+	.mmap		= sirfsoc_camera_mmap,
+	.poll		= sirfsoc_camera_poll,
 };
 
-static const struct v4l2_ioctl_ops vip_ioctl_ops = {
+static const struct v4l2_ioctl_ops sirfsoc_camera_ioctl_ops = {
 	.vidioc_querycap	 = vidioc_querycap,
 	.vidioc_try_fmt_vid_cap  = vidioc_try_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap    = vidioc_g_fmt_vid_cap,
@@ -1721,8 +1721,8 @@ static int vip_video_devs_create(struct vip_dev *vip)
 				"vip-%s", subdev->sd->name);
 
 		vdev->dev_parent	= dev;
-		vdev->fops		= &vip_fops;
-		vdev->ioctl_ops		= &vip_ioctl_ops;
+		vdev->fops		= &sirfsoc_camera_fops;
+		vdev->ioctl_ops		= &sirfsoc_camera_ioctl_ops;
 		vdev->release		= video_device_release;
 		vdev->tvnorms		= V4L2_STD_UNKNOWN;
 		vdev->ctrl_handler	= &subdev->ctrl_handler;
