@@ -38,6 +38,26 @@ Example:
 	resets = <&rstc 5>;
   };
 
+
+SirfSoc VPP:
+
+Required properties:
+- compatible : "sirf,prima2-vpp"
+- reg : should contain 1 register ranges(address and length).
+- interrupts : vpp interrupt.
+- reset-bit: vpp reset index in the SOC reset controller.
+Required nodes:
+- clock: vpp clock index in the SOC clock system.
+
+Example:
+  vpp@90020000 {
+	  compatible = "sirf,prima2-vpp";
+	  reg = <0x90020000 0x10000>;
+	  interrupts = <31>;
+	  clocks = <&clks 35>;
+	  resets = <&rstc 6>;
+  };
+
 SirfSoc Panel Control:
 
 Required properties:
