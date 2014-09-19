@@ -148,8 +148,8 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pins_a>;
 				clock-frequency = <40000>;
-				lcd@40 {
-					compatible = "sirf,lcd", "sirf,phy";
+				lcd_mcu: lcd_mcu@40{
+					compatible = "sirf,lcd-mcu";
 					reg = <0x40>;
 				};
 			};
@@ -217,10 +217,6 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lcd_24pins_a>;
-				avail-panels = <&panel0 &panel1>;
-				default-panel = <&panel0>;
-				/*layer enable info,default only enable layer1 */
-				layer-ctrl = <0x0000000f>;
 			};
 		};
 		uus-iobg {
@@ -229,35 +225,34 @@
 			};
 		};
 	};
+
 	display: display@0 {
-		panels {
-			panel0: panel@0 {
-				panel-name = "Innolux TFT";
-				hactive = <800>;
-				vactive = <480>;
-				left-margin = <20>;
-				right-margin = <234>;
-				upper-margin = <3>;
-				lower-margin = <41>;
-				hsync-len = <3>;
-				vsync-len = <2>;
-				pixclock = <33264000>;
-				sync = <3>;
-				timing = <0x88>;
-			};
-			panel1: panel@1 {
-				panel-name = "Innolux WSVGA";
+		compatible = "tm,WSVGA-panel", "rgb-panel";
+		panel-ctrl = <&lcd_mcu>;
+		source = "rgb.0";
+
+		bl-gpios = <&gpio 7 0>;
+		power-vcc  = <0x000d0008>;
+		power-vdd  = <0x000b0006>;
+		power-vee  = <0x000a0005>;
+		data-lines = <24>;
+
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing0 {
+				clock-frequency = <51200000>;
 				hactive = <1024>;
 				vactive = <600>;
-				left-margin = <28>;
-				right-margin = <288>;
-				upper-margin = <8>;
-				lower-margin = <24>;
+				hfront-porch = <288>;
+				hback-porch = <28>;
 				hsync-len = <4>;
+				vback-porch = <8>;
+				vfront-porch = <24>;
 				vsync-len = <3>;
-				pixclock = <51200000>;
-				sync = <3>;
-				timing = <0xA0>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <0>;
+				pixelclk-active = <0>;
 			};
 		};
 	};
