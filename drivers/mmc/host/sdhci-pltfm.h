@@ -38,6 +38,7 @@ struct sdhci_sirf_priv {
 	struct clk *pclk;
 	int has_pclk;
 	int gpio_cd;
+	int power_gpio;
 
 	/* structure members towards CSR hacked SDIO ctl for TriG */
 	int loopdma;

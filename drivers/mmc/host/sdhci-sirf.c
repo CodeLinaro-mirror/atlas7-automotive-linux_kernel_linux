@@ -270,11 +270,14 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 			return ret;
 	}
 #endif
-	if (np)
+	if (np) {
 		gpio_cd = of_get_named_gpio(pdev->dev.of_node, "cd-gpios", 0);
-	else
+		priv->power_gpio = of_get_named_gpio(pdev->dev.of_node,
+			"power-gpios", 0);
+	} else {
 		gpio_cd = -EINVAL;
-
+		priv->power_gpio = -EINVAL;
+	}
 
 	priv->clk = clk;
 	if (priv->has_pclk)
@@ -297,6 +300,16 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	ret = sdhci_add_host(host);
 	if (ret)
 		goto err_sdhci_add;
+
+	if (gpio_is_valid(priv->power_gpio)) {
+		ret = gpio_request(priv->power_gpio, "sirf_sdhci_power");
+		if (ret) {
+			dev_err(mmc_dev(host->mmc),
+				"failed to allocate power gpio\n");
+			goto err_request_power_pin;
+		}
+		gpio_direction_output(priv->power_gpio, 1);
+	}
 
 	/*
 	 * We must request the IRQ after sdhci_add_host(), as the tasklet only
@@ -334,6 +347,9 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	return 0;
 
 err_request_cd:
+	if (gpio_is_valid(priv->power_gpio))
+		gpio_free(priv->power_gpio);
+err_request_power_pin:
 	sdhci_remove_host(host, 0);
 err_sdhci_add:
 	if (priv->has_pclk)
@@ -353,6 +369,9 @@ static int sdhci_sirf_remove(struct platform_device *pdev)
 	struct sdhci_sirf_priv *priv = sdhci_pltfm_priv(pltfm_host);
 
 	sdhci_pltfm_unregister(pdev);
+
+	if (gpio_is_valid(priv->power_gpio))
+		gpio_free(priv->power_gpio);
 
 	if (gpio_is_valid(priv->gpio_cd))
 		mmc_gpio_free_cd(host->mmc);
