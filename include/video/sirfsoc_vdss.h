@@ -128,6 +128,67 @@ enum vdss_panel_state {
 	SIRFSOC_VDSS_PANEL_ENABLED,
 };
 
+#define VPP_TO_LCD_BPP 4
+#define VPP_TO_LCD_CTRL_VPP E_LO_CTRL_BPP_RGB888
+#define VPP_TO_LCD_PIXELFORMAT VDSS_PIXELFORMAT_BGRX_8880
+
+#define VDSS_VPP_MASK	0xf
+#define VDSS_VPP_BLT	0x01
+#define VDSS_VPP_UPDATE_SRCBASE 0x02
+#define VDSS_VPP_COLOR_CTRL 0x04
+
+enum vdss_deinterlace_mode {
+	VDSS_VPP_DI_RESERVED = 0,
+	VDSS_VPP_DI_WEAVE,
+	VDSS_VPP_3MEDIAN,
+	VDSS_VPP_DI_VMRI,
+};
+
+enum vdss_vpp_output_mode {
+	VDSS_P_SINGLE = 0,
+	VDSS_INTERLACE,
+	VDSS_P_DOUBLE,
+};
+
+struct vdss_vpp_interlace {
+	u32 field_offset;
+	bool interlaced;
+	bool output_top_first;
+	bool input_top_first;
+	bool di_top;
+	enum vdss_vpp_output_mode out_mode;
+	enum vdss_deinterlace_mode di_mode;
+};
+
+struct vdss_vpp_params {
+	u32 index;
+	u32 src_base;	/* src surface physical address */
+	enum vdss_pixelformat src_fmt;	/* src surface format */
+	u32 src_hor_stride;	/* horizontal stride in pixel unit */
+	u32 src_ver_stride;	/* vertical stride in pixel unit */
+	struct vdss_rect src_rect;
+	u32 dst_base;		/* dst surface physical address */
+	enum vdss_pixelformat dst_fmt;
+	u32 dst_hor_stride;
+	u32 dst_ver_stride;
+	struct vdss_rect dst_rect;
+
+	struct vdss_vpp_interlace interlace;
+};
+
+struct vdss_vpp_colorctrl {
+	s16 hue;
+	s16 bright;
+	s16 contrast;
+	s16 saturation;
+};
+
+struct vdss_blt_params {
+	struct vdss_vpp_params params;
+	struct vdss_vpp_colorctrl colorctrl;
+	int flags;
+};
+
 struct sirfsoc_vdss_screen;
 struct sirfsoc_vdss_panel;
 struct sirfsoc_vdss_output;
