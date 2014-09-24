@@ -21,9 +21,22 @@
 
 #include "remoteproc_internal.h"
 
-
-
-#define SW_FIFO_SIZE	0x10000
+enum sirf_rproc_idx {
+#ifdef CONFIG_CSRVISOR_DUALOS
+	S2NS0,
+	S2NS1,
+	NS2S0,
+	NS2S1,
+	S2M30,
+	S2M31,
+	S2KAL0
+	S2KAL1
+#endif
+	NS2M30,
+	NS2M31,
+	NS2KAL0,
+	NS2KAL1,
+};
 
 #define DEF_FEATURES	(RPROC_F_DEVICE_MMIO | RPROC_F_DYNAMIC_VQ | \
 			RPROC_F_DEVICE_UPDATE_NOTIFY)
@@ -229,6 +242,7 @@ struct hw_info {
 	u32 r_fifo_chn;
 	u32 w_fifo_lock;
 	u32 r_fifo_lock;
+	u32 fifo_sz;
 	u32 features;
 	u32 vdev_num;
 	struct rproc_vdev_desc *vdev_desc;
@@ -361,6 +375,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 0, .r_fifo_lock = 1,
+	  .fifo_sz = 0x10000,
 	  .features = S_FEATURES,
 	  .vdev_num = ARRAY_SIZE(s2ns0_rproc_vdev_desc),
 	  .vdev_desc = s2ns0_rproc_vdev_desc,
@@ -370,6 +385,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 2, .r_fifo_lock = 3,
+	  .fifo_sz = 0x10000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "ns2s0-rproc",
@@ -377,6 +393,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .w_fifo_lock = 4, .r_fifo_lock = 5,
+	  .fifo_sz = 0x10000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2s1-rproc",
@@ -384,6 +401,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .w_fifo_lock = 6, .r_fifo_lock = 7,
+	  .fifo_sz = 0x10000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "s2m30-rproc",
@@ -391,6 +409,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 9, .r_fifo_lock = 9,
+	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "s2m31-rproc",
@@ -398,6 +417,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 10, .r_fifo_lock = 11,
+	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "s2kal0-rproc",
@@ -405,6 +425,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 12, .r_fifo_lock = 13,
+	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "s2kal1-rproc",
@@ -412,6 +433,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 14, .r_fifo_lock = 15,
+	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	},
 #endif
@@ -421,6 +443,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 16, .r_fifo_lock = 17,
+	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2m31-rproc",
@@ -428,6 +451,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 18, .r_fifo_lock = 19,
+	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2kal0-rproc",
@@ -435,6 +459,7 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 20, .r_fifo_lock = 21,
+	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2kal1-rproc",
@@ -442,25 +467,52 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = 22, .r_fifo_lock = 23,
+	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}
 };
 
 static const struct of_device_id sirf_rproc_dt_ids[] = {
 #ifdef CONFIG_CSRVISOR_DUALOS
-	{ .compatible = "sirf,s2ns0-rproc", .data = &sirf_rproc_hwinfo[0] },
-	{ .compatible = "sirf,s2ns1-rproc", .data = &sirf_rproc_hwinfo[1] },
-	{ .compatible = "sirf,ns2s0-rproc", .data = &sirf_rproc_hwinfo[2] },
-	{ .compatible = "sirf,ns2s1-rproc", .data = &sirf_rproc_hwinfo[3] },
-	{ .compatible = "sirf,s2m30-rproc", .data = &sirf_rproc_hwinfo[4] },
-	{ .compatible = "sirf,s2m31-rproc", .data = &sirf_rproc_hwinfo[5] },
-	{ .compatible = "sirf,s2kal0-rproc", .data = &sirf_rproc_hwinfo[6] },
-	{ .compatible = "sirf,s2kal1-rproc", .data = &sirf_rproc_hwinfo[7] },
+	{
+		.compatible = "sirf,s2ns0-rproc",
+		.data = &sirf_rproc_hwinfo[S2NS0],
+	}, {
+		.compatible = "sirf,s2ns1-rproc",
+		.data = &sirf_rproc_hwinfo[S2NS1],
+	}, {
+		.compatible = "sirf,ns2s0-rproc",
+		.data = &sirf_rproc_hwinfo[NS2S0],
+	}, {
+		.compatible = "sirf,ns2s1-rproc",
+		.data = &sirf_rproc_hwinfo[NS2S1],
+	}, {
+		.compatible = "sirf,s2m30-rproc",
+		.data = &sirf_rproc_hwinfo[S2M30],
+	}, {
+		.compatible = "sirf,s2m31-rproc",
+		.data = &sirf_rproc_hwinfo[S2M31],
+	}, {
+		.compatible = "sirf,s2kal0-rproc",
+		.data = &sirf_rproc_hwinfo[S2KAL0],
+	}, {
+		.compatible = "sirf,s2kal1-rproc",
+		.data = &sirf_rproc_hwinfo[S2KAL1],
+	},
 #endif
-	{ .compatible = "sirf,ns2m30-rproc", .data = &sirf_rproc_hwinfo[8] },
-	{ .compatible = "sirf,ns2m31-rproc", .data = &sirf_rproc_hwinfo[9] },
-	{ .compatible = "sirf,ns2kal0-rproc", .data = &sirf_rproc_hwinfo[10] },
-	{ .compatible = "sirf,ns2kal1-rproc", .data = &sirf_rproc_hwinfo[11] },
+	{
+		.compatible = "sirf,ns2m30-rproc",
+		.data = &sirf_rproc_hwinfo[NS2M30],
+	}, {
+		.compatible = "sirf,ns2m31-rproc",
+		.data = &sirf_rproc_hwinfo[NS2M31],
+	}, {
+		.compatible = "sirf,ns2kal0-rproc",
+		.data = &sirf_rproc_hwinfo[NS2KAL0],
+	}, {
+		.compatible = "sirf,ns2kal1-rproc",
+		.data = &sirf_rproc_hwinfo[NS2KAL1],
+	},
 };
 
 static u32 sirf_rproc_features(struct device *dev)
@@ -510,7 +562,7 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 		goto failed;
 	}
 
-	srproc->fifo_sz = SW_FIFO_SIZE;
+	srproc->fifo_sz = srproc->hwinfo->fifo_sz;
 	if (srproc->fifo_sz * 2 >= rsc_info[2]) {
 		dev_err(&pdev->dev,
 			"There is no memory left for resource table!\n");

@@ -55,5 +55,24 @@
                         };
                 };
 
+		ipc@13240000 {
+			ns_m3_rproc@0 {
+				sirf,ipc-mem = <0x4FD00000 0xD0D00000 0x10000>;
+				status = "okay";
+			};
+
+			ns_m3_rproc@1 {
+				status = "disabled";
+			};
+
+			ns_kal_rproc@0 {
+				sirf,ipc-mem = <0x4FD10000 0xD0D10000 0x10000>;
+				status = "okay";
+			};
+
+			ns_kal_rproc@1 {
+				status = "disabled";
+			};
+		};
 	};
 };
