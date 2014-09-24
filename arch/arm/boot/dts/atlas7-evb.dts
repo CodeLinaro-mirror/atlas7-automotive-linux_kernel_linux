@@ -15,7 +15,8 @@
 	compatible = "sirf,atlas7-cb", "sirf,atlas7";
 
 	chosen {
-		/* bootargs = "console=ttySiRF1,115200 earlyprintk lpj=7970816 initrd=0x43008000,0x500000"; */
+		/* bootargs = "console=ttySiRF1,115200 earlyprintk lpj=7970816
+				initrd=0x43008000,0x500000"; */
 		bootargs = "console=ttySiRF1,115200 earlyprintk";
 	};
 
@@ -25,21 +26,19 @@
 	};
 
 	noc {
-                audiom {
-                        timer@10dc0000 {
-                                status = "okay";
-                        };
-                        timerb@10dc8000 {
-                                status = "disabled";
-                        };
-                };
-                mediam {
-                        sdhci@16000000 {
+		audiom {
+			timer@10dc0000 {
 				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&sd0_pmx>;
-                        };
-                };
+			};
+			timerb@10dc8000 {
+				status = "disabled";
+			};
+		};
+		mediam {
+			sdhci@16000000 {
+				status = "okay";
+			};
+		};
 
 		vdifm {
 			sdhci@14200000 {
@@ -52,12 +51,12 @@
 			};
 		};
 
-                gnssm {
+		gnssm {
 			uart1: uart@18020000 {
 				status = "okay";
 			};
 
-                        uart0: uart@18010000 {
+			uart0: uart@18010000 {
 				status = "okay";
 				pinctrl-0 = <&uart0_pmx>;
 				pinctrl-names = "default";
@@ -84,11 +83,30 @@
 			uart5: uart@18060000 {
 				status = "okay";
 			};
-                };
+		};
 
 		btm {
 			uart6: uart@11000000 {
 				status = "okay";
+			};
+		};
+
+		rtcm {
+			qspi: flash@188B0000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sp0_qspi_pmx>;
+				clock-rate = <20000000>;        /* 20MHz */
+
+				flash: micron@0{
+					reg = <0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partitions@0 {
+						label = "myboot";
+						reg = <0x0 0x1000000>;
+					};
+				};
 			};
 		};
 

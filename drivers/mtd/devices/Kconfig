@@ -218,6 +218,25 @@ config MTD_ST_SPI_FSM
 	  SPI Fast Sequence Mode (FSM) Serial Flash Controller and support
 	  for a subset of connected Serial Flash devices.
 
+config MTD_ATLAS7_QSPI
+	tristate "CSR CSRatlas7 QSPI NOR flash controller"
+	help
+	  This provides an MTD device driver for the CSR SoCs.
+	  This controller is different than the former CSR SoCs SPI controller
+	  It is used for supporting the NOR flash.
+	  It support Fast, Dual and Quad mode.
+
+config MTD_ATLAS7_QSPI_DMA
+	bool "CSR CSRatlas7 QSPI DMA mode support"
+	depends on MTD_ATLAS7_QSPI
+	default n
+	help
+	CSR QSPI driver support DMA and PIO mode, select it let SPI driver
+	support DMA mode, deselect it let SPI controller in PIO mode.
+	In CSR QSPI driver distinguish the config to decide which
+	transfer mode use. Default configure value is n,
+	if want DMA mode select it will be OK.
+
 if MTD_DOCG3
 config BCH_CONST_M
 	default 14

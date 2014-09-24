@@ -1,0 +1,26 @@
+* CSR CSRatlas7 Quad Serial Peripheral Interface for Nor flash
+
+Required properties:
+- compatible : Should be "sirf,atlas7-qspi-nor"
+- reg : Offset and length of the register set for the device
+- interrupts : Should contain QSPI interrupt
+- #address-cells, #size-cells : Must be present if the device has sub-nodes
+- pinctrl: pin max name
+- clock-rate : Functional clock rate of QSPI in Hz
+
+Example:
+	qspi: flash@188B0000 {
+		cell-index = <0>;
+		compatible = "sirf,atlas7-qspi-nor";
+		reg = <0x188B0000 0x10000>;
+		interrupts = <0 15 0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sp0_qspi_pmx>;
+		clock-rate = <20000000>;	/* 20MHz */
+
+		flash: micron@0{
+			...
+		};
+	};

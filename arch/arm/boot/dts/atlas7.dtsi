@@ -881,7 +881,7 @@
 				non-removable;
 				status = "disabled";
 				bus-width = <8>;
-                        };
+			};
 		};
 
 		vdifm {
@@ -987,7 +987,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x10d50000 0x10d50000 0x0000ffff>,
-			        <0x10d60000 0x10d60000 0x0000ffff>,
+					<0x10d60000 0x10d60000 0x0000ffff>,
 					<0x10ED0000 0x10ED0000 0x3000>,
 					<0x10dc8000 0x10dc8000 0x1000>,
 					<0x10dc0000 0x10dc0000 0x1000>;
@@ -1105,6 +1105,7 @@
 			ranges = <0x18810000 0x18810000 0x3000>,
 				<0x18840000 0x18840000 0x1000>,
 				<0x18890000 0x18890000 0x1000>,
+				<0x188B0000 0x188B0000 0x10000>,
 				<0x188D0000 0x188D0000 0x1000>;
 			rtcm@18810000 {
 				compatible = "sirf,nocfw-rtcm";
@@ -1128,7 +1129,7 @@
 
 			rtc-iobg@18840000 {
 				compatible = "sirf,prima2-rtciobg",
-						"sirf-prima2-rtciobg-bus", "simple-bus";
+					"sirf-prima2-rtciobg-bus", "simple-bus";
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x18840000 0x1000>;
@@ -1142,6 +1143,15 @@
 					compatible = "sirf,atlas7-pwrc";
 					reg = <0x3000 0x100>;
 				};
+			};
+
+			qspi: flash@188B0000 {
+				cell-index = <0>;
+				compatible = "sirf,atlas7-qspi-nor";
+				reg = <0x188B0000 0x10000>;
+				interrupts = <0 15 0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 			};
 
 			retain@0x188D0000 {
@@ -1169,6 +1179,7 @@
 				interrupts = <0 31 0>;
 				clocks = <&clks 85>;
 			};
+
 		};
 	};
 };
