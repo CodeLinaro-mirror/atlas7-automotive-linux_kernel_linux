@@ -12,7 +12,6 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/freezer.h>
-#include <linux/of.h>
 
 #include <linux/virtio.h>
 #include <linux/virtio_console.h>
@@ -410,45 +409,34 @@ static int init_vqs(struct ports_device *portdev)
 
 static int init_port(struct ports_device *portdev)
 {
-	struct device_node *np;
+	struct virtio_rproc_console_desc *virtcons_desc;
 	dev_t devt;
 	int err, len;
 
-	/* get virtio console device node from private data */
-	np = (void *)virtio_cread32(portdev->vdev, MMIO_PRIV_DATA);
-	if (!np) {
+	/* read virtio console config data from private data */
+	virtcons_desc = (struct virtio_rproc_console_desc *)
+			virtio_cread32(portdev->vdev, MMIO_PRIV_DATA);
+	if (!virtcons_desc) {
 		dev_err(&portdev->vdev->dev,
 			"virtio console doesn't have private data!\n");
 		return -EINVAL;
 	}
 
-	err = of_property_read_u32(np, "serial-id", &portdev->id);
-	if (err) {
-		dev_err(&portdev->vdev->dev,
-			"Unable to find serial-id. err=%d\n", err);
-		return -ENODEV;
-	}
-
-	err = of_property_read_string(np, "serial-prefix",
-			(const char **)&portdev->name);
-	if (err) {
-		dev_err(&portdev->vdev->dev,
-			"Unable to find serial-prefix. err=%d\n", err);
-		return -ENODEV;
-	}
+	portdev->id = virtcons_desc->id;
+	portdev->name = virtcons_desc->name;
 
 	/* disable notify remote side when we initialize the config space */
 	rproc_virtio_disable_notify(portdev->vdev);
 
 	/* config virtio console mmio space */
 	virtio_cwrite32(portdev->vdev,
-			CONSOLE_MMIO_PORT_ID, portdev->id);
+			CONSOLE_MMIO_PORT_ID, virtcons_desc->id);
 
 	/* write virtio console customized name to mmio */
-	len = strlen(portdev->name) + 1;
+	len = strlen(virtcons_desc->name) + 1;
 	len = (len > CONSOLE_MMIO_NAME_LEN) ? CONSOLE_MMIO_NAME_LEN : len;
 	portdev->vdev->config->set(portdev->vdev,
-			CONSOLE_MMIO_NAME, portdev->name, len);
+			CONSOLE_MMIO_NAME, virtcons_desc->name, len);
 
 	/* enable notify remote side */
 	rproc_virtio_enable_notify(portdev->vdev);
