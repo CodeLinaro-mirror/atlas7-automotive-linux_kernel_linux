@@ -17,7 +17,6 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
-#include <linux/of.h>
 
 #include <linux/virtio.h>
 #include <linux/virtio_ids.h>
@@ -349,44 +348,28 @@ static int virti2c_mmio(struct virtio_device *vdev, u32 offset)
 static int virti2c_hw_init(struct virtio_device *vdev,
 				struct virtio_i2c *vi2c)
 {
-	struct device_node *vi2c_np;
+	struct virtio_i2c_desc *vi2c_desc;
 	struct i2c_adapter *adapter;
-	u32 vi2c_id;
-	const char *vi2c_name;
-	int len, ret;
+	int len;
 
-	/* read virtio i2c device node from private data */
-	vi2c_np = (struct device_node *)
+	/* read virtio i2c config data from private data */
+	vi2c_desc = (struct virtio_i2c_desc *)
 			virtio_cread32(vdev, MMIO_PRIV_DATA);
-	if (!vi2c_np) {
+	if (!vi2c_desc) {
 		dev_err(&vdev->dev,
 			"virtio i2c doesn't specify real i2c adapter!\n");
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(vi2c_np, "adapter-id", &vi2c_id);
-	if (ret) {
-		dev_err(&vdev->dev,
-			"Unable to find virtual i2c ID. ret=%d\n", ret);
-		return -ENODEV;
-	}
-
-	ret = of_property_read_string(vi2c_np, "adapter-name", &vi2c_name);
-	if (ret) {
-		dev_err(&vdev->dev,
-			"Unable to find virtual I2C prefix. ret=%d\n", ret);
-		return -ENODEV;
-	}
-
 	/* get real i2c adapter with config data */
-	adapter = i2c_get_adapter(vi2c_id);
+	adapter = i2c_get_adapter(vi2c_desc->i2c_adapter_id);
 	if (!adapter) {
 		dev_err(&vdev->dev,
 			"virtio i2c could not open real i2c adapter!\n");
 		return -ENODEV;
 	}
 
-	vi2c->bus_id = vi2c_id;
+	vi2c->bus_id = vi2c_desc->i2c_adapter_id;
 
 	/* disable notify remote side when we initialize the config space */
 	rproc_virtio_disable_notify(vdev);
@@ -398,9 +381,10 @@ static int virti2c_hw_init(struct virtio_device *vdev,
 	virtio_cwrite32(vdev, I2C_MMIO_RETRIES,	adapter->retries);
 
 	/* write virtio i2c adapter customized name to mmio */
-	len = strlen(vi2c_name) + 1;
+	len = strlen(vi2c_desc->name) + 1;
 	len = (len > I2C_NAME_LENGTH) ? I2C_NAME_LENGTH : len;
-	vdev->config->set(vdev, I2C_MMIO_VIRT_NAME, vi2c_name, len);
+	vdev->config->set(vdev, I2C_MMIO_VIRT_NAME,
+				vi2c_desc->name, len);
 
 	/* write real i2c adapter name to mmio */
 	len = strlen(adapter->name) + 1;
