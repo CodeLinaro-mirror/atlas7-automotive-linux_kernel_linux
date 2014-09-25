@@ -331,6 +331,16 @@ config VIDEO_TW2804
 	  To compile this driver as a module, choose M here: the
 	  module will be called tw2804.
 
+config VIDEO_TW9900
+        tristate "Techwell tw9900 video decoder"
+	depends on VIDEO_V4L2 && I2C
+	---help---
+	  Support decoding the base-band analog CVBS NTSC/PAL/SECAM signals into
+	  digital 8-bit 4:2:2 YCbCr for output.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tw9900.
+
 config VIDEO_TW9903
 	tristate "Techwell TW9903 video decoder"
 	depends on VIDEO_V4L2 && I2C
