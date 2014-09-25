@@ -116,7 +116,17 @@ static int __init sirfsoc_vdss_init(void)
 		goto err_lcdc;
 	}
 
+	ret = vpp_init_platform_driver();
+	if (ret) {
+		VDSSERR("Failed to initialize lcdc platform driver\n");
+		goto err_vpp;
+	}
+
 	vdss_initialized = true;
+
+	return 0;
+err_vpp:
+	lcdc_uninit_platform_driver();
 
 err_lcdc:
 	platform_driver_unregister(&sirfsoc_vdss_driver);
