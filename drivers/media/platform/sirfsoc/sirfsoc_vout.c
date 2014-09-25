@@ -254,6 +254,7 @@ static int __sirfsoc_vout_start_streaming(struct sirfsoc_vout_device *vout)
 	vout->is_streaming = 1;
 	l = vout->layer;
 	l->enable(l);
+
 	return 0;
 }
 
@@ -420,40 +421,31 @@ static void sirfsoc_vout_isr(void *pdata, unsigned int irqstatus)
 	struct sirfsoc_vout_buf *vout_buf;
 
 	if (irqstatus | LCDC_INT_VSYNC) {
+		spin_lock(&vout->vbq_lock);
+
 		vb2_buf = vout->active_vb2_buf;
 
-		if (!vb2_buf) {
-			if (!list_empty(&vout->dma_queue)) {
-				vout_buf = list_entry(vout->dma_queue.next,
-					struct sirfsoc_vout_buf, list);
-				vout->active_vb2_buf = &vout_buf->vb;
-			} else {
-				/* No buffer in the queue, return ASAP*/
-				vout->active_vb2_buf = NULL;
-				return;
-			}
-		} else {
+		if (vb2_buf) {
 			vout_buf =  container_of(vb2_buf,
 				struct sirfsoc_vout_buf, vb);
 			list_del_init(&vout_buf->list);
 			v4l2_get_timestamp(&vb2_buf->v4l2_buf.timestamp);
 			vb2_buffer_done(vb2_buf, VB2_BUF_STATE_DONE);
-
-			if (!list_empty(&vout->dma_queue)) {
-				vout_buf = list_entry(vout->dma_queue.next,
-					struct sirfsoc_vout_buf, list);
-				vout->active_vb2_buf = &vout_buf->vb;
-			} else {
-				vout->active_vb2_buf = NULL;
-			}
 		}
-		/* There is buf in the queue, display the next buffer*/
-		if (vout->active_vb2_buf != NULL) {
+
+		if (!list_empty(&vout->dma_queue)) {
+			vout_buf = list_entry(vout->dma_queue.next,
+				struct sirfsoc_vout_buf, list);
+			vout->active_vb2_buf = &vout_buf->vb;
+
 			vout->active_vb2_buf->state =
 				VB2_BUF_STATE_ACTIVE;
 			__sirfsoc_vout_display(vout,
 				vout->active_vb2_buf);
-		}
+		} else
+			vout->active_vb2_buf = NULL;
+
+		spin_unlock(&vout->vbq_lock);
 	}
 }
 
@@ -486,9 +478,9 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	if (!vb2_is_streaming(vq))
 		return;
 
-
 	spin_lock_irqsave(&vout->vbq_lock, flags);
 
+	vout->active_vb2_buf = NULL;
 	while (!list_empty(&vout->dma_queue)) {
 		buf = list_entry(vout->dma_queue.next,
 			struct sirfsoc_vout_buf, list);
