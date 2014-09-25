@@ -191,7 +191,6 @@ static void vdss_layer_update_regs(struct sirfsoc_vdss_layer *l)
 		ldata->shadow_info_dirty = true;
 }
 
-
 static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)
 {
 	struct layer_priv_data *ldata = get_layer_data(l);
@@ -205,7 +204,7 @@ static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)
 	/* note: write also when op->enabled == false, so that the ovl gets
 	 * disabled */
 
-	lcdc_layer_enable(l->id, ldata->enabled);
+	lcdc_layer_enable(l->id, ldata->enabled, ldata->info.passthrough);
 
 	sdata = get_screen_data(l->screen);
 
@@ -505,6 +504,17 @@ static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
 err:
 	mutex_unlock(&apply_lock);
 	return r;
+}
+
+bool vdss_layer_flip(enum vdss_layer layer, u32 srcbase)
+{
+	struct sirfsoc_vdss_layer *l = &layers[layer];
+	struct layer_priv_data *ldata = get_layer_data(l);
+	struct sirfsoc_vdss_layer_info *info = &ldata->info;
+
+	info->base = srcbase;
+
+	return lcdc_flip(layer, info);
 }
 
 static struct sirfsoc_vdss_panel *vdss_layer_get_panel(
@@ -868,6 +878,7 @@ void vdss_init_layers(void)
 		l->set_info = vdss_layer_set_info;
 		l->get_info = vdss_layer_get_info;
 		l->get_panel = vdss_layer_get_panel;
+		l->flip = vdss_layer_flip;
 	}
 }
 

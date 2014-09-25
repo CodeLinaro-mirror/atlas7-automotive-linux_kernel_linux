@@ -20,7 +20,7 @@
 #include "vdss.h"
 #include "lcdc.h"
 
-static void __lcdc_wait_idle(int layer)
+static void __lcdc_wait_idle(int layer, bool with_vpp)
 {
 	int timeout;
 
@@ -41,32 +41,45 @@ static void __lcdc_wait_idle(int layer)
 	}
 }
 
-static void __lcdc_disable_layer(enum vdss_layer layer, bool wait)
+static void __lcdc_disable_layer(enum vdss_layer layer,
+	bool wait, bool passthrough)
 {
 	u32 s0_layer_sel;
+	u32 lx_dma_ctrl;
 
 	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
 	if (s0_layer_sel & S0_LS_LAYER_SEL(1 << layer)) {
 		s0_layer_sel &= ~S0_LS_LAYER_SEL(1 << layer);
 		lcdc_write_reg(S0_LAYER_SEL, s0_layer_sel);
+		if (passthrough) {
+			lx_dma_ctrl = lcdc_read_reg(reg_offset(layer,
+					L0_DMA_CTRL));
+			lx_dma_ctrl &= ~LX_VPP_PASS_MODE;
+			lcdc_write_reg(reg_offset(layer, L0_DMA_CTRL),
+					lx_dma_ctrl);
+			__lcdc_confirm_layer_setting(layer);
+		}
 
 		if (wait)
-			__lcdc_wait_idle(layer);
+			__lcdc_wait_idle(layer, passthrough);
 	}
 }
 
-static void __lcdc_enable_layer(int layer)
+static void __lcdc_enable_layer(int layer, bool passthrough)
 {
 	u32 s0_layer_sel;
 	u32 lx_dma_ctrl;
 
 	s0_layer_sel = lcdc_read_reg(S0_LAYER_SEL);
 	if (!(s0_layer_sel & S0_LS_LAYER_SEL(1 << layer))) {
-		__lcdc_wait_idle(layer);
+		__lcdc_wait_idle(layer, passthrough);
 		__lcdc_reset_layer_fifo(layer);
 
 		lx_dma_ctrl = lcdc_read_reg(reg_offset(layer, L0_DMA_CTRL));
-		lx_dma_ctrl &= ~LX_VPP_PASS_MODE;
+		if (passthrough)
+			lx_dma_ctrl |= LX_VPP_PASS_MODE;
+		else
+			lx_dma_ctrl &= ~LX_VPP_PASS_MODE;
 
 		lcdc_write_reg(reg_offset(layer, L0_DMA_CTRL), lx_dma_ctrl);
 		__lcdc_confirm_layer_setting(layer);
@@ -109,7 +122,8 @@ static void lcdc_layer_check_size(
 	struct vdss_rect *src_rect,
 	struct vdss_rect *dst_rect,
 	int scn_width,
-	int scn_height)
+	int scn_height,
+	bool need_vpp)
 {
 
 	int src_width_orig, src_height_orig;
@@ -197,21 +211,22 @@ static void lcdc_layer_check_size(
 	/* workaround RGB overlay stretch, we don't support it, so
 	 * show it as the smaller rect.
 	 */
+	if (!need_vpp) {
+		src_width = src_rect->right - src_rect->left;
+		src_height = src_rect->bottom - src_rect->top;
+		dst_width = dst_rect->right - dst_rect->left;
+		dst_height = dst_rect->bottom - dst_rect->top;
 
-	src_width = src_rect->right - src_rect->left;
-	src_height = src_rect->bottom - src_rect->top;
-	dst_width = dst_rect->right - dst_rect->left;
-	dst_height = dst_rect->bottom - dst_rect->top;
+		if (src_width > dst_width)
+			src_rect->right = src_rect->left + dst_width;
+		else if (src_width < dst_width)
+			dst_rect->right = dst_rect->left + src_width;
 
-	if (src_width > dst_width)
-		src_rect->right = src_rect->left + dst_width;
-	else if (src_width < dst_width)
-		dst_rect->right = dst_rect->left + src_width;
-
-	if (src_height > dst_height)
-		src_rect->bottom = src_rect->top + dst_height;
-	else if (src_height < dst_height)
-		dst_rect->bottom = dst_rect->top + src_height;
+		if (src_height > dst_height)
+			src_rect->bottom = src_rect->top + dst_height;
+		else if (src_height < dst_height)
+			dst_rect->bottom = dst_rect->top + src_height;
+	}
 }
 
 u32 lcdc_read_intstatus(void)
@@ -238,14 +253,37 @@ void lcdc_write_intmask(u32 mask)
 	lcdc_write_reg(INT_MASK, mask);
 }
 
-void lcdc_layer_enable(enum vdss_layer layer, bool enable)
+void lcdc_layer_enable(enum vdss_layer layer, bool enable, bool passthrough)
 {
 
 	if (enable)
-		__lcdc_enable_layer(layer);
+		__lcdc_enable_layer(layer, passthrough);
 	else
-		__lcdc_disable_layer(layer, false);
+		__lcdc_disable_layer(layer, false, passthrough);
 
+}
+
+bool lcdc_is_vpp_passthrough(enum vdss_pixelformat fmt)
+{
+	switch (fmt) {
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUNV:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_UYNV:
+	case VDSS_PIXELFORMAT_VYUY:
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_YV12:
+	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_UYVI:
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		return true;
+	default:
+		return false;
+	}
 }
 
 void lcdc_layer_confirm_setting(enum vdss_layer layer)
@@ -258,7 +296,7 @@ void lcdc_layer_confirm_setting(enum vdss_layer layer)
 	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
 }
 
-static void lcdc_layer_set_fmt(enum vdss_layer layer, int fmt)
+static void lcdc_layer_set_fmt(enum vdss_layer layer, int fmt, bool passthrough)
 {
 	u32 lx_ctrl = 0x0000301e;
 
@@ -266,14 +304,17 @@ static void lcdc_layer_set_fmt(enum vdss_layer layer, int fmt)
 
 	lx_ctrl &= ~LX_CTRL_BPP_MASK;
 
-	lx_ctrl |= LX_CTRL_BPP(__lcdc_fmt_to_hwfmt(fmt));
+	if (passthrough)
+		lx_ctrl |= LX_CTRL_BPP(
+			__lcdc_fmt_to_hwfmt(VPP_TO_LCD_PIXELFORMAT));
+	else
+		lx_ctrl |= LX_CTRL_BPP(__lcdc_fmt_to_hwfmt(fmt));
 
 	lx_ctrl |= LX_CTRL_REPLICATE;
 
 	lx_ctrl &= ~LX_CTRL_CONFIRM;
 
 	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
-
 }
 
 static void lcdc_layer_set_alpha(enum vdss_layer layer, int fmt,
@@ -324,9 +365,8 @@ static void lcdc_layer_set_ckey(enum vdss_layer layer, bool ckey_on,
 			__lcdc_ckey_val(fmt, true, ckey));
 		lcdc_write_reg(reg_offset(layer, L0_CKEYS_SRC),
 			__lcdc_ckey_val(fmt, true, ckey));
-	} else {
+	} else
 		lx_ctrl &= ~LX_CTRL_SRC_CKEY_EN;
-	}
 
 	if (dst_ckey_on) {
 		lx_ctrl |= LX_CTRL_DST_CKEY_EN;
@@ -334,11 +374,23 @@ static void lcdc_layer_set_ckey(enum vdss_layer layer, bool ckey_on,
 			__lcdc_ckey_val(fmt, true, dst_ckey));
 		lcdc_write_reg(reg_offset(layer, L0_CKEYS_DST),
 			__lcdc_ckey_val(fmt, true, dst_ckey));
-	} else {
+	} else
 		lx_ctrl &= ~LX_CTRL_DST_CKEY_EN;
-	}
+
 	lx_ctrl &= ~LX_CTRL_CONFIRM;
 	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+}
+
+static void lcdc_layer_set_base(enum vdss_layer layer,
+	struct vdss_rect *src_rect,
+	int surf_width, int surf_height,
+	int fmt, u32 base)
+{
+	unsigned int bpp = hwfmt_to_bpp[__lcdc_fmt_to_hwfmt(fmt)];
+	unsigned int offset =
+		(src_rect->top * surf_width + src_rect->left) * bpp;
+
+	lcdc_write_reg(reg_offset(layer, L0_BASE0), base + offset);
 }
 
 static void lcdc_layer_set_dst(enum vdss_layer layer,
@@ -416,25 +468,55 @@ static void lcdc_layer_set_dma(enum vdss_layer layer,
 	lcdc_write_reg(reg_offset(layer, L0_DMA_CTRL), lx_dma_ctrl);
 }
 
+void lcdc_layer_set_passthrough(enum vdss_layer layer,
+	struct sirfsoc_vdss_layer_info *info)
+{
+	u32 src_skip, dst_skip;
+
+	if ((info->fmt >= VDSS_PIXELFORMAT_UYVY) &&
+		(info->fmt <= VDSS_PIXELFORMAT_VYUY))
+		src_skip = (info->src_rect_on.left & 3);
+	else
+		src_skip = (info->src_rect_on.left & 15);
+
+	if (src_skip && (info->src_rect_on.right - info->src_rect_on.left))
+		dst_skip = src_skip *
+			(info->dst_rect_on.right - info->dst_rect_on.left) /
+			(info->src_rect_on.right - info->src_rect_on.left);
+	else
+		dst_skip = 0;
+
+	info->src_rect_on.left -= src_skip;
+	info->dst_rect_on.left -= dst_skip;
+
+	lcdc_write_reg(reg_offset(layer, L0_BASE0), VPP_TO_LCD_BPP * dst_skip);
+	lcdc_write_reg(reg_offset(layer, L0_BASE1), VPP_TO_LCD_BPP * dst_skip);
+}
+
 static void lcdc_layer_set_size(enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info, int scn_width, int scn_height)
 {
 	lcdc_layer_check_size(&info->src_rect, &info->dst_rect,
 		&info->src_rect_on, &info->dst_rect_on,
-		scn_width, scn_height);
+		scn_width, scn_height, info->passthrough);
 
 	lcdc_layer_set_dst(layer, &info->dst_rect_on);
 
-	lcdc_layer_set_dma(layer, &info->src_rect_on,
-		info->surf_width, info->surf_height,
-		info->fmt, info->base);
+	if (info->passthrough)
+		lcdc_layer_set_passthrough(layer, info);
+	else
+		lcdc_layer_set_dma(layer, &info->src_rect_on,
+			info->surf_width, info->surf_height,
+			info->fmt, info->base);
 }
 
 void lcdc_layer_setup(enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info,
 	struct sirfsoc_video_timings *timings)
 {
-	lcdc_layer_set_fmt(layer, info->fmt);
+	info->passthrough = lcdc_is_vpp_passthrough(info->fmt);
+
+	lcdc_layer_set_fmt(layer, info->fmt, info->passthrough);
 	lcdc_layer_set_size(layer, info, timings->xres, timings->yres);
 
 	lcdc_layer_set_ckey(layer, info->ckey_on, info->ckey,
@@ -444,7 +526,51 @@ void lcdc_layer_setup(enum vdss_layer layer,
 		info->source_alpha, info->global_alpha,
 		info->alpha);
 
+	if (info->passthrough) {
+		struct vdss_vpp_params params;
+
+		memset(&params, 0, sizeof(params));
+
+		params.src_base = info->base;
+		params.src_fmt = info->fmt;
+		params.src_hor_stride = info->surf_width;
+		params.src_ver_stride = info->surf_height;
+		params.src_rect = info->src_rect_on;
+		params.dst_rect = info->dst_rect_on;
+		params.dst_base = 0;
+		params.dst_fmt = VPP_TO_LCD_PIXELFORMAT;
+
+		vpp_passthrough_setup(&params);
+	}
+
 	lcdc_layer_confirm_setting(layer);
+}
+
+bool lcdc_flip(enum vdss_layer layer, struct sirfsoc_vdss_layer_info *info)
+{
+	if (info->passthrough) {
+		struct vdss_blt_params params;
+
+		memset(&params, 0, sizeof(params));
+
+		params.params.src_base = info->base;
+		params.flags |= VDSS_VPP_UPDATE_SRCBASE;
+
+		params.params.src_fmt = info->fmt;
+		params.params.src_hor_stride = info->surf_width;
+		params.params.src_ver_stride = info->surf_height;
+		params.params.src_rect = info->src_rect_on;
+		params.params.dst_rect = info->dst_rect_on;
+		params.params.dst_base = 0;
+		params.params.dst_fmt = VPP_TO_LCD_PIXELFORMAT;
+
+		vpp_blt(&params);
+		lcdc_layer_confirm_setting(layer);
+	} else
+		lcdc_layer_set_base(layer, &info->src_rect, info->surf_width,
+			info->surf_height, info->fmt, info->base);
+
+	return true;
 }
 
 void lcdc_screen_set_timings(enum vdss_screen scn_id,

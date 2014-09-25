@@ -57,7 +57,8 @@ void lcdc_screen_setup(enum vdss_screen scn_id,
 void lcdc_layer_setup(enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info,
 	struct sirfsoc_video_timings *timing);
-void lcdc_layer_enable(enum vdss_layer layer, bool enable);
+void lcdc_layer_enable(enum vdss_layer layer, bool enable, bool passthrough);
+bool lcdc_flip(enum vdss_layer layer, struct sirfsoc_vdss_layer_info *info);
 
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);

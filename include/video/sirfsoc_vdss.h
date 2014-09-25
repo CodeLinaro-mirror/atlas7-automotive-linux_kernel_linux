@@ -246,6 +246,7 @@ struct sirfsoc_vdss_layer_info {
 	u8 alpha;
 	bool pre_mult_alpha;
 	bool source_alpha;
+	bool passthrough;
 };
 
 struct sirfsoc_vdss_layer {
@@ -285,7 +286,7 @@ struct sirfsoc_vdss_layer {
 		struct sirfsoc_vdss_layer_info *info);
 	struct sirfsoc_vdss_panel *(*get_panel)(
 		struct sirfsoc_vdss_layer *layer);
-	int (*flip)(enum vdss_layer layer, u32 srcbase);
+	bool (*flip)(enum vdss_layer layer, u32 srcbase);
 };
 
 struct sirfsoc_vdss_screen_info {
