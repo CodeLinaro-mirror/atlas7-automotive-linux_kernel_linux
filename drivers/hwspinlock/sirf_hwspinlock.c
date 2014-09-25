@@ -124,18 +124,20 @@ static int sirf_hwspinlock_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_device_id sirf_hwpinlock_ids[] = {
-	{ .name = "atlas7-hwspinlock", },
+static const struct of_device_id sirf_hwpinlock_ids[] = {
+	{ .compatible = "sirf,hwspinlock", },
+	{},
 };
+MODULE_DEVICE_TABLE(of, sirf_hwpinlock_ids);
 
 static struct platform_driver sirf_hwspinlock_driver = {
 	.probe = sirf_hwspinlock_probe,
 	.remove = sirf_hwspinlock_remove,
 	.driver = {
-		.name = "sirfsoc_hwspinlock",
+		.name = "atlas7_hwspinlock",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(sirf_hwpinlock_ids),
 	},
-	.id_table = sirf_hwpinlock_ids,
 };
 
 module_platform_driver(sirf_hwspinlock_driver);
