@@ -199,11 +199,12 @@ static int tw9900_s_stream(struct v4l2_subdev *sd, int enable)
 		return -EINVAL;
 	}
 
-	if (!((value >> 4) & 0x7)) {
+	if (!((value >> 4) & 0x7))
+		v4l_info(client, "NTSC(M) signal\n");
+	else {
 		v4l_info(client, "PAL(B,D,G,H,I) signal\n");
 		tw9900_s_std(sd, V4L2_STD_PAL);
-	} else
-		v4l_info(client, "NTSC(M) signal\n");
+	}
 
 	value = i2c_smbus_read_byte_data(client, 0x03);
 	value &= 0xF8;	/* enable all output */
