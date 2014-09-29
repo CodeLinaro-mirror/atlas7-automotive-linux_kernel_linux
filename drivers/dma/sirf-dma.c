@@ -753,6 +753,8 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	 * to simulate sg, so make sure we have enough desc nodes
 	 */
 		for_each_sg(sgl, sg, sg_len, i) {
+			u32 i;
+
 			addr = sg_dma_address(sg);
 			len = sg_dma_len(sg);
 
@@ -763,9 +765,31 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 			sdesc->addr = addr;
 			sdesc->dir = (direction == DMA_MEM_TO_DEV ? 1 : 0);
 			sdesc->cyclic = 0;
-			sdesc->xlen = len / SIRFSOC_DMA_WORD_LEN;
+
+			/* The xlen, ylen and width has the size limit in
+			 * hardware(12 bits), so if the len is smaller than
+			 * 4*2048,driver can set the ylen to 0, the dma works
+			 * in 1D mode, if the len is equal or larger than 4*2048
+			 * xlen and ylen must be set to proper value and dma
+			 * works in 2D mode.
+			 * */
+			if (len / 4 < 2048) {
+				sdesc->xlen = len / 4;
+				sdesc->ylen = 0;
+			} else {
+				for (i = 2048 - 1; i > 0; i--)
+					if (!(len%(4 * i)))
+						break;
+				if (!i) {
+					ret = -EINVAL;
+					spin_unlock_irqrestore(
+						&schan->lock, iflags);
+					goto err;
+				}
+				sdesc->xlen = i;
+				sdesc->ylen = len/(4 * i) - 1;
+			}
 			sdesc->width = sdesc->xlen;
-			sdesc->ylen = 0;
 
 			list_add_tail(&sdesc->node, &schan->prepared);
 		}
