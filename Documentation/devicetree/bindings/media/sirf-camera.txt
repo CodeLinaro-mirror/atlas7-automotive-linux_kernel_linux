@@ -35,3 +35,43 @@ Example:
 		        };
 		};
 	};
+
+SiRFSOC camera subdevice interface
+
+Required properities
+ - compatible: subdevice compatible node, decoder:"technwell,tw9900"
+ - reg: subdevice register size
+ - input-number: number of the functions of this subdevice
+ - inputs: the functions phandle name
+ - input-name: description for the function name of the subdevice
+ - input-id: the index of the function, its rangs is input-number - 1
+ - remote-endpoint:phandle to an 'endpoint' subnode of a remote device
+ node. It is defined in video-interfaces.txt
+
+Example:
+
+	i2c0: i2c@b00e0000 {
+		...
+
+		tw9900: decoder@44 {
+			compatible = "techwell,tw9900";
+			reg = <0x44>;
+			input-number = <2>;
+			inputs = <&cvbs0 &cvbs1>;
+			cvbs0: cvbs@0 {
+				input-name = "camera";
+				input-id = <0>;
+			};
+			cvbs1: cvbs@1 {
+				input-name = "dvd";
+				input-id = <1>;
+			};
+			port {
+				tw9900_1: endpoint {
+					remote-endpoint = <&vip0_0>;
+				};
+			};
+		};
+
+		...
+	};
