@@ -22,7 +22,7 @@ Example:
 		reg = <0xb00C0000 0x10000>;
 		clocks = <&clks 31>;
 		interrupts = <14>;
-		dmas = <&dmac1 16>;
+		dmas = <&dmac1 0>;
 		dma-names = "rx";
 		sirf,vip_cma_size = <0xC00000>;
 		port {
