@@ -349,7 +349,8 @@
 				reg = <0xb00C0000 0x10000>;
 				clocks = <&clks 31>;
 				interrupts = <14>;
-				sirf,vip-dma-rx-channel = <16>;
+				dmas = <&dmac1 0>;
+				dma-names = "rx";
 				sirf,vip_cma_size = <0xC00000>;
 			};
 
