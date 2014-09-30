@@ -134,6 +134,15 @@
 				power-gpio = <&gpio 9 0>;
 				reset-gpio = <&gpio 12 0>;
 				rearview-gpio = <&gpio 31 0>;
+				port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					vip0_0: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&tw9900_1>;
+						data-shift = <1>;	/* select pxd_data[7:0] as valid data */
+					};
+				};
 			};
 			i2c0: i2c@b00e0000 {
 				status = "okay";
@@ -143,6 +152,25 @@
 				lcd_mcu: lcd_mcu@40{
 					compatible = "sirf,lcd-mcu";
 					reg = <0x40>;
+				};
+				tw9900: decoder@44 {
+					compatible = "techwell,tw9900";
+					reg = <0x44>;
+					input-number = <2>;
+					inputs = <&cvbs0 &cvbs1>;
+					cvbs0: cvbs@0 {
+						input-name = "camera";
+						input-id = <0>;
+					};
+					cvbs1: cvbs@1 {
+						input-name = "dvd";
+						input-id = <1>;
+					};
+					port {
+						tw9900_1: endpoint {
+							remote-endpoint = <&vip0_0>;
+						};
+					};
 				};
 
 			};
