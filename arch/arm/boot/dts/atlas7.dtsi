@@ -138,6 +138,11 @@
 			ranges = <0x18000000 0x18000000 0x0000ffff>,
 				<0x18010000 0x18010000 0x1000>,
 				<0x18020000 0x18020000 0x1000>,
+				<0x18030000 0x18030000 0x1000>,
+				<0x18040000 0x18040000 0x1000>,
+				<0x18050000 0x18050000 0x1000>,
+				<0x18060000 0x18060000 0x1000>,
+				<0x11000000 0x11000000 0x1000>,
 				<0x18100000 0x18100000 0x3000>;
 
 			dmac0: dma-controller@18000000 {
@@ -169,6 +174,51 @@
 				interrupts = <0 18 0>;
 				clocks = <&clks 95>;
 				fifosize = <32>;
+			};
+			uart2: uart@18030000 {
+				cell-index = <2>;
+				compatible = "sirf,marco-uart";
+				reg = <0x18030000 0x1000>;
+				interrupts = <0 19 0>;
+				clocks = <&clks 98>;
+				fifosize = <128>;
+				status = "disabled";
+			};
+			uart3: uart@18040000 {
+				cell-index = <3>;
+				compatible = "sirf,marco-uart";
+				reg = <0x18040000 0x1000>;
+				interrupts = <0 66 0>;
+				clocks = <&clks 99>;
+				fifosize = <128>;
+				status = "disabled";
+			};
+			uart4: uart@18050000 {
+				cell-index = <4>;
+				compatible = "sirf,marco-uart";
+				reg = <0x18050000 0x1000>;
+				interrupts = <0 69 0>;
+				clocks = <&clks 100>;
+				fifosize = <128>;
+				status = "disabled";
+			};
+			uart5: uart@18060000 {
+				cell-index = <5>;
+				compatible = "sirf,marco-uart";
+				reg = <0x18060000 0x1000>;
+				interrupts = <0 71 0>;
+				clocks = <&clks 101>;
+				fifosize = <128>;
+				status = "disabled";
+			};
+			uart6: uart@11000000 {
+				cell-index = <6>;
+				compatible = "sirf,marco-uart";
+				reg = <0x11000000 0x1000>;
+				interrupts = <0 100 0>;
+				clocks = <&clks 138>;
+				fifosize = <128>;
+				status = "disabled";
 			};
 		};
 
