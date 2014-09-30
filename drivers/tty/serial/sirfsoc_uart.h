@@ -21,6 +21,7 @@ struct sirfsoc_register {
 	u32 sirfsoc_tx_rx_en;
 	u32 sirfsoc_int_en_reg;
 	u32 sirfsoc_int_st_reg;
+	u32 sirfsoc_int_en_clr_reg;
 	u32 sirfsoc_tx_dma_io_ctrl;
 	u32 sirfsoc_tx_dma_io_len;
 	u32 sirfsoc_tx_fifo_ctrl;
@@ -195,6 +196,7 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 		.sirfsoc_divisor	= 0x0050,
 		.sirfsoc_int_en_reg	= 0x0054,
 		.sirfsoc_int_st_reg	= 0x0058,
+		.sirfsoc_int_en_clr_reg	= 0x0060,
 		.sirfsoc_tx_dma_io_ctrl	= 0x0100,
 		.sirfsoc_tx_dma_io_len	= 0x0104,
 		.sirfsoc_tx_fifo_ctrl	= 0x0108,
@@ -297,8 +299,6 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFUART_IO_MODE			BIT(0)
 #define SIRFUART_DMA_MODE			0x0
 
-/* Macro Specific*/
-#define SIRFUART_INT_EN_CLR                    0x0060
 /* Baud Rate Calculation */
 #define SIRF_MIN_SAMPLE_DIV			0xf
 #define SIRF_MAX_SAMPLE_DIV			0x3f
