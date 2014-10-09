@@ -1242,6 +1242,7 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
+	mutex_init(&fbdev->mtx);
 	fbdev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, fbdev);
 
