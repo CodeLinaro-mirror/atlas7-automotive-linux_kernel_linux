@@ -597,6 +597,7 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 {
 	u32 rsc_info[3];
 	void *tx_buffer, *rx_buffer;
+	struct resource_table *rsc_table;
 	int ret;
 
 	ret = of_irq_get(pdev->dev.of_node, 0);
@@ -639,9 +640,25 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	else
 		srproc->rsc_table_pa = (void __iomem *)rsc_info[1];
 
-	if (!srproc->rsc_table_pa)
+	if (!srproc->rsc_table_pa) {
+		ret = -ENOMEM;
 		goto free_io;
+	}
 
+	if (srproc->hwinfo->features & RPROC_F_BACKEND)
+		goto setup_rsc;
+
+	rsc_table = srproc->rsc_table_pa;
+	if (rsc_table->ver != 1 &&
+		rsc_table->ver != RPROC_RSC_TABLE_VER_DUAL_OS) {
+		dev_err(&pdev->dev,
+			"unsupported fw ver: %d\n",
+			rsc_table->ver);
+		ret = -EINVAL;
+		goto free_io;
+	}
+
+setup_rsc:
 	srproc->rsc_table_len = rsc_info[2] - srproc->fifo_sz * 2;
 
 	tx_buffer = srproc->rsc_table_pa + srproc->rsc_table_len +
@@ -666,10 +683,13 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 
 free_io:
 	iounmap(srproc->io_base);
+	srproc->io_base = NULL;
 
 free_rsc:
-	if (srproc->hwinfo->features & RPROC_F_BACKEND)
+	if (srproc->hwinfo->features & RPROC_F_BACKEND) {
 		iounmap(srproc->rsc_table_pa);
+		srproc->rsc_table_pa = NULL;
+	}
 
 failed:
 	return ret;
