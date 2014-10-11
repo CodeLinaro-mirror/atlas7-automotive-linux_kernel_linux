@@ -21,6 +21,32 @@
 
 #include "remoteproc_internal.h"
 
+/* Definition of IPC interrupts' Trigger Registers offset */
+#define TR_S_NS_1	0x0000
+#define TR_S_NS_2	0x0004
+#define TR_S_M3_1	0x0008
+#define TR_S_M3_2	0x000C
+#define TR_S_KAS_1	0x0010
+#define TR_S_KAS_2	0x0014
+#define TR_NS_S_1	0x0100
+#define TR_NS_S_2	0x0104
+#define TR_NS_M3_1	0x0108
+#define TR_NS_M3_2	0x010C
+#define TR_NS_KAS_1	0x0110
+#define TR_NS_KAS_2	0x0114
+#define TR_M3_S_1	0x0200
+#define TR_M3_S_2	0x0204
+#define TR_M3_NS_1	0x0208
+#define TR_M3_NS_2	0x020C
+#define TR_M3_KAS_1	0x0210
+#define TR_M3_KAS_2	0x0214
+#define TR_KAS_S_1	0x0300
+#define TR_KAS_S_2	0x0304
+#define TR_KAS_NS_1	0x0308
+#define TR_KAS_NS_2	0x030C
+#define TR_KAS_M3_1	0x0310
+#define TR_KAS_M3_2	0x0314
+
 enum sirf_rproc_idx {
 #ifdef CONFIG_CSRVISOR_DUALOS
 	S2NS0,
@@ -36,6 +62,35 @@ enum sirf_rproc_idx {
 	NS2M31,
 	NS2KAL0,
 	NS2KAL1,
+};
+
+enum sirf_rproc_hwspinlock_idx {
+#ifdef CONFIG_CSRVISOR_DUALOS
+	S2NS0_WL,
+	S2NS0_RL,
+	S2NS1_WL,
+	S2NS1_RL,
+	NS2S0_WL,
+	NS2S0_RL,
+	NS2S1_WL,
+	NS2S1_RL,
+	S2M30_WL,
+	S2M30_RL,
+	S2M31_WL,
+	S2M31_RL,
+	S2KAL0_WL,
+	S2KAL0_RL,
+	S2KAL1_WL,
+	S2KAL1_RL,
+#endif
+	NS2M30_WL,
+	NS2M30_RL,
+	NS2M31_WL,
+	NS2M31_RL,
+	NS2KAL0_WL,
+	NS2KAL0_RL,
+	NS2KAL1_WL,
+	NS2KAL1_RL,
 };
 
 #define DEF_FEATURES	(RPROC_F_DEVICE_MMIO | RPROC_F_DYNAMIC_VQ | \
@@ -371,102 +426,102 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 #ifdef CONFIG_CSRVISOR_DUALOS
 	{
 	  .name = "s2ns0-rproc",
-	  .setreg = 0x0, .clrreg = 0x100,
+	  .setreg = TR_S_NS_1, .clrreg = TR_NS_S_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 0, .r_fifo_lock = 1,
+	  .w_fifo_lock = S2NS0_WL, .r_fifo_lock = S2NS0_RL,
 	  .fifo_sz = 0x10000,
 	  .features = S_FEATURES,
 	  .vdev_num = ARRAY_SIZE(s2ns0_rproc_vdev_desc),
 	  .vdev_desc = s2ns0_rproc_vdev_desc,
 	}, {
 	  .name = "s2ns1-rproc",
-	  .setreg = 0x04, .clrreg = 0x104,
+	  .setreg = TR_S_NS_2, .clrreg = TR_NS_S_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 2, .r_fifo_lock = 3,
+	  .w_fifo_lock = S2NS1_WL, .r_fifo_lock = S2NS1_RL,
 	  .fifo_sz = 0x10000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "ns2s0-rproc",
-	  .setreg = 0x100, .clrreg = 0x0,
+	  .setreg = TR_NS_S_1, .clrreg = TR_S_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .w_fifo_lock = 4, .r_fifo_lock = 5,
+	  .w_fifo_lock = NS2S0_WL, .r_fifo_lock = NS2S0_RL,
 	  .fifo_sz = 0x10000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2s1-rproc",
-	  .setreg = 0x104, .clrreg = 0x04,
+	  .setreg = TR_NS_S_2, .clrreg = TR_S_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .w_fifo_lock = 6, .r_fifo_lock = 7,
+	  .w_fifo_lock = NS2S1_WL, .r_fifo_lock = NS2S1_RL,
 	  .fifo_sz = 0x10000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "s2m30-rproc",
-	  .setreg = 0x08, .clrreg = 0x200,
+	  .setreg = TR_S_M3_1, .clrreg = TR_M3_S_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 9, .r_fifo_lock = 9,
+	  .w_fifo_lock = S2M30_WL, .r_fifo_lock = S2M30_RL,
 	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "s2m31-rproc",
-	  .setreg = 0x0C, .clrreg = 0x204,
+	  .setreg = TR_S_M3_2, .clrreg = TR_M3_S_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 10, .r_fifo_lock = 11,
+	  .w_fifo_lock = S2M31_WL, .r_fifo_lock = S2M31_RL,
 	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "s2kal0-rproc",
-	  .setreg = 0x10, .clrreg = 0x300,
+	  .setreg = TR_S_KAS_1, .clrreg = TR_KAS_S_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 12, .r_fifo_lock = 13,
+	  .w_fifo_lock = S2KAL0_WL, .r_fifo_lock = S2KAL0_RL,
 	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	}, {
 	  .name = "s2kal1-rproc",
-	  .setreg = 0x14, .clrreg = 0x304,
+	  .setreg = TR_S_KAS_2, .clrreg = TR_KAS_S_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 14, .r_fifo_lock = 15,
+	  .w_fifo_lock = S2KAL1_WL, .r_fifo_lock = S2KAL1_RL,
 	  .fifo_sz = 0x1000,
 	  .features = S_FEATURES,
 	},
 #endif
 	{
 	  .name = "ns2m30-rproc",
-	  .setreg = 0x108, .clrreg = 0x208,
+	  .setreg = TR_NS_M3_1, .clrreg = TR_M3_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 16, .r_fifo_lock = 17,
+	  .w_fifo_lock = NS2M30_WL, .r_fifo_lock = NS2M30_RL,
 	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2m31-rproc",
-	  .setreg = 0x1C, .clrreg = 0x2C,
+	  .setreg = TR_NS_M3_2, .clrreg = TR_M3_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 18, .r_fifo_lock = 19,
+	  .w_fifo_lock = NS2M31_WL, .r_fifo_lock = NS2M31_RL,
 	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2kal0-rproc",
-	  .setreg = 0x110, .clrreg = 0x308,
+	  .setreg = TR_NS_KAS_1, .clrreg = TR_KAS_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 20, .r_fifo_lock = 21,
+	  .w_fifo_lock = NS2KAL0_WL, .r_fifo_lock = NS2KAL0_RL,
 	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2kal1-rproc",
-	  .setreg = 0x114, .clrreg = 0x3C,
+	  .setreg = TR_NS_KAS_2, .clrreg = TR_KAS_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = 22, .r_fifo_lock = 23,
+	  .w_fifo_lock = NS2KAL1_WL, .r_fifo_lock = NS2KAL1_RL,
 	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}
