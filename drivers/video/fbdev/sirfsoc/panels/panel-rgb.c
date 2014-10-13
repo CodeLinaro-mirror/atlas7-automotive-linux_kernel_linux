@@ -226,7 +226,8 @@ static int panel_rgb_probe_of(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	videomode_from_timings(timings, &vm, 0);
+	videomode_from_timings(timings, &vm, timings->native_mode);
+	display_timings_release(timings);
 	videomode_to_sirfsoc_video_timings(&vm, &pdata->timings);
 
 	of_property_read_string(node, "source", &source);
