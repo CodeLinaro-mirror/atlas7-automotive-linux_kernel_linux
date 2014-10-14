@@ -657,7 +657,9 @@ static __initdata struct atlas7_div_init_data divider_list[] = {
 	{"sys2pll_qa3", "sys2pll_fixdiv", "sys2pll_a3", 0, 0, 0, SIRFSOC_CLKC_RGMII_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_RGMII_CLKDIV_ENA, 8, &rgmii_div_lock},
 	{"sys3pll_qa3", "sys3pll_fixdiv", "sys3pll_a3", 0, 0, 0, SIRFSOC_CLKC_RGMII_CLKDIV_CFG, 24, 6, SIRFSOC_CLKC_RGMII_CLKDIV_ENA, 12, &rgmii_div_lock},
 	{"sys0pll_qa4", "sys0pll_fixdiv", "sys0pll_a4", 0, 0, 0, SIRFSOC_CLKC_CPU_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_CPU_CLKDIV_ENA, 0, &cpu_div_lock},
-	{"sys1pll_qa4", "sys1pll_fixdiv", "sys1pll_a4", 0, 0, 0, SIRFSOC_CLKC_CPU_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_CPU_CLKDIV_ENA, 4, &cpu_div_lock},
+	{"sys1pll_qa4", "sys1pll_fixdiv", "sys1pll_a4",
+		0, 0, CLK_IGNORE_UNUSED, SIRFSOC_CLKC_CPU_CLKDIV_CFG,
+			8, 6, SIRFSOC_CLKC_CPU_CLKDIV_ENA, 4, &cpu_div_lock},
 	{"sys0pll_qa5", "sys0pll_fixdiv", "sys0pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 0, &sdphy01_div_lock},
 	{"sys1pll_qa5", "sys1pll_fixdiv", "sys1pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 8, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 4, &sdphy01_div_lock},
 	{"sys2pll_qa5", "sys2pll_fixdiv", "sys2pll_a5", 0, 0, 0, SIRFSOC_CLKC_SDPHY01_CLKDIV_CFG, 16, 6, SIRFSOC_CLKC_SDPHY01_CLKDIV_ENA, 8, &sdphy01_div_lock},
@@ -1182,7 +1184,8 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"thgpum_nocr", "gpum_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 2, &leaf7_gate_lock},
 	{"a7ca_btss", "btm_btss", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 2, &leaf8_gate_lock},
 	{"dmac4_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 3, &leaf8_gate_lock},
-	{"uart6_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 4, &leaf8_gate_lock},
+	{"uart6_io", "btm_io", CLK_IGNORE_UNUSED,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 4, &leaf8_gate_lock},
 	{"usp3_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 5, &leaf8_gate_lock},
 	{"a7ca_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
 	{"thbtm_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 7, &leaf8_gate_lock},
@@ -1419,10 +1422,10 @@ void __init atlas7_clk_init(struct device_node *np)
 				14, 0, &cpupll_ctrl1_lock);
 	BUG_ON(!clk);
 
-
 	clk = clk_register_gate(NULL, "mempll_clk1", "mempll_div1",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1,
-				12, 0, &mempll_ctrl1_lock);
+		CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
+		sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1,
+		12, 0, &mempll_ctrl1_lock);
 	BUG_ON(!clk);
 	clk = clk_register_gate(NULL, "mempll_clk2", "mempll_div2",
 		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1,
