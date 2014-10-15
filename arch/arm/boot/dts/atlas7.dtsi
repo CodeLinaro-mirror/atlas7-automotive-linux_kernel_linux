@@ -254,7 +254,6 @@
 				clocks = <&clks 116>, <&clks 118>;
 				clock-names = "core", "iface";
 				wp-inverted;
-				broken-cd;
 				non-removable;
 				status = "disabled";
 				bus-width = <8>;
@@ -291,9 +290,6 @@
 				interrupts = <0 23 0>;
 				clocks = <&clks 77>, <&clks 82>;
 				clock-names = "core", "iface";
-				wp-inverted;
-				broken-cd;
-				non-removable;
 				status = "disabled";
 				bus-width = <4>;
 				vqmmc: vqmmc@2 {
