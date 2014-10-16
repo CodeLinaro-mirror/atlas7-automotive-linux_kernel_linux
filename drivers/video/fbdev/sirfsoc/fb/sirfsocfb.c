@@ -578,6 +578,8 @@ static int sirfsocfb_pan_display(struct fb_var_screeninfo *var,
 {
 	struct sirfsocfb_info *sfbi = FB2SFB(fbi);
 	struct fb_var_screeninfo new_var;
+	struct sirfsoc_vdss_panel *panel = fb2display(fbi);
+	struct sirfsoc_vdss_screen *scn;
 	int r;
 
 	DBG("pan_display(%d)\n", FB2SFB(fbi)->id);
@@ -597,6 +599,10 @@ static int sirfsocfb_pan_display(struct fb_var_screeninfo *var,
 	r = sirfsocfb_apply_changes(fbi, 0);
 
 	sirfsocfb_put_mem_region(sfbi->region);
+
+	scn = sirfsoc_vdss_find_screen_from_panel(panel);
+	if (var->activate & FB_ACTIVATE_VBL)
+		scn->wait_for_vsync(scn);
 
 	return r;
 }
