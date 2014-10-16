@@ -1072,7 +1072,8 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"mediam_nand", "nand_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 26, &root0_gate_lock},
 	{"gnssm_sec", "xinw", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 27, &root0_gate_lock},
 	{"cpum_cpu", "cpu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 28, &root0_gate_lock},
-	{"memm_mem", "mempll_clk1", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 29, &root0_gate_lock},
+	{"memm_mem", "mempll_clk1", CLK_IGNORE_UNUSED,
+			SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 29, &root0_gate_lock},
 	{"gnssm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 30, &root0_gate_lock},
 	{"btm_btss", "btss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 0, &root1_gate_lock},
 	{"mediam_usbphy", "usbphy_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 1, &root1_gate_lock},
@@ -1085,9 +1086,12 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"gpum_nocd", "nocd_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 8, &root1_gate_lock},
 	{"audmscm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 9, &root1_gate_lock},
 	{"vdifm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 10, &root1_gate_lock},
-	{"gnssm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 11, &root1_gate_lock},
-	{"mediam_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 12, &root1_gate_lock},
-	{"ddrm_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 13, &root1_gate_lock},
+	{"gnssm_nocr", "nocr_mux", CLK_IGNORE_UNUSED,
+		SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 11, &root1_gate_lock},
+	{"mediam_nocr", "nocr_mux", CLK_IGNORE_UNUSED,
+		SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 12, &root1_gate_lock},
+	{"ddrm_nocr", "nocr_mux", CLK_IGNORE_UNUSED,
+		SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 13, &root1_gate_lock},
 	{"gpum_nocr", "nocr_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 15, &root1_gate_lock},
 	{"gnssm_rgmii", "rgmii_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 16, &root1_gate_lock},
 	{"gnssm_can", "can_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 17, &root1_gate_lock},
@@ -1171,7 +1175,8 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"usbphy0_usbphy", "mediam_usbphy", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 13, &leaf4_gate_lock},
 	{"usbphy1_usbphy", "mediam_usbphy", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 14, &leaf4_gate_lock},
 	{"thmediam_io", "mediam_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN4_SET, 15, &leaf4_gate_lock},
-	{"memc_mem", "mempll_clk1", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 0, &leaf5_gate_lock},
+	{"memc_mem", "mempll_clk1", CLK_IGNORE_UNUSED,
+		SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 0, &leaf5_gate_lock},
 	{"dapa_mem", "mempll_clk1", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 1, &leaf5_gate_lock},
 	{"nocddrm_nocr", "ddrm_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 2, &leaf5_gate_lock},
 	{"thddrm_nocr", "ddrm_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN5_SET, 3, &leaf5_gate_lock},
@@ -1184,7 +1189,7 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"thgpum_nocr", "gpum_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 2, &leaf7_gate_lock},
 	{"a7ca_btss", "btm_btss", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 2, &leaf8_gate_lock},
 	{"dmac4_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 3, &leaf8_gate_lock},
-	{"uart6_io", "btm_io", CLK_IGNORE_UNUSED,
+	{"uart6_io", "btm_io", 0,
 		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 4, &leaf8_gate_lock},
 	{"usp3_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 5, &leaf8_gate_lock},
 	{"a7ca_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
@@ -1224,30 +1229,28 @@ static int unit_clk_is_enabled(struct clk_hw *hw)
 
 static int unit_clk_enable(struct clk_hw *hw)
 {
-	u32 val, reg;
+	u32 reg;
 	struct clk_unit *clk = to_unitclk(hw);
 	unsigned long flags = 0;
 
 	reg = clk->regofs;
 
 	spin_lock_irqsave(clk->lock, flags);
-	val = clkc_readl(reg) | BIT(clk->bit);
-	clkc_writel(val, reg);
+	clkc_writel(BIT(clk->bit), reg);
 	spin_unlock_irqrestore(clk->lock, flags);
 	return 0;
 }
 
 static void unit_clk_disable(struct clk_hw *hw)
 {
-	u32 val, reg;
+	u32  reg;
 	struct clk_unit *clk = to_unitclk(hw);
 	unsigned long flags = 0;
 
 	reg = clk->regofs + SIRFSOC_CLKC_ROOT_CLK_EN0_CLR - SIRFSOC_CLKC_ROOT_CLK_EN0_SET;
 
 	spin_lock_irqsave(clk->lock, flags);
-	val = clkc_readl(reg) | BIT(clk->bit);
-	clkc_writel(val, reg);
+	clkc_writel(BIT(clk->bit), reg);
 	spin_unlock_irqrestore(clk->lock, flags);
 }
 
@@ -1260,7 +1263,7 @@ static struct clk_ops unit_clk_ops = {
 static struct clk * __init
 atlas7_unit_clk_register(struct device *dev, const char *name,
 		 const char *parent_name, unsigned long flags,
-		 u8 regofs, u8 bit, spinlock_t *lock)
+		 u32 regofs, u8 bit, spinlock_t *lock)
 {
 	struct clk *clk;
 	struct clk_unit *unit;
