@@ -559,6 +559,40 @@ static void vdss_screen_get_info(struct sirfsoc_vdss_screen *scn,
 	spin_unlock_irqrestore(&data_lock, flags);
 }
 
+static int vdss_screen_wait_for_vsync(struct sirfsoc_vdss_screen *scn)
+{
+	void irq_handler(void *data, u32 mask)
+	{
+		complete((struct completion *)data);
+	}
+	unsigned long timeout = msecs_to_jiffies(100);
+	int r;
+	DECLARE_COMPLETION_ONSTACK(completion);
+
+	if (scn->output == NULL)
+		return -ENODEV;
+
+	r = sirfsoc_lcdc_register_isr(irq_handler, &completion,
+		LCDC_INT_VSYNC);
+
+	if (r)
+		return r;
+
+	timeout = wait_for_completion_interruptible_timeout(&completion,
+		timeout);
+
+	sirfsoc_lcdc_unregister_isr(irq_handler, &completion,
+		LCDC_INT_VSYNC);
+
+	if (timeout == 0)
+		return -ETIMEDOUT;
+
+	if (timeout == -ERESTARTSYS)
+		return -ERESTARTSYS;
+
+	return r;
+}
+
 int vdss_screen_set_output(struct sirfsoc_vdss_screen *scn,
 	struct sirfsoc_vdss_output *output)
 {
@@ -823,6 +857,7 @@ int vdss_init_screens(void)
 		scn->apply = sirfsoc_vdss_screen_apply;
 		scn->set_info = vdss_screen_set_info;
 		scn->get_info = vdss_screen_get_info;
+		scn->wait_for_vsync = vdss_screen_wait_for_vsync;
 	}
 
 	return 0;
