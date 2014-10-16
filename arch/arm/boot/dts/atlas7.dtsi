@@ -164,9 +164,10 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18010000 0x1000>;
 				interrupts = <0 17 0>;
-				clocks = <&clks 95>;
+				clocks = <&clks 97>;
 				fifosize = <32>;
 			};
+
 			uart1: uart@18020000 {
 				cell-index = <1>;
 				compatible = "sirf,marco-uart";
@@ -175,6 +176,7 @@
 				clocks = <&clks 95>;
 				fifosize = <32>;
 			};
+
 			uart2: uart@18030000 {
 				cell-index = <2>;
 				compatible = "sirf,marco-uart";
