@@ -444,13 +444,28 @@
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x18810000 0x18810000 0x3000>;
+			ranges = <0x18810000 0x18810000 0x3000>,
+					<0x18840000 0x18840000 0x1000>;
+
 			rtcm@18810000 {
 				compatible = "sirf,nocfw-rtcm";
 				reg = <0x18810000 0x3000>;
 				interrupts = <0 109 0>;
 			};
-		};
 
+			rtc-iobg@18840000 {
+				compatible = "sirf,prima2-rtciobg",
+						"sirf-prima2-rtciobg-bus", "simple-bus";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				reg = <0x18840000 0x1000>;
+
+				sysrtc@2000 {
+					compatible = "sirf,prima2-sysrtc";
+					reg = <0x2000 0x100>;
+					interrupts = <0 52 0>;
+				};
+			};
+		};
 	};
 };
