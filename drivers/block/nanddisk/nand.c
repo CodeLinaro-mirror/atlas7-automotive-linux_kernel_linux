@@ -32,6 +32,7 @@
 #include <linux/memblock.h>
 #include <linux/suspend.h>
 #include <linux/sirfsoc_dma.h>
+#include <linux/nanddisk/ioctl.h>
 
 #include "nanddisk.h"
 
@@ -622,9 +623,59 @@ int nand_getgeo(struct block_device *block_device, struct hd_geometry *geo)
 	return 0;
 }
 
+static int nanddisk_locked_ioctl(struct block_device *bdev,
+		fmode_t mode, unsigned int cmd, unsigned long arg)
+{
+	struct nanddisk_device *nd = bdev->bd_disk->private_data;
+	struct nanddisk_ioctl nctl;
+
+	switch (cmd) {
+	case NANDDISK_IOCTL:
+		/* Copy the user command info to our buffer. */
+		if (copy_from_user(&nctl, (void __user *)arg,
+					sizeof(nctl)))
+			return -EFAULT;
+
+		if (!nd->pfn_ioctrl(0, nctl.op, nctl.in_buf,
+					nctl.in_buf_size, nctl.out_buf,
+					nctl.out_buf_size, NULL)) {
+			pr_err("%s:op is %x.\n", __func__, nctl.op);
+			return -EIO;
+		}
+
+		/* Copy the status back to the users buffer. */
+		if (copy_to_user((void __user *)arg, &nctl,
+					sizeof(nctl)))
+			return -EFAULT;
+
+		break;
+	default:
+		return -EINVAL;
+
+	}
+
+	return 0;
+}
+
+static int nanddisk_ioctl(struct block_device *bdev,
+		fmode_t mode, unsigned int cmd, unsigned long arg)
+{
+	struct nanddisk_device *nd = bdev->bd_disk->private_data;
+	int ret;
+
+	mutex_lock(&nd->mutex);
+
+	ret = nanddisk_locked_ioctl(bdev, mode, cmd, arg);
+
+	mutex_unlock(&nd->mutex);
+
+	return ret;
+}
+
 static const struct block_device_operations nand_ops = {
 	.owner  = THIS_MODULE,
-	.getgeo = nand_getgeo
+	.getgeo = nand_getgeo,
+	.ioctl	= nanddisk_ioctl
 };
 
 static int sirfsoc_nand_resume_noirq(struct device *dev)

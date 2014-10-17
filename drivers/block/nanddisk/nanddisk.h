@@ -250,8 +250,6 @@ struct NAND_ZONE {
 	 */
 	unsigned        boot_sec_num;
 	unsigned        *boot_sec_map;
-
-
 };
 
 
