@@ -113,11 +113,7 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_sirf_priv *priv = sdhci_pltfm_priv(pltfm_host);
-#ifdef CONFIG_A7DA_FPGA
-		return 20000000;
-#else
-		return clk_get_rate(priv->clk);
-#endif
+	return clk_get_rate(priv->clk);
 }
 
 static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host,
@@ -163,53 +159,6 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
 };
-#ifdef CONFIG_A7DA_FPGA
-static void __iomem *sirf_sd_fun_clr_3;
-static void __iomem *sirf_sd_fun_set_3;
-static void __iomem *sirf_sd_fun_clr_16;
-static void __iomem *sirf_sd_fun_set_16;
-static void __iomem *sirf_sd_fun_clr_1;
-static void __iomem *sirf_sd_fun_set_1;
-static void __iomem *sirf_sd_pull_clr_2;
-static void __iomem *sirf_sd_pull_set_2;
-static void __iomem *sirf_sd_pull_clr_11;
-static void __iomem *sirf_sd_pull_set_11;
-static void __iomem *sirf_sd_pull_clr_1;
-static void __iomem *sirf_sd_pull_set_1;
-
-static void sirf_sdio_pin_ioremap(void)
-{
-	  sirf_sd_fun_clr_3 = (void __iomem *)ioremap(0x10e4009c, 0x4);
-	  sirf_sd_fun_set_3 = (void __iomem *)ioremap(0x10e40098, 0x4);
-	  sirf_sd_fun_clr_16 = (void __iomem *)ioremap(0x10e40104, 0x4);
-	  sirf_sd_fun_set_16 = (void __iomem *)ioremap(0x10e40100, 0x4);
-	  sirf_sd_fun_clr_1 = (void __iomem *)ioremap(0x10e4008c, 0x4);
-	  sirf_sd_fun_set_1 = (void __iomem *)ioremap(0x10e40088, 0x4);
-	  sirf_sd_pull_clr_2 = (void __iomem *)ioremap(0x10e40194, 0x4);
-	  sirf_sd_pull_set_2 = (void __iomem *)ioremap(0x10e40190, 0x4);
-	  sirf_sd_pull_clr_11 = (void __iomem *)ioremap(0x10e40254, 0x4);
-	  sirf_sd_pull_set_11 = (void __iomem *)ioremap(0x10e40250, 0x4);
-	  sirf_sd_pull_clr_1 = (void __iomem *)ioremap(0x10e4018c, 0x4);
-	  sirf_sd_pull_set_1 = (void __iomem *)ioremap(0x10e40188, 0x4);
-}
-
-static void sd2_config_pads(void)
-{
-	sirf_sdio_pin_ioremap();
-	writel(0x00111111, sirf_sd_fun_clr_3);
-	writel(0x00111111, sirf_sd_fun_set_3);
-	writel(0x00220000, sirf_sd_fun_clr_16);
-	writel(0x00220000, sirf_sd_fun_set_16);
-	writel(0x00200000, sirf_sd_fun_clr_1);
-	writel(0x00200000, sirf_sd_fun_set_1);
-	writel(0x0, sirf_sd_pull_clr_2);
-	writel(0x0, sirf_sd_pull_set_2);
-	writel(0x00005055, sirf_sd_pull_clr_11);
-	writel(0x00005055, sirf_sd_pull_set_11);
-	writel(0x00015155, sirf_sd_pull_clr_1);
-	writel(0x00015155, sirf_sd_pull_set_1);
-}
-#endif
 
 static int sdhci_sirf_probe(struct platform_device *pdev)
 {
@@ -220,9 +169,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	struct device_node *np, *child;
 	int gpio_cd;
 	int ret;
-#ifdef CONFIG_A7DA_FPGA
-		sd2_config_pads();
-#endif
 
 	np = pdev->dev.of_node;
 
@@ -238,7 +184,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 	pltfm_host->priv = priv;
 	/* CSR refine for trig */
 	priv->loopdma = of_property_read_bool(pdev->dev.of_node, "loop-dma");
-#ifndef CONFIG_A7DA_FPGA
 
 	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
 		priv->has_pclk = true;
@@ -269,7 +214,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	}
-#endif
 	if (np) {
 		gpio_cd = of_get_named_gpio(pdev->dev.of_node, "cd-gpios", 0);
 		priv->power_gpio = of_get_named_gpio(pdev->dev.of_node,
@@ -286,7 +230,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	sdhci_get_of_property(pdev);
 	mmc_of_parse(host->mmc);
-#ifndef CONFIG_A7DA_FPGA
+
 	ret = clk_prepare_enable(priv->clk);
 	if (ret)
 		goto err_clk_prepare;
@@ -296,7 +240,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		if (ret)
 			goto err_pclk_prepare;
 	}
-#endif
+
 	host->quirks2 = SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
