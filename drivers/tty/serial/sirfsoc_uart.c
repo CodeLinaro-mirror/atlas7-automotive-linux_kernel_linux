@@ -1026,7 +1026,6 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (unlikely(clk_div_reg == 0))
 			clk_div_reg = sirfsoc_uart_calc_sample_div(baud_rate,
 					ioclk_rate, &set_baud);
-
 		if (!of_machine_is_compatible("sirf,atlas7"))
 			wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
 	} else {
@@ -1052,7 +1051,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 	wr_regl(port, ureg->sirfsoc_tx_fifo_op,
 			(txfifo_op_reg & ~SIRFUART_FIFO_START));
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
-		config_reg |= SIRFUART_RECV_TIMEOUT(port, rx_time_out);
+		config_reg |= SIRFUART_UART_RECV_TIMEOUT(rx_time_out);
 		wr_regl(port, ureg->sirfsoc_line_ctrl, config_reg);
 	} else {
 		/*tx frame ctrl*/
@@ -1075,7 +1074,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		wr_regl(port, ureg->sirfsoc_rx_frame_ctrl, len_val);
 		/*async param*/
 		wr_regl(port, ureg->sirfsoc_async_param_reg,
-			(SIRFUART_RECV_TIMEOUT(port, rx_time_out)) |
+			(SIRFUART_USP_RECV_TIMEOUT(rx_time_out)) |
 			(sample_div_reg & SIRFSOC_USP_ASYNC_DIV2_MASK) <<
 			SIRFSOC_USP_ASYNC_DIV2_OFFSET);
 	}

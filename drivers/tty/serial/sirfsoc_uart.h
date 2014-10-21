@@ -331,8 +331,8 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFSOC_UART_RX_TIMEOUT(br, to)	(((br) * (((to) + 999) / 1000)) / 1000)
 #define SIRFUART_RECV_TIMEOUT_VALUE(x)	\
 				(((x) > 0xFFFF) ? 0xFFFF : ((x) & 0xFFFF))
-#define SIRFUART_RECV_TIMEOUT(port, x)	\
-		(((port)->line > 2) ? (x & 0xFFFF) : ((x) & 0xFFFF) << 16)
+#define SIRFUART_USP_RECV_TIMEOUT(x)	(x & 0xFFFF)
+#define SIRFUART_UART_RECV_TIMEOUT(x)	((x & 0xFFFF) << 16)
 
 #define SIRFUART_FIFO_THD(port)		((port->line) == 1 ? 16 : 64)
 #define SIRFUART_ERR_INT_STAT(port, unit_st)			\
