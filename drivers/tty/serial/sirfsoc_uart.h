@@ -366,7 +366,7 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFSOC_UART_MINOR			0
 #define SIRFUART_PORT_NAME			"sirfsoc-uart"
 #define SIRFUART_MAP_SIZE			0x200
-#define SIRFSOC_UART_NR				6
+#define SIRFSOC_UART_NR				7
 #define SIRFSOC_PORT_TYPE			0xa5
 
 /* Uart Common Use Macro*/

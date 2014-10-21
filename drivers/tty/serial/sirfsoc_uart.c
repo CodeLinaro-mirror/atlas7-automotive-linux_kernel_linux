@@ -102,6 +102,13 @@ static struct sirfsoc_uart_port sirfsoc_uart_ports[SIRFSOC_UART_NR] = {
 			.line		= 5,
 		},
 	},
+	[6] = {
+		.port = {
+			.iotype		= UPIO_MEM,
+			.flags		= UPF_BOOT_AUTOCONF,
+			.line		= 6,
+		},
+	},
 };
 
 static inline struct sirfsoc_uart_port *to_sirfport(struct uart_port *port)
