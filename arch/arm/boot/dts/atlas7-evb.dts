@@ -46,14 +46,36 @@
 		};
 
                 gnssm {
-                        uart1: uart@18020000 {
-                                status = "okay";
-                        };
+			uart1: uart@18020000 {
+				status = "okay";
+			};
 
                         uart0: uart@18010000 {
-                                status = "okay";
+				status = "okay";
                         };
+
+			uart2: uart@18030000 {
+				status = "okay";
+			};
+
+			uart3: uart@18040000 {
+				status = "okay";
+			};
+
+			uart4: uart@18050000 {
+				status = "okay";
+			};
+
+			uart5: uart@18060000 {
+				status = "okay";
+			};
                 };
+
+		btm {
+			uart6: uart@11000000 {
+				status = "disabled";
+			};
+		};
 
 		ipc@13240000 {
 			ns_m3_rproc@0 {

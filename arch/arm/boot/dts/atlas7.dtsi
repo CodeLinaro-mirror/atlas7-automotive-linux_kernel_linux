@@ -142,7 +142,6 @@
 				<0x18040000 0x18040000 0x1000>,
 				<0x18050000 0x18050000 0x1000>,
 				<0x18060000 0x18060000 0x1000>,
-				<0x11000000 0x11000000 0x1000>,
 				<0x18100000 0x18100000 0x3000>;
 
 			dmac0: dma-controller@18000000 {
@@ -210,15 +209,6 @@
 				reg = <0x18060000 0x1000>;
 				interrupts = <0 71 0>;
 				clocks = <&clks 101>;
-				fifosize = <128>;
-				status = "disabled";
-			};
-			uart6: uart@11000000 {
-				cell-index = <6>;
-				compatible = "sirf,marco-uart";
-				reg = <0x11000000 0x1000>;
-				interrupts = <0 100 0>;
-				clocks = <&clks 138>;
 				fifosize = <128>;
 				status = "disabled";
 			};
@@ -423,7 +413,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x11002000 0x11002000 0x0000ffff>,
-				<0x11010000 0x11010000 0x3000>;
+			       <0x11010000 0x11010000 0x3000>,
+			       <0x11000000 0x11000000 0x1000>;
 
 			dmac4: dma-controller@11002000 {
 				cell-index = <4>;
@@ -433,6 +424,15 @@
 				#clocks = <&clks 25>;
 				#dma-cells = <1>;
 				#dma-channels = <16>;
+			};
+			uart6: uart@11000000 {
+				cell-index = <6>;
+				compatible = "sirf,marco-uart";
+				reg = <0x11000000 0x1000>;
+				interrupts = <0 100 0>;
+				clocks = <&clks 138>;
+				fifosize = <128>;
+				status = "disabled";
 			};
 			btm@11010000 {
 				compatible = "sirf,nocfw-btm";
