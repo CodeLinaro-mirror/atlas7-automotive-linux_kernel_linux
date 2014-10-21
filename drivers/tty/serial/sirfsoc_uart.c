@@ -1026,8 +1026,7 @@ static void sirfsoc_uart_set_termios(struct uart_port *port,
 		if (unlikely(clk_div_reg == 0))
 			clk_div_reg = sirfsoc_uart_calc_sample_div(baud_rate,
 					ioclk_rate, &set_baud);
-		if (!of_machine_is_compatible("sirf,atlas7"))
-			wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
+		wr_regl(port, ureg->sirfsoc_divisor, clk_div_reg);
 	} else {
 		clk_div_reg = sirfsoc_usp_calc_sample_div(baud_rate,
 				ioclk_rate, &sample_div_reg);
@@ -1377,7 +1376,8 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 
 	sirfport->hw_flow_ctrl = of_property_read_bool(pdev->dev.of_node,
 		"sirf,uart-has-rtscts");
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart"))
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart") ||
+		of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
 	if (of_device_is_compatible(pdev->dev.of_node,
 		"sirf,prima2-usp-uart")) {
