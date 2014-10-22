@@ -164,7 +164,7 @@
 				reg = <0x18010000 0x1000>;
 				interrupts = <0 17 0>;
 				clocks = <&clks 97>;
-				fifosize = <32>;
+				fifosize = <128>;
 				dmas = <&dmac0 3>, <&dmac0 2>;
 				dma-names = "rx", "tx";
 			};
