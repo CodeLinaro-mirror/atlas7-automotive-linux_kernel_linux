@@ -1180,13 +1180,20 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{"graphic_gpu", "gpum_gpu", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 0, &leaf7_gate_lock},
 	{"vss_sdr", "gpum_sdr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 1, &leaf7_gate_lock},
 	{"thgpum_nocr", "gpum_nocr", 0, SIRFSOC_CLKC_LEAF_CLK_EN7_SET, 2, &leaf7_gate_lock},
-	{"a7ca_btss", "btm_btss", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 2, &leaf8_gate_lock},
-	{"dmac4_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 3, &leaf8_gate_lock},
+	{"a7ca_btss", "btm_btss", 0,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 1, &leaf8_gate_lock},
+	{"dmac4_io", "btm_io", 0,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 2, &leaf8_gate_lock},
 	{"uart6_io", "btm_io", 0,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 3, &leaf8_gate_lock},
+	{"usp3_io", "btm_io", 0,
 		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 4, &leaf8_gate_lock},
-	{"usp3_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 5, &leaf8_gate_lock},
-	{"a7ca_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
-	{"thbtm_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 7, &leaf8_gate_lock},
+	{"a7ca_io", "btm_io", 0,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 5, &leaf8_gate_lock},
+	{"noc_btm_io", "btm_io", 0,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
+	{"thbtm_io", "btm_io", 0,
+		SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 7, &leaf8_gate_lock},
 };
 
 enum atlas7_clk_index {
@@ -1205,7 +1212,7 @@ enum atlas7_clk_index {
 	media_jpenc,   g2d_g2d,       i2c0_io,       i2c1_io,    gpio0_io,    nand_io,        sdio01_io,   sys2pci2_io,  sdio01_sdphy01, nand_nand,
 	usb0_usb,      usb1_usb,    usbphy0_usbphy, usbphy1_usbphy, thmediam_io, memc_mem,  dapa_mem,    nocddrm_nocr, thddrm_nocr,  spram1_cpudiv2,
 	spram2_cpudiv2,	coresight_cpudiv2, thcpum_cpudiv4, graphic_gpu, vss_sdr, thgpum_nocr, a7ca_btss,   dmac4_io,     uart6_io,     usp3_io,
-	a7ca_io,	thbtm_io,      maxclk,
+	a7ca_io,	noc_btm_io,   thbtm_io,      maxclk,
 };
 
 static struct clk *atlas7_clks[maxclk];
