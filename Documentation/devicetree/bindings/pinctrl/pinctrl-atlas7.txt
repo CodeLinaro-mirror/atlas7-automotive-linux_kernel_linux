@@ -1,0 +1,104 @@
+CSR SiRFatlas7 pinmux controller
+
+Required properties:
+- compatible	: "sirf,atlas7-ioc"
+- reg		: Address range of the pinctrl registers
+
+- sirf,pull-pins: An array of string that describe the pins that
+  have pull selector.
+
+- sirf,pull-selectors: An array of string that describe the pull
+  selector of sirf,pull-pins specified pins.
+
+- sirf,drive-strength-pins:An array of string that describe the pins that
+  have drive strength selector.
+
+- sirf,drive-strength-selectors: An array of string that describe the
+  drive strength selector of drive-strength-pins specified pins.
+
+For example, pinctrl might have properties like the following:
+	pinctrl: ioc@18880000 {
+			compatible = "sirf,atlas7-ioc";
+			reg = <0x18880000 0x1000>;
+
+			a_ac97_pmx: ac97@0 {
+				ac97 {
+					sirf,pins = "audio_ac97_grp";
+					sirf,function = "audio_ac97";
+				};
+			};
+
+			...
+
+			sd2_pmx: sd2@0 {
+				sd2 {
+					sirf,pins = "sd2_grp0";
+					sirf,function = "sd2";
+				};
+			};
+
+			...
+
+			sirf,pull-pins = "spi1_dout", "ldd_2", "trg_acq_clk",
+					"ldd_15", "i2s_dout2";
+
+			sirf,pull-selectors = "pull_up", "pull_up", "pull_down",
+					"high_hysteresis", "high_z";
+
+			sirf,drive-strength-pins = "spi1_en", "trg_spi_cs_b",
+						"ldd_3", "vip_7", "sdio3_clk";
+
+			sirf,drive-strength-selectors = "ds_m31_1", "ds_m31_0",
+						"ds_4we_2", "ds_4we_3", "ds_16st_8";
+	};
+
+Please refer to pinctrl-bindings.txt in this directory for details of the common
+pinctrl bindings used by client devices.
+
+SiRFatlas7's pinmux nodes act as a container for an abitrary number of subnodes.
+Each of these subnodes represents some desired configuration for a group of pins.
+
+Required subnode-properties:
+- sirf,pins : An array of strings. Each string contains the name of a group.
+- sirf,function: A string containing the name of the function to mux to the
+  group.
+
+  Valid values for group and function names can be found from looking at the
+  group and function arrays in driver files:
+  drivers/pinctrl/pinctrl-sirf.c
+
+For example, pinctrl might have subnodes like the following:
+	sd0_pmx: sd0@0 {
+		sd0 {
+			sirf,pins = "sd0_grp";
+			sirf,function = "sd0";
+		};
+	};
+
+	sd1_pmx0: sd1@0 {
+		sd1 {
+			sirf,pins = "sd1_grp0";
+			sirf,function = "sd1_m0";
+		};
+	};
+
+	sd1_pmx1: sd1@1 {
+		sd1 {
+			sirf,pins = "sd1_grp1";
+			sirf,function = "sd1_m1";
+		};
+	};
+
+For a specific board, if it wants to use sd1,
+it can add the following to its board-specific .dts file.
+sd1: sd@0x12340000 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sd1_pmx0>;
+}
+
+or
+
+sd1: sd@0x12340000 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sd1_pmx1>;
+}
