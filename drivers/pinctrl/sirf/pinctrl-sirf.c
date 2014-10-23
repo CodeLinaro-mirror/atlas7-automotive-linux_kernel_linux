@@ -180,8 +180,9 @@ static void sirfsoc_pinmux_endisable(struct sirfsoc_pmx *spmx,
 	}
 }
 
-static int sirfsoc_pinmux_enable(struct pinctrl_dev *pmxdev, unsigned selector,
-	unsigned group)
+static int sirfsoc_pinmux_set_mux(struct pinctrl_dev *pmxdev,
+				unsigned selector,
+				unsigned group)
 {
 	struct sirfsoc_pmx *spmx;
 
@@ -238,7 +239,7 @@ static int sirfsoc_pinmux_request_gpio(struct pinctrl_dev *pmxdev,
 }
 
 static struct pinmux_ops sirfsoc_pinmux_ops = {
-	.enable = sirfsoc_pinmux_enable,
+	.set_mux = sirfsoc_pinmux_set_mux,
 	.get_functions_count = sirfsoc_pinmux_get_funcs_count,
 	.get_function_name = sirfsoc_pinmux_get_func_name,
 	.get_function_groups = sirfsoc_pinmux_get_groups,
@@ -881,7 +882,7 @@ static int sirfsoc_gpio_probe(struct device_node *np)
 	if (err) {
 		dev_err(&pdev->dev,
 			"could not connect irqchip to gpiochip\n");
-		goto out;
+		goto out_banks;
 	}
 
 	for (i = 0; i < SIRFSOC_GPIO_NO_OF_BANKS; i++) {
@@ -926,8 +927,7 @@ static int sirfsoc_gpio_probe(struct device_node *np)
 
 out_no_range:
 out_banks:
-	if (gpiochip_remove(&sgpio->chip.gc))
-		dev_err(&pdev->dev, "could not remove gpio chip\n");
+	gpiochip_remove(&sgpio->chip.gc);
 out:
 	iounmap(regs);
 	return err;

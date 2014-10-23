@@ -271,6 +271,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 				ret);
 			goto err_request_cd;
 		}
+		mmc_gpiod_request_cd_irq(host->mmc);
 	}
 
 	if (of_device_is_compatible(np, "sirf,prima2-sdhc"))
@@ -395,7 +396,6 @@ MODULE_DEVICE_TABLE(of, sdhci_sirf_of_match);
 static struct platform_driver sdhci_sirf_driver = {
 	.driver		= {
 		.name	= "sdhci-sirf",
-		.owner	= THIS_MODULE,
 		.of_match_table = sdhci_sirf_of_match,
 #ifdef CONFIG_PM_SLEEP
 		.pm	= &sdhci_sirf_pm_ops,

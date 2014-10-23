@@ -64,3 +64,4 @@ js-rtc-y = rtc.o
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
 obj-$(CONFIG_GPS_SIRFSOC)       += sirfsoc_gps.o
 obj-$(CONFIG_TRIG_SIRFSOC)      += sirfsoc_trig.o
+obj-$(CONFIG_XILLYBUS)		+= xillybus/
