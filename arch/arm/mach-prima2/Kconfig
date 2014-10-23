@@ -76,4 +76,9 @@ config ATLAS7DA_NOC
           Support CSR SiRFSoC A7DA Platform NOC bus, with security dram/reg
           firewall and related configure for validation, with errlog shown
           on data abort or interrupt handler when bus transaction failed.
+
+config ATLAS7DA_CSRVISOR_TEST
+        bool "CSR A7DA CSRVISOR tester"
+        default n
+
 endif

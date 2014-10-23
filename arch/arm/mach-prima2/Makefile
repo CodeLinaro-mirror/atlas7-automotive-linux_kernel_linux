@@ -3,6 +3,7 @@ obj-y += common.o
 obj-y += rtciobrg.o
 obj-y += display.o
 
+obj-$(CONFIG_ATLAS7DA_CSRVISOR_TEST) += csrvisor_test.o
 obj-$(CONFIG_ATLAS7DA_NOC) += noc.o
 obj-$(CONFIG_DEBUG_LL) += lluart.o
 obj-$(CONFIG_SUSPEND) += pm.o sleep-prima2.o sleep-marco.o
