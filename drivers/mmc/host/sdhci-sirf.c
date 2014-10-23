@@ -40,6 +40,8 @@ static struct regulator_ops sirf_vqmmc_ops = {
 	.is_enabled  = regulator_is_enabled_regmap,
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.set_bypass = regulator_set_bypass_regmap,
+	.get_bypass = regulator_get_bypass_regmap,
 };
 
 static int sirf_vqmmc_reg_read(void *context, unsigned int reg,
@@ -78,10 +80,11 @@ static struct regulator_desc vqmmc_regulator = {
 	.n_voltages = ARRAY_SIZE(sirf_vqmmc_voltages),
 	.volt_table = sirf_vqmmc_voltages,
 	.enable_reg = SDHCI_SIRF_LDO_CNTL,
-	.enable_is_inverted = 1,
-	.enable_mask = (0x1 << 4),
+	.enable_mask = (0x1 << 3),
 	.vsel_reg = SDHCI_SIRF_LDO_CNTL,
 	.vsel_mask = 0x7,
+	.bypass_reg = SDHCI_SIRF_LDO_CNTL,
+	.bypass_mask = (0x1 << 4),
 };
 
 static int sirf_vqmmc_regulator_init(struct platform_device *pdev,
@@ -142,6 +145,45 @@ static void sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 }
 
+static int sirf_signal_voltage_switch(struct sdhci_host *host,
+	unsigned char voltage)
+{
+	struct mmc_host *mmc = host->mmc;
+	int ret;
+
+	if (IS_ERR(mmc->supply.vqmmc))
+		return 0;
+
+	switch (voltage) {
+	case MMC_SIGNAL_VOLTAGE_330:
+		ret = regulator_allow_bypass(mmc->supply.vqmmc, true);
+		if (ret) {
+			pr_warn("%s: Switching to 3.3V voltage failed\n",
+				mmc_hostname(mmc));
+			return -EIO;
+		}
+			mmc->regulator_enabled = false;
+		/* waiting voltage switch complete */
+		usleep_range(5000, 5500);
+
+		return 0;
+	case MMC_SIGNAL_VOLTAGE_180:
+		ret = regulator_allow_bypass(mmc->supply.vqmmc, false);
+		if (ret) {
+			pr_warn("%s: Switching to 1.8V voltage failed\n",
+				mmc_hostname(mmc));
+			return -EIO;
+		}
+		/* waiting voltage switch complete */
+		usleep_range(5000, 5500);
+
+		return 0;
+	default:
+		/* No signal voltage switch required */
+		return 0;
+	}
+}
+
 static struct sdhci_ops sdhci_sirf_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_max_clock	= sdhci_sirf_get_max_clk,
@@ -149,6 +191,7 @@ static struct sdhci_ops sdhci_sirf_ops = {
 	.set_bus_width = sdhci_sirf_set_bus_width,
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
+	.signal_voltage_switch = sirf_signal_voltage_switch,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {

@@ -1908,6 +1908,10 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	struct sdhci_host *host = mmc_priv(mmc);
 	int err;
 
+	if (host->ops && host->ops->signal_voltage_switch)
+		return host->ops->signal_voltage_switch(host,
+			ios->signal_voltage);
+
 	if (host->version < SDHCI_SPEC_300)
 		return 0;
 	sdhci_runtime_pm_get(host);
