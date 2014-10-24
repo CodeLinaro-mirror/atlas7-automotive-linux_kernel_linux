@@ -151,6 +151,7 @@
 				interrupts = <0 12 0>;
 				clocks = <&clks 96>;
 				dma-channels = <16>;
+				#dma-cells = <1>;
 			};
 			gnssmfw@0x18100000 {
 				compatible = "sirf,nocfw-gnssm";
@@ -430,6 +431,7 @@
 				interrupts = <0 99 0>;
 				clocks = <&clks 137>;
 				dma-channels = <16>;
+				#dma-cells = <1>;
 			};
 			uart6: uart@11000000 {
 				cell-index = <6>;
