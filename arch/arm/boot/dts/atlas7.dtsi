@@ -149,9 +149,8 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x18000000 0x1000>;
 				interrupts = <0 12 0>;
-				#clocks = <&clks 24>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
+				clocks = <&clks 96>;
+				dma-channels = <16>;
 			};
 			gnssmfw@0x18100000 {
 				compatible = "sirf,nocfw-gnssm";
@@ -377,9 +376,8 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d50000 0xffff>;
 				interrupts = <0 55 0>;
-				#clocks = <&clks 25>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
+				clocks = <&clks 67>;
+				dma-channels = <16>;
 			};
 
 			dmac3: dma-controller@10d60000 {
@@ -387,9 +385,8 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d60000 0xffff>;
 				interrupts = <0 56 0>;
-				#clocks = <&clks 24>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
+				clocks = <&clks 68>;
+				dma-channels = <16>;
 			};
 			audiom@10ED0000 {
 				compatible = "sirf,nocfw-audiom";
@@ -423,9 +420,8 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x11002000 0x1000>;
 				interrupts = <0 99 0>;
-				#clocks = <&clks 25>;
-				#dma-cells = <1>;
-				#dma-channels = <16>;
+				clocks = <&clks 137>;
+				dma-channels = <16>;
 			};
 			uart6: uart@11000000 {
 				cell-index = <6>;
