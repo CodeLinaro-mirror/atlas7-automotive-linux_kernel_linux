@@ -327,6 +327,7 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 {
 	unsigned long fin = parent_rate;
 	struct clk_pll *clk = to_pllclk(hw);
+	u64 rate;
 	u32 regctrl0 = clkc_readl(clk->regofs + SIRFSOC_CLKC_MEMPLL_AB_CTRL0 -
 			SIRFSOC_CLKC_MEMPLL_AB_FREQ);
 	u32 regfreq = clkc_readl(clk->regofs);
@@ -337,17 +338,21 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	u32 ssdiv = regssc >> 8 & (BIT(12) - 1);
 	u32 ssdepth = regssc >> 20 & (BIT(2) - 1);
 	u32 ssmod = regssc & (BIT(8) - 1);
-	u32 ssn;
 
 	if (regctrl0 & SIRFSOC_ABPLL_CTRL0_BYPASS)
 		return fin;
 
 	if (regctrl0 & SIRFSOC_ABPLL_CTRL0_SSEN) {
-		ssn = (1 << 24) / (256 * ((ssdiv >> ssdepth) << ssdepth)
-			+ ssmod << ssdepth);
-		return fin * ssn / nr;
-	} else
-		return 2 * fin * nf / nr;
+		rate = fin;
+		rate *= 1 << 24;
+		do_div(rate, (256 * ((ssdiv >> ssdepth) << ssdepth)
+			+ ssmod << ssdepth));
+	} else {
+		rate = 2 * fin;
+		rate *= nf;
+		do_div(rate, nr);
+	}
+	return rate;
 }
 
 static struct clk_ops ab_pll_ops = {
