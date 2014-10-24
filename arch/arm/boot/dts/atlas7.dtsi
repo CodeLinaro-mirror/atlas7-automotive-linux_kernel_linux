@@ -184,6 +184,8 @@
 				interrupts = <0 19 0>;
 				clocks = <&clks 98>;
 				fifosize = <128>;
+				dmas = <&dmac0 6>, <&dmac0 7>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 			uart3: uart@18040000 {
@@ -193,6 +195,8 @@
 				interrupts = <0 66 0>;
 				clocks = <&clks 99>;
 				fifosize = <128>;
+				dmas = <&dmac0 4>, <&dmac0 5>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 			uart4: uart@18050000 {
@@ -202,6 +206,8 @@
 				interrupts = <0 69 0>;
 				clocks = <&clks 100>;
 				fifosize = <128>;
+				dmas = <&dmac0 0>, <&dmac0 1>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 			uart5: uart@18060000 {
@@ -211,6 +217,8 @@
 				interrupts = <0 71 0>;
 				clocks = <&clks 101>;
 				fifosize = <128>;
+				dmas = <&dmac0 8>, <&dmac0 9>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 		};
@@ -430,6 +438,8 @@
 				interrupts = <0 100 0>;
 				clocks = <&clks 138>;
 				fifosize = <128>;
+				dmas = <&dmac4 12>, <&dmac4 13>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 			btm@11010000 {
