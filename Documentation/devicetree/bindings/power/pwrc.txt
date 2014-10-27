@@ -1,0 +1,18 @@
+SiRFSoC Power Controller (PWRC) module
+
+Power Controller is used to control the whole SoC power process.
+The power controller controls the process of Power-On sequence,
+Power-Off sequence, different power modes switching and power
+status configuration. the pwrc is access by io bridge, so the
+node's parent should be io bridge.
+
+Required properties:
+- compatible: "sirf,atlas7-pwrc"
+- reg: Address range of pwrc register set
+
+Example:
+
+pwrc@3000 {
+	compatible = "sirf,atlas7-pwrc";
+	reg = <0x3000 0x100>;
+};

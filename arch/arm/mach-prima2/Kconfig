@@ -81,4 +81,22 @@ config ATLAS7DA_CSRVISOR_TEST
         bool "CSR A7DA CSRVISOR tester"
         default n
 
+config A7DA_PM_PWRC_DEBUG
+	bool "CSR A7DA PWRC debug procfs interface"
+	default n
+	help
+          Support CSR SiRFSoC A7DA Platform PWRC debug interface,
+          the PWRC interface is access through IO BUS, the debug
+          interface in only used to ease of tunning of PWRC that
+          connect by IO bus.
+
+config A7DA_PM_SYSRTC_DEBUG
+        bool "CSR A7DA SYSRTC debug procfs interface"
+        default n
+        help
+          Support CSR SiRFSoC A7DA Platform SYSRTC debug interface,
+          the SYSRTC interface is access through IO BUS, the debug
+          interface in only used to ease of tunning of SYSRTC that
+          connect by IO bus.
+
 endif

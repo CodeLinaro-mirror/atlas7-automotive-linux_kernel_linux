@@ -1,0 +1,16 @@
+
+SiRFSoC retain register module
+
+regtain registers is on always power on domain, thus can be
+used after hibernation or deep sleep.
+
+Required properties:
+- compatible: "sirf,atlas7-retain"
+- reg: Address range of retain register set
+
+Example:
+
+retain@0x188D0000 {
+	compatible = "sirf,atlas7-retain";
+	reg = <0x188D0000 0x80>;
+};

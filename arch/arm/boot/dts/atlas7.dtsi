@@ -660,6 +660,16 @@
 				};
 			};
 		};
+		pmipc {
+				compatible = "arteris, flexnoc", "simple-bus";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0x13240000 0x13240000 0x00010000>;
+				pmipc@0x13240000 {
+					compatible = "sirf,atlas7-pmipc";
+					reg = <0x13240000 0x00010000>;
+				};
+		};
 
 		dramfw {
 			compatible = "arteris, flexnoc", "simple-bus";
@@ -1031,12 +1041,19 @@
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x10820000 0x10820000 0x3000>;
+			ranges = <0x10820000 0x10820000 0x3000>,
+					<0x10800000 0x10800000 0x2000>;
 			ddrm@10820000 {
 				compatible = "sirf,nocfw-ddrm";
 				reg = <0x10820000 0x3000>;
 				interrupts = <0 105 0>;
 			};
+
+			memory-controller@0x10800000 {
+				compatible = "sirf,atlas7-memc";
+				reg = <0x10800000 0x2000>;
+			};
+
 		};
 
 		btm {
@@ -1080,8 +1097,8 @@
 			#size-cells = <1>;
 			ranges = <0x18810000 0x18810000 0x3000>,
 				<0x18840000 0x18840000 0x1000>,
-				<0x18890000 0x18890000 0x1000>;
-
+				<0x18890000 0x18890000 0x1000>,
+				<0x188D0000 0x188D0000 0x1000>;
 			rtcm@18810000 {
 				compatible = "sirf,nocfw-rtcm";
 				reg = <0x18810000 0x3000>;
@@ -1114,7 +1131,17 @@
 					reg = <0x2000 0x100>;
 					interrupts = <0 52 0>;
 				};
+				pwrc@3000 {
+					compatible = "sirf,atlas7-pwrc";
+					reg = <0x3000 0x100>;
+				};
 			};
+
+			retain@0x188D0000 {
+				compatible = "sirf,atlas7-retain";
+				reg = <0x188D0000 0x1000>;
+			};
+
 		};
 	};
 };

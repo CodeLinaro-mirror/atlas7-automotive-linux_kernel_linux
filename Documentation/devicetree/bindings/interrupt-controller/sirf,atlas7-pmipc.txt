@@ -1,0 +1,17 @@
+SIRF Atlas7 Power Management Inter-Processor Communication (IPC) Device Binding
+
+atlas7 SoC Power Management requres CPUs coordinate with one anther, thus
+IPC is needed for Power Management coordinate.
+
+INT_IPC_TRGT2_INIT0_INTR1 is used for this purpose, it is trigger by A7 to notify M3
+
+Required properties:
+- compatible: "sirf,atlas7-pmipc"
+- reg: Address range of power management ipc register set
+
+Example:
+
+pmipc@0x13240000 {
+	compatible = "sirf,atlas7-pmipc";
+	reg = <0x13240000 0x00010000>;
+};

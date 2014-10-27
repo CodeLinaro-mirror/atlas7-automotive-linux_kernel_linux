@@ -29,7 +29,11 @@
  * system sleep
  */
 u32 sirfsoc_pwrc_base;
+u32 sirfsoc_sysrtc_base;
 void __iomem *sirfsoc_memc_base;
+void __iomem *sirfsoc_retain_base;
+void __iomem *sirfsoc_pm_ipc_base;
+
 static int (*sirfsoc_finish_suspend)(unsigned long);
 struct proc_dir_entry *pr_entry;
 
@@ -70,12 +74,14 @@ void sirfsoc_pm_power_off(void)
 static int sirfsoc_pre_suspend_power_off(void)
 {
 	u32 wakeup_entry = virt_to_phys(cpu_resume);
+	if (of_machine_is_compatible("sirf,atlas7"))
+		writel_relaxed(wakeup_entry,
+			sirfsoc_retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
 
-	sirfsoc_rtc_iobrg_writel(wakeup_entry, sirfsoc_pwrc_base +
-		SIRFSOC_PWRC_SCRATCH_PAD1);
-
+	else
+		sirfsoc_rtc_iobrg_writel(wakeup_entry, sirfsoc_pwrc_base +
+			SIRFSOC_PWRC_SCRATCH_PAD1);
 	sirfsoc_set_wakeup_source();
-
 	sirfsoc_set_sleep_mode(SIRFSOC_DEEP_SLEEP_MODE);
 
 	return 0;
@@ -86,7 +92,6 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 	switch (state) {
 	case PM_SUSPEND_MEM:
 		sirfsoc_pre_suspend_power_off();
-
 		outer_disable();
 		/* go zzz */
 		cpu_suspend(0, sirfsoc_finish_suspend);
@@ -106,15 +111,18 @@ static const struct platform_suspend_ops sirfsoc_pm_ops = {
 static const struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc" },
 	{ .compatible = "sirf,marco-pwrc" },
+	{ .compatible = "sirf,atlas7-pwrc" },
 	{}
 };
 
 ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 		char __user *buf, size_t size, loff_t *ppos)
 {
+
 	int i;
 	u32 boot_stat = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
 		SIRFSOC_BOOT_STATUS);
+
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
 		pr_err("Failed to read boot status, mask bits is %d, but read size is %d\n",
 			SIRFSOC_BOOT_STATUS_BITS, size);
@@ -123,7 +131,6 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
 		put_user("01"[(boot_stat >> i) & 0x1], buf + i);
-
 	return size;
 }
 
@@ -151,11 +158,110 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 
 	return size;
 }
+#ifdef CONFIG_A7DA_PM_PWRC_DEBUG
+ssize_t sirfsoc_pwrc_proc_read(struct file *file,
+		char __user *buffer, size_t size, loff_t *ppos)
+{
+	int ret, val, i, pos = 0;
+	char *buf;
+
+	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	for (i = 0; i < 0x9c && strlen(buf) < PAGE_SIZE; i = i + 4) {
+		val = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base + i);
+		pos += scnprintf(buf + pos,
+			PAGE_SIZE - pos,
+			"0x%x:0x%x\n", i, val);
+	}
+
+	ret = simple_read_from_buffer(buffer, size, ppos, buf, pos);
+	kfree(buf);
+	return ret;
+}
+
+
+ssize_t sirfsoc_pwrc_proc_write(struct file *file,
+		const char __user *buf, size_t size, loff_t *ppos)
+{
+	char local_buf[32];
+	u32 offset;
+	u32 val;
+
+	memset(local_buf, 0, 32);
+	if (size >= sizeof(local_buf))
+		return -ENOMEM;
+	if (copy_from_user(local_buf, buf, size))
+		return -EFAULT;
+	local_buf[size] = '\0';
+	if (sscanf(local_buf, "%x %x\n", &offset, &val) != 2)
+		return -EINVAL;
+	sirfsoc_rtc_iobrg_writel(val, sirfsoc_pwrc_base + offset);
+	return size;
+}
+
+static const struct file_operations sirfsoc_pwrc_proc_fops = {
+	.read		= sirfsoc_pwrc_proc_read,
+	.write		= sirfsoc_pwrc_proc_write,
+};
+#endif
+
+
 
 static const struct file_operations sirfsoc_boot_stat_proc_fops = {
 	.read		= sirfsoc_boot_stat_proc_read,
 	.write		= sirfsoc_boot_stat_proc_write,
 };
+
+#ifdef CONFIG_A7DA_PM_SYSRTC_DEBUG
+ssize_t sirfsoc_sysrtc_proc_read(struct file *file,
+		char __user *buffer, size_t size, loff_t *ppos)
+{
+	int ret, val, i, pos = 0;
+	char *buf;
+
+	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	for (i = 0; i < 0x20 && strlen(buf) < PAGE_SIZE; i = i + 4) {
+		val = sirfsoc_rtc_iobrg_readl(sirfsoc_sysrtc_base + i);
+		pos += scnprintf(buf + pos,
+			PAGE_SIZE - pos,
+			"0x%x:0x%x\n", i, val);
+	}
+
+	ret = simple_read_from_buffer(buffer, size, ppos, buf, pos);
+	kfree(buf);
+	return ret;
+}
+
+
+ssize_t sirfsoc_sysrtc_proc_write(struct file *file,
+		const char __user *buf, size_t size, loff_t *ppos)
+{
+	char local_buf[32];
+	u32 offset;
+	u32 val;
+
+	memset(local_buf, 0, 32);
+	if (size >= sizeof(local_buf))
+		return -ENOMEM;
+	if (copy_from_user(local_buf, buf, size))
+		return -EFAULT;
+	local_buf[size] = '\0';
+	if (sscanf(local_buf, "%x %x\n", &offset, &val) != 2)
+		return -EINVAL;
+	sirfsoc_rtc_iobrg_writel(val, sirfsoc_sysrtc_base + offset);
+	return size;
+}
+
+static const struct file_operations sirfsoc_sysrtc_proc_fops = {
+	.read		= sirfsoc_sysrtc_proc_read,
+	.write		= sirfsoc_sysrtc_proc_write,
+};
+#endif
 
 static int __init sirfsoc_of_pwrc_init(void)
 {
@@ -183,8 +289,46 @@ static int __init sirfsoc_of_pwrc_init(void)
 			&sirfsoc_boot_stat_proc_fops,
 			NULL);
 
+#ifdef CONFIG_A7DA_PM_PWRC_DEBUG
+	proc_create_data("pwrc",
+			S_IRUSR | S_IWUSR ,
+			NULL,
+			&sirfsoc_pwrc_proc_fops,
+			NULL);
+#endif
 	return 0;
 }
+
+static const struct of_device_id sysrtc_ids[] = {
+	{ .compatible = "sirf,prima2-sysrtc" },
+	{}
+};
+
+static int __init sirfsoc_of_sysrtc_init(void)
+{
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, sysrtc_ids);
+	if (!np) {
+		pr_err("unable to find compatible sirf pwrc node in dtb\n");
+		return -ENOENT;
+	}
+
+	if (of_property_read_u32(np, "reg", &sirfsoc_sysrtc_base))
+		panic("unable to find base address of sysrtc node in dtb\n");
+
+	of_node_put(np);
+
+#ifdef CONFIG_A7DA_PM_SYSRTC_DEBUG
+	proc_create_data("sysrtc",
+			S_IRUSR | S_IWUSR ,
+			NULL,
+			&sirfsoc_sysrtc_proc_fops,
+			NULL);
+#endif
+	return 0;
+}
+
 
 static const struct of_device_id memc_ids[] = {
 	{
@@ -194,8 +338,12 @@ static const struct of_device_id memc_ids[] = {
 		.compatible = "sirf,marco-memc",
 		.data = sirfsoc_marco_finish_suspend,
 	}, {
+		.compatible = "sirf,atlas7-memc",
+		.data = sirfsoc_atlas7_finish_suspend,
+	}, {
 	}
 };
+
 
 static int sirfsoc_memc_probe(struct platform_device *op)
 {
@@ -224,10 +372,70 @@ static int __init sirfsoc_memc_init(void)
 	return platform_driver_register(&sirfsoc_memc_driver);
 }
 
+static const struct of_device_id retainreg_ids[] = {
+	{ .compatible = "sirf,atlas7-retain"},
+};
+
+static int sirfsoc_retain_probe(struct platform_device *op)
+{
+	struct device_node *np = op->dev.of_node;
+
+	sirfsoc_retain_base = of_iomap(np, 0);
+	if (!sirfsoc_retain_base)
+		panic("unable to map retain registers\n");
+
+	return 0;
+}
+
+static struct platform_driver sirfsoc_retain_driver = {
+	.probe		= sirfsoc_retain_probe,
+	.driver = {
+		.name = "sirfsoc-retain",
+		.owner = THIS_MODULE,
+		.of_match_table	= retainreg_ids,
+	},
+};
+
+static int __init sirfsoc_retain_init(void)
+{
+	return platform_driver_register(&sirfsoc_retain_driver);
+}
+
+static const struct of_device_id ipc_ids[] = {
+	{ .compatible = "sirf,atlas7-pmipc"},
+};
+
+static int sirfsoc_ipc_probe(struct platform_device *op)
+{
+	struct device_node *np = op->dev.of_node;
+
+	sirfsoc_pm_ipc_base = of_iomap(np, 0);
+	if (!sirfsoc_pm_ipc_base)
+		panic("unable to map ipc registers\n");
+	return 0;
+}
+
+static struct platform_driver sirfsoc_ipc_driver = {
+	.probe		= sirfsoc_ipc_probe,
+	.driver = {
+		.name = "sirfsoc-pmipc",
+		.owner = THIS_MODULE,
+		.of_match_table	= ipc_ids,
+	},
+};
+
+static int __init sirfsoc_ipc_init(void)
+{
+	return platform_driver_register(&sirfsoc_ipc_driver);
+}
+
 int __init sirfsoc_pm_init(void)
 {
 	sirfsoc_of_pwrc_init();
+	sirfsoc_of_sysrtc_init();
 	sirfsoc_memc_init();
+	sirfsoc_retain_init();
+	sirfsoc_ipc_init();
 	suspend_set_ops(&sirfsoc_pm_ops);
 	pm_power_off = sirfsoc_pm_power_off;
 	return 0;
