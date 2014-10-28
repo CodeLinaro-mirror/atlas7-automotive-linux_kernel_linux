@@ -1471,9 +1471,6 @@ usp_no_flow_control:
 		goto err;
 	}
 	port->irq = res->start;
-#ifdef CONFIG_A7DA_FPGA
-	port->uartclk = 20000000;
-#else
 	sirfport->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sirfport->clk)) {
 		ret = PTR_ERR(sirfport->clk);
@@ -1494,8 +1491,6 @@ usp_no_flow_control:
 		sirfport->is_bt_uart = true;
 	} else
 		sirfport->is_bt_uart = false;
-#endif
-
 	port->ops = &sirfsoc_uart_ops;
 	spin_lock_init(&port->lock);
 
