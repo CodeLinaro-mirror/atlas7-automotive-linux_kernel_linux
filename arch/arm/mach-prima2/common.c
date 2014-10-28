@@ -83,7 +83,7 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	return 1;
 }
 
-#if defined(CONFIG_CSRVISOR_DUALOS) && !defined(CONFIG_SECURITY_MODE)
+#ifndef CONFIG_SECURITY_MODE
 static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
@@ -91,6 +91,7 @@ static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 	unsigned long len;
 	unsigned long ipc_addr, ipc_vaddr, ipc_sz;
 	struct map_desc ipc_map[1];
+
 	mem_info = of_get_flat_dt_prop(node, "sirf,ipc-mem", &len);
 	if (!mem_info || (len != 3 * sizeof(unsigned long)))
 		return 0;
@@ -334,13 +335,13 @@ static void __init sirfsoc_init_late(void)
 static __init void sirfsoc_map_io(void)
 {
 	sirfsoc_map_lluart();
-#if defined(CONFIG_CSRVISOR_DUALOS)
-#ifdef CONFIG_SECURITY_MODE
+#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	iotable_init(sirfsoc_csrvisor_map, ARRAY_SIZE(sirfsoc_csrvisor_map));
-#else
+#endif
+
+#ifndef CONFIG_SECURITY_MODE
 	if (!of_scan_flat_dt(sirf_fdt_handle_ipc_map_mem, NULL))
 		pr_err("failed to map ipc memory.\n");
-#endif
 #endif
 }
 
@@ -410,7 +411,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_ARCH_ATLAS7
-static const char *atlas7_dt_match[] __initdata = {
+static const char *atlas7_dt_match[] __initconst = {
 	"sirf,atlas7",
 	NULL
 };
