@@ -1019,6 +1019,7 @@
 				interrupts = <0 55 0>;
 				clocks = <&clks 67>;
 				dma-channels = <16>;
+				#dma-cells = <1>;
 			};
 
 			dmac3: dma-controller@10d60000 {
