@@ -107,7 +107,7 @@ static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 	ipc_map[0].type = MT_DEVICE;
 	iotable_init(ipc_map, ARRAY_SIZE(ipc_map));
 
-	return 1;
+	return 0;
 }
 #endif
 
@@ -128,7 +128,7 @@ static int __init sirf_fdt_handle_ipc_rsv_mem(unsigned long node,
 	if (memblock_reserve(ipc_addr, ipc_sz))
 		pr_err("failed to reserve ipc memory(0x%lx bytes at 0x%lx)\n",
 			ipc_addr, ipc_sz);
-	return 1;
+	return 0;
 }
 
 /*
