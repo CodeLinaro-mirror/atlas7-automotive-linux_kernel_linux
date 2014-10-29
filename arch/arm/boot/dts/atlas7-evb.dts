@@ -52,18 +52,26 @@
 
                         uart0: uart@18010000 {
 				status = "okay";
+				pinctrl-0 = <&uart0_pmx>;
+				pinctrl-names = "default";
                         };
 
 			uart2: uart@18030000 {
 				status = "okay";
+				pinctrl-0 = <&uart2_pmx>;
+				pinctrl-names = "default";
 			};
 
 			uart3: uart@18040000 {
 				status = "okay";
+				pinctrl-0 = <&uart3_pmx0>;
+				pinctrl-names = "default";
 			};
 
 			uart4: uart@18050000 {
 				status = "okay";
+				pinctrl-0 = <&uart4_pmx0>;
+				pinctrl-names = "default";
 			};
 
 			uart5: uart@18060000 {
