@@ -1,11 +1,18 @@
 /*
  * USB PHY Driver for CSR SiRF SoC
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
- * Rong Wang<Rong.Wang@csr.com>
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -66,7 +73,7 @@ sirf_phy_set_peripheral(struct usb_otg *otg, struct usb_gadget *gadget)
 	}
 
 	otg->gadget = gadget;
-	otg->phy->state = OTG_STATE_B_IDLE;
+	otg->state = OTG_STATE_B_IDLE;
 	return 0;
 }
 
@@ -119,6 +126,7 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	sirf_phy->phy.init		= sirf_phy_init;
 	sirf_phy->phy.shutdown		= sirf_phy_shutdown;
 
+	sirf_phy->phy.otg->state		= OTG_STATE_UNDEFINED;
 	sirf_phy->phy.otg->phy			= &sirf_phy->phy;
 	sirf_phy->phy.otg->set_host		= sirf_phy_set_host;
 	sirf_phy->phy.otg->set_peripheral	= sirf_phy_set_peripheral;
@@ -189,6 +197,5 @@ static struct platform_driver sirf_phy_driver = {
 
 module_platform_driver(sirf_phy_driver);
 
-MODULE_AUTHOR("Rong Wang <Rong.Wang@csr.com>");
 MODULE_DESCRIPTION("SiRF ChipIdea USB PHY driver");
 MODULE_LICENSE("GPL v2");
