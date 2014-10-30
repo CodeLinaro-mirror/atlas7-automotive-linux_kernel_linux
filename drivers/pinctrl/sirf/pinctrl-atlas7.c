@@ -673,20 +673,20 @@ struct atlas7_pad_config atlas7_ioc_pad_confs[] = {
 /* pin list of each pin group */
 static const unsigned int gnss_gpio_pins[] = { 22, 23, 24, 25, 26, 27, 28, 29,
 		30, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, };
-static const unsigned int lcd_vip_gpio_pins[] = { 53, 54, 55, 56, 57, 58, 59,
-		60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
-		75, 76, 77, 78, 79, 80, 81, 82, 83, 84, };
+static const unsigned int lcd_vip_gpio_pins[] = { 74, 75, 76, 77, 78, 79, 80,
+		81, 82, 83, 84, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+		64, 65, 66, 67, 68, 69, 70, 71, 72, 73, };
 static const unsigned int sdio_i2s_gpio_pins[] = { 31, 32, 33, 34, 35, 36, 85,
 		86, 87, 88, 89, 90, 129, 130, 131, 132, 91, 92, 93, 94, 95,
 		96, 112, 113, 114, 115, 116, 117, 118, };
-static const unsigned int sp_rgmii_gpio_pins[] = { 18, 19, 20, 21, 141, 142,
-		143, 144, 145, 146, 147, 148, 97, 98, 99, 100, 101, 102, 103,
-		104, 105, 106, 107, 108, 109, 110, 111, };
+static const unsigned int sp_rgmii_gpio_pins[] = { 97, 98, 99, 100, 101, 102,
+		103, 104, 105, 106, 107, 108, 109, 110, 111, 18, 19, 20, 21,
+		141, 142, 143, 144, 145, 146, 147, 148, };
 static const unsigned int lvds_gpio_pins[] = { 157, 158, 155, 156, 153, 154,
 		151, 152, 149, 150, };
-static const unsigned int uart_nand_gpio_pins[] = { 133, 134, 135, 136, 137,
-		138, 139, 140, 44, 43, 42, 41, 40, 39, 38, 37, 46, 47, 48,
-		49, 50, 52, 51, 45, };
+static const unsigned int uart_nand_gpio_pins[] = { 44, 43, 42, 41, 40, 39,
+		38, 37, 46, 47, 48, 49, 50, 52, 51, 45, 133, 134, 135, 136,
+		137, 138, 139, 140, };
 static const unsigned int rtc_gpio_pins[] = { 0, 1, 2, 3, 4, 10, 11, 12, 13,
 		14, 15, 16, 17, };
 static const unsigned int audio_ac97_pins[] = { 113, 118, 115, 114, };
@@ -1013,6 +1013,17 @@ static struct atlas7_grp_mux gnss_gpio_grp_mux = {
 };
 
 static struct atlas7_pad_mux lcd_vip_gpio_grp_pad_mux[] = {
+	MUX(1, 74, 0, N, N, N, N),
+	MUX(1, 75, 0, N, N, N, N),
+	MUX(1, 76, 0, N, N, N, N),
+	MUX(1, 77, 0, N, N, N, N),
+	MUX(1, 78, 0, N, N, N, N),
+	MUX(1, 79, 0, N, N, N, N),
+	MUX(1, 80, 0, N, N, N, N),
+	MUX(1, 81, 0, N, N, N, N),
+	MUX(1, 82, 0, N, N, N, N),
+	MUX(1, 83, 0, N, N, N, N),
+	MUX(1, 84, 0, N, N, N, N),
 	MUX(1, 53, 0, N, N, N, N),
 	MUX(1, 54, 0, N, N, N, N),
 	MUX(1, 55, 0, N, N, N, N),
@@ -1034,17 +1045,6 @@ static struct atlas7_pad_mux lcd_vip_gpio_grp_pad_mux[] = {
 	MUX(1, 71, 0, N, N, N, N),
 	MUX(1, 72, 0, N, N, N, N),
 	MUX(1, 73, 0, N, N, N, N),
-	MUX(1, 74, 0, N, N, N, N),
-	MUX(1, 75, 0, N, N, N, N),
-	MUX(1, 76, 0, N, N, N, N),
-	MUX(1, 77, 0, N, N, N, N),
-	MUX(1, 78, 0, N, N, N, N),
-	MUX(1, 79, 0, N, N, N, N),
-	MUX(1, 80, 0, N, N, N, N),
-	MUX(1, 81, 0, N, N, N, N),
-	MUX(1, 82, 0, N, N, N, N),
-	MUX(1, 83, 0, N, N, N, N),
-	MUX(1, 84, 0, N, N, N, N),
 };
 
 static struct atlas7_grp_mux lcd_vip_gpio_grp_mux = {
@@ -1090,18 +1090,6 @@ static struct atlas7_grp_mux sdio_i2s_gpio_grp_mux = {
 };
 
 static struct atlas7_pad_mux sp_rgmii_gpio_grp_pad_mux[] = {
-	MUX(1, 18, 0, N, N, N, N),
-	MUX(1, 19, 0, N, N, N, N),
-	MUX(1, 20, 0, N, N, N, N),
-	MUX(1, 21, 0, N, N, N, N),
-	MUX(1, 141, 0, N, N, N, N),
-	MUX(1, 142, 0, N, N, N, N),
-	MUX(1, 143, 0, N, N, N, N),
-	MUX(1, 144, 0, N, N, N, N),
-	MUX(1, 145, 0, N, N, N, N),
-	MUX(1, 146, 0, N, N, N, N),
-	MUX(1, 147, 0, N, N, N, N),
-	MUX(1, 148, 0, N, N, N, N),
 	MUX(1, 97, 0, N, N, N, N),
 	MUX(1, 98, 0, N, N, N, N),
 	MUX(1, 99, 0, N, N, N, N),
@@ -1117,6 +1105,18 @@ static struct atlas7_pad_mux sp_rgmii_gpio_grp_pad_mux[] = {
 	MUX(1, 109, 0, N, N, N, N),
 	MUX(1, 110, 0, N, N, N, N),
 	MUX(1, 111, 0, N, N, N, N),
+	MUX(1, 18, 0, N, N, N, N),
+	MUX(1, 19, 0, N, N, N, N),
+	MUX(1, 20, 0, N, N, N, N),
+	MUX(1, 21, 0, N, N, N, N),
+	MUX(1, 141, 0, N, N, N, N),
+	MUX(1, 142, 0, N, N, N, N),
+	MUX(1, 143, 0, N, N, N, N),
+	MUX(1, 144, 0, N, N, N, N),
+	MUX(1, 145, 0, N, N, N, N),
+	MUX(1, 146, 0, N, N, N, N),
+	MUX(1, 147, 0, N, N, N, N),
+	MUX(1, 148, 0, N, N, N, N),
 };
 
 static struct atlas7_grp_mux sp_rgmii_gpio_grp_mux = {
@@ -1143,14 +1143,6 @@ static struct atlas7_grp_mux lvds_gpio_grp_mux = {
 };
 
 static struct atlas7_pad_mux uart_nand_gpio_grp_pad_mux[] = {
-	MUX(1, 133, 0, N, N, N, N),
-	MUX(1, 134, 0, N, N, N, N),
-	MUX(1, 135, 0, N, N, N, N),
-	MUX(1, 136, 0, N, N, N, N),
-	MUX(1, 137, 0, N, N, N, N),
-	MUX(1, 138, 0, N, N, N, N),
-	MUX(1, 139, 0, N, N, N, N),
-	MUX(1, 140, 0, N, N, N, N),
 	MUX(1, 44, 0, N, N, N, N),
 	MUX(1, 43, 0, N, N, N, N),
 	MUX(1, 42, 0, N, N, N, N),
@@ -1167,6 +1159,14 @@ static struct atlas7_pad_mux uart_nand_gpio_grp_pad_mux[] = {
 	MUX(1, 52, 0, N, N, N, N),
 	MUX(1, 51, 0, N, N, N, N),
 	MUX(1, 45, 0, N, N, N, N),
+	MUX(1, 133, 0, N, N, N, N),
+	MUX(1, 134, 0, N, N, N, N),
+	MUX(1, 135, 0, N, N, N, N),
+	MUX(1, 136, 0, N, N, N, N),
+	MUX(1, 137, 0, N, N, N, N),
+	MUX(1, 138, 0, N, N, N, N),
+	MUX(1, 139, 0, N, N, N, N),
+	MUX(1, 140, 0, N, N, N, N),
 };
 
 static struct atlas7_grp_mux uart_nand_gpio_grp_mux = {
