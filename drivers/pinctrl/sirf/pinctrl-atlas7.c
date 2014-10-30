@@ -3288,10 +3288,11 @@ static void __atlas7_gpio_set_input(struct atlas7_gpio_chip *a7gc,
 {
 	struct atlas7_gpio_bank *bank;
 	void __iomem *ctrl_reg;
-	u32 val;
+	u32 val, pin_in_bank;
 
 	bank = atlas7_gpio_to_bank(a7gc, gpio);
-	ctrl_reg = ATLAS7_GPIO_CTRL(bank, gpio);
+	pin_in_bank = gpio - bank->gpio_offset;
+	ctrl_reg = ATLAS7_GPIO_CTRL(bank, pin_in_bank);
 
 	val = readl(ctrl_reg);
 	val &= ~ATLAS7_GPIO_CTL_OUT_EN_MASK;
@@ -3362,10 +3363,11 @@ static void __atlas7_gpio_set_output(struct atlas7_gpio_chip *a7gc,
 {
 	struct atlas7_gpio_bank *bank;
 	void __iomem *ctrl_reg;
-	u32 out_ctrl;
+	u32 out_ctrl, pin_in_bank;
 
 	bank = atlas7_gpio_to_bank(a7gc, gpio);
-	ctrl_reg = ATLAS7_GPIO_CTRL(bank, gpio);
+	pin_in_bank = gpio - bank->gpio_offset;
+	ctrl_reg = ATLAS7_GPIO_CTRL(bank, pin_in_bank);
 
 	out_ctrl = readl(ctrl_reg);
 	if (value)
@@ -3398,13 +3400,15 @@ static int atlas7_gpio_get_value(struct gpio_chip *chip,
 {
 	struct atlas7_gpio_chip *a7gc = to_atlas7_gpio(chip);
 	struct atlas7_gpio_bank *bank;
-	u32 val;
+	u32 val, pin_in_bank;
 	unsigned long flags;
 
 	bank = atlas7_gpio_to_bank(a7gc, gpio);
+	pin_in_bank = gpio - bank->gpio_offset;
+
 	spin_lock_irqsave(&a7gc->lock, flags);
 
-	val = readl(ATLAS7_GPIO_CTRL(bank, gpio));
+	val = readl(ATLAS7_GPIO_CTRL(bank, pin_in_bank));
 
 	spin_unlock_irqrestore(&a7gc->lock, flags);
 
@@ -3417,11 +3421,12 @@ static void atlas7_gpio_set_value(struct gpio_chip *chip,
 	struct atlas7_gpio_chip *a7gc = to_atlas7_gpio(chip);
 	struct atlas7_gpio_bank *bank;
 	void __iomem *ctrl_reg;
-	u32 ctrl;
+	u32 ctrl, pin_in_bank;
 	unsigned long flags;
 
 	bank = atlas7_gpio_to_bank(a7gc, gpio);
-	ctrl_reg = ATLAS7_GPIO_CTRL(bank, gpio);
+	pin_in_bank = gpio - bank->gpio_offset;
+	ctrl_reg = ATLAS7_GPIO_CTRL(bank, pin_in_bank);
 
 	spin_lock_irqsave(&a7gc->lock, flags);
 
