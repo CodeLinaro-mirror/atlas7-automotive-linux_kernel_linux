@@ -323,6 +323,7 @@ static irqreturn_t nanddisk_isr(int irq, void *dev_id)
 static void nanddisk_ist(unsigned long data)
 {
 	unsigned async_status;
+
 	nand_dev.irq_pending = 0;
 	async_status = 0;
 
@@ -343,6 +344,7 @@ static void nanddisk_ist(unsigned long data)
 static int nanddisk_wearlevel_thread(void *arg)
 {
 	unsigned async_status;
+
 	set_user_nice(current, 19);
 	do {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -383,6 +385,7 @@ static int nanddisk_merge_and_transfer(struct request *req,
 	unsigned long flags;
 	int ret = 0;
 	struct request_queue *q = nand_dev.queue;
+
 	total_bytes = blk_rq_bytes(req);
 	merged_bytes = 0;
 	remain_bytes = total_bytes;
@@ -712,6 +715,7 @@ static int sirfsoc_nand_resume_noirq(struct device *dev)
 static int sirfsoc_nand_resume(struct device *dev)
 {
 	unsigned long flags;
+
 	dev_info(dev, "%s ++\n", __func__);
 
 	if (!nand_dev.power) {
@@ -823,7 +827,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	nand_dev.addr_map_tbl = devm_kzalloc(dev,
 					addr_map_tbl_size, GFP_KERNEL);
 	if (!nand_dev.addr_map_tbl) {
-		dev_err(dev, "unable to malloc buffer for address table.\n");
 		error = -ENOMEM;
 		goto err_exit;
 	}
@@ -983,7 +986,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 
 	nand_dev.data_buf = vmalloc(1024 * 512);
 	if (!nand_dev.data_buf) {
-		dev_err(dev, "unable to malloc buffer for data.\n");
 		error = -ENOMEM;
 		goto err_vmalloc_data_buf;
 	}
@@ -991,7 +993,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	nand_dev.uboot_buf = vmalloc(
 			UBOOT_MAX_LENGTH + UBOOT_MAX_SECTOR);
 	if (!nand_dev.uboot_buf) {
-		dev_err(dev, "unable to malloc buffer for uboot.\n");
 		error = -ENOMEM;
 		goto err_vmalloc_uboot_buf;
 	}
@@ -1107,8 +1108,8 @@ static int sirfsoc_nand_remove(struct platform_device *pdev)
 static void sirfsoc_nand_shutdown(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-
 	pm_message_t pm_message;
+
 	pm_message.event = 0;
 	dev_info(dev, "%s ++", __func__);
 	sirfsoc_nand_suspend(dev);

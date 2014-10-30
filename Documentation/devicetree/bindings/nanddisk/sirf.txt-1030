@@ -1,0 +1,27 @@
+CSR prima2/marco/atlas6 NAND Controller
+
+Required Properties:
+- compatible : Should be "sirf,prima2-nand" or "sirf,marco-nand"
+- reg : Address range of controller
+- pinctrl-names : The name of pinctrl
+- pinctrl-0 : = The pinctrl needed by NAND controller
+- sirf,nand-dma-channel : The DMA channel needed by NAND controller
+- interrupts : The NAND interrupt specification
+- clocks : The clocks needed by the NAND controller
+- sirf,nanddisk-rsvmem-range : The space will be reserved by NAND controller
+                               the first contains the space start address,
+			       the second contains the space length
+
+Example:
+
+nand@b0030000 {
+	compatible = "sirf,prima2-nand";
+	reg = <0xb0030000 0x10000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&nand_pins_a>;
+	sirf,nand-dma-channel = <8>;
+	interrupts = <41>;
+	clocks = <&clks 26>;
+	sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
+};
+
