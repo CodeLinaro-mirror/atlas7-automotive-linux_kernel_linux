@@ -638,7 +638,8 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	if (srproc->hwinfo->features & RPROC_F_BACKEND)
 		srproc->rsc_table_pa = ioremap(rsc_info[0], rsc_info[2]);
 	else
-		srproc->rsc_table_pa = (void __iomem *)rsc_info[1];
+		srproc->rsc_table_pa =
+			(void __iomem *)(VMALLOC_START + rsc_info[1]);
 
 	if (!srproc->rsc_table_pa) {
 		ret = -ENOMEM;

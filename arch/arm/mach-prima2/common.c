@@ -52,8 +52,8 @@ static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
-	__be32 *mem_info;
-	unsigned long len;
+	const __be32 *mem_info;
+	int len;
 	unsigned int rc_addr, rc_sz, dqs_addr, dqs_sz;
 
 	mem_info = of_get_flat_dt_prop(node,
@@ -87,9 +87,9 @@ static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
-	__be32 *mem_info;
-	unsigned long len;
-	unsigned long ipc_addr, ipc_vaddr, ipc_sz;
+	const __be32 *mem_info;
+	int len;
+	unsigned long ipc_addr, ipc_vaddr_ofs, ipc_sz;
 	struct map_desc ipc_map[1];
 
 	mem_info = of_get_flat_dt_prop(node, "sirf,ipc-mem", &len);
@@ -97,11 +97,11 @@ static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 		return 0;
 
 	ipc_addr = be32_to_cpu(mem_info[0]);
-	ipc_vaddr = be32_to_cpu(mem_info[1]);
+	ipc_vaddr_ofs = be32_to_cpu(mem_info[1]);
 	ipc_sz = be32_to_cpu(mem_info[2]);
 
 	memset(&ipc_map[0], 0, sizeof(struct map_desc));
-	ipc_map[0].virtual = ipc_vaddr;
+	ipc_map[0].virtual = VMALLOC_START + ipc_vaddr_ofs;
 	ipc_map[0].pfn = __phys_to_pfn(ipc_addr);
 	ipc_map[0].length = ipc_sz;
 	ipc_map[0].type = MT_DEVICE;
@@ -114,8 +114,8 @@ static int __init sirf_fdt_handle_ipc_map_mem(unsigned long node,
 static int __init sirf_fdt_handle_ipc_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
-	__be32 *mem_info;
-	unsigned long len;
+	const __be32 *mem_info;
+	int len;
 	unsigned long ipc_addr, ipc_sz;
 
 	mem_info = of_get_flat_dt_prop(node, "sirf,ipc-mem", &len);
@@ -173,8 +173,8 @@ static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
 						const char *uname,
 						int depth, void *data)
 {
-	__be32 *mem_info;
-	unsigned long len;
+	const __be32 *mem_info;
+	int len;
 
 	mem_info = of_get_flat_dt_prop(node,
 					"sirf,rsvmem_size", &len);
@@ -192,8 +192,8 @@ static int __init sirfsoc_fdt_handle_vip_rsv_mem(unsigned long node,
 						const char *uname,
 						int depth, void *data)
 {
-	__be32 *mem_info;
-	unsigned long len;
+	const __be32 *mem_info;
+	int len;
 
 	mem_info = of_get_flat_dt_prop(node,
 				"sirf,vip_cma_size", &len);

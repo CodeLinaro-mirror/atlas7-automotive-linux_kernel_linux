@@ -14,9 +14,9 @@ SIRF Atlas7 Remote processor Device Binding
 
 	- sirf,ipc-mem : the shared memory which is used to store virtual
 	  device info and used as fifo buffers. It has 3 member, the first
-	  is physical address, the second is virtual address which will be
-	  used in static io map of frontend OS, the third is the size of
-	  shared memory
+	  is physical address, the second is virtual address offset from
+	  VMALLOC_START, which will be used in static io map of frontend OS,
+	  the third is the size of shared memory
 
 2) Example:
 	s_ns_rproc {
@@ -24,5 +24,5 @@ SIRF Atlas7 Remote processor Device Binding
 		reg = <0x13240000 0x00010000>;
 		interrupts = <0 116 0>;
 
-		sirf,ipc-mem = <0x4FD00000 0xD0D00000 0x100000>;
+		sirf,ipc-mem = <0x4FD00000 0x00000000 0x100000>;
 	};
