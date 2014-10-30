@@ -1,11 +1,18 @@
 /*
  * USB Controller Driver for CSR SiRF SoC
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
- * Rong Wang<Rong.Wang@csr.com>
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
@@ -75,9 +82,9 @@ static int ci_hdrc_sirf_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ci_hdrc_sirf_platdata[id].phy =
+	ci_hdrc_sirf_platdata[id].usb_phy =
 		devm_usb_get_phy_by_phandle(&pdev->dev, "sirf,usbphy", 0);
-	if (IS_ERR(ci_hdrc_sirf_platdata[id].phy)) {
+	if (IS_ERR(ci_hdrc_sirf_platdata[id].usb_phy)) {
 		dev_err(&pdev->dev, "Failed to get transceiver\n");
 		ret = -ENODEV;
 		goto err;
@@ -156,6 +163,5 @@ static struct platform_driver ci_hdrc_sirf_driver = {
 };
 module_platform_driver(ci_hdrc_sirf_driver);
 
-MODULE_AUTHOR("Rong Wang <Rong.Wang@csr.com>");
 MODULE_DESCRIPTION("CI HDRC SiRF USB Binding");
 MODULE_LICENSE("GPL v2");
