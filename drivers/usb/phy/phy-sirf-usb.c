@@ -127,7 +127,7 @@ static int sirf_phy_probe(struct platform_device *pdev)
 	sirf_phy->phy.shutdown		= sirf_phy_shutdown;
 
 	sirf_phy->phy.otg->state		= OTG_STATE_UNDEFINED;
-	sirf_phy->phy.otg->phy			= &sirf_phy->phy;
+	sirf_phy->phy.otg->usb_phy		= &sirf_phy->phy;
 	sirf_phy->phy.otg->set_host		= sirf_phy_set_host;
 	sirf_phy->phy.otg->set_peripheral	= sirf_phy_set_peripheral;
 
