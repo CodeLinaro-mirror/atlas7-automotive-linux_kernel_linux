@@ -10,9 +10,12 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/delay.h>
 #include <linux/of_address.h>
+#include <linux/reset-controller.h>
 #include <linux/syscore_ops.h>
 #include <linux/slab.h>
+#include <asm/system_misc.h>
 
 #define SIRFSOC_CLKC_MEMPLL_AB_FREQ          0x0000
 #define SIRFSOC_CLKC_MEMPLL_AB_SSC           0x0004
@@ -194,6 +197,8 @@
 #define SIRFSOC_CLKC_LEAF_CLK_EN0_CLR        0x0248
 #define SIRFSOC_CLKC_LEAF_CLK_EN0_STAT       0x024c
 
+#define SIRFSOC_CLKC_RSTC_A7_SW_RST          0x0308
+
 #define SIRFSOC_CLKC_LEAF_CLK_EN1_SET        0x04a0
 #define SIRFSOC_CLKC_LEAF_CLK_EN2_SET        0x04b8
 #define SIRFSOC_CLKC_LEAF_CLK_EN3_SET        0x04d0
@@ -202,6 +207,7 @@
 #define SIRFSOC_CLKC_LEAF_CLK_EN6_SET        0x0518
 #define SIRFSOC_CLKC_LEAF_CLK_EN7_SET        0x0530
 #define SIRFSOC_CLKC_LEAF_CLK_EN8_SET        0x0548
+
 
 static void *sirfsoc_clk_vbase, *sirfsoc_clk_vbase;
 static struct clk_onecell_data clk_data;
@@ -268,6 +274,15 @@ struct atlas7_unit_init_data {
 	unsigned long flags;
 	u32 regofs;
 	u8 bit;
+	spinlock_t *lock;
+};
+
+struct atlas7_reset_desc {
+	const char *name;
+	u32 clk_ofs;
+	u8  clk_bit;
+	u32 rst_ofs;
+	u8  rst_bit;
 	spinlock_t *lock;
 };
 
@@ -1298,6 +1313,153 @@ atlas7_unit_clk_register(struct device *dev, const char *name,
 	return clk;
 }
 
+static struct atlas7_reset_desc atlas7_reset_unit[] = {
+	{"PWM", 0x0244, 0, 0x0320, 0, &leaf0_gate_lock},
+	{"THCGUM", 0x0244, 3, 0x0320, 1, &leaf0_gate_lock},
+	{"CVD", 0x04A0, 0, 0x032C, 0, &leaf1_gate_lock},
+	{"TIMER", 0x04A0, 1, 0x032C, 1, &leaf1_gate_lock},
+	{"PULSEC", 0x04A0, 2, 0x032C, 2, &leaf1_gate_lock},
+	{"TSC", 0x04A0, 3, 0x032C, 3, &leaf1_gate_lock},
+	{"IOCTOP", 0x04A0, 4, 0x032C, 4, &leaf1_gate_lock},
+	{"RSC", 0x04A0, 5, 0x032C, 5, &leaf1_gate_lock},
+	{"DVM", 0x04A0, 6, 0x032C, 6, &leaf1_gate_lock},
+	{"LVDS", 0x04A0, 7, 0x032C, 7, &leaf1_gate_lock},
+	{"KAS", 0x04A0, 8, 0x032C, 8, &leaf1_gate_lock},
+	{"AC97", 0x04A0, 9, 0x032C, 9, &leaf1_gate_lock},
+	{"USP0", 0x04A0, 10, 0x032C, 10, &leaf1_gate_lock},
+	{"USP1", 0x04A0, 11, 0x032C, 11, &leaf1_gate_lock},
+	{"USP2", 0x04A0, 12, 0x032C, 12, &leaf1_gate_lock},
+	{"DMAC2", 0x04A0, 13, 0x032C, 13, &leaf1_gate_lock},
+	{"DMAC3", 0x04A0, 14, 0x032C, 14, &leaf1_gate_lock},
+	{"AUDIO", 0x04A0, 15, 0x032C, 15, &leaf1_gate_lock},
+	{"I2S1", 0x04A0, 17, 0x032C, 16, &leaf1_gate_lock},
+	{"PMU_AUDIO", 0x04A0, 22, 0x032C, 17, &leaf1_gate_lock},
+	{"THAUDMSCM", 0x04A0, 23, 0x032C, 18, &leaf1_gate_lock},
+	{"SYS2PCI", 0x04B8, 0, 0x0338, 0, &leaf2_gate_lock},
+	{"PCIARB", 0x04B8, 1, 0x0338, 1, &leaf2_gate_lock},
+	{"PCICOPY", 0x04B8, 2, 0x0338, 2, &leaf2_gate_lock},
+	{"ROM", 0x04B8, 3, 0x0338, 3, &leaf2_gate_lock},
+	{"SDIO23", 0x04B8, 4, 0x0338, 4, &leaf2_gate_lock},
+	{"SDIO45", 0x04B8, 5, 0x0338, 5, &leaf2_gate_lock},
+	{"SDIO67", 0x04B8, 6, 0x0338, 6, &leaf2_gate_lock},
+	{"VIP1", 0x04B8, 7, 0x0338, 7, &leaf2_gate_lock},
+	{"VPP0", 0x04B8, 11, 0x0338, 8, &leaf2_gate_lock},
+	{"LCD0", 0x04B8, 12, 0x0338, 9, &leaf2_gate_lock},
+	{"VPP1", 0x04B8, 13, 0x0338, 10, &leaf2_gate_lock},
+	{"LCD1", 0x04B8, 14, 0x0338, 11, &leaf2_gate_lock},
+	{"DCU", 0x04B8, 15, 0x0338, 12, &leaf2_gate_lock},
+	{"GPIO", 0x04B8, 18, 0x0338, 13, &leaf2_gate_lock},
+	/*
+	{"IPC", , , 0x0338, 14},
+	*/
+	{"DAPA_VDIFM", 0x04B8, 17, 0x0338, 15, &leaf2_gate_lock},
+	{"THVDIFM", 0x04B8, 19, 0x0338, 16, &leaf2_gate_lock},
+	{"RGMII", 0x04D0, 0, 0x0344, 0, &leaf3_gate_lock},
+	{"GMAC", 0x04D0, 1, 0x0344, 1, &leaf3_gate_lock},
+	{"UART1", 0x04D0, 2, 0x0344, 2, &leaf3_gate_lock},
+	{"DMAC0", 0x04D0, 3, 0x0344, 3, &leaf3_gate_lock},
+	{"UART0", 0x04D0, 4, 0x0344, 4, &leaf3_gate_lock},
+	{"UART2", 0x04D0, 5, 0x0344, 5, &leaf3_gate_lock},
+	{"UART3", 0x04D0, 6, 0x0344, 6, &leaf3_gate_lock},
+	{"UART4", 0x04D0, 7, 0x0344, 7, &leaf3_gate_lock},
+	{"UART5", 0x04D0, 8, 0x0344, 8, &leaf3_gate_lock},
+	{"SPI1", 0x04D0, 9, 0x0344, 9, &leaf3_gate_lock},
+	{"GNSS_SYS_M0", 0x04D0, 10, 0x0344, 10, &leaf3_gate_lock},
+	{"CANBUS1", 0x04D0, 12, 0x0344, 11, &leaf3_gate_lock},
+	{"CCSEC", 0x04D0, 15, 0x0344, 12, &leaf3_gate_lock},
+	{"CCPUB", 0x04D0, 16, 0x0344, 13, &leaf3_gate_lock},
+	{"DAPA_GNSSM", 0x04D0, 13, 0x0344, 14, &leaf3_gate_lock},
+	{"THGNSSM", 0x04D0, 14, 0x0344, 15, &leaf3_gate_lock},
+	{"VDEC", 0x04E8, 0, 0x0350, 0, &leaf4_gate_lock},
+	{"JPENC", 0x04E8, 1, 0x0350, 1, &leaf4_gate_lock},
+	{"G2D", 0x04E8, 2, 0x0350, 2, &leaf4_gate_lock},
+	{"I2C0", 0x04E8, 3, 0x0350, 3, &leaf4_gate_lock},
+	{"I2C1", 0x04E8, 4, 0x0350, 4, &leaf4_gate_lock},
+	{"GPIO0", 0x04E8, 5, 0x0350, 5, &leaf4_gate_lock},
+	{"NAND", 0x04E8, 6, 0x0350, 6, &leaf4_gate_lock},
+	{"SDIO01", 0x04E8, 7, 0x0350, 7, &leaf4_gate_lock},
+	{"SYS2PCI2", 0x04E8, 8, 0x0350, 8, &leaf4_gate_lock},
+	{"USB0", 0x04E8, 11, 0x0350, 9, &leaf4_gate_lock},
+	{"USB1", 0x04E8, 12, 0x0350, 10, &leaf4_gate_lock},
+	{"THMEDIAM", 0x04E8, 15, 0x0350, 11, &leaf4_gate_lock},
+	{"MEMC_DDRPHY", 0x0500, 0, 0x035C, 0, &leaf5_gate_lock},
+	{"MEMC_UPCTL", 0x0500, 0, 0x035C, 1, &leaf5_gate_lock},
+	{"DAPA_MEM", 0x0500, 1, 0x035C, 2, &leaf5_gate_lock},
+	{"MEMC_MEMDIV", 0x0500, 0, 0x035C, 3, &leaf5_gate_lock},
+	{"THDDRM", 0x0500, 3, 0x035C, 4, &leaf5_gate_lock},
+	{"CORESIGHT", 0x0518, 3, 0x0368, 13, &leaf6_gate_lock},
+	/*
+	{"INTC", , , 0x0368, 14},
+	{"CPUIF", , , 0x0368, 15},
+	*/
+	{"THCPUM", 0x0518, 4, 0x0368, 17, &leaf6_gate_lock},
+	{"GRAPHIC", 0x0530, 0, 0x0374, 0, &leaf7_gate_lock},
+	{"VSS_SDR", 0x0530, 1, 0x0374, 1, &leaf7_gate_lock},
+	{"THGPUM", 0x0530, 2, 0x0374, 2, &leaf7_gate_lock},
+	/* {"A7CA", , , 0x0384, 0}, */
+	{"DMAC4", 0x0548, 2, 0x0384, 1, &leaf8_gate_lock},
+	{"UART6", 0x0548, 3, 0x0384, 2, &leaf8_gate_lock},
+	{"USP3", 0x0548, 4, 0x0384, 3, &leaf8_gate_lock},
+	/* {"A7CA_APB", , , 0x0384, 4}, */
+	{"THBTM", 0x0548, 5, 0x0384, 5, &leaf8_gate_lock},
+};
+
+static int atlas7_reset_module(struct reset_controller_dev *rcdev,
+					unsigned long reset_idx)
+{
+	u32 reset_bit = reset_idx;
+	struct atlas7_reset_desc *reset = &atlas7_reset_unit[reset_idx];
+	unsigned long flags = 0;
+
+	if (reset_idx >= rcdev->nr_resets)
+		return -EINVAL;
+	/*
+	 * HW suggest unit reset sequence:
+	 * assert sw reset (0)
+	 * setting sw clk_en to if the clock was disabled before reset
+	 * delay 16 clocks
+	 * disable clock (sw clk_en = 0)
+	 * de-assert reset (1)
+	 * after this sequence, restore clock or not is decided by SW
+	 */
+
+	spin_lock_irqsave(reset->lock, flags);
+	/* clock enable or not */
+	if (clkc_readl(reset->clk_ofs + 8) & (1 << reset->clk_bit)) {
+		clkc_writel(1 << reset->rst_bit, reset->rst_ofs + 4);
+		msleep(20);
+		clkc_writel(1 << reset->clk_bit, reset->clk_ofs + 4);
+		clkc_writel(1 << reset->rst_bit, reset->rst_ofs);
+		/* restore clock enable */
+		clkc_writel(1 << reset->clk_bit, reset->clk_ofs);
+	} else {
+		clkc_writel(1 << reset->rst_bit, reset->rst_ofs + 4);
+		clkc_writel(1 << reset->clk_bit, reset->clk_ofs);
+		msleep(20);
+		clkc_writel(1 << reset->clk_bit, reset->clk_ofs + 4);
+		clkc_writel(1 << reset->rst_bit, reset->rst_ofs);
+	}
+	spin_unlock_irqrestore(reset->lock, flags);
+
+	return 0;
+}
+
+static struct reset_control_ops atlas7_rst_ops = {
+	.reset = atlas7_reset_module,
+};
+
+static struct reset_controller_dev atlas7_rst_ctlr = {
+	.ops = &atlas7_rst_ops,
+	.owner = THIS_MODULE,
+	.of_reset_n_cells = 1,
+};
+
+static void atlas7_restart(enum reboot_mode mode, const char *cmd)
+{
+	clkc_writel(0, SIRFSOC_CLKC_RSTC_A7_SW_RST);
+	clkc_writel(1, SIRFSOC_CLKC_RSTC_A7_SW_RST);
+}
+
 void __init atlas7_clk_init(struct device_node *np)
 {
 	struct clk *clk;
@@ -1539,6 +1701,10 @@ void __init atlas7_clk_init(struct device_node *np)
 
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 
+	atlas7_rst_ctlr.of_node = np;
+	atlas7_rst_ctlr.nr_resets = ARRAY_SIZE(atlas7_reset_unit);
+	reset_controller_register(&atlas7_rst_ctlr);
+	arm_pm_restart = atlas7_restart;
 }
 
 #ifndef CONFIG_A7DA_FPGA

@@ -973,6 +973,7 @@
 				compatible = "sirf,atlas7-clkc";
 				reg = <0x18620000 0x1000>;
 				#clock-cells = <1>;
+				#reset-cells = <1>;
 			};
 		};
 
