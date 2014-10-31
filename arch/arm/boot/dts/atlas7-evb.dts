@@ -35,13 +35,17 @@
                 };
                 mediam {
                         sdhci@16000000 {
-                                status = "okay";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd0_pmx>;
                         };
                 };
 
 		vdifm {
 			sdhci@14200000 {
 				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd2_pmx>;
 			};
 		};
 
