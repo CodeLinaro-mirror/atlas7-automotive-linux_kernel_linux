@@ -1,5 +1,6 @@
 menuconfig FB_SIRF
         tristate "SiRF Soc frame buffer support"
+	default y
         depends on FB && SIRF_VDSS
         select FB_CFB_FILLRECT
         select FB_CFB_COPYAREA

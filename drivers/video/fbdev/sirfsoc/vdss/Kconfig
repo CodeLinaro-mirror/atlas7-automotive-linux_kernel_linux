@@ -1,5 +1,6 @@
 menuconfig SIRF_VDSS
         tristate "SIRFSOC Video Display Subsystem support"
+	default y
 	select VIDEOMODE_HELPERS
         help
 	  SiRF Soc Video Display Subsystem support. The VDSS exposes a series

@@ -3,6 +3,7 @@ menu "SiRF Soc Panel Drivers"
 
 config DISPLAY_PANEL_RGB
 	tristate "Generic RGB panel"
+	default y
 	help
 	  Driver for generic RGB panels.
 
