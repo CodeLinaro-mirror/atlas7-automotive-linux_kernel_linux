@@ -116,7 +116,11 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_sirf_priv *priv = sdhci_pltfm_priv(pltfm_host);
-	return clk_get_rate(priv->clk);
+
+	if (priv->has_pclk)
+		return clk_get_rate(priv->pclk);
+	else
+		return clk_get_rate(priv->clk);
 }
 
 static unsigned int sdhci_sirf_get_power_config(struct sdhci_host *host,
