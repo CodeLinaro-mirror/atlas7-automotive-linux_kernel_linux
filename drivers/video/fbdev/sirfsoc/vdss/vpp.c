@@ -378,55 +378,41 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 	switch (params->src_fmt) {
 	case VDSS_PIXELFORMAT_YV12:
 		ybase = params->src_base + yoffset;
-		ybase &= VPP_BASE_ADDR_MASK;
 		ubase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride * 5 / 4 + uoffset;
-		ubase &= VPP_BASE_ADDR_MASK;
 		vbase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride + voffset;
-		vbase &= VPP_BASE_ADDR_MASK;
 		break;
 	case VDSS_PIXELFORMAT_I420:
 		ybase = params->src_base + yoffset;
-		ybase &= VPP_BASE_ADDR_MASK;
 		ubase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride + uoffset;
-		ubase &= VPP_BASE_ADDR_MASK;
 		vbase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride * 5 / 4 + voffset;
-		vbase &= VPP_BASE_ADDR_MASK;
 		break;
 	case VDSS_PIXELFORMAT_IMC1:
 	case VDSS_PIXELFORMAT_IMC3:
 		ybase = params->src_base + yoffset;
-		ybase &= VPP_BASE_ADDR_MASK;
 		ubase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride * 3 / 2 + uoffset;
-		ubase &= VPP_BASE_ADDR_MASK;
 		vbase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride + voffset;
-		vbase &= VPP_BASE_ADDR_MASK;
 		break;
 	case VDSS_PIXELFORMAT_IMC2:
 	case VDSS_PIXELFORMAT_IMC4:
 		ybase = params->src_base + yoffset;
-		ybase &= VPP_BASE_ADDR_MASK;
 		ubase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride + uoffset;
-		ubase &= VPP_BASE_ADDR_MASK;
 		vbase = params->src_base + params->src_hor_stride *
 			params->src_ver_stride + voffset +
 			params->src_hor_stride / 2;
-		vbase &= VPP_BASE_ADDR_MASK;
 		break;
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
 		ybase = params->src_base + yoffset;
-		ybase &= VPP_BASE_ADDR_MASK;
 		ubase = (params->src_base + params->src_hor_stride *
 			((params->src_ver_stride + 0x3f) & (~0x3f))
 			+ uoffset) >> 1;
-		ubase &= VPP_BASE_ADDR_MASK;
 		vbase = ubase;
 		break;
 	case VDSS_PIXELFORMAT_UYVY:
@@ -437,7 +423,6 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 	case VDSS_PIXELFORMAT_YVYU:
 	case VDSS_PIXELFORMAT_VYUY:
 		ybase = params->src_base + (2 * yoffset);
-		ybase &= VPP_BASE_ADDR_MASK;
 		ubase = vbase = ybase;
 		break;
 	default:
@@ -449,11 +434,8 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 	if (interlace->interlaced) {
 		if (interlace->field_offset) {
 			ybase_bot = ybase + interlace->field_offset;
-			ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
 			ubase_bot = ubase + interlace->field_offset;
-			ubase_bot &= VPP_BASE_ADDR_BOT_MASK;
 			vbase_bot = vbase + interlace->field_offset;
-			vbase_bot &= VPP_BASE_ADDR_BOT_MASK;
 		} else {
 			switch (params->src_fmt) {
 			case VDSS_PIXELFORMAT_YV12:
@@ -461,22 +443,16 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 			case VDSS_PIXELFORMAT_NV12:
 			case VDSS_PIXELFORMAT_NV21:
 				ybase_bot = ybase + params->src_hor_stride;
-				ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				ubase_bot = ubase + params->src_hor_stride / 2;
-				ubase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				vbase_bot = vbase + params->src_hor_stride / 2;
-				vbase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				break;
 			case VDSS_PIXELFORMAT_IMC4:
 			case VDSS_PIXELFORMAT_IMC3:
 			case VDSS_PIXELFORMAT_IMC2:
 			case VDSS_PIXELFORMAT_IMC1:
 				ybase_bot = ybase + params->src_hor_stride;
-				ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				ubase_bot = ubase + params->src_hor_stride;
-				ubase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				vbase_bot = vbase + params->src_hor_stride;
-				vbase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				break;
 			case VDSS_PIXELFORMAT_UYVY:
 			case VDSS_PIXELFORMAT_UYNV:
@@ -486,7 +462,6 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 			case VDSS_PIXELFORMAT_YVYU:
 			case VDSS_PIXELFORMAT_VYUY:
 				ybase_bot = ybase + 2 * params->src_hor_stride;
-				ybase_bot &= VPP_BASE_ADDR_BOT_MASK;
 				ubase_bot = vbase_bot = ybase_bot;
 				break;
 			default:
@@ -538,18 +513,17 @@ static void  __vpp_set_dstbase(struct vdss_vpp_params *params)
 		yoffset = params->dst_hor_stride * params->dst_rect.top +
 			params->dst_rect.left;
 		dstbase = (params->dst_base + yoffset * bpp) & (~7);
-		dstbase &= VPP_BASE_ADDR_MASK;
 
 		if (interlace->interlaced) {
 			if (interlace->out_mode == VDSS_INTERLACE)
 				vpp_write_reg(VPP_DESTBASE_BOT,
-					VPP_BASE_ADDR_MASK & (dstbase +
-					params->dst_hor_stride * bpp));
+					dstbase +
+					params->dst_hor_stride * bpp);
 			else if (interlace->out_mode == VDSS_P_DOUBLE)
 				vpp_write_reg(VPP_DESTBASE_BOT,
-					VPP_BASE_ADDR_MASK & (dstbase +
+					dstbase +
 					params->dst_hor_stride *
-					params->dst_ver_stride * bpp));
+					params->dst_ver_stride * bpp);
 		}
 	}
 }

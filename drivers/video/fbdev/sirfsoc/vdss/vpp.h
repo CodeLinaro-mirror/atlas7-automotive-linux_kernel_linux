@@ -158,12 +158,6 @@ enum vpp_hw_di_mode {
 #define VPP_CTRL_SCA_OVER		(1 << 30)
 #define VPP_CTRL_BUSY_STATUS		(1 << 31)
 
-
-#define VPP_BASE_ADDR_MASK		(0x3FFFFFFF << 0)
-#define VPP_BASE_ADDR(x)		(((x) & 0x3FFFFFFF) << 0)
-#define VPP_BASE_ADDR_BOT_MASK		(0x3FFFFFFF << 0)
-#define VPP_BASE_ADDR_BOT(x)		(((x) & 0x3FFFFFFF) << 0)
-
 #define VPP_SRC_WIDTH_MASK		(0x7FF << 0)
 #define VPP_SRC_WIDTH(x)		(((x) & 0x7FF) << 0)
 #define VPP_DES_WIDTH_MASK		(0x7FF << 16)
