@@ -47,6 +47,9 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&sd2_pmx>;
 			};
+			sdhci@14700000 {
+				status = "okay";
+			};
 		};
 
                 gnssm {
