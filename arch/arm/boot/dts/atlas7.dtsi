@@ -964,7 +964,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14600000 0x100000>;
 				interrupts = <0 98 0>;
-				clocks = <&clks 79>, <&clks 83>;
+				clocks = <&clks 79>, <&clks 84>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
@@ -975,7 +975,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14700000 0x100000>;
 				interrupts = <0 98 0>;
-				clocks = <&clks 79>, <&clks 83>;
+				clocks = <&clks 79>, <&clks 84>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
