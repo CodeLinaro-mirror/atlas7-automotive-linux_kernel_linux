@@ -1,5 +1,5 @@
 /*
- * atlas7-qspi.c	- Quad SPI (qspi) NOR flash driver for CSRatlas7
+ * atlas7-qspi.c - Quad SPI (qspi) NOR flash driver for CSRatlas7
  *
  * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -8,8 +8,8 @@
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -38,9 +38,10 @@
 #define ATLAS7_QSPI_MAX_CLOCK_FREQ	96000000 /* 96 MHz */
 
 #define ATLAS7_QSPI_24BIT_FLASH_SIZE	0x1000000
+
 /*
-* QSPI_MEM_CTRL registers
-*/
+ * QSPI_MEM_CTRL registers
+ */
 #define ATLAS7_QSPI_CTRL		0x0000
 #define ATLAS7_QSPI_STAT		0x0004
 #define ATLAS7_QSPI_ACCRR0		0x0008
@@ -60,8 +61,8 @@
 #define ATLAS7_QSPI_RDC			0x0040
 
 /*
-* QSPI CORE registers
-*/
+ * QSPI CORE registers
+ */
 #define ATLAS7_QSPI_DMA_SADDR		0x0800
 #define ATLAS7_QSPI_DMA_FADDR		0x0804
 #define ATLAS7_QSPI_DMA_LEN		0x0808
@@ -78,7 +79,7 @@
 #define ATLAS7_QSPI_RX_FIFO_THD(x)	(((x) & 0xFF) << 8)
 #define ATLAS7_QSPI_TX_FIFO_THD(x)	(((x) & 0xFF) << 16)
 #define ATLAS7_QSPI_ENTER_DPM		BIT(24)
-/*SPI MODE: 1: CPOL=1, CPHA=1; 0: CPOL=0, CPHA=0*/
+/* SPI MODE: 1: CPOL=1, CPHA=1; 0: CPOL=0, CPHA=0 */
 #define ATLAS7_QSPI_SPI_MODE		BIT(25)
 #define ATLAS7_QSPI_SOFT_RESET		BIT(26)
 #define ATLAS7_QSPI_CLK_DIV_MASK	0xF
@@ -94,8 +95,10 @@
 #define ATLAS7_QSPI_DEVICE_SR_OFFSET	24
 #define ATLAS7_QSPI_DEVICE_SR_MASK	0xFF
 
-/* QSPI access request register1 defines */
-/* For erase operation*/
+/*
+ * QSPI access request register1 defines
+ * For erase operation
+ */
 #define ATLAS7_QSPI_SECTOR_ERASE	0
 #define ATLAS7_QSPI_BLOCK_ERASE		1
 #define ATLAS7_QSPI_CHIP_ERASE		2
@@ -205,11 +208,11 @@
 #define ATLAS7_JEDEC_MFR(_jedec_id)	((_jedec_id) >> 16)
 
 /*
-*Micron command
-*/
-	/* read nonvolatile configuration register*/
+ *Micron command
+ */
+/* read nonvolatile configuration register */
 #define ATLAS7_NOR_MICRON_RNCR		0xB5
-	/*write novolatile configuration register*/
+/* write novolatile configuration register */
 #define ATLAS7_NOR_MICRON_WNCR		0xB1
 #define ATLAS7_NOR_MICRON_EN32BIT	0xB7	/* enter 32 bit addressing*/
 #define ATLAS7_NOR_MICRON_EX32BIT	0xE9	/* exit 32 bit addressing*/
@@ -279,9 +282,7 @@ struct nor_flash_rw_config {
 
 
 static struct nor_flash_info flash_types[] = {
-
-	/* Micron n25xxx
-	 */
+	/* Micron n25xxx */
 #define N25Q_FLAG (FLASH_FLAG_READ_WRITE       |	\
 		   FLASH_FLAG_READ_FAST         |	\
 		   FLASH_FLAG_READ_1_1_2        |	\
@@ -296,7 +297,7 @@ static struct nor_flash_info flash_types[] = {
 		108, 20, 20, 100},
 
 	/* Sentinel */
-	{ NULL, 0x000000, 0, 0, 0, 0, 0, 0, 0, 0},
+	{},
 };
 
 /*
@@ -339,10 +340,6 @@ static struct nor_flash_rw_config n25q_read_4B_configs[] = {
 	{0x00,			0},
 };
 
-
-/*
- * functions for QSPI
- */
 static irqreturn_t atlas7_qspi_irq(int irq, void *_sr)
 {
 	struct atlas7_qspi_nor *a7nor = _sr;
@@ -363,12 +360,16 @@ atlas7_qspi_wait_for_interrupt(struct atlas7_qspi_nor *a7nor, u32 wait_mask,
 {
 	int ret;
 
-	/* 1. check the status register. the status register is not related
-	with interrput. if the status is not complete, then use the interrupt*/
+	/*
+	 * check the status register. the status register is not related
+	 * with interrput. if the status is not complete, then use the
+	 * interrupt
+	 */
 	a7nor->spsr = readl(a7nor->base + ATLAS7_QSPI_STAT);
 	if (a7nor->spsr & wait_mask)
 		return 0;
-	/* 2. enable interrupt*/
+
+	/* enable interrupt*/
 	writel(enable_bit, a7nor->base + ATLAS7_QSPI_INTMSK);
 
 	ret = wait_event_timeout(a7nor->wait,
@@ -1032,8 +1033,6 @@ atlas7_qspi_nor_mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 			goto out;
 	} else {
 		while (len > 0) {
-			/*ret = atlas7_qspi_nor_erase_sector(a7nor, addr);
-			*/
 			ret = atlas7_qspi_nor_erase_block(a7nor, addr);
 			if (ret)
 				goto out;
@@ -1164,8 +1163,9 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 		}
 	}
 
-	/*flash device have update mode, need reconfigure controller
-	*/
+	/*
+	 * flash device have update mode, need reconfigure controller
+	 */
 	mutex_lock(&a7nor->lock);
 
 	atlas7_qspi_setup_controller(a7nor);
@@ -1231,8 +1231,7 @@ atlas7_qspi_nor_jedec_probe(struct atlas7_qspi_nor *a7nor)
 	return NULL;
 }
 
-/*for fpga test*/
-#if 1
+#if 1 /* Fixme: drop this after clk driver is ready */
 static void enable_clk(struct atlas7_qspi_nor *a7nor)
 {
 	unsigned long hw_addr = 0x18840000;
@@ -1249,14 +1248,15 @@ static void enable_clk(struct atlas7_qspi_nor *a7nor)
 
 static int atlas7_qspi_nor_hw_init(struct atlas7_qspi_nor *a7nor)
 {
-	#if 1
-		enable_clk(a7nor);
-	#endif
+#if 1
+	enable_clk(a7nor);
+#endif
 	mutex_lock(&a7nor->lock);
 
-	/* before use the controller, need to close the
-	automatic indentification function
-	*/
+	/*
+	 * before use the controller, need to close the
+	 * automatic indentification function
+	 */
 	writel(0, a7nor->base + ATLAS7_QSPI_DEFMEM);
 
 	atlas7_qspi_setup_controller(a7nor);
@@ -1327,12 +1327,6 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "Resource not found\n");
-		ret = -ENODEV;
-		goto err;
-	}
-
 	a7nor->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(a7nor->base)) {
 		dev_err(&pdev->dev,
@@ -1344,17 +1338,15 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 	mutex_init(&a7nor->lock);
 	init_waitqueue_head(&a7nor->wait);
 
-	/* the clock function for qspi have not be ready
-	*/
-	#if 0
-		a7nor->clk = clk_get(&pdev->dev, NULL);
-		if (IS_ERR(a7nor->clk)) {
-			dev_err(&pdev->dev, "cannot get clock\n");
-			ret = PTR_ERR(a7nor->clk);
-			goto err;
-		}
-		clk_prepare_enable(a7nor->clk);
-	#endif
+#if 0 /* the clock function for qspi have not be ready */
+	a7nor->clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(a7nor->clk)) {
+		dev_err(&pdev->dev, "cannot get clock\n");
+		ret = PTR_ERR(a7nor->clk);
+		goto err;
+	}
+	clk_prepare_enable(a7nor->clk);
+#endif
 	ret = atlas7_qspi_nor_hw_init(a7nor);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to initialise atlast7 qspi Controller\n");
