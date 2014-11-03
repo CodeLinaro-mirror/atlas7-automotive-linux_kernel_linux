@@ -111,5 +111,39 @@
 				status = "disabled";
 			};
 		};
+		disp-iobg {
+			lcd@13100000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ld_ldd_pmx>;
+			};
+		};
+
+		display0: display@0 {
+			compatible = "rgb-panel";
+			source = "rgb.0";
+
+			bl-gpios = <&gpio_1 63 0>;
+			data-lines  = <24>;
+
+			display-timings {
+				native-mode = <&timing0>;
+				timing0: timing0 {
+					clock-frequency = <40000000>;
+					hactive = <800>;
+					vactive = <480>;
+					hfront-porch = <210>;
+					hback-porch = <45>;
+					hsync-len = <1>;
+					vback-porch = <22>;
+					vfront-porch = <132>;
+					vsync-len = <1>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+			};
+		};
 	};
 };

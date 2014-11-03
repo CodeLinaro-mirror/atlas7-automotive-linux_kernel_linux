@@ -1150,5 +1150,19 @@
 			};
 
 		};
+		disp-iobg {
+			/* lcdc0 */
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x13100000 0x13100000 0x20000>;
+
+			lcd@13100000 {
+				compatible = "sirf,lcdc";
+				reg = <0x13100000 0x10000>;
+				interrupts = <0 30 0>;
+				clocks = <&clks 86>;
+			};
+		};
 	};
 };
