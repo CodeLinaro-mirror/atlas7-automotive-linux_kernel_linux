@@ -1094,6 +1094,10 @@
 			#size-cells = <1>;
 			ranges = <0x16000000 0x16000000 0x00200000>,
 				<0x17040000 0x17040000 0x1000>,
+				<0x17060000 0x17060000 0x200>,
+				<0x17060200 0x17060200 0x100>,
+				<0x17070000 0x17070000 0x200>,
+				<0x17070200 0x17070200 0x100>,
 				<0x170A0000 0x170A0000 0x3000>;
 
 			mediam@170A0000 {
@@ -1140,6 +1144,46 @@
 				non-removable;
 				status = "disabled";
 				bus-width = <8>;
+			};
+
+			usb0: usb@17060000 {
+				cell-index = <0>;
+				compatible = "sirf,atlas7-usb";
+				reg = <0x17060000 0x200>;
+				interrupts = <0 10 0>;
+				clocks = <&clks 120>;
+				sirf,usbphy = <&usbphy0>;
+				phy_type = "utmi";
+				dr_mode = "otg";
+				maximum-speed = "high-speed";
+				status = "okay";
+			};
+
+			usb1: usb@17070000 {
+				cell-index = <1>;
+				compatible = "sirf,atlas7-usb";
+				reg = <0x17070000 0x200>;
+				interrupts = <0 11 0>;
+				clocks = <&clks 121>;
+				sirf,usbphy = <&usbphy1>;
+				phy_type = "utmi";
+				dr_mode = "host";
+				maximum-speed = "high-speed";
+				status = "okay";
+			};
+
+			usbphy0: usbphy@0 {
+				compatible = "sirf,atlas7-usbphy";
+				reg = <0x17060200 0x100>;
+				clocks = <&clks 122>;
+				status = "okay";
+			};
+
+			usbphy1: usbphy@1 {
+				compatible = "sirf,atlas7-usbphy";
+				reg = <0x17070200 0x100>;
+				clocks = <&clks 123>;
+				status = "okay";
 			};
 		};
 

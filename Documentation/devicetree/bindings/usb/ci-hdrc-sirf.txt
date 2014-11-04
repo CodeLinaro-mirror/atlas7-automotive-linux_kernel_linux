@@ -1,0 +1,31 @@
+* CSRatlas7 (formerly SiRF Atlas7) ChipIdea USB Controllers
+
+Required properties:
+- cell-index: index of ci_hdrc_platform_data array
+- compatible: Should be "sirf,atlas7-usb"
+- reg: Should contain registers location and length
+- interrupts: Should contain controller interrupt
+- sirf,usbphy: phandle of usb phy that connects to the port
+- clocks: the clock feeding the controller clock
+
+Recommended properies:
+- phy_type: the type of the phy connected to the core. Should be one
+  of "utmi", "utmi_wide", "ulpi", "serial" or "hsic". Without this
+  property the PORTSC register won't be touched
+- dr_mode: One of "host", "peripheral" or "otg". Defaults to "otg"
+
+Optional properties:
+- maximum-speed: limit the maximum speed in Gadget role
+
+Examples:
+usb0: usb@17060000 {
+	cell-index = <0>;
+	compatible = "sirf,atlas7-usb";
+	reg = <0x17060000 0x200>;
+	interrupts = <0 10 0>;
+	clocks = <&clks 120>;
+	sirf,usbphy = <&usbphy0>;
+	phy_type = "utmi";
+	dr_mode = "otg";
+	maximum-speed = "high-speed";
+};
