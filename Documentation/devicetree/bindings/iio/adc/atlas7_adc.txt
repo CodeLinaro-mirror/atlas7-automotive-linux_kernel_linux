@@ -1,0 +1,17 @@
+Sirfsoc Atlas7 inner Analog to Digital Converter
+
+Required properties:
+- compatible: Should contain "sirf,atlas7-adc"
+- reg: Offset and length of the register set for the device
+- interrupts: Should contain the interrupt for the device
+- clocks: The clock is needed by the ADC controller
+- #io-channel-cells: Should be set to <1>
+
+Example:
+adc: adc@10d80000 {
+	compatible = "sirf,atlas7-adc";
+	reg = <0x10d80000 0xffff>;
+	interrupts = <0 34 0>;
+	clocks = <&clks 56>;
+	#io-channel-cells = <1>;
+};

@@ -1291,6 +1291,7 @@
 			#size-cells = <1>;
 			ranges = <0x10d50000 0x10d50000 0x0000ffff>,
 					<0x10d60000 0x10d60000 0x0000ffff>,
+					<0x10d80000 0x10d80000 0x0000ffff>,
 					<0x10ED0000 0x10ED0000 0x3000>,
 					<0x10dc8000 0x10dc8000 0x1000>,
 					<0x10dc0000 0x10dc0000 0x1000>;
@@ -1337,6 +1338,14 @@
 				clocks = <&clks 68>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
+			};
+
+			adc: adc@10d80000 {
+				compatible = "sirf,atlas7-adc";
+				reg = <0x10d80000 0xffff>;
+				interrupts = <0 34 0>;
+				clocks = <&clks 56>;
+				#io-channel-cells = <1>;
 			};
 
 			audiom@10ED0000 {
