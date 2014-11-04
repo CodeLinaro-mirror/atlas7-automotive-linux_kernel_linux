@@ -592,10 +592,34 @@ static struct rproc_ops sirf_rproc_ops = {
 	.features = sirf_rproc_features,
 };
 
+static int __sirf_rproc_parse_memory(struct platform_device *pdev,
+				struct sirf_rproc *srproc)
+{
+	struct device_node *m_node;
+	struct resource res;
+	int ret;
+
+	m_node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
+	if (!m_node)
+		return -ENODEV;
+
+	ret = of_address_to_resource(m_node, 0, &res);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Convert address to resource failed! ret=%d\n",
+			ret);
+		return ret;
+	}
+
+	srproc->rsc_table_pa = (void *)__phys_to_virt(res.start);
+	srproc->rsc_table_len = res.end - res.start + 1;
+
+	return 0;
+}
+
 static int __sirf_rproc_parse_args(struct platform_device *pdev,
 				struct sirf_rproc *srproc)
 {
-	u32 rsc_info[3];
 	void *tx_buffer, *rx_buffer;
 	struct resource_table *rsc_table;
 	int ret;
@@ -608,24 +632,6 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	}
 	srproc->irq = ret;
 
-	/* Parse share memory information */
-	ret = of_property_read_u32_array(pdev->dev.of_node, "sirf,ipc-mem",
-				rsc_info, ARRAY_SIZE(rsc_info));
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Unable to find ipc share memory info. ret=%d\n",
-			ret);
-		goto failed;
-	}
-
-	srproc->fifo_sz = srproc->hwinfo->fifo_sz;
-	if (srproc->fifo_sz * 2 >= rsc_info[2]) {
-		dev_err(&pdev->dev,
-			"There is no memory left for resource table!\n");
-		ret = -EINVAL;
-		goto failed;
-	}
-
 	/* retrieve io base */
 	srproc->io_base = of_iomap(pdev->dev.of_node, 0);
 	if (!srproc->io_base) {
@@ -634,15 +640,20 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 		goto failed;
 	}
 
-	/* Config resource table memory */
-	if (srproc->hwinfo->features & RPROC_F_BACKEND)
-		srproc->rsc_table_pa = ioremap(rsc_info[0], rsc_info[2]);
-	else
-		srproc->rsc_table_pa =
-			(void __iomem *)(VMALLOC_START + rsc_info[1]);
+	/* Parse share memory information */
+	ret = __sirf_rproc_parse_memory(pdev, srproc);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Unable to setup ipc share memory info. ret=%d\n",
+			ret);
+		goto free_io;
+	}
 
-	if (!srproc->rsc_table_pa) {
-		ret = -ENOMEM;
+	srproc->fifo_sz = srproc->hwinfo->fifo_sz;
+	if (srproc->fifo_sz * 2 >= srproc->rsc_table_len) {
+		dev_err(&pdev->dev,
+			"There is no memory left for resource table!\n");
+		ret = -EINVAL;
 		goto free_io;
 	}
 
@@ -660,7 +671,7 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	}
 
 setup_rsc:
-	srproc->rsc_table_len = rsc_info[2] - srproc->fifo_sz * 2;
+	srproc->rsc_table_len = srproc->rsc_table_len - srproc->fifo_sz * 2;
 
 	tx_buffer = srproc->rsc_table_pa + srproc->rsc_table_len +
 		srproc->fifo_sz * srproc->hwinfo->w_fifo_chn;
@@ -670,12 +681,12 @@ setup_rsc:
 	ret = fifo_init(&srproc->w_fifo, tx_buffer,
 			srproc->fifo_sz, srproc->hwinfo->w_fifo_lock);
 	if (ret)
-		goto free_rsc;
+		goto free_io;
 
 	ret = fifo_init(&srproc->r_fifo, rx_buffer,
 			srproc->fifo_sz, srproc->hwinfo->r_fifo_lock);
 	if (ret)
-		goto free_rsc;
+		goto free_io;
 
 	srproc->set_reg = srproc->io_base + srproc->hwinfo->setreg;
 	srproc->clr_reg = srproc->io_base + srproc->hwinfo->clrreg;
@@ -685,12 +696,7 @@ setup_rsc:
 free_io:
 	iounmap(srproc->io_base);
 	srproc->io_base = NULL;
-
-free_rsc:
-	if (srproc->hwinfo->features & RPROC_F_BACKEND) {
-		iounmap(srproc->rsc_table_pa);
-		srproc->rsc_table_pa = NULL;
-	}
+	srproc->rsc_table_pa = NULL;
 
 failed:
 	return ret;

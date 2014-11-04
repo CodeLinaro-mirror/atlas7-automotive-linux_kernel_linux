@@ -25,6 +25,22 @@
 		reg = <0x40000000 0x20000000>; /* 512M for PXP */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		ipc_mem0: ns_m3_mem@4fd00000 {
+			compatible = "sirf,reserved-memory";
+			reg = <0x4FD00000 0x10000>;
+		};
+
+		ipc_mem1: ns_kal_mem@4fd10000 {
+			compatible = "sirf,reserved-memory";
+			reg = <0x4FD10000 0x10000>;
+		};
+	};
+
 	noc {
 		audiom {
 			timer@10dc0000 {
@@ -114,7 +130,7 @@
 
 		ipc@13240000 {
 			ns_m3_rproc@0 {
-				sirf,ipc-mem = <0x4FD00000 0x00000000 0x10000>;
+				memory-region = <&ipc_mem0>;
 				status = "okay";
 			};
 
@@ -123,7 +139,7 @@
 			};
 
 			ns_kal_rproc@0 {
-				sirf,ipc-mem = <0x4FD10000 0x00010000 0x10000>;
+				memory-region = <&ipc_mem1>;
 				status = "okay";
 			};
 
@@ -131,6 +147,7 @@
 				status = "disabled";
 			};
 		};
+
 		disp-iobg {
 			lcd@13100000 {
 				status = "okay";

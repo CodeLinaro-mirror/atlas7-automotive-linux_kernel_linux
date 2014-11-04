@@ -110,7 +110,7 @@ config SIRF_REMOTEPROC
 
 config SIRF_REMOTEPROC_BACKEND
 	tristate "SIRF remoteproc support for backend OS"
-	depends on SECURITY_MODE
+	depends on SECURITY_MODE && OF_RESERVED_MEM
 	select VIRTIO_BACKEND
 	select SIRF_REMOTEPROC
 	default n
@@ -124,7 +124,7 @@ config SIRF_REMOTEPROC_BACKEND
 
 config SIRF_REMOTEPROC_FRONTEND
 	tristate "SIRF remoteproc support for frontend OS"
-	depends on !SECURITY_MODE
+	depends on !SECURITY_MODE && OF_RESERVED_MEM
 	select SIRF_REMOTEPROC
 	default n
 	help

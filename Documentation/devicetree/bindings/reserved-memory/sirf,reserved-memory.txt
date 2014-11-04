@@ -1,0 +1,8 @@
+SIRF Soc Reserved memory Binding
+------------------------------------------------
+This is the node describes the Reserved memory range of sirfsoc.
+
+- compatible : "sirf,reserved-memory".
+
+The "reserved memory node" mentioned above must conform to the bindings
+described in ./reserved-memory.txt.
