@@ -1,0 +1,17 @@
+Discretix crypto Module
+
+Required properties:
+
+- compatible : Should contain entries for this and backward compatible
+  versions:
+  - "dx,cc44p" for Discretix Public Crypto Public.
+- reg : Offset and length of the register set for the module
+- interrupts : the interrupt-specifier for the module.
+
+Example:
+	/* dx-pub */
+	dxpub@53500000 {
+		compatible = "dx,cc44p";
+		reg = <0x53500000 0xa0>;
+		interrupts = <102>;
+	};
