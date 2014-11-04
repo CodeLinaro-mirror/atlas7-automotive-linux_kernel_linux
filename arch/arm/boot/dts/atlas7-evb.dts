@@ -120,7 +120,7 @@
                         };
 
 			uart2: uart@18030000 {
-				status = "okay";
+				status = "disabled";
 				pinctrl-0 = <&uart2_pmx>;
 				pinctrl-names = "default";
 			};
@@ -143,7 +143,7 @@
 
 			spi1: spi@18200000 {
 				status = "okay";
-				pinctrl-0 = <&gn_trg_spi_pmx0>;
+				pinctrl-0 = <&sp1_spi_pmx>;
 				pinctrl-names = "default";
 				spidev {
 					compatible = "spidev";
