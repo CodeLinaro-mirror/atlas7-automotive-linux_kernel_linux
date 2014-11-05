@@ -51,6 +51,19 @@
 				status = "disabled";
 			};
 
+			usp2: usp@10d40000 {
+				status = "okay";
+				compatible = "sirf,marco-usp-spi";
+				pinctrl-0 = <&audio_uart2_pmx0>;
+				pinctrl-names = "default";
+				marco-usp-spi;
+				spi@0 {
+					compatible = "spidev";
+					reg = <0>;
+					spi-max-frequency = <1000000>;
+				};
+			};
+
 			vip0@10db0000 {
 				status = "okay";
 				port {
@@ -142,7 +155,7 @@
 			};
 
 			spi1: spi@18200000 {
-				status = "okay";
+				status = "disabled";
 				pinctrl-0 = <&sp1_spi_pmx>;
 				pinctrl-names = "default";
 				spidev {

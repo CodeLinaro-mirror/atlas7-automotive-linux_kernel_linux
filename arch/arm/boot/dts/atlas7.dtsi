@@ -1352,7 +1352,8 @@
 					<0x10ED0000 0x10ED0000 0x3000>,
 					<0x10dc8000 0x10dc8000 0x1000>,
 					<0x10dc0000 0x10dc0000 0x1000>,
-					<0x10db0000 0x10db0000 0x4000>;
+					<0x10db0000 0x10db0000 0x4000>,
+					<0x10d40000 0x10d40000 0x1000>;
 
 			timer@10dc0000 {
 				compatible = "sirf,marco-tick";
@@ -1430,6 +1431,18 @@
 				compatible = "sirf,nocfw-audiom";
 				reg = <0x10ED0000 0x3000>;
 				interrupts = <0 102 0>;
+			};
+
+			usp2: usp@10d40000 {
+				cell-index = <2>;
+				reg = <0x10d40000 0x1000>;
+				interrupts = <0 22 0>;
+				clocks = <&car 66>;
+				dmas = <&dmac2 12>, <&dmac2 13>;
+				dma-names = "rx", "tx";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
 			};
 		};
 
