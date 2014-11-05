@@ -101,12 +101,12 @@ static struct nanddisk_device   nand_dev;
 static int __init sirf_fdt_handle_rsv_mem(unsigned long node, const char *uname,
 				int depth, void *data)
 {
-	__be32 *mem_info;
-	unsigned long len;
+	const __be32 *mem_info;
+	int len;
 
 	mem_info = of_get_flat_dt_prop(node,
 			"sirf,nanddisk-rsvmem-range", &len);
-	if (!mem_info || (len != 2 * sizeof(unsigned long)))
+	if (!mem_info || (len != 2 * sizeof(int)))
 		return 0;
 
 	nand_dev.nanddisk_code_start = be32_to_cpu(mem_info[0]);
