@@ -13,12 +13,26 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/delay.h>
 
 #include <video/sirfsoc_vdss.h>
 #include "vdss.h"
 #include "lcdc.h"
+
+static struct sirfsoc_lcdc {
+	struct platform_device *pdev;
+	void __iomem    *base;
+
+	int irq;
+	irq_handler_t user_handler;
+	void *user_data;
+
+	bool	is_atlas7;
+
+	struct clk	*clk;
+} lcdc;
 
 static void __lcdc_wait_idle(int layer, bool with_vpp)
 {
@@ -453,7 +467,11 @@ static void lcdc_layer_set_dma(enum vdss_layer layer,
 	lcdc_write_reg(reg_offset(layer, L0_YSIZE), ysize);
 	lcdc_write_reg(reg_offset(layer, L0_SKIP),  skip);
 
-	lx_fifo_chk = LX_LO_CHK(0xF0) | LX_MI_CHK(0x80) | LX_REQ_SEL;
+	if (lcdc.is_atlas7)
+		lx_fifo_chk = LX_LO_CHK_A7(0x1F0) | LX_MI_CHK_A7(0x100)
+						| LX_REQ_SEL_A7;
+	else
+		lx_fifo_chk = LX_LO_CHK(0xF0) | LX_MI_CHK(0x80) | LX_REQ_SEL;
 	lcdc_write_reg(reg_offset(layer, L0_FIFO_CHK), lx_fifo_chk);
 
 	lx_dma_ctrl = lcdc_read_reg(reg_offset(layer, L0_DMA_CTRL));
@@ -627,6 +645,10 @@ void lcdc_screen_set_timings(enum vdss_screen scn_id,
 	lcdc_write_reg(S0_HSYNC_PERIOD, s0_hsync_period);
 
 	s0_hsync_width = timings->hsw - 1;
+	/* atlas7: S0_HSYNC_WIDTH value at least 1 */
+	if (lcdc.is_atlas7)
+		if (s0_hsync_width == 0)
+			s0_hsync_width = 1;
 	lcdc_write_reg(S0_HSYNC_WIDTH, s0_hsync_width);
 
 	s0_vsync_period = timings->yres + timings->vsw +
@@ -638,7 +660,11 @@ void lcdc_screen_set_timings(enum vdss_screen scn_id,
 	s0_vsync_width |= S0_VSYC_WIDTH_UINT;
 	lcdc_write_reg(S0_VSYNC_WIDTH, s0_vsync_width);
 
-	so_act_hstart = timings->hsw + timings->hbp - 12;
+	/* atlas7: act hstart need move more 16 pclk position */
+	if (lcdc.is_atlas7)
+		so_act_hstart = timings->hsw + timings->hbp - 16;
+	else
+		so_act_hstart = timings->hsw + timings->hbp - 12;
 	lcdc_write_reg(S0_ACT_HSTART, so_act_hstart);
 	so_act_hend = so_act_hstart + timings->xres - 1;
 	lcdc_write_reg(S0_ACT_HEND, so_act_hend);
@@ -661,6 +687,26 @@ void lcdc_screen_set_timings(enum vdss_screen scn_id,
 	lcdc_write_reg(BLS_LEVEL_TB1, 8 | (10 << 8) | (12 << 16) | (14 << 24));
 	lcdc_write_reg(BLS_LEVEL_TB2, 16 | (18 << 8) | (20 << 16) | (22 << 24));
 	lcdc_write_reg(BLS_LEVEL_TB3, 24 | (26 << 8) | (28 << 16) | (30 << 24));
+
+	/* atlas7: can't use default value any more */
+	if (lcdc.is_atlas7) {
+		lcdc_write_reg(PADMUX_LDD_0, 0x80000);
+		lcdc_write_reg(PADMUX_LDD_1, 0x100000);
+		lcdc_write_reg(PADMUX_LDD_2, 0x400000);
+		lcdc_write_reg(PADMUX_LDD_3, 0x800);
+		lcdc_write_reg(PADMUX_LDD_4, 0x400);
+		lcdc_write_reg(PADMUX_LDD_5, 0x2000);
+		lcdc_write_reg(PADMUX_LDD_6, 0x800000);
+		lcdc_write_reg(PADMUX_LDD_7, 0x8000);
+		lcdc_write_reg(PADMUX_LDD_8, 0x200000);
+		lcdc_write_reg(PADMUX_LDD_9, 0x4000);
+		lcdc_write_reg(PADMUX_LDD_10, 0x10);
+		lcdc_write_reg(PADMUX_LDD_11, 0x1000);
+		lcdc_write_reg(PADMUX_LDD_12, 0x40);
+		lcdc_write_reg(PADMUX_LDD_13, 0x80);
+		lcdc_write_reg(PADMUX_LDD_14, 0x8);
+		lcdc_write_reg(PADMUX_LDD_15, 0x20);
+	}
 }
 
 void lcdc_screen_setup(enum vdss_screen scn_id,
@@ -733,6 +779,94 @@ void lcdc_print_regs(void)
 	LCDC_DUMP("SCR_CTRL=0X%08X\n", lcdc_read_reg(SCR_CTRL));
 	LCDC_DUMP("INT_MASK=0X%08X\n", lcdc_read_reg(INT_MASK));
 	LCDC_DUMP("INT_CTRL_STATUS=0X%08X\n", lcdc_read_reg(INT_CTRL_STATUS));
+	LCDC_DUMP("WB_CTRL=0X%08X\n", lcdc_read_reg(WB_CTRL));
+	LCDC_DUMP("S0_RGB_YUV_OFFSET=0X%08X\n",
+					lcdc_read_reg(S0_RGB_YUV_OFFSET));
+	LCDC_DUMP("S0_LAYER_SEL_SET=0X%08X\n",
+					lcdc_read_reg(S0_LAYER_SEL_SET));
+	LCDC_DUMP("S0_LAYER_SEL_CLR=0X%08X\n", lcdc_read_reg(S0_LAYER_SEL_CLR));
+	LCDC_DUMP("S0_FRONT_INT_LINE=0X%08X\n",
+					lcdc_read_reg(S0_FRONT_INT_LINE));
+	LCDC_DUMP("FRONT_INT_MASK=0X%08X\n", lcdc_read_reg(FRONT_INT_MASK));
+	LCDC_DUMP("FRONT_INT_CTRL_STATUS=0X%08X\n",
+					lcdc_read_reg(FRONT_INT_CTRL_STATUS));
+	LCDC_DUMP("FRONT_INT_MASK_SET=0X%08X\n",
+					lcdc_read_reg(FRONT_INT_MASK_SET));
+	LCDC_DUMP("FRONT_INT_MASK_CLR=0X%08X\n",
+					lcdc_read_reg(FRONT_INT_MASK_CLR));
+	LCDC_DUMP("INT_MASK_SET=0X%08X\n", lcdc_read_reg(INT_MASK_SET));
+	LCDC_DUMP("INT_MASK_CLR=0X%08X\n", lcdc_read_reg(INT_MASK_CLR));
+
+	LCDC_DUMP("ED_MODE=0X%08X\n", lcdc_read_reg(ED_MODE));
+	LCDC_DUMP("ED_PERFORM=0X%08X\n", lcdc_read_reg(ED_PERFORM));
+	LCDC_DUMP("ED_START_STATE=0X%08X\n", lcdc_read_reg(ED_START_STATE));
+	LCDC_DUMP("INVERSEDATA=0X%08X\n", lcdc_read_reg(INVERSEDATA));
+	LCDC_DUMP("ED_LFSR_ENABLE=0X%08X\n", lcdc_read_reg(ED_LFSR_ENABLE));
+	LCDC_DUMP("ED_POLYNOMIAL=0X%08X\n", lcdc_read_reg(ED_POLYNOMIAL));
+	LCDC_DUMP("ED_LFSR_STEPS=0X%08X\n", lcdc_read_reg(ED_LFSR_STEPS));
+	LCDC_DUMP("ED_LEFTALIGN=0X%08X\n", lcdc_read_reg(ED_LEFTALIGN));
+	LCDC_DUMP("BYPASS_ED=0X%08X\n", lcdc_read_reg(BYPASS_ED));
+
+	LCDC_DUMP("PADMUX_LDD_0=0X%08X\n", lcdc_read_reg(PADMUX_LDD_0));
+	LCDC_DUMP("PADMUX_LDD_1=0X%08X\n", lcdc_read_reg(PADMUX_LDD_1));
+	LCDC_DUMP("PADMUX_LDD_2=0X%08X\n", lcdc_read_reg(PADMUX_LDD_2));
+	LCDC_DUMP("PADMUX_LDD_3=0X%08X\n", lcdc_read_reg(PADMUX_LDD_3));
+	LCDC_DUMP("PADMUX_LDD_4=0X%08X\n", lcdc_read_reg(PADMUX_LDD_4));
+	LCDC_DUMP("PADMUX_LDD_5=0X%08X\n", lcdc_read_reg(PADMUX_LDD_5));
+	LCDC_DUMP("PADMUX_LDD_6=0X%08X\n", lcdc_read_reg(PADMUX_LDD_6));
+	LCDC_DUMP("PADMUX_LDD_7=0X%08X\n", lcdc_read_reg(PADMUX_LDD_7));
+	LCDC_DUMP("PADMUX_LDD_8=0X%08X\n", lcdc_read_reg(PADMUX_LDD_8));
+	LCDC_DUMP("PADMUX_LDD_9=0X%08X\n", lcdc_read_reg(PADMUX_LDD_9));
+	LCDC_DUMP("PADMUX_LDD_10=0X%08X\n", lcdc_read_reg(PADMUX_LDD_10));
+	LCDC_DUMP("PADMUX_LDD_11=0X%08X\n", lcdc_read_reg(PADMUX_LDD_11));
+	LCDC_DUMP("PADMUX_LDD_12=0X%08X\n", lcdc_read_reg(PADMUX_LDD_12));
+	LCDC_DUMP("PADMUX_LDD_13=0X%08X\n", lcdc_read_reg(PADMUX_LDD_13));
+	LCDC_DUMP("PADMUX_LDD_14=0X%08X\n", lcdc_read_reg(PADMUX_LDD_14));
+	LCDC_DUMP("PADMUX_LDD_15=0X%08X\n", lcdc_read_reg(PADMUX_LDD_15));
+	LCDC_DUMP("PADMUX_LDD_16=0X%08X\n", lcdc_read_reg(PADMUX_LDD_16));
+	LCDC_DUMP("PADMUX_LDD_17=0X%08X\n", lcdc_read_reg(PADMUX_LDD_17));
+	LCDC_DUMP("PADMUX_LDD_18=0X%08X\n", lcdc_read_reg(PADMUX_LDD_18));
+	LCDC_DUMP("PADMUX_LDD_19=0X%08X\n", lcdc_read_reg(PADMUX_LDD_19));
+	LCDC_DUMP("PADMUX_LDD_20=0X%08X\n", lcdc_read_reg(PADMUX_LDD_20));
+	LCDC_DUMP("PADMUX_LDD_21=0X%08X\n", lcdc_read_reg(PADMUX_LDD_21));
+	LCDC_DUMP("PADMUX_LDD_22=0X%08X\n", lcdc_read_reg(PADMUX_LDD_22));
+	LCDC_DUMP("PADMUX_LDD_23=0X%08X\n", lcdc_read_reg(PADMUX_LDD_23));
+	LCDC_DUMP("PADMUX_L_DE=0X%08X\n", lcdc_read_reg(PADMUX_L_DE));
+	LCDC_DUMP("PADMUX_L_LCK=0X%08X\n", lcdc_read_reg(PADMUX_L_LCK));
+	LCDC_DUMP("PADMUX_L_FCK=0X%08X\n", lcdc_read_reg(PADMUX_L_FCK));
+	LCDC_DUMP("PADMUX_L_PCLK=0X%08X\n", lcdc_read_reg(PADMUX_L_PCLK));
+	LCDC_DUMP("PADMUX_OUT_MUX=0X%08X\n", lcdc_read_reg(PADMUX_OUT_MUX));
+	LCDC_DUMP("PADMUX_DELAY_CFG=0X%08X\n", lcdc_read_reg(PADMUX_DELAY_CFG));
+
+	LCDC_DUMP("STRS_CONTROL=0X%08X\n", lcdc_read_reg(STRS_CONTROL));
+	LCDC_DUMP("STRS0_VAL=0X%08X\n", lcdc_read_reg(STRS0_VAL));
+	LCDC_DUMP("STRS1_VAL=0X%08X\n", lcdc_read_reg(STRS1_VAL));
+	LCDC_DUMP("STRS2_VAL=0X%08X\n", lcdc_read_reg(STRS2_VAL));
+	LCDC_DUMP("STRS3_VAL=0X%08X\n", lcdc_read_reg(STRS3_VAL));
+
+	LCDC_DUMP("DMAN_ADDR=0X%08X\n", lcdc_read_reg(DMAN_ADDR));
+	LCDC_DUMP("DMAN_XLEN=0X%08X\n", lcdc_read_reg(DMAN_XLEN));
+	LCDC_DUMP("DMAN_YLEN=0X%08X\n", lcdc_read_reg(DMAN_YLEN));
+	LCDC_DUMP("DMAN_CTRL=0X%08X\n", lcdc_read_reg(DMAN_CTRL));
+	LCDC_DUMP("DMAN_WIDTH=0X%08X\n", lcdc_read_reg(DMAN_WIDTH));
+	LCDC_DUMP("DMAN_VALID=0X%08X\n", lcdc_read_reg(DMAN_VALID));
+	LCDC_DUMP("DMAN_INT=0X%08X\n", lcdc_read_reg(DMAN_INT));
+	LCDC_DUMP("DMAN_INT_EN=0X%08X\n", lcdc_read_reg(DMAN_INT_EN));
+	LCDC_DUMP("DMAN_LOOP_CTRL=0X%08X\n", lcdc_read_reg(DMAN_LOOP_CTRL));
+	LCDC_DUMP("DMAN_INT_CNT=0X%08X\n", lcdc_read_reg(DMAN_INT_CNT));
+	LCDC_DUMP("DMAN_TIMEOUT_CNT=0X%08X\n", lcdc_read_reg(DMAN_TIMEOUT_CNT));
+	LCDC_DUMP("DMAN_PAU_TIME_CNT=0X%08X\n",
+					lcdc_read_reg(DMAN_PAU_TIME_CNT));
+	LCDC_DUMP("DMAN_CUR_TABLE_ADDR=0X%08X\n",
+					lcdc_read_reg(DMAN_CUR_TABLE_ADDR));
+	LCDC_DUMP("DMAN_CUR_DATA_ADDR=0X%08X\n",
+					lcdc_read_reg(DMAN_CUR_DATA_ADDR));
+	LCDC_DUMP("DMAN_MUL=0X%08X\n", lcdc_read_reg(DMAN_MUL));
+	LCDC_DUMP("DMAN_STATE0=0X%08X\n", lcdc_read_reg(DMAN_STATE0));
+	LCDC_DUMP("DMAN_STATE1=0X%08X\n", lcdc_read_reg(DMAN_STATE1));
+
+	LCDC_DUMP("WB_DMA_PENDING_START_ADDR=0X%08X\n",
+				lcdc_read_reg(WB_DMA_PENDING_START_ADDR));
 
 	/* Lay0 register */
 	LCDC_DUMP("L0_CTRL=0x%08x\n", lcdc_read_reg(L0_CTRL));
@@ -753,6 +887,16 @@ void lcdc_print_regs(void)
 	LCDC_DUMP("L0_CKEYS_DST=0X%08X\n", lcdc_read_reg(L0_CKEYS_DST));
 	LCDC_DUMP("L0_FIFO_CHK=0X%08X\n", lcdc_read_reg(L0_FIFO_CHK));
 	LCDC_DUMP("L0_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L0_FIFO_STATUS));
+	LCDC_DUMP("L0_DMA_ACCCNT=0X%08X\n", lcdc_read_reg(L0_DMA_ACCCNT));
+	LCDC_DUMP("L0_YUV2RGB_RCOEF=0X%08X\n", lcdc_read_reg(L0_YUV2RGB_RCOEF));
+	LCDC_DUMP("L0_YUV2RGB_GCOEF=0X%08X\n", lcdc_read_reg(L0_YUV2RGB_GCOEF));
+	LCDC_DUMP("L0_YUV2RGB_BCOEF=0X%08X\n", lcdc_read_reg(L0_YUV2RGB_BCOEF));
+	LCDC_DUMP("L0_YUV2RGB_OFFSET1=0X%08X\n",
+					lcdc_read_reg(L0_YUV2RGB_OFFSET1));
+	LCDC_DUMP("L0_YUV2RGB_OFFSET2=0X%08X\n",
+					lcdc_read_reg(L0_YUV2RGB_OFFSET2));
+	LCDC_DUMP("L0_YUV2RGB_OFFSET3=0X%08X\n",
+					lcdc_read_reg(L0_YUV2RGB_OFFSET3));
 
 	/* Lay1 Register */
 	LCDC_DUMP("L1_CTRL=0x%08x\n", lcdc_read_reg(L1_CTRL));
@@ -773,6 +917,16 @@ void lcdc_print_regs(void)
 	LCDC_DUMP("L1_CKEYS_DST=0X%08X\n", lcdc_read_reg(L1_CKEYS_DST));
 	LCDC_DUMP("L1_FIFO_CHK=0X%08X\n", lcdc_read_reg(L1_FIFO_CHK));
 	LCDC_DUMP("L1_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L1_FIFO_STATUS));
+	LCDC_DUMP("L1_DMA_ACCCNT=0X%08X\n", lcdc_read_reg(L1_DMA_ACCCNT));
+	LCDC_DUMP("L1_YUV2RGB_RCOEF=0X%08X\n", lcdc_read_reg(L1_YUV2RGB_RCOEF));
+	LCDC_DUMP("L1_YUV2RGB_GCOEF=0X%08X\n", lcdc_read_reg(L1_YUV2RGB_GCOEF));
+	LCDC_DUMP("L1_YUV2RGB_BCOEF=0X%08X\n", lcdc_read_reg(L1_YUV2RGB_BCOEF));
+	LCDC_DUMP("L1_YUV2RGB_OFFSET1=0X%08X\n",
+					lcdc_read_reg(L1_YUV2RGB_OFFSET1));
+	LCDC_DUMP("L1_YUV2RGB_OFFSET2=0X%08X\n",
+					lcdc_read_reg(L1_YUV2RGB_OFFSET2));
+	LCDC_DUMP("L1_YUV2RGB_OFFSET3=0X%08X\n",
+					lcdc_read_reg(L1_YUV2RGB_OFFSET3));
 
 	/* Lay2 Register */
 	LCDC_DUMP("L2_CTRL=0x%08x\n", lcdc_read_reg(L2_CTRL));
@@ -793,6 +947,16 @@ void lcdc_print_regs(void)
 	LCDC_DUMP("L2_CKEYS_DST=0X%08X\n", lcdc_read_reg(L2_CKEYS_DST));
 	LCDC_DUMP("L2_FIFO_CHK=0X%08X\n", lcdc_read_reg(L2_FIFO_CHK));
 	LCDC_DUMP("L2_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L2_FIFO_STATUS));
+	LCDC_DUMP("L2_DMA_ACCCNT=0X%08X\n", lcdc_read_reg(L2_DMA_ACCCNT));
+	LCDC_DUMP("L2_YUV2RGB_RCOEF=0X%08X\n", lcdc_read_reg(L2_YUV2RGB_RCOEF));
+	LCDC_DUMP("L2_YUV2RGB_GCOEF=0X%08X\n", lcdc_read_reg(L2_YUV2RGB_GCOEF));
+	LCDC_DUMP("L2_YUV2RGB_BCOEF=0X%08X\n", lcdc_read_reg(L2_YUV2RGB_BCOEF));
+	LCDC_DUMP("L2_YUV2RGB_OFFSET1=0X%08X\n",
+					lcdc_read_reg(L2_YUV2RGB_OFFSET1));
+	LCDC_DUMP("L2_YUV2RGB_OFFSET2=0X%08X\n",
+					lcdc_read_reg(L2_YUV2RGB_OFFSET2));
+	LCDC_DUMP("L2_YUV2RGB_OFFSET3=0X%08X\n",
+					lcdc_read_reg(L2_YUV2RGB_OFFSET3));
 
 	/* Lay3 Register */
 	LCDC_DUMP("L3_CTRL=0x%08x\n", lcdc_read_reg(L3_CTRL));
@@ -813,21 +977,19 @@ void lcdc_print_regs(void)
 	LCDC_DUMP("L3_CKEYS_DST=0X%08X\n", lcdc_read_reg(L3_CKEYS_DST));
 	LCDC_DUMP("L3_FIFO_CHK=0X%08X\n", lcdc_read_reg(L3_FIFO_CHK));
 	LCDC_DUMP("L3_FIFO_STATUS=0x%08x\n", lcdc_read_reg(L3_FIFO_STATUS));
-
+	LCDC_DUMP("L3_DMA_ACCCNT=0X%08X\n", lcdc_read_reg(L3_DMA_ACCCNT));
+	LCDC_DUMP("L3_YUV2RGB_RCOEF=0X%08X\n", lcdc_read_reg(L3_YUV2RGB_RCOEF));
+	LCDC_DUMP("L3_YUV2RGB_GCOEF=0X%08X\n", lcdc_read_reg(L3_YUV2RGB_GCOEF));
+	LCDC_DUMP("L3_YUV2RGB_BCOEF=0X%08X\n", lcdc_read_reg(L3_YUV2RGB_BCOEF));
+	LCDC_DUMP("L3_YUV2RGB_OFFSET1=0X%08X\n",
+					lcdc_read_reg(L3_YUV2RGB_OFFSET1));
+	LCDC_DUMP("L3_YUV2RGB_OFFSET2=0X%08X\n",
+					lcdc_read_reg(L3_YUV2RGB_OFFSET2));
+	LCDC_DUMP("L3_YUV2RGB_OFFSET3=0X%08X\n",
+					lcdc_read_reg(L3_YUV2RGB_OFFSET3));
 }
 
 #define VDSS_SUBSYS_NAME "LCDC"
-
-static struct sirfsoc_lcdc {
-	struct platform_device *pdev;
-	void __iomem    *base;
-
-	int irq;
-	irq_handler_t user_handler;
-	void *user_data;
-
-	struct clk	*clk;
-} lcdc;
 
 #define LCDC_MAX_NR_ISRS		8
 #define LCDC_INT_MASK_ERRS	(LCDC_INT_L0_OFLOW | \
@@ -1290,6 +1452,7 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i;
 	struct pinctrl *p;
+	struct device_node *dn = pdev->dev.of_node;
 
 	lcdc.pdev = pdev;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1304,6 +1467,11 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 		VDSSERR("can't ioremap\n");
 		return -ENOMEM;
 	}
+
+	if (of_device_is_compatible(dn, "sirf,atlas7-lcdc"))
+		lcdc.is_atlas7 = true;
+	else
+		lcdc.is_atlas7 = false;
 
 	lcdc.irq = platform_get_irq(pdev, 0);
 	if (lcdc.irq < 0) {
@@ -1359,6 +1527,7 @@ static int __exit sirfsoc_lcdc_remove(struct platform_device *pdev)
 
 static const struct of_device_id lcdc_of_match[] = {
 	{.compatible = "sirf,lcdc",},
+	{.compatible = "sirf,atlas7-lcdc",},
 	{},
 };
 

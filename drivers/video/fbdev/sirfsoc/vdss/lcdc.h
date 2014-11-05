@@ -43,21 +43,23 @@
 #define S0_TV_FIELD		0x0058
 #define S0_INT_LINE		0x005c
 #define S0_LAYER_STATUS		0x0060
+
+#define WB_CTRL			0x0064
 #define S0_RGB_YUV_OFFSET	0x0070
+#define S0_LAYER_SEL_SET	0x0074
+#define S0_LAYER_SEL_CLR	0x0078
+#define S0_FRONT_INT_LINE	0x007C
+#define FRONT_INT_MASK		0x00D8
+#define FRONT_INT_CTRL_STATUS	0x00DC
+#define FRONT_INT_MASK_SET	0x00E0
+#define FRONT_INT_MASK_CLR	0x00E4
+#define INT_MASK_SET		0x00E8
+#define INT_MASK_CLR		0x00EC
 
-#define BLS_CTRL1		0x0b00
-#define BLS_CTRL2		0x0b04
-#define BLS_STATUS		0x0b08
-#define CRC_VALUE		0x0b0c
-#define BLS_LEVEL_TB0		0x0b10
-#define BLS_LEVEL_TB1		0x0b14
-#define BLS_LEVEL_TB2		0x0b18
-#define BLS_LEVEL_TB3		0x0b1c
-
-#define DMA_STATUS		0x00f0
-#define INT_MASK		0x00f4
-#define INT_CTRL_STATUS		0x00f8
-#define SCR_CTRL		0x00fc
+#define DMA_STATUS		0x00F0
+#define INT_MASK		0x00F4
+#define INT_CTRL_STATUS		0x00F8
+#define SCR_CTRL		0x00FC
 
 #define L0_CTRL			0x0100
 #define L0_HSTART		0x0104
@@ -78,6 +80,13 @@
 #define L0_CKEYB_DST		0x0150
 #define L0_CKEYS_DST		0x0154
 
+#define L0_DMA_ACCCNT		0x0158
+#define L0_YUV2RGB_RCOEF	0x0160
+#define L0_YUV2RGB_GCOEF	0x0164
+#define L0_YUV2RGB_BCOEF	0x0168
+#define L0_YUV2RGB_OFFSET1	0x016C
+#define L0_YUV2RGB_OFFSET2	0x0170
+#define L0_YUV2RGB_OFFSET3	0x0174
 
 #define L1_CTRL			0x0200
 #define L1_HSTART		0x0204
@@ -98,6 +107,14 @@
 #define L1_CKEYB_DST		0x0250
 #define L1_CKEYS_DST		0x0254
 
+#define L1_DMA_ACCCNT		0x0258
+#define L1_YUV2RGB_RCOEF	0x0260
+#define L1_YUV2RGB_GCOEF	0x0264
+#define L1_YUV2RGB_BCOEF	0x0268
+#define L1_YUV2RGB_OFFSET1	0x026C
+#define L1_YUV2RGB_OFFSET2	0x0270
+#define L1_YUV2RGB_OFFSET3	0x0274
+
 #define L2_CTRL			0x0300
 #define L2_HSTART		0x0304
 #define L2_VSTART		0x0308
@@ -116,6 +133,14 @@
 #define L2_FIFO_STATUS		0x033c
 #define L2_CKEYB_DST		0x0350
 #define L2_CKEYS_DST		0x0354
+
+#define L2_DMA_ACCCNT		0x0358
+#define L2_YUV2RGB_RCOEF	0x0360
+#define L2_YUV2RGB_GCOEF	0x0364
+#define L2_YUV2RGB_BCOEF	0x0368
+#define L2_YUV2RGB_OFFSET1	0x036C
+#define L2_YUV2RGB_OFFSET2	0x0370
+#define L2_YUV2RGB_OFFSET3	0x0374
 
 #define L3_CTRL			0x0400
 #define L3_HSTART		0x0404
@@ -136,9 +161,73 @@
 #define L3_CKEYB_DST		0x0450
 #define L3_CKEYS_DST		0x0454
 
+#define L3_DMA_ACCCNT		0x0458
+#define L3_YUV2RGB_RCOEF	0x0460
+#define L3_YUV2RGB_GCOEF	0x0464
+#define L3_YUV2RGB_BCOEF	0x0468
+#define L3_YUV2RGB_OFFSET1	0x046C
+#define L3_YUV2RGB_OFFSET2	0x0470
+#define L3_YUV2RGB_OFFSET3	0x0474
+
 #define S0_GAMMAFIFO_R		0x0800
 #define S0_GAMMAFIFO_G		0x0900
 #define S0_GAMMAFIFO_B		0x0a00
+
+#define BLS_CTRL1		0x0b00
+#define BLS_CTRL2		0x0b04
+#define BLS_STATUS		0x0b08
+#define CRC_VALUE		0x0b0c
+#define BLS_LEVEL_TB0		0x0b10
+#define BLS_LEVEL_TB1		0x0b14
+#define BLS_LEVEL_TB2		0x0b18
+#define BLS_LEVEL_TB3		0x0b1c
+
+#define ED_MODE			0x0c00
+#define ED_PERFORM		0x0c04
+#define ED_START_STATE		0x0c08
+#define INVERSEDATA		0x0c0C
+#define ED_LFSR_ENABLE		0x0c10
+#define ED_POLYNOMIAL		0x0c14
+#define ED_LFSR_STEPS		0x0c18
+#define ED_LEFTALIGN		0x0c1C
+#define BYPASS_ED		0x0c20
+
+#define PADMUX_LDD_0		0x0D00
+#define PADMUX_LDD_1		0x0D04
+#define PADMUX_LDD_2		0x0D08
+#define PADMUX_LDD_3		0x0D0C
+#define PADMUX_LDD_4		0x0D10
+#define PADMUX_LDD_5		0x0D14
+#define PADMUX_LDD_6		0x0D18
+#define PADMUX_LDD_7		0x0D1C
+#define PADMUX_LDD_8		0x0D20
+#define PADMUX_LDD_9		0x0D24
+#define PADMUX_LDD_10		0x0D28
+#define PADMUX_LDD_11		0x0D2C
+#define PADMUX_LDD_12		0x0D30
+#define PADMUX_LDD_13		0x0D34
+#define PADMUX_LDD_14		0x0D38
+#define PADMUX_LDD_15		0x0D3C
+#define PADMUX_LDD_16		0x0D40
+#define PADMUX_LDD_17		0x0D44
+#define PADMUX_LDD_18		0x0D48
+#define PADMUX_LDD_19		0x0D4C
+#define PADMUX_LDD_20		0x0D50
+#define PADMUX_LDD_21		0x0D54
+#define PADMUX_LDD_22		0x0D58
+#define PADMUX_LDD_23		0x0D5C
+#define PADMUX_L_DE		0x0D60
+#define PADMUX_L_LCK		0x0D64
+#define PADMUX_L_FCK		0x0D68
+#define PADMUX_L_PCLK		0x0D6C
+#define PADMUX_OUT_MUX		0x0D70
+#define PADMUX_DELAY_CFG	0x0D74
+
+#define STRS_CONTROL		0x0d80
+#define STRS0_VAL		0x0d84
+#define STRS1_VAL		0x0d88
+#define STRS2_VAL		0x0d8C
+#define STRS3_VAL		0x0d90
 
 #define CUR0_CTRL		0x1000
 #define CUR0_HSTART		0x1004
@@ -153,6 +242,30 @@
 #define CUR0_FIFO_RDPTR		0x1028
 #define CUR0_CURRENT_XY		0x102C
 #define CUR0_FIFODATA		0x1400
+
+#define S0_GAMMAFIFO_READ_R	0x1800
+#define S0_GAMMAFIFO_READ_G	0x1900
+#define S0_GAMMAFIFO_READ_B	0x1a00
+
+#define DMAN_ADDR		0x4000
+#define DMAN_XLEN		0x4004
+#define DMAN_YLEN		0x4008
+#define DMAN_CTRL		0x400C
+#define DMAN_WIDTH		0x4010
+#define DMAN_VALID		0x4014
+#define DMAN_INT		0x4018
+#define DMAN_INT_EN		0x401C
+#define DMAN_LOOP_CTRL		0x4020
+#define DMAN_INT_CNT		0x4024
+#define DMAN_TIMEOUT_CNT	0x4028
+#define DMAN_PAU_TIME_CNT	0x402C
+#define DMAN_CUR_TABLE_ADDR	0x4030
+#define DMAN_CUR_DATA_ADDR	0x4034
+#define DMAN_MUL		0x4038
+#define DMAN_STATE0		0x403C
+#define DMAN_STATE1		0x4040
+
+#define WB_DMA_PENDING_START_ADDR	0x5000
 
 #define LCDC_LAYER_REG_SHIFT	8
 
@@ -172,6 +285,8 @@
 #define S0_OSC_DIV_RATIO(x)	(((x) & 0x3FF) << 0)
 #define S0_OSC_HALF_DUTY	BIT(12)
 #define S0_OSC_PCLK_CTRL	BIT(16)
+#define NEW_LVDS_1		BIT(17)
+#define NEW_LVDS_2		BIT(18)
 
 /* Timing Control */
 #define S0_TIM_PCLK_IO		BIT(1)
@@ -226,6 +341,7 @@
 #define S0_TV_HSTART(x)		(((x) & 0xFFF) << 0)
 #define S0_TV_VSTART(x)		(((x) & 0x7FF) << 12)
 #define S0_TV_F_VALID		BIT(24)
+#define S0_TV_EXT_FIELD		BIT(28)
 
 #define S0_LINE_NUM(x)		(((x) & 0x7FF) << 0)
 #define S0_INT_LINE_VALID	BIT(12)
@@ -255,6 +371,7 @@
 #define L2_UFLOW_MASK		BIT(14)
 #define L3_UFLOW_MASK		BIT(15)
 #define S0_LINE_INT_MASK	BIT(18)
+#define S0_WB_OVERFLOW_MASK	BIT(19)
 #define L0_UNFINISH_MASK	BIT(28)
 #define L1_UNFINISH_MASK	BIT(29)
 #define L2_UNFINISH_MASK	BIT(30)
@@ -273,6 +390,7 @@
 #define L2_UFLOW_INT		BIT(14)
 #define L3_UFLOW_INT		BIT(15)
 #define S0_LINE_INT_INT		BIT(18)
+#define S0_WB_OVERFLOW_INT	BIT(19)
 #define L0_UNFINISH_INT		BIT(28)
 #define L1_UNFINISH_INT		BIT(29)
 #define L2_UNFINISH_INT		BIT(30)
@@ -293,6 +411,18 @@
 #define LX_CTRL_DST_CKEY_EN	BIT(11)
 #define LX_CTRL_PREMULTI_ALPHA	BIT(12)
 #define LX_CTRL_SOURCE_ALPHA	BIT(13)
+#define LX_CTRL_ENDIANMODE	BIT(16)
+#define LX_CTRL_YUV422_FORMAT_MASK	(0x3 << 17)
+#define LX_CTRL_YUV422_FORMAT(x)	(((x) & 0x3) << 17)
+#define LX_CTRL_LATCH_IMMEDIATE	BIT(31)
+
+#define LX_HSTART(x)		(((x) & 0xFFF) << 0)
+#define LX_VSTART(x)		(((x) & 0x7FF) << 0)
+#define LX_HEND(x)		(((x) & 0xFFF) << 0)
+#define LX_VEND(x)		(((x) & 0x7FF) << 0)
+#define LX_XSIZE(x)		(((x) & 0x1FFF) << 0)
+#define LX_YSIZE(x)		(((x) & 0x1FFF) << 0)
+#define LX_SKIP(x)		(((x) & 0x1FFF) << 0)
 
 #define LX_DMA_MODE		BIT(1)
 #define LX_DMA_CHAIN_MODE	BIT(2)
@@ -317,6 +447,12 @@
 #define LX_LO_CHK(x)		(((x) & 0xFF) << 0)
 #define LX_MI_CHK(x)		(((x) & 0xFF) << 8)
 #define LX_REQ_SEL		BIT(24)
+#define LX_LO_CHK_A7(x)		(((x) & 0x1FF) << 0)
+#define LX_LO_CHK_MSB_A7(x)	(((x) & 0x1) << 9)
+#define LX_MI_CHK_A7(x)		(((x) & 0x1FF) << 16)
+#define LX_MI_CHK_MSB_A7(x)	(((x) & 0x1) << 25)
+#define LX_DB_SZ_EN_A7		BIT(30)
+#define LX_REQ_SEL_A7		BIT(31)
 
 #define LCDC_ERR(fmt, ...)	pr_err(fmt, ## __VA_ARGS__)
 #define LCDC_DEBUG(fmt, ...)	pr_debug(fmt, ## __VA_ARGS__)
