@@ -598,8 +598,8 @@ void lcdc_screen_set_timings(enum vdss_screen scn_id,
 		int div_ratio =
 			lcdc_clk_get_rate() / timings->pixel_clock  - 1;
 
-		if (div_ratio < 2)
-			s0_osc_ratio |= S0_OSC_DIV_RATIO(0x2);
+		if (div_ratio < 1)
+			s0_osc_ratio |= S0_OSC_DIV_RATIO(0x1);
 		else
 			s0_osc_ratio |= S0_OSC_DIV_RATIO(div_ratio);
 	}
