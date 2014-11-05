@@ -84,23 +84,25 @@ static int panel_rgb_enable(struct sirfsoc_vdss_panel *panel)
 	if (r)
 		return r;
 
-	if (pdata->power_vcc != 0)
-		i2c_smbus_write_byte_data(pdata->client,
-			pdata->power_vcc & 0xFFFF, 0x1);
-	else
-		gpio_set_value_cansleep(pdata->vcc_gpio, 1);
+	if (!of_machine_is_compatible("sirf,atlas7")) {
+		if (pdata->power_vcc != 0)
+			i2c_smbus_write_byte_data(pdata->client,
+				pdata->power_vcc & 0xFFFF, 0x1);
+		else
+			gpio_set_value_cansleep(pdata->vcc_gpio, 1);
 
-	msleep(50);
+		msleep(50);
 
-	if (pdata->power_vdd != 0)
-		i2c_smbus_write_byte_data(pdata->client,
-			pdata->power_vdd & 0xFFFF, 0x1);
+		if (pdata->power_vdd != 0)
+			i2c_smbus_write_byte_data(pdata->client,
+				pdata->power_vdd & 0xFFFF, 0x1);
 
-	msleep(200);
+		msleep(200);
 
-	if (pdata->power_vee != 0)
-		i2c_smbus_write_byte_data(pdata->client,
-			pdata->power_vee & 0xFFFF, 0x1);
+		if (pdata->power_vee != 0)
+			i2c_smbus_write_byte_data(pdata->client,
+				pdata->power_vee & 0xFFFF, 0x1);
+	}
 
 	if (gpio_is_valid(pdata->bl_gpio))
 		gpio_set_value_cansleep(pdata->bl_gpio, 1);
@@ -121,19 +123,21 @@ static void panel_rgb_disable(struct sirfsoc_vdss_panel *panel)
 	if (gpio_is_valid(pdata->bl_gpio))
 		gpio_set_value_cansleep(pdata->bl_gpio, 0);
 
-	if (pdata->power_vee != 0)
-		i2c_smbus_write_byte_data(pdata->client,
-			pdata->power_vee >> 16, 0x1);
+	if (!of_machine_is_compatible("sirf,atlas7")) {
+		if (pdata->power_vee != 0)
+			i2c_smbus_write_byte_data(pdata->client,
+				pdata->power_vee >> 16, 0x1);
 
-	if (pdata->power_vdd != 0)
-		i2c_smbus_write_byte_data(pdata->client,
-			pdata->power_vdd >> 16, 0x1);
+		if (pdata->power_vdd != 0)
+			i2c_smbus_write_byte_data(pdata->client,
+				pdata->power_vdd >> 16, 0x1);
 
-	if (pdata->power_vcc != 0)
-		i2c_smbus_write_byte_data(pdata->client,
-			pdata->power_vcc >> 16, 0x1);
-	else
-		gpio_set_value_cansleep(pdata->vcc_gpio, 0);
+		if (pdata->power_vcc != 0)
+			i2c_smbus_write_byte_data(pdata->client,
+				pdata->power_vcc >> 16, 0x1);
+		else
+			gpio_set_value_cansleep(pdata->vcc_gpio, 0);
+	}
 
 	in->ops.rgb->disable(in);
 
@@ -195,18 +199,21 @@ static int panel_rgb_probe_of(struct platform_device *pdev)
 
 	node = pdev->dev.of_node;
 
-	of_property_read_u32(node, "power-vdd", &pdata->power_vdd);
-	of_property_read_u32(node, "power-vcc", &pdata->power_vcc);
-	of_property_read_u32(node, "power-vee", &pdata->power_vee);
+	if (!of_machine_is_compatible("sirf,atlas7")) {
+		of_property_read_u32(node, "power-vdd", &pdata->power_vdd);
+		of_property_read_u32(node, "power-vcc", &pdata->power_vcc);
+		of_property_read_u32(node, "power-vee", &pdata->power_vee);
 
-	if (!pdata->power_vcc) {
-		gpio = of_get_named_gpio(node, "vcc-gpios", 0);
+		if (!pdata->power_vcc) {
+			gpio = of_get_named_gpio(node, "vcc-gpios", 0);
 
-		if (gpio_is_valid(gpio)) {
-			pdata->vcc_gpio = gpio;
-		} else {
-			dev_err(&pdev->dev, "failed to parse vcc gpio\n");
-			return gpio;
+			if (gpio_is_valid(gpio)) {
+				pdata->vcc_gpio = gpio;
+			} else {
+				dev_err(&pdev->dev,
+					"failed to parse vcc gpio\n");
+				return gpio;
+			}
 		}
 	}
 
@@ -238,19 +245,23 @@ static int panel_rgb_probe_of(struct platform_device *pdev)
 	}
 	pdata->in = in;
 
-	node = of_parse_phandle(pdev->dev.of_node, "panel-ctrl", 0);
-	if (!node) {
-		dev_err(&pdev->dev, "failed to find panel control node\n");
-		return -EINVAL;
-	}
-	client = of_find_i2c_device_by_node(node);
-	of_node_put(node);
-	if (!client) {
-		dev_err(&pdev->dev, "failed to get panel i2c client\n");
-		return -EINVAL;
-	}
+	if (!of_machine_is_compatible("sirf,atlas7")) {
+		node = of_parse_phandle(pdev->dev.of_node, "panel-ctrl", 0);
+		if (!node) {
+			dev_err(&pdev->dev,
+				"failed to find panel control node\n");
+			return -EINVAL;
+		}
+		client = of_find_i2c_device_by_node(node);
+		of_node_put(node);
+		if (!client) {
+			dev_err(&pdev->dev,
+				"failed to get panel i2c client\n");
+			return -EINVAL;
+		}
 
-	pdata->client = client;
+		pdata->client = client;
+	}
 
 	return 0;
 }
