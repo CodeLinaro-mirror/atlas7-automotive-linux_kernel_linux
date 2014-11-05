@@ -118,7 +118,7 @@ static int __init sirfsoc_vdss_init(void)
 
 	ret = vpp_init_platform_driver();
 	if (ret) {
-		VDSSERR("Failed to initialize lcdc platform driver\n");
+		VDSSERR("Failed to initialize vpp platform driver\n");
 		goto err_vpp;
 	}
 
