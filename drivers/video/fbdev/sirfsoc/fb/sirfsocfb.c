@@ -872,7 +872,7 @@ static int sirfsocfb_alloc_fbmem_display(struct fb_info *fbi,
 		u16 w, h;
 
 		panel->driver->get_resolution(panel, &w, &h);
-		size = w * h * bytespp;
+		size = w * h * bytespp * 2;
 	}
 
 	if (!size)
@@ -956,7 +956,7 @@ static int sirfsocfb_fb_init(struct sirfsocfb_device *fbdev,
 		var->yres = h;
 
 		var->xres_virtual = var->xres;
-		var->yres_virtual = var->yres;
+		var->yres_virtual = var->yres * 2;
 
 		if (!var->bits_per_pixel) {
 			switch (sirfsocfb_get_recommended_bpp(fbdev, panel)) {
