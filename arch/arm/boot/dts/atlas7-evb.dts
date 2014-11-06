@@ -30,6 +30,7 @@
 			timer@10dc0000 {
 				status = "okay";
 			};
+
 			timerb@10dc8000 {
 				status = "disabled";
 			};
@@ -44,8 +45,9 @@
 			sdhci@14200000 {
 				status = "okay";
 				pinctrl-names = "default";
-				pinctrl-0 = <&sd2_pmx>;
+				pinctrl-0 = <&sd2_pmx0>;
 			};
+
 			sdhci@14700000 {
 				status = "okay";
 			};
@@ -76,7 +78,7 @@
 
 			uart4: uart@18050000 {
 				status = "okay";
-				pinctrl-0 = <&uart4_pmx0>;
+				pinctrl-0 = <&uart4_pmx1>;
 				pinctrl-names = "default";
 			};
 

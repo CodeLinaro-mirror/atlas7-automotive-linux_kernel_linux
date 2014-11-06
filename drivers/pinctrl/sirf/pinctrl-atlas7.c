@@ -636,8 +636,8 @@ struct atlas7_pad_config atlas7_ioc_pad_confs[] = {
 	PADCONF(124, 6, 0x100, 0x250, 0x358, -1, 20, 10, 10, 0),
 	PADCONF(125, 6, 0x100, 0x250, 0x358, -1, 24, 12, 12, 0),
 	PADCONF(126, 6, 0x100, 0x250, 0x358, -1, 28, 14, 14, 0),
-	PADCONF(127, 5, 0x108, 0x250, 0x358, -1, 16, 24, 24, 0),
-	PADCONF(128, 5, 0x108, 0x250, 0x358, -1, 20, 26, 26, 0),
+	PADCONF(127, 6, 0x108, 0x250, 0x358, -1, 16, 24, 24, 0),
+	PADCONF(128, 6, 0x108, 0x250, 0x358, -1, 20, 26, 26, 0),
 	PADCONF(129, 0, 0x110, 0x258, 0x360, -1, 0, 0, 0, 0),
 	PADCONF(130, 0, 0x110, 0x258, 0x360, -1, 4, 2, 2, 0),
 	PADCONF(131, 0, 0x110, 0x258, 0x360, -1, 8, 4, 4, 0),
@@ -671,14 +671,14 @@ struct atlas7_pad_config atlas7_ioc_pad_confs[] = {
 };
 
 /* pin list of each pin group */
-static const unsigned int gnss_gpio_pins[] = { 22, 23, 24, 25, 26, 27, 28, 29,
-		30, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, };
+static const unsigned int gnss_gpio_pins[] = { 22, 23, 24, 25, 26, 27, 28,
+		29, 30, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, };
 static const unsigned int lcd_vip_gpio_pins[] = { 74, 75, 76, 77, 78, 79, 80,
 		81, 82, 83, 84, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
 		64, 65, 66, 67, 68, 69, 70, 71, 72, 73, };
-static const unsigned int sdio_i2s_gpio_pins[] = { 31, 32, 33, 34, 35, 36, 85,
-		86, 87, 88, 89, 90, 129, 130, 131, 132, 91, 92, 93, 94, 95,
-		96, 112, 113, 114, 115, 116, 117, 118, };
+static const unsigned int sdio_i2s_gpio_pins[] = { 31, 32, 33, 34, 35, 36,
+		85, 86, 87, 88, 89, 90, 129, 130, 131, 132, 91, 92, 93, 94,
+		95, 96, 112, 113, 114, 115, 116, 117, 118, };
 static const unsigned int sp_rgmii_gpio_pins[] = { 97, 98, 99, 100, 101, 102,
 		103, 104, 105, 106, 107, 108, 109, 110, 111, 18, 19, 20, 21,
 		141, 142, 143, 144, 145, 146, 147, 148, };
@@ -716,7 +716,7 @@ static const unsigned int ca_pio_pins[] = { 121, 122, 125, 126, 38, 37, 47,
 static const unsigned int ca_sdio_debug_pins[] = { 40, 39, 44, 43, 42, 41, };
 static const unsigned int ca_spi_pins[] = { 82, 79, 80, 81, };
 static const unsigned int ca_trb_pins[] = { 91, 93, 94, 95, 96, 78, 74, 75,
-					76, 77, };
+		76, 77, };
 static const unsigned int ca_uart_debug_pins[] = { 136, 135, 134, 133, };
 static const unsigned int clkc_pins0[] = { 30, 47, };
 static const unsigned int clkc_pins1[] = { 78, 54, };
@@ -724,6 +724,35 @@ static const unsigned int gn_gnss_i2c_pins[] = { 128, 127, };
 static const unsigned int gn_gnss_uart_pins[] = { 134, 133, };
 static const unsigned int gn_trg_spi_pins0[] = { 22, 25, 23, 24, };
 static const unsigned int gn_trg_spi_pins1[] = { 82, 79, 80, 81, };
+static const unsigned int cvbs_dbg_pins[] = { 54, 53, 82, 74, 75, 76, 77, 78,
+		79, 80, 81, 83, 84, 73, 55, 56, };
+static const unsigned int cvbs_dbg_test_pins0[] = { 57, };
+static const unsigned int cvbs_dbg_test_pins1[] = { 58, };
+static const unsigned int cvbs_dbg_test_pins2[] = { 59, };
+static const unsigned int cvbs_dbg_test_pins3[] = { 60, };
+static const unsigned int cvbs_dbg_test_pins4[] = { 61, };
+static const unsigned int cvbs_dbg_test_pins5[] = { 62, };
+static const unsigned int cvbs_dbg_test_pins6[] = { 63, };
+static const unsigned int cvbs_dbg_test_pins7[] = { 64, };
+static const unsigned int cvbs_dbg_test_pins8[] = { 65, };
+static const unsigned int cvbs_dbg_test_pins9[] = { 66, };
+static const unsigned int cvbs_dbg_test_pins10[] = { 67, };
+static const unsigned int cvbs_dbg_test_pins11[] = { 68, };
+static const unsigned int cvbs_dbg_test_pins12[] = { 69, };
+static const unsigned int cvbs_dbg_test_pins13[] = { 70, };
+static const unsigned int cvbs_dbg_test_pins14[] = { 71, };
+static const unsigned int cvbs_dbg_test_pins15[] = { 72, };
+static const unsigned int gn_gnss_pins[] = { 136, 113, 123, 124, 121, 122,
+		112, 118, 56, 125, 120, 54, 135, 53, 55, 57, 58, 59, 60, 61,
+		62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 115, 114, };
+static const unsigned int gn_io_gnsssys_sw_cfg_pins[] = { 44, 43, 42, 41, 40,
+		39, 38, 37, 49, 50, 91, 92, 93, 94, 95, 96, };
+static const unsigned int gn_trg_pins0[] = { 29, 28, 26, 27, };
+static const unsigned int gn_trg_pins1[] = { 77, 76, 74, 75, };
+static const unsigned int gn_trg_shutdown_pins0[] = { 30, };
+static const unsigned int gn_trg_shutdown_pins1[] = { 83, };
+static const unsigned int gn_trg_shutdown_pins2[] = { 117, };
+static const unsigned int gn_trg_shutdown_pins3[] = { 123, };
 static const unsigned int i2c0_pins[] = { 128, 127, };
 static const unsigned int i2c1_pins[] = { 126, 125, };
 static const unsigned int jtag_pins0[] = { 125, 4, 2, 0, 1, 3, };
@@ -733,6 +762,10 @@ static const unsigned int ld_ldd_pins[] = { 57, 58, 59, 60, 61, 62, 63, 64,
 		81, 56, 55, 54, 53, };
 static const unsigned int lr_lcdrom_pins[] = { 73, 54, 57, 58, 59, 60, 61,
 		62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 56, 53, 55, };
+static const unsigned int nd_df_pins[] = { 44, 43, 42, 41, 40, 39, 38, 37,
+		47, 46, 52, 51, 45, 49, 50, 48, 124, };
+static const unsigned int nd_df_nowp_pins[] = { 44, 43, 42, 41, 40, 39, 38,
+		37, 47, 46, 52, 51, 45, 49, 50, 48, };
 static const unsigned int ps_pins[] = { 120, 119, };
 static const unsigned int pwc_core_on_pins[] = { 8, };
 static const unsigned int pwc_ext_on_pins[] = { 6, };
@@ -745,9 +778,11 @@ static const unsigned int pwc_wakeup_src0_pins[] = { 0, };
 static const unsigned int pwc_wakeup_src1_pins[] = { 1, };
 static const unsigned int pwc_wakeup_src2_pins[] = { 2, };
 static const unsigned int pwc_wakeup_src3_pins[] = { 3, };
-static const unsigned int pw_cko_pins0[] = { 123, 124, };
-static const unsigned int pw_cko_pins1[] = { 101, 110, };
-static const unsigned int pw_cko_pins2[] = { 82, 124, };
+static const unsigned int pw_cko0_pins0[] = { 123, };
+static const unsigned int pw_cko0_pins1[] = { 101, };
+static const unsigned int pw_cko0_pins2[] = { 82, };
+static const unsigned int pw_cko1_pins0[] = { 124, };
+static const unsigned int pw_cko1_pins1[] = { 110, };
 static const unsigned int pw_i2s01_clk_pins0[] = { 125, };
 static const unsigned int pw_i2s01_clk_pins1[] = { 117, };
 static const unsigned int pw_pwm_pins0[] = { 119, 120, 121, 122, };
@@ -756,49 +791,46 @@ static const unsigned int rg_eth_pins0[] = { 108, 103, 104, 105, 106, 107,
 		102, 97, 98, 99, 100, 101, 111, 109, 110, 111, };
 static const unsigned int rg_eth_pins1[] = { 108, 103, 104, 105, 106, 107,
 		102, 97, 98, 99, 100, 101, 111, 109, 110, 53, };
-static const unsigned int sd0_pins[] = { 46, 47, 44, 43, 42, 41, 40, 39,
-		38, 37, };
-static const unsigned int sd1_pins0[] = { 48, 49, 44, 43, 42, 41, 40, 39,
-		38, 37, };
-static const unsigned int sd1_pins1[] = { 48, 49, 40, 39, 38, 37, 40, 39,
-		38, 37, };
-
-#ifdef NAND_WP_ON
-static const unsigned int nd_df_pins[] = { 44, 43, 42, 41, 40, 39, 38, 37,
-		47, 46, 52, 51, 45, 49, 50, 48, 124, };
-static const unsigned int sd2_pins0[] = { 31, 32, 33, 34, 35, 36, 123, };
-#else
-static const unsigned int nd_df_pins[] = { 44, 43, 42, 41, 40, 39, 38, 37,
-		47, 46, 52, 51, 45, 49, 50, 48,};
+static const unsigned int sd0_pins[] = { 46, 47, 44, 43, 42, 41, 40, 39, 38,
+		37, };
+static const unsigned int sd0_4bit_pins[] = { 46, 47, 44, 43, 42, 41, };
+static const unsigned int sd1_pins[] = { 48, 49, 44, 43, 42, 41, 40, 39, 38,
+		37, };
+static const unsigned int sd1_4bit_pins0[] = { 48, 49, 44, 43, 42, 41, };
+static const unsigned int sd1_4bit_pins1[] = { 48, 49, 40, 39, 38, 37, };
 static const unsigned int sd2_pins0[] = { 124, 31, 32, 33, 34, 35, 36, 123, };
-#endif
-
+static const unsigned int sd2_no_cdb_pins0[] = { 31, 32, 33, 34, 35, 36, 123, };
 static const unsigned int sd3_pins[] = { 85, 86, 87, 88, 89, 90, };
 static const unsigned int sd5_pins[] = { 91, 92, 93, 94, 95, 96, };
 static const unsigned int sd6_pins0[] = { 79, 78, 74, 75, 76, 77, };
 static const unsigned int sd6_pins1[] = { 101, 99, 100, 110, 109, 111, };
 static const unsigned int sp0_ext_ldo_on_pins[] = { 4, };
 static const unsigned int sp0_qspi_pins[] = { 12, 13, 14, 15, 16, 17, };
-static const unsigned int sp1_qspi_pins[] = { 19, 20, 21, 18, };
+static const unsigned int sp1_spi_pins[] = { 19, 20, 21, 18, };
 static const unsigned int tpiu_trace_pins[] = { 53, 56, 57, 58, 59, 60, 61,
 		62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, };
 static const unsigned int uart0_pins[] = { 121, 120, 134, 133, };
+static const unsigned int uart0_nopause_pins[] = { 134, 133, };
 static const unsigned int uart1_pins[] = { 136, 135, };
 static const unsigned int uart2_pins[] = { 11, 10, };
 static const unsigned int uart3_pins0[] = { 125, 126, 138, 137, };
 static const unsigned int uart3_pins1[] = { 111, 109, 84, 83, };
 static const unsigned int uart3_pins2[] = { 140, 139, 138, 137, };
+static const unsigned int uart3_pins3[] = { 139, 140, 84, 83, };
+static const unsigned int uart3_nopause_pins0[] = { 138, 137, };
+static const unsigned int uart3_nopause_pins1[] = { 84, 83, };
 static const unsigned int uart4_pins0[] = { 122, 123, 140, 139, };
 static const unsigned int uart4_pins1[] = { 100, 99, 140, 139, };
 static const unsigned int uart4_pins2[] = { 117, 116, 140, 139, };
+static const unsigned int uart4_nopause_pins[] = { 140, 139, };
 static const unsigned int usb0_drvvbus_pins[] = { 51, };
 static const unsigned int usb1_drvvbus_pins[] = { 134, };
 static const unsigned int visbus_dout_pins[] = { 57, 58, 59, 60, 61, 62, 63,
 		64, 65, 66, 67, 68, 69, 70, 71, 72, 53, 54, 55, 56, 85, 86,
 		87, 88, 89, 90, 91, 92, 93, 94, 95, 96, };
 static const unsigned int vi_vip1_pins[] = { 74, 75, 76, 77, 78, 79, 80, 81,
-		82, 83, 84, 108, 103, 104, 105, 106, 107,
-		102, 97, 98, 99, 100, };
+		82, 83, 84, 108, 103, 104, 105, 106, 107, 102, 97, 98, 99,
+		100, };
 
 /* definition of pin group table */
 struct atlas7_pin_group altas7_pin_groups[] = {
@@ -816,7 +848,6 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("audio_uart1_grp", audio_uart1_pins),
 	GROUP("audio_uart2_grp0", audio_uart2_pins0),
 	GROUP("audio_uart2_grp1", audio_uart2_pins1),
-	GROUP("audio_func_dbg_grp", audio_func_dbg_pins),
 	GROUP("c_can_trnsvr_grp", c_can_trnsvr_pins),
 	GROUP("c0_can_grp0", c0_can_pins0),
 	GROUP("c0_can_grp1", c0_can_pins1),
@@ -839,6 +870,31 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("gn_gnss_uart_grp", gn_gnss_uart_pins),
 	GROUP("gn_trg_spi_grp0", gn_trg_spi_pins0),
 	GROUP("gn_trg_spi_grp1", gn_trg_spi_pins1),
+	GROUP("cvbs_dbg_grp", cvbs_dbg_pins),
+	GROUP("cvbs_dbg_test_grp0", cvbs_dbg_test_pins0),
+	GROUP("cvbs_dbg_test_grp1", cvbs_dbg_test_pins1),
+	GROUP("cvbs_dbg_test_grp2", cvbs_dbg_test_pins2),
+	GROUP("cvbs_dbg_test_grp3", cvbs_dbg_test_pins3),
+	GROUP("cvbs_dbg_test_grp4", cvbs_dbg_test_pins4),
+	GROUP("cvbs_dbg_test_grp5", cvbs_dbg_test_pins5),
+	GROUP("cvbs_dbg_test_grp6", cvbs_dbg_test_pins6),
+	GROUP("cvbs_dbg_test_grp7", cvbs_dbg_test_pins7),
+	GROUP("cvbs_dbg_test_grp8", cvbs_dbg_test_pins8),
+	GROUP("cvbs_dbg_test_grp9", cvbs_dbg_test_pins9),
+	GROUP("cvbs_dbg_test_grp10", cvbs_dbg_test_pins10),
+	GROUP("cvbs_dbg_test_grp11", cvbs_dbg_test_pins11),
+	GROUP("cvbs_dbg_test_grp12", cvbs_dbg_test_pins12),
+	GROUP("cvbs_dbg_test_grp13", cvbs_dbg_test_pins13),
+	GROUP("cvbs_dbg_test_grp14", cvbs_dbg_test_pins14),
+	GROUP("cvbs_dbg_test_grp15", cvbs_dbg_test_pins15),
+	GROUP("gn_gnss_grp", gn_gnss_pins),
+	GROUP("gn_io_gnsssys_sw_cfg_grp", gn_io_gnsssys_sw_cfg_pins),
+	GROUP("gn_trg_grp0", gn_trg_pins0),
+	GROUP("gn_trg_grp1", gn_trg_pins1),
+	GROUP("gn_trg_shutdown_grp0", gn_trg_shutdown_pins0),
+	GROUP("gn_trg_shutdown_grp1", gn_trg_shutdown_pins1),
+	GROUP("gn_trg_shutdown_grp2", gn_trg_shutdown_pins2),
+	GROUP("gn_trg_shutdown_grp3", gn_trg_shutdown_pins3),
 	GROUP("i2c0_grp", i2c0_pins),
 	GROUP("i2c1_grp", i2c1_pins),
 	GROUP("jtag_grp0", jtag_pins0),
@@ -846,6 +902,7 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("ld_ldd_grp", ld_ldd_pins),
 	GROUP("lr_lcdrom_grp", lr_lcdrom_pins),
 	GROUP("nd_df_grp", nd_df_pins),
+	GROUP("nd_df_nowp_grp", nd_df_nowp_pins),
 	GROUP("ps_grp", ps_pins),
 	GROUP("pwc_core_on_grp", pwc_core_on_pins),
 	GROUP("pwc_ext_on_grp", pwc_ext_on_pins),
@@ -858,9 +915,11 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("pwc_wakeup_src1_grp", pwc_wakeup_src1_pins),
 	GROUP("pwc_wakeup_src2_grp", pwc_wakeup_src2_pins),
 	GROUP("pwc_wakeup_src3_grp", pwc_wakeup_src3_pins),
-	GROUP("pw_cko_grp0", pw_cko_pins0),
-	GROUP("pw_cko_grp1", pw_cko_pins1),
-	GROUP("pw_cko_grp2", pw_cko_pins2),
+	GROUP("pw_cko0_grp0", pw_cko0_pins0),
+	GROUP("pw_cko0_grp1", pw_cko0_pins1),
+	GROUP("pw_cko0_grp2", pw_cko0_pins2),
+	GROUP("pw_cko1_grp0", pw_cko1_pins0),
+	GROUP("pw_cko1_grp1", pw_cko1_pins1),
 	GROUP("pw_i2s01_clk_grp0", pw_i2s01_clk_pins0),
 	GROUP("pw_i2s01_clk_grp1", pw_i2s01_clk_pins1),
 	GROUP("pw_pwm_grp0", pw_pwm_pins0),
@@ -868,26 +927,34 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("rg_eth_grp0", rg_eth_pins0),
 	GROUP("rg_eth_grp1", rg_eth_pins1),
 	GROUP("sd0_grp", sd0_pins),
-	GROUP("sd1_grp0", sd1_pins0),
-	GROUP("sd1_grp1", sd1_pins1),
+	GROUP("sd0_4bit_grp", sd0_4bit_pins),
+	GROUP("sd1_grp", sd1_pins),
+	GROUP("sd1_4bit_grp0", sd1_4bit_pins0),
+	GROUP("sd1_4bit_grp1", sd1_4bit_pins1),
 	GROUP("sd2_grp0", sd2_pins0),
+	GROUP("sd2_no_cdb_grp0", sd2_no_cdb_pins0),
 	GROUP("sd3_grp", sd3_pins),
 	GROUP("sd5_grp", sd5_pins),
 	GROUP("sd6_grp0", sd6_pins0),
 	GROUP("sd6_grp1", sd6_pins1),
 	GROUP("sp0_ext_ldo_on_grp", sp0_ext_ldo_on_pins),
 	GROUP("sp0_qspi_grp", sp0_qspi_pins),
-	GROUP("sp1_qspi_grp", sp1_qspi_pins),
+	GROUP("sp1_spi_grp", sp1_spi_pins),
 	GROUP("tpiu_trace_grp", tpiu_trace_pins),
 	GROUP("uart0_grp", uart0_pins),
+	GROUP("uart0_nopause_grp", uart0_nopause_pins),
 	GROUP("uart1_grp", uart1_pins),
 	GROUP("uart2_grp", uart2_pins),
 	GROUP("uart3_grp0", uart3_pins0),
 	GROUP("uart3_grp1", uart3_pins1),
 	GROUP("uart3_grp2", uart3_pins2),
+	GROUP("uart3_grp3", uart3_pins3),
+	GROUP("uart3_nopause_grp0", uart3_nopause_pins0),
+	GROUP("uart3_nopause_grp1", uart3_nopause_pins1),
 	GROUP("uart4_grp0", uart4_pins0),
 	GROUP("uart4_grp1", uart4_pins1),
 	GROUP("uart4_grp2", uart4_pins2),
+	GROUP("uart4_nopause_grp", uart4_nopause_pins),
 	GROUP("usb0_drvvbus_grp", usb0_drvvbus_pins),
 	GROUP("usb1_drvvbus_grp", usb1_drvvbus_pins),
 	GROUP("visbus_dout_grp", visbus_dout_pins),
@@ -931,6 +998,32 @@ static const char * const gn_gnss_i2c_grp[] = { "gn_gnss_i2c_grp", };
 static const char * const gn_gnss_uart_grp[] = { "gn_gnss_uart_grp", };
 static const char * const gn_trg_spi_grp0[] = { "gn_trg_spi_grp0", };
 static const char * const gn_trg_spi_grp1[] = { "gn_trg_spi_grp1", };
+static const char * const cvbs_dbg_grp[] = { "cvbs_dbg_grp", };
+static const char * const cvbs_dbg_test_grp0[] = { "cvbs_dbg_test_grp0", };
+static const char * const cvbs_dbg_test_grp1[] = { "cvbs_dbg_test_grp1", };
+static const char * const cvbs_dbg_test_grp2[] = { "cvbs_dbg_test_grp2", };
+static const char * const cvbs_dbg_test_grp3[] = { "cvbs_dbg_test_grp3", };
+static const char * const cvbs_dbg_test_grp4[] = { "cvbs_dbg_test_grp4", };
+static const char * const cvbs_dbg_test_grp5[] = { "cvbs_dbg_test_grp5", };
+static const char * const cvbs_dbg_test_grp6[] = { "cvbs_dbg_test_grp6", };
+static const char * const cvbs_dbg_test_grp7[] = { "cvbs_dbg_test_grp7", };
+static const char * const cvbs_dbg_test_grp8[] = { "cvbs_dbg_test_grp8", };
+static const char * const cvbs_dbg_test_grp9[] = { "cvbs_dbg_test_grp9", };
+static const char * const cvbs_dbg_test_grp10[] = { "cvbs_dbg_test_grp10", };
+static const char * const cvbs_dbg_test_grp11[] = { "cvbs_dbg_test_grp11", };
+static const char * const cvbs_dbg_test_grp12[] = { "cvbs_dbg_test_grp12", };
+static const char * const cvbs_dbg_test_grp13[] = { "cvbs_dbg_test_grp13", };
+static const char * const cvbs_dbg_test_grp14[] = { "cvbs_dbg_test_grp14", };
+static const char * const cvbs_dbg_test_grp15[] = { "cvbs_dbg_test_grp15", };
+static const char * const gn_gnss_grp[] = { "gn_gnss_grp", };
+static const char * const gn_io_gnsssys_sw_cfg_grp[] = {
+				"gn_io_gnsssys_sw_cfg_grp", };
+static const char * const gn_trg_grp0[] = { "gn_trg_grp0", };
+static const char * const gn_trg_grp1[] = { "gn_trg_grp1", };
+static const char * const gn_trg_shutdown_grp0[] = { "gn_trg_shutdown_grp0", };
+static const char * const gn_trg_shutdown_grp1[] = { "gn_trg_shutdown_grp1", };
+static const char * const gn_trg_shutdown_grp2[] = { "gn_trg_shutdown_grp2", };
+static const char * const gn_trg_shutdown_grp3[] = { "gn_trg_shutdown_grp3", };
 static const char * const i2c0_grp[] = { "i2c0_grp", };
 static const char * const i2c1_grp[] = { "i2c1_grp", };
 static const char * const jtag_grp0[] = { "jtag_grp0", };
@@ -938,6 +1031,7 @@ static const char * const ks_kas_spi_grp0[] = { "ks_kas_spi_grp0", };
 static const char * const ld_ldd_grp[] = { "ld_ldd_grp", };
 static const char * const lr_lcdrom_grp[] = { "lr_lcdrom_grp", };
 static const char * const nd_df_grp[] = { "nd_df_grp", };
+static const char * const nd_df_nowp_grp[] = { "nd_df_nowp_grp", };
 static const char * const ps_grp[] = { "ps_grp", };
 static const char * const pwc_core_on_grp[] = { "pwc_core_on_grp", };
 static const char * const pwc_ext_on_grp[] = { "pwc_ext_on_grp", };
@@ -950,9 +1044,11 @@ static const char * const pwc_wakeup_src0_grp[] = { "pwc_wakeup_src0_grp", };
 static const char * const pwc_wakeup_src1_grp[] = { "pwc_wakeup_src1_grp", };
 static const char * const pwc_wakeup_src2_grp[] = { "pwc_wakeup_src2_grp", };
 static const char * const pwc_wakeup_src3_grp[] = { "pwc_wakeup_src3_grp", };
-static const char * const pw_cko_grp0[] = { "pw_cko_grp0", };
-static const char * const pw_cko_grp1[] = { "pw_cko_grp1", };
-static const char * const pw_cko_grp2[] = { "pw_cko_grp2", };
+static const char * const pw_cko0_grp0[] = { "pw_cko0_grp0", };
+static const char * const pw_cko0_grp1[] = { "pw_cko0_grp1", };
+static const char * const pw_cko0_grp2[] = { "pw_cko0_grp2", };
+static const char * const pw_cko1_grp0[] = { "pw_cko1_grp0", };
+static const char * const pw_cko1_grp1[] = { "pw_cko1_grp1", };
 static const char * const pw_i2s01_clk_grp0[] = { "pw_i2s01_clk_grp0", };
 static const char * const pw_i2s01_clk_grp1[] = { "pw_i2s01_clk_grp1", };
 static const char * const pw_pwm_grp0[] = { "pw_pwm_grp0", };
@@ -960,26 +1056,34 @@ static const char * const pw_pwm_grp1[] = { "pw_pwm_grp1", };
 static const char * const rg_eth_grp0[] = { "rg_eth_grp0", };
 static const char * const rg_eth_grp1[] = { "rg_eth_grp1", };
 static const char * const sd0_grp[] = { "sd0_grp", };
-static const char * const sd1_grp0[] = { "sd1_grp0", };
-static const char * const sd1_grp1[] = { "sd1_grp1", };
+static const char * const sd0_4bit_grp[] = { "sd0_4bit_grp", };
+static const char * const sd1_grp[] = { "sd1_grp", };
+static const char * const sd1_4bit_grp0[] = { "sd1_4bit_grp0", };
+static const char * const sd1_4bit_grp1[] = { "sd1_4bit_grp1", };
 static const char * const sd2_grp0[] = { "sd2_grp0", };
+static const char * const sd2_no_cdb_grp0[] = { "sd2_no_cdb_grp0", };
 static const char * const sd3_grp[] = { "sd3_grp", };
 static const char * const sd5_grp[] = { "sd5_grp", };
 static const char * const sd6_grp0[] = { "sd6_grp0", };
 static const char * const sd6_grp1[] = { "sd6_grp1", };
 static const char * const sp0_ext_ldo_on_grp[] = { "sp0_ext_ldo_on_grp", };
 static const char * const sp0_qspi_grp[] = { "sp0_qspi_grp", };
-static const char * const sp1_qspi_grp[] = { "sp1_qspi_grp", };
+static const char * const sp1_spi_grp[] = { "sp1_spi_grp", };
 static const char * const tpiu_trace_grp[] = { "tpiu_trace_grp", };
 static const char * const uart0_grp[] = { "uart0_grp", };
+static const char * const uart0_nopause_grp[] = { "uart0_nopause_grp", };
 static const char * const uart1_grp[] = { "uart1_grp", };
 static const char * const uart2_grp[] = { "uart2_grp", };
 static const char * const uart3_grp0[] = { "uart3_grp0", };
 static const char * const uart3_grp1[] = { "uart3_grp1", };
 static const char * const uart3_grp2[] = { "uart3_grp2", };
+static const char * const uart3_grp3[] = { "uart3_grp3", };
+static const char * const uart3_nopause_grp0[] = { "uart3_nopause_grp0", };
+static const char * const uart3_nopause_grp1[] = { "uart3_nopause_grp1", };
 static const char * const uart4_grp0[] = { "uart4_grp0", };
 static const char * const uart4_grp1[] = { "uart4_grp1", };
 static const char * const uart4_grp2[] = { "uart4_grp2", };
+static const char * const uart4_nopause_grp[] = { "uart4_nopause_grp", };
 static const char * const usb0_drvvbus_grp[] = { "usb0_drvvbus_grp", };
 static const char * const usb1_drvvbus_grp[] = { "usb1_drvvbus_grp", };
 static const char * const visbus_dout_grp[] = { "visbus_dout_grp", };
@@ -1572,6 +1676,299 @@ static struct atlas7_grp_mux gn_trg_spi_grp1_mux = {
 	.pad_mux_list = gn_trg_spi_grp1_pad_mux,
 };
 
+static struct atlas7_pad_mux cvbs_dbg_grp_pad_mux[] = {
+	MUX(1, 54, 3, N, N, N, N),
+	MUX(1, 53, 3, N, N, N, N),
+	MUX(1, 82, 7, N, N, N, N),
+	MUX(1, 74, 7, N, N, N, N),
+	MUX(1, 75, 7, N, N, N, N),
+	MUX(1, 76, 7, N, N, N, N),
+	MUX(1, 77, 7, N, N, N, N),
+	MUX(1, 78, 7, N, N, N, N),
+	MUX(1, 79, 7, N, N, N, N),
+	MUX(1, 80, 7, N, N, N, N),
+	MUX(1, 81, 7, N, N, N, N),
+	MUX(1, 83, 7, N, N, N, N),
+	MUX(1, 84, 7, N, N, N, N),
+	MUX(1, 73, 3, N, N, N, N),
+	MUX(1, 55, 3, N, N, N, N),
+	MUX(1, 56, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_grp_pad_mux),
+	.pad_mux_list = cvbs_dbg_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp0_pad_mux[] = {
+	MUX(1, 57, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp0_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp1_pad_mux[] = {
+	MUX(1, 58, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp1_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp1_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp2_pad_mux[] = {
+	MUX(1, 59, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp2_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp2_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp2_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp3_pad_mux[] = {
+	MUX(1, 60, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp3_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp3_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp3_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp4_pad_mux[] = {
+	MUX(1, 61, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp4_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp4_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp4_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp5_pad_mux[] = {
+	MUX(1, 62, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp5_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp5_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp5_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp6_pad_mux[] = {
+	MUX(1, 63, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp6_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp6_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp6_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp7_pad_mux[] = {
+	MUX(1, 64, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp7_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp7_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp7_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp8_pad_mux[] = {
+	MUX(1, 65, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp8_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp8_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp8_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp9_pad_mux[] = {
+	MUX(1, 66, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp9_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp9_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp9_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp10_pad_mux[] = {
+	MUX(1, 67, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp10_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp10_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp10_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp11_pad_mux[] = {
+	MUX(1, 68, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp11_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp11_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp11_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp12_pad_mux[] = {
+	MUX(1, 69, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp12_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp12_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp12_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp13_pad_mux[] = {
+	MUX(1, 70, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp13_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp13_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp13_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp14_pad_mux[] = {
+	MUX(1, 71, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp14_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp14_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp14_pad_mux,
+};
+
+static struct atlas7_pad_mux cvbs_dbg_test_grp15_pad_mux[] = {
+	MUX(1, 72, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux cvbs_dbg_test_grp15_mux = {
+	.pad_mux_count = ARRAY_SIZE(cvbs_dbg_test_grp15_pad_mux),
+	.pad_mux_list = cvbs_dbg_test_grp15_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_grp_pad_mux[] = {
+	MUX(1, 136, 4, N, N, N, N),
+	MUX(1, 113, 4, N, N, N, N),
+	MUX(1, 123, 7, N, N, N, N),
+	MUX(1, 124, 7, N, N, N, N),
+	MUX(1, 121, 7, N, N, N, N),
+	MUX(1, 122, 7, N, N, N, N),
+	MUX(1, 112, 4, 0xa08, 10, 0xa88, 10),
+	MUX(1, 118, 4, 0xa08, 11, 0xa88, 11),
+	MUX(1, 56, 7, 0xa08, 12, 0xa88, 12),
+	MUX(1, 125, 7, N, N, N, N),
+	MUX(1, 120, 7, N, N, N, N),
+	MUX(1, 54, 7, N, N, N, N),
+	MUX(1, 135, 4, N, N, N, N),
+	MUX(1, 53, 7, N, N, N, N),
+	MUX(1, 55, 7, N, N, N, N),
+	MUX(1, 57, 7, N, N, N, N),
+	MUX(1, 58, 7, N, N, N, N),
+	MUX(1, 59, 7, N, N, N, N),
+	MUX(1, 60, 7, N, N, N, N),
+	MUX(1, 61, 7, N, N, N, N),
+	MUX(1, 62, 7, N, N, N, N),
+	MUX(1, 63, 7, N, N, N, N),
+	MUX(1, 64, 7, N, N, N, N),
+	MUX(1, 65, 7, N, N, N, N),
+	MUX(1, 66, 7, N, N, N, N),
+	MUX(1, 67, 7, N, N, N, N),
+	MUX(1, 68, 7, N, N, N, N),
+	MUX(1, 69, 7, N, N, N, N),
+	MUX(1, 70, 7, N, N, N, N),
+	MUX(1, 71, 7, N, N, N, N),
+	MUX(1, 72, 7, N, N, N, N),
+	MUX(1, 115, 4, N, N, N, N),
+	MUX(1, 114, 4, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_gnss_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_grp_pad_mux),
+	.pad_mux_list = gn_gnss_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_io_gnsssys_sw_cfg_grp_pad_mux[] = {
+	MUX(1, 44, 7, N, N, N, N),
+	MUX(1, 43, 7, N, N, N, N),
+	MUX(1, 42, 7, N, N, N, N),
+	MUX(1, 41, 7, N, N, N, N),
+	MUX(1, 40, 7, N, N, N, N),
+	MUX(1, 39, 7, N, N, N, N),
+	MUX(1, 38, 7, N, N, N, N),
+	MUX(1, 37, 7, N, N, N, N),
+	MUX(1, 49, 7, N, N, N, N),
+	MUX(1, 50, 7, N, N, N, N),
+	MUX(1, 91, 7, N, N, N, N),
+	MUX(1, 92, 7, N, N, N, N),
+	MUX(1, 93, 7, N, N, N, N),
+	MUX(1, 94, 7, N, N, N, N),
+	MUX(1, 95, 7, N, N, N, N),
+	MUX(1, 96, 7, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_io_gnsssys_sw_cfg_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_io_gnsssys_sw_cfg_grp_pad_mux),
+	.pad_mux_list = gn_io_gnsssys_sw_cfg_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_trg_grp0_pad_mux[] = {
+	MUX(1, 29, 1, 0xa00, 6, 0xa80, 6),
+	MUX(1, 28, 1, 0xa00, 7, 0xa80, 7),
+	MUX(1, 26, 1, 0xa00, 8, 0xa80, 8),
+	MUX(1, 27, 1, 0xa00, 9, 0xa80, 9),
+};
+
+static struct atlas7_grp_mux gn_trg_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_trg_grp0_pad_mux),
+	.pad_mux_list = gn_trg_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_trg_grp1_pad_mux[] = {
+	MUX(1, 77, 3, 0xa00, 6, 0xa80, 6),
+	MUX(1, 76, 3, 0xa00, 7, 0xa80, 7),
+	MUX(1, 74, 3, 0xa00, 8, 0xa80, 8),
+	MUX(1, 75, 3, 0xa00, 9, 0xa80, 9),
+};
+
+static struct atlas7_grp_mux gn_trg_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_trg_grp1_pad_mux),
+	.pad_mux_list = gn_trg_grp1_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_trg_shutdown_grp0_pad_mux[] = {
+	MUX(1, 30, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_trg_shutdown_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_trg_shutdown_grp0_pad_mux),
+	.pad_mux_list = gn_trg_shutdown_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_trg_shutdown_grp1_pad_mux[] = {
+	MUX(1, 83, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_trg_shutdown_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_trg_shutdown_grp1_pad_mux),
+	.pad_mux_list = gn_trg_shutdown_grp1_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_trg_shutdown_grp2_pad_mux[] = {
+	MUX(1, 117, 4, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_trg_shutdown_grp2_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_trg_shutdown_grp2_pad_mux),
+	.pad_mux_list = gn_trg_shutdown_grp2_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_trg_shutdown_grp3_pad_mux[] = {
+	MUX(1, 123, 5, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_trg_shutdown_grp3_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_trg_shutdown_grp3_pad_mux),
+	.pad_mux_list = gn_trg_shutdown_grp3_pad_mux,
+};
+
 static struct atlas7_pad_mux i2c0_grp_pad_mux[] = {
 	MUX(1, 128, 1, N, N, N, N),
 	MUX(1, 127, 1, N, N, N, N),
@@ -1700,14 +2097,36 @@ static struct atlas7_pad_mux nd_df_grp_pad_mux[] = {
 	MUX(1, 49, 1, N, N, N, N),
 	MUX(1, 50, 1, N, N, N, N),
 	MUX(1, 48, 1, N, N, N, N),
-#ifdef NAND_WP_ON
 	MUX(1, 124, 4, N, N, N, N),
-#endif
 };
 
 static struct atlas7_grp_mux nd_df_grp_mux = {
 	.pad_mux_count = ARRAY_SIZE(nd_df_grp_pad_mux),
 	.pad_mux_list = nd_df_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux nd_df_nowp_grp_pad_mux[] = {
+	MUX(1, 44, 1, N, N, N, N),
+	MUX(1, 43, 1, N, N, N, N),
+	MUX(1, 42, 1, N, N, N, N),
+	MUX(1, 41, 1, N, N, N, N),
+	MUX(1, 40, 1, N, N, N, N),
+	MUX(1, 39, 1, N, N, N, N),
+	MUX(1, 38, 1, N, N, N, N),
+	MUX(1, 37, 1, N, N, N, N),
+	MUX(1, 47, 1, N, N, N, N),
+	MUX(1, 46, 1, N, N, N, N),
+	MUX(1, 52, 1, N, N, N, N),
+	MUX(1, 51, 1, N, N, N, N),
+	MUX(1, 45, 1, N, N, N, N),
+	MUX(1, 49, 1, N, N, N, N),
+	MUX(1, 50, 1, N, N, N, N),
+	MUX(1, 48, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux nd_df_nowp_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(nd_df_nowp_grp_pad_mux),
+	.pad_mux_list = nd_df_nowp_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux ps_grp_pad_mux[] = {
@@ -1819,34 +2238,49 @@ static struct atlas7_grp_mux pwc_wakeup_src3_grp_mux = {
 	.pad_mux_list = pwc_wakeup_src3_grp_pad_mux,
 };
 
-static struct atlas7_pad_mux pw_cko_grp0_pad_mux[] = {
+static struct atlas7_pad_mux pw_cko0_grp0_pad_mux[] = {
 	MUX(1, 123, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_cko0_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_cko0_grp0_pad_mux),
+	.pad_mux_list = pw_cko0_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_cko0_grp1_pad_mux[] = {
+	MUX(1, 101, 4, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_cko0_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_cko0_grp1_pad_mux),
+	.pad_mux_list = pw_cko0_grp1_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_cko0_grp2_pad_mux[] = {
+	MUX(1, 82, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_cko0_grp2_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_cko0_grp2_pad_mux),
+	.pad_mux_list = pw_cko0_grp2_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_cko1_grp0_pad_mux[] = {
 	MUX(1, 124, 3, N, N, N, N),
 };
 
-static struct atlas7_grp_mux pw_cko_grp0_mux = {
-	.pad_mux_count = ARRAY_SIZE(pw_cko_grp0_pad_mux),
-	.pad_mux_list = pw_cko_grp0_pad_mux,
+static struct atlas7_grp_mux pw_cko1_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_cko1_grp0_pad_mux),
+	.pad_mux_list = pw_cko1_grp0_pad_mux,
 };
 
-static struct atlas7_pad_mux pw_cko_grp1_pad_mux[] = {
-	MUX(1, 101, 4, N, N, N, N),
+static struct atlas7_pad_mux pw_cko1_grp1_pad_mux[] = {
 	MUX(1, 110, 4, N, N, N, N),
 };
 
-static struct atlas7_grp_mux pw_cko_grp1_mux = {
-	.pad_mux_count = ARRAY_SIZE(pw_cko_grp1_pad_mux),
-	.pad_mux_list = pw_cko_grp1_pad_mux,
-};
-
-static struct atlas7_pad_mux pw_cko_grp2_pad_mux[] = {
-	MUX(1, 82, 2, N, N, N, N),
-	MUX(1, 124, 3, N, N, N, N),
-};
-
-static struct atlas7_grp_mux pw_cko_grp2_mux = {
-	.pad_mux_count = ARRAY_SIZE(pw_cko_grp2_pad_mux),
-	.pad_mux_list = pw_cko_grp2_pad_mux,
+static struct atlas7_grp_mux pw_cko1_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_cko1_grp1_pad_mux),
+	.pad_mux_list = pw_cko1_grp1_pad_mux,
 };
 
 static struct atlas7_pad_mux pw_i2s01_clk_grp0_pad_mux[] = {
@@ -1957,7 +2391,21 @@ static struct atlas7_grp_mux sd0_grp_mux = {
 	.pad_mux_list = sd0_grp_pad_mux,
 };
 
-static struct atlas7_pad_mux sd1_grp0_pad_mux[] = {
+static struct atlas7_pad_mux sd0_4bit_grp_pad_mux[] = {
+	MUX(1, 46, 2, N, N, N, N),
+	MUX(1, 47, 2, N, N, N, N),
+	MUX(1, 44, 2, N, N, N, N),
+	MUX(1, 43, 2, N, N, N, N),
+	MUX(1, 42, 2, N, N, N, N),
+	MUX(1, 41, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux sd0_4bit_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(sd0_4bit_grp_pad_mux),
+	.pad_mux_list = sd0_4bit_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux sd1_grp_pad_mux[] = {
 	MUX(1, 48, 3, N, N, N, N),
 	MUX(1, 49, 3, N, N, N, N),
 	MUX(1, 44, 3, 0xa00, 0, 0xa80, 0),
@@ -1970,33 +2418,41 @@ static struct atlas7_pad_mux sd1_grp0_pad_mux[] = {
 	MUX(1, 37, 3, N, N, N, N),
 };
 
-static struct atlas7_grp_mux sd1_grp0_mux = {
-	.pad_mux_count = ARRAY_SIZE(sd1_grp0_pad_mux),
-	.pad_mux_list = sd1_grp0_pad_mux,
+static struct atlas7_grp_mux sd1_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(sd1_grp_pad_mux),
+	.pad_mux_list = sd1_grp_pad_mux,
 };
 
-static struct atlas7_pad_mux sd1_grp1_pad_mux[] = {
+static struct atlas7_pad_mux sd1_4bit_grp0_pad_mux[] = {
+	MUX(1, 48, 3, N, N, N, N),
+	MUX(1, 49, 3, N, N, N, N),
+	MUX(1, 44, 3, 0xa00, 0, 0xa80, 0),
+	MUX(1, 43, 3, 0xa00, 1, 0xa80, 1),
+	MUX(1, 42, 3, 0xa00, 2, 0xa80, 2),
+	MUX(1, 41, 3, 0xa00, 3, 0xa80, 3),
+};
+
+static struct atlas7_grp_mux sd1_4bit_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(sd1_4bit_grp0_pad_mux),
+	.pad_mux_list = sd1_4bit_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux sd1_4bit_grp1_pad_mux[] = {
 	MUX(1, 48, 3, N, N, N, N),
 	MUX(1, 49, 3, N, N, N, N),
 	MUX(1, 40, 4, 0xa00, 0, 0xa80, 0),
 	MUX(1, 39, 4, 0xa00, 1, 0xa80, 1),
 	MUX(1, 38, 4, 0xa00, 2, 0xa80, 2),
 	MUX(1, 37, 4, 0xa00, 3, 0xa80, 3),
-	MUX(1, 40, 3, N, N, N, N),
-	MUX(1, 39, 3, N, N, N, N),
-	MUX(1, 38, 3, N, N, N, N),
-	MUX(1, 37, 3, N, N, N, N),
 };
 
-static struct atlas7_grp_mux sd1_grp1_mux = {
-	.pad_mux_count = ARRAY_SIZE(sd1_grp1_pad_mux),
-	.pad_mux_list = sd1_grp1_pad_mux,
+static struct atlas7_grp_mux sd1_4bit_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(sd1_4bit_grp1_pad_mux),
+	.pad_mux_list = sd1_4bit_grp1_pad_mux,
 };
 
 static struct atlas7_pad_mux sd2_grp0_pad_mux[] = {
-#ifndef NAND_WP_ON
 	MUX(1, 124, 2, 0xa08, 7, 0xa88, 7),
-#endif
 	MUX(1, 31, 1, N, N, N, N),
 	MUX(1, 32, 1, N, N, N, N),
 	MUX(1, 33, 1, N, N, N, N),
@@ -2009,6 +2465,21 @@ static struct atlas7_pad_mux sd2_grp0_pad_mux[] = {
 static struct atlas7_grp_mux sd2_grp0_mux = {
 	.pad_mux_count = ARRAY_SIZE(sd2_grp0_pad_mux),
 	.pad_mux_list = sd2_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux sd2_no_cdb_grp0_pad_mux[] = {
+	MUX(1, 31, 1, N, N, N, N),
+	MUX(1, 32, 1, N, N, N, N),
+	MUX(1, 33, 1, N, N, N, N),
+	MUX(1, 34, 1, N, N, N, N),
+	MUX(1, 35, 1, N, N, N, N),
+	MUX(1, 36, 1, N, N, N, N),
+	MUX(1, 123, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux sd2_no_cdb_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(sd2_no_cdb_grp0_pad_mux),
+	.pad_mux_list = sd2_no_cdb_grp0_pad_mux,
 };
 
 static struct atlas7_pad_mux sd3_grp_pad_mux[] = {
@@ -2090,16 +2561,16 @@ static struct atlas7_grp_mux sp0_qspi_grp_mux = {
 	.pad_mux_list = sp0_qspi_grp_pad_mux,
 };
 
-static struct atlas7_pad_mux sp1_qspi_grp_pad_mux[] = {
+static struct atlas7_pad_mux sp1_spi_grp_pad_mux[] = {
 	MUX(1, 19, 1, N, N, N, N),
 	MUX(1, 20, 1, N, N, N, N),
 	MUX(1, 21, 1, N, N, N, N),
 	MUX(1, 18, 1, N, N, N, N),
 };
 
-static struct atlas7_grp_mux sp1_qspi_grp_mux = {
-	.pad_mux_count = ARRAY_SIZE(sp1_qspi_grp_pad_mux),
-	.pad_mux_list = sp1_qspi_grp_pad_mux,
+static struct atlas7_grp_mux sp1_spi_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(sp1_spi_grp_pad_mux),
+	.pad_mux_list = sp1_spi_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux tpiu_trace_grp_pad_mux[] = {
@@ -2138,6 +2609,16 @@ static struct atlas7_pad_mux uart0_grp_pad_mux[] = {
 static struct atlas7_grp_mux uart0_grp_mux = {
 	.pad_mux_count = ARRAY_SIZE(uart0_grp_pad_mux),
 	.pad_mux_list = uart0_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux uart0_nopause_grp_pad_mux[] = {
+	MUX(1, 134, 1, N, N, N, N),
+	MUX(1, 133, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux uart0_nopause_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(uart0_nopause_grp_pad_mux),
+	.pad_mux_list = uart0_nopause_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux uart1_grp_pad_mux[] = {
@@ -2196,6 +2677,38 @@ static struct atlas7_grp_mux uart3_grp2_mux = {
 	.pad_mux_list = uart3_grp2_pad_mux,
 };
 
+static struct atlas7_pad_mux uart3_grp3_pad_mux[] = {
+	MUX(1, 139, 2, N, N, N, N),
+	MUX(1, 140, 2, 0xa08, 0, 0xa88, 0),
+	MUX(1, 84, 2, 0xa00, 5, 0xa80, 5),
+	MUX(1, 83, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux uart3_grp3_mux = {
+	.pad_mux_count = ARRAY_SIZE(uart3_grp3_pad_mux),
+	.pad_mux_list = uart3_grp3_pad_mux,
+};
+
+static struct atlas7_pad_mux uart3_nopause_grp0_pad_mux[] = {
+	MUX(1, 138, 1, 0xa00, 5, 0xa80, 5),
+	MUX(1, 137, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux uart3_nopause_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(uart3_nopause_grp0_pad_mux),
+	.pad_mux_list = uart3_nopause_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux uart3_nopause_grp1_pad_mux[] = {
+	MUX(1, 84, 2, 0xa00, 5, 0xa80, 5),
+	MUX(1, 83, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux uart3_nopause_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(uart3_nopause_grp1_pad_mux),
+	.pad_mux_list = uart3_nopause_grp1_pad_mux,
+};
+
 static struct atlas7_pad_mux uart4_grp0_pad_mux[] = {
 	MUX(1, 122, 4, 0xa08, 1, 0xa88, 1),
 	MUX(1, 123, 4, N, N, N, N),
@@ -2230,6 +2743,16 @@ static struct atlas7_pad_mux uart4_grp2_pad_mux[] = {
 static struct atlas7_grp_mux uart4_grp2_mux = {
 	.pad_mux_count = ARRAY_SIZE(uart4_grp2_pad_mux),
 	.pad_mux_list = uart4_grp2_pad_mux,
+};
+
+static struct atlas7_pad_mux uart4_nopause_grp_pad_mux[] = {
+	MUX(1, 140, 1, N, N, N, N),
+	MUX(1, 139, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux uart4_nopause_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(uart4_nopause_grp_pad_mux),
+	.pad_mux_list = uart4_nopause_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux usb0_drvvbus_grp_pad_mux[] = {
@@ -2326,10 +2849,14 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("sdio_i2s_gpio", sdio_i2s_gpio_grp, &sdio_i2s_gpio_grp_mux),
 	FUNCTION("sp_rgmii_gpio", sp_rgmii_gpio_grp, &sp_rgmii_gpio_grp_mux),
 	FUNCTION("lvds_gpio", lvds_gpio_grp, &lvds_gpio_grp_mux),
-	FUNCTION("uart_nand_gpio", uart_nand_gpio_grp, &uart_nand_gpio_grp_mux),
+	FUNCTION("uart_nand_gpio",
+			uart_nand_gpio_grp,
+			&uart_nand_gpio_grp_mux),
 	FUNCTION("rtc_gpio", rtc_gpio_grp, &rtc_gpio_grp_mux),
 	FUNCTION("audio_ac97", audio_ac97_grp, &audio_ac97_grp_mux),
-	FUNCTION("audio_func_dbg", audio_func_dbg_grp, &audio_func_dbg_grp_mux),
+	FUNCTION("audio_func_dbg",
+			audio_func_dbg_grp,
+			&audio_func_dbg_grp_mux),
 	FUNCTION("audio_i2s", audio_i2s_grp, &audio_i2s_grp_mux),
 	FUNCTION("audio_uart0", audio_uart0_grp, &audio_uart0_grp_mux),
 	FUNCTION("audio_uart1", audio_uart1_grp, &audio_uart1_grp_mux),
@@ -2344,7 +2871,9 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("ca_audio_lpc", ca_audio_lpc_grp, &ca_audio_lpc_grp_mux),
 	FUNCTION("ca_bt_lpc", ca_bt_lpc_grp, &ca_bt_lpc_grp_mux),
 	FUNCTION("ca_coex", ca_coex_grp, &ca_coex_grp_mux),
-	FUNCTION("ca_curator_lpc", ca_curator_lpc_grp, &ca_curator_lpc_grp_mux),
+	FUNCTION("ca_curator_lpc",
+			ca_curator_lpc_grp,
+			&ca_curator_lpc_grp_mux),
 	FUNCTION("ca_pcm_debug", ca_pcm_debug_grp, &ca_pcm_debug_grp_mux),
 	FUNCTION("ca_pio", ca_pio_grp, &ca_pio_grp_mux),
 	FUNCTION("ca_sdio_debug", ca_sdio_debug_grp, &ca_sdio_debug_grp_mux),
@@ -2357,59 +2886,155 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("gn_gnss_uart", gn_gnss_uart_grp, &gn_gnss_uart_grp_mux),
 	FUNCTION("gn_trg_spi_m0", gn_trg_spi_grp0, &gn_trg_spi_grp0_mux),
 	FUNCTION("gn_trg_spi_m1", gn_trg_spi_grp1, &gn_trg_spi_grp1_mux),
+	FUNCTION("cvbs_dbg", cvbs_dbg_grp, &cvbs_dbg_grp_mux),
+	FUNCTION("cvbs_dbg_test_m0",
+			cvbs_dbg_test_grp0,
+			&cvbs_dbg_test_grp0_mux),
+	FUNCTION("cvbs_dbg_test_m1",
+			cvbs_dbg_test_grp1,
+			&cvbs_dbg_test_grp1_mux),
+	FUNCTION("cvbs_dbg_test_m2",
+			cvbs_dbg_test_grp2,
+			&cvbs_dbg_test_grp2_mux),
+	FUNCTION("cvbs_dbg_test_m3",
+			cvbs_dbg_test_grp3,
+			&cvbs_dbg_test_grp3_mux),
+	FUNCTION("cvbs_dbg_test_m4",
+			cvbs_dbg_test_grp4,
+			&cvbs_dbg_test_grp4_mux),
+	FUNCTION("cvbs_dbg_test_m5",
+			cvbs_dbg_test_grp5,
+			&cvbs_dbg_test_grp5_mux),
+	FUNCTION("cvbs_dbg_test_m6",
+			cvbs_dbg_test_grp6,
+			&cvbs_dbg_test_grp6_mux),
+	FUNCTION("cvbs_dbg_test_m7",
+			cvbs_dbg_test_grp7,
+			&cvbs_dbg_test_grp7_mux),
+	FUNCTION("cvbs_dbg_test_m8",
+			cvbs_dbg_test_grp8,
+			&cvbs_dbg_test_grp8_mux),
+	FUNCTION("cvbs_dbg_test_m9",
+			cvbs_dbg_test_grp9,
+			&cvbs_dbg_test_grp9_mux),
+	FUNCTION("cvbs_dbg_test_m10",
+			cvbs_dbg_test_grp10,
+			&cvbs_dbg_test_grp10_mux),
+	FUNCTION("cvbs_dbg_test_m11",
+			cvbs_dbg_test_grp11,
+			&cvbs_dbg_test_grp11_mux),
+	FUNCTION("cvbs_dbg_test_m12",
+			cvbs_dbg_test_grp12,
+			&cvbs_dbg_test_grp12_mux),
+	FUNCTION("cvbs_dbg_test_m13",
+			cvbs_dbg_test_grp13,
+			&cvbs_dbg_test_grp13_mux),
+	FUNCTION("cvbs_dbg_test_m14",
+			cvbs_dbg_test_grp14,
+			&cvbs_dbg_test_grp14_mux),
+	FUNCTION("cvbs_dbg_test_m15",
+			cvbs_dbg_test_grp15,
+			&cvbs_dbg_test_grp15_mux),
+	FUNCTION("gn_gnss", gn_gnss_grp, &gn_gnss_grp_mux),
+	FUNCTION("gn_io_gnsssys_sw_cfg",
+			gn_io_gnsssys_sw_cfg_grp,
+			&gn_io_gnsssys_sw_cfg_grp_mux),
+	FUNCTION("gn_trg_m0", gn_trg_grp0, &gn_trg_grp0_mux),
+	FUNCTION("gn_trg_m1", gn_trg_grp1, &gn_trg_grp1_mux),
+	FUNCTION("gn_trg_shutdown_m0",
+			gn_trg_shutdown_grp0,
+			&gn_trg_shutdown_grp0_mux),
+	FUNCTION("gn_trg_shutdown_m1",
+			gn_trg_shutdown_grp1,
+			&gn_trg_shutdown_grp1_mux),
+	FUNCTION("gn_trg_shutdown_m2",
+			gn_trg_shutdown_grp2,
+			&gn_trg_shutdown_grp2_mux),
+	FUNCTION("gn_trg_shutdown_m3",
+			gn_trg_shutdown_grp3,
+			&gn_trg_shutdown_grp3_mux),
 	FUNCTION("i2c0", i2c0_grp, &i2c0_grp_mux),
 	FUNCTION("i2c1", i2c1_grp, &i2c1_grp_mux),
-	FUNCTION("jtag", jtag_grp0, &jtag_grp0_mux),
-	FUNCTION("ks_kas_spi", ks_kas_spi_grp0, &ks_kas_spi_grp0_mux),
+	FUNCTION("jtag_m0", jtag_grp0, &jtag_grp0_mux),
+	FUNCTION("ks_kas_spi_m0", ks_kas_spi_grp0, &ks_kas_spi_grp0_mux),
 	FUNCTION("ld_ldd", ld_ldd_grp, &ld_ldd_grp_mux),
 	FUNCTION("lr_lcdrom", lr_lcdrom_grp, &lr_lcdrom_grp_mux),
 	FUNCTION("nd_df", nd_df_grp, &nd_df_grp_mux),
+	FUNCTION("nd_df_nowp", nd_df_nowp_grp, &nd_df_nowp_grp_mux),
 	FUNCTION("ps", ps_grp, &ps_grp_mux),
 	FUNCTION("pwc_core_on", pwc_core_on_grp, &pwc_core_on_grp_mux),
 	FUNCTION("pwc_ext_on", pwc_ext_on_grp, &pwc_ext_on_grp_mux),
 	FUNCTION("pwc_gpio3_clk", pwc_gpio3_clk_grp, &pwc_gpio3_clk_grp_mux),
 	FUNCTION("pwc_io_on", pwc_io_on_grp, &pwc_io_on_grp_mux),
-	FUNCTION("pwc_lowbatt_b", pwc_lowbatt_b_grp0, &pwc_lowbatt_b_grp0_mux),
+	FUNCTION("pwc_lowbatt_b_m0",
+			pwc_lowbatt_b_grp0,
+			&pwc_lowbatt_b_grp0_mux),
 	FUNCTION("pwc_mem_on", pwc_mem_on_grp, &pwc_mem_on_grp_mux),
-	FUNCTION("pwc_on_key_b", pwc_on_key_b_grp0, &pwc_on_key_b_grp0_mux),
+	FUNCTION("pwc_on_key_b_m0",
+			pwc_on_key_b_grp0,
+			&pwc_on_key_b_grp0_mux),
 	FUNCTION("pwc_wakeup_src0",
-		pwc_wakeup_src0_grp, &pwc_wakeup_src0_grp_mux),
+			pwc_wakeup_src0_grp,
+			&pwc_wakeup_src0_grp_mux),
 	FUNCTION("pwc_wakeup_src1",
-		pwc_wakeup_src1_grp, &pwc_wakeup_src1_grp_mux),
+			pwc_wakeup_src1_grp,
+			&pwc_wakeup_src1_grp_mux),
 	FUNCTION("pwc_wakeup_src2",
-		pwc_wakeup_src2_grp, &pwc_wakeup_src2_grp_mux),
+			pwc_wakeup_src2_grp,
+			&pwc_wakeup_src2_grp_mux),
 	FUNCTION("pwc_wakeup_src3",
-		pwc_wakeup_src3_grp, &pwc_wakeup_src3_grp_mux),
-	FUNCTION("pw_cko_m0", pw_cko_grp0, &pw_cko_grp0_mux),
-	FUNCTION("pw_cko_m1", pw_cko_grp1, &pw_cko_grp1_mux),
-	FUNCTION("pw_cko_m2", pw_cko_grp2, &pw_cko_grp2_mux),
-	FUNCTION("pw_i2s01_clk_m0", pw_i2s01_clk_grp0, &pw_i2s01_clk_grp0_mux),
-	FUNCTION("pw_i2s01_clk_m1", pw_i2s01_clk_grp1, &pw_i2s01_clk_grp1_mux),
+			pwc_wakeup_src3_grp,
+			&pwc_wakeup_src3_grp_mux),
+	FUNCTION("pw_cko0_m0", pw_cko0_grp0, &pw_cko0_grp0_mux),
+	FUNCTION("pw_cko0_m1", pw_cko0_grp1, &pw_cko0_grp1_mux),
+	FUNCTION("pw_cko0_m2", pw_cko0_grp2, &pw_cko0_grp2_mux),
+	FUNCTION("pw_cko1_m0", pw_cko1_grp0, &pw_cko1_grp0_mux),
+	FUNCTION("pw_cko1_m1", pw_cko1_grp1, &pw_cko1_grp1_mux),
+	FUNCTION("pw_i2s01_clk_m0",
+			pw_i2s01_clk_grp0,
+			&pw_i2s01_clk_grp0_mux),
+	FUNCTION("pw_i2s01_clk_m1",
+			pw_i2s01_clk_grp1,
+			&pw_i2s01_clk_grp1_mux),
 	FUNCTION("pw_pwm_m0", pw_pwm_grp0, &pw_pwm_grp0_mux),
 	FUNCTION("pw_pwm_m1", pw_pwm_grp1, &pw_pwm_grp1_mux),
 	FUNCTION("rg_eth_m0", rg_eth_grp0, &rg_eth_grp0_mux),
 	FUNCTION("rg_eth_m1", rg_eth_grp1, &rg_eth_grp1_mux),
 	FUNCTION("sd0", sd0_grp, &sd0_grp_mux),
-	FUNCTION("sd1_m0", sd1_grp0, &sd1_grp0_mux),
-	FUNCTION("sd1_m1", sd1_grp1, &sd1_grp1_mux),
-	FUNCTION("sd2", sd2_grp0, &sd2_grp0_mux),
+	FUNCTION("sd0_4bit", sd0_4bit_grp, &sd0_4bit_grp_mux),
+	FUNCTION("sd1", sd1_grp, &sd1_grp_mux),
+	FUNCTION("sd1_4bit_m0", sd1_4bit_grp0, &sd1_4bit_grp0_mux),
+	FUNCTION("sd1_4bit_m1", sd1_4bit_grp1, &sd1_4bit_grp1_mux),
+	FUNCTION("sd2_m0", sd2_grp0, &sd2_grp0_mux),
+	FUNCTION("sd2_no_cdb_m0", sd2_no_cdb_grp0, &sd2_no_cdb_grp0_mux),
 	FUNCTION("sd3", sd3_grp, &sd3_grp_mux),
 	FUNCTION("sd5", sd5_grp, &sd5_grp_mux),
 	FUNCTION("sd6_m0", sd6_grp0, &sd6_grp0_mux),
 	FUNCTION("sd6_m1", sd6_grp1, &sd6_grp1_mux),
-	FUNCTION("sp0_ext_ldo_on", sp0_ext_ldo_on_grp, &sp0_ext_ldo_on_grp_mux),
+	FUNCTION("sp0_ext_ldo_on",
+			sp0_ext_ldo_on_grp,
+			&sp0_ext_ldo_on_grp_mux),
 	FUNCTION("sp0_qspi", sp0_qspi_grp, &sp0_qspi_grp_mux),
-	FUNCTION("sp1_qspi", sp1_qspi_grp, &sp1_qspi_grp_mux),
+	FUNCTION("sp1_spi", sp1_spi_grp, &sp1_spi_grp_mux),
 	FUNCTION("tpiu_trace", tpiu_trace_grp, &tpiu_trace_grp_mux),
 	FUNCTION("uart0", uart0_grp, &uart0_grp_mux),
+	FUNCTION("uart0_nopause", uart0_nopause_grp, &uart0_nopause_grp_mux),
 	FUNCTION("uart1", uart1_grp, &uart1_grp_mux),
 	FUNCTION("uart2", uart2_grp, &uart2_grp_mux),
 	FUNCTION("uart3_m0", uart3_grp0, &uart3_grp0_mux),
 	FUNCTION("uart3_m1", uart3_grp1, &uart3_grp1_mux),
 	FUNCTION("uart3_m2", uart3_grp2, &uart3_grp2_mux),
+	FUNCTION("uart3_m3", uart3_grp3, &uart3_grp3_mux),
+	FUNCTION("uart3_nopause_m0",
+			uart3_nopause_grp0,
+			&uart3_nopause_grp0_mux),
+	FUNCTION("uart3_nopause_m1",
+			uart3_nopause_grp1,
+			&uart3_nopause_grp1_mux),
 	FUNCTION("uart4_m0", uart4_grp0, &uart4_grp0_mux),
 	FUNCTION("uart4_m1", uart4_grp1, &uart4_grp1_mux),
 	FUNCTION("uart4_m2", uart4_grp2, &uart4_grp2_mux),
+	FUNCTION("uart4_nopause", uart4_nopause_grp, &uart4_nopause_grp_mux),
 	FUNCTION("usb0_drvvbus", usb0_drvvbus_grp, &usb0_drvvbus_grp_mux),
 	FUNCTION("usb1_drvvbus", usb1_drvvbus_grp, &usb1_drvvbus_grp_mux),
 	FUNCTION("visbus_dout", visbus_dout_grp, &visbus_dout_grp_mux),
@@ -2505,6 +3130,9 @@ static void __atlas7_pmx_pin_enable(struct atlas7_pmx *pmx,
 	struct atlas7_pad_config *conf;
 	u32 bank;
 	unsigned long regv;
+
+	pr_debug("PMX DUMP ### pin#%d func:%d #### START >>>\n",
+			pin, func);
 
 	/* Get this Pad's descriptor from PINCTRL */
 	conf = &pmx->pctl_data->confs[pin];

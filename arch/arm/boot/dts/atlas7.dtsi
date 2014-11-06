@@ -86,50 +86,50 @@
 			reg = <0x18880000 0x1000>,
 				<0x10E40000 0x1000>;
 
-			a_ac97_pmx: ac97@0 {
-				ac97 {
+			audio_ac97_pmx: audio_ac97@0 {
+				audio_ac97 {
 					sirf,pins = "audio_ac97_grp";
 					sirf,function = "audio_ac97";
 				};
 			};
 
-			a_func_dbg_pmx: a_func_dbg@0 {
-				a_func_dbg {
+			audio_func_dbg_pmx: audio_func_dbg@0 {
+				audio_func_dbg {
 					sirf,pins = "audio_func_dbg_grp";
 					sirf,function = "audio_func_dbg";
 				};
 			};
 
-			a_i2s_pmx: a_i2s@0 {
-				a_i2s {
+			audio_i2s_pmx: audio_i2s@0 {
+				audio_i2s {
 					sirf,pins = "audio_i2s_grp";
 					sirf,function = "audio_i2s";
 				};
 			};
 
-			a_uart0_pmx: a_uart0@0 {
-				a_uart0 {
+			audio_uart0_pmx: audio_uart0@0 {
+				audio_uart0 {
 					sirf,pins = "audio_uart0_grp";
 					sirf,function = "audio_uart0";
 				};
 			};
 
-			a_uart1_pmx: a_uart1@0 {
-				a_uart1 {
+			audio_uart1_pmx: audio_uart1@0 {
+				audio_uart1 {
 					sirf,pins = "audio_uart1_grp";
 					sirf,function = "audio_uart1";
 				};
 			};
 
-			a_uart2_pmx0: a_uart2@0 {
-				a_uart2_0 {
+			audio_uart2_pmx0: audio_uart2@0 {
+				audio_uart2_0 {
 					sirf,pins = "audio_uart2_grp0";
 					sirf,function = "audio_uart2_m0";
 				};
 			};
 
-			a_uart2_pmx1: a_uart2@1 {
-				a_uart2_1 {
+			audio_uart2_pmx1: audio_uart2@1 {
+				audio_uart2_1 {
 					sirf,pins = "audio_uart2_grp1";
 					sirf,function = "audio_uart2_m1";
 				};
@@ -143,42 +143,42 @@
 			};
 
 			c0_can_pmx0: c0_can@0 {
-				c0_can {
+				c0_can_0 {
 					sirf,pins = "c0_can_grp0";
 					sirf,function = "c0_can_m0";
 				};
 			};
 
 			c0_can_pmx1: c0_can@1 {
-				c0_can {
+				c0_can_1 {
 					sirf,pins = "c0_can_grp1";
 					sirf,function = "c0_can_m1";
 				};
 			};
 
 			c1_can_pmx0: c1_can@0 {
-				c1_can {
+				c1_can_0 {
 					sirf,pins = "c1_can_grp0";
 					sirf,function = "c1_can_m0";
 				};
 			};
 
 			c1_can_pmx1: c1_can@1 {
-				c1_can {
+				c1_can_1 {
 					sirf,pins = "c1_can_grp1";
 					sirf,function = "c1_can_m1";
 				};
 			};
 
 			c1_can_pmx2: c1_can@2 {
-				c1_can {
+				c1_can_2 {
 					sirf,pins = "c1_can_grp2";
 					sirf,function = "c1_can_m2";
 				};
 			};
 
-			ca_a_lpc_pmx: ca_a_lpc@0 {
-				ca_a_lpc {
+			ca_audio_lpc_pmx: ca_audio_lpc@0 {
+				ca_audio_lpc {
 					sirf,pins = "ca_audio_lpc_grp";
 					sirf,function = "ca_audio_lpc";
 				};
@@ -248,14 +248,14 @@
 			};
 
 			clkc_pmx0: clkc@0 {
-				clkc {
+				clkc_0 {
 					sirf,pins = "clkc_grp0";
 					sirf,function = "clkc_m0";
 				};
 			};
 
 			clkc_pmx1: clkc@1 {
-				clkc {
+				clkc_1 {
 					sirf,pins = "clkc_grp1";
 					sirf,function = "clkc_m1";
 				};
@@ -276,16 +276,191 @@
 			};
 
 			gn_trg_spi_pmx0: gn_trg_spi@0 {
-				gn_trg_spi {
+				gn_trg_spi_0 {
 					sirf,pins = "gn_trg_spi_grp0";
 					sirf,function = "gn_trg_spi_m0";
 				};
 			};
 
 			gn_trg_spi_pmx1: gn_trg_spi@1 {
-				gn_trg_spi {
+				gn_trg_spi_1 {
 					sirf,pins = "gn_trg_spi_grp1";
 					sirf,function = "gn_trg_spi_m1";
+				};
+			};
+
+			cvbs_dbg_pmx: cvbs_dbg@0 {
+				cvbs_dbg {
+					sirf,pins = "cvbs_dbg_grp";
+					sirf,function = "cvbs_dbg";
+				};
+			};
+
+			cvbs_dbg_test_pmx0: cvbs_dbg_test@0 {
+				cvbs_dbg_test_0 {
+					sirf,pins = "cvbs_dbg_test_grp0";
+					sirf,function = "cvbs_dbg_test_m0";
+				};
+			};
+
+			cvbs_dbg_test_pmx1: cvbs_dbg_test@1 {
+				cvbs_dbg_test_1 {
+					sirf,pins = "cvbs_dbg_test_grp1";
+					sirf,function = "cvbs_dbg_test_m1";
+				};
+			};
+
+			cvbs_dbg_test_pmx2: cvbs_dbg_test@2 {
+				cvbs_dbg_test_2 {
+					sirf,pins = "cvbs_dbg_test_grp2";
+					sirf,function = "cvbs_dbg_test_m2";
+				};
+			};
+
+			cvbs_dbg_test_pmx3: cvbs_dbg_test@3 {
+				cvbs_dbg_test_3 {
+					sirf,pins = "cvbs_dbg_test_grp3";
+					sirf,function = "cvbs_dbg_test_m3";
+				};
+			};
+
+			cvbs_dbg_test_pmx4: cvbs_dbg_test@4 {
+				cvbs_dbg_test_4 {
+					sirf,pins = "cvbs_dbg_test_grp4";
+					sirf,function = "cvbs_dbg_test_m4";
+				};
+			};
+
+			cvbs_dbg_test_pmx5: cvbs_dbg_test@5 {
+				cvbs_dbg_test_5 {
+					sirf,pins = "cvbs_dbg_test_grp5";
+					sirf,function = "cvbs_dbg_test_m5";
+				};
+			};
+
+			cvbs_dbg_test_pmx6: cvbs_dbg_test@6 {
+				cvbs_dbg_test_6 {
+					sirf,pins = "cvbs_dbg_test_grp6";
+					sirf,function = "cvbs_dbg_test_m6";
+				};
+			};
+
+			cvbs_dbg_test_pmx7: cvbs_dbg_test@7 {
+				cvbs_dbg_test_7 {
+					sirf,pins = "cvbs_dbg_test_grp7";
+					sirf,function = "cvbs_dbg_test_m7";
+				};
+			};
+
+			cvbs_dbg_test_pmx8: cvbs_dbg_test@8 {
+				cvbs_dbg_test_8 {
+					sirf,pins = "cvbs_dbg_test_grp8";
+					sirf,function = "cvbs_dbg_test_m8";
+				};
+			};
+
+			cvbs_dbg_test_pmx9: cvbs_dbg_test@9 {
+				cvbs_dbg_test_9 {
+					sirf,pins = "cvbs_dbg_test_grp9";
+					sirf,function = "cvbs_dbg_test_m9";
+				};
+			};
+
+			cvbs_dbg_test_pmx10: cvbs_dbg_test@10 {
+				cvbs_dbg_test_10 {
+					sirf,pins = "cvbs_dbg_test_grp10";
+					sirf,function = "cvbs_dbg_test_m10";
+				};
+			};
+
+			cvbs_dbg_test_pmx11: cvbs_dbg_test@11 {
+				cvbs_dbg_test_11 {
+					sirf,pins = "cvbs_dbg_test_grp11";
+					sirf,function = "cvbs_dbg_test_m11";
+				};
+			};
+
+			cvbs_dbg_test_pmx12: cvbs_dbg_test@12 {
+				cvbs_dbg_test_12 {
+					sirf,pins = "cvbs_dbg_test_grp12";
+					sirf,function = "cvbs_dbg_test_m12";
+				};
+			};
+
+			cvbs_dbg_test_pmx13: cvbs_dbg_test@13 {
+				cvbs_dbg_test_13 {
+					sirf,pins = "cvbs_dbg_test_grp13";
+					sirf,function = "cvbs_dbg_test_m13";
+				};
+			};
+
+			cvbs_dbg_test_pmx14: cvbs_dbg_test@14 {
+				cvbs_dbg_test_14 {
+					sirf,pins = "cvbs_dbg_test_grp14";
+					sirf,function = "cvbs_dbg_test_m14";
+				};
+			};
+
+			cvbs_dbg_test_pmx15: cvbs_dbg_test@15 {
+				cvbs_dbg_test_15 {
+					sirf,pins = "cvbs_dbg_test_grp15";
+					sirf,function = "cvbs_dbg_test_m15";
+				};
+			};
+
+			gn_gnss_pmx: gn_gnss@0 {
+				gn_gnss {
+					sirf,pins = "gn_gnss_grp";
+					sirf,function = "gn_gnss";
+				};
+			};
+
+			gn_io_gnsssys_sw_cfg_pmx: gn_io_gnsssys_sw_cfg@0 {
+				gn_io_gnsssys_sw_cfg {
+					sirf,pins = "gn_io_gnsssys_sw_cfg_grp";
+					sirf,function = "gn_io_gnsssys_sw_cfg";
+				};
+			};
+
+			gn_trg_pmx0: gn_trg@0 {
+				gn_trg_0 {
+					sirf,pins = "gn_trg_grp0";
+					sirf,function = "gn_trg_m0";
+				};
+			};
+
+			gn_trg_pmx1: gn_trg@1 {
+				gn_trg_1 {
+					sirf,pins = "gn_trg_grp1";
+					sirf,function = "gn_trg_m1";
+				};
+			};
+
+			gn_trg_shutdown_pmx0: gn_trg_shutdown@0 {
+				gn_trg_shutdown_0 {
+					sirf,pins = "gn_trg_shutdown_grp0";
+					sirf,function = "gn_trg_shutdown_m0";
+				};
+			};
+
+			gn_trg_shutdown_pmx1: gn_trg_shutdown@1 {
+				gn_trg_shutdown_1 {
+					sirf,pins = "gn_trg_shutdown_grp1";
+					sirf,function = "gn_trg_shutdown_m1";
+				};
+			};
+
+			gn_trg_shutdown_pmx2: gn_trg_shutdown@2 {
+				gn_trg_shutdown_2 {
+					sirf,pins = "gn_trg_shutdown_grp2";
+					sirf,function = "gn_trg_shutdown_m2";
+				};
+			};
+
+			gn_trg_shutdown_pmx3: gn_trg_shutdown@3 {
+				gn_trg_shutdown_3 {
+					sirf,pins = "gn_trg_shutdown_grp3";
+					sirf,function = "gn_trg_shutdown_m3";
 				};
 			};
 
@@ -303,17 +478,17 @@
 				};
 			};
 
-			jtag_pmx: jtag@0 {
-				jtag {
+			jtag_pmx0: jtag@0 {
+				jtag_0 {
 					sirf,pins = "jtag_grp0";
-					sirf,function = "jtag";
+					sirf,function = "jtag_m0";
 				};
 			};
 
-			ks_kas_spi_pmx: ks_kas_spi@0 {
-				ks_kas_spi {
+			ks_kas_spi_pmx0: ks_kas_spi@0 {
+				ks_kas_spi_0 {
 					sirf,pins = "ks_kas_spi_grp0";
-					sirf,function = "ks_kas_spi";
+					sirf,function = "ks_kas_spi_m0";
 				};
 			};
 
@@ -331,10 +506,17 @@
 				};
 			};
 
-			nand_pmx: nd_df@0 {
+			nd_df_pmx: nd_df@0 {
 				nd_df {
 					sirf,pins = "nd_df_grp";
 					sirf,function = "nd_df";
+				};
+			};
+
+			nd_df_nowp_pmx: nd_df_nowp@0 {
+				nd_df_nowp {
+					sirf,pins = "nd_df_nowp_grp";
+					sirf,function = "nd_df_nowp";
 				};
 			};
 
@@ -373,10 +555,10 @@
 				};
 			};
 
-			pwc_lowbatt_b_pmx: pwc_lowbatt_b@0 {
-				pwc_lowbatt_b {
+			pwc_lowbatt_b_pmx0: pwc_lowbatt_b@0 {
+				pwc_lowbatt_b_0 {
 					sirf,pins = "pwc_lowbatt_b_grp0";
-					sirf,function = "pwc_lowbatt_b";
+					sirf,function = "pwc_lowbatt_b_m0";
 				};
 			};
 
@@ -387,10 +569,10 @@
 				};
 			};
 
-			pwc_on_key_b_pmx: pwc_on_key_b@0 {
-				pwc_on_key_b {
+			pwc_on_key_b_pmx0: pwc_on_key_b@0 {
+				pwc_on_key_b_0 {
 					sirf,pins = "pwc_on_key_b_grp0";
-					sirf,function = "pwc_on_key_b";
+					sirf,function = "pwc_on_key_b_m0";
 				};
 			};
 
@@ -422,64 +604,78 @@
 				};
 			};
 
-			pw_cko_pmx0: pw_cko@0 {
-				pw_cko {
-					sirf,pins = "pw_cko_grp0";
-					sirf,function = "pw_cko_m0";
+			pw_cko0_pmx0: pw_cko0@0 {
+				pw_cko0_0 {
+					sirf,pins = "pw_cko0_grp0";
+					sirf,function = "pw_cko0_m0";
 				};
 			};
 
-			pw_cko_pmx1: pw_cko@1 {
-				pw_cko {
-					sirf,pins = "pw_cko_grp1";
-					sirf,function = "pw_cko_m1";
+			pw_cko0_pmx1: pw_cko0@1 {
+				pw_cko0_1 {
+					sirf,pins = "pw_cko0_grp1";
+					sirf,function = "pw_cko0_m1";
 				};
 			};
 
-			pw_cko_pmx2: pw_cko@2 {
-				pw_cko {
-					sirf,pins = "pw_cko_grp2";
-					sirf,function = "pw_cko_m2";
+			pw_cko0_pmx2: pw_cko0@2 {
+				pw_cko0_2 {
+					sirf,pins = "pw_cko0_grp2";
+					sirf,function = "pw_cko0_m2";
+				};
+			};
+
+			pw_cko1_pmx0: pw_cko1@0 {
+				pw_cko1_0 {
+					sirf,pins = "pw_cko1_grp0";
+					sirf,function = "pw_cko1_m0";
+				};
+			};
+
+			pw_cko1_pmx1: pw_cko1@1 {
+				pw_cko1_1 {
+					sirf,pins = "pw_cko1_grp1";
+					sirf,function = "pw_cko1_m1";
 				};
 			};
 
 			pw_i2s01_clk_pmx0: pw_i2s01_clk@0 {
-				pw_i2s01_clk {
+				pw_i2s01_clk_0 {
 					sirf,pins = "pw_i2s01_clk_grp0";
 					sirf,function = "pw_i2s01_clk_m0";
 				};
 			};
 
 			pw_i2s01_clk_pmx1: pw_i2s01_clk@1 {
-				pw_i2s01_clk {
-					sirf,pins = "pw_i2s01_clk_grp0";
+				pw_i2s01_clk_1 {
+					sirf,pins = "pw_i2s01_clk_grp1";
 					sirf,function = "pw_i2s01_clk_m1";
 				};
 			};
 
 			pw_pwm_pmx0: pw_pwm@0 {
-				pw_pwm {
+				pw_pwm_0 {
 					sirf,pins = "pw_pwm_grp0";
 					sirf,function = "pw_pwm_m0";
 				};
 			};
 
 			pw_pwm_pmx1: pw_pwm@1 {
-				pw_pwm {
+				pw_pwm_1 {
 					sirf,pins = "pw_pwm_grp1";
 					sirf,function = "pw_pwm_m1";
 				};
 			};
 
 			rg_eth_pmx0: rg_eth@0 {
-				rg_eth {
+				rg_eth_0 {
 					sirf,pins = "rg_eth_grp0";
 					sirf,function = "rg_eth_m0";
 				};
 			};
 
 			rg_eth_pmx1: rg_eth@1 {
-				rg_eth {
+				rg_eth_1 {
 					sirf,pins = "rg_eth_grp1";
 					sirf,function = "rg_eth_m1";
 				};
@@ -492,24 +688,45 @@
 				};
 			};
 
-			sd1_pmx0: sd1@0 {
-				sd1 {
-					sirf,pins = "sd1_grp0";
-					sirf,function = "sd1_m0";
+			sd0_4bit_pmx: sd0_4bit@0 {
+				sd0_4bit {
+					sirf,pins = "sd0_4bit_grp";
+					sirf,function = "sd0_4bit";
 				};
 			};
 
-			sd1_pmx1: sd1@1 {
+			sd1_pmx: sd1@0 {
 				sd1 {
-					sirf,pins = "sd1_grp1";
-					sirf,function = "sd1_m1";
+					sirf,pins = "sd1_grp";
+					sirf,function = "sd1";
 				};
 			};
 
-			sd2_pmx: sd2@0 {
-				sd2 {
+			sd1_4bit_pmx0: sd1_4bit@0 {
+				sd1_4bit_0 {
+					sirf,pins = "sd1_4bit_grp0";
+					sirf,function = "sd1_4bit_m0";
+				};
+			};
+
+			sd1_4bit_pmx1: sd1_4bit@1 {
+				sd1_4bit_1 {
+					sirf,pins = "sd1_4bit_grp1";
+					sirf,function = "sd1_4bit_m1";
+				};
+			};
+
+			sd2_pmx0: sd2@0 {
+				sd2_0 {
 					sirf,pins = "sd2_grp0";
-					sirf,function = "sd2";
+					sirf,function = "sd2_m0";
+				};
+			};
+
+			sd2_no_cdb_pmx0: sd2_no_cdb@0 {
+				sd2_no_cdb_0 {
+					sirf,pins = "sd2_no_cdb_grp0";
+					sirf,function = "sd2_no_cdb_m0";
 				};
 			};
 
@@ -528,16 +745,16 @@
 			};
 
 			sd6_pmx0: sd6@0 {
-				sd6 {
+				sd6_0 {
 					sirf,pins = "sd6_grp0";
 					sirf,function = "sd6_m0";
 				};
 			};
 
 			sd6_pmx1: sd6@1 {
-				sd6 {
+				sd6_1 {
 					sirf,pins = "sd6_grp1";
-					sirf,function = "sd6_m0";
+					sirf,function = "sd6_m1";
 				};
 			};
 
@@ -555,10 +772,10 @@
 				};
 			};
 
-			sp1_qspi_pmx: sp1_qspi@0 {
-				sp1_qspi {
-					sirf,pins = "sp1_qspi_grp";
-					sirf,function = "sp1_qspi";
+			sp1_spi_pmx: sp1_spi@0 {
+				sp1_spi {
+					sirf,pins = "sp1_spi_grp";
+					sirf,function = "sp1_spi";
 				};
 			};
 
@@ -573,6 +790,13 @@
 				uart0 {
 					sirf,pins = "uart0_grp";
 					sirf,function = "uart0";
+				};
+			};
+
+			uart0_nopause_pmx: uart0_nopause@0 {
+				uart0_nopause {
+					sirf,pins = "uart0_nopause_grp";
+					sirf,function = "uart0_nopause";
 				};
 			};
 
@@ -591,44 +815,72 @@
 			};
 
 			uart3_pmx0: uart3@0 {
-				uart3 {
+				uart3_0 {
 					sirf,pins = "uart3_grp0";
 					sirf,function = "uart3_m0";
 				};
 			};
 
 			uart3_pmx1: uart3@1 {
-				uart3 {
+				uart3_1 {
 					sirf,pins = "uart3_grp1";
 					sirf,function = "uart3_m1";
 				};
 			};
 
 			uart3_pmx2: uart3@2 {
-				uart3 {
+				uart3_2 {
 					sirf,pins = "uart3_grp2";
 					sirf,function = "uart3_m2";
 				};
 			};
 
+			uart3_pmx3: uart3@3 {
+				uart3_3 {
+					sirf,pins = "uart3_grp3";
+					sirf,function = "uart3_m3";
+				};
+			};
+
+			uart3_nopause_pmx0: uart3_nopause@0 {
+				uart3_nopause_0 {
+					sirf,pins = "uart3_nopause_grp0";
+					sirf,function = "uart3_nopause_m0";
+				};
+			};
+
+			uart3_nopause_pmx1: uart3_nopause@1 {
+				uart3_nopause_1 {
+					sirf,pins = "uart3_nopause_grp1";
+					sirf,function = "uart3_nopause_m1";
+				};
+			};
+
 			uart4_pmx0: uart4@0 {
-				uart4 {
+				uart4_0 {
 					sirf,pins = "uart4_grp0";
 					sirf,function = "uart4_m0";
 				};
 			};
 
 			uart4_pmx1: uart4@1 {
-				uart4 {
+				uart4_1 {
 					sirf,pins = "uart4_grp1";
 					sirf,function = "uart4_m1";
 				};
 			};
 
 			uart4_pmx2: uart4@2 {
-				uart4 {
+				uart4_2 {
 					sirf,pins = "uart4_grp2";
 					sirf,function = "uart4_m2";
+				};
+			};
+
+			uart4_nopause_pmx: uart4_nopause@0 {
+				uart4_nopause {
+					sirf,pins = "uart4_nopause_grp";
+					sirf,function = "uart4_nopause";
 				};
 			};
 
@@ -660,6 +912,7 @@
 				};
 			};
 		};
+
 		pmipc {
 				compatible = "arteris, flexnoc", "simple-bus";
 				#address-cells = <1>;
@@ -864,7 +1117,7 @@
 							"uart_nand_gpio_grp";
 			};
 
-                        sd0: sdhci@16000000 {
+			sd0: sdhci@16000000 {
 				cell-index = <0>;
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x16000000 0x100000>;
@@ -875,9 +1128,9 @@
 				non-removable;
 				status = "disabled";
 				bus-width = <8>;
-                        };
+			};
 
-                        sd1: sdhci@16100000 {
+			sd1: sdhci@16100000 {
 				cell-index = <1>;
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x16100000 0x100000>;
@@ -1087,7 +1340,8 @@
 			};
 			uart6: uart@11000000 {
 				cell-index = <6>;
-				compatible = "sirf,marco-bt-uart", "sirf,marco-uart";
+				compatible = "sirf,marco-bt-uart",
+						"sirf,marco-uart";
 				reg = <0x11000000 0x1000>;
 				interrupts = <0 100 0>;
 				clocks = <&clks 138>, <&clks 140>, <&clks 141>;
@@ -1135,7 +1389,8 @@
 
 			rtc-iobg@18840000 {
 				compatible = "sirf,prima2-rtciobg",
-					"sirf-prima2-rtciobg-bus", "simple-bus";
+					"sirf-prima2-rtciobg-bus",
+					"simple-bus";
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x18840000 0x1000>;
