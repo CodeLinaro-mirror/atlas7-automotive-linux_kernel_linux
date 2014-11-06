@@ -50,6 +50,39 @@
 			timerb@10dc8000 {
 				status = "disabled";
 			};
+
+			vip0@10db0000 {
+				status = "okay";
+				port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					vip0_0: endpoint@0 {
+						reg = <0>;
+						hsync-active = <0>;
+						vsync-active = <0>;
+						remote-endpoint = <&cvd_1>;
+					};
+				};
+			};
+
+			cvd@10db2000 {
+				compatible = "sirf,cvd";
+					input-number = <2>;
+					inputs = <&cvbs0 &cvbs1>;
+					cvbs0: cvbs@0 {
+						input-name = "camera";
+						input-id = <0>;
+					};
+					cvbs1: cvbs@1 {
+						input-name = "dvd";
+						input-id = <1>;
+					};
+					port {
+						cvd_1: endpoint {
+						remote-endpoint = <&vip0_0>;
+					};
+				};
+			};
 		};
 		mediam {
 			sdhci@16000000 {
