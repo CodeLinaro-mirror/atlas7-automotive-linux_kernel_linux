@@ -34,12 +34,19 @@
 #define VIP_DEFAULT_WIDTH	720
 #define VIP_DEFAULT_HEIGHT	480
 
+#define	CVD3_INT_MASK	0x1
+#define	VIP_INT_MASK	0x2
+#define	DMAC_INT_MASK	0x4
 
 /* Interrupt Mask definition */
 #define     VIP_INTMASK_ALL            0x00000007
+#define     VIP_INTMASK_ALL_A7         0x0000003F
 #define     VIP_INTMASK_SENSOR         0x00000001
-#define     VIP_INTMASK_FIFO_OFLOW     0x00000002   /* FIFO overflow  */
-#define     VIP_INTMASK_FIFO_UFLOW     0x00000004   /* FIFO underflow */
+#define     VIP_INTMASK_FIFO_OFLOW     0x00000002  /* FIFO overflow  */
+#define     VIP_INTMASK_FIFO_UFLOW     0x00000004  /* FIFO underflow */
+#define     VIP_INTMASK_TS_INT         0x00000008
+#define     VIP_INTMASK_656_INCOMP     0x00000010  /* BT656 incomplete field */
+#define     VIP_INTMASK_BAD_FIELD      0x00000020  /* Bad field detection */
 
 /* definition for parallel bus data pins configuration */
 #define     VIP_PIXELSET_DATAPIN_0TO15	0
@@ -135,6 +142,7 @@ struct vip_buffer {
 	struct vb2_buffer	vb;
 	struct list_head	list;
 	struct v4l2_pix_format	*fmt;
+	dma_addr_t		dma;
 };
 
 
@@ -166,6 +174,8 @@ struct vip_subdev_info {
 struct vip_dev {
 	struct device		*dev;
 	struct v4l2_device	v4l2_dev;
+
+	bool	is_atlas7_vip0;
 
 	struct vip_subdev_info	subdev[VIP_MAX_SUBDEVS];
 	unsigned int		num_subdev;
@@ -285,8 +295,9 @@ struct vip_dev {
 /* Pixel data bit select setting */
 #define CAM_PIXEL_SHIFT			0x14
 #define CAM_PIXEL_SHIFT_MASK		(0x7 << 0)
+#define CAM_PIXEL_SHIFT_16BIT		(0 << 0)
 #define CAM_PIXEL_SHIFT_0TO7		(1 << 0)
-
+#define CAM_PIXEL_UV_SWAP		0x100
 
 /* Red coefficent of YUV to RGB */
 #define CAM_YUV_COEF1			0x18
@@ -326,6 +337,8 @@ struct vip_dev {
 
 /* Camera interrupt enable register */
 #define CAM_INT_EN			0x28
+#define CAM_INT_EN_BAD_FIELD		(1 << 5)
+#define CAM_INT_EN_CCIR656_INCOMP	(1 << 4)
 #define CAM_INT_EN_TS_OVER		(1 << 3)
 #define CAM_INT_EN_FIFO_UFLOW		(1 << 2)
 #define CAM_INT_EN_FIFO_OFLOW		(1 << 1)
@@ -333,11 +346,14 @@ struct vip_dev {
 
 /* Camera interrupt control(status&reset) register */
 #define CAM_INT_CTRL			0x2C
+#define CAM_INT_CTRL_BAD_FIELD		(1 << 5)
+#define CAM_INT_CTRL_CCIR656_INCOMP	(1 << 4)
 #define CAM_INT_CTRL_TS_OVER		(1 << 3)
 #define CAM_INT_CTRL_FIFO_UFLOW		(1 << 2)
 #define CAM_INT_CTRL_FIFO_OFLOW		(1 << 1)
 #define CAM_INT_CTRL_SENSOR_INT		(1 << 0)
 #define CAM_INT_CTRL_MASK		(0x7 << 0)
+#define CAM_INT_CTRL_MASK_A7		(0x3F << 0)
 
 /* VSYNC control register */
 #define CAM_VSYNC_CTRL			0x30
@@ -427,4 +443,26 @@ struct vip_dev {
 #define CAM_TS_CTRL_NEG_SAMPLE		(1 << 5)
 #define CAM_TS_CTRL_VIP_TS		(1 << 4)
 
+#define CAM_HOR_MIR_LINEBUF_CTRL	0x64
+
+/* DMAC register */
+#define DMAN_ADDR			0x400
+#define DMAN_XLEN			0x404
+#define DMAN_YLEN			0x408
+#define DMAN_CTRL			0x40C
+#define DMAN_WIDTH			0x410
+#define DMAN_VALID			0x414
+#define DMAN_INT			0x418
+#define DMAN_INT_MASK			(0x7F << 0)
+#define DMAN_INTMASK_CNT		(0x1 << 1)
+#define DMAN_INT_EN			0x41C
+#define DMAN_LOOP_CTRL			0x420
+#define DMAN_INT_CNT			0x424
+#define DMAN_TIMEOUT_CNT		0x428
+#define DMAN_PAU_TIME_CNT		0x42C
+#define DMAN_CUR_TABLE_ADDR		0x430
+#define DMAN_CUR_DATA_ADDR		0x434
+#define DMAN_MUL			0x438
+#define DMAN_STATE0			0x43C
+#define DMAN_STATE1			0x440
 #endif

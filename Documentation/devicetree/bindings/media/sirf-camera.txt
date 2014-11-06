@@ -1,11 +1,11 @@
 SiRFSOC camera host interface
 
 Required properties:
- - compatible: suppose to be "sirf,prima2-vip"
+ - compatible: suppose to be one of "sirf,prima2-vip", "sirf,atlas7-vip0"
  - reg: register base and size
  - interrupts: the interrupt number
- - dmas: dma channels
- - dma-names: dma transfer direction(receive)
+ - dmas: dma channels, atlas7 SoC needn't this
+ - dma-names: dma transfer direction(receive), atlas7 SoC needn't this
  - sirf,vip_cma_size: the cma memory size used by vip host driver
  - any other required properties defined in video-interfaces.txt
 
@@ -36,10 +36,18 @@ Example:
 		};
 	};
 
+	vip0@10db0000 {
+		compatible = "sirf,atlas7-vip0";
+		reg = <0x10db0000 0x2000>;
+		interrupts = <0 85 0>;
+		sirf,vip_cma_size = <0xC00000>;
+	};
+
 SiRFSOC camera subdevice interface
 
 Required properities
  - compatible: subdevice compatible node, decoder:"technwell,tw9900"
+				or atlas7 SoC inside decoder "sirf,cvd"
  - reg: subdevice register size
  - input-number: number of the functions of this subdevice
  - inputs: the functions phandle name
@@ -47,6 +55,9 @@ Required properities
  - input-id: the index of the function, its rangs is input-number - 1
  - remote-endpoint:phandle to an 'endpoint' subnode of a remote device
  node. It is defined in video-interfaces.txt
+
+Other properties for atlas7 SoC:
+ - clocks: input clock (see clock-bindings.txt)
 
 Example:
 
@@ -74,4 +85,10 @@ Example:
 		};
 
 		...
+	};
+
+	cvd@10db2000 {
+		compatible = "sirf,cvd";
+		reg = <0x10db2000 0x2000>;
+		clocks = <&clks 53>;
 	};

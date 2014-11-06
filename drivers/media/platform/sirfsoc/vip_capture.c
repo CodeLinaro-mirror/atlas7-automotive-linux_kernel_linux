@@ -23,6 +23,7 @@
 #include <linux/version.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/of_platform.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
 #include <linux/videodev2.h>
@@ -65,6 +66,8 @@ static int brestart;
 static void vip_callback(void *pdata);
 static int vip_start_dma(struct vip_dev *vip);
 static void vip_hw_stop(struct vip_dev *vip);
+static void vip_hw_stop_dma(struct vip_dev *vip);
+
 
 /* VIP supported formats */
 static const struct vip_format vip_formats[] = {
@@ -176,9 +179,10 @@ static int vip_buffer_prepare(struct vb2_buffer *vb)
 
 		vb2_set_plane_payload(vb, 0, size);
 
-		buf->fmt = &vip->user_format;
-
 		addr = vb2_dma_contig_plane_dma_addr(vb, 0);
+
+		buf->fmt = &vip->user_format;
+		buf->dma = addr;
 
 		if (!IS_ALIGNED(addr, 32)) {
 			dev_err(vip->dev, "%s: addr not 32bit aligned\n",
@@ -254,7 +258,10 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 		goto out;
 
 	vip_hw_stop(vip);
-	dmaengine_terminate_all(vip->dma_chan);
+	if (vip->is_atlas7_vip0)
+		vip_hw_stop_dma(vip);
+	else
+		dmaengine_terminate_all(vip->dma_chan);
 	vip->vb2_active = NULL;
 
 	while (!list_empty(&vip->capture)) {
@@ -342,6 +349,7 @@ static int vip_init_videobuf2(struct vip_dev *vip)
 
 	return 0;
 }
+
 /*
  * vip hw opvertaion
  */
@@ -349,6 +357,49 @@ static int vip_init_videobuf2(struct vip_dev *vip)
 #define vip_write(addr, value)	writel((value), vip->io_base + (addr))
 #define vip_read(addr)		readl(vip->io_base + (addr))
 
+
+/* single dma mode */
+static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
+{
+	unsigned int size, height, addr;
+
+	size = buf->fmt->sizeimage;
+	height = buf->fmt->height;
+	addr = buf->dma;
+
+	vip_write(CAM_FIFO_OP_REG, 0x2);	/* Stop and reset fifo */
+
+	vip_write(DMAN_XLEN, size/height/4);	/* 32bit unit */
+	vip_write(DMAN_YLEN, height - 1);	/* Actual line: DMAN_YLEN +1 */
+	vip_write(DMAN_WIDTH, size/height/4);	/* 32bit unit, 1-D DMA mode */
+
+	vip_write(DMAN_MUL, size/4/2);		/* WIDTH * ((YLEN + 1)>>1) */
+
+	vip_write(DMAN_CTRL, 0x3);	/* BURST_LEN: 3, NO CHAIN, TO MEM */
+
+	vip_write(DMAN_INT_CNT, size/4);	/* 32bit unit */
+	vip_write(DMAN_INT_EN, 0x2);		/* Counter interrupt enable */
+
+	vip_write(CAM_FIFO_OP_REG, 0x1);	/* Enable the DMA FIFO */
+
+	vip_write(DMAN_ADDR, addr);		/* The last reg, start dma */
+}
+
+/* single dma mode */
+static void vip_hw_stop_dma(struct vip_dev *vip)
+{
+	vip_write(DMAN_VALID, 0x1);		/* Stop dma */
+}
+
+static u32 dma_hw_get_interrupts(struct vip_dev *vip)
+{
+	return (vip_read(DMAN_INT_EN) &	vip_read(DMAN_INT)) & DMAN_INT_MASK;
+}
+
+static void dma_hw_clear_interrupts(struct vip_dev *vip, u32 status)
+{
+	vip_write(DMAN_INT, status & DMAN_INT_MASK);
+}
 
 static void vip_hw_reset(struct vip_dev *vip)
 {
@@ -373,20 +424,30 @@ static void vip_hw_reset(struct vip_dev *vip)
 	/* Work in continnous mode, bypass yuv2rgb */
 	vip_write(CAM_CTRL, 0);
 
-	/* Default select pxd_data[7:0] as valid data */
-	vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_SHIFT_0TO7);
+	if (vip->is_atlas7_vip0)
+		vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_UV_SWAP |
+						CAM_PIXEL_SHIFT_16BIT);
+	else
+		vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_SHIFT_0TO7);
 
 	/* Disable FIFO */
 	vip_write(CAM_FIFO_OP_REG, 0);
 
 	/* Set FIFO config data, high check, low check and stop check. */
-	val = CAM_FIFO_LEVEL_CHK_FIFO_SC(0x4) |
-		CAM_FIFO_LEVEL_CHK_FIFO_LC(0x8) |
-		CAM_FIFO_LEVEL_CHK_FIFO_HC(0x10);
+	if (vip->is_atlas7_vip0)
+		val = CAM_FIFO_LEVEL_CHK_FIFO_SC(0x1) |
+			CAM_FIFO_LEVEL_CHK_FIFO_LC(0x8) |
+			CAM_FIFO_LEVEL_CHK_FIFO_HC(0x10);
+	else
+		val = CAM_FIFO_LEVEL_CHK_FIFO_SC(0x4) |
+			CAM_FIFO_LEVEL_CHK_FIFO_LC(0x8) |
+			CAM_FIFO_LEVEL_CHK_FIFO_HC(0x10);
 	vip_write(CAM_FIFO_LEVEL_CHECK, val);
 
-	/* DMA operation, exchange word order in DWORD from decoder */
-	val = CAM_DMA_CTRL_DMA_FLUSH | CAM_DMA_CTRL_ENDIAN_WXDW;
+	if (vip->is_atlas7_vip0)
+		val = CAM_DMA_CTRL_DMA_OP | CAM_DMA_CTRL_ENDIAN_NO_CHG;
+	else
+		val = CAM_DMA_CTRL_DMA_FLUSH | CAM_DMA_CTRL_ENDIAN_WXDW;
 	vip_write(CAM_DMA_CTRL, val);
 
 	/* DMA transfer will operate continuously until it is stopped */
@@ -396,7 +457,13 @@ static void vip_hw_reset(struct vip_dev *vip)
 static void vip_hw_set_src_size(struct vip_dev *vip, struct vip_rect rect)
 {
 	vip_write(CAM_START, CAM_START_XS(rect.left) | CAM_START_YS(rect.top));
-	vip_write(CAM_END, CAM_END_XE(rect.right) | CAM_END_YE(rect.bottom));
+
+	if (vip->is_atlas7_vip0)
+		vip_write(CAM_END, CAM_END_XE(rect.right + 1) |
+					CAM_END_YE(rect.bottom + 1));
+	else
+		vip_write(CAM_END, CAM_END_XE(rect.right) |
+					CAM_END_YE(rect.bottom));
 }
 
 static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
@@ -507,10 +574,12 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 	else
 		val &= ~CAM_CTRL_SINGLE;
 
-	if (control.pad_mux_on_upli)
-		val |= CAM_CTRL_PAD_MUX_ON_UPLI;
-	else
-		val &= ~CAM_CTRL_PAD_MUX_ON_UPLI;
+	if (!vip->is_atlas7_vip0) {
+		if (control.pad_mux_on_upli)
+			val |= CAM_CTRL_PAD_MUX_ON_UPLI;
+		else
+			val &= ~CAM_CTRL_PAD_MUX_ON_UPLI;
+	}
 
 	vip_write(CAM_CTRL, val);
 }
@@ -526,11 +595,18 @@ static void vip_hw_set_data_pin(struct vip_dev *vip, u32 pin_config)
 	case VIP_PIXELSET_DATAPIN_0TO7:
 		val |= CAM_PIXEL_SHIFT_0TO7;
 		break;
+	case VIP_PIXELSET_DATAPIN_0TO15:
+		val |= CAM_PIXEL_SHIFT_16BIT;
+		break;
 	default:
 		pr_err("%s(%d): unknown data shift 0x%x\n",
 			__func__, __LINE__, pin_config);
 		return;
 	}
+
+	if (vip->is_atlas7_vip0)
+		val |= CAM_PIXEL_UV_SWAP;
+
 	vip_write(CAM_PIXEL_SHIFT, val);
 }
 
@@ -549,12 +625,21 @@ static void vip_hw_start(struct vip_dev *vip)
 	vip_write(CAM_FIFO_OP_REG, val & ~CAM_FIFO_OP_FIFO_RESET);
 
 	/* clear all interrupts */
-	vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK);
+	if (vip->is_atlas7_vip0)
+		vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK_A7);
+	else
+		vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK);
 
-	/* Enable overflow, underflow, sensor interrupt */
-	vip_write(CAM_INT_EN, CAM_INT_EN_SENSOR_INT |
-				CAM_INT_EN_FIFO_OFLOW |
-				CAM_INT_EN_FIFO_UFLOW);
+	/* Enable overflow, underflow, sensor interrupt and bad field */
+	if (vip->is_atlas7_vip0)
+		vip_write(CAM_INT_EN, CAM_INT_EN_SENSOR_INT |
+					CAM_INT_EN_FIFO_OFLOW |
+					CAM_INT_EN_FIFO_UFLOW |
+					CAM_INT_EN_BAD_FIELD);
+	else
+		vip_write(CAM_INT_EN, CAM_INT_EN_SENSOR_INT |
+					CAM_INT_EN_FIFO_OFLOW |
+					CAM_INT_EN_FIFO_UFLOW);
 
 	/* Start FIFO transfer to DMA */
 	vip_write(CAM_FIFO_OP_REG, CAM_FIFO_OP_FIFO_START);
@@ -571,13 +656,20 @@ static void vip_hw_stop(struct vip_dev *vip)
 
 static u32 vip_hw_get_interrupts(struct vip_dev *vip)
 {
-	return (vip_read(CAM_INT_EN) &
-		vip_read(CAM_INT_CTRL)) & CAM_INT_CTRL_MASK;
+	if (vip->is_atlas7_vip0)
+		return (vip_read(CAM_INT_EN) &
+			vip_read(CAM_INT_CTRL)) & CAM_INT_CTRL_MASK_A7;
+	else
+		return (vip_read(CAM_INT_EN) &
+			vip_read(CAM_INT_CTRL)) & CAM_INT_CTRL_MASK;
 }
 
 static void vip_hw_clear_interrupts(struct vip_dev *vip, u32 status)
 {
-	vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK);
+	if (vip->is_atlas7_vip0)
+		vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK_A7);
+	else
+		vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK);
 }
 
 static u32 vip_get_fid(struct vip_dev *vip)
@@ -638,6 +730,41 @@ static void vip_print_registers(struct vip_dev *vip)
 		vip_read(CAM_RD_FIFO_DATA));
 	pr_info("CAM_TS_CTRL           = 0x%.8x\n",
 		vip_read(CAM_TS_CTRL));
+
+	pr_info("DMAN_ADDR             = 0x%.8x\n",
+		vip_read(DMAN_ADDR));
+	pr_info("DMAN_XLEN             = 0x%.8x\n",
+		vip_read(DMAN_XLEN));
+	pr_info("DMAN_YLEN             = 0x%.8x\n",
+		vip_read(DMAN_YLEN));
+	pr_info("DMAN_CTRL             = 0x%.8x\n",
+		vip_read(DMAN_CTRL));
+	pr_info("DMAN_WIDTH            = 0x%.8x\n",
+		vip_read(DMAN_WIDTH));
+	pr_info("DMAN_VALID            = 0x%.8x\n",
+		vip_read(DMAN_VALID));
+	pr_info("DMAN_INT              = 0x%.8x\n",
+		vip_read(DMAN_INT));
+	pr_info("DMAN_INT_EN           = 0x%.8x\n",
+		vip_read(DMAN_INT_EN));
+	pr_info("DMAN_LOOP_CTRL        = 0x%.8x\n",
+		vip_read(DMAN_LOOP_CTRL));
+	pr_info("DMAN_INT_CNT          = 0x%.8x\n",
+		vip_read(DMAN_INT_CNT));
+	pr_info("DMAN_TIMEOUT_CNT      = 0x%.8x\n",
+		vip_read(DMAN_TIMEOUT_CNT));
+	pr_info("DMAN_PAU_TIME_CNT     = 0x%.8x\n",
+		vip_read(DMAN_PAU_TIME_CNT));
+	pr_info("DMAN_CUR_TABLE_ADDR   = 0x%.8x\n",
+		vip_read(DMAN_CUR_TABLE_ADDR));
+	pr_info("DMAN_CUR_DATA_ADDR    = 0x%.8x\n",
+		vip_read(DMAN_CUR_DATA_ADDR));
+	pr_info("DMAN_MUL              = 0x%.8x\n",
+		vip_read(DMAN_MUL));
+	pr_info("DMAN_STATE0           = 0x%.8x\n",
+		vip_read(DMAN_STATE0));
+	pr_info("DMAN_STATE1           = 0x%.8x\n",
+		vip_read(DMAN_STATE1));
 }
 
 /*
@@ -655,9 +782,8 @@ static const struct vip_format *vip_find_format(u32 pixelformat)
 	return vip_formats;
 }
 
-static irqreturn_t vip_irq(int irq, void *data)
+static void vip_vip_isr(struct vip_dev *vip)
 {
-	struct vip_dev *vip = data;
 	u32 status;
 
 	status = vip_hw_get_interrupts(vip);
@@ -673,6 +799,51 @@ static irqreturn_t vip_irq(int irq, void *data)
 
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(vip->dev, "FIFO underflow interrupt happens\n");
+
+	if (vip->is_atlas7_vip0)
+		if (status & VIP_INTMASK_BAD_FIELD)
+			dev_err(vip->dev,
+				"Bad field detection interrupt happens\n");
+}
+
+static irqreturn_t vip_irq(int irq, void *data)
+{
+	struct vip_dev *vip = data;
+	struct vip_subdev_info *subdev = &vip->subdev[0]; /* CVD always 1st */
+	struct v4l2_subdev *sd = subdev->sd;
+	void __iomem *irq_base = NULL;
+	bool hd;
+	u32 status, dma_status;
+
+	if (sd && sd->dev_priv) {
+		irq_base = sd->dev_priv;	/* I am CVD_VIP */
+	} else {
+		vip_vip_isr(vip);		/* I am VIP1 or ancient VIP */
+		return IRQ_HANDLED;
+	}
+
+	/* CVD_VIP handler starts */
+	status = readl(irq_base);
+
+	/* CVD interrupt */
+	if (status & CVD3_INT_MASK) {
+		dev_dbg(vip->dev, "CVD interrupt happens\n");
+		v4l2_subdev_call(sd, core, interrupt_service_routine, 0, &hd);
+	}
+
+	/* DMA interrupt */
+	if (status & DMAC_INT_MASK) {
+		dma_status = dma_hw_get_interrupts(vip);
+		dma_hw_clear_interrupts(vip, dma_status);
+
+		/* DMA CNT_INT happens */
+		if (dma_status & DMAN_INTMASK_CNT)
+			vip_callback(vip);
+	}
+
+	/* VIP interrupt */
+	if (status & VIP_INT_MASK)
+		vip_vip_isr(vip);
 
 	return IRQ_HANDLED;
 }
@@ -705,27 +876,36 @@ static int vip_start_dma(struct vip_dev *vip)
 	if (vb == NULL) {
 		vip_hw_stop(vip);
 		mdelay(1);
-		dmaengine_terminate_all(vip->dma_chan);
+		if (vip->is_atlas7_vip0)
+			vip_hw_stop_dma(vip);
+		else
+			dmaengine_terminate_all(vip->dma_chan);
 		return -EINVAL;
 	}
 
 	vb->state = VB2_BUF_STATE_ACTIVE;
-	memset(&config, 0, sizeof(config));
+	if (vip->is_atlas7_vip0) {
+		buf->dma = vb2_dma_contig_plane_dma_addr(vb, 0);
 
-	config.src_maxburst = 4;
-	config.src_maxburst = 4;
-	dmaengine_slave_config(vip->dma_chan, &config);
+		vip_hw_start_dma(vip, buf);
+	} else {
+		memset(&config, 0, sizeof(config));
 
-	vip->dst_start = vb2_dma_contig_plane_dma_addr(vb, 0);
-	rx_desc = dmaengine_prep_slave_single(vip->dma_chan, vip->dst_start,
-			size, DMA_DEV_TO_MEM,
-			DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+		config.src_maxburst = 4;
+		config.src_maxburst = 4;
+		dmaengine_slave_config(vip->dma_chan, &config);
 
-	rx_desc->callback = vip_callback;
-	rx_desc->callback_param = vip;
+		vip->dst_start = vb2_dma_contig_plane_dma_addr(vb, 0);
+		rx_desc = dmaengine_prep_slave_single(vip->dma_chan,
+				vip->dst_start, size, DMA_DEV_TO_MEM,
+				DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
-	dmaengine_submit(rx_desc);
-	dma_async_issue_pending(vip->dma_chan);
+		rx_desc->callback = vip_callback;
+		rx_desc->callback_param = vip;
+
+		dmaengine_submit(rx_desc);
+		dma_async_issue_pending(vip->dma_chan);
+	}
 
 	vip_hw_start(vip);
 
@@ -774,19 +954,28 @@ static void vip_callback(void *pdata)
 		struct dma_async_tx_descriptor *rx_desc;
 
 		vip->vb2_active->state = VB2_BUF_STATE_ACTIVE;
-		vip->dst_start =
-			vb2_dma_contig_plane_dma_addr(vip->vb2_active, 0);
 
-		rx_desc = dmaengine_prep_slave_single(vip->dma_chan,
-				vip->dst_start, buf->fmt->sizeimage,
-				DMA_DEV_TO_MEM,
-				DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+		if (vip->is_atlas7_vip0) {
+			buf->dma = vb2_dma_contig_plane_dma_addr(
+							vip->vb2_active, 0);
 
-		rx_desc->callback = vip_callback;
-		rx_desc->callback_param = vip;
+			vip_hw_start_dma(vip, buf);
+		} else {
+			vip->dst_start =
+				vb2_dma_contig_plane_dma_addr(vip->vb2_active,
+									0);
 
-		dmaengine_submit(rx_desc);
-		dma_async_issue_pending(vip->dma_chan);
+			rx_desc = dmaengine_prep_slave_single(vip->dma_chan,
+					vip->dst_start, buf->fmt->sizeimage,
+					DMA_DEV_TO_MEM,
+					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+
+			rx_desc->callback = vip_callback;
+			rx_desc->callback_param = vip;
+
+			dmaengine_submit(rx_desc);
+			dma_async_issue_pending(vip->dma_chan);
+		}
 	}
 
 out:
@@ -797,14 +986,16 @@ out:
 
 static void vip_activate(struct vip_dev *vip)
 {
-	clk_prepare_enable(vip->clk);
+	if (!vip->is_atlas7_vip0)
+		clk_prepare_enable(vip->clk);
 }
 
 static void vip_deactivate(struct vip_dev *vip)
 {
 	vip_hw_stop(vip);
 
-	clk_disable_unprepare(vip->clk);
+	if (!vip->is_atlas7_vip0)
+		clk_disable_unprepare(vip->clk);
 }
 
 static int vip_pix_fmt_xlate(u32 pix_fmt)
@@ -871,10 +1062,15 @@ static int vip_config_subdev(struct vip_subdev_info *subdev)
 	v4l2_fill_pix_format(spix, &mbus_fmt);
 
 	width = spix->bytesperline;
+
 	height = spix->height;
 	x_start = 0;
-	x_end = width + x_start - 1;
 	y_start = 0;
+
+	if (vip->is_atlas7_vip0)
+		x_end = spix->width + x_start - 1;
+	else
+		x_end = width + x_start - 1;
 
 	if (subdev->interlaced)
 		y_end = height / 2 + y_start - 1;
@@ -904,32 +1100,33 @@ static int vip_config_host(struct vip_subdev_info *subdev)
 	control.input_fmt = vip_pix_fmt_xlate(spix->pixelformat);
 	control.output_fmt = vip_pix_fmt_xlate(upix->pixelformat);
 
-	if (subdev->endpoint.bus_type == V4L2_MBUS_BT656) {
+	control.pixclk_internal	= 0;
+	control.hsync_internal	= 0;
+	control.vsync_internal	= 0;
+	control.pixclk_invert	= 0;
+	control.hsync_invert	= 0;
+	control.vsync_invert	= 0;
+	control.single_cap	= 0;
+
+	if (subdev->endpoint.bus_type == V4L2_MBUS_BT656)
 		control.ccir565_en	= 1;
-		control.pixclk_internal	= 0;
-		control.hsync_internal	= 0;
-		control.vsync_internal	= 0;
-		control.pixclk_invert	= 0;
-		control.hsync_invert	= 0;
-		control.vsync_invert	= 0;
-		control.single_cap	= 0;
-	}
+
+	if (subdev->endpoint.bus_type == V4L2_MBUS_PARALLEL)
+		control.ccir565_en	= 0;
 
 #ifdef CONFIG_ARCH_ATLAS6
-	control.pad_mux_on_upli	= 1;
+	if (!vip->is_atlas7_vip0)
+		control.pad_mux_on_upli	= 1;
 #endif
 
 	vip_hw_reset(vip);
 	vip_hw_set_src_size(vip, rect);
 	vip_hw_set_control(vip, control);
 
-	if (subdev->endpoint.bus.parallel.data_shift != 1) {
-		dev_err(vip->dev, "data_shift value: %d invalid\n",
-			subdev->endpoint.bus.parallel.data_shift);
-		return -EINVAL;
-	}
-
-	vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO7);
+	if (vip->is_atlas7_vip0)
+		vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO15);
+	else
+		vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO7);
 
 	vip_hw_set_int_count(vip, 0x0001, 0x0001);
 
@@ -1620,6 +1817,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 	struct device_node *parent = vip->dev->of_node;
 	struct device_node *ep, *remote, *port;
 	struct i2c_client *client;
+	struct platform_device *pdev;
 	struct v4l2_subdev *sd;
 	int ret = 0;
 
@@ -1639,6 +1837,9 @@ static int vip_subdevs_register(struct vip_dev *vip)
 		if (endpoint->bus_type == V4L2_MBUS_BT656)
 			dev_info(vip->dev, "%s: BT656 bus type\n", __func__);
 
+		if (endpoint->bus_type == V4L2_MBUS_PARALLEL)
+			dev_info(vip->dev, "%s: BT601 bus type\n", __func__);
+
 		remote = of_graph_get_remote_port_parent(ep);
 		of_node_put(ep);
 		if (remote == NULL) {
@@ -1655,41 +1856,67 @@ static int vip_subdevs_register(struct vip_dev *vip)
 
 		client = of_find_i2c_device_by_node(remote);
 		if (!client) {
-			dev_err(vip->dev, "%s: find i2c client %s failed\n",
+			dev_dbg(vip->dev, "%s: find i2c client %s failed\n",
 				__func__, remote->full_name);
-			ret = -EPROBE_DEFER;
-			continue;
-		}
 
-		device_lock(&client->dev);
+			/* now we try to find cvd */
+			pdev = of_find_device_by_node(remote);
+			if (!pdev) {
+				dev_err(vip->dev, "%s: find cvd pdev %s failed\n",
+					__func__, remote->full_name);
+				ret = -EPROBE_DEFER;
+				continue;
+			}
 
-		if (!client->dev.driver ||
-			!try_module_get(client->dev.driver->owner)) {
-			dev_err(vip->dev, "%s: %s I2C driver not found\n",
-				__func__, client->name);
-			device_unlock(&client->dev);
+			device_lock(&pdev->dev);
+
+			sd = dev_get_platdata(&pdev->dev);
+
+			ret = v4l2_device_register_subdev(&vip->v4l2_dev, sd);
+			if (ret < 0) {
+				dev_err(vip->dev, "Register subdev failed\n");
+				device_unlock(&pdev->dev);
+				of_node_put(remote);
+				continue;
+			}
+
+			v4l2_set_subdev_hostdata(sd, subdev);
+			subdev->sd = sd;
+
+			device_unlock(&pdev->dev);
 			of_node_put(remote);
-			ret = -EPROBE_DEFER;
-			continue;
-		}
+		} else {
+			/* we found a i2c subdev */
+			device_lock(&client->dev);
 
-		sd = i2c_get_clientdata(client);
+			if (!client->dev.driver ||
+				!try_module_get(client->dev.driver->owner)) {
+				dev_err(vip->dev, "%s: %s I2C driver not found\n",
+					__func__, client->name);
+				device_unlock(&client->dev);
+				of_node_put(remote);
+				ret = -EPROBE_DEFER;
+				continue;
+			}
 
-		ret = v4l2_device_register_subdev(&vip->v4l2_dev, sd);
-		if (ret < 0) {
-			dev_err(vip->dev, "Register subdev failed\n");
+			sd = i2c_get_clientdata(client);
+
+			ret = v4l2_device_register_subdev(&vip->v4l2_dev, sd);
+			if (ret < 0) {
+				dev_err(vip->dev, "Register subdev failed\n");
+				module_put(client->dev.driver->owner);
+				device_unlock(&client->dev);
+				of_node_put(remote);
+				continue;
+			}
+
+			v4l2_set_subdev_hostdata(sd, subdev);
+			subdev->sd = sd;
+
 			module_put(client->dev.driver->owner);
 			device_unlock(&client->dev);
 			of_node_put(remote);
-			continue;
 		}
-
-		v4l2_set_subdev_hostdata(sd, subdev);
-		subdev->sd = sd;
-
-		module_put(client->dev.driver->owner);
-		device_unlock(&client->dev);
-		of_node_put(remote);
 
 		vip->num_subdev++;
 	}
@@ -1790,10 +2017,17 @@ static int vip_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	vip->clk = clk_get(dev, NULL);
-	if (IS_ERR(vip->clk)) {
-		dev_err(dev, "%s: fail to get vip clock\n", __func__);
-		return -EINVAL;
+	if (of_device_is_compatible(dev->of_node, "sirf,atlas7-vip0"))
+		vip->is_atlas7_vip0 = true;
+	else
+		vip->is_atlas7_vip0 = false;
+
+	if (!vip->is_atlas7_vip0) {
+		vip->clk = clk_get(dev, NULL);
+		if (IS_ERR(vip->clk)) {
+			dev_err(dev, "%s: fail to get vip clock\n", __func__);
+			return -EINVAL;
+		}
 	}
 
 	ret = of_property_read_u32(dev->of_node,
@@ -1803,11 +2037,14 @@ static int vip_probe(struct platform_device *pdev)
 		goto exit_clk;
 	}
 
-	vip->dma_chan = dma_request_slave_channel(vip->dev, "rx");
-	if (!vip->dma_chan) {
-		dev_err(dev, "%s: vip dma channel req fail\n", __func__);
-		ret = -ENODEV;
-		goto exit_clk;
+	if (!vip->is_atlas7_vip0) {
+		vip->dma_chan = dma_request_slave_channel(vip->dev, "rx");
+		if (!vip->dma_chan) {
+			dev_err(dev, "%s: vip dma channel req fail\n",
+								__func__);
+			ret = -ENODEV;
+			goto exit_clk;
+		}
 	}
 
 	ret = v4l2_device_register(dev, &vip->v4l2_dev);
@@ -1836,9 +2073,11 @@ exit_release_declared_memory:
 	dma_release_declared_memory(vip->dev);
 	v4l2_device_unregister(&vip->v4l2_dev);
 exit_uninit_dma:
-	dma_release_channel(vip->dma_chan);
+	if (!vip->is_atlas7_vip0)
+		dma_release_channel(vip->dma_chan);
 exit_clk:
-	clk_put(vip->clk);
+	if (!vip->is_atlas7_vip0)
+		clk_put(vip->clk);
 
 	return ret;
 }
@@ -1855,11 +2094,17 @@ static int vip_remove(struct platform_device *pdev)
 
 	v4l2_device_unregister(&vip->v4l2_dev);
 
-	dmaengine_terminate_all(vip->dma_chan);
-	dma_release_channel(vip->dma_chan);
+	if (vip->is_atlas7_vip0) {
+		vip_hw_stop_dma(vip);
+	} else {
+		dmaengine_terminate_all(vip->dma_chan);
+		dma_release_channel(vip->dma_chan);
+	}
+
 	dma_release_declared_memory(&pdev->dev);
 
-	clk_put(vip->clk);
+	if (!vip->is_atlas7_vip0)
+		clk_put(vip->clk);
 
 	return 0;
 }
@@ -1877,7 +2122,10 @@ static int vip_pm_suspend(struct device *dev)
 
 	disable_irq(vip->irq);
 
-	dmaengine_terminate_all(vip->dma_chan);
+	if (vip->is_atlas7_vip0)
+		vip_hw_stop_dma(vip);
+	else
+		dmaengine_terminate_all(vip->dma_chan);
 
 	vip_deactivate(vip);
 
@@ -1912,7 +2160,10 @@ static int vip_pm_freeze(struct device *dev)
 
 	disable_irq(vip->irq);
 
-	dmaengine_terminate_all(vip->dma_chan);
+	if (vip->is_atlas7_vip0)
+		vip_hw_stop_dma(vip);
+	else
+		dmaengine_terminate_all(vip->dma_chan);
 
 	vip_deactivate(vip);
 
@@ -1954,6 +2205,7 @@ static const struct dev_pm_ops vip_pm_ops = {
 
 static struct of_device_id vip_match_tbl[] = {
 	{ .compatible = "sirf,prima2-vip", },
+	{ .compatible = "sirf,atlas7-vip0", },
 	{ /* end */ }
 };
 
