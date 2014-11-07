@@ -521,10 +521,11 @@ static int noc_dump_errlog(struct noc_macro *nocm)
 	/*initiator id*/
 	if (nocm->idx == CPUM_IDX)
 		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>3) & 0x3].desc);
+	else	if (0 == (errCode0 & 0x1))
+		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>2) & 0x3].desc);
 	else
-
-		pr_info("ID:\%s\n", noc_initator_id_list[(errCode0>>7 & 0x1F)
-				| ((errCode0>>2 & 0x3)<<5)].desc);
+		pr_info("ID:\%s\n", noc_initator_id_list[(errCode5>>7 & 0x1F)
+				| ((errCode5>>2 & 0x3)<<5)].desc);
 
 	pr_info("Opc:\t%s\n", noc_opc_list[(errCode0>>1) & 0xF].desc);
 	pr_info("Addr\t%08x\n", errCode3);
@@ -569,7 +570,12 @@ static void  noc_fault_enable(struct noc_macro *nocm)
 {
 	writel_relaxed(0x1, nocm->mbase +
 		nocm->faultenoff + NOC_SB_FAULTEN);
-	writel_relaxed(0x1, nocm->mbase +
+	/*
+	 *rtcm_sb_main_SidebandManager_FlagInEn0
+	 *0  StatAlarm  rtcm_probe  Statistics alarm
+	 *1  Fault  rtcm_observer  Error logging event
+	*/
+	writel_relaxed(0x3, nocm->mbase +
 		nocm->faultenoff + NOC_SB_FLAGINEN0);
 	writel_relaxed(0x1, nocm->mbase +
 		nocm->errlogoff + ERRORLOGGER_0_FAULTEN);
