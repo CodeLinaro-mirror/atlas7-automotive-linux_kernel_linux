@@ -9,8 +9,6 @@
 struct sirfsoc_uart_param {
 	const char *uart_name;
 	const char *port_name;
-	u32 uart_nr;
-	u32 register_uart_nr;
 };
 
 struct sirfsoc_register {
@@ -184,8 +182,6 @@ struct sirfsoc_uart_register sirfsoc_usp = {
 	.uart_param = {
 		.uart_name = "ttySiRF",
 		.port_name = "sirfsoc-uart",
-		.uart_nr = 2,
-		.register_uart_nr = 3,
 	},
 };
 
@@ -257,8 +253,6 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 	.uart_param = {
 		.uart_name = "ttySiRF",
 		.port_name = "sirfsoc_uart",
-		.uart_nr = 3,
-		.register_uart_nr = 0,
 	},
 };
 /* uart io ctrl */
@@ -366,7 +360,7 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFSOC_UART_MINOR			0
 #define SIRFUART_PORT_NAME			"sirfsoc-uart"
 #define SIRFUART_MAP_SIZE			0x200
-#define SIRFSOC_UART_NR				7
+#define SIRFSOC_UART_NR				11
 #define SIRFSOC_PORT_TYPE			0xa5
 
 /* Uart Common Use Macro*/
