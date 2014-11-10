@@ -16,22 +16,8 @@
 #define SIRFSOC_DEEP_SLEEP_MODE         0x1
 
 #define SIRFSOC_PWRC_PDN_CTRL           0x0
-#define SIRFSOC_PWRC_PON_OFF            0x4
-
-#ifdef CONFIG_ARCH_ATLAS7
-#define SIRFSOC_PWRC_TRIGGER_EN         0xc
-#define SIRFSOC_PWRC_PIN_STATUS         0x20
-#define SIRFSOC_BOOT_STATUS		0x8
-
-#else
-#define SIRFSOC_PWRC_TRIGGER_EN         0x8
-#define SIRFSOC_PWRC_PIN_STATUS         0x14
 #define SIRFSOC_BOOT_STATUS		0x20
-#endif
-
 #define SIRFSOC_PWRC_SCRATCH_PAD1       0x18
-#define SIRFSOC_PWRC_SCRATCH_PAD2       0x1C
-
 
 #define SIRFSOC_START_PSAVING_BIT	0x0
 #define SIRFSOC_BOOT_STATUS_BITS	5

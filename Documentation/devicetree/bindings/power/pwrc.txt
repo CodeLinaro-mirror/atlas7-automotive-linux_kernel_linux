@@ -16,3 +16,13 @@ pwrc@3000 {
 	compatible = "sirf,atlas7-pwrc";
 	reg = <0x3000 0x100>;
 };
+
+pwrc@3000 {
+	compatible = "sirf,prima2-pwrc";
+	reg = <0x3000 0x100>;
+};
+
+pwrc@3000 {
+	compatible = "sirf,marco-pwrc";
+	reg = <0x3000 0x100>;
+};

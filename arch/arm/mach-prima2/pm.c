@@ -23,6 +23,130 @@
 #include <asm/uaccess.h>
 
 #include "pm.h"
+struct sirfsoc_pwrc_register {
+	/* hardware pwrc specific */
+	u32 pwrc_pdn_ctrl_set;
+	u32 pwrc_pdn_ctrl_clr;
+	u32 pwrc_pon_status;
+	u32 pwrc_trigger_en_set;
+	u32 pwrc_trigger_en_clr;
+	u32 pwrc_int_mask_set;
+	u32 pwrc_int_mask_clr;
+	u32 pwrc_int_status;
+	u32 pwrc_pin_status;
+	u32 pwrc_rtc_pll_ctrl;
+	u32 pwrc_gpio3_debug;
+	u32 pwrc_rtc_noc_pwrctl_set;
+	u32 pwrc_rtc_noc_pwrctl_clr;
+	u32 pwrc_rtc_can_ctrl;
+	u32 pwrc_rtc_can_status;
+	u32 pwrc_fsm_m3_ctrl;
+	u32 pwrc_fsm_state;
+	u32 pwrc_rtcldo_reg;
+	u32 pwrc_gnss_ctrl;
+	u32 pwrc_gnss_status;
+	u32 pwrc_xtal_reg;
+	u32 pwrc_xtal_ldo_mux_sel;
+	u32 pwrc_rtc_sw_rstc_set;
+	u32 pwrc_rtc_sw_rstc_clr;
+	u32 pwrc_power_sw_ctrl_set;
+	u32 pwrc_power_sw_ctrl_clr;
+	u32 pwrc_rtc_dcog;
+	u32 pwrc_m3_memories;
+	u32 pwrc_can0_memory;
+	u32 pwrc_rtc_gnss_memory;
+	u32 pwrc_m3_clk_en;
+	u32 pwrc_can0_clk_en;
+	u32 pwrc_spi0_clk_en;
+	u32 pwrc_rtc_sec_clk_en;
+	u32 pwrc_rtc_noc_clk_en;
+
+	/*only for prima2*/
+	u32 pwrc_scratch_pad1;
+	u32 pwrc_scratch_pad2;
+	u32 pwrc_scratch_pad3;
+	u32 pwrc_scratch_pad4;
+	u32 pwrc_scratch_pad5;
+	u32 pwrc_scratch_pad6;
+	u32 pwrc_scratch_pad7;
+	u32 pwrc_scratch_pad8;
+	u32 pwrc_scratch_pad9;
+	u32 pwrc_scratch_pad10;
+	u32 pwrc_scratch_pad11;
+	u32 pwrc_scratch_pad12;
+	u32 pwrc_gpio3_clk;
+	u32 pwrc_gpio_ds;
+
+};
+
+struct sirfsoc_pwrc_register sirfsoc_a7da_pwrc = {
+	.pwrc_pdn_ctrl_set = 0x0,
+	.pwrc_pdn_ctrl_clr = 0x4,
+	.pwrc_pon_status = 0x8,
+	.pwrc_trigger_en_set = 0xc,
+	.pwrc_trigger_en_clr = 0x10,
+	.pwrc_int_mask_set = 0x14,
+	.pwrc_int_mask_clr = 0x18,
+	.pwrc_int_status = 0x1c,
+	.pwrc_pin_status = 0x20,
+	.pwrc_rtc_pll_ctrl = 0x28,
+	.pwrc_gpio3_debug = 0x34,
+	.pwrc_rtc_noc_pwrctl_set = 0x38,
+	.pwrc_rtc_noc_pwrctl_clr = 0x3c,
+	.pwrc_rtc_can_ctrl = 0x48,
+	.pwrc_rtc_can_status = 0x4c,
+	.pwrc_fsm_m3_ctrl = 0x50,
+	.pwrc_fsm_state = 0x54,
+	.pwrc_rtcldo_reg = 0x58,
+	.pwrc_gnss_ctrl = 0x5c,
+	.pwrc_gnss_status = 0x60,
+	.pwrc_xtal_reg = 0x64,
+	.pwrc_xtal_ldo_mux_sel = 0x68,
+	.pwrc_rtc_sw_rstc_set = 0x6c,
+	.pwrc_rtc_sw_rstc_clr = 0x70,
+	.pwrc_power_sw_ctrl_set = 0x74,
+	.pwrc_power_sw_ctrl_clr = 0x78,
+	.pwrc_rtc_dcog = 0x7c,
+	.pwrc_m3_memories = 0x80,
+	.pwrc_can0_memory = 0x84,
+	.pwrc_rtc_gnss_memory = 0x88,
+	.pwrc_m3_clk_en = 0x8c,
+	.pwrc_can0_clk_en = 0x90,
+	.pwrc_spi0_clk_en = 0x94,
+	.pwrc_rtc_sec_clk_en = 0x98,
+	.pwrc_rtc_noc_clk_en = 0x9c,
+};
+
+struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc = {
+	.pwrc_pdn_ctrl_set = 0x0,
+	.pwrc_pon_status = 0x4,
+	.pwrc_trigger_en_set = 0x8,
+	.pwrc_int_status = 0xc,
+	.pwrc_int_mask_set = 0x10,
+	.pwrc_pin_status = 0x14,
+	.pwrc_scratch_pad1 = 0x18,
+	.pwrc_scratch_pad2 = 0x1c,
+	.pwrc_scratch_pad3 = 0x20,
+	.pwrc_scratch_pad4 = 0x24,
+	.pwrc_scratch_pad5 = 0x28,
+	.pwrc_scratch_pad6 = 0x2c,
+	.pwrc_scratch_pad7 = 0x30,
+	.pwrc_scratch_pad8 = 0x34,
+	.pwrc_scratch_pad9 = 0x38,
+	.pwrc_scratch_pad10 = 0x3c,
+	.pwrc_scratch_pad11 = 0x40,
+	.pwrc_scratch_pad12 = 0x44,
+	.pwrc_gpio3_clk = 0x54,
+	.pwrc_gpio_ds = 0x78,
+
+};
+
+static const struct of_device_id pwrc_ids[] = {
+	{ .compatible = "sirf,prima2-pwrc", .data = &sirfsoc_prima2_pwrc},
+	{ .compatible = "sirf,marco-pwrc",  .data = &sirfsoc_prima2_pwrc},
+	{ .compatible = "sirf,atlas7-pwrc", .data = &sirfsoc_a7da_pwrc},
+	{}
+};
 
 /*
  * suspend asm codes will access these to make DRAM become self-refresh and
@@ -33,6 +157,7 @@ u32 sirfsoc_sysrtc_base;
 void __iomem *sirfsoc_memc_base;
 void __iomem *sirfsoc_retain_base;
 void __iomem *sirfsoc_pm_ipc_base;
+static struct sirfsoc_pwrc_register *sirfpwrc;
 
 static int (*sirfsoc_finish_suspend)(unsigned long);
 struct proc_dir_entry *pr_entry;
@@ -41,23 +166,23 @@ static void sirfsoc_set_wakeup_source(void)
 {
 	u32 pwr_trigger_en_reg;
 	pwr_trigger_en_reg = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
-		SIRFSOC_PWRC_TRIGGER_EN);
+		sirfpwrc->pwrc_trigger_en_set);
 #define X_ON_KEY_B (1 << 0)
 #define RTC_ALARM0_B (1 << 2)
 #define RTC_ALARM1_B (1 << 3)
 	sirfsoc_rtc_iobrg_writel(pwr_trigger_en_reg | X_ON_KEY_B |
 		RTC_ALARM0_B | RTC_ALARM1_B,
-		sirfsoc_pwrc_base + SIRFSOC_PWRC_TRIGGER_EN);
+		sirfsoc_pwrc_base + sirfpwrc->pwrc_trigger_en_set);
 }
 
 static void sirfsoc_set_sleep_mode(u32 mode)
 {
 	u32 sleep_mode = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
-		SIRFSOC_PWRC_PDN_CTRL);
+		sirfpwrc->pwrc_pdn_ctrl_set);
 	sleep_mode &= ~(SIRFSOC_SLEEP_MODE_MASK << 1);
 	sleep_mode |= mode << 1;
 	sirfsoc_rtc_iobrg_writel(sleep_mode, sirfsoc_pwrc_base +
-		SIRFSOC_PWRC_PDN_CTRL);
+		sirfpwrc->pwrc_pdn_ctrl_set);
 	sirfsoc_set_wakeup_source();
 }
 
@@ -66,21 +191,29 @@ void sirfsoc_pm_power_off(void)
 	sirfsoc_set_sleep_mode(SIRFSOC_HIBERNATION_MODE);
 	sirfsoc_rtc_iobrg_writel(
 			(sirfsoc_rtc_iobrg_readl(
-			sirfsoc_pwrc_base + SIRFSOC_PWRC_PDN_CTRL) |
+			sirfsoc_pwrc_base + sirfpwrc->pwrc_pdn_ctrl_set) |
 			1 << SIRFSOC_START_PSAVING_BIT),
-			sirfsoc_pwrc_base + SIRFSOC_PWRC_PDN_CTRL);
+			sirfsoc_pwrc_base + sirfpwrc->pwrc_pdn_ctrl_set);
 }
 
 static int sirfsoc_pre_suspend_power_off(void)
 {
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, pwrc_ids);
+	if (!np) {
+		pr_err("unable to find compatible sirf pwrc node in dtb\n");
+		return -ENOENT;
+	}
+
 	u32 wakeup_entry = virt_to_phys(cpu_resume);
-	if (of_machine_is_compatible("sirf,atlas7"))
+	if (of_device_is_compatible(np, "sirf,atlas7-pwrc"))
 		writel_relaxed(wakeup_entry,
 			sirfsoc_retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
 
 	else
 		sirfsoc_rtc_iobrg_writel(wakeup_entry, sirfsoc_pwrc_base +
-			SIRFSOC_PWRC_SCRATCH_PAD1);
+			sirfpwrc->pwrc_scratch_pad1);
 	sirfsoc_set_wakeup_source();
 	sirfsoc_set_sleep_mode(SIRFSOC_DEEP_SLEEP_MODE);
 
@@ -108,20 +241,26 @@ static const struct platform_suspend_ops sirfsoc_pm_ops = {
 	.valid = suspend_valid_only_mem,
 };
 
-static const struct of_device_id pwrc_ids[] = {
-	{ .compatible = "sirf,prima2-pwrc" },
-	{ .compatible = "sirf,marco-pwrc" },
-	{ .compatible = "sirf,atlas7-pwrc" },
-	{}
-};
-
 ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 		char __user *buf, size_t size, loff_t *ppos)
 {
 
 	int i;
-	u32 boot_stat = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
-		SIRFSOC_BOOT_STATUS);
+	u32 boot_stat;
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, pwrc_ids);
+	if (!np) {
+		pr_err("unable to find compatible sirf pwrc node in dtb\n");
+		return -ENOENT;
+	}
+
+	if (of_device_is_compatible(np, "sirf,atlas7-pwrc"))
+		boot_stat = readl_relaxed(sirfsoc_retain_base
+				+ SIRFSOC_BOOT_STATUS);
+	else
+		boot_stat = sirfsoc_rtc_iobrg_readl(sirfsoc_pwrc_base +
+			sirfpwrc->pwrc_scratch_pad3);
 
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
 		pr_err("Failed to read boot status, mask bits is %d, but read size is %d\n",
@@ -139,6 +278,7 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 {
 	u32 boot_stat = 0;
 	char data[SIRFSOC_BOOT_STATUS_BITS];
+	struct device_node *np;
 	int i;
 
 	if (size < SIRFSOC_BOOT_STATUS_BITS) {
@@ -153,8 +293,18 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 	for (i = 0; i < SIRFSOC_BOOT_STATUS_BITS; i++)
 		boot_stat |= (((data[i] - '0') & 0x1) << i);
 
-	sirfsoc_rtc_iobrg_writel(boot_stat,
-		sirfsoc_pwrc_base + SIRFSOC_BOOT_STATUS);
+	np = of_find_matching_node(NULL, pwrc_ids);
+	if (!np) {
+		pr_err("unable to find compatible sirf pwrc node in dtb\n");
+		return -ENOENT;
+	}
+
+	if (of_device_is_compatible(np, "sirf,atlas7-pwrc"))
+		writel_relaxed(boot_stat,
+			sirfsoc_retain_base + SIRFSOC_BOOT_STATUS);
+	else
+		sirfsoc_rtc_iobrg_writel(boot_stat,
+			sirfsoc_pwrc_base + sirfpwrc->pwrc_scratch_pad3);
 
 	return size;
 }
@@ -266,13 +416,13 @@ static const struct file_operations sirfsoc_sysrtc_proc_fops = {
 static int __init sirfsoc_of_pwrc_init(void)
 {
 	struct device_node *np;
+	const struct of_device_id *match;
 
 	np = of_find_matching_node(NULL, pwrc_ids);
 	if (!np) {
 		pr_err("unable to find compatible sirf pwrc node in dtb\n");
 		return -ENOENT;
 	}
-
 	/*
 	 * pwrc behind rtciobrg is not located in memory space
 	 * though the property is named reg. reg only means base
@@ -280,6 +430,17 @@ static int __init sirfsoc_of_pwrc_init(void)
 	 */
 	if (of_property_read_u32(np, "reg", &sirfsoc_pwrc_base))
 		panic("unable to find base address of pwrc node in dtb\n");
+
+	/*
+	 * pwrc behind rtciobrg offset is diff between prima2 and a7da
+	 * here match to each ids data for it.
+	 */
+	match = of_match_node(pwrc_ids, np);
+	if (!match) {
+		pr_err("Unknown device model\n");
+		return -EINVAL;
+	}
+	sirfpwrc = (struct sirfsoc_pwrc_register *)match->data;
 
 	of_node_put(np);
 
