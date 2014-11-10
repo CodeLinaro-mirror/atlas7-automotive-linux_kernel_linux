@@ -166,7 +166,6 @@ static int sirf_signal_voltage_switch(struct sdhci_host *host,
 				mmc_hostname(mmc));
 			return -EIO;
 		}
-			mmc->regulator_enabled = false;
 		/* waiting voltage switch complete */
 		usleep_range(5000, 5500);
 
