@@ -1367,7 +1367,8 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 		gpio_direction_output(sirfport->rts_gpio, 1);
 	}
 usp_no_flow_control:
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart") ||
+	    of_device_is_compatible(pdev->dev.of_node, "sirf,marco-usp-uart"))
 		sirfport->is_marco = true;
 
 	if (of_property_read_u32(pdev->dev.of_node,
