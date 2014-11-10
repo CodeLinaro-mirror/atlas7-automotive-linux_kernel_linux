@@ -969,8 +969,8 @@
 				reg = <0x18641000 0x3000>;
 			};
 
-			clks: clock-controller@18620000 {
-				compatible = "sirf,atlas7-clkc";
+			car: clock-controller@18620000 {
+				compatible = "sirf,atlas7-car";
 				reg = <0x18620000 0x1000>;
 				#clock-cells = <1>;
 				#reset-cells = <1>;
@@ -996,7 +996,7 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x18000000 0x1000>;
 				interrupts = <0 12 0>;
-				clocks = <&clks 96>;
+				clocks = <&car 96>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
 			};
@@ -1011,7 +1011,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18010000 0x1000>;
 				interrupts = <0 17 0>;
-				clocks = <&clks 97>;
+				clocks = <&car 97>;
 				fifosize = <128>;
 				dmas = <&dmac0 3>, <&dmac0 2>;
 				dma-names = "rx", "tx";
@@ -1022,7 +1022,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18020000 0x1000>;
 				interrupts = <0 18 0>;
-				clocks = <&clks 95>;
+				clocks = <&car 95>;
 				fifosize = <32>;
 			};
 
@@ -1031,7 +1031,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18030000 0x1000>;
 				interrupts = <0 19 0>;
-				clocks = <&clks 98>;
+				clocks = <&car 98>;
 				fifosize = <128>;
 				dmas = <&dmac0 6>, <&dmac0 7>;
 				dma-names = "rx", "tx";
@@ -1042,7 +1042,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18040000 0x1000>;
 				interrupts = <0 66 0>;
-				clocks = <&clks 99>;
+				clocks = <&car 99>;
 				fifosize = <128>;
 				dmas = <&dmac0 4>, <&dmac0 5>;
 				dma-names = "rx", "tx";
@@ -1053,7 +1053,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18050000 0x1000>;
 				interrupts = <0 69 0>;
-				clocks = <&clks 100>;
+				clocks = <&car 100>;
 				fifosize = <128>;
 				dmas = <&dmac0 0>, <&dmac0 1>;
 				dma-names = "rx", "tx";
@@ -1064,7 +1064,7 @@
 				compatible = "sirf,marco-uart";
 				reg = <0x18060000 0x1000>;
 				interrupts = <0 71 0>;
-				clocks = <&clks 101>;
+				clocks = <&car 101>;
 				fifosize = <128>;
 				dmas = <&dmac0 8>, <&dmac0 9>;
 				dma-names = "rx", "tx";
@@ -1127,7 +1127,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x16000000 0x100000>;
 				interrupts = <0 38 0>;
-				clocks = <&clks 116>, <&clks 118>;
+				clocks = <&car 116>, <&car 118>;
 				clock-names = "core", "iface";
 				wp-inverted;
 				non-removable;
@@ -1140,7 +1140,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x16100000 0x100000>;
 				interrupts = <0 38 0>;
-				clocks = <&clks 116>, <&clks 118>;
+				clocks = <&car 116>, <&car 118>;
 				clock-names = "core", "iface";
 				non-removable;
 				status = "disabled";
@@ -1152,7 +1152,7 @@
 				compatible = "sirf,atlas7-usb";
 				reg = <0x17060000 0x200>;
 				interrupts = <0 10 0>;
-				clocks = <&clks 120>;
+				clocks = <&car 120>;
 				sirf,usbphy = <&usbphy0>;
 				phy_type = "utmi";
 				dr_mode = "otg";
@@ -1165,7 +1165,7 @@
 				compatible = "sirf,atlas7-usb";
 				reg = <0x17070000 0x200>;
 				interrupts = <0 11 0>;
-				clocks = <&clks 121>;
+				clocks = <&car 121>;
 				sirf,usbphy = <&usbphy1>;
 				phy_type = "utmi";
 				dr_mode = "host";
@@ -1176,14 +1176,14 @@
 			usbphy0: usbphy@0 {
 				compatible = "sirf,atlas7-usbphy";
 				reg = <0x17060200 0x100>;
-				clocks = <&clks 122>;
+				clocks = <&car 122>;
 				status = "okay";
 			};
 
 			usbphy1: usbphy@1 {
 				compatible = "sirf,atlas7-usbphy";
 				reg = <0x17070200 0x100>;
-				clocks = <&clks 123>;
+				clocks = <&car 123>;
 				status = "okay";
 			};
 		};
@@ -1224,7 +1224,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14200000 0x100000>;
 				interrupts = <0 23 0>;
-				clocks = <&clks 77>, <&clks 82>;
+				clocks = <&car 77>, <&car 82>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
@@ -1245,7 +1245,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14300000 0x100000>;
 				interrupts = <0 23 0>;
-				clocks = <&clks 77>, <&clks 82>;
+				clocks = <&car 77>, <&car 82>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
@@ -1256,7 +1256,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14500000 0x100000>;
 				interrupts = <0 39 0>;
-				clocks = <&clks 78>, <&clks 83>;
+				clocks = <&car 78>, <&car 83>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
@@ -1268,7 +1268,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14600000 0x100000>;
 				interrupts = <0 98 0>;
-				clocks = <&clks 79>, <&clks 84>;
+				clocks = <&car 79>, <&car 84>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
@@ -1279,7 +1279,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14700000 0x100000>;
 				interrupts = <0 98 0>;
-				clocks = <&clks 79>, <&clks 84>;
+				clocks = <&car 79>, <&car 84>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
@@ -1307,7 +1307,7 @@
 					   <0 49 0>,
 					   <0 50 0>,
 					   <0 51 0>;
-				clocks = <&clks 54>;
+				clocks = <&car 54>;
 			};
 
 			timerb@10dc8000 {
@@ -1319,7 +1319,7 @@
 							   <0 77 0>,
 							   <0 78 0>,
 							   <0 79 0>;
-					clocks = <&clks 54>;
+					clocks = <&car 54>;
 			};
 
 			vip0@10db0000 {
@@ -1332,7 +1332,7 @@
 			cvd@10db2000 {
 				compatible = "sirf,cvd";
 				reg = <0x10db2000 0x2000>;
-				clocks = <&clks 53>;
+				clocks = <&car 53>;
 			};
 
 			dmac2: dma-controller@10d50000 {
@@ -1340,7 +1340,7 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d50000 0xffff>;
 				interrupts = <0 55 0>;
-				clocks = <&clks 67>;
+				clocks = <&car 67>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
 			};
@@ -1350,7 +1350,7 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d60000 0xffff>;
 				interrupts = <0 56 0>;
-				clocks = <&clks 68>;
+				clocks = <&car 68>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
 			};
@@ -1359,7 +1359,7 @@
 				compatible = "sirf,atlas7-adc";
 				reg = <0x10d80000 0xffff>;
 				interrupts = <0 34 0>;
-				clocks = <&clks 56>;
+				clocks = <&car 56>;
 				#io-channel-cells = <1>;
 			};
 
@@ -1402,7 +1402,7 @@
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x11002000 0x1000>;
 				interrupts = <0 99 0>;
-				clocks = <&clks 137>;
+				clocks = <&car 137>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
 			};
@@ -1412,7 +1412,7 @@
 						"sirf,marco-uart";
 				reg = <0x11000000 0x1000>;
 				interrupts = <0 100 0>;
-				clocks = <&clks 138>, <&clks 140>, <&clks 141>;
+				clocks = <&car 138>, <&car 140>, <&car 141>;
 				clock-names = "uart", "general", "noc";
 				fifosize = <128>;
 				dmas = <&dmac4 12>, <&dmac4 13>;
@@ -1500,13 +1500,14 @@
 				compatible = "sirf,atlas7-lcdc";
 				reg = <0x13100000 0x10000>;
 				interrupts = <0 30 0>;
-				clocks = <&clks 86>;
+				clocks = <&car 86>;
 			};
 			vpp@13110000 {
 				compatible = "sirf,atlas7-vpp";
 				reg = <0x13110000 0x10000>;
 				interrupts = <0 31 0>;
-				clocks = <&clks 85>;
+				clocks = <&car 85>;
+				resets = <&car 29>;
 			};
 
 		};
@@ -1521,7 +1522,7 @@
 				compatible = "powervr,sgx531";
 				reg = <0x12000000 0x1000000>;
 				interrupts = <0 6 0>;
-				clocks = <&clks 133>;
+				clocks = <&car 133>;
 			};
 		};
 	};
