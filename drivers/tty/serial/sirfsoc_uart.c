@@ -1309,6 +1309,7 @@ static struct of_device_id sirfsoc_uart_ids[] = {
 	{ .compatible = "sirf,prima2-uart", .data = &sirfsoc_uart,},
 	{ .compatible = "sirf,marco-uart", .data = &sirfsoc_uart},
 	{ .compatible = "sirf,prima2-usp-uart", .data = &sirfsoc_usp},
+	{ .compatible = "sirf,marco-usp-uart", .data = &sirfsoc_usp},
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_uart_ids);
@@ -1349,7 +1350,8 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 		of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
 	if (of_device_is_compatible(pdev->dev.of_node,
-		"sirf,prima2-usp-uart")) {
+		"sirf,prima2-usp-uart") || of_device_is_compatible(
+		pdev->dev.of_node, "sirf,marco-usp-uart")) {
 		sirfport->uart_reg->uart_type =	SIRF_USP_UART;
 		if (!sirfport->hw_flow_ctrl)
 			goto usp_no_flow_control;
