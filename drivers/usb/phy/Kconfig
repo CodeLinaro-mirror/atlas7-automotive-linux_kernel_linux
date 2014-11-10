@@ -199,6 +199,16 @@ config USB_RCAR_GEN2_PHY
 	  To compile this driver as a module, choose M here: the
 	  module will be called phy-rcar-gen2-usb.
 
+config USB_SIRF_PHY
+	tristate "SiRF USB PHY support"
+	depends on ARCH_SIRF
+	help
+	  Say Y here if you want to build SiRF USB OTG transceiver
+	  driver in kernel (including Prima and Atlas series). This driver
+	  implements role switch between EHCI host driver and gadget driver.
+
+	  To compile this driver as a module, choose M here.
+
 config USB_ULPI
 	bool "Generic ULPI Transceiver Driver"
 	depends on ARM || ARM64
