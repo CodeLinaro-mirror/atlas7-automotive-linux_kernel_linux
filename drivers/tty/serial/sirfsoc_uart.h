@@ -144,6 +144,7 @@ struct sirfsoc_uart_register sirfsoc_usp = {
 		.sirfsoc_rx_fifo_op	= 0x0130,
 		.sirfsoc_rx_fifo_status	= 0x0134,
 		.sirfsoc_rx_fifo_data	= 0x0138,
+		.sirfsoc_int_en_clr_reg = 0x140,
 	},
 	.uart_int_en = {
 		.sirfsoc_rx_done_en	= BIT(0),
