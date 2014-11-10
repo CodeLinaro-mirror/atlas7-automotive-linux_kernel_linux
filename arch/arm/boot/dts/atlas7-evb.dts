@@ -52,7 +52,7 @@
 			};
 
 			usp2: usp@10d40000 {
-				status = "okay";
+				status = "disabled";
 				compatible = "sirf,marco-usp-spi";
 				pinctrl-0 = <&audio_uart2_pmx0>;
 				pinctrl-names = "default";
@@ -68,6 +68,14 @@
 				status = "disabled";
 				pinctrl-names = "default";
 				pinctrl-0 = <&ps_pmx>;
+			};
+
+			usp2: usp@10d40000 {
+				status = "okay";
+				compatible = "sirf,marco-usp-uart";
+				pinctrl-names = "default";
+				pinctrl-0 = <&audio_uart2_pmx0>;
+				fifosize = <512>;
 			};
 
 			vip0@10db0000 {
