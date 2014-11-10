@@ -7,6 +7,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/of.h>
 
 #include <video/sirfsoc_vdss.h>
 #include "vdss.h"
@@ -20,6 +21,7 @@ static struct {
 
 	int irq;
 	struct clk	*clk;
+	bool is_atlas7;
 } vpp;
 
 static const u32 tap_filter_coeff[] = {
@@ -145,8 +147,8 @@ static bool __vpp_set_params(struct vdss_vpp_params *params)
 {
 	u32 reg_ctrl = 0;
 	u32 reg_stride0 = 0, reg_stride1 = 0;
-	u32 reg_thresh;
 	struct vdss_vpp_interlace *interlace = &params->interlace;
+	u32 reg_thresh;
 
 	switch (params->src_fmt) {
 	case VDSS_PIXELFORMAT_YV12:
@@ -210,9 +212,16 @@ static bool __vpp_set_params(struct vdss_vpp_params *params)
 		params->src_fmt == VDSS_PIXELFORMAT_NV21)
 		reg_ctrl |= VPP_CTRL_UV_INTERLEAVE_EN;
 
-	reg_thresh = vpp_read_reg(VPP_FULL_THRESH);
-	if (params->src_fmt == VDSS_PIXELFORMAT_NV12)
-		reg_thresh |= VPP_UVUV_MODE;
+
+	if (params->src_fmt == VDSS_PIXELFORMAT_NV12) {
+		if (vpp.is_atlas7)
+			reg_ctrl |= (1 << 13);
+		else {
+			reg_thresh = vpp_read_reg(VPP_FULL_THRESH);
+			reg_thresh |= VPP_UVUV_MODE;
+			vpp_write_reg(VPP_FULL_THRESH, reg_thresh);
+		}
+	}
 
 	if (interlace->interlaced) {
 		if (interlace->field_offset == 0) {
@@ -306,7 +315,6 @@ static bool __vpp_set_params(struct vdss_vpp_params *params)
 		return false;
 	}
 
-	vpp_write_reg(VPP_FULL_THRESH, reg_thresh);
 	vpp_write_reg(VPP_CTRL, reg_ctrl);
 	vpp_write_reg(VPP_STRIDE0, reg_stride0);
 	vpp_write_reg(VPP_STRIDE1, reg_stride1);
@@ -668,6 +676,9 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-vpp"))
+		vpp.is_atlas7 = true;
+
 	vpp.irq = platform_get_irq(pdev, 0);
 	if (vpp.irq < 0) {
 		VDSSERR("platform_get_irq failed\n");
@@ -689,6 +700,7 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 
 static const struct of_device_id vpp_of_match[] = {
 	{ .compatible = "sirf,prima2-vpp", },
+	{ .compatible = "sirf,atlas7-vpp", },
 	{},
 };
 

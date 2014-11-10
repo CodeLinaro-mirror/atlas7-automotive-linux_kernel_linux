@@ -1503,7 +1503,7 @@
 				clocks = <&clks 86>;
 			};
 			vpp@13110000 {
-				compatible = "sirf,prima2-vpp";
+				compatible = "sirf,atlas7-vpp";
 				reg = <0x13110000 0x10000>;
 				interrupts = <0 31 0>;
 				clocks = <&clks 85>;
