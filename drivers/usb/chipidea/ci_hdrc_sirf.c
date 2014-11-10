@@ -14,7 +14,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#include <linux/reset.h>
 
 #include <linux/usb/chipidea.h>
 
@@ -25,16 +24,30 @@ struct ci_hdrc_sirf_data {
 	struct clk		*clk;
 };
 
-static struct ci_hdrc_platform_data ci_hdrc_sirf_platdata = {
-	.name			= "ci_hdrc_sirf",
-	.flags			= CI_HDRC_DISABLE_STREAMING,
-	.capoffset		= DEF_CAPOFFSET,
+static struct ci_hdrc_platform_data ci_hdrc_sirf_platdata[] = {
+	[0] = {
+		.name			= "ci_hdrc_sirf.0",
+		.flags			= CI_HDRC_DISABLE_STREAMING,
+		.capoffset		= DEF_CAPOFFSET,
+	},
+	[1] = {
+		.name			= "ci_hdrc_sirf.1",
+		.flags			= CI_HDRC_DISABLE_STREAMING |
+					  CI_HDRC_DUAL_ROLE_NOT_OTG,
+		.capoffset		= DEF_CAPOFFSET,
+	},
 };
 
 static int ci_hdrc_sirf_probe(struct platform_device *pdev)
 {
 	struct ci_hdrc_sirf_data *data;
 	int ret;
+	int id;
+
+	if (of_property_read_u32(pdev->dev.of_node, "cell-index", &id)) {
+		dev_err(&pdev->dev, "Fail to get USB index\n");
+		return -ENODEV;
+	}
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data) {
@@ -62,22 +75,17 @@ static int ci_hdrc_sirf_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ci_hdrc_sirf_platdata.phy = devm_usb_get_phy_by_phandle(&pdev->dev,
-								"usbphy", 0);
-	if (IS_ERR(ci_hdrc_sirf_platdata.phy)) {
+	ci_hdrc_sirf_platdata[id].phy =
+		devm_usb_get_phy_by_phandle(&pdev->dev, "sirf,usbphy", 0);
+	if (IS_ERR(ci_hdrc_sirf_platdata[id].phy)) {
 		dev_err(&pdev->dev, "Failed to get transceiver\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
-	ret = device_reset(&pdev->dev);
-	if (ret)
-		dev_warn(&pdev->dev,
-			"Failed to reset device, err=%d\n", ret);
-
 	data->ci_pdev = ci_hdrc_add_device(&pdev->dev,
 				pdev->resource, pdev->num_resources,
-				&ci_hdrc_sirf_platdata);
+				&ci_hdrc_sirf_platdata[id]);
 	if (IS_ERR(data->ci_pdev)) {
 		dev_err(&pdev->dev, "ci_hdrc_add_device failed!\n");
 		return PTR_ERR(data->ci_pdev);
@@ -106,7 +114,7 @@ static int ci_hdrc_sirf_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ci_hdrc_sirf_dt_ids[] = {
-	{ .compatible = "chipidea,ci13611a-prima2", },
+	{ .compatible = "sirf,atlas7-usb", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ci_hdrc_sirf_dt_ids);
@@ -115,7 +123,7 @@ static struct platform_driver ci_hdrc_sirf_driver = {
 	.probe = ci_hdrc_sirf_probe,
 	.remove = ci_hdrc_sirf_remove,
 	.driver = {
-		.name = "sirf-usbcontroller",
+		.name = "sirf-usb",
 		.owner = THIS_MODULE,
 		.of_match_table = ci_hdrc_sirf_dt_ids,
 	 },
