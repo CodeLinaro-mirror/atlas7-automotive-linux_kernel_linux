@@ -38,6 +38,8 @@
 /* Definition of multiple function select register */
 #define FUNC_CLEAR_MASK		0x7
 #define FUNC_GPIO		0
+#define FUNC_ANALOGUE		0x8
+#define ANA_CLEAR_MASK		0x1
 
 /* The Atlas7's Pad Type List */
 enum altas7_pad_type {
@@ -759,9 +761,15 @@ static const unsigned int jtag_pins0[] = { 125, 4, 2, 0, 1, 3, };
 static const unsigned int ks_kas_spi_pins0[] = { 141, 144, 143, 142, };
 static const unsigned int ld_ldd_pins[] = { 57, 58, 59, 60, 61, 62, 63, 64,
 		65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 79, 80,
-		81, 56, 55, 54, 53, };
+		81, 56, 53, };
+static const unsigned int ld_ldd_16bit_pins[] = { 57, 58, 59, 60, 61, 62, 63,
+		64, 65, 66, 67, 68, 69, 70, 71, 72, 56, 53, };
+static const unsigned int ld_ldd_fck_pins[] = { 55, };
+static const unsigned int ld_ldd_lck_pins[] = { 54, };
 static const unsigned int lr_lcdrom_pins[] = { 73, 54, 57, 58, 59, 60, 61,
 		62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 56, 53, 55, };
+static const unsigned int lvds_analog_pins[] = { 149, 150, 151, 152, 153, 154,
+		155, 156, 157, 158, };
 static const unsigned int nd_df_pins[] = { 44, 43, 42, 41, 40, 39, 38, 37,
 		47, 46, 52, 51, 45, 49, 50, 48, 124, };
 static const unsigned int nd_df_nowp_pins[] = { 44, 43, 42, 41, 40, 39, 38,
@@ -831,6 +839,10 @@ static const unsigned int visbus_dout_pins[] = { 57, 58, 59, 60, 61, 62, 63,
 static const unsigned int vi_vip1_pins[] = { 74, 75, 76, 77, 78, 79, 80, 81,
 		82, 83, 84, 108, 103, 104, 105, 106, 107, 102, 97, 98, 99,
 		100, };
+static const unsigned int vi_vip1_low8bit_pins[] = { 74, 75, 76, 77, 78, 79,
+		80, 81, };
+static const unsigned int vi_vip1_high8bit_pins[] = { 82, 83, 84, 108, 103,
+		104, 105, 106, };
 
 /* definition of pin group table */
 struct atlas7_pin_group altas7_pin_groups[] = {
@@ -900,7 +912,11 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("jtag_grp0", jtag_pins0),
 	GROUP("ks_kas_spi_grp0", ks_kas_spi_pins0),
 	GROUP("ld_ldd_grp", ld_ldd_pins),
+	GROUP("ld_ldd_16bit_grp", ld_ldd_16bit_pins),
+	GROUP("ld_ldd_fck_grp", ld_ldd_fck_pins),
+	GROUP("ld_ldd_lck_grp", ld_ldd_lck_pins),
 	GROUP("lr_lcdrom_grp", lr_lcdrom_pins),
+	GROUP("lvds_analog_grp", lvds_analog_pins),
 	GROUP("nd_df_grp", nd_df_pins),
 	GROUP("nd_df_nowp_grp", nd_df_nowp_pins),
 	GROUP("ps_grp", ps_pins),
@@ -959,6 +975,8 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("usb1_drvvbus_grp", usb1_drvvbus_pins),
 	GROUP("visbus_dout_grp", visbus_dout_pins),
 	GROUP("vi_vip1_grp", vi_vip1_pins),
+	GROUP("vi_vip1_low8bit_grp", vi_vip1_low8bit_pins),
+	GROUP("vi_vip1_high8bit_grp", vi_vip1_high8bit_pins),
 };
 
 /* How many groups that a function can use */
@@ -1029,7 +1047,11 @@ static const char * const i2c1_grp[] = { "i2c1_grp", };
 static const char * const jtag_grp0[] = { "jtag_grp0", };
 static const char * const ks_kas_spi_grp0[] = { "ks_kas_spi_grp0", };
 static const char * const ld_ldd_grp[] = { "ld_ldd_grp", };
+static const char * const ld_ldd_16bit_grp[] = { "ld_ldd_16bit_grp", };
+static const char * const ld_ldd_fck_grp[] = { "ld_ldd_fck_grp", };
+static const char * const ld_ldd_lck_grp[] = { "ld_ldd_lck_grp", };
 static const char * const lr_lcdrom_grp[] = { "lr_lcdrom_grp", };
+static const char * const lvds_analog_grp[] = { "lvds_analog_grp", };
 static const char * const nd_df_grp[] = { "nd_df_grp", };
 static const char * const nd_df_nowp_grp[] = { "nd_df_nowp_grp", };
 static const char * const ps_grp[] = { "ps_grp", };
@@ -1088,6 +1110,8 @@ static const char * const usb0_drvvbus_grp[] = { "usb0_drvvbus_grp", };
 static const char * const usb1_drvvbus_grp[] = { "usb1_drvvbus_grp", };
 static const char * const visbus_dout_grp[] = { "visbus_dout_grp", };
 static const char * const vi_vip1_grp[] = { "vi_vip1_grp", };
+static const char * const vi_vip1_low8bit_grp[] = { "vi_vip1_low8bit_grp", };
+static const char * const vi_vip1_high8bit_grp[] = { "vi_vip1_high8bit_grp", };
 
 static struct atlas7_pad_mux gnss_gpio_grp_pad_mux[] = {
 	MUX(1, 22, 0, N, N, N, N),
@@ -2041,14 +2065,56 @@ static struct atlas7_pad_mux ld_ldd_grp_pad_mux[] = {
 	MUX(1, 80, 2, N, N, N, N),
 	MUX(1, 81, 2, N, N, N, N),
 	MUX(1, 56, 1, N, N, N, N),
-	MUX(1, 55, 1, N, N, N, N),
-	MUX(1, 54, 1, N, N, N, N),
 	MUX(1, 53, 1, N, N, N, N),
 };
 
 static struct atlas7_grp_mux ld_ldd_grp_mux = {
 	.pad_mux_count = ARRAY_SIZE(ld_ldd_grp_pad_mux),
 	.pad_mux_list = ld_ldd_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux ld_ldd_16bit_grp_pad_mux[] = {
+	MUX(1, 57, 1, N, N, N, N),
+	MUX(1, 58, 1, N, N, N, N),
+	MUX(1, 59, 1, N, N, N, N),
+	MUX(1, 60, 1, N, N, N, N),
+	MUX(1, 61, 1, N, N, N, N),
+	MUX(1, 62, 1, N, N, N, N),
+	MUX(1, 63, 1, N, N, N, N),
+	MUX(1, 64, 1, N, N, N, N),
+	MUX(1, 65, 1, N, N, N, N),
+	MUX(1, 66, 1, N, N, N, N),
+	MUX(1, 67, 1, N, N, N, N),
+	MUX(1, 68, 1, N, N, N, N),
+	MUX(1, 69, 1, N, N, N, N),
+	MUX(1, 70, 1, N, N, N, N),
+	MUX(1, 71, 1, N, N, N, N),
+	MUX(1, 72, 1, N, N, N, N),
+	MUX(1, 56, 1, N, N, N, N),
+	MUX(1, 53, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux ld_ldd_16bit_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(ld_ldd_16bit_grp_pad_mux),
+	.pad_mux_list = ld_ldd_16bit_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux ld_ldd_fck_grp_pad_mux[] = {
+	MUX(1, 55, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux ld_ldd_fck_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(ld_ldd_fck_grp_pad_mux),
+	.pad_mux_list = ld_ldd_fck_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux ld_ldd_lck_grp_pad_mux[] = {
+	MUX(1, 54, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux ld_ldd_lck_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(ld_ldd_lck_grp_pad_mux),
+	.pad_mux_list = ld_ldd_lck_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux lr_lcdrom_grp_pad_mux[] = {
@@ -2078,6 +2144,24 @@ static struct atlas7_pad_mux lr_lcdrom_grp_pad_mux[] = {
 static struct atlas7_grp_mux lr_lcdrom_grp_mux = {
 	.pad_mux_count = ARRAY_SIZE(lr_lcdrom_grp_pad_mux),
 	.pad_mux_list = lr_lcdrom_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux lvds_analog_grp_pad_mux[] = {
+	MUX(1, 149, 8, N, N, N, N),
+	MUX(1, 150, 8, N, N, N, N),
+	MUX(1, 151, 8, N, N, N, N),
+	MUX(1, 152, 8, N, N, N, N),
+	MUX(1, 153, 8, N, N, N, N),
+	MUX(1, 154, 8, N, N, N, N),
+	MUX(1, 155, 8, N, N, N, N),
+	MUX(1, 156, 8, N, N, N, N),
+	MUX(1, 157, 8, N, N, N, N),
+	MUX(1, 158, 8, N, N, N, N),
+};
+
+static struct atlas7_grp_mux lvds_analog_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(lvds_analog_grp_pad_mux),
+	.pad_mux_list = lvds_analog_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux nd_df_grp_pad_mux[] = {
@@ -2843,6 +2927,38 @@ static struct atlas7_grp_mux vi_vip1_grp_mux = {
 	.pad_mux_list = vi_vip1_grp_pad_mux,
 };
 
+static struct atlas7_pad_mux vi_vip1_low8bit_grp_pad_mux[] = {
+	MUX(1, 74, 1, N, N, N, N),
+	MUX(1, 75, 1, N, N, N, N),
+	MUX(1, 76, 1, N, N, N, N),
+	MUX(1, 77, 1, N, N, N, N),
+	MUX(1, 78, 1, N, N, N, N),
+	MUX(1, 79, 1, N, N, N, N),
+	MUX(1, 80, 1, N, N, N, N),
+	MUX(1, 81, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux vi_vip1_low8bit_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(vi_vip1_low8bit_grp_pad_mux),
+	.pad_mux_list = vi_vip1_low8bit_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux vi_vip1_high8bit_grp_pad_mux[] = {
+	MUX(1, 82, 1, N, N, N, N),
+	MUX(1, 83, 1, N, N, N, N),
+	MUX(1, 84, 1, N, N, N, N),
+	MUX(1, 108, 2, N, N, N, N),
+	MUX(1, 103, 2, N, N, N, N),
+	MUX(1, 104, 2, N, N, N, N),
+	MUX(1, 105, 2, N, N, N, N),
+	MUX(1, 106, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux vi_vip1_high8bit_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(vi_vip1_high8bit_grp_pad_mux),
+	.pad_mux_list = vi_vip1_high8bit_grp_pad_mux,
+};
+
 static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("gnss_gpio", gnss_gpio_grp, &gnss_gpio_grp_mux),
 	FUNCTION("lcd_vip_gpio", lcd_vip_gpio_grp, &lcd_vip_gpio_grp_mux),
@@ -2958,7 +3074,11 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("jtag_m0", jtag_grp0, &jtag_grp0_mux),
 	FUNCTION("ks_kas_spi_m0", ks_kas_spi_grp0, &ks_kas_spi_grp0_mux),
 	FUNCTION("ld_ldd", ld_ldd_grp, &ld_ldd_grp_mux),
+	FUNCTION("ld_ldd_16bit", ld_ldd_16bit_grp, &ld_ldd_16bit_grp_mux),
+	FUNCTION("ld_ldd_fck", ld_ldd_fck_grp, &ld_ldd_fck_grp_mux),
+	FUNCTION("ld_ldd_lck", ld_ldd_lck_grp, &ld_ldd_lck_grp_mux),
 	FUNCTION("lr_lcdrom", lr_lcdrom_grp, &lr_lcdrom_grp_mux),
+	FUNCTION("lvds_analog", lvds_analog_grp, &lvds_analog_grp_mux),
 	FUNCTION("nd_df", nd_df_grp, &nd_df_grp_mux),
 	FUNCTION("nd_df_nowp", nd_df_nowp_grp, &nd_df_nowp_grp_mux),
 	FUNCTION("ps", ps_grp, &ps_grp_mux),
@@ -3039,6 +3159,12 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("usb1_drvvbus", usb1_drvvbus_grp, &usb1_drvvbus_grp_mux),
 	FUNCTION("visbus_dout", visbus_dout_grp, &visbus_dout_grp_mux),
 	FUNCTION("vi_vip1", vi_vip1_grp, &vi_vip1_grp_mux),
+	FUNCTION("vi_vip1_low8bit",
+			vi_vip1_low8bit_grp,
+			&vi_vip1_low8bit_grp_mux),
+	FUNCTION("vi_vip1_high8bit",
+			vi_vip1_high8bit_grp,
+			&vi_vip1_high8bit_grp_mux),
 };
 
 struct atlas7_pinctrl_data atlas7_ioc_data = {
@@ -3124,11 +3250,54 @@ static void __atlas7_pmx_pin_input_disable_clr(struct atlas7_pmx *pmx,
 	}
 }
 
-static void __atlas7_pmx_pin_enable(struct atlas7_pmx *pmx,
+static int __atlas7_pmx_pin_ad_sel(struct atlas7_pmx *pmx,
+			struct atlas7_pad_config *conf,
+			u32 bank, u32 ad_sel)
+{
+	unsigned long regv;
+
+	/* Write to clear register to clear A/D selector */
+	writel(ANA_CLEAR_MASK << conf->ad_ctrl_bit,
+		pmx->regs[bank] + CLR_REG(conf->ad_ctrl_reg));
+
+	/* Set target pad A/D selector */
+	regv = readl(pmx->regs[bank] + conf->ad_ctrl_reg);
+	regv &= ~(ANA_CLEAR_MASK << conf->ad_ctrl_bit);
+	writel(regv | (ad_sel << conf->ad_ctrl_bit),
+			pmx->regs[bank] + conf->ad_ctrl_reg);
+
+	regv = readl(pmx->regs[bank] + conf->ad_ctrl_reg);
+	pr_debug("bank:%d reg:0x%04x val:0x%08lx\n",
+			bank, conf->ad_ctrl_reg, regv);
+	return 0;
+}
+
+static int  __atlas7_pmx_pin_analog_enable(struct atlas7_pmx *pmx,
+			struct atlas7_pad_config *conf, u32 bank)
+{
+	/* Only PAD_T_AD pins can change between Analogue&Digital */
+	if (conf->type != PAD_T_AD)
+		return -EINVAL;
+
+	return __atlas7_pmx_pin_ad_sel(pmx, conf, bank, 0);
+}
+
+static int __atlas7_pmx_pin_digital_enable(struct atlas7_pmx *pmx,
+			struct atlas7_pad_config *conf, u32 bank)
+{
+	/* Other type pads are always digital */
+	if (conf->type != PAD_T_AD)
+		return 0;
+
+	return __atlas7_pmx_pin_ad_sel(pmx, conf, bank, 1);
+}
+
+static int __atlas7_pmx_pin_enable(struct atlas7_pmx *pmx,
 				u32 pin, u32 func)
 {
 	struct atlas7_pad_config *conf;
 	u32 bank;
+	int ret;
 	unsigned long regv;
 
 	pr_debug("PMX DUMP ### pin#%d func:%d #### START >>>\n",
@@ -3137,6 +3306,25 @@ static void __atlas7_pmx_pin_enable(struct atlas7_pmx *pmx,
 	/* Get this Pad's descriptor from PINCTRL */
 	conf = &pmx->pctl_data->confs[pin];
 	bank = atlas7_pin_to_bank(pin);
+
+	/* Just enable the analog function of this pad */
+	if (FUNC_ANALOGUE == func) {
+		ret = __atlas7_pmx_pin_analog_enable(pmx, conf, bank);
+		if (ret)
+			dev_err(pmx->dev,
+				"Convert pad#%d to analog failed, ret=%d\n",
+				pin, ret);
+		return ret;
+	}
+
+	/* Set Pads from analog to digital */
+	ret = __atlas7_pmx_pin_digital_enable(pmx, conf, bank);
+	if (ret) {
+		dev_err(pmx->dev,
+			"Convert pad#%d to digital failed, ret=%d\n",
+			pin, ret);
+		return ret;
+	}
 
 	/* Write to clear register to clear current function */
 	writel(FUNC_CLEAR_MASK << conf->mux_bit,
@@ -3151,12 +3339,14 @@ static void __atlas7_pmx_pin_enable(struct atlas7_pmx *pmx,
 	regv = readl(pmx->regs[bank] + conf->mux_reg);
 	pr_debug("bank:%d reg:0x%04x val:0x%08lx\n",
 		bank, conf->mux_reg, regv);
+
+	return 0;
 }
 
 static int atlas7_pmx_set_mux(struct pinctrl_dev *pctldev,
 			u32 func_selector, u32 group_selector)
 {
-	int idx;
+	int idx, ret;
 	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
 	struct atlas7_pmx_func *pmx_func;
 	struct atlas7_pin_group *pin_grp;
@@ -3174,7 +3364,14 @@ static int atlas7_pmx_set_mux(struct pinctrl_dev *pctldev,
 	for (idx = 0; idx < grp_mux->pad_mux_count; idx++) {
 		mux = &grp_mux->pad_mux_list[idx];
 		__atlas7_pmx_pin_input_disable_set(pmx, mux);
-		__atlas7_pmx_pin_enable(pmx, mux->pin, mux->func);
+		ret = __atlas7_pmx_pin_enable(pmx, mux->pin, mux->func);
+		if (ret) {
+			dev_err(pmx->dev,
+				"FUNC:%s GRP:%s PIN#%d.%d failed, ret=%d\n",
+				pmx_func->name, pin_grp->name,
+				mux->pin, mux->func, ret);
+			BUG_ON(1);
+		}
 		__atlas7_pmx_pin_input_disable_clr(pmx, mux);
 	}
 	pr_debug("PMX DUMP ### Function:[%s] Group:[%s] #### END <<<\n",

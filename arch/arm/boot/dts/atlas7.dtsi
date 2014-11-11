@@ -499,10 +499,38 @@
 				};
 			};
 
+			ld_ldd_16bit_pmx: ld_ldd_16bit@0 {
+				ld_ldd_16bit {
+					sirf,pins = "ld_ldd_16bit_grp";
+					sirf,function = "ld_ldd_16bit";
+				};
+			};
+
+			ld_ldd_fck_pmx: ld_ldd_fck@0 {
+				ld_ldd_fck {
+					sirf,pins = "ld_ldd_fck_grp";
+					sirf,function = "ld_ldd_fck";
+				};
+			};
+
+			ld_ldd_lck_pmx: ld_ldd_lck@0 {
+				ld_ldd_lck {
+					sirf,pins = "ld_ldd_lck_grp";
+					sirf,function = "ld_ldd_lck";
+				};
+			};
+
 			lr_lcdrom_pmx: lr_lcdrom@0 {
 				lr_lcdrom {
 					sirf,pins = "lr_lcdrom_grp";
 					sirf,function = "lr_lcdrom";
+				};
+			};
+
+			lvds_analog_pmx: lvds_analog@0 {
+				lvds_analog {
+					sirf,pins = "lvds_analog_grp";
+					sirf,function = "lvds_analog";
 				};
 			};
 
@@ -909,6 +937,20 @@
 				vi_vip1 {
 					sirf,pins = "vi_vip1_grp";
 					sirf,function = "vi_vip1";
+				};
+			};
+
+			vi_vip1_low8bit_pmx: vi_vip1_low8bit@0 {
+				vi_vip1_low8bit {
+					sirf,pins = "vi_vip1_low8bit_grp";
+					sirf,function = "vi_vip1_low8bit";
+				};
+			};
+
+			vi_vip1_high8bit_pmx: vi_vip1_high8bit@0 {
+				vi_vip1_high8bit {
+					sirf,pins = "vi_vip1_high8bit_grp";
+					sirf,function = "vi_vip1_high8bit";
 				};
 			};
 		};
