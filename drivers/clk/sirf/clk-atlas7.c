@@ -1707,6 +1707,4 @@ void __init atlas7_clk_init(struct device_node *np)
 	arm_pm_restart = atlas7_restart;
 }
 
-#ifndef CONFIG_A7DA_FPGA
 CLK_OF_DECLARE(atlas7_clk, "sirf,atlas7-car", atlas7_clk_init);
-#endif
