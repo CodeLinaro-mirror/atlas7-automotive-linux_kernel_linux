@@ -989,7 +989,8 @@
 				<0x18050000 0x18050000 0x1000>,
 				<0x18060000 0x18060000 0x1000>,
 				<0x18100000 0x18100000 0x3000>,
-				<0x18250000 0x18250000 0x10000>;
+				<0x18250000 0x18250000 0x10000>,
+				<0x18200000 0x18200000 0x1000>;
 
 			dmac0: dma-controller@18000000 {
 				cell-index = <0>;
@@ -1074,6 +1075,18 @@
 				compatible = "dx,cc44p";
 				reg = <0x18250000 0x10000>;
 				interrupts = <0 27 0>;
+			};
+
+			spi1: spi@18200000 {
+				compatible = "sirf,marco-spi";
+				reg = <0x18200000 0x1000>;
+				interrupts = <0 16 0>;
+				clocks = <&car 102>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dmas = <&dmac0 12>, <&dmac0 13>;
+				dma-names = "rx", "tx";
+				status = "disabled";
 			};
 		};
 

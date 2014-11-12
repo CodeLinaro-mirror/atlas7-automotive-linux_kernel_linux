@@ -140,6 +140,17 @@
 			uart5: uart@18060000 {
 				status = "okay";
 			};
+
+			spi1: spi@18200000 {
+				status = "okay";
+				pinctrl-0 = <&gn_trg_spi_pmx0>;
+				pinctrl-names = "default";
+				spidev {
+					compatible = "spidev";
+					spi-max-frequency = <1000000>;
+					reg = <0>;
+				};
+			};
 		};
 
 		btm {

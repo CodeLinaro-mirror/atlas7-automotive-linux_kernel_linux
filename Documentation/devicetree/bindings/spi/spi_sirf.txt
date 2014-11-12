@@ -7,6 +7,8 @@ Required properties:
 - interrupts : Should contain SPI interrupt
 - sirf,spi-num-chipselects : Contains the number of the chipselect
 - cs-gpios : Specifies the gpio pins to be used for chipselects.
+if want use spidev driver, you may add sub node in spi, add compatible
+property "spidev" in the subnode
 
 Example:
 
@@ -17,4 +19,9 @@ spi0: spi@b00d0000 {
 	sirf,spi-num-chipselects = <2>;
 	cs-gpios = <&gpio 18 0>,
 		   <&gpio 19 0>;
+	spidev {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
 };
