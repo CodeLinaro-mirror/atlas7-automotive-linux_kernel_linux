@@ -201,7 +201,6 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int start = -1, end, tuning_value = -1, range = 0;
 	u16 clock_setting;
 	struct mmc_host *mmc = host->mmc;
-	struct mmc_ios ios = host->mmc->ios;
 
 	data_buf = kmalloc(size, GFP_KERNEL);
 	if (!data_buf)
@@ -285,7 +284,6 @@ retry:
 		rc = -EIO;
 	}
 
-out:
 	kfree(data_buf);
 	return rc;
 }
