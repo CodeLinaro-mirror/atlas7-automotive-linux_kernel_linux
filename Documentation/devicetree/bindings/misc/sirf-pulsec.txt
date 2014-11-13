@@ -1,0 +1,15 @@
+SIRF Soc inner pulse counter
+
+Required properties:
+- compatible: "sirf,prima2-pulsec"
+- reg: Offset and length of the register set for the device
+- clocks: The clock is needed by the pulse counter
+- interrupts: Should contain the interrupt for the device
+
+Example:
+pulsec@10d90000 {
+	compatible = "sirf,prima2-pulsec";
+	reg = <0x10d90000 0xffff>;
+	interrupts = <0 48 0>;
+	clocks = <&car 55>;
+};
