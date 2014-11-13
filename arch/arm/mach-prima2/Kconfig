@@ -71,7 +71,7 @@ config A7DA_FPGA
 
 config ATLAS7DA_NOC
         bool "CSR A7DA NOC"
-        default n
+        default y
 	help
           Support CSR SiRFSoC A7DA Platform NOC bus, with security dram/reg
           firewall and related configure for validation, with errlog shown
