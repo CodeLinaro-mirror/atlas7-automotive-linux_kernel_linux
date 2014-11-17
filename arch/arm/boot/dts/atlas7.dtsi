@@ -1120,7 +1120,7 @@
 			};
 
 			spi1: spi@18200000 {
-				compatible = "sirf,marco-spi";
+				compatible = "sirf,prima2-spi";
 				reg = <0x18200000 0x1000>;
 				interrupts = <0 16 0>;
 				clocks = <&car 102>;
