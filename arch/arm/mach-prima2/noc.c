@@ -521,7 +521,7 @@ static int noc_dump_errlog(struct noc_macro *nocm)
 	/*initiator id*/
 	if (nocm->idx == CPUM_IDX)
 		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>3) & 0x3].desc);
-	else	if (0 == (errCode0 & 0x1))
+	else	if (0 == (errCode5 & 0x1))
 		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>2) & 0x3].desc);
 	else
 		pr_info("ID:\%s\n", noc_initator_id_list[(errCode5>>7 & 0x1F)
