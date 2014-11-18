@@ -1149,6 +1149,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x16000000 0x16000000 0x00200000>,
+				<0x17020000 0x17020000 0x1000>,
+				<0x17030000 0x17030000 0x1000>,
 				<0x17040000 0x17040000 0x1000>,
 				<0x17060000 0x17060000 0x200>,
 				<0x17060200 0x17060200 0x100>,
@@ -1240,6 +1242,26 @@
 				reg = <0x17070200 0x100>;
 				clocks = <&car 123>;
 				status = "okay";
+			};
+
+			i2c0: i2c@17020000 {
+				cell-index = <0>;
+				compatible = "sirf,prima2-i2c";
+				reg = <0x17020000 0x1000>;
+				interrupts = <24>;
+				clocks = <&clks 112>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			i2c1: i2c@17030000 {
+				cell-index = <1>;
+				compatible = "sirf,prima2-i2c";
+				reg = <0x17030000 0x1000>;
+				interrupts = <25>;
+				clocks = <&car 113>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 			};
 		};
 
