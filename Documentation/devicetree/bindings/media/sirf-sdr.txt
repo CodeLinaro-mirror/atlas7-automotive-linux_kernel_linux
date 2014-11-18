@@ -1,0 +1,22 @@
+SiRFSOC  sdr interface
+
+Required properties:
+ - compatible: suppose to be "sirf,atlas7-sdr"
+ - reg: register base and size
+ - interrupts: the interrupt number
+ - dmas: dma channels
+ - dma-names: dma transfer direction
+ - clocks: input clock (see clock-bindings.txt)
+
+Example:
+
+	sdr@0x13010000 {
+		compatible = "sirf,atlas7-sdr";
+		reg = <0x13010000 0x1400>;
+		interrupts = <0 7 0>,
+			   <0 8 0>,
+			   <0 9 0>;
+		clocks = <&clks 134>;
+		dmas = <&dmacsdrr 0>, <&dmacsdrw 0>;
+		dma-names = "tx", "rx";
+	};
