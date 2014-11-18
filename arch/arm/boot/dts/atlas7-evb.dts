@@ -107,7 +107,7 @@
 				pinctrl-0 = <&i2c0_pmx>;
 				clock-frequency = <40000>;
 			};
-		}
+		};
 
 		vdifm {
 			sdhci@14200000 {

@@ -1249,7 +1249,7 @@
 				compatible = "sirf,prima2-i2c";
 				reg = <0x17020000 0x1000>;
 				interrupts = <24>;
-				clocks = <&clks 112>;
+				clocks = <&car 112>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};
