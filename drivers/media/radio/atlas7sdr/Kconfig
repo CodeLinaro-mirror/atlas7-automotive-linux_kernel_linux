@@ -1,0 +1,9 @@
+config SDR_SIRFSOC
+	tristate "SiRF SOC SDR Accelerator module"
+	depends on ARCH_ATLAS7
+	default y
+	select REGMAP_MMIO
+	---help---
+	  Support for SIRFSOC SDR Accelerator module. The SDR acceleraotr only
+	  exist on the Atlas7DA.
+

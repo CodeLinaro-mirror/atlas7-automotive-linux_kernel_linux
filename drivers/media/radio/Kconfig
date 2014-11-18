@@ -27,6 +27,8 @@ config RADIO_SI4713
 
 source "drivers/media/radio/si4713/Kconfig"
 
+source "drivers/media/radio/atlas7sdr/Kconfig"
+
 config RADIO_SI476X
 	tristate "Silicon Laboratories Si476x I2C FM Radio"
 	depends on I2C && VIDEO_V4L2
