@@ -64,6 +64,12 @@
 				};
 			};
 
+			pulsec@10d90000 {
+				status = "disabled";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ps_pmx>;
+			};
+
 			vip0@10db0000 {
 				status = "okay";
 				port {
