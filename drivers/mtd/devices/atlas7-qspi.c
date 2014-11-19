@@ -300,6 +300,9 @@ static struct nor_flash_info flash_types[] = {
 	{},
 };
 
+/*default dummy cycles for flash or opcode operation that not added in driver*/
+#define ATLAS7_DEFAULT_DUMMY_CYCLES	8
+
 /*
  * [N25Qxxx] Configuration
  */
@@ -807,7 +810,7 @@ atlas7_qspi_micron_search_dummy(u64 size, u32 read_opcode)
 		config = atlas7_qspi_nor_search_config(read_opcode,
 					n25q_read_3B_configs);
 	if (NULL == config)
-		return -EINVAL;
+		return ATLAS7_DEFAULT_DUMMY_CYCLES;
 
 	return config->dummy_cycles;
 }
@@ -815,17 +818,16 @@ atlas7_qspi_micron_search_dummy(u64 size, u32 read_opcode)
 static u8
 atlas7_qspi_nor_search_dummy(u32 jedec_id, u64 size, u32 read_opcode)
 {
-	u8 dummy = 8;
+	u8 dummy;
 
 	switch (ATLAS7_JEDEC_MFR(jedec_id)) {
 	case CFI_MFR_ST:
 		dummy = atlas7_qspi_micron_search_dummy(size, read_opcode);
-		if (dummy < 0)
-			return 8;
-		return dummy;
+		break;
 	default:
-		return 8;
+		dummy = ATLAS7_DEFAULT_DUMMY_CYCLES;
 	}
+	return dummy;
 }
 
 static int
