@@ -3738,7 +3738,7 @@ static int atlas7_pinmux_set_drive_strength(struct pinctrl_dev *pctldev,
 			continue;
 
 		sel = get_valid_ds_state(sel_str);
-		/* could not drive strength state */
+		/* could not find valid drive strength state */
 		if (sel < 0)
 			continue;
 
@@ -3792,7 +3792,7 @@ static int atlas7_pinmux_set_pull_selector(struct pinctrl_dev *pctldev,
 			continue;
 
 		sel = get_valid_pull_state(sel_str);
-		/* could not drive strength state */
+		/* could not find valid pull state */
 		if (sel < 0)
 			continue;
 
@@ -4421,7 +4421,6 @@ static int atlas7_gpio_probe(struct platform_device *pdev)
 failed:
 	return ret;
 }
-
 
 static struct platform_driver atlas7_gpio_driver = {
 	.driver = {
