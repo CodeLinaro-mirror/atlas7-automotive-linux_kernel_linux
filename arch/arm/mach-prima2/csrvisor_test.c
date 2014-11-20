@@ -31,12 +31,6 @@ static int csrvisor_test_thread(void *data)
 		msleep(2000);
 
 		cnt++;
-		/*
-		 * Secure API needs physical address
-		 * pointer for the parameters
-		 */
-		flush_cache_all();
-		outer_clean_range(__pa(&cnt), __pa(&cnt + 1));
 	}
 
 	return 0;
