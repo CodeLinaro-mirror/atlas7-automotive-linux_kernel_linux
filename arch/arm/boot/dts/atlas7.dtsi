@@ -695,17 +695,42 @@
 				};
 			};
 
-			rg_eth_pmx0: rg_eth@0 {
-				rg_eth_0 {
-					sirf,pins = "rg_eth_grp0";
-					sirf,function = "rg_eth_m0";
+			rg_eth_mac_pmx: rg_eth_mac@0 {
+				rg_eth_mac {
+					sirf,pins = "rg_eth_mac_grp";
+					sirf,function = "rg_eth_mac";
 				};
 			};
 
-			rg_eth_pmx1: rg_eth@1 {
-				rg_eth_1 {
-					sirf,pins = "rg_eth_grp1";
-					sirf,function = "rg_eth_m1";
+			rg_gmac_phy_intr_n_pmx: rg_gmac_phy_intr_n@0 {
+				rg_gmac_phy_intr_n {
+					sirf,pins = "rg_gmac_phy_intr_n_grp";
+					sirf,function = "rg_gmac_phy_intr_n";
+				};
+			};
+
+			rg_rgmii_mac_pmx: rg_rgmii_mac@0 {
+				rg_rgmii_mac {
+					sirf,pins = "rg_rgmii_mac_grp";
+					sirf,function = "rg_rgmii_mac";
+				};
+			};
+
+			rg_rgmii_phy_ref_clk_pmx0: rg_rgmii_phy_ref_clk@0 {
+				rg_rgmii_phy_ref_clk_0 {
+					sirf,pins =
+						"rg_rgmii_phy_ref_clk_grp0";
+					sirf,function =
+						"rg_rgmii_phy_ref_clk_m0";
+				};
+			};
+
+			rg_rgmii_phy_ref_clk_pmx1: rg_rgmii_phy_ref_clk@1 {
+				rg_rgmii_phy_ref_clk_1 {
+					sirf,pins =
+						"rg_rgmii_phy_ref_clk_grp1";
+					sirf,function =
+						"rg_rgmii_phy_ref_clk_m1";
 				};
 			};
 

@@ -795,10 +795,12 @@ static const unsigned int pw_i2s01_clk_pins0[] = { 125, };
 static const unsigned int pw_i2s01_clk_pins1[] = { 117, };
 static const unsigned int pw_pwm_pins0[] = { 119, 120, 121, 122, };
 static const unsigned int pw_pwm_pins1[] = { 119, 120, 98, 73, };
-static const unsigned int rg_eth_pins0[] = { 108, 103, 104, 105, 106, 107,
-		102, 97, 98, 99, 100, 101, 111, 109, 110, 111, };
-static const unsigned int rg_eth_pins1[] = { 108, 103, 104, 105, 106, 107,
-		102, 97, 98, 99, 100, 101, 111, 109, 110, 53, };
+static const unsigned int rg_eth_mac_pins[] = { 108, 103, 104, 105, 106, 107,
+		102, 97, 98, 99, 100, 101, };
+static const unsigned int rg_gmac_phy_intr_n_pins[] = { 111, };
+static const unsigned int rg_rgmii_mac_pins[] = { 109, 110, };
+static const unsigned int rg_rgmii_phy_ref_clk_pins0[] = { 111, };
+static const unsigned int rg_rgmii_phy_ref_clk_pins1[] = { 53, };
 static const unsigned int sd0_pins[] = { 46, 47, 44, 43, 42, 41, 40, 39, 38,
 		37, };
 static const unsigned int sd0_4bit_pins[] = { 46, 47, 44, 43, 42, 41, };
@@ -940,8 +942,11 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("pw_i2s01_clk_grp1", pw_i2s01_clk_pins1),
 	GROUP("pw_pwm_grp0", pw_pwm_pins0),
 	GROUP("pw_pwm_grp1", pw_pwm_pins1),
-	GROUP("rg_eth_grp0", rg_eth_pins0),
-	GROUP("rg_eth_grp1", rg_eth_pins1),
+	GROUP("rg_eth_mac_grp", rg_eth_mac_pins),
+	GROUP("rg_gmac_phy_intr_n_grp", rg_gmac_phy_intr_n_pins),
+	GROUP("rg_rgmii_mac_grp", rg_rgmii_mac_pins),
+	GROUP("rg_rgmii_phy_ref_clk_grp0", rg_rgmii_phy_ref_clk_pins0),
+	GROUP("rg_rgmii_phy_ref_clk_grp1", rg_rgmii_phy_ref_clk_pins1),
 	GROUP("sd0_grp", sd0_pins),
 	GROUP("sd0_4bit_grp", sd0_4bit_pins),
 	GROUP("sd1_grp", sd1_pins),
@@ -1075,8 +1080,14 @@ static const char * const pw_i2s01_clk_grp0[] = { "pw_i2s01_clk_grp0", };
 static const char * const pw_i2s01_clk_grp1[] = { "pw_i2s01_clk_grp1", };
 static const char * const pw_pwm_grp0[] = { "pw_pwm_grp0", };
 static const char * const pw_pwm_grp1[] = { "pw_pwm_grp1", };
-static const char * const rg_eth_grp0[] = { "rg_eth_grp0", };
-static const char * const rg_eth_grp1[] = { "rg_eth_grp1", };
+static const char * const rg_eth_mac_grp[] = { "rg_eth_mac_grp", };
+static const char * const rg_gmac_phy_intr_n_grp[] = {
+				"rg_gmac_phy_intr_n_grp", };
+static const char * const rg_rgmii_mac_grp[] = { "rg_rgmii_mac_grp", };
+static const char * const rg_rgmii_phy_ref_clk_grp0[] = {
+				"rg_rgmii_phy_ref_clk_grp0", };
+static const char * const rg_rgmii_phy_ref_clk_grp1[] = {
+				"rg_rgmii_phy_ref_clk_grp1", };
 static const char * const sd0_grp[] = { "sd0_grp", };
 static const char * const sd0_4bit_grp[] = { "sd0_4bit_grp", };
 static const char * const sd1_grp[] = { "sd1_grp", };
@@ -2409,7 +2420,7 @@ static struct atlas7_grp_mux pw_pwm_grp1_mux = {
 	.pad_mux_list = pw_pwm_grp1_pad_mux,
 };
 
-static struct atlas7_pad_mux rg_eth_grp0_pad_mux[] = {
+static struct atlas7_pad_mux rg_eth_mac_grp_pad_mux[] = {
 	MUX(1, 108, 1, N, N, N, N),
 	MUX(1, 103, 1, N, N, N, N),
 	MUX(1, 104, 1, N, N, N, N),
@@ -2422,39 +2433,48 @@ static struct atlas7_pad_mux rg_eth_grp0_pad_mux[] = {
 	MUX(1, 99, 1, N, N, N, N),
 	MUX(1, 100, 1, N, N, N, N),
 	MUX(1, 101, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux rg_eth_mac_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(rg_eth_mac_grp_pad_mux),
+	.pad_mux_list = rg_eth_mac_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux rg_gmac_phy_intr_n_grp_pad_mux[] = {
 	MUX(1, 111, 1, 0xa08, 13, 0xa88, 13),
+};
+
+static struct atlas7_grp_mux rg_gmac_phy_intr_n_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(rg_gmac_phy_intr_n_grp_pad_mux),
+	.pad_mux_list = rg_gmac_phy_intr_n_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux rg_rgmii_mac_grp_pad_mux[] = {
 	MUX(1, 109, 1, N, N, N, N),
 	MUX(1, 110, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux rg_rgmii_mac_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(rg_rgmii_mac_grp_pad_mux),
+	.pad_mux_list = rg_rgmii_mac_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux rg_rgmii_phy_ref_clk_grp0_pad_mux[] = {
 	MUX(1, 111, 5, N, N, N, N),
 };
 
-static struct atlas7_grp_mux rg_eth_grp0_mux = {
-	.pad_mux_count = ARRAY_SIZE(rg_eth_grp0_pad_mux),
-	.pad_mux_list = rg_eth_grp0_pad_mux,
+static struct atlas7_grp_mux rg_rgmii_phy_ref_clk_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(rg_rgmii_phy_ref_clk_grp0_pad_mux),
+	.pad_mux_list = rg_rgmii_phy_ref_clk_grp0_pad_mux,
 };
 
-static struct atlas7_pad_mux rg_eth_grp1_pad_mux[] = {
-	MUX(1, 108, 1, N, N, N, N),
-	MUX(1, 103, 1, N, N, N, N),
-	MUX(1, 104, 1, N, N, N, N),
-	MUX(1, 105, 1, N, N, N, N),
-	MUX(1, 106, 1, N, N, N, N),
-	MUX(1, 107, 1, N, N, N, N),
-	MUX(1, 102, 1, N, N, N, N),
-	MUX(1, 97, 1, N, N, N, N),
-	MUX(1, 98, 1, N, N, N, N),
-	MUX(1, 99, 1, N, N, N, N),
-	MUX(1, 100, 1, N, N, N, N),
-	MUX(1, 101, 1, N, N, N, N),
-	MUX(1, 111, 1, 0xa08, 13, 0xa88, 13),
-	MUX(1, 109, 1, N, N, N, N),
-	MUX(1, 110, 1, N, N, N, N),
+static struct atlas7_pad_mux rg_rgmii_phy_ref_clk_grp1_pad_mux[] = {
 	MUX(1, 53, 4, N, N, N, N),
 };
 
-static struct atlas7_grp_mux rg_eth_grp1_mux = {
-	.pad_mux_count = ARRAY_SIZE(rg_eth_grp1_pad_mux),
-	.pad_mux_list = rg_eth_grp1_pad_mux,
+static struct atlas7_grp_mux rg_rgmii_phy_ref_clk_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(rg_rgmii_phy_ref_clk_grp1_pad_mux),
+	.pad_mux_list = rg_rgmii_phy_ref_clk_grp1_pad_mux,
 };
 
 static struct atlas7_pad_mux sd0_grp_pad_mux[] = {
@@ -3118,8 +3138,17 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 			&pw_i2s01_clk_grp1_mux),
 	FUNCTION("pw_pwm_m0", pw_pwm_grp0, &pw_pwm_grp0_mux),
 	FUNCTION("pw_pwm_m1", pw_pwm_grp1, &pw_pwm_grp1_mux),
-	FUNCTION("rg_eth_m0", rg_eth_grp0, &rg_eth_grp0_mux),
-	FUNCTION("rg_eth_m1", rg_eth_grp1, &rg_eth_grp1_mux),
+	FUNCTION("rg_eth_mac", rg_eth_mac_grp, &rg_eth_mac_grp_mux),
+	FUNCTION("rg_gmac_phy_intr_n",
+			rg_gmac_phy_intr_n_grp,
+			&rg_gmac_phy_intr_n_grp_mux),
+	FUNCTION("rg_rgmii_mac", rg_rgmii_mac_grp, &rg_rgmii_mac_grp_mux),
+	FUNCTION("rg_rgmii_phy_ref_clk_m0",
+			rg_rgmii_phy_ref_clk_grp0,
+			&rg_rgmii_phy_ref_clk_grp0_mux),
+	FUNCTION("rg_rgmii_phy_ref_clk_m1",
+			rg_rgmii_phy_ref_clk_grp1,
+			&rg_rgmii_phy_ref_clk_grp1_mux),
 	FUNCTION("sd0", sd0_grp, &sd0_grp_mux),
 	FUNCTION("sd0_4bit", sd0_4bit_grp, &sd0_4bit_grp_mux),
 	FUNCTION("sd1", sd1_grp, &sd1_grp_mux),
