@@ -3812,6 +3812,9 @@ static const struct pinctrl_ops atlas7_pinctrl_ops = {
 	.dt_free_map = atlas7_pinctrl_dt_free_map,
 };
 
+/* pinctrl-atlas7-dbg.c is used for Debug Purpose only. */
+#include "pinctrl-atlas7-dbg.c"
+
 static int atlas7_pinmux_probe(struct platform_device *pdev)
 {
 	int ret, idx;
@@ -3855,6 +3858,10 @@ static int atlas7_pinmux_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pmx);
 
 	dev_info(&pdev->dev, "initialized atlas7 pinmux driver\n");
+
+#ifdef __PINCTRL_ATLAS7_DEBUG__
+	atlas7_pinctrl_init_sysfs(pmx);
+#endif
 
 	atlas7_pinmux_set_drive_strength(pmx->pctl, np);
 	atlas7_pinmux_set_pull_selector(pmx->pctl, np);
