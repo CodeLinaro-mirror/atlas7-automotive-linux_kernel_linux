@@ -28,27 +28,6 @@
 static struct gpio_extcon_platform_data h2w_extcon_data;
 static struct device fake_cma_dev;
 
-#define CSRVISOR_PHY_BASE 0x5FC00000UL
-
-#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
-static struct map_desc sirfsoc_csrvisor_map[] __initdata = {
-	 { /* csrvisor */
-		 .virtual = 0xCFC00000,
-		 .pfn = __phys_to_pfn(CSRVISOR_PHY_BASE),
-		 .length = SZ_1M,
-		 .type = MT_MEMORY_RWX,
-	 },
-};
-#else
-/*
- * SMP code reside relocated uboot,which last MB of DRAM size
- * will release it after smp is completed.
- */
-#define DRAM_PHY_BASE	0x40000000UL
-#define DRAM_SIZE	0x10000000UL
-#define SMP_PHY_BASE (DRAM_PHY_BASE + DRAM_SIZE - SZ_1M)
-#endif
-
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
@@ -110,13 +89,17 @@ static void smc_switch_to_non_secure(void)
 
 static void __init csrvisor_reserve(void)
 {
-	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
 #if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	arm_pm_idle = smc_switch_to_non_secure;
 #else
 	/*
 	 * FIXME: we need the SMP wake-up codes in uboot yet
+	 * SMP code reside relocated uboot,which last MB of DRAM size
+	 * will release it after smp is completed.
 	 */
+#define DRAM_PHY_BASE	0x40000000UL
+#define DRAM_SIZE	0x10000000UL
+#define SMP_PHY_BASE (DRAM_PHY_BASE + DRAM_SIZE - SZ_1M)
 	memblock_reserve(SMP_PHY_BASE, SZ_1M);
 #endif
 }
