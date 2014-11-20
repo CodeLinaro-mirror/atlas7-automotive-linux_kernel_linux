@@ -46,7 +46,7 @@ static void sirfsoc_secondary_init(unsigned int cpu)
 }
 
 static struct of_device_id clk_ids[]  = {
-	{ .compatible = "sirf,atlas7-clkc" },
+	{ .compatible = "sirf,atlas7-car" },
 	{},
 };
 
