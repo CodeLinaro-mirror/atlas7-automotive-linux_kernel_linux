@@ -98,7 +98,7 @@ static void __init csrvisor_reserve(void)
 	 * will release it after smp is completed.
 	 */
 #define DRAM_PHY_BASE	0x40000000UL
-#define DRAM_SIZE	0x10000000UL
+#define DRAM_SIZE	0x20000000UL
 #define SMP_PHY_BASE (DRAM_PHY_BASE + DRAM_SIZE - SZ_1M)
 	memblock_reserve(SMP_PHY_BASE, SZ_1M);
 #endif
