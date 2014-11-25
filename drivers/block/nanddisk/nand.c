@@ -328,9 +328,9 @@ static int nanddisk_merge_and_transfer(struct request *req,
 		cur_bytes = blk_rq_cur_bytes(req);
 		if (dir)
 			memcpy(nand_dev.data_buf + merged_bytes,
-				req->buffer, cur_bytes);
+				bio_data(req->bio), cur_bytes);
 		else
-			memcpy(req->buffer,
+			memcpy(bio_data(req->bio),
 				nand_dev.data_buf + merged_bytes, cur_bytes);
 		merged_bytes += cur_bytes;
 		remain_bytes -= cur_bytes;
@@ -412,7 +412,7 @@ static int nanddisk_transfer_thread(void *arg)
 				nsect = blk_rq_cur_sectors(req)	>>
 					(nand_dev.sector_size_shift - 9);
 				ret = nanddisk_zone_io(sector,
-					nsect, req->buffer, write);
+					nsect, bio_data(req->bio), write);
 				spin_lock_irqsave(q->queue_lock, flags);
 				ret = __blk_end_request(req, ret,
 					nsect << nand_dev.sector_size_shift);
