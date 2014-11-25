@@ -1297,7 +1297,7 @@
 				cell-index = <0>;
 				compatible = "sirf,prima2-i2c";
 				reg = <0x17020000 0x1000>;
-				interrupts = <24>;
+				interrupts = <0 24 0>;
 				clocks = <&car 112>;
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -1307,7 +1307,7 @@
 				cell-index = <1>;
 				compatible = "sirf,prima2-i2c";
 				reg = <0x17030000 0x1000>;
-				interrupts = <25>;
+				interrupts = <0 25 0>;
 				clocks = <&car 113>;
 				#address-cells = <1>;
 				#size-cells = <0>;
