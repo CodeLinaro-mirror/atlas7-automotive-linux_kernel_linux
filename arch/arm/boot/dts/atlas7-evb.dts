@@ -71,7 +71,7 @@
 			};
 
 			usp2: usp@10d40000 {
-				status = "okay";
+				status = "disabled";
 				compatible = "sirf,marco-usp-uart";
 				pinctrl-names = "default";
 				pinctrl-0 = <&audio_uart2_pmx0>;
