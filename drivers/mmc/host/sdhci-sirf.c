@@ -391,9 +391,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	host->quirks2 = SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
 
-	if (of_device_is_compatible(np, "sirf,atlas7-sdhc"))
-		host->quirks |= SDHCI_QUIRK_NO_HISPD_BIT;
-
 	ret = sdhci_add_host(host);
 	if (ret)
 		goto err_sdhci_add;
