@@ -32,6 +32,7 @@
 #include <linux/memblock.h>
 #include <linux/suspend.h>
 #include <linux/sirfsoc_dma.h>
+#include <linux/dma-mapping.h>
 #include <linux/nanddisk/ioctl.h>
 
 #include "nanddisk.h"
@@ -78,6 +79,7 @@ struct nanddisk_device {
 	struct pinctrl *pinctrl;
 
 	struct clk *nand_clk;
+	struct clk *io_clk;
 
 	unsigned irq_pending;
 
@@ -591,8 +593,17 @@ static struct arch_nanddisk_resource arch_nres[] = {
 			{"sirf,prima2-rstc", 0},
 			{"sirf,prima2-efuse", 0}
 		},
+	},
+	{
+		"sirf,atlas7",
+		3,
+		0x7, 0x3, 0x7,
+		{
+			{"sirf,marco-tick", 0},
+			{"sirf,atlas7-car", 0},
+			{"sirf,marco-uart", 1},
+		},
 	}
-
 };
 
 static void nand_request(struct request_queue *q)
@@ -777,7 +788,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	dma_cap_mask_t dma_cap_mask;
 	int i, error, addr_map_tbl_size;
 	int resource_index;
-	unsigned int value;
 	struct arch_nanddisk_resource *arch_nres_used;
 
 	arch_nres_used = &arch_nres[0];
@@ -803,7 +813,7 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	/* add nand controller */
 	nand_dev.addr_entry_num += 1;
 	/* add 2 item, ram and zero-end */
-	nand_dev.addr_entry_num += 2;
+	nand_dev.addr_entry_num += 3;
 	addr_map_tbl_size = sizeof(struct ADDRMAP) * nand_dev.addr_entry_num;
 	nand_dev.addr_map_tbl = devm_kzalloc(dev,
 					addr_map_tbl_size, GFP_KERNEL);
@@ -867,19 +877,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 		goto err_exit;
 	}
 
-	/*
-	 * nand and sd0 share the same slot
-	 * nand can be used when sd0 absent
-	 */
-	value = readl(nand_dev.addr_map_tbl[i].va) &
-			arch_nres_used->sd0_boot_mode_mask;
-	if (value == arch_nres_used->sd0_boot_mode_value ||
-		value == arch_nres_used->sd0_bootp_mode_value) {
-		dev_err(dev, "no nand chip.\n");
-		error = -ENODEV;
-		goto err_exit;
-	}
-
 	/* firmware area */
 	if (of_property_read_u32(dn, "sirf,nanddisk-uboot-commit-flag",
 		&nand_dev.uboot_commit_flag)) {
@@ -894,6 +891,17 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 		(void *)phys_to_virt(nand_dev.nanddisk_code_start);
 	nand_dev.addr_map_tbl[i].size = nand_dev.nanddisk_code_size;
 	nand_dev.addr_map_tbl[i].flag = ADDR_MAP_FLAG_CACHE;
+
+	i++;
+	nand_dev.addr_map_tbl[i].va = dmam_alloc_coherent(dev, SZ_16K,
+		&nand_dev.addr_map_tbl[i].pa, GFP_KERNEL);
+	if (!nand_dev.addr_map_tbl[i].va) {
+		dev_err(dev, "unable to alloc dma buffer!\n");
+		error = -ENOMEM;
+		goto err_exit;
+	}
+	nand_dev.addr_map_tbl[i].size = SZ_16K;
+	nand_dev.addr_map_tbl[i].flag = ADDR_MAP_FLAG_DMABUF;
 
 	/* irq resource */
 	nand_dev.irq = platform_get_irq(pdev, 0);
@@ -911,34 +919,63 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 		goto err_exit;
 	}
 
-	/* dma resource */
-	if (of_property_read_u32(dn, "sirf,nand-dma-channel",
-		&nand_dev.dma_num)) {
-		dev_err(dev, "unable to get dma channel!\n");
-		error = -ENODEV;
-		goto err_exit;
+	if (of_device_is_compatible(dn, "sirf,atlas7-nand")) {
+		/* FIXME wait for dma driver stable */
+	} else {
+		/* dma resource */
+		if (of_property_read_u32(dn, "sirf,nand-dma-channel",
+					&nand_dev.dma_num)) {
+			dev_err(dev, "unable to get dma channel!\n");
+			error = -ENODEV;
+			goto err_exit;
+		}
+
+		dma_cap_zero(dma_cap_mask);
+		dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
+		nand_dev.rw_chan = dma_request_channel(dma_cap_mask,
+				(dma_filter_fn)sirfsoc_dma_filter_id,
+				(void *)nand_dev.dma_num);
+		if (!nand_dev.rw_chan) {
+			dev_err(dev, "unable to allocate dma channel\n");
+			error = -ENODEV;
+			goto err_exit;
+		}
 	}
 
-	dma_cap_zero(dma_cap_mask);
-	dma_cap_set(DMA_INTERLEAVE, dma_cap_mask);
-	nand_dev.rw_chan = dma_request_channel(dma_cap_mask,
-		(dma_filter_fn)sirfsoc_dma_filter_id,
-		(void *)nand_dev.dma_num);
-	if (!nand_dev.rw_chan) {
-		dev_err(dev, "unable to allocate dma channel\n");
-		error = -ENODEV;
-		goto err_exit;
-	}
+	if (of_device_is_compatible(dn, "sirf,atlas7-nand")) {
+		/* clock */
+		nand_dev.io_clk = devm_clk_get(dev, "nand_io");
+		if (IS_ERR(nand_dev.io_clk)) {
+			dev_err(dev, "unable to get io clk!\n");
+			error = PTR_ERR(nand_dev.io_clk);
+			goto err_clk_get;
+		}
 
-	/* clock */
-	nand_dev.nand_clk = devm_clk_get(dev, NULL);
-	if (IS_ERR(nand_dev.nand_clk)) {
-		dev_err(dev, "unable to get clk!\n");
-		error = PTR_ERR(nand_dev.nand_clk);
-		goto err_clk_get;
-	}
+		clk_prepare_enable(nand_dev.io_clk);
 
-	clk_prepare_enable(nand_dev.nand_clk);
+		pr_debug("io clock is %ld\n", clk_get_rate(nand_dev.io_clk));
+
+		nand_dev.nand_clk = devm_clk_get(dev, "nand_nand");
+		if (IS_ERR(nand_dev.nand_clk)) {
+			dev_err(dev, "unable to get nand clk!\n");
+			error = PTR_ERR(nand_dev.nand_clk);
+			goto err_clk_get;
+		}
+
+		clk_prepare_enable(nand_dev.nand_clk);
+
+		pr_debug("nand clock is %ld\n",
+				clk_get_rate(nand_dev.nand_clk));
+	} else {
+		nand_dev.nand_clk = devm_clk_get(dev, NULL);
+		if (IS_ERR(nand_dev.nand_clk)) {
+			dev_err(dev, "unable to get clk!\n");
+			error = PTR_ERR(nand_dev.nand_clk);
+			goto err_clk_get;
+		}
+
+		clk_prepare_enable(nand_dev.nand_clk);
+	}
 
 	nand_dev.pfn_ioctrl =
 		(PFN_NANDDISK_IOCTRL)phys_to_virt(nand_dev.nanddisk_code_start);
@@ -1094,7 +1131,7 @@ static const struct dev_pm_ops sirfsoc_nand_pm_ops = {
 
 static const struct of_device_id nand_sirfsoc_of_match[] = {
 	{ .compatible = "sirf,prima2-nand", },
-	{ .compatible = "sirf,marco-nand", },
+	{ .compatible = "sirf,atlas7-nand", },
 	{}
 };
 

@@ -1186,6 +1186,7 @@
 				<0x17020000 0x17020000 0x1000>,
 				<0x17030000 0x17030000 0x1000>,
 				<0x17040000 0x17040000 0x1000>,
+				<0x17050000 0x17050000 0x10000>,
 				<0x17060000 0x17060000 0x200>,
 				<0x17060200 0x17060200 0x100>,
 				<0x17070000 0x17070000 0x200>,
@@ -1212,6 +1213,20 @@
 				gpio-ranges-group-names = "lvds_gpio_grp",
 							"uart_nand_gpio_grp";
 			};
+
+			nand@17050000 {
+				compatible = "sirf,atlas7-nand";
+				reg = <0x17050000 0x10000>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&nd_df_pmx>;
+				interrupts = <0 41 0>;
+				clocks = <&car 115>, <&car 119>;
+				clock-names = "nand_io", "nand_nand";
+				sirf,nanddisk-uboot-commit-flag = <0x200000>;
+				sirf,nanddisk-rsvmem-range =
+					<0x46000000 0x200000>;
+			};
+
 
 			sd0: sdhci@16000000 {
 				cell-index = <0>;

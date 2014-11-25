@@ -401,7 +401,8 @@ struct ADDRMAP {
 	unsigned size;
 	unsigned flag;
 };
-#define ADDR_MAP_FLAG_CACHE     0x1
+#define ADDR_MAP_FLAG_CACHE	0x1
+#define ADDR_MAP_FLAG_DMABUF	0x2
 
 /*
  * NAND_IOCTRL_ASYNC_MODE

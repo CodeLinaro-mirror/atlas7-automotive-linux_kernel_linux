@@ -1,7 +1,7 @@
 CSR prima2/marco/atlas6 NAND Controller
 
 Required Properties:
-- compatible : Should be "sirf,prima2-nand" or "sirf,marco-nand"
+- compatible : Should be "sirf,prima2-nand" or "sirf,atlas7-nand"
 - reg : Address range of controller
 - pinctrl-names : The name of pinctrl
 - pinctrl-0 : = The pinctrl needed by NAND controller

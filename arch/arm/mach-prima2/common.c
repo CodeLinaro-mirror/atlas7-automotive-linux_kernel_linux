@@ -28,6 +28,17 @@
 static struct gpio_extcon_platform_data h2w_extcon_data;
 static struct device fake_cma_dev;
 
+#ifdef CONFIG_NANDDISK
+#define NANDDISK_PHY_BASE 0x46000000UL
+static struct map_desc sirfsoc_nanddisk_map[] __initdata = {
+	 { /* nanddisk */
+		 .virtual = 0xC6000000,
+		 .pfn = __phys_to_pfn(NANDDISK_PHY_BASE),
+		 .length = SZ_2M,
+		 .type = MT_MEMORY_RWX,
+	 },
+};
+#endif
 static int __init sirf_fdt_handle_pre_rsv_mem(unsigned long node,
 	const char *uname, int depth, void *data)
 {
@@ -178,6 +189,7 @@ void __init prima2_reserve(void)
 void __init atlas7_reserve(void)
 {
 	csrvisor_reserve();
+	sirfsoc_nand_reserve_memblock();
 }
 
 /* specific device names for some device node */
@@ -270,6 +282,10 @@ static __init void sirfsoc_map_io(void)
 	sirfsoc_map_lluart();
 #if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	iotable_init(sirfsoc_csrvisor_map, ARRAY_SIZE(sirfsoc_csrvisor_map));
+#endif
+
+#ifdef CONFIG_NANDDISK
+	iotable_init(sirfsoc_nanddisk_map, ARRAY_SIZE(sirfsoc_nanddisk_map));
 #endif
 }
 
