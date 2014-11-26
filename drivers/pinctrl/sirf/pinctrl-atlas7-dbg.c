@@ -647,6 +647,8 @@ unlock:
 }
 static DEVICE_ATTR_RW(config);
 
+static int atlas7_visbus_initialize(struct atlas7_pmx *pmx);
+
 static int atlas7_pinctrl_init_sysfs(struct atlas7_pmx *pmx)
 {
 	int ret;
@@ -675,6 +677,8 @@ static int atlas7_pinctrl_init_sysfs(struct atlas7_pmx *pmx)
 
 	spin_lock_init(&s_sysfs_lock);
 
+	atlas7_visbus_initialize(pmx);
+
 	dev_info(pmx->dev, "atlas7_pinctrl_init_sysfs....\n");
 	return 0;
 
@@ -682,6 +686,778 @@ failed:
 	kfree(s_sysfs_buf);
 	return ret;
 }
+
+
+/*
+ * RSC is used for atlas7 debug:
+ * visbus, audio_func_dbg, etc.
+ */
+#define RSC_BASE_PHY_ADDR	0x10E50000
+#define RSC_PIN_MUX_SET		0x08
+#define RSC_PIN_MUX_CLR		0x0C
+#define RSC_SW_USE0		0x28
+#define RSC_SW_USE1		0x2C
+#define RSC_SW_USE2		0x30
+#define RSC_SW_USE3		0x34
+#define RSC_VISBUS_SEL		0x38 /* VISBUS Macro Selection */
+#define RSC_AUDIO_FUNC_DBG	0x3C
+
+#define VISBUS_MACRO_MASK	0xF
+#define VISBUS_BLOCK_MASK	0xF
+
+/* Enumeration of VISBUS MACROS*/
+enum visbus_macros {
+	NO_MACRO = 0,
+	AUDMSCM,
+	BTM,
+	CGUM,
+	CPUM,
+	DDRM,
+	GNSSM,
+	GPUM,
+	MEDIAM,
+	RTCM,
+	VDIFM,
+	ALL_MACROS,
+	OUTPINS,
+	CLOCKS,
+};
+
+/* macro's status */
+#define M_INACTIVE	0
+#define M_ACTIVE	1
+#define M_UNUSED	2
+
+/* block's status */
+#define B_INACTIVE	0
+#define B_ACTIVE	1
+#define B_UNUSED	2
+/*
+ * Block/Entry Selection Registers for VISBUS,
+ * Each macro has one register.
+ */
+ /* VISBUS Block/Entry Selection Register for AUDMSCM */
+#define AUDMSCM_TH_GENERAL_SW_0		0x10E60000
+/* VISBUS Block/Entry Selection Register for BTM */
+#define BTM_TH_GENERAL_SW_0		0x11020000
+/* VISBUS Block/Entry Selection Register for CGUM */
+#define CGUM_TH_GENERAL_SW_0		0x18640000
+/* VISBUS Block/Entry Selection Register for CPUM */
+#define CPUM_TH_GENERAL_SW_0		0x10202000
+/* VISBUS Block/Entry Selection Register for DDRM */
+#define DDRM_TH_GENERAL_SW_0		0x10818000
+/* VISBUS Block/Entry Selection Register for GNSSM */
+#define GNSSM_TH_GENERAL_SW_0		0x18070000
+/* VISBUS Block/Entry Selection Register for GPUM */
+#define GPUM_TH_GENERAL_SW_0		0x13021000
+/* VISBUS Block/Entry Selection Register for MEDIAM */
+#define MEDIAM_TH_GENERAL_SW_0		0x17090000
+/* VISBUS Block/Entry Selection Register for RTCM */
+#define RTCM_TH_GENERAL_SW_0		0x18813000
+/* VISBUS Block/Entry Selection Register for VDIFM */
+#define VDIFM_TH_GENERAL_SW_0		0x13310000
+
+#define MAX_VISBUS_BLOCK_PER_MACRO	7
+#define NO_BLOCK	0xf
+#define ALL_ZERO	0
+
+struct visbus_block_desc {
+	const char *name;
+	int sel;
+	int in_bit;
+};
+
+struct visbus_macro_desc {
+	const char *name;
+	ulong reg;
+	int sel;
+	int used;
+	struct visbus_block_desc block_descs[MAX_VISBUS_BLOCK_PER_MACRO];
+};
+
+struct visbus_block {
+	struct visbus_block_desc *desc;
+	int status;
+};
+
+struct visbus_macro {
+	struct visbus_macro_desc *desc;
+	void __iomem *base;
+	int status;
+	struct visbus_block blocks[MAX_VISBUS_BLOCK_PER_MACRO];
+};
+
+struct visbus {
+	struct device dev;
+	struct atlas7_pmx *pmx;
+	/* Macro select register */
+	void __iomem *base;
+	/* Block/Entry Selection Registers */
+	struct visbus_macro macros[ALL_MACROS - 1];
+	bool pins_enable;
+	bool clk_enable;
+	spinlock_t lock;
+	struct atlas7_grp_mux *grp_mux;
+	int *pin_mux_funcs;
+};
+
+static struct visbus_macro_desc atlas7_visbus_macro_descs[] = {
+	{ "audmscm", AUDMSCM_TH_GENERAL_SW_0, AUDMSCM, 5,
+		{	/* visbus sel for AUDMSCM macro */
+			{ "cvd", 1, 4 },
+			{ "audio_ip", 2, 0 },
+			{ "lvds", 3, 12 },
+			{ "kas", 4, 16 },
+			{ "audio", 5, 20 },
+		},
+	}, { "btm", BTM_TH_GENERAL_SW_0, BTM, 1,
+		{	/* visbus sel for BTM macro */
+			{ "a7ca", 1, 4 },
+		},
+	}, { "cgum", CGUM_TH_GENERAL_SW_0, CGUM, 2,
+		{	/* visbus sel for CGUM macro */
+			{ "rstc", 1, 4 },
+			{ "clkc", 2, 8 },
+		},
+	}, { "cpum", CPUM_TH_GENERAL_SW_0, CPUM, 2,
+		{	/* visbus sel for CPUM macro */
+			{ "cpu1", 1, 0 },
+			{ "cpu2", 2, 0 },
+		},
+	}, { "ddrm", DDRM_TH_GENERAL_SW_0, DDRM, 0,
+		{	/* visbus sel for DDR macro */
+			{},
+		},
+	}, { "gnssm", GNSSM_TH_GENERAL_SW_0, GNSSM, 2,
+		{	/* visbus sel for GNSSM macro */
+			{ "gmac", 1, 0 },
+			{ "can1", 2, 0 },
+		},
+	}, { "gpum", GPUM_TH_GENERAL_SW_0, GPUM, 1,
+		{	/* visbus sel for GPUM macro */
+			{ "viterbi", 1, 4 },
+		},
+	}, { "mediam", MEDIAM_TH_GENERAL_SW_0, MEDIAM, 2,
+		{	/* visbus sel for MEDIAM macro */
+			{ "nand", 1, 4 },
+			{ "sdio01", 2, 8 },
+		},
+	}, { "rtcm", RTCM_TH_GENERAL_SW_0, RTCM, 4,
+		{	/* visbus sel for RTCM macro */
+			{ "armm3", 1, 4 },
+			{ "qspi", 2, 8 },
+			{ "can0", 3, 0 },
+			{ "pwrc", 4, 16 },
+		},
+	}, { "vdifm", VDIFM_TH_GENERAL_SW_0, VDIFM, 7,
+		{	/* visbus sel for VDIFM macro */
+			{ "dcu", 1, 4 },
+			{ "vip", 2, 8 },
+			{ "lcd0", 3, 12 },
+			{ "lcd1", 4, 16 },
+			{ "sdio23", 5, 20 },
+			{ "sdio45", 6, 24, },
+			{ "sdio67", 7, 28 },
+		},
+	},
+};
+
+#define RCLKC_LEAF_CLK_BASE	0x18620000
+
+#define ROOT_EN0_SET	0x022C
+
+#define EN0_SET	0x0244
+#define EN1_SET	0x04A0
+#define EN2_SET	0x04B8
+#define EN3_SET	0x04D0
+#define EN4_SET	0x04E8
+#define EN5_SET	0x0500
+#define EN6_SET	0x0518
+#define EN7_SET	0x0530
+#define EN8_SET	0x0548
+
+#define VAL_EN0_SET	0x0F
+#define VAL_EN1_SET	0xE2FFFF
+#define VAL_EN2_SET	0xFFFFF
+#define VAL_EN3_SET	0x1F7FF
+#define VAL_EN4_SET	0xFFFF
+#define VAL_EN5_SET	0x0F
+#define VAL_EN6_SET	0x1F
+#define VAL_EN7_SET	0x07
+#define VAL_EN8_SET	0xFF
+
+static int atlas7_visbus_enable_clock(struct visbus *vis)
+{
+	void __iomem *clkc_base;
+
+	clkc_base = devm_ioremap(&vis->dev, RCLKC_LEAF_CLK_BASE, PAGE_SIZE);
+	if (!clkc_base)
+		return -ENOMEM;
+
+#if 0
+	writel(VAL_EN0_SET, clkc_base + EN0_SET);
+	writel(VAL_EN1_SET, clkc_base + EN1_SET);
+	writel(VAL_EN2_SET, clkc_base + EN2_SET);
+	writel(VAL_EN3_SET, clkc_base + EN3_SET);
+	writel(VAL_EN4_SET, clkc_base + EN4_SET);
+	writel(VAL_EN5_SET, clkc_base + EN5_SET);
+	writel(VAL_EN6_SET, clkc_base + EN6_SET);
+	writel(VAL_EN7_SET, clkc_base + EN7_SET);
+	writel(VAL_EN8_SET, clkc_base + EN8_SET);
+#endif
+
+	/* io_clks */
+	writel((1 << 17) | (1 << 14) | (1 << 13) | (1 << 12) | (1 << 11) |
+		(1 << 2) | (1 << 1), clkc_base + ROOT_EN0_SET);
+	/* rsc */
+	writel(1 << 5, clkc_base + EN1_SET);
+	/* adumscm th */
+	writel(1 << 22, clkc_base + EN1_SET);
+	/* vdifm th */
+	writel(1 << 19, clkc_base + EN2_SET);
+	/* mediam th */
+	writel(1 << 15, clkc_base + EN4_SET);
+	/* gnssm th */
+	writel(1 << 14, clkc_base + EN3_SET);
+	/* btm th */
+	writel((1 << 7) | (1 << 6) | (1 << 5) |
+		(1 << 1) | (1 << 0), clkc_base + EN8_SET);
+	/* cgum th */
+	writel(1 << 3, clkc_base + EN0_SET);
+	/* gpum th */
+	writel(1 << 2, clkc_base + EN7_SET);
+	/* cpum th */
+	writel(1 << 4, clkc_base + EN6_SET);
+	/* ddrm th */
+	writel((1 << 3) | (1 << 2), clkc_base + EN5_SET);
+
+	vis->clk_enable = true;
+	return 0;
+}
+
+static int atlas7_visbus_enable_pins(struct visbus *vis)
+{
+	int idx, ret;
+	ulong regv;
+	struct atlas7_pmx *pmx = vis->pmx;
+	const struct atlas7_pad_mux *mux;
+	struct atlas7_pad_config *conf;
+
+	if (vis->pins_enable)
+		return 0;
+
+	/* backup visbus pins' current mux function */
+	for (idx = 0; idx < vis->grp_mux->pad_mux_count; idx++) {
+		mux = &vis->grp_mux->pad_mux_list[idx];
+		conf = &pmx->pctl_data->confs[mux->pin];
+
+		/* Save Current pin function status */
+		regv = readl(pmx->regs[mux->bank] + conf->mux_reg);
+		regv = (regv >> conf->mux_bit) & FUNC_CLEAR_MASK;
+		vis->pin_mux_funcs[idx] = (int)regv;
+	}
+
+	for (idx = 0; idx < vis->grp_mux->pad_mux_count; idx++) {
+		mux = &vis->grp_mux->pad_mux_list[idx];
+		__atlas7_pmx_pin_input_disable_set(pmx, mux);
+		ret = __atlas7_pmx_pin_enable(pmx, mux->pin, mux->func);
+		if (ret) {
+			dev_err(pmx->dev,
+				"PIN#%d MUX_FUNC:%d failed, ret=%d\n",
+				mux->pin, mux->func, ret);
+			BUG_ON(1);
+		}
+		__atlas7_pmx_pin_input_disable_clr(pmx, mux);
+	}
+
+	vis->pins_enable = true;
+
+	return 0;
+}
+
+static int atlas7_visbus_disable_pins(struct visbus *vis)
+{
+	int idx, func, ret;
+	struct atlas7_pmx *pmx = vis->pmx;
+	const struct atlas7_pad_mux *mux;
+
+	if (!vis->pins_enable)
+		return 0;
+
+	for (idx = 0; idx < vis->grp_mux->pad_mux_count; idx++) {
+		func = vis->pin_mux_funcs[idx];
+		mux = &vis->grp_mux->pad_mux_list[idx];
+		__atlas7_pmx_pin_input_disable_set(pmx, mux);
+		ret = __atlas7_pmx_pin_enable(pmx, mux->pin, func);
+		if (ret) {
+			dev_err(pmx->dev,
+				"PIN#%d MUX_FUNC:%d failed, ret=%d\n",
+				mux->pin, func, ret);
+			BUG_ON(1);
+		}
+		__atlas7_pmx_pin_input_disable_clr(pmx, mux);
+	}
+
+	vis->pins_enable = false;
+
+	return 0;
+}
+
+static int atlas7_visbus_get_macro_by_name(struct visbus *vis,
+						char *name)
+{
+	int idx;
+	struct visbus_macro *macro;
+
+	for (idx = 0; idx < ALL_MACROS - 1; idx++) {
+		macro = &vis->macros[idx];
+		if (!strcmp(macro->desc->name, name))
+			return macro->desc->sel;
+	}
+
+	return NO_MACRO;
+}
+
+static int atlas7_visbus_get_block_by_name(struct visbus *vis,
+				int macro_sel, char *name)
+{
+	int idx = macro_sel - 1;
+	struct visbus_macro *macro;
+	struct visbus_block *block;
+
+	macro = &vis->macros[idx];
+	for (idx = 0; idx < macro->desc->used; idx++) {
+		block = &macro->blocks[idx];
+		if (!strcmp(block->desc->name, name))
+			return block->desc->sel;
+	}
+
+	return NO_BLOCK;
+}
+
+static int atlas7_visbus_enable_macro(struct visbus *vis, int sel)
+{
+	struct visbus_macro *macro;
+
+	writel(sel & VISBUS_MACRO_MASK, vis->base);
+	if (sel == ALL_MACROS) {
+		int idx;
+
+		for (idx = 0; idx < ALL_MACROS - 1; idx++) {
+			macro = &vis->macros[idx];
+			macro->status = M_ACTIVE;
+		}
+	} else {
+		macro = &vis->macros[sel - 1];
+		macro->status = M_ACTIVE;
+	}
+
+	return 0;
+}
+
+static int atlas7_visbus_disable_macro(struct visbus *vis, int sel)
+{
+	int idx;
+	struct visbus_macro *macro;
+
+	writel(NO_MACRO & VISBUS_MACRO_MASK, vis->base);
+	for (idx = 0; idx < ALL_MACROS - 1; idx++) {
+		macro = &vis->macros[idx];
+		macro->status = M_INACTIVE;
+	}
+
+	return 0;
+}
+
+static int atlas7_visbus_enable_block(struct visbus *vis,
+				int macro_sel, int sel, int opt)
+{
+	int idx = macro_sel - 1;
+	ulong regv;
+	struct visbus_macro *macro;
+	struct visbus_block *block;
+
+	macro = &vis->macros[idx];
+	for (idx = 0; idx < macro->desc->used; idx++) {
+		block = &macro->blocks[idx];
+		if (block->desc->sel == sel) {
+			regv = sel & VISBUS_BLOCK_MASK;
+			if (opt != -1 && block->desc->in_bit)
+				regv |= ((opt & VISBUS_BLOCK_MASK) <<
+					 block->desc->in_bit);
+			writel(regv, macro->base);
+			block->status = B_ACTIVE;
+		} else
+			block->status = B_INACTIVE;
+	}
+
+	return 0;
+}
+
+static int atlas7_visbus_disable_block(struct visbus *vis,
+					int macro_sel, int sel)
+{
+	int idx = macro_sel - 1;
+	struct visbus_macro *macro;
+	struct visbus_block *block;
+
+	macro = &vis->macros[idx];
+	writel(0, macro->base);
+	for (idx = 0; idx < macro->desc->used; idx++) {
+		block = &macro->blocks[idx];
+		block->status = B_INACTIVE;
+	}
+
+	return 0;
+}
+
+#if 0
+static void atlas7_visbus_dump_regs(struct visbus *vis)
+{
+	int idx;
+	struct visbus_macro *macro;
+
+	dev_info(&vis->dev, "DUMP VISBUS CONFIG REGISTERS:\n");
+	dev_info(&vis->dev, "RSC\tREGVAL:0x%08x\n", readl(vis->base));
+	for (idx = 0; idx < ALL_MACROS - 1; idx++) {
+		macro = &vis->macros[idx];
+		dev_info(&vis->dev, "%s\tREGVAL:0x%08x\n",
+			macro->desc->name, readl(macro->base));
+	}
+	dev_info(&vis->dev, "\n");
+}
+#endif
+
+static int atlas7_visbus_config(struct visbus *vis, int opcode,
+				int macro, int block, int option)
+{
+	int ret;
+
+	if (macro == NO_MACRO)
+		return -EINVAL;
+
+	/* config pins */
+	if (macro == OUTPINS) {
+		if (opcode)
+			ret = atlas7_visbus_enable_pins(vis);
+		else
+			ret = atlas7_visbus_disable_pins(vis);
+
+		return ret;
+	}
+
+	/* config clks */
+	if (macro == CLOCKS) {
+		if (opcode)
+			ret = atlas7_visbus_enable_clock(vis);
+		else
+			ret = -EINVAL;
+		return ret;
+	}
+
+	if (!vis->clk_enable) {
+		dev_err(&vis->dev,
+			"The clocks for Visbus hadn't been enabled!\n");
+		ret = -EPERM;
+		goto failed;
+	}
+
+	/* select marcos */
+	if (opcode)
+		ret = atlas7_visbus_enable_macro(vis, macro);
+	else
+		ret = atlas7_visbus_disable_macro(vis, macro);
+	if (ret)
+		goto failed;
+
+	/* select all macros, other parameters are ignored. */
+	if (macro == ALL_MACROS)
+		return 0;
+
+	/* select blocks */
+	if (opcode)
+		ret = atlas7_visbus_enable_block(vis, macro, block, option);
+	else
+		ret = atlas7_visbus_disable_block(vis, macro, block);
+	if (ret)
+		goto failed;
+
+failed:
+	return ret;
+}
+
+static ssize_t usage_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, 4096, "visbus help:\n"
+		"\n\rcat vconf\n"
+		"\r	To show the Visbus status.\n"
+		"\n\recho enable clocks > vconf\n"
+		"\r	Enable Visbus clocks to access registers.\n"
+		"\n\recho enable out_pins > vconf\n"
+		"\r	Enable Visbus output, enable all visbus out pins.\n"
+		"\n\recho enable all_macros > vconf\n"
+		"\r	Enable Visbus on all macros.\n"
+		"\n\recho enable <macro_name> > vconf\n"
+		"\r	Enable Visbus on specified macro.\n"
+		"\n\recho enable <macro_name> <block_name> [option] > vconf\n"
+		"\r	Enable Visbus for the block of specified macro.\n"
+		"\r	Only one block can be enable at a time for a macro.\n"
+		"\n\recho disable <macro_name> <block_name> > vconf\n"
+		"\r	Disable Visbus for the block of specified macro.\n"
+		"\n\recho disable <macro_name> > vconf\n"
+		"\r	Disable Visbus for specified macro.\n"
+		"\n\recho disable all_macros > vconf\n"
+		"\r	Disable Visbus for all macros.\n"
+		"\n\recho disable out_pins > vconf\n"
+		"\r	Disable Visbus output, enable all visbus out pins.\n"
+		);
+	return ret;
+}
+static DEVICE_ATTR_RO(usage);
+
+static ssize_t vconf_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int i, idx, cnt;
+	ulong regv = 0;
+	struct visbus *vis;
+	struct visbus_macro *macro;
+	struct visbus_block *block;
+
+	vis = dev_get_drvdata(dev);
+	cnt = 0;
+
+	spin_lock(&vis->lock);
+
+	if (vis->clk_enable)
+		regv = readl(vis->base);
+	cnt += snprintf(buf + cnt, 4096 - cnt,
+		"RSC_VIS_SEL:0x%lx\n", regv & VISBUS_MACRO_MASK);
+
+	for (idx = 0; idx < ALL_MACROS - 1; idx++) {
+		macro = &vis->macros[idx];
+		if (vis->clk_enable)
+			regv = readl(macro->base);
+		cnt += snprintf(buf + cnt, 4096 - cnt,
+		"MACRO:%s SEL:%d IOMEM:0x%lx VALUE:0x%lx STATUS:%s\n",
+				macro->desc->name,
+				macro->desc->sel,
+				macro->desc->reg,
+				regv,
+				(macro->status == M_INACTIVE)
+				? "INACTIVE" : "ACTIVE");
+		for (i = 0; i < MAX_VISBUS_BLOCK_PER_MACRO; i++) {
+			block = &macro->blocks[i];
+			if (block->status != B_UNUSED)
+				cnt += snprintf(buf + cnt, 4096 - cnt,
+				"\tBLOCK#%d:%s SEL:%d INBIT:%d STATUS:%s\n",
+				i, block->desc->name,
+				block->desc->sel,
+				block->desc->in_bit,
+				(block->status == B_INACTIVE)
+				? "INACTIVE" : "ACTIVE");
+		}
+		cnt += snprintf(buf + cnt, 4096 - cnt, "\n");
+	}
+
+	spin_unlock(&vis->lock);
+
+	return cnt;
+}
+
+
+static ssize_t vconf_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t len)
+{
+	struct visbus *vis;
+	char arg0[32], arg1[32], arg2[32];
+	int ret, argc, arg3 = -1;
+	int opcode = -1, macro = NO_MACRO, block = NO_BLOCK;
+
+	vis = dev_get_drvdata(dev);
+
+	argc = sscanf(buf, "%s %s %s %d", arg0, arg1, arg2, &arg3);
+	spin_lock(&vis->lock);
+
+	if (argc > 0) {
+		if (!strcmp(arg0, "enable"))
+			opcode = 1;
+		else if (!strcmp(arg0, "disable"))
+			opcode = 0;
+		else {
+			ret = -EINVAL;
+			goto failed;
+		}
+	}
+
+	if (argc > 1) {
+		if (!strcmp(arg1, "out_pins")) {
+			macro = OUTPINS;
+			goto config_visbus;
+		} else if (!strcmp(arg1, "clocks")) {
+			macro = CLOCKS;
+			goto config_visbus;
+		} else if (!strcmp(arg1, "all_macros")) {
+			macro = ALL_MACROS;
+			goto config_visbus;
+		} else {
+			macro = atlas7_visbus_get_macro_by_name(vis, arg1);
+			if (macro == NO_MACRO) {
+				ret = -EINVAL;
+				goto failed;
+			}
+		}
+	}
+
+	block = ALL_ZERO;
+	if (argc > 2) {
+		block = atlas7_visbus_get_block_by_name(vis, macro, arg2);
+		if (block == NO_BLOCK) {
+			ret = -EINVAL;
+			goto failed;
+		}
+	}
+
+config_visbus:
+	ret = atlas7_visbus_config(vis, opcode, macro, block, arg3);
+
+failed:
+	spin_unlock(&vis->lock);
+	if (ret)
+		dev_err(dev, "Invalied parameters! Error=%d\n", ret);
+	return len;
+}
+static DEVICE_ATTR_RW(vconf);
+
+static int atlas7_visbus_macro_init(struct visbus *vis,
+					int macro_id)
+{
+	int idx;
+	struct visbus_macro_desc *m_desc;
+	struct visbus_macro *macro;
+	struct visbus_block *block;
+
+	idx = macro_id - 1;
+
+	if (idx >= ARRAY_SIZE(atlas7_visbus_macro_descs))
+		return -EINVAL;
+
+	m_desc = &atlas7_visbus_macro_descs[idx];
+	if (m_desc->sel != macro_id) {
+		dev_err(&vis->dev, "Mismatched Visbus Desc table!\n");
+		BUG_ON(1);
+	}
+
+	macro = &vis->macros[idx];
+	macro->desc = m_desc;
+	macro->status = M_INACTIVE;
+	macro->base = devm_ioremap(&vis->dev, m_desc->reg, PAGE_SIZE);
+	if (!macro->base)
+		return -ENOMEM;
+
+	/* Init used blocks */
+	for (idx = 0; idx < m_desc->used; idx++) {
+		block = &macro->blocks[idx];
+		block->desc = &m_desc->block_descs[idx];
+		block->status = B_INACTIVE;
+	}
+
+	/* Init unused blocks */
+	for (idx = m_desc->used; idx < MAX_VISBUS_BLOCK_PER_MACRO; idx++) {
+		block = &macro->blocks[idx];
+		block->desc = NULL;
+		block->status = B_UNUSED;
+	}
+
+	return 0;
+}
+
+static void visbus_device_release(struct device *dev)
+{
+	struct visbus *vis = dev_get_drvdata(dev);
+
+	kfree(vis);
+}
+
+static int atlas7_visbus_initialize(struct atlas7_pmx *pmx)
+{
+	struct visbus *vis;
+	int idx, ret;
+
+	vis = devm_kzalloc(pmx->dev, sizeof(*vis), GFP_KERNEL);
+	if (!vis)
+		return -ENOMEM;
+
+	/* very simple device indexing plumbing which is enough for now */
+	dev_set_name(&vis->dev, "visbus");
+
+	vis->dev.parent = NULL;
+	vis->dev.bus = NULL;
+	vis->dev.release = visbus_device_release;
+	ret = device_register(&vis->dev);
+	if (ret) {
+		dev_err(pmx->dev, "device_register failed: %d\n", ret);
+		put_device(&vis->dev);
+		return ret;
+	}
+
+	vis->base = devm_ioremap(&vis->dev, RSC_BASE_PHY_ADDR, PAGE_SIZE);
+	if (!vis->base) {
+		ret = -ENOMEM;
+		goto failed;
+	}
+
+	vis->base += RSC_VISBUS_SEL;
+	vis->pmx = pmx;
+	vis->grp_mux = &visbus_dout_grp_mux;
+	vis->pin_mux_funcs = devm_kzalloc(&vis->dev,
+			sizeof(int) * vis->grp_mux->pad_mux_count,
+			GFP_KERNEL);
+	if (!vis->pin_mux_funcs) {
+		ret = -ENOMEM;
+		goto failed;
+	}
+
+	/* Initialize each macro */
+	for (idx = AUDMSCM; idx < ALL_MACROS; idx++) {
+		ret = atlas7_visbus_macro_init(vis, idx);
+		if (ret)
+			goto failed;
+	}
+
+	ret = device_create_file(&vis->dev, &dev_attr_usage);
+	if (ret) {
+		dev_err(&vis->dev,
+			"failed to create visbus attr, %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = device_create_file(&vis->dev, &dev_attr_vconf);
+	if (ret) {
+		dev_err(&vis->dev,
+			"failed to create visbus attr, %d\n",
+			ret);
+		return ret;
+	}
+
+	spin_lock_init(&vis->lock);
+	vis->pins_enable = false;
+	vis->clk_enable = false;
+	dev_set_drvdata(&vis->dev, vis);
+
+	pr_info("atlas7 visbus initialized OK.\n");
+	return 0;
+failed:
+	device_unregister(&vis->dev);
+	pr_info("atlas7 visbus initialized failed! error=%d\n", ret);
+	return ret;
+}
+
 
 #endif /* __PINCTRL_ATLAS7_DEBUG__ */
 
