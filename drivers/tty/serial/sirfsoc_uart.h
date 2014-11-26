@@ -45,8 +45,8 @@ struct sirfsoc_register {
 	u32 sirfsoc_async_param_reg;
 };
 
-typedef u32 (*fifo_full_mask)(int line);
-typedef u32 (*fifo_empty_mask)(int line);
+typedef u32 (*fifo_full_mask)(struct uart_port *port);
+typedef u32 (*fifo_empty_mask)(struct uart_port *port);
 
 struct sirfsoc_fifo_status {
 	fifo_full_mask ff_full;
@@ -117,7 +117,7 @@ u32 uart_usp_ff_empty_mask(struct uart_port *port)
 {
 	u32 empty_bit;
 
-	empty_bit = ilog2(port->fifosize);
+	empty_bit = ilog2(port->fifosize) + 1;
 	return (1 << empty_bit);
 }
 struct sirfsoc_uart_register sirfsoc_usp = {
