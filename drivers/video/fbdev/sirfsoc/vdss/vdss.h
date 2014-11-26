@@ -65,4 +65,9 @@ void vpp_uninit_platform_driver(void);
 void vpp_passthrough_setup(struct vdss_vpp_params *params);
 int vpp_blt(struct vdss_blt_params *blt_params);
 
+int lvdsc_init_platform_driver(void) __init;
+void lvdsc_uninit_platform_driver(void) __init;
+int lvdsc_setup(enum vdss_lvdsc_fmt fmt);
+bool lvdsc_is_syn_mode(void);
+
 #endif

@@ -56,6 +56,18 @@ enum vdss_screen {
 	SIRFSOC_VDSS_SCREEN1,
 };
 
+enum vdss_lvdsc_mode {
+	SIRFSOC_VDSS_LVDSC_MODE_NONE,
+	SIRFSOC_VDSS_LVDSC_MODE_SLAVE,
+	SIRFSOC_VDSS_LVDSC_MODE_SYN,
+};
+
+enum vdss_lvdsc_fmt {
+	SIRFSOC_VDSS_LVDSC_FMT_NONE,
+	SIRFSOC_VDSS_LVDSC_FMT_VESA_6BIT,
+	SIRFSOC_VDSS_LVDSC_FMT_VESA_8BIT,
+};
+
 struct vdss_rect {
 	int	left;
 	int	top;
