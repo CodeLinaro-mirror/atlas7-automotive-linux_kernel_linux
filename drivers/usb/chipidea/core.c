@@ -795,11 +795,70 @@ static int ci_hdrc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static void ci_controller_suspend(struct ci_hdrc *ci)
+{
+	ci_hdrc_enter_lpm(ci, true);
+
+	if (ci->usb_phy)
+		usb_phy_set_suspend(ci->usb_phy, 1);
+}
+
+static int ci_controller_resume(struct device *dev)
+{
+	struct ci_hdrc *ci = dev_get_platdata(dev);
+
+	dev_dbg(dev, "at %s\n", __func__);
+
+	ci_hdrc_enter_lpm(ci, false);
+
+	if (ci->usb_phy) {
+		usb_phy_set_suspend(ci->usb_phy, 0);
+		usb_phy_set_wakeup(ci->usb_phy, false);
+		hw_wait_phy_stable();
+	}
+
+	ci->role = ci_otg_role(ci);
+	if (!ci->roles[CI_ROLE_GADGET])
+		ci->role = CI_ROLE_HOST;
+	if (ci->role == CI_ROLE_GADGET)
+		hw_device_reset(ci, USBMODE_CM_DC);
+	if (ci->roles[CI_ROLE_HOST] && ci->roles[CI_ROLE_GADGET] && ci->is_otg)
+		hw_write_otgsc(ci, OTGSC_IDIE, OTGSC_IDIE);
+
+	ci_role_start(ci, ci->role);
+
+	return 0;
+}
+
+static int ci_suspend(struct device *dev)
+{
+	struct ci_hdrc *ci = dev_get_platdata(dev);
+
+	if (ci->wq)
+		flush_workqueue(ci->wq);
+
+	ci_role_stop(ci);
+	ci_controller_suspend(ci);
+
+	return 0;
+}
+
+static int ci_resume(struct device *dev)
+{
+	return ci_controller_resume(dev);
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static const struct dev_pm_ops ci_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ci_suspend, ci_resume)
+};
 static struct platform_driver ci_hdrc_driver = {
 	.probe	= ci_hdrc_probe,
 	.remove	= ci_hdrc_remove,
 	.driver	= {
 		.name	= "ci_hdrc",
+		.pm	= &ci_pm_ops,
 		.owner	= THIS_MODULE,
 	},
 };
