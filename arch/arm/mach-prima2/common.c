@@ -174,7 +174,6 @@ void __init sirfsoc_reserve(void)
 {
 	csrvisor_reserve();
 	sirfsoc_pre_reserve();
-	sirfsoc_nand_reserve_memblock();
 	sirfsoc_gps_reserve_memblock();
 	sirfsoc_pbb_reserve_memblock();
 	sirfsoc_reserve_cma();
@@ -189,7 +188,6 @@ void __init prima2_reserve(void)
 void __init atlas7_reserve(void)
 {
 	csrvisor_reserve();
-	sirfsoc_nand_reserve_memblock();
 }
 
 /* specific device names for some device node */
@@ -246,7 +244,6 @@ static void __init sirfsoc_init_late(void)
 	sirfsoc_pm_init();
 	sirfsoc_gps_nosave_memblock();
 	sirfsoc_pbb_nosave_memblock();
-	sirfsoc_nand_nosave_memblock();
 
 #if defined(CONFIG_CSRVISOR_DUALOS) && !defined(CONFIG_SECURITY_MODE)
 	if (of_machine_is_compatible("sirf,atlas7"))

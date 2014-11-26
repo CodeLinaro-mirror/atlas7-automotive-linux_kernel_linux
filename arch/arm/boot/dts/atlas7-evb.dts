@@ -39,6 +39,11 @@
 			compatible = "sirf,reserved-memory";
 			reg = <0x4FD10000 0x10000>;
 		};
+
+		nanddisk_reserved: nanddisk@46000000 {
+			reg = <0x46000000 0x200000>;
+			no-map;
+		};
 	};
 
 	noc {
@@ -112,6 +117,10 @@
 			};
 		};
 		mediam {
+			nand@17050000 {
+				memory-region = <&nanddisk_reserved>;
+			};
+
 			sdhci@16000000 {
 				status = "okay";
 			};

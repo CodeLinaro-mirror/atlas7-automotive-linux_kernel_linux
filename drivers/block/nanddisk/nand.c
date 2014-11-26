@@ -67,7 +67,6 @@ struct nanddisk_device {
 	unsigned boot_zone_log_sector_num;
 	unsigned nanddisk_code_start;
 	unsigned nanddisk_code_size;
-	unsigned uboot_commit_flag;
 
 	/* address map and irq resource */
 	struct ADDRMAP *addr_map_tbl;
@@ -99,48 +98,6 @@ struct nanddisk_device {
 };
 
 static struct nanddisk_device   nand_dev;
-
-static int __init sirf_fdt_handle_rsv_mem(unsigned long node, const char *uname,
-				int depth, void *data)
-{
-	const __be32 *mem_info;
-	int len;
-
-	mem_info = of_get_flat_dt_prop(node,
-			"sirf,nanddisk-rsvmem-range", &len);
-	if (!mem_info || (len != 2 * sizeof(int)))
-		return 0;
-
-	nand_dev.nanddisk_code_start = be32_to_cpu(mem_info[0]);
-	nand_dev.nanddisk_code_size = be32_to_cpu(mem_info[1]);
-
-	if (memblock_reserve(nand_dev.nanddisk_code_start,
-			nand_dev.nanddisk_code_size))
-		pr_err("failed to reserve memory(0x%x bytes at 0x%x)\n",
-			nand_dev.nanddisk_code_size,
-			nand_dev.nanddisk_code_start);
-
-	pr_debug("get rsv memory 0x%x-0x%x\n", nand_dev.nanddisk_code_start,
-		nand_dev.nanddisk_code_size);
-
-	return 1;
-}
-
-void  __init sirfsoc_nand_reserve_memblock(void)
-{
-	if (!of_scan_flat_dt(sirf_fdt_handle_rsv_mem, NULL))
-		pr_err("failed to find reserved memory.\n");
-}
-EXPORT_SYMBOL(sirfsoc_nand_reserve_memblock);
-
-void  __init sirfsoc_nand_nosave_memblock(void)
-{
-	register_nosave_region_late(
-		__phys_to_pfn(nand_dev.nanddisk_code_start),
-		__phys_to_pfn(nand_dev.nanddisk_code_start +
-				nand_dev.nanddisk_code_size));
-}
-EXPORT_SYMBOL(sirfsoc_nand_nosave_memblock);
 
 static int nanddisk_io_session(unsigned handle,
 		unsigned ioctrl_code,
@@ -788,6 +745,8 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	dma_cap_mask_t dma_cap_mask;
 	int i, error, addr_map_tbl_size;
 	int resource_index;
+	struct device_node *fw_memory;
+	u64 size;
 	struct arch_nanddisk_resource *arch_nres_used;
 
 	arch_nres_used = &arch_nres[0];
@@ -807,6 +766,17 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 
 	dev_info(dev, "find nand controller(%s).\n",
 		 arch_nres_used->arch_compatible);
+
+	/* get reserved memory for nanddisk firmware */
+	fw_memory = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (!fw_memory) {
+		error = -ENODEV;
+		goto err_exit;
+	}
+
+	nand_dev.nanddisk_code_start = of_translate_address(fw_memory,
+			of_get_address(fw_memory, 0, &size, NULL));
+	nand_dev.nanddisk_code_size = size;
 
 	/* total other controller */
 	nand_dev.addr_entry_num = arch_nres_used->res_num;
@@ -874,14 +844,6 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	if (!nand_dev.addr_map_tbl[i].va) {
 		dev_err(dev, "unable to ioremap!\n");
 		error = -ENOMEM;
-		goto err_exit;
-	}
-
-	/* firmware area */
-	if (of_property_read_u32(dn, "sirf,nanddisk-uboot-commit-flag",
-		&nand_dev.uboot_commit_flag)) {
-		dev_err(dev, "unable to get uboot commit flag!\n");
-		error = -ENODEV;
 		goto err_exit;
 	}
 
