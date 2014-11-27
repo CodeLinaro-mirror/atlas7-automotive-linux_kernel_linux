@@ -258,13 +258,6 @@ static int cvd_s_std(struct v4l2_subdev *sd, v4l2_std_id norm)
 						config_pal[i].reg_value, sd);
 	}
 
-	/* line buffer initialization status busy(0x1) or idle(0x0) */
-	while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
-		;
-
-	/* soft reset CVD logic, register values are not reseted */
-	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
-
 	dec->norm = norm;
 
 	return 0;

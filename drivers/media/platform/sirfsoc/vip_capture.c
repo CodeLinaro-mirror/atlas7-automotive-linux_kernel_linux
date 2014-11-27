@@ -1022,18 +1022,11 @@ static int vip_do_try_fmt(struct vip_subdev_info *subdev,
 	upix->pixelformat = f->pixelformat;
 
 	v4l2_fill_mbus_format(&mbus_fmt, upix, f->mbus_code);
-	ret = v4l2_subdev_call(sd, video, try_mbus_fmt, &mbus_fmt);
+	v4l2_subdev_call(sd, video, try_mbus_fmt, &mbus_fmt);
 	v4l2_fill_pix_format(upix, &mbus_fmt);
 
-	if (ret || (upix->width == 0) || (upix->height == 0)) {
-		if (upix->width > VIP_DEFAULT_WIDTH)
-			upix->width = VIP_DEFAULT_WIDTH;
-		if (upix->height > VIP_DEFAULT_HEIGHT)
-			upix->height = VIP_DEFAULT_HEIGHT;
-		upix->field = V4L2_FIELD_NONE;
-		upix->colorspace = V4L2_COLORSPACE_JPEG;
-		ret = 0;
-	}
+	upix->field = V4L2_FIELD_NONE;
+	upix->colorspace = V4L2_COLORSPACE_JPEG;
 
 	upix->bytesperline = f->bpp * upix->width;
 	upix->sizeimage = upix->bytesperline * upix->height;
@@ -1951,7 +1944,7 @@ static int vip_video_devs_create(struct vip_dev *vip)
 		vdev->fops		= &sirfsoc_camera_fops;
 		vdev->ioctl_ops		= &sirfsoc_camera_ioctl_ops;
 		vdev->release		= video_device_release;
-		vdev->tvnorms		= V4L2_STD_UNKNOWN;
+		vdev->tvnorms		= V4L2_STD_NTSC | V4L2_STD_PAL;
 		vdev->ctrl_handler	= &subdev->ctrl_handler;
 		vdev->lock		= &vip->host_lock;
 		vdev->v4l2_dev		= &vip->v4l2_dev;
