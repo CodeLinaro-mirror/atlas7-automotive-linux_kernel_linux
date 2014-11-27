@@ -355,6 +355,31 @@ struct sirfsoc_vdss_rgb_ops {
 		int data_lines);
 };
 
+struct sirfsoc_vdss_lvds_ops {
+	int (*connect)(struct sirfsoc_vdss_output *out,
+		struct sirfsoc_vdss_panel *panel);
+	void (*disconnect)(struct sirfsoc_vdss_output *out,
+	struct sirfsoc_vdss_panel *panel);
+
+	int (*enable)(struct sirfsoc_vdss_output *out);
+	void (*disable)(struct sirfsoc_vdss_output *out);
+
+	int (*check_timings)(struct sirfsoc_vdss_output *out,
+		struct sirfsoc_video_timings *timings);
+	void (*set_timings)(struct sirfsoc_vdss_output *out,
+		struct sirfsoc_video_timings *timings);
+
+	void (*get_timings)(struct sirfsoc_vdss_output *out,
+	struct sirfsoc_video_timings *timings);
+
+	void (*set_data_lines)(struct sirfsoc_vdss_output *out,
+			int data_lines);
+	void (*set_fmt)(struct sirfsoc_vdss_output *out,
+		enum vdss_lvdsc_fmt fmt);
+	void (*set_mode)(struct sirfsoc_vdss_output *out,
+		enum vdss_lvdsc_mode mode);
+};
+
 struct sirfsoc_vdss_panel {
 	struct device *dev;
 
@@ -371,6 +396,10 @@ struct sirfsoc_vdss_panel {
 		struct {
 			u8 data_lines;
 		} rgb;
+
+		struct {
+			u8 data_lines;
+		} lvds;
 	} phy;
 
 	const char *name;
@@ -392,13 +421,10 @@ struct sirfsoc_vdss_output {
 	struct module *owner;
 
 	struct list_head list;
-
 	const char *name;
-
-
 	union {
-		const struct sirfsoc_vdss_rgb_ops *rgb;
 		const struct sirfsoc_vdss_lvds_ops *lvds;
+		const struct sirfsoc_vdss_rgb_ops *rgb;
 	} ops;
 
 	/* panel type supported by the output */

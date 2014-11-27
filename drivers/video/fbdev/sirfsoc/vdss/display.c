@@ -37,6 +37,10 @@ static int sirfsoc_vdss_default_get_recommended_bpp(
 			return 16;
 
 	case SIRFSOC_PANEL_LVDS:
+		/* FIXME: the bpp should depend on the data_lines,
+		 * but we return 24 always */
+		return 24;
+
 	default:
 		BUG();
 		return 0;

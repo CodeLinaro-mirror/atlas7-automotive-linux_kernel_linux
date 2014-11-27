@@ -687,7 +687,6 @@ void lcdc_screen_set_timings(enum vdss_screen scn_id,
 	lcdc_write_reg(BLS_LEVEL_TB1, 8 | (10 << 8) | (12 << 16) | (14 << 24));
 	lcdc_write_reg(BLS_LEVEL_TB2, 16 | (18 << 8) | (20 << 16) | (22 << 24));
 	lcdc_write_reg(BLS_LEVEL_TB3, 24 | (26 << 8) | (28 << 16) | (30 << 24));
-
 	/* atlas7: can't use default value any more */
 	if (lcdc.is_atlas7) {
 		lcdc_write_reg(PADMUX_LDD_0, 0x80000);
@@ -1021,6 +1020,16 @@ static struct {
 	struct sirfsoc_vdss_output output;
 } rgb;
 
+static struct {
+	struct platform_device *pdev;
+	struct mutex lock;
+	struct sirfsoc_video_timings timings;
+	int data_lines;
+
+	enum vdss_lvdsc_fmt fmt;
+	struct sirfsoc_vdss_output output;
+} lvds;
+
 
 unsigned int lcdc_read_reg(unsigned int offset)
 {
@@ -1030,6 +1039,143 @@ unsigned int lcdc_read_reg(unsigned int offset)
 void lcdc_write_reg(unsigned int offset, unsigned int value)
 {
 	writel(value, lcdc.base + offset);
+}
+
+static int lvds_connect(struct sirfsoc_vdss_output *out,
+	       struct sirfsoc_vdss_panel *dst)
+{
+	struct sirfsoc_vdss_screen *scn;
+	int ret;
+
+	scn = sirfsoc_vdss_get_screen(out->screen_id);
+	if (!scn)
+		return -ENODEV;
+
+	ret = vdss_screen_set_output(scn, out);
+	if (ret)
+		return ret;
+
+	ret = sirfsoc_vdss_output_set_panel(out, dst);
+	if (ret) {
+		VDSSERR("failed to connect output to device: %s\n", dst->name);
+		vdss_screen_unset_output(scn);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void lvds_disconnect(struct sirfsoc_vdss_output *out,
+	struct sirfsoc_vdss_panel *dst)
+{
+	WARN_ON(dst != out->dst);
+
+	if (dst != out->dst)
+		return;
+
+	sirfsoc_vdss_output_unset_panel(out);
+
+	if (out->screen)
+		vdss_screen_unset_output(out->screen);
+}
+
+static int lvds_enable(struct sirfsoc_vdss_output *out)
+{
+	struct sirfsoc_video_timings *t = &lvds.timings;
+
+	mutex_lock(&lvds.lock);
+
+	vdss_screen_set_timings(out->screen, t);
+	vdss_screen_set_data_lines(out->screen, lvds.data_lines);
+	vdss_screen_set_lvds_info(out->screen, lvds.fmt);
+	vdss_screen_enable(out->screen);
+
+	mutex_unlock(&lvds.lock);
+
+	return 0;
+}
+
+static void lvds_disable(struct sirfsoc_vdss_output *out)
+{
+
+	mutex_lock(&lvds.lock);
+
+	vdss_screen_disable(out->screen);
+
+	mutex_unlock(&lvds.lock);
+}
+
+static void lvds_set_timings(struct sirfsoc_vdss_output *out,
+	struct sirfsoc_video_timings *timings)
+{
+	mutex_lock(&lvds.lock);
+
+	lvds.timings = *timings;
+
+	mutex_unlock(&lvds.lock);
+}
+
+static void lvds_set_data_lines(struct sirfsoc_vdss_output *out,
+	int data_lines)
+{
+	mutex_lock(&lvds.lock);
+
+	lvds.data_lines = data_lines;
+
+	mutex_unlock(&lvds.lock);
+}
+
+static void lvds_set_fmt(struct sirfsoc_vdss_output *out,
+	enum vdss_lvdsc_fmt fmt)
+{
+	mutex_lock(&lvds.lock);
+
+	lvds.fmt = fmt;
+
+	mutex_unlock(&lvds.lock);
+}
+
+static const struct sirfsoc_vdss_lvds_ops lvds_ops = {
+	.connect = lvds_connect,
+	.disconnect = lvds_disconnect,
+
+	.enable = lvds_enable,
+	.disable = lvds_disable,
+
+	.set_timings = lvds_set_timings,
+
+	.set_data_lines = lvds_set_data_lines,
+	.set_fmt = lvds_set_fmt,
+};
+
+static int lvds_init_output(struct platform_device *pdev)
+{
+	struct sirfsoc_vdss_output *out = &lvds.output;
+
+	mutex_init(&lvds.lock);
+
+	out->dev = &pdev->dev;
+
+	/* FIXME: set id to LVDS1 by default, the name depends on the id */
+	out->id = SIRFSOC_VDSS_OUTPUT_LVDS1;
+
+	out->name = "lvds.0";
+
+	/* FIXME: how to set the screen_id */
+	out->screen_id = SIRFSOC_VDSS_SCREEN0;
+	out->type = SIRFSOC_PANEL_LVDS;
+	out->ops.lvds = &lvds_ops;
+	out->owner = THIS_MODULE;
+	sirfsoc_vdss_register_output(out);
+
+	return 0;
+}
+
+static void lvds_deinit_output(void)
+{
+	struct sirfsoc_vdss_output *out = &lvds.output;
+
+	sirfsoc_vdss_unregister_output(out);
 }
 
 unsigned long lcdc_clk_get_rate(void)
@@ -1142,6 +1288,7 @@ static int rgb_init_output(struct platform_device *pdev)
 	out->dev = &pdev->dev;
 	out->id = SIRFSOC_VDSS_OUTPUT_RGB;
 	out->name = "rgb.0";
+
 	out->screen_id = SIRFSOC_VDSS_SCREEN0;
 	out->type = SIRFSOC_PANEL_RGB;
 	out->ops.rgb = &rgb_ops;
@@ -1160,10 +1307,12 @@ static void rgb_deinit_output(void)
 
 static int (*vdss_output_init_funcs[])(struct platform_device *) __initdata = {
 	rgb_init_output,
+	lvds_init_output,
 };
 
 static void (*vdss_output_deinit_funcs[])(void) __exitdata = {
 	rgb_deinit_output,
+	lvds_deinit_output,
 };
 
 static bool vdss_output_inited[ARRAY_SIZE(vdss_output_init_funcs)];
@@ -1495,6 +1644,8 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 
 	vdss_init_layers();
 	vdss_init_screens();
+
+	dev_set_drvdata(&pdev->dev, &lcdc);
 
 	for (i = 0; i < ARRAY_SIZE(vdss_output_init_funcs); ++i) {
 		r = vdss_output_init_funcs[i](pdev);

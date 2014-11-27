@@ -7,5 +7,10 @@ config DISPLAY_PANEL_RGB
 	depends on I2C
 	help
 	  Driver for generic RGB panels.
+config DISPLAY_PANEL_LVDS
+       tristate "Generic LVDS panel"
+       help
+         Driver for generic LVDS panels.
+
 
 endmenu

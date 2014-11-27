@@ -126,6 +126,7 @@ struct screen_priv_data {
 
 	struct sirfsoc_video_timings timings;
 	int data_lines;
+	enum vdss_lvdsc_fmt  lvdsc_fmt;
 };
 
 static struct {
@@ -698,6 +699,27 @@ void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	}
 
 	sdata->data_lines = data_lines;
+	sdata->extra_info_dirty = true;
+out:
+	spin_unlock_irqrestore(&data_lock, flags);
+}
+
+void vdss_screen_set_lvds_info(struct sirfsoc_vdss_screen *scn,
+	enum vdss_lvdsc_fmt lvdsc_fmt)
+{
+	unsigned long flags;
+	struct screen_priv_data *sdata = get_screen_data(scn);
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	if (sdata->enabled) {
+		VDSSERR("cannot set data lines for %s: screen is enabled\n",
+			scn->name);
+		goto out;
+	}
+
+	sdata->lvdsc_fmt  = lvdsc_fmt;
+
 	sdata->extra_info_dirty = true;
 out:
 	spin_unlock_irqrestore(&data_lock, flags);
