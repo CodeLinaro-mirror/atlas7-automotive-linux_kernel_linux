@@ -70,6 +70,8 @@ struct cvd_dev {
 	v4l2_std_id		norm;
 	struct v4l2_subdev	sd;
 	struct v4l2_ctrl_handler hdl;
+
+	struct completion	done;	/* used to get a stable state */
 };
 
 struct cvd_reg {
@@ -266,11 +268,14 @@ static int cvd_s_std(struct v4l2_subdev *sd, v4l2_std_id norm)
 /* Interrupt handler */
 static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 {
+	struct cvd_dev *dec = to_state(sd);
+
 	if (cvd_read(CVBSD_INTERRUPT_CONFIG, sd) & 0x1) {
-		/* cleaned by writing 0 to INTERRUPT_CONFIG.enable register */
+		/* cleared by writing 0 to INTERRUPT_CONFIG.enable register */
 		cvd_write(CVBSD_INTERRUPT_CONFIG, 0x0, sd);
-		/* then re-enable it */
-		cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1, sd);
+
+		/* now we can get stable state and keep interrupt disabled */
+		complete(&dec->done);
 	}
 
 	*handled = TRUE;
@@ -931,10 +936,13 @@ static int cvd_s_register(struct v4l2_subdev *sd,
 
 static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 {
-
-	int value = 0;
+	struct cvd_dev *dec = to_state(sd);
+	int ret = 0, value = 0;
 
 	if (!enable) {
+		/* soft reset CVD logic, register values are not reseted */
+		cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x1, sd);
+
 		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd);	/* CVBSAFE disable */
 
 		return 0;
@@ -946,17 +954,36 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
 		;
 
-	/* soft reset CVD logic, register values are not reseted */
+	/* start CVD */
 	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
+
+	/* wait until Horizontal/Vertical /Chroma PLL locaked */
+	while ((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe) != 0xe)
+		;
 
 	/* enables fi_sync indication */
 	cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1, sd);
 
+	/* wait for a stable state, 100ms is enough for one frame */
+	ret = wait_for_completion_interruptible_timeout(&dec->done,
+							msecs_to_jiffies(100));
+
+	if (ret == 0) {
+		dev_err(to_state(sd)->dev, "Wait fi_sync INT timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	if (ret < 0) {
+		dev_err(to_state(sd)->dev,
+			"wait for fi_sync completion error: %d\n", ret);
+		return ret;
+	}
+
 	value = cvd_detect_video_signal(sd);
 
 	if (value == 0) {
-		dev_info(to_state(sd)->dev, "No signal detected\n");
-		return -EINVAL;
+		dev_err(to_state(sd)->dev, "No signal detected\n");
+		return -EIO;
 	}
 
 	if (value == V4L2_STD_NTSC)
@@ -1128,6 +1155,8 @@ static int cvd_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	dec->dev = dev;
+
+	init_completion(&dec->done);
 
 	dec->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (dec->res == NULL) {

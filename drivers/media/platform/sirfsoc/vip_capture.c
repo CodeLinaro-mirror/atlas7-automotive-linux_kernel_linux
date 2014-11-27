@@ -233,7 +233,6 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	spin_lock_irqsave(&vip->lock, flags);
 	vip_hw_stop(vip);
-	vip_start_dma(vip);
 	spin_unlock_irqrestore(&vip->lock, flags);
 
 	return 0;
@@ -367,8 +366,6 @@ static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 	height = buf->fmt->height;
 	addr = buf->dma;
 
-	vip_write(CAM_FIFO_OP_REG, 0x2);	/* Stop and reset fifo */
-
 	vip_write(DMAN_XLEN, size/height/4);	/* 32bit unit */
 	vip_write(DMAN_YLEN, height - 1);	/* Actual line: DMAN_YLEN +1 */
 	vip_write(DMAN_WIDTH, size/height/4);	/* 32bit unit, 1-D DMA mode */
@@ -379,8 +376,6 @@ static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 
 	vip_write(DMAN_INT_CNT, size/4);	/* 32bit unit */
 	vip_write(DMAN_INT_EN, 0x2);		/* Counter interrupt enable */
-
-	vip_write(CAM_FIFO_OP_REG, 0x1);	/* Enable the DMA FIFO */
 
 	vip_write(DMAN_ADDR, addr);		/* The last reg, start dma */
 }
@@ -623,6 +618,11 @@ static void vip_hw_start(struct vip_dev *vip)
 	val = vip_read(CAM_FIFO_OP_REG);
 	vip_write(CAM_FIFO_OP_REG, val | CAM_FIFO_OP_FIFO_RESET);
 	vip_write(CAM_FIFO_OP_REG, val & ~CAM_FIFO_OP_FIFO_RESET);
+
+	/* Reset camera */
+	val = vip_read(CAM_CTRL);
+	vip_write(CAM_CTRL, val | CAM_CTRL_INIT);
+	vip_write(CAM_CTRL, val & ~CAM_CTRL_INIT);
 
 	/* clear all interrupts */
 	if (vip->is_atlas7_vip0)
@@ -1403,6 +1403,9 @@ static int vidioc_streamon(struct file *file, void *priv,
 	if (!ret)
 		v4l2_subdev_call(sd, video, s_stream, 1);
 
+	/* we need start vip later than sub device */
+	vip_start_dma(vip);
+
 	return ret;
 }
 
@@ -1418,9 +1421,9 @@ static int vidioc_streamoff(struct file *file, void *priv,
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
-	vb2_streamoff(&vip->vb2_vidq, i);
-
 	v4l2_subdev_call(sd, video, s_stream, 0);
+
+	vb2_streamoff(&vip->vb2_vidq, i);
 
 	return 0;
 }
