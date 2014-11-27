@@ -122,6 +122,8 @@
 			};
 
 			sdhci@16000000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd0_pmx>;
 				status = "okay";
 			};
 			i2c0: i2c@17020000 {
