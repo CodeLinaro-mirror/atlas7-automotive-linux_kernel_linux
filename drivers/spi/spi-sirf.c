@@ -605,6 +605,7 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 	struct sirfsoc_spi *sspi;
 	int timeout = t->len * 10;
 	struct sirf_spi_register *spi_reg;
+	unsigned int data_units;
 
 	sspi = spi_master_get_devdata(spi->master);
 	spi_reg = get_sirf_spi_register(sspi);
@@ -630,24 +631,25 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 		writel(readl(sspi->base + spi_reg->int_st),
 			sspi->base + spi_reg->int_st);
 		if (sspi->spi_type == SIRF_REAL_SPI) {
+
 			writel(readl(sspi->base + spi_reg->spi_ctrl) |
 				SIRFSOC_SPI_MUL_DAT_MODE |
 				SIRFSOC_SPI_ENA_AUTO_CLR,
 				sspi->base + spi_reg->spi_ctrl);
-			writel(min(sspi->left_tx_word,
-				(u32)(256 / sspi->word_width)) - 1,
+			data_units = 256 / sspi->word_width;
+			writel(min(sspi->left_tx_word, data_units) - 1,
 				sspi->base + spi_reg->tx_dma_io_len);
-			writel(min(sspi->left_rx_word,
-				(u32)(256 / sspi->word_width)) - 1,
+			writel(min(sspi->left_rx_word, data_units) - 1,
 				sspi->base + spi_reg->rx_dma_io_len);
 		}
 		if (sspi->spi_type == SIRF_USP_SPI) {
 			/*USP simulate SPI, tx/rx_dma_io_len indicates bytes*/
-			writel(min(sspi->left_tx_word * sspi->word_width,
-				(sspi->is_marco_usp == 1) ? 512 : 128),
+			data_units = (sspi->is_marco_usp == 1) ? 512 : 128;
+			writel(min((unsigned int)(sspi->left_tx_word *
+				sspi->word_width), data_units),
 				sspi->base + spi_reg->tx_dma_io_len);
-			writel(min(sspi->left_rx_word * sspi->word_width,
-				(sspi->is_marco_usp == 1) ? 512 : 128),
+			writel(min((unsigned int)(sspi->left_rx_word *
+				sspi->word_width), data_units),
 				sspi->base + spi_reg->rx_dma_io_len);
 		}
 		while (!((readl(sspi->base + spi_reg->txfifo_st)
