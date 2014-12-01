@@ -188,6 +188,7 @@
 				status = "okay";
 				pinctrl-0 = <&uart0_pmx>;
 				pinctrl-names = "default";
+				sirf,uart-has-rtscts;
                         };
 
 			uart2: uart@18030000 {
