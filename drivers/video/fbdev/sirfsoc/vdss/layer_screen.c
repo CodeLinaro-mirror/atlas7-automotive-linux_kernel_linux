@@ -252,6 +252,8 @@ static void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
 
 	lcdc_screen_set_timings(scn->id, &sdata->timings);
 
+	lvdsc_setup(sdata->lvdsc_fmt);
+
 	sdata->extra_info_dirty = false;
 	if (sdata->updating)
 		sdata->shadow_extra_info_dirty = true;

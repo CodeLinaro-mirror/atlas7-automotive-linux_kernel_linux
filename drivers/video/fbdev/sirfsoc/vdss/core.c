@@ -122,9 +122,19 @@ static int __init sirfsoc_vdss_init(void)
 		goto err_vpp;
 	}
 
+	ret = lvdsc_init_platform_driver();
+	if (ret) {
+		VDSSERR("Failed to initialize lvdsc platform driver\n");
+		goto err_lvdsc;
+	}
+
 	vdss_initialized = true;
 
 	return 0;
+
+err_lvdsc:
+	vpp_uninit_platform_driver();
+
 err_vpp:
 	lcdc_uninit_platform_driver();
 

@@ -285,8 +285,8 @@
 #define S0_OSC_DIV_RATIO(x)	(((x) & 0x3FF) << 0)
 #define S0_OSC_HALF_DUTY	BIT(12)
 #define S0_OSC_PCLK_CTRL	BIT(16)
-#define NEW_LVDS_1		BIT(17)
-#define NEW_LVDS_2		BIT(18)
+#define S0_LVDS_STOP_PCKL	BIT(17)
+#define S0_LVDS_PCLK_NON_PAUSE	BIT(18)
 
 /* Timing Control */
 #define S0_TIM_PCLK_IO		BIT(1)

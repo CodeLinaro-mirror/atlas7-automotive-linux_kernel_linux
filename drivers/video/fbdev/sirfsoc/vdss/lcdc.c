@@ -622,6 +622,9 @@ void lcdc_screen_set_timings(enum vdss_screen scn_id,
 			s0_osc_ratio |= S0_OSC_DIV_RATIO(div_ratio);
 	}
 
+	if (lcdc.is_atlas7 && lvdsc_is_syn_mode())
+		s0_osc_ratio |= S0_LVDS_STOP_PCKL;
+
 	lcdc_write_reg(S0_OSC_RATIO, s0_osc_ratio);
 
 	s0_tim_ctrl |= S0_TIM_PCLK_IO;
