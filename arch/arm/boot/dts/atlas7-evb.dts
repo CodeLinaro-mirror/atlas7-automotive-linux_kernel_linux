@@ -147,6 +147,13 @@
 					gpio-controller;
 					interrupt-controller;
 				};
+
+				ft5x06@38{
+					compatible = "focaltech,ft5x06";
+					interrupt-parent = <&gpio_3>;
+					interrupts = <3 0x03>;
+					reg = <0x38>;
+				};
 			};
 
 			i2c1: i2c@17030000 {

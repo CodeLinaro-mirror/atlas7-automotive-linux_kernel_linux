@@ -1,0 +1,17 @@
+Ft5x06 touchscreen driver
+
+The devicetree bindings are for Ft5x06 touchscreen.
+
+Required properties:
+- compatible: Should be "focaltech,ft5x06"
+- interrupts: Should contain the interrupt for the device
+- reg: the i2c address of the chip
+
+Example:
+
+ft5x06@38{
+	compatible = "focaltech,ft5x06";
+	interrupt-parent = <&gpio_3>;
+	interrupts = <3 0x03>;
+	reg = <0x38>;
+};
