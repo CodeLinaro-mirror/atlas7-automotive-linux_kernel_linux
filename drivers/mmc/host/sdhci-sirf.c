@@ -317,12 +317,15 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to get interface clock");
 			return PTR_ERR(pclk);
 		}
+		priv->clk = clk;
+		priv->pclk = pclk;
 	} else {
 		clk = devm_clk_get(&pdev->dev, NULL);
 		if (IS_ERR(clk)) {
 			dev_err(&pdev->dev, "unable to get clock");
 			return PTR_ERR(clk);
 		}
+		priv->clk = clk;
 	}
 
 	child = of_get_child_by_name(np, "vqmmc");
@@ -340,9 +343,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		priv->power_gpio = -EINVAL;
 	}
 
-	priv->clk = clk;
-	if (priv->has_pclk)
-		priv->pclk = pclk;
 	priv->gpio_cd = gpio_cd;
 
 	sdhci_get_of_property(pdev);
