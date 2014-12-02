@@ -116,6 +116,7 @@
 				};
 			};
 		};
+
 		mediam {
 			nand@17050000 {
 				memory-region = <&nanddisk_reserved>;
@@ -126,11 +127,30 @@
 				pinctrl-0 = <&sd0_pmx>;
 				status = "okay";
 			};
+
 			i2c0: i2c@17020000 {
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pmx>;
 				clock-frequency = <40000>;
+
+				gpio_3: i2c_gpio_expander@20{
+					#gpio-cells = <2>;
+					#interrupt-cells = <2>;
+					compatible = "semtech,sx1506q";
+					reg = <0x20>;
+					interrupt-parent = <&gpio_1>;
+					interrupts = <7 4>;
+					int-gpios = <&gpio_1 7 0>;
+					pulldn_ena = <0xff>;
+
+					gpio-controller;
+					interrupt-controller;
+				};
+			};
+
+			i2c1: i2c@17030000 {
+				status = "disabled";
 			};
 		};
 
@@ -171,7 +191,7 @@
 
 			uart3: uart@18040000 {
 				status = "okay";
-				pinctrl-0 = <&uart3_pmx0>;
+				pinctrl-0 = <&uart3_nopause_pmx0>;
 				pinctrl-names = "default";
 			};
 
