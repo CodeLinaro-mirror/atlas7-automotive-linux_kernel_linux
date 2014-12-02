@@ -13,6 +13,7 @@
 #include <linux/bitops.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -314,6 +315,7 @@ struct atlas7_gpio_bank {
 struct atlas7_gpio_chip {
 	const char *name;
 	void __iomem *reg;
+	struct clk *clk;
 	int nbank;
 	spinlock_t lock;
 	struct gpio_chip chip;
@@ -4356,6 +4358,17 @@ static int atlas7_gpio_probe(struct platform_device *pdev)
 			sizeof(struct atlas7_gpio_bank) * nbank, GFP_KERNEL);
 	if (!a7gc)
 		return -ENOMEM;
+
+	/* Get Gpio clk */
+	a7gc->clk = of_clk_get(np, 0);
+	if (!IS_ERR(a7gc->clk)) {
+		ret = clk_prepare_enable(a7gc->clk);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Could not enable clock!\n");
+			return ret;
+		}
+	}
 
 	/* Get Gpio Registers */
 	a7gc->reg = of_iomap(np, 0);

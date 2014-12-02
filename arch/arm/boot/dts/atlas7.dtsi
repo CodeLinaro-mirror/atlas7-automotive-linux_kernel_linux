@@ -1204,6 +1204,8 @@
 				compatible = "sirf,atlas7-gpio";
 				reg = <0x17040000 0x1000>;
 				interrupts = <0 13 0>, <0 14 0>;
+				clocks = <&car 114>;
+				clock-names = "gpio0_io";
 				gpio-controller;
 				interrupt-controller;
 
@@ -1329,6 +1331,8 @@
 				compatible = "sirf,atlas7-gpio";
 				reg = <0x13300000 0x1000>;
 				interrupts = <0 43 0>, <0 44 0>, <0 45 0>;
+				clocks = <&car 91>;
+				clock-names = "gpio1_io";
 				gpio-controller;
 				interrupt-controller;
 
