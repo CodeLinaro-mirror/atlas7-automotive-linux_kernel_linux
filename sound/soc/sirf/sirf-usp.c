@@ -16,12 +16,22 @@
 
 #include "sirf-usp.h"
 
+/* Extra clocks required by Atlas7 USP3 */
+static const char *const a7_exclks[] = {
+	"a7ca_btss", "a7ca_io", "noc_btm_io", "thbtm_io",
+};
+
 struct sirf_usp {
 	struct regmap *regmap;
 	struct clk *clk;
+
+	bool is_atlas7_bt_usp;
+	struct clk *exclks[ARRAY_SIZE(a7_exclks)];
+
 	u32 mode1_reg;
 	u32 mode2_reg;
 	int daifmt_format;
+	u32 fifo_size;
 	struct snd_dmaengine_dai_dma_data playback_dma_data;
 	struct snd_dmaengine_dai_dma_data capture_dma_data;
 };
@@ -115,6 +125,11 @@ static int sirf_usp_pcm_set_dai_fmt(struct snd_soc_dai *dai,
 
 static void sirf_usp_i2s_init(struct sirf_usp *usp)
 {
+	/* FIFO level check threshold in dwords */
+	const int fifo_l = 16 / 4;
+	const int fifo_m = (usp->fifo_size / 2) / 4;
+	const int fifo_h = (usp->fifo_size - 16) / 4;
+
 	/* Configure RISC mode */
 	regmap_update_bits(usp->regmap, USP_RISC_DSP_MODE,
 		USP_RISC_DSP_SEL, ~USP_RISC_DSP_SEL);
@@ -140,25 +155,26 @@ static void sirf_usp_i2s_init(struct sirf_usp *usp)
 	/* Configure RX DMA IO Control register */
 	regmap_write(usp->regmap, USP_RX_DMA_IO_CTRL, 0);
 
-	/* Congiure RX FIFO Control register */
+	/* Configure RX FIFO Control register */
 	regmap_write(usp->regmap, USP_RX_FIFO_CTRL,
-		(USP_RX_FIFO_THRESHOLD << USP_RX_FIFO_THD_OFFSET) |
+		((usp->fifo_size / 2) << USP_RX_FIFO_THD_OFFSET) |
 		(USP_TX_RX_FIFO_WIDTH_DWORD << USP_RX_FIFO_WIDTH_OFFSET));
 
-	/* Congiure RX FIFO Level Check register */
+	/* Configure RX FIFO Level Check register */
 	regmap_write(usp->regmap, USP_RX_FIFO_LEVEL_CHK,
-		RX_FIFO_SC(0x04) | RX_FIFO_LC(0x0E) | RX_FIFO_HC(0x1B));
+		RX_FIFO_SC(fifo_l) | RX_FIFO_LC(fifo_m) | RX_FIFO_HC(fifo_h));
 
 	/* Configure TX DMA IO Control register*/
 	regmap_write(usp->regmap, USP_TX_DMA_IO_CTRL, 0);
 
 	/* Configure TX FIFO Control register */
 	regmap_write(usp->regmap, USP_TX_FIFO_CTRL,
-		(USP_TX_FIFO_THRESHOLD << USP_TX_FIFO_THD_OFFSET) |
+		((usp->fifo_size / 2) << USP_TX_FIFO_THD_OFFSET) |
 		(USP_TX_RX_FIFO_WIDTH_DWORD << USP_TX_FIFO_WIDTH_OFFSET));
+
 	/* Congiure TX FIFO Level Check register */
 	regmap_write(usp->regmap, USP_TX_FIFO_LEVEL_CHK,
-		TX_FIFO_SC(0x1B) | TX_FIFO_LC(0x0E) | TX_FIFO_HC(0x04));
+		TX_FIFO_SC(fifo_h) | TX_FIFO_LC(fifo_m) | TX_FIFO_HC(fifo_l));
 }
 
 static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
@@ -223,7 +239,7 @@ static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
 			| ((frame_len - 1) << USP_TXC_FRAME_LEN_OFFSET)
 			| ((shifter_len - 1) << USP_TXC_SHIFTER_LEN_OFFSET)
 			| USP_TXC_SLAVE_CLK_SAMPLE);
-	else
+	else {
 		regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
 			USP_RXC_DATA_LEN_MASK | USP_RXC_FRAME_LEN_MASK
 			| USP_RXC_SHIFTER_LEN_MASK | USP_SINGLE_SYNC_MODE,
@@ -231,6 +247,13 @@ static int sirf_usp_pcm_hw_params(struct snd_pcm_substream *substream,
 			| ((frame_len - 1) << USP_RXC_FRAME_LEN_OFFSET)
 			| ((shifter_len - 1) << USP_RXC_SHIFTER_LEN_OFFSET)
 			| USP_SINGLE_SYNC_MODE);
+		/*
+		 * In single sync mode, TFS is used both as TX and RX, and is
+		 * driven by peer. So it should be set to slave mode.
+		 */
+		regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
+			USP_TXC_SLAVE_CLK_SAMPLE, USP_TXC_SLAVE_CLK_SAMPLE);
+	}
 
 	return 0;
 }
@@ -295,6 +318,12 @@ static int sirf_usp_pcm_runtime_suspend(struct device *dev)
 {
 	struct sirf_usp *usp = dev_get_drvdata(dev);
 	clk_disable_unprepare(usp->clk);
+	if (usp->is_atlas7_bt_usp) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++)
+			clk_disable_unprepare(usp->exclks[i]);
+	}
 	return 0;
 }
 
@@ -306,6 +335,12 @@ static int sirf_usp_pcm_runtime_resume(struct device *dev)
 	if (ret) {
 		dev_err(dev, "clk_enable failed: %d\n", ret);
 		return ret;
+	}
+	if (usp->is_atlas7_bt_usp) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++)
+			clk_prepare_enable(usp->exclks[i]);
 	}
 	sirf_usp_i2s_init(usp);
 	return 0;
@@ -376,10 +411,29 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	if (IS_ERR(usp->regmap))
 		return PTR_ERR(usp->regmap);
 
+	usp->fifo_size = -1;
+	if (of_property_read_u32(pdev->dev.of_node, "fifosize",
+				&usp->fifo_size))
+		usp->fifo_size = USP_FIFO_SIZE;
+
 	usp->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(usp->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
 		return PTR_ERR(usp->clk);
+	}
+
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-bt-usp")) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
+			usp->exclks[i] = devm_clk_get(&pdev->dev, a7_exclks[i]);
+			if (IS_ERR(usp->exclks[i])) {
+				dev_err(&pdev->dev, "Get clock failed.\n");
+				return PTR_ERR(usp->exclks[i]);
+			}
+		}
+
+		usp->is_atlas7_bt_usp = true;
 	}
 
 	pm_runtime_enable(&pdev->dev);

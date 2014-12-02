@@ -1,7 +1,8 @@
 * SiRF SoC USP module
 
 Required properties:
-- compatible: "sirf,prima2-usp-pcm"
+- compatible: "sirf,prima2-usp-pcm" for general usp pcm function,
+		"sirf,atlas7-bt-usp" for BT module usp on CSRatlas7
 - reg: Base address and size entries:
 - dmas: List of DMA controller phandle and DMA request line ordered pairs.
 - dma-names: Identifier string for each DMA request line in the dmas property.

@@ -1450,7 +1450,8 @@
 					<0x10dc8000 0x10dc8000 0x1000>,
 					<0x10dc0000 0x10dc0000 0x1000>,
 					<0x10db0000 0x10db0000 0x4000>,
-					<0x10d40000 0x10d40000 0x1000>;
+					<0x10d40000 0x10d40000 0x1000>,
+					<0x10d30000 0x10d30000 0x1000>;
 
 			timer@10dc0000 {
 				compatible = "sirf,marco-tick";
@@ -1530,6 +1531,15 @@
 				interrupts = <0 102 0>;
 			};
 
+			usp1: usp@10d30000 {
+				cell-index = <1>;
+				reg = <0x10d30000 0x1000>;
+				fifosize = <512>;
+				clocks = <&car 65>;
+				dmas = <&dmac2 6>, <&dmac2 7>;
+				dma-names = "rx", "tx";
+			};
+
 			usp2: usp@10d40000 {
 				cell-index = <2>;
 				reg = <0x10d40000 0x1000>;
@@ -1568,7 +1578,8 @@
 			#size-cells = <1>;
 			ranges = <0x11002000 0x11002000 0x0000ffff>,
 			       <0x11010000 0x11010000 0x3000>,
-			       <0x11000000 0x11000000 0x1000>;
+			       <0x11000000 0x11000000 0x1000>,
+			       <0x11001000 0x11001000 0x1000>;
 
 			dmac4: dma-controller@11002000 {
 				cell-index = <4>;
@@ -1591,6 +1602,20 @@
 				dmas = <&dmac4 12>, <&dmac4 13>;
 				dma-names = "rx", "tx";
 				status = "disabled";
+			};
+
+			usp3: usp@11001000 {
+				compatible = "sirf,atlas7-bt-usp",
+					   "sirf,prima2-usp-pcm";
+				cell-index = <3>;
+				reg = <0x11001000 0x1000>;
+				fifosize = <512>;
+				clocks = <&car 139>, <&car 136>, <&car 140>,
+					<&car 141>, <&car 142>;
+				clock-names = "usp3_io", "a7ca_btss", "a7ca_io",
+					"noc_btm_io", "thbtm_io";
+				dmas = <&dmac4 0>, <&dmac4 1>;
+				dma-names = "rx", "tx";
 			};
 
 			btm@11010000 {

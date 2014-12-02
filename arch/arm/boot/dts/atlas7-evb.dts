@@ -62,6 +62,25 @@
 		};
 	};
 
+	bt_sco: bt_sco@0 {
+		#sound-dai-cells = <0>;
+		compatible = "bt-sco";
+		status = "okay";
+	};
+
+	sirf-bt-sco {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,cpu {
+			sound-dai = <&usp3>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco>;
+			bitclock-master;
+			frame-master;
+		};
+	};
+
 	noc {
 		audiom {
 			timer@10dc0000 {
@@ -70,6 +89,14 @@
 
 			timerb@10dc8000 {
 				status = "disabled";
+			};
+
+			usp1: usp@10d30000 {
+				status = "disabled";
+				compatible = "sirf,prima2-usp-pcm";
+				#sound-dai-cells = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&audio_uart1_pmx>;
 			};
 
 			usp2: usp@10d40000 {
@@ -242,6 +269,11 @@
 		};
 
 		btm {
+			usp3: usp@11001000 {
+				status = "okay";
+				#sound-dai-cells = <0>;
+			};
+
 			uart6: uart@11000000 {
 				status = "okay";
 			};
