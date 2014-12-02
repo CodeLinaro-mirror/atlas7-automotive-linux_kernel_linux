@@ -14,7 +14,7 @@
 
 /* Board specific data */
 static struct sirfsoc_vdss_board_info sirfsoc_vdss_data = {
-	.default_display_name = "rgb",
+	.default_display_name = "lvds",
 };
 
 static struct platform_device sirfsoc_vdss_device = {
