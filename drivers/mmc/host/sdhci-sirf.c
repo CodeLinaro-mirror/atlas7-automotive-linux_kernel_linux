@@ -13,7 +13,6 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/mmc/mmc.h>
-#include <linux/slab.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/dma-mapping.h>
 #include <linux/regmap.h>
@@ -193,18 +192,12 @@ static int sirf_signal_voltage_switch(struct sdhci_host *host,
 static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	int tuning_seq_cnt = 3;
-	u8 phase, *data_buf, tuned_phases[SIRF_TUNING_COUNT];
+	u8 phase, tuned_phases[SIRF_TUNING_COUNT];
 	u8 tuned_phase_cnt = 0;
-	const u8 *tuning_block_pattern = tuning_blk_pattern_4bit;
-	int size = sizeof(tuning_blk_pattern_4bit);
 	int rc, longest_range = 0;
-	int start = -1, end, tuning_value = -1, range = 0;
+	int start = -1, end = 0, tuning_value = -1, range = 0;
 	u16 clock_setting;
 	struct mmc_host *mmc = host->mmc;
-
-	data_buf = kmalloc(size, GFP_KERNEL);
-	if (!data_buf)
-		return -ENOMEM;
 
 	clock_setting = sdhci_readw(host, SDHCI_CLK_DELAY_SETTING);
 	clock_setting &= ~0x3fff;
@@ -212,34 +205,11 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 retry:
 	phase = 0;
 	do {
-		struct mmc_command cmd = { 0 };
-		struct mmc_data data = { 0 };
-		struct mmc_request mrq = {
-			.cmd = &cmd,
-			.data = &data
-		};
-		struct scatterlist sg;
-
 		sdhci_writel(host,
 			clock_setting | phase | (phase << 7) | (phase << 16),
 			SDHCI_CLK_DELAY_SETTING);
 
-		cmd.opcode = opcode;
-		cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
-
-		data.blksz = size;
-		data.blocks = 1;
-		data.flags = MMC_DATA_READ;
-		data.timeout_ns = NSEC_PER_SEC;	/* 1 second */
-
-		data.sg = &sg;
-		data.sg_len = 1;
-		sg_init_one(&sg, data_buf, size);
-		memset(data_buf, 0, size);
-		mmc_wait_for_req(mmc, &mrq);
-
-		if (!cmd.error && !data.error &&
-		    !memcmp(data_buf, tuning_block_pattern, size)) {
+		if (!mmc_send_tuning(mmc->card)) {
 			/* Tuning is successful at this tuning point */
 			tuned_phases[tuned_phase_cnt++] = phase;
 			dev_dbg(mmc_dev(mmc), "%s: Found good phase = %d\n",
@@ -284,7 +254,6 @@ retry:
 		rc = -EIO;
 	}
 
-	kfree(data_buf);
 	return rc;
 }
 
