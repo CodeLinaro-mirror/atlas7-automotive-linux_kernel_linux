@@ -673,8 +673,8 @@ struct atlas7_pad_config atlas7_ioc_pad_confs[] = {
 };
 
 /* pin list of each pin group */
-static const unsigned int gnss_gpio_pins[] = { 22, 23, 24, 25, 26, 27, 28,
-		29, 30, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, };
+static const unsigned int gnss_gpio_pins[] = { 119, 120, 121, 122, 123, 124,
+		125, 126, 127, 128, 22, 23, 24, 25, 26, 27, 28, 29, 30, };
 static const unsigned int lcd_vip_gpio_pins[] = { 74, 75, 76, 77, 78, 79, 80,
 		81, 82, 83, 84, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
 		64, 65, 66, 67, 68, 69, 70, 71, 72, 73, };
@@ -1125,15 +1125,6 @@ static const char * const vi_vip1_low8bit_grp[] = { "vi_vip1_low8bit_grp", };
 static const char * const vi_vip1_high8bit_grp[] = { "vi_vip1_high8bit_grp", };
 
 static struct atlas7_pad_mux gnss_gpio_grp_pad_mux[] = {
-	MUX(1, 22, 0, N, N, N, N),
-	MUX(1, 23, 0, N, N, N, N),
-	MUX(1, 24, 0, N, N, N, N),
-	MUX(1, 25, 0, N, N, N, N),
-	MUX(1, 26, 0, N, N, N, N),
-	MUX(1, 27, 0, N, N, N, N),
-	MUX(1, 28, 0, N, N, N, N),
-	MUX(1, 29, 0, N, N, N, N),
-	MUX(1, 30, 0, N, N, N, N),
 	MUX(1, 119, 0, N, N, N, N),
 	MUX(1, 120, 0, N, N, N, N),
 	MUX(1, 121, 0, N, N, N, N),
@@ -1144,6 +1135,15 @@ static struct atlas7_pad_mux gnss_gpio_grp_pad_mux[] = {
 	MUX(1, 126, 0, N, N, N, N),
 	MUX(1, 127, 0, N, N, N, N),
 	MUX(1, 128, 0, N, N, N, N),
+	MUX(1, 22, 0, N, N, N, N),
+	MUX(1, 23, 0, N, N, N, N),
+	MUX(1, 24, 0, N, N, N, N),
+	MUX(1, 25, 0, N, N, N, N),
+	MUX(1, 26, 0, N, N, N, N),
+	MUX(1, 27, 0, N, N, N, N),
+	MUX(1, 28, 0, N, N, N, N),
+	MUX(1, 29, 0, N, N, N, N),
+	MUX(1, 30, 0, N, N, N, N),
 };
 
 static struct atlas7_grp_mux gnss_gpio_grp_mux = {
