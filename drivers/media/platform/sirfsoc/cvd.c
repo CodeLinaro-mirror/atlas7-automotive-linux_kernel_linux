@@ -952,14 +952,14 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 
 	/* line buffer initialization status busy(0x1) or idle(0x0) */
 	while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
-		;
+		cpu_relax();
 
 	/* start CVD */
 	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
 
 	/* wait until Horizontal/Vertical /Chroma PLL locaked */
 	while ((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe) != 0xe)
-		;
+		usleep_range(5000, 5500);
 
 	/* enables fi_sync indication */
 	cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1, sd);
