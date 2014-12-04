@@ -228,7 +228,7 @@ static int cvd_detect_video_signal(struct v4l2_subdev *sd)
 		}
 	}
 
-	return 0;
+	return -EIO;
 }
 
 static int cvd_g_std(struct v4l2_subdev *sd, v4l2_std_id *norm)
@@ -981,9 +981,9 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 
 	value = cvd_detect_video_signal(sd);
 
-	if (value == 0) {
+	if (value < 0) {
 		dev_err(to_state(sd)->dev, "No signal detected\n");
-		return -EIO;
+		return value;
 	}
 
 	if (value == V4L2_STD_NTSC)
