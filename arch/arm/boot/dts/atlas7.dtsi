@@ -1354,7 +1354,7 @@
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
-				sd-uhs-sdr12;
+				sd-uhs-sdr50;
 				vqmmc-supply = <&vqmmc>;
 				vqmmc: vqmmc@2 {
 					regulator-min-microvolt = <1650000>;
