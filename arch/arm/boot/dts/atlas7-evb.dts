@@ -56,6 +56,11 @@
 			reg = <0x4FD10000 0x10000>;
 		};
 
+		vpp_reserved: vpp_mem@5e800000 {
+			compatible = "sirf,reserved-memory";
+			reg = <0x5e800000 0x800000>;
+		};
+
 		nanddisk_reserved: nanddisk@46000000 {
 			reg = <0x46000000 0x200000>;
 			no-map;
@@ -325,6 +330,10 @@
 				pinctrl-0 = <&ld_ldd_pmx &ld_ldd_fck_pmx
 					&ld_ldd_lck_pmx>;
 			};
+			vpp@13110000 {
+				memory-region = <&vpp_reserved>;
+			};
+
 			lvds@10e10000 {
 				status = "okay";
 				pinctrl-names = "default";
