@@ -1614,7 +1614,8 @@
 				compatible = "sirf,atlas7-adc";
 				reg = <0x10d80000 0xffff>;
 				interrupts = <0 34 0>;
-				clocks = <&car 49>, <&audioclk 0>;
+				clocks = <&car 50>, <&car 49>, <&audioclk 0>;
+				clock-names = "xin", "io", "analog";
 				#io-channel-cells = <1>;
 			};
 

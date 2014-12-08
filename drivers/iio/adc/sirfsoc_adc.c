@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/reset.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
+#include <linux/regulator/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/machine.h>
@@ -25,57 +26,24 @@
 
 #define DRIVER_NAME "sirfsoc_adc"
 
-#define SIRFSOC_PWR_WAKEEN_TSC_SHIFT	23
-#define SIRFSOC_PWR_WAKEEN_TS_SHIFT	5
+#define SIRFSOC_PWR_WAKEEN_TSC		BIT(23)
+#define SIRFSOC_PWR_WAKEEN_TS		BIT(5)
 #define SIRFSOC_PWRC_TRIGGER_EN		0x8
 #define SIRFSOC_PWRC_BASE		0x3000
 
-/* Registers offset */
-#define SIRFSOC_ADC_CONTROL1		0x00
-#define SIRFSOC_ADC_CONTROL2		0x04
-#define SIRFSOC_ADC_INTR		0x08
-#define SIRFSOC_ADC_COORD		0x0C
-#define SIRFSOC_ADC_PRESSURE		0x10
-#define SIRFSOC_ADC_AUX1		0x14
-/* Atlas6 AUX2 and AUX4 reserved*/
-#define SIRFSOC_ADC_AUX2		0x18
-#define SIRFSOC_ADC_AUX3		0x1C
-#define SIRFSOC_ADC_AUX4		0x20
-#define SIRFSOC_ADC_AUX5		0x24
-#define SIRFSOC_ADC_AUX6		0x28
-/* Read Back calibration register */
-#define SIRFSOC_ADC_CB			0x2C
-#define SIRFSOC_ADC_COORD2		0x30
-#define SIRFSOC_ADC_COORD3		0x34
-#define SIRFSOC_ADC_COORD4		0x38
+/*
+ * registers for Atlas7 to enable adc, also needed by
+ * audio. which will replace by a individual driver
+ */
+#define SIRFSOC_ANA_BASE		0x10E30000
+#define REF_CTRL0			0x64
+#define REF_CTRL2			0x3c
 
-/* CTRL1 defines */
-#define SIRFSOC_ADC_RESET_QUANT_EN	BIT(24)
-#define SIRFSOC_ADC_RST_B		BIT(23)
-#define SIRFSOC_ADC_RESOLUTION_12	BIT(22)
-#define SIRFSOC_ADC_RBAT_DISABLE	(0x0 << 21)
-#define SIRFSOC_ADC_RBAT_ENABLE		(0x1 << 21)
-#define SIRFSOC_ADC_EXTCM(x)		(((x) & 0x3) << 19)
-#define SIRFSOC_ADC_SGAIN(x)		(((x) & 0x7) << 16)
-#define SIRFSOC_ADC_POLL		BIT(15)
-#define SIRFSOC_ADC_SEL(x)		(((x) & 0xF) << 11)
-#define SIRFSOC_ADC_FREQ_6K		(0x0 << 8)
-#define SIRFSOC_ADC_FREQ_13K		BIT(8)
-#define SIRFSOC_ADC_DEL_SET(x)		(((x) & 0xF) << 4)
-#define SIRFSOC_ADC_TP_TIME(x)		(((x) & 0x7) << 0)
-
-/* CTRL2 defines */
-/* Pen detector off, digitizer off */
-#define SIRFSOC_ADC_PRP_MODE0		(0 << 14)
-/* Pen detector on, digitizer off, digitizer wakes up on pen detect */
-#define SIRFSOC_ADC_PRP_MODE1		BIT(14)
-/* Pen detector on, digitizer off, no wake up on pen detect */
-#define SIRFSOC_ADC_PRP_MODE2		(2 << 14)
-/* Pen detector on, digitizer on */
-#define SIRFSOC_ADC_PRP_MODE3		(3 << 14)
-#define SIRFSOC_ADC_RTOUCH(x)		(((x) & 0x3) << 12)
-#define SIRFSOC_ADC_DEL_PRE(x)		(((x) & 0xF) << 4)
-#define SIRFSOC_ADC_DEL_DIS(x)		(((x) & 0xF) << 0)
+#define AUDIO_ANA_REF_AUDBIAS_IREF_EN			BIT(0)
+#define AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN			BIT(4)
+#define AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN			BIT(5)
+#define AUDIO_ANA_REF_AUDBIAS_VAG_TSADC_EN		BIT(6)
+#define AUDIO_ANA_REF_MICBIAS_EN			BIT(7)
 
 /* INTR register defines */
 #define SIRFSOC_ADC_PEN_INTR_EN		BIT(5)
@@ -85,41 +53,248 @@
 
 /* DATA register defines */
 #define SIRFSOC_ADC_PEN_DOWN		BIT(31)
-#define SIRFSOC_ADC_DATA_AUXVALID	BIT(30)
-#define SIRFSOC_ADC_DATA_CB_VALID	BIT(30)
-#define SIRFSOC_ADC_ADC_DATA_MASK(x)	(0x3FFF << (x))
-#define SIRFSOC_ADC_DATA_AUXMASK	SIRFSOC_ADC_ADC_DATA_MASK(0)
-#define SIRFSOC_ADC_DATA_CBMASK		SIRFSOC_ADC_ADC_DATA_MASK(0)
-
-#define SIRFSOC_ADC_MORE_CTL1	(of_machine_is_compatible("sirf,atlas6") ?\
-				(SIRFSOC_ADC_RESET_QUANT_EN |\
-				SIRFSOC_ADC_RST_B) : (0))
-
-/* Select AD samples to read (SEL bits in ADC_CONTROL1 register) */
-#define SIRFSOC_ADC_AUX1_SEL	0x04
-#define SIRFSOC_ADC_AUX2_SEL	0x05
-#define SIRFSOC_ADC_AUX3_SEL	0x06
-#define SIRFSOC_ADC_AUX4_SEL	0x07
-#define SIRFSOC_ADC_AUX5_SEL	0x08
-#define SIRFSOC_ADC_AUX6_SEL	0x09
-#define SIRFSOC_ADC_TS_SEL	0x0A    /* Sample for single touch*/
-#define SIRFSOC_ADC_GROUND_SEL	0x0B    /* Gound for offset calibration */
-#define SIRFSOC_ADC_BANDGAP_SEL	0x0C    /* Bandgap for gain calibration */
-#define SIRFSOC_ADC_TS_SEL_DUAL	0x0F    /* Samples for dual touch */
+#define SIRFSOC_ADC_DATA_VALID		BIT(30)
+#define SIRFSOC_ADC_DATA_MASK		0x3FFF
 
 #define SIRFSOC_ADC_TS_SAMPLE_SIZE	4
-#define SIRFSOC_ADC_CTL1(sel)    (SIRFSOC_ADC_POLL | SIRFSOC_ADC_SEL(sel) |\
-		SIRFSOC_ADC_DEL_SET(6) | SIRFSOC_ADC_FREQ_6K |\
-		SIRFSOC_ADC_TP_TIME(0) | SIRFSOC_ADC_SGAIN(0) |\
-		SIRFSOC_ADC_EXTCM(0) | SIRFSOC_ADC_RBAT_DISABLE |\
-		SIRFSOC_ADC_MORE_CTL1)
 
 enum sirfsoc_adc_chips {
 	PRIMA2,
 	ATLAS6,
+	ATLAS7,
+};
+
+struct sirfsoc_adc_aux_register {
+	u32		aux1;
+	/* Atlas6 AUX2 to AUX4 reserved*/
+	u32		aux2;
+	u32		aux3;
+	u32		aux4;
+	u32		aux5;
+	u32		aux6;
+	/* Atlas7 add AUX7 and AUX8 */
+	u32		aux7;
+	u32		aux8;
+	/* Read Back calibration register */
+	u32		cali;
+};
+
+struct sirfsoc_adc_ts_register {
+	u32		pressure;
+	u32		coord1;
+	u32		coord2;
+	u32		coord3;
+	u32		coord4;
+};
+
+struct sirfsoc_adc_mode_sel {
+	u32		aux1_sel;
+	/* Atlas6 AUX2 to AUX4 reserved*/
+	u32		aux2_sel;
+	u32		aux3_sel;
+	u32		aux4_sel;
+	u32		aux5_sel;
+	u32		aux6_sel;
+	/* Atlas7 add AUX7 and AUX8 */
+	u32		aux7_sel;
+	u32		aux8_sel;
+	u32		single_ts_sel;
+	u32		dual_ts_sel;
+	u32		offset_cali_sel;
+	u32		gain_cali_sel;
+};
+
+struct sirfsoc_adc_ctrl_set {
+	/* ctrl1 set bits */
+	u32		quant_en;
+	u32		reset;
+	u32		mode_shift;
+	u32		mode_mask;
+	u32		resolution;
+	u32		sbat_en;
+	u32		poll;
+	u32		sgain;
+	u32		freq;
+	u32		thold;
+	/* ctrl2 set bits */
+	u32		prp_mode;
+	u32		rtouch;
+	u32		del_pre;
+	u32		del_dis;
+};
+
+struct sirfsoc_adc_register {
+	u32		ctrl1;
+	u32		ctrl2;
+	/* Atlas7 add control3 and control4 */
+	u32		ctrl3;
+	u32		ctrl4;
+	u32		intr_status;
+	/*
+	 * Atlas7 use individual registers to
+	 * enable or disable intrrupts
+	 */
+	u32		intr_enable;
+	u32		intr_disable;
+	struct sirfsoc_adc_aux_register	aux_reg;
+	struct sirfsoc_adc_ts_register	ts_reg;
+	struct sirfsoc_adc_ctrl_set	ctrl_set;
+	struct sirfsoc_adc_mode_sel	mode_sel;
+};
+
+static struct sirfsoc_adc_register prima2_adc_reg = {
+	.ctrl1		= 0x00,
+	.ctrl2		= 0x04,
+	.intr_status	= 0x08,
+	.aux_reg	= {
+		.aux1		= 0x14,
+		.aux2		= 0x18,
+		.aux3		= 0x1C,
+		.aux4		= 0x20,
+		.aux5		= 0x24,
+		.aux6		= 0x28,
+		.cali		= 0x2C,
+	},
+	.ts_reg		= {
+		.pressure	= 0x10,
+		.coord1		= 0x0c,
+		.coord2		= 0x30,
+		.coord3		= 0x34,
+		.coord4		= 0x38,
+	},
+	.ctrl_set	= {
+		.quant_en	= BIT(24),
+		.reset		= BIT(23),
+		.mode_shift	= 11,
+		.mode_mask	= 0xF,
+		.resolution	= BIT(22),
+		.sbat_en	= BIT(21),
+		.poll		= BIT(15),
+		.sgain		= BIT(16),
+		.freq		= BIT(8),
+		.thold		= 0x4 << 4,
+		.prp_mode	= 0x3 << 14,
+		.rtouch		= 0x1 << 12,
+		.del_pre	= 0x2 << 4,
+		.del_dis	= 0x5,
+	},
+	.mode_sel	= {
+		.aux1_sel	= 0x04,
+		.aux2_sel	= 0x05,
+		.aux3_sel	= 0x06,
+		.aux4_sel	= 0x07,
+		.aux5_sel	= 0x08,
+		.aux6_sel	= 0x09,
+		.single_ts_sel	= 0x0A,
+		.dual_ts_sel	= 0x0F,
+		.offset_cali_sel	= 0x0B,
+		.gain_cali_sel	= 0x0C,
+	},
+};
+
+static struct sirfsoc_adc_register atlas6_adc_reg = {
+	.ctrl1		= 0x00,
+	.ctrl2		= 0x04,
+	.intr_status	= 0x08,
+	.aux_reg	= {
+		.aux1		= 0x14,
+		.aux4		= 0x20,
+		.aux5		= 0x24,
+		.aux6		= 0x28,
+		.cali		= 0x2C,
+	},
+	.ts_reg		= {
+		.pressure	= 0x10,
+		.coord1		= 0x0c,
+		.coord2		= 0x30,
+		.coord3		= 0x34,
+		.coord4		= 0x38,
+	},
+	.ctrl_set	= {
+		.quant_en	= BIT(24),
+		.reset		= BIT(23),
+		.mode_shift	= 11,
+		.mode_mask	= 0xF,
+		.resolution	= BIT(22),
+		.sbat_en	= BIT(21),
+		.poll		= BIT(15),
+		.freq		= BIT(8),
+		.thold		= 0x4 << 4,
+		.prp_mode	= 0x3 << 14,
+		.rtouch		= 0x1 << 12,
+		.del_pre	= 0x2 << 4,
+		.del_dis	= 0x5,
+	},
+	.mode_sel	= {
+		.aux1_sel	= 0x04,
+		.aux5_sel	= 0x08,
+		.aux6_sel	= 0x09,
+		.single_ts_sel	= 0x0A,
+		.dual_ts_sel	= 0x0F,
+		.offset_cali_sel	= 0x0B,
+		.gain_cali_sel	= 0x0C,
+	},
+};
+
+static struct sirfsoc_adc_register atlas7_adc_reg = {
+	.ctrl1		= 0x00,
+	.ctrl2		= 0x04,
+	.ctrl3		= 0x08,
+	.ctrl4		= 0x0c,
+	.intr_status	= 0x10,
+	.intr_enable	= 0x54,
+	.intr_disable	= 0x58,
+	.aux_reg	= {
+		.aux1		= 0x1c,
+		.aux2		= 0x20,
+		.aux3		= 0x24,
+		.aux4		= 0x28,
+		.aux5		= 0x2c,
+		.aux6		= 0x30,
+		.aux7		= 0x34,
+		.aux8		= 0x38,
+		.cali		= 0x3c,
+	},
+	.ts_reg		= {
+		.pressure	= 0x18,
+		.coord1		= 0x14,
+		.coord2		= 0x40,
+		.coord3		= 0x44,
+		.coord4		= 0x48,
+	},
+	.ctrl_set	= {
+		.quant_en	= BIT(24),
+		.reset		= BIT(23),
+		.mode_shift	= 10,
+		.mode_mask	= 0x1F,
+		.resolution	= BIT(22),
+		.sbat_en	= BIT(21),
+		.poll		= BIT(15),
+		.freq		= BIT(8),
+		.thold		= 0x4 << 4,
+		.prp_mode	= 0x3 << 14,
+		.rtouch		= 0x1 << 12,
+		.del_pre	= 0x2 << 4,
+		.del_dis	= 0x5,
+	},
+	.mode_sel	= {
+		.aux1_sel	= 0x04,
+		.aux2_sel	= 0x05,
+		.aux3_sel	= 0x06,
+		.aux4_sel	= 0x07,
+		.aux5_sel	= 0x08,
+		.aux6_sel	= 0x09,
+		.aux7_sel	= 0x0A,
+		.aux8_sel	= 0x0B,
+		.single_ts_sel	= 0x0C,
+		.dual_ts_sel	= 0x11,
+		.offset_cali_sel	= 0x0D,
+		.gain_cali_sel	= 0x0E,
+	},
 };
 
 struct sirfsoc_adc_chip_info {
+	struct sirfsoc_adc_register *adc_reg;
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
 	unsigned int flags;
@@ -140,18 +315,25 @@ struct sirfsoc_adc_request {
 
 struct sirfsoc_adc {
 	const struct sirfsoc_adc_chip_info	*chip_info;
-	struct clk	*clk;
-	void __iomem	*base;
-	struct sirfsoc_adc_request req;
-	struct completion	done;
-	struct mutex	adc_lock;
+	struct clk			*clk;
+	/* atlas7 need enable extra 2 clock to enable adc */
+	struct clk			*clk_io;
+	struct clk			*clk_analog;
+
+	void __iomem			*base;
+	/*
+	 * FIXME: atlas7 need ctrl analog for enable adc
+	 * which will be removed when have independent driver
+	 * to do this.
+	 */
+	void __iomem			*ana_base;
+	struct sirfsoc_adc_request	req;
+	struct completion		done;
+	struct mutex			adc_lock;
 };
 
-static const u32 sirfsoc_adc_ts_reg[SIRFSOC_ADC_TS_SAMPLE_SIZE] = {
-	/* Dual touch samples read registers*/
-	SIRFSOC_ADC_COORD, SIRFSOC_ADC_COORD2,
-	SIRFSOC_ADC_COORD3, SIRFSOC_ADC_COORD4
-};
+/* Dual touch samples read registers*/
+static u32 sirfsoc_adc_ts_reg[SIRFSOC_ADC_TS_SAMPLE_SIZE];
 
 enum sirfsoc_adc_ts_type {
 	SINGLE_TOUCH,
@@ -161,38 +343,44 @@ enum sirfsoc_adc_ts_type {
 static int sirfsoc_adc_get_ts_sample(
 	struct sirfsoc_adc *adc, int *sample, int touch_type)
 {
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
 	int adc_intr;
 	int ret = 0;
 	int i;
 
 	mutex_lock(&adc->adc_lock);
-	adc_intr = readl(adc->base + SIRFSOC_ADC_INTR);
+	adc_intr = readl(adc->base + adc_reg->intr_status);
 	if (adc_intr & SIRFSOC_ADC_PEN_INTR)
-		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_PEN_INTR_EN |
-			SIRFSOC_ADC_DATA_INTR_EN,
-			adc->base + SIRFSOC_ADC_INTR);
+		writel(adc_intr | SIRFSOC_ADC_PEN_INTR,
+			adc->base + adc_reg->intr_status);
 
 	/* check pen status */
-	if (!(readl(adc->base + SIRFSOC_ADC_COORD) & SIRFSOC_ADC_PEN_DOWN)) {
+	if (!(readl(adc->base + adc_reg->ts_reg.coord1) &
+		SIRFSOC_ADC_PEN_DOWN)) {
 		ret = -EINVAL;
 		goto out;
 	}
 
 	if (SINGLE_TOUCH == touch_type)
-		writel(SIRFSOC_ADC_CTL1(SIRFSOC_ADC_TS_SEL),
-			adc->base + SIRFSOC_ADC_CONTROL1);
+		writel(((mode_sel->single_ts_sel & ctrl_set->mode_mask) <<
+			ctrl_set->mode_shift) | ctrl_set->poll |
+			ctrl_set->quant_en | ctrl_set->reset |
+			ctrl_set->thold, adc->base + adc_reg->ctrl1);
 	else
-		writel(SIRFSOC_ADC_CTL1(SIRFSOC_ADC_TS_SEL_DUAL),
-			adc->base + SIRFSOC_ADC_CONTROL1);
+		writel(((mode_sel->dual_ts_sel & ctrl_set->mode_mask) <<
+			ctrl_set->mode_shift) | ctrl_set->poll |
+			ctrl_set->quant_en | ctrl_set->reset |
+			ctrl_set->thold, adc->base + adc_reg->ctrl1);
 
-	if (!wait_for_completion_timeout(&adc->done,
-		msecs_to_jiffies(50))) {
+	if (!wait_for_completion_timeout(&adc->done, msecs_to_jiffies(50))) {
 		ret = -EIO;
 		goto out;
 	}
 
 	if (SINGLE_TOUCH == touch_type)
-		*sample = readl(adc->base + SIRFSOC_ADC_COORD);
+		*sample = readl(adc->base + adc_reg->ts_reg.coord1);
 	else
 		for (i = 0; i < SIRFSOC_ADC_TS_SAMPLE_SIZE; i++)
 			sample[i] = readl(adc->base + sirfsoc_adc_ts_reg[i]);
@@ -217,59 +405,60 @@ static int sirfsoc_adc_dual_ts_sample(struct sirfsoc_adc *adc, int *samples)
 static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 {
 	struct sirfsoc_adc *adc = container_of(req, struct sirfsoc_adc, req);
-	int control1, control2, intr;
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
+	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
+	struct device_node *np = indio_dev->dev.parent->of_node;
+	int control1;
 	int data, reg_offset;
+	u32 sel_bits;
 	int ret = 0;
 
 	mutex_lock(&adc->adc_lock);
 
 	/* Store registers for recover */
-	intr = readl(adc->base + SIRFSOC_ADC_INTR);
-	control1 = readl(adc->base + SIRFSOC_ADC_CONTROL1);
-	control2 = readl(adc->base + SIRFSOC_ADC_CONTROL2);
+	control1 = readl(adc->base + adc_reg->ctrl1);
 
-	writel(intr | SIRFSOC_ADC_DATA_INTR_EN | SIRFSOC_ADC_DATA_INTR,
-		adc->base + SIRFSOC_ADC_INTR);
-	writel(SIRFSOC_ADC_PRP_MODE3 | req->reference,
-		adc->base + SIRFSOC_ADC_CONTROL2);
-	writel(SIRFSOC_ADC_POLL | SIRFSOC_ADC_MORE_CTL1 | req->mode |
-		req->extcm | req->delay_bits | SIRFSOC_ADC_RESOLUTION_12,
-		adc->base + SIRFSOC_ADC_CONTROL1);
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_status);
+		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_enable);
+	} else {
+		writel(SIRFSOC_ADC_DATA_INTR_EN | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_status);
+	}
 
-	if (!wait_for_completion_timeout(&adc->done,
-		msecs_to_jiffies(50))) {
+	writel(ctrl_set->poll | req->mode | req->extcm | req->delay_bits |
+		ctrl_set->quant_en | ctrl_set->reset | ctrl_set->resolution,
+		adc->base + adc_reg->ctrl1);
+
+	if (!wait_for_completion_timeout(&adc->done, msecs_to_jiffies(50))) {
 		ret = -EIO;
 		goto out;
 	}
 
-	switch (req->mode) {
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_AUX1_SEL):
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_AUX2_SEL):
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_AUX3_SEL):
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_AUX4_SEL):
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_AUX5_SEL):
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_AUX6_SEL):
-		/* Calculate aux offset from mode */
-		reg_offset = 0x14 + ((req->mode >> 11) - 0x04) * 4;
+	sel_bits = (req->mode >> ctrl_set->mode_shift) & ctrl_set->mode_mask;
+	if ((sel_bits >= mode_sel->aux1_sel &&
+		sel_bits <= mode_sel->aux6_sel) ||
+		sel_bits == mode_sel->aux7_sel ||
+		sel_bits == mode_sel->aux8_sel) {
+		/* Calculate aux offset from mode, which is aux in aux_reg */
+		if (of_device_is_compatible(np, "sirf,atlas7-adc"))
+			reg_offset = 0x1C + (sel_bits - 0x04) * 4;
+		else
+			reg_offset = 0x14 + (sel_bits - 0x04) * 4;
 		data = readl(adc->base + reg_offset);
-		if (data & SIRFSOC_ADC_DATA_AUXVALID)
-			req->read_back_data = data & SIRFSOC_ADC_DATA_AUXMASK;
-		break;
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_GROUND_SEL):
-	case SIRFSOC_ADC_SEL(SIRFSOC_ADC_BANDGAP_SEL):
-		reg_offset = SIRFSOC_ADC_CB;
-		data = readl(adc->base + reg_offset);
-		if (data & SIRFSOC_ADC_DATA_CB_VALID)
-			req->read_back_data = data & SIRFSOC_ADC_DATA_CBMASK;
-		break;
-	default:
-		break;
+		if (data & SIRFSOC_ADC_DATA_VALID)
+			req->read_back_data = data & SIRFSOC_ADC_DATA_MASK;
+	} else if (sel_bits == mode_sel->offset_cali_sel ||
+			sel_bits == mode_sel->gain_cali_sel) {
+		data = readl(adc->base + adc_reg->aux_reg.cali);
+		if (data & SIRFSOC_ADC_DATA_VALID)
+			req->read_back_data = data & SIRFSOC_ADC_DATA_MASK;
 	}
 
 out:
-	writel(intr, adc->base + SIRFSOC_ADC_INTR);
-	writel(control1, adc->base + SIRFSOC_ADC_CONTROL1);
-	writel(control2, adc->base + SIRFSOC_ADC_CONTROL2);
+	writel(control1, adc->base + adc_reg->ctrl1);
 	mutex_unlock(&adc->adc_lock);
 	return ret;
 }
@@ -284,12 +473,17 @@ struct sirfsoc_adc_cali_data {
 /* Offset Calibration calibrates the ADC offset error */
 static u32 sirfsoc_adc_offset_cali(struct sirfsoc_adc_request *req)
 {
+	struct sirfsoc_adc *adc = container_of(req, struct sirfsoc_adc, req);
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
 	u32 i, digital_offset = 0, count = 0, sum = 0;
+
 	/* To set the registers in order to get the ADC offset */
-	req->mode = SIRFSOC_ADC_SEL(SIRFSOC_ADC_GROUND_SEL);
-	req->extcm = SIRFSOC_ADC_EXTCM(0);
-	req->s_gain_bits = SIRFSOC_ADC_SGAIN(7);
-	req->delay_bits = SIRFSOC_ADC_DEL_SET(4);
+	req->mode = (mode_sel->offset_cali_sel &
+		ctrl_set->mode_mask) << ctrl_set->mode_shift;
+	req->s_gain_bits = ctrl_set->sgain;
+	req->delay_bits = ctrl_set->thold;
 
 	for (i = 0; i < 10; i++) {
 		if (sirfsoc_adc_send_request(req))
@@ -306,16 +500,20 @@ static u32 sirfsoc_adc_offset_cali(struct sirfsoc_adc_request *req)
 	return digital_offset;
 }
 
-
 /* Gain Calibration calibrates the ADC gain error */
 static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 {
+	struct sirfsoc_adc *adc = container_of(req, struct sirfsoc_adc, req);
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
 	u32 i, digital_gain = 0, count = 0, sum = 0;
+
 	/* To set the registers in order to get the ADC gain */
-	req->mode = SIRFSOC_ADC_SEL(SIRFSOC_ADC_BANDGAP_SEL);
-	req->extcm = SIRFSOC_ADC_EXTCM(0);
-	req->s_gain_bits = SIRFSOC_ADC_SGAIN(1);
-	req->delay_bits = SIRFSOC_ADC_DEL_SET(4);
+	req->mode = (mode_sel->gain_cali_sel &
+		ctrl_set->mode_mask) << ctrl_set->mode_shift;
+	req->s_gain_bits = ctrl_set->sgain;
+	req->delay_bits = ctrl_set->thold;
 
 	for (i = 0; i < 10; i++) {
 		if (sirfsoc_adc_send_request(req))
@@ -350,11 +548,12 @@ static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 				struct sirfsoc_adc_cali_data *cali_data)
 {
-	u32 digital_out, volt;
 	struct sirfsoc_adc_request *req = &adc->req;
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	u32 digital_out, volt;
 
-	req->s_gain_bits = SIRFSOC_ADC_SGAIN(0);
-	req->delay_bits = SIRFSOC_ADC_DEL_SET(4);
+	req->delay_bits = ctrl_set->thold;
 
 	/*
 	 * First read original data
@@ -428,22 +627,99 @@ static u32 atlas6_adc_calculate_volt(u32 digital_out,
 	return volt;
 }
 
+/* FIXME: the formula to calculate voltage will be update */
+static u32 atlas7_adc_calculate_volt(u32 digital_out,
+				u32 digital_offset, u32 digital_again)
+{
+	u32 volt, digital_ideal, digital_convert;
+
+	digital_ideal = (3986 * 12100) / (7 * 3333);
+	digital_offset &= 0xfff;
+	digital_convert = abs(digital_out - 2 * digital_offset)
+		* digital_ideal / (digital_again
+		- digital_offset * 2);
+	volt = 14 * 333 * digital_convert / 3986;
+	volt = volt / 2;
+	if (volt > 1500)
+		volt = volt - (volt - 1500) / 15;
+	else
+		volt = volt + (1500 - volt) / 28;
+
+	/*
+	 * Direct return value from register, which will be
+	 * replaced if there have the right formula
+	 */
+	return digital_out;
+}
+
 static irqreturn_t sirfsoc_adc_data_irq(int irq, void *handle)
 {
 	struct iio_dev *indio_dev = handle;
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct device_node *np = indio_dev->dev.parent->of_node;
 	int val;
 
-	val = readl(adc->base + SIRFSOC_ADC_INTR);
+	val = readl(adc->base + adc->chip_info->adc_reg->intr_status);
 
-	writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_PEN_INTR_EN |
-		SIRFSOC_ADC_DATA_INTR | SIRFSOC_ADC_DATA_INTR_EN,
-		adc->base + SIRFSOC_ADC_INTR);
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_status);
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_enable);
+	} else {
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_PEN_INTR_EN |
+			SIRFSOC_ADC_DATA_INTR | SIRFSOC_ADC_DATA_INTR_EN,
+			adc->base + adc_reg->intr_status);
+	}
 
 	if (val & SIRFSOC_ADC_DATA_INTR)
 		complete(&adc->done);
 
 	return IRQ_HANDLED;
+}
+
+/*
+ * FIXME: For use adc on atlas7, analog need enable before.
+ * audio codec also operate it and may disable analog
+ * so check if it's enabled when get data from adc
+ * channel, if not, enable the analog to make adc work.
+ * which will be removed when have independent driver
+ * to manage this.
+ */
+static void sirfsoc_adc_enable_analog(struct sirfsoc_adc *adc)
+{
+	u32 read_data;
+
+	read_data =  readl(adc->ana_base + REF_CTRL0);
+	/* if analog be enabled before */
+	if ((read_data & 0xf1) == 0xf1)
+		return;
+
+	/*
+	 * some register bits can't update on most atals7 board
+	 * when enable analog. the follow operations are to
+	 * workaround the bug.
+	 */
+	read_data =  readl(adc->ana_base + 0x58);
+	writel(read_data | (0x2 << 5) , adc->ana_base + 0x58);
+	read_data =  readl(adc->ana_base + 0x50);
+	writel(read_data | 0x1 , adc->ana_base + 0x50);
+	read_data =  readl(adc->ana_base + 0x50);
+	writel(read_data & (~0x1) , adc->ana_base + 0x50);
+	read_data =  readl(adc->ana_base + 0x58);
+	writel(read_data & (~(0x3 << 5)) , adc->ana_base + 0x58);
+
+	read_data =  readl(adc->ana_base + REF_CTRL0);
+	writel(read_data | AUDIO_ANA_REF_MICBIAS_EN |
+		AUDIO_ANA_REF_AUDBIAS_VAG_TSADC_EN |
+		AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN |
+		AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN |
+		AUDIO_ANA_REF_AUDBIAS_IREF_EN,
+		adc->ana_base + REF_CTRL0);
+
+	read_data =  readl(adc->ana_base + REF_CTRL0);
+	writel(0x84, adc->ana_base + REF_CTRL2);
 }
 
 static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
@@ -453,8 +729,15 @@ static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
 				long mask)
 {
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct device_node *np = indio_dev->dev.parent->of_node;
 	struct sirfsoc_adc_cali_data cali_data;
 	int ret;
+
+	/* check if analog enabled, if not enable it */
+	if (of_device_is_compatible(np, "sirf,atlas7-adc"))
+		sirfsoc_adc_enable_analog(adc);
 
 	cali_data.is_calibration = false;
 	switch (mask) {
@@ -468,9 +751,8 @@ static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
-		adc->req.mode = SIRFSOC_ADC_SEL(
-			adc->chip_info->channel_sel[chan->channel]);
-		adc->req.extcm = SIRFSOC_ADC_EXTCM(0);
+		adc->req.mode = (adc->chip_info->channel_sel[chan->channel] &
+			ctrl_set->mode_mask) << ctrl_set->mode_shift;
 		*val = sirfsoc_adc_get_adc_volt(adc, &cali_data);
 		return IIO_VAL_INT;
 	default:
@@ -485,11 +767,16 @@ static int sirfsoc_adc_suspend(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
+	struct device_node *np = dev->of_node;
 
-	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
-		& ~BIT(SIRFSOC_PWR_WAKEEN_TSC_SHIFT),
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+	if (!of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
+			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
+			& ~SIRFSOC_PWR_WAKEEN_TSC,
+			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+		clk_disable_unprepare(adc->clk_analog);
+		clk_disable_unprepare(adc->clk_io);
+	}
 
 	clk_disable_unprepare(adc->clk);
 
@@ -500,32 +787,43 @@ static int sirfsoc_adc_resume(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct device_node *np = dev->of_node;
 	int ret;
-	int val;
 
 	clk_prepare_enable(adc->clk);
 
-	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN) |
-		BIT(SIRFSOC_PWR_WAKEEN_TS_SHIFT),
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+	if (!of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
+			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN) |
+			SIRFSOC_PWR_WAKEEN_TS,
+			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
 
-	ret = device_reset(dev);
-	if (ret) {
-		dev_err(dev, "Failed to reset\n");
-		return ret;
+		ret = device_reset(dev);
+		if (ret) {
+			dev_err(dev, "Failed to reset\n");
+			return ret;
+		}
+	} else {
+		clk_prepare_enable(adc->clk_io);
+		clk_prepare_enable(adc->clk_analog);
 	}
 
-	writel(SIRFSOC_ADC_PRP_MODE3 | SIRFSOC_ADC_RTOUCH(1) |
-		SIRFSOC_ADC_DEL_PRE(2) | SIRFSOC_ADC_DEL_DIS(5),
-		adc->base + SIRFSOC_ADC_CONTROL2);
-
-	val = readl(adc->base + SIRFSOC_ADC_INTR);
+	writel(ctrl_set->prp_mode | ctrl_set->rtouch | ctrl_set->del_pre |
+		ctrl_set->del_dis, adc->base + adc_reg->ctrl2);
 
 	/* Clear interrupts and enable PEN interrupt */
-	writel(val | SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR |
-		SIRFSOC_ADC_PEN_INTR_EN | SIRFSOC_ADC_DATA_INTR_EN,
-		adc->base + SIRFSOC_ADC_INTR);
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_status);
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_enable);
+	} else {
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_PEN_INTR_EN |
+			SIRFSOC_ADC_DATA_INTR | SIRFSOC_ADC_DATA_INTR_EN,
+			adc->base + adc_reg->intr_status);
+	}
 
 	return 0;
 }
@@ -563,10 +861,14 @@ static const struct iio_chan_spec prima2_adc_iio_channels[] = {
 	SIRFSOC_ADC_AUX_CHANNEL(6, "auxiliary6"),
 };
 
-static const u32 prima2_adc_channel_sel[] = {
-	0, SIRFSOC_ADC_AUX1_SEL, SIRFSOC_ADC_AUX2_SEL,
-	SIRFSOC_ADC_AUX3_SEL, SIRFSOC_ADC_AUX4_SEL,
-	SIRFSOC_ADC_AUX5_SEL, SIRFSOC_ADC_AUX6_SEL
+static u32 prima2_adc_channel_sel[] = {
+	0,
+	0x04, /* aux1 */
+	0x05, /* aux2 */
+	0x06, /* aux3 */
+	0x07, /* aux4 */
+	0x08, /* aux5 */
+	0x09 /* aux6 */
 };
 
 static const struct iio_chan_spec atlas6_adc_iio_channels[] = {
@@ -581,9 +883,39 @@ static const struct iio_chan_spec atlas6_adc_iio_channels[] = {
 	SIRFSOC_ADC_AUX_CHANNEL(5, "auxiliary6"),
 };
 
-static const u32 atlas6_adc_channel_sel[] = {
-	0, 0, SIRFSOC_ADC_AUX1_SEL, SIRFSOC_ADC_AUX4_SEL,
-	SIRFSOC_ADC_AUX5_SEL, SIRFSOC_ADC_AUX6_SEL
+static u32 atlas6_adc_channel_sel[] = {
+	0, 0,
+	0x04, /* aux1 */
+	0x07, /* aux4 */
+	0x08, /* aux5 */
+	0x09 /* aux6 */
+};
+
+static const struct iio_chan_spec atlas7_adc_iio_channels[] = {
+	/* Channels to get the touch data */
+	SIRFSOC_ADC_TS_CHANNEL(0, "touch_coord"),
+	SIRFSOC_ADC_TS_CHANNEL(1, "dual_touch_coord"),
+	/* Channels to get the pin input */
+	SIRFSOC_ADC_AUX_CHANNEL(2, "auxiliary1"),
+	SIRFSOC_ADC_AUX_CHANNEL(3, "auxiliary2"),
+	SIRFSOC_ADC_AUX_CHANNEL(4, "auxiliary3"),
+	SIRFSOC_ADC_AUX_CHANNEL(5, "auxiliary4"),
+	SIRFSOC_ADC_AUX_CHANNEL(6, "auxiliary5"),
+	SIRFSOC_ADC_AUX_CHANNEL(7, "auxiliary6"),
+	SIRFSOC_ADC_AUX_CHANNEL(8, "auxiliary7"),
+	SIRFSOC_ADC_AUX_CHANNEL(9, "auxiliary8"),
+};
+
+static u32 atlas7_adc_channel_sel[] = {
+	0, 0,
+	0x04, /* aux1 */
+	0x05, /* aux2 */
+	0x06, /* aux3 */
+	0x07, /* aux4 */
+	0x08, /* aux5 */
+	0x09, /* aux6 */
+	0x0A, /* aux7 */
+	0x0B /* aux8 */
 };
 
 static const struct iio_info sirfsoc_adc_info = {
@@ -593,18 +925,28 @@ static const struct iio_info sirfsoc_adc_info = {
 
 static const struct sirfsoc_adc_chip_info sirfsoc_adc_chip_info_tbl[] = {
 	[PRIMA2] = {
-		.channels = prima2_adc_iio_channels,
-		.num_channels = ARRAY_SIZE(prima2_adc_iio_channels),
-		.iio_info = &sirfsoc_adc_info,
-		.calculate_volt = prima2_adc_calculate_volt,
-		.channel_sel = prima2_adc_channel_sel,
+		.adc_reg	= &prima2_adc_reg,
+		.channels	= prima2_adc_iio_channels,
+		.num_channels	= ARRAY_SIZE(prima2_adc_iio_channels),
+		.iio_info	= &sirfsoc_adc_info,
+		.calculate_volt	= prima2_adc_calculate_volt,
+		.channel_sel	= prima2_adc_channel_sel,
 	},
 	[ATLAS6] = {
-		.channels = atlas6_adc_iio_channels,
-		.num_channels = ARRAY_SIZE(atlas6_adc_iio_channels),
-		.iio_info = &sirfsoc_adc_info,
-		.calculate_volt = atlas6_adc_calculate_volt,
-		.channel_sel = atlas6_adc_channel_sel,
+		.adc_reg	= &atlas6_adc_reg,
+		.channels	= atlas6_adc_iio_channels,
+		.num_channels	= ARRAY_SIZE(atlas6_adc_iio_channels),
+		.iio_info	= &sirfsoc_adc_info,
+		.calculate_volt	= atlas6_adc_calculate_volt,
+		.channel_sel	= atlas6_adc_channel_sel,
+	},
+	[ATLAS7] = {
+		.adc_reg	= &atlas7_adc_reg,
+		.channels	= atlas7_adc_iio_channels,
+		.num_channels	= ARRAY_SIZE(atlas7_adc_iio_channels),
+		.iio_info	= &sirfsoc_adc_info,
+		.calculate_volt	= atlas7_adc_calculate_volt,
+		.channel_sel	= atlas7_adc_channel_sel,
 	},
 };
 
@@ -613,12 +955,17 @@ static const struct of_device_id sirfsoc_adc_of_match[] = {
 	  .data = &sirfsoc_adc_chip_info_tbl[PRIMA2] },
 	{ .compatible = "sirf,atlas6-adc",
 	  .data = &sirfsoc_adc_chip_info_tbl[ATLAS6] },
+	{ .compatible = "sirf,atlas7-adc",
+	  .data = &sirfsoc_adc_chip_info_tbl[ATLAS7] },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirfsoc_adc_of_match);
 
 static int sirfsoc_adc_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
+	struct sirfsoc_adc_register *adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set;
 	struct resource	*mem_res;
 	struct sirfsoc_adc *adc;
 	struct iio_dev *indio_dev;
@@ -634,9 +981,10 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	adc = iio_priv(indio_dev);
 
 	/* ADC specific data */
-	match = of_match_device(
-		of_match_ptr(sirfsoc_adc_of_match), &pdev->dev);
+	match = of_match_device(of_match_ptr(sirfsoc_adc_of_match), &pdev->dev);
 	adc->chip_info = match->data;
+	adc_reg = adc->chip_info->adc_reg;
+	ctrl_set = &adc_reg->ctrl_set;
 
 	indio_dev->info = adc->chip_info->iio_info;
 	indio_dev->channels = adc->chip_info->channels;
@@ -647,43 +995,101 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, indio_dev);
 
-	adc->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(adc->clk)) {
-		dev_err(&pdev->dev, "Get adc clk failed\n");
-		ret = -ENOMEM;
-		goto err;
-	}
-	clk_prepare_enable(adc->clk);
-
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	adc->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (!adc->base) {
 		dev_err(&pdev->dev, "IO remap failed!\n");
-		ret = -ENOMEM;
-		goto err;
+		return -ENOMEM;
 	}
 
 	init_completion(&adc->done);
 	mutex_init(&adc->adc_lock);
 
-	sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(SIRFSOC_PWRC_BASE +
-		SIRFSOC_PWRC_TRIGGER_EN) | BIT(SIRFSOC_PWR_WAKEEN_TS_SHIFT),
-		SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+	/* some register need set on atlas7 */
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		struct regulator *regulator;
 
-	ret = device_reset(&pdev->dev);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to reset\n");
-		goto err;
+		adc->clk = devm_clk_get(&pdev->dev, "xin");
+		if (IS_ERR(adc->clk)) {
+			dev_err(&pdev->dev, "Get adc clk failed\n");
+			return -ENOMEM;
+		}
+
+		adc->clk_io = devm_clk_get(&pdev->dev, "io");
+		if (IS_ERR(adc->clk_io)) {
+			dev_err(&pdev->dev, "Get adc io clk failed\n");
+			return -ENOMEM;
+		}
+
+		adc->clk_analog = devm_clk_get(&pdev->dev, "analog");
+		if (IS_ERR(adc->clk_analog)) {
+			dev_err(&pdev->dev, "Get adc analog clk failed\n");
+			return -ENOMEM;
+		}
+
+		regulator = devm_regulator_get(&pdev->dev, "ldo");
+		if (IS_ERR(regulator)) {
+			dev_err(&pdev->dev, "Failed to obtain ldo\n");
+			return PTR_ERR(regulator);
+		}
+
+		clk_prepare_enable(adc->clk);
+		clk_prepare_enable(adc->clk_io);
+
+		ret = regulator_enable(regulator);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"regulator enable failed: %d\n", ret);
+			clk_disable_unprepare(adc->clk_io);
+			clk_disable_unprepare(adc->clk);
+			return ret;
+		}
+
+		clk_prepare_enable(adc->clk_analog);
+
+		adc->ana_base = ioremap(SIRFSOC_ANA_BASE, SZ_64K);
+		sirfsoc_adc_enable_analog(adc);
+	} else {
+		adc->clk = devm_clk_get(&pdev->dev, NULL);
+		if (IS_ERR(adc->clk)) {
+			dev_err(&pdev->dev, "Get adc clk failed\n");
+			return -ENOMEM;
+		}
+
+		clk_prepare_enable(adc->clk);
+
+		sirfsoc_rtc_iobrg_writel(sirfsoc_rtc_iobrg_readl(
+			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN)
+			| SIRFSOC_PWR_WAKEEN_TS,
+			SIRFSOC_PWRC_BASE + SIRFSOC_PWRC_TRIGGER_EN);
+
+		ret = device_reset(&pdev->dev);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to reset\n");
+			goto err;
+		}
 	}
 
-	writel(SIRFSOC_ADC_PRP_MODE3 | SIRFSOC_ADC_RTOUCH(1) |
-		SIRFSOC_ADC_DEL_PRE(2) | SIRFSOC_ADC_DEL_DIS(5),
-		adc->base + SIRFSOC_ADC_CONTROL2);
-
 	/* Clear interrupts and enable PEN INTR */
-	writel(readl(adc->base + SIRFSOC_ADC_INTR) | SIRFSOC_ADC_PEN_INTR |
-		SIRFSOC_ADC_DATA_INTR | SIRFSOC_ADC_PEN_INTR_EN |
-		SIRFSOC_ADC_DATA_INTR_EN,  adc->base + SIRFSOC_ADC_INTR);
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_status);
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
+			adc->base + adc_reg->intr_enable);
+	} else {
+		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_PEN_INTR_EN |
+			SIRFSOC_ADC_DATA_INTR | SIRFSOC_ADC_DATA_INTR_EN,
+			adc->base + adc_reg->intr_status);
+	}
+
+	writel(ctrl_set->reset, adc->base + adc_reg->ctrl1);
+	writel(ctrl_set->prp_mode | ctrl_set->rtouch | ctrl_set->del_pre |
+		ctrl_set->del_dis, adc->base + adc_reg->ctrl2);
+
+	sirfsoc_adc_ts_reg[0] = adc_reg->ts_reg.coord1;
+	sirfsoc_adc_ts_reg[1] = adc_reg->ts_reg.coord2;
+	sirfsoc_adc_ts_reg[2] = adc_reg->ts_reg.coord3;
+	sirfsoc_adc_ts_reg[3] = adc_reg->ts_reg.coord4;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
@@ -700,8 +1106,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = of_platform_populate(pdev->dev.of_node, sirfsoc_adc_of_match,
-		NULL, &pdev->dev);
+	ret = of_platform_populate(np, sirfsoc_adc_of_match, NULL, &pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to add child nodes\n");
 		goto err;
@@ -716,6 +1121,10 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	return 0;
 
 err:
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		clk_disable_unprepare(adc->clk_analog);
+		clk_disable_unprepare(adc->clk_io);
+	}
 	clk_disable_unprepare(adc->clk);
 
 	return ret;
@@ -725,8 +1134,14 @@ static int sirfsoc_adc_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct sirfsoc_adc *adc = iio_priv(indio_dev);
+	struct device_node *np = pdev->dev.of_node;
 
 	iio_device_unregister(indio_dev);
+
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		clk_disable_unprepare(adc->clk_analog);
+		clk_disable_unprepare(adc->clk_io);
+	}
 	clk_disable_unprepare(adc->clk);
 
 	return 0;
