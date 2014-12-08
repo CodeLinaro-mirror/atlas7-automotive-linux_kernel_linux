@@ -1617,6 +1617,14 @@
 				clocks = <&car 50>, <&car 49>, <&audioclk 0>;
 				clock-names = "xin", "io", "analog";
 				#io-channel-cells = <1>;
+
+				tsc {
+					compatible = "sirf,prima2-tsc";
+					interrupts = <0 33 0>;
+					io-channels = <&adc 0>, <&adc 1>;
+					io-channel-names = "single_ts",
+							"dual_ts";
+				};
 			};
 
 			pulsec@10d90000 {
