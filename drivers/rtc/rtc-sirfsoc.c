@@ -298,7 +298,41 @@ static const struct of_device_id sirfsoc_rtc_of_match[] = {
 	{ .compatible = "sirf,prima2-sysrtc"},
 	{},
 };
+#ifdef CONFIG_A7DA_PM_SYSRTC_DEBUG
+static ssize_t sysrtc_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
+{
+	struct sirfsoc_rtc_drv *rtcdrv;
+	u32 offset, val;
 
+	rtcdrv = (struct sirfsoc_rtc_drv *)dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%x %x\n", &offset, &val) != 2)
+		return -EINVAL;
+
+	sirfsoc_rtc_writereg(rtcdrv, offset, val);
+	return len;
+}
+static ssize_t sysrtc_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	struct sirfsoc_rtc_drv *rtcdrv;
+	int val, i, pos = 0;
+
+	rtcdrv = (struct sirfsoc_rtc_drv *)dev_get_drvdata(dev);
+
+	for (i = 0; i < 0x20 && strlen(buf) < PAGE_SIZE; i = i + 4) {
+		val = sirfsoc_rtc_readreg(rtcdrv, i);
+		pos += scnprintf(buf + pos,
+			PAGE_SIZE - pos,
+			"0x%x:0x%x\n", i, val);
+	}
+
+	return pos;
+}
+static DEVICE_ATTR_RW(sysrtc);
+#endif
 const struct regmap_config sysrtc_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
@@ -336,6 +370,15 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 			err);
 		return err;
 	}
+
+#ifdef CONFIG_A7DA_PM_SYSRTC_DEBUG
+		err = device_create_file(&pdev->dev, &dev_attr_sysrtc);
+		if (err)
+			dev_err(&pdev->dev,
+				"failed to create spram firewall attribute, %d\n",
+				err);
+
+#endif
 
 	/*
 	 * Set SYS_RTC counter in RTC_HZ HZ Units
