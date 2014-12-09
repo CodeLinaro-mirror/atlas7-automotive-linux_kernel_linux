@@ -774,6 +774,22 @@ static int sirfsoc_vout_dqbuf(struct file *file, void *priv,
 	return ret;
 }
 
+static int sirfsoc_vout_create_bufs(struct file *file, void *priv,
+	struct v4l2_create_buffers *create)
+{
+	struct sirfsoc_vout_device *vout = priv;
+
+	return vb2_create_bufs(&vout->vb2_q, create);
+}
+
+static int sirfsoc_vout_prepare_buf(struct file *file, void *priv,
+	struct v4l2_buffer *buf)
+{
+	struct sirfsoc_vout_device *vout = priv;
+
+	return vb2_prepare_buf(&vout->vb2_q, buf);
+}
+
 static int sirfsoc_vout_streamon(struct file *file, void *priv,
 			   enum v4l2_buf_type buf_type)
 {
@@ -1112,6 +1128,8 @@ static const struct v4l2_ioctl_ops sirfsoc_vout_ioctl_ops = {
 	.vidioc_querybuf		= sirfsoc_vout_querybuf,
 	.vidioc_qbuf			= sirfsoc_vout_qbuf,
 	.vidioc_dqbuf			= sirfsoc_vout_dqbuf,
+	.vidioc_create_bufs		= sirfsoc_vout_create_bufs,
+	.vidioc_prepare_buf		= sirfsoc_vout_prepare_buf,
 	.vidioc_enum_frameintervals	= sirfsoc_vout_enum_frameintervals,
 	.vidioc_g_parm			= sirfsoc_vout_g_parm,
 	.vidioc_streamon		= sirfsoc_vout_streamon,
