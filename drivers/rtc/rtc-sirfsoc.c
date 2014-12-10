@@ -1,9 +1,16 @@
 /*
  * SiRFSoC Real Time Clock interface for Linux
  *
- * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -286,14 +293,6 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	rtc_div = ((32768 / RTC_HZ) / 2) - 1;
 	sirfsoc_rtc_iobrg_writel(rtc_div, rtcdrv->rtc_base + RTC_DIV);
 
-	rtcdrv->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
-			&sirfsoc_rtc_ops, THIS_MODULE);
-	if (IS_ERR(rtcdrv->rtc)) {
-		err = PTR_ERR(rtcdrv->rtc);
-		dev_err(&pdev->dev, "can't register RTC device\n");
-		return err;
-	}
-
 	/* 0x3 -> RTC_CLK */
 	sirfsoc_rtc_iobrg_writel(SIRFSOC_RTC_CLK,
 			rtcdrv->rtc_base + RTC_CLOCK_SWITCH);
@@ -307,6 +306,14 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	/* Restore RTC Overflow From Register After Command Reboot */
 	rtcdrv->overflow_rtc =
 		sirfsoc_rtc_iobrg_readl(rtcdrv->rtc_base + RTC_SW_VALUE);
+
+	rtcdrv->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
+			&sirfsoc_rtc_ops, THIS_MODULE);
+	if (IS_ERR(rtcdrv->rtc)) {
+		err = PTR_ERR(rtcdrv->rtc);
+		dev_err(&pdev->dev, "can't register RTC device\n");
+		return err;
+	}
 
 	rtcdrv->irq = platform_get_irq(pdev, 0);
 	err = devm_request_irq(
@@ -418,6 +425,5 @@ static struct platform_driver sirfsoc_rtc_driver = {
 module_platform_driver(sirfsoc_rtc_driver);
 
 MODULE_DESCRIPTION("SiRF SoC rtc driver");
-MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:sirfsoc-rtc");
