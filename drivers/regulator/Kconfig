@@ -139,6 +139,16 @@ config REGULATOR_AS3722
 	  AS3722 PMIC. This will enable support for all the software
 	  controllable DCDC/LDO regulators.
 
+config REGULATOR_ATLAS7_PMU
+	tristate "CSR Atlas7 PMU regulator"
+	depends on ARCH_ATLAS7
+	select REGMAP_MMIO
+	help
+	  This driver provides support for the LDO voltage
+	  regulator on the CSR Atlas7 SoC internal PMU module.
+	  This will enable support for audio internal codec and
+	  touchscreen controllable LDO regulator.
+
 config REGULATOR_AXP20X
 	tristate "X-POWERS AXP20X PMIC Regulators"
 	depends on MFD_AXP20X
