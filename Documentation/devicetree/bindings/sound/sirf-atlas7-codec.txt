@@ -1,0 +1,16 @@
+SiRF Atlas7 internal audio CODEC
+
+Required properties:
+  - compatible : "sirf,atlas7-codec"
+  - reg : the register address of the device.
+  - clocks: the clock of SiRF internal audio codec.
+  - ldo-supply: The LDO regulator supply for codec.
+
+Example:
+	atlas7_codec: atlas7_codec@10E30000 {
+		#sound-dai-cells = <0>;
+		compatible = "sirf,atlas7-codec";
+		reg = <0x10E30000 0x400>;
+		clocks = <&car 69>;
+		ldo-supply = <&ldo>;
+	};
