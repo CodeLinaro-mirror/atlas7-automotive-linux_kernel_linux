@@ -194,7 +194,7 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int tuning_seq_cnt = 3;
 	u8 phase, tuned_phases[SIRF_TUNING_COUNT];
 	u8 tuned_phase_cnt = 0;
-	int rc, longest_range = 0;
+	int rc = 0, longest_range = 0;
 	int start = -1, end = 0, tuning_value = -1, range = 0;
 	u16 clock_setting;
 	struct mmc_host *mmc = host->mmc;
@@ -209,7 +209,7 @@ retry:
 			clock_setting | phase | (phase << 7) | (phase << 16),
 			SDHCI_CLK_DELAY_SETTING);
 
-		if (!mmc_send_tuning(mmc->card)) {
+		if (!mmc_send_tuning(mmc)) {
 			/* Tuning is successful at this tuning point */
 			tuned_phases[tuned_phase_cnt++] = phase;
 			dev_dbg(mmc_dev(mmc), "%s: Found good phase = %d\n",
