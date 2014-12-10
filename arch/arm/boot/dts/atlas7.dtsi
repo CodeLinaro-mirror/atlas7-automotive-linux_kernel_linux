@@ -52,6 +52,14 @@
 			     <0x10302000 0x0100>;
 		};
 
+		pmu_regulator: pmu_regulator@10E30020 {
+			compatible = "sirf,atlas7-pmu-ldo";
+			reg = <0x10E30020 0x4>;
+			ldo: ldo {
+				regulator-name = "ldo";
+			};
+		};
+
 		ipc@13240000 {
 			compatible = "sirf,atlas7-ipc";
 			ranges = <0x13240000 0x13240000 0x00010000>;

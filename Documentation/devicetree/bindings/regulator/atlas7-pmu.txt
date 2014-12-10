@@ -1,0 +1,19 @@
+CSR Atlas7 internal LDO regulator
+
+Required properties:
+- compatible: "sirf,atlas7-pmu-ldo"
+- reg: register phyical address
+- ldo: A node that houses a sub-node for the ldo regulator within the
+  device.
+  The content of each sub-node is defined by the standard binding for
+  regulators; see regulator.txt.
+
+Example:
+	pmu_regulator: pmu_regulator@10E30020 {
+		compatible = "sirf,atlas7-pmu-ldo";
+		reg = <0x10E30020 0x4>;
+		ldo: ldo {
+			regulator-name = "ldo";
+		};
+	};
+
