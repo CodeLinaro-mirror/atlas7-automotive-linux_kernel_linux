@@ -1,0 +1,637 @@
+/*
+ * SiRF ATLAS7 internal audio codec controller driver
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/clk.h>
+#include <linux/module.h>
+#include <linux/pm_runtime.h>
+#include <linux/regmap.h>
+#include <linux/dmaengine.h>
+#include <linux/dma-mapping.h>
+#include <sound/dmaengine_pcm.h>
+#include <sound/pcm_params.h>
+#include <sound/soc.h>
+
+#include "atlas7-iacc.h"
+
+#define IACC_DMA_CHANNELS			4
+
+struct atlas7_dma_data {
+	struct dma_chan *chan[IACC_DMA_CHANNELS];
+	unsigned int pos;
+};
+
+struct atlas7_iacc {
+	struct clk *clk;
+	struct regmap *regmap;
+	struct atlas7_dma_data tx_dma_data;
+	struct atlas7_dma_data rx_dma_data;
+};
+
+
+static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
+	int channels)
+{
+	int i;
+
+	if (channels == 4)
+		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_MODE_CTRL,
+			TX_SYNC_EN | TX_START_SYNC_EN,
+			TX_SYNC_EN | TX_START_SYNC_EN);
+
+	for (i = 0; i < channels; i++) {
+		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
+			DAC_EN << i, DAC_EN << i);
+		regmap_update_bits(atlas7_iacc->regmap,
+			INTCODECCTL_TXFIFO0_OP + (i * 20),
+			FIFO_RESET, FIFO_RESET);
+		regmap_update_bits(atlas7_iacc->regmap,
+			INTCODECCTL_TXFIFO0_OP + (i * 20),
+			FIFO_RESET, ~FIFO_RESET);
+
+		regmap_write(atlas7_iacc->regmap, INTCODECCTL_TXFIFO0_LEV_CHK,
+			(24 << 0) | (16 << 10) | (4 << 20));
+		regmap_write(atlas7_iacc->regmap,
+			INTCODECCTL_TXFIFO0_INT_MSK + (i * 20), 0);
+		regmap_update_bits(atlas7_iacc->regmap,
+			INTCODECCTL_TXFIFO0_OP + (i * 20),
+			FIFO_START, FIFO_START);
+	}
+}
+
+static void atlas7_iacc_tx_disable(struct atlas7_iacc *atlas7_iacc)
+{
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		regmap_write(atlas7_iacc->regmap,
+			INTCODECCTL_TXFIFO0_OP + (i * 20), 0);
+		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
+			DAC_EN << i, 0);
+	}
+}
+
+static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
+	int channels)
+{
+	int i;
+
+	for (i = 0; i < channels; i++)
+		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
+			ADC_EN << i, ADC_EN << i);
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
+		FIFO_RESET, FIFO_RESET);
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
+		FIFO_RESET, ~FIFO_RESET);
+	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_INT_MSK, 0);
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
+		FIFO_START, FIFO_START);
+}
+
+static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)
+{
+	int i;
+
+	for (i = 0; i < 2; i++)
+		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
+			ADC_EN << i, 0);
+	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP, 0);
+}
+
+static int atlas7_iacc_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
+{
+	struct atlas7_iacc *atlas7_iacc = snd_soc_dai_get_drvdata(dai);
+	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		if (playback)
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_MODE_CTRL, TX_24BIT, 0);
+		else
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_MODE_CTRL, RX_24BIT, 0);
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		if (playback)
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_MODE_CTRL, TX_24BIT, TX_24BIT);
+		else
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_MODE_CTRL, RX_24BIT, RX_24BIT);
+		break;
+	default:
+		dev_err(dai->dev, "Format unsupported\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int atlas7_iacc_trigger(struct snd_pcm_substream *substream,
+		int cmd,
+		struct snd_soc_dai *dai)
+{
+	struct atlas7_iacc *atlas7_iacc = snd_soc_dai_get_drvdata(dai);
+	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (playback)
+			atlas7_iacc_tx_disable(atlas7_iacc);
+		else
+			atlas7_iacc_rx_disable(atlas7_iacc);
+		break;
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		if (playback)
+			atlas7_iacc_tx_enable(atlas7_iacc,
+				substream->runtime->channels);
+		else
+			atlas7_iacc_rx_enable(atlas7_iacc,
+				substream->runtime->channels);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+struct snd_soc_dai_ops atlas7_iacc_dai_ops = {
+	.hw_params = atlas7_iacc_hw_params,
+	.trigger = atlas7_iacc_trigger,
+};
+
+#define AUDIO_IF_DAC_RATES	(SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 \
+				| SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 \
+				| SNDRV_PCM_RATE_192000)
+
+#define AUDIO_IF_ADC_RATES	(SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 \
+				| SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_32000 \
+				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 \
+				| SNDRV_PCM_RATE_96000)
+#define AUDIO_IF_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE \
+				| SNDRV_PCM_FMTBIT_S24_3LE)
+static int atlas7_iacc_dai_probe(struct snd_soc_dai *dai)
+{
+	struct atlas7_iacc *atlas7_iacc = snd_soc_dai_get_drvdata(dai);
+
+	dai->playback_dma_data = &atlas7_iacc->tx_dma_data;
+	dai->capture_dma_data = &atlas7_iacc->rx_dma_data;
+	return 0;
+}
+
+static struct snd_soc_dai_driver atlas7_iacc_dai = {
+	.probe = atlas7_iacc_dai_probe,
+	.name = "sirf-atlas7-iacc",
+	.id = 0,
+	.playback = {
+		.channels_min = 1,
+		.channels_max = 4,
+		.rates = AUDIO_IF_DAC_RATES,
+		.formats = AUDIO_IF_FORMATS,
+	},
+	.capture = {
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = AUDIO_IF_DAC_RATES,
+		.formats = AUDIO_IF_FORMATS,
+	},
+	.ops = &atlas7_iacc_dai_ops,
+};
+
+static const struct snd_soc_component_driver atlas7_iacc_component = {
+	.name       = "sirf-atlas7-iacc",
+};
+
+static int atlas7_iacc_runtime_suspend(struct device *dev)
+{
+	struct atlas7_iacc *atlas7_atlas7_iacc = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(atlas7_atlas7_iacc->clk);
+	return 0;
+}
+
+static int atlas7_iacc_runtime_resume(struct device *dev)
+{
+	struct atlas7_iacc *atlas7_iacc = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(atlas7_iacc->clk);
+	if (ret) {
+		dev_err(dev, "clk_enable failed: %d\n", ret);
+		return ret;
+	}
+	regmap_write(atlas7_iacc->regmap, INTCODECCTL_MODE_CTRL, 0);
+	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int atlas7_iacc_suspend(struct device *dev)
+{
+	if (!pm_runtime_status_suspended(dev))
+		atlas7_iacc_runtime_suspend(dev);
+
+	return 0;
+}
+
+static int atlas7_iacc_resume(struct device *dev)
+{
+	int ret;
+
+	if (!pm_runtime_status_suspended(dev)) {
+		ret = atlas7_iacc_runtime_resume(dev);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+#endif
+
+static const struct regmap_config atlas7_iacc_regmap_config = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = INTCODECCTL_RXFIFO_INT_MSK,
+	.cache_type = REGCACHE_NONE,
+};
+
+static const struct snd_pcm_hardware atlas7_pcm_hardware = {
+	.info                   = SNDRV_PCM_INFO_MMAP |
+				SNDRV_PCM_INFO_MMAP_VALID |
+				SNDRV_PCM_INFO_INTERLEAVED |
+				SNDRV_PCM_INFO_PAUSE |
+				SNDRV_PCM_INFO_RESUME |
+				SNDRV_PCM_INFO_BLOCK_TRANSFER,
+	.period_bytes_min	= 32,
+	.period_bytes_max	= 0x10000,
+	.periods_min		= 1,
+	.periods_max		= 2,
+	.buffer_bytes_max	= 0x20000, /* 128 kbytes */
+	.fifo_size		= 16,
+};
+
+static void atlas7_pcm_dma_complete(void *arg)
+{
+	struct snd_pcm_substream *substream = arg;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct atlas7_dma_data *dma_data;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		dma_data->pos += snd_pcm_lib_period_bytes(substream);
+		if (dma_data->pos >= snd_pcm_lib_buffer_bytes(substream))
+			dma_data->pos = 0;
+	} else {
+		dma_data->pos += snd_pcm_lib_period_bytes(substream);
+		if (dma_data->pos >= snd_pcm_lib_buffer_bytes(substream))
+			dma_data->pos = 0;
+	}
+	snd_pcm_period_elapsed(substream);
+}
+
+static int atlas7_pcm_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	return snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+}
+
+static unsigned int buffer_bytes_each_channels(
+	struct snd_pcm_substream *substream)
+{
+	return snd_pcm_lib_buffer_bytes(substream) /
+		substream->runtime->channels;
+}
+
+static unsigned int period_bytes_each_channels(
+	struct snd_pcm_substream *substream)
+{
+	return snd_pcm_lib_period_bytes(substream) /
+		substream->runtime->channels;
+}
+
+static int atlas7_pcm_dma_prep_and_submit(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct dma_chan *chan;
+	struct dma_async_tx_descriptor *desc;
+	enum dma_transfer_direction direction;
+	unsigned long flags = DMA_CTRL_ACK;
+	struct atlas7_dma_data *dma_data;
+	int i;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+
+	direction = snd_pcm_substream_to_dma_direction(substream);
+
+	if (!substream->runtime->no_period_wakeup)
+		flags |= DMA_PREP_INTERRUPT;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		for (i = 0; i < substream->runtime->channels; i++) {
+			chan = dma_data->chan[i];
+
+			desc = dmaengine_prep_dma_cyclic(chan,
+				substream->runtime->dma_addr +
+				buffer_bytes_each_channels(substream) * i,
+				buffer_bytes_each_channels(substream),
+				period_bytes_each_channels(substream),
+				direction, flags);
+
+			if (!desc)
+				return -ENOMEM;
+
+			/* Only enable last dma interrupt callback, because
+			 * The last dma interrupt raise, that means all the
+			 * dma channels have been raised.
+			 */
+			if (i == (substream->runtime->channels - 1)) {
+				desc->callback = atlas7_pcm_dma_complete;
+				desc->callback_param = substream;
+			}
+			dmaengine_submit(desc);
+		}
+	} else {
+		desc = dmaengine_prep_dma_cyclic(dma_data->chan[0],
+				substream->runtime->dma_addr,
+				snd_pcm_lib_buffer_bytes(substream),
+				snd_pcm_lib_period_bytes(substream),
+				direction, flags);
+
+		if (!desc)
+			return -ENOMEM;
+
+		desc->callback = atlas7_pcm_dma_complete;
+		desc->callback_param = substream;
+		dmaengine_submit(desc);
+	}
+	return 0;
+}
+
+static int atlas7_pcm_hw_free(struct snd_pcm_substream *substream)
+{
+	snd_pcm_lib_free_pages(substream);
+	return 0;
+}
+
+static snd_pcm_uframes_t atlas7_pcm_pointer(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct atlas7_dma_data *dma_data;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+
+	return bytes_to_frames(substream->runtime, dma_data->pos);
+}
+
+static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct atlas7_dma_data *dma_data;
+	int i;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		atlas7_pcm_dma_prep_and_submit(substream);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			for (i = 0; i < substream->runtime->channels; i++)
+				dma_async_issue_pending(dma_data->chan[i]);
+		} else
+			dma_async_issue_pending(dma_data->chan[0]);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			for (i = 0; i < substream->runtime->channels; i++)
+				dmaengine_terminate_all(dma_data->chan[i]);
+		else
+			dma_async_issue_pending(dma_data->chan[0]);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int atlas7_pcm_open(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	int ret;
+
+	snd_soc_set_runtime_hwparams(substream, &atlas7_pcm_hardware);
+
+	ret = snd_pcm_hw_constraint_integer(runtime,
+			SNDRV_PCM_HW_PARAM_PERIODS);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int atlas7_pcm_copy(struct snd_pcm_substream *substream, int channel,
+	snd_pcm_uframes_t pos, void *buf, snd_pcm_uframes_t count)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	unsigned int sample_size = runtime->sample_bits / 8;
+	unsigned int i;
+	void *src, *dst;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		src = buf;
+		dst = runtime->dma_area;
+		dst += pos * sample_size;
+		while (count--) {
+			for (i = 0; i < runtime->channels; i++) {
+				memcpy(dst + i *
+					buffer_bytes_each_channels(substream),
+					src, sample_size);
+				src += sample_size;
+			}
+			dst += sample_size;
+		}
+	} else {
+		src = runtime->dma_area;
+		src += frames_to_bytes(runtime, pos);
+		dst = buf;
+		memcpy(dst, src, frames_to_bytes(runtime, count));
+	}
+
+	return 0;
+}
+static struct snd_pcm_ops atlas7_pcm_iacc_ops = {
+	.open		= atlas7_pcm_open,
+	.ioctl		= snd_pcm_lib_ioctl,
+	.hw_params	= atlas7_pcm_hw_params,
+	.hw_free	= atlas7_pcm_hw_free,
+	.trigger	= atlas7_pcm_trigger,
+	.pointer	= atlas7_pcm_pointer,
+	.copy		= atlas7_pcm_copy,
+};
+
+static int atlas7_pcm_iacc_new(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_card *card = rtd->card->snd_card;
+	size_t size = atlas7_pcm_hardware.buffer_bytes_max;
+	int ret;
+
+	ret = dma_coerce_mask_and_coherent(card->dev, DMA_BIT_MASK(32));
+	if (ret)
+		return ret;
+
+	return snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
+				SNDRV_DMA_TYPE_DEV, card->dev, size, size);
+}
+
+static struct snd_soc_platform_driver atlas7_iacc_soc_platform = {
+	.ops		= &atlas7_pcm_iacc_ops,
+	.pcm_new	= atlas7_pcm_iacc_new,
+};
+
+static int atlas7_iacc_probe(struct platform_device *pdev)
+{
+	int ret, i;
+	struct atlas7_iacc *atlas7_iacc;
+	struct clk *clk;
+	struct resource *mem_res;
+	void __iomem *base;
+	struct dma_chan *chan;
+	char tx_dma_name[16];
+
+	atlas7_iacc = devm_kzalloc(&pdev->dev,
+			sizeof(struct atlas7_iacc), GFP_KERNEL);
+	if (!atlas7_iacc)
+		return -ENOMEM;
+
+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem_res) {
+		dev_err(&pdev->dev, "no mem resource?\n");
+		return -ENODEV;
+	}
+
+	base = devm_ioremap_resource(&pdev->dev, mem_res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	atlas7_iacc->regmap = devm_regmap_init_mmio(&pdev->dev, base,
+					    &atlas7_iacc_regmap_config);
+	if (IS_ERR(atlas7_iacc->regmap))
+		return PTR_ERR(atlas7_iacc->regmap);
+
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(clk)) {
+		dev_err(&pdev->dev, "Get clock failed.\n");
+		ret = PTR_ERR(clk);
+		return ret;
+	}
+
+	for (i = 0; i < IACC_DMA_CHANNELS; i++) {
+		sprintf(tx_dma_name, "tx%d", i);
+		chan = dma_request_slave_channel_reason(&pdev->dev,
+			tx_dma_name);
+		if (IS_ERR(chan)) {
+			dev_err(&pdev->dev, "Request playback dma channel failed.\n");
+			return PTR_ERR(chan);
+		}
+
+		atlas7_iacc->tx_dma_data.chan[i] = chan;
+	}
+	chan = dma_request_slave_channel_reason(&pdev->dev, "rx");
+	if (IS_ERR(chan)) {
+		dev_err(&pdev->dev, "Request playback dma channel failed.\n");
+		ret = PTR_ERR(chan);
+		goto out;
+	}
+
+	atlas7_iacc->rx_dma_data.chan[0] = chan;
+
+	atlas7_iacc->clk = clk;
+
+	pm_runtime_enable(&pdev->dev);
+	if (!pm_runtime_enabled(&pdev->dev)) {
+		ret = atlas7_iacc_runtime_resume(&pdev->dev);
+		if (ret)
+			goto out;
+	}
+
+	ret = devm_snd_soc_register_component(&pdev->dev,
+			&atlas7_iacc_component,
+			&atlas7_iacc_dai, 1);
+	if (ret)
+		goto out;
+
+	platform_set_drvdata(pdev, atlas7_iacc);
+	ret = devm_snd_soc_register_platform(&pdev->dev,
+		&atlas7_iacc_soc_platform);
+	if (ret < 0)
+		goto out;
+	return ret;
+
+out:
+	for (i = 0; i < IACC_DMA_CHANNELS; i++) {
+		if (atlas7_iacc->tx_dma_data.chan[i])
+			dma_release_channel(atlas7_iacc->tx_dma_data.chan[i]);
+	}
+	dma_release_channel(atlas7_iacc->rx_dma_data.chan[0]);
+	return ret;
+}
+
+static int atlas7_iacc_remove(struct platform_device *pdev)
+{
+	struct atlas7_iacc *atlas7_iacc = platform_get_drvdata(pdev);
+	int i;
+
+	if (!pm_runtime_enabled(&pdev->dev))
+		atlas7_iacc_runtime_suspend(&pdev->dev);
+	else
+		pm_runtime_disable(&pdev->dev);
+
+	for (i = 0; i < IACC_DMA_CHANNELS; i++)
+		dma_release_channel(atlas7_iacc->tx_dma_data.chan[i]);
+	dma_release_channel(atlas7_iacc->rx_dma_data.chan[0]);
+
+	return 0;
+}
+
+static const struct of_device_id atlas7_iacc_of_match[] = {
+	{ .compatible = "sirf,atlas7-iacc", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, atlas7_iacc_of_match);
+
+static const struct dev_pm_ops atlas7_iacc_pm_ops = {
+	SET_RUNTIME_PM_OPS(atlas7_iacc_runtime_suspend,
+		atlas7_iacc_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(atlas7_iacc_suspend,
+		atlas7_iacc_resume)
+};
+
+static struct platform_driver atlas7_iacc_driver = {
+	.driver = {
+		.name = "sirf-atlas7-iacc",
+		.owner = THIS_MODULE,
+		.of_match_table = atlas7_iacc_of_match,
+		.pm = &atlas7_iacc_pm_ops,
+	},
+	.probe = atlas7_iacc_probe,
+	.remove = atlas7_iacc_remove,
+};
+
+module_platform_driver(atlas7_iacc_driver);
+
+MODULE_DESCRIPTION("SiRF ATLAS7 IACC(internal audio codec cotroller) driver");
+MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
+MODULE_LICENSE("GPL v2");
