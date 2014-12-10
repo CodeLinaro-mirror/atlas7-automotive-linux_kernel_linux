@@ -1,0 +1,23 @@
+* SiRF Atlas7 internal audio codec controller
+
+Required properties:
+- compatible: "sirf,atlas7-iacc"
+- reg: Base address and size entries:
+- dmas: List of DMA controller phandle and DMA request line ordered pairs.
+- dma-names: Identifier string for each DMA request line in the dmas property.
+  These strings correspond 1:1 with the ordered pairs in dmas.
+
+  One of the DMA channels will be responsible for transmission (should be
+  named "tx0", "tx1", "tx2" and "tx3" for each channels) and one for
+  reception (should be named "rx").
+
+Example:
+	atlas7_iacc: atlas7_iacc@10D01000 {
+		#sound-dai-cells = <0>;
+		compatible = "sirf,atlas7-iacc";
+		reg = <0x10D01000 0x100>;
+		dmas = <&dmac3 0>, <&dmac3 7>, <&dmac3 8>, <&dmac3 3>, <&dmac3 9>;
+		dma-names = "rx", "tx0", "tx1", "tx2", "tx3";
+		clocks = <&car 69>;
+};
+

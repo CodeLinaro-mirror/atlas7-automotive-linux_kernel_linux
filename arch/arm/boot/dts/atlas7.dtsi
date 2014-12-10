@@ -68,6 +68,16 @@
 			ldo-supply = <&ldo>;
 		};
 
+		atlas7_iacc: atlas7_iacc@10D01000 {
+			#sound-dai-cells = <0>;
+			compatible = "sirf,atlas7-iacc";
+			reg = <0x10D01000 0x100>;
+			dmas = <&dmac3 0>, <&dmac3 7>, <&dmac3 8>,
+				<&dmac3 3>, <&dmac3 9>;
+			dma-names = "rx", "tx0", "tx1", "tx2", "tx3";
+			clocks = <&car 69>;
+		};
+
 		ipc@13240000 {
 			compatible = "sirf,atlas7-ipc";
 			ranges = <0x13240000 0x13240000 0x00010000>;
