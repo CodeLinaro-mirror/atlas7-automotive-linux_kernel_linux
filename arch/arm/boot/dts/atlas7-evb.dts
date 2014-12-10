@@ -25,6 +25,22 @@
 		reg = <0x40000000 0x20000000>; /* 512M for PXP */
 	};
 
+	sound-internal-audio {
+		compatible = "simple-audio-card";
+		simple-audio-card,routing =
+			"Headphone Jack", "LOUT0",
+			"LIN0", "Line In Jack";
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line In Jack";
+		simple-audio-card,codec {
+			sound-dai = <&atlas7_codec>;
+		};
+		simple-audio-card,cpu {
+			sound-dai = <&atlas7_iacc>;
+		};
+	};
+
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
