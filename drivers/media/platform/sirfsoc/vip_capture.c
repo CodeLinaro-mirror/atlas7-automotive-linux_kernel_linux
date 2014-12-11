@@ -66,7 +66,7 @@ static int brestart;
 static void vip_callback(void *pdata);
 static int vip_start_dma(struct vip_dev *vip);
 static void vip_hw_stop(struct vip_dev *vip);
-static void vip_hw_stop_dma(struct vip_dev *vip);
+static void vip_hw_wait_dma_idle(struct vip_dev *vip);
 
 
 /* VIP supported formats */
@@ -256,11 +256,12 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 	if (list_empty(&vip->capture))
 		goto out;
 
-	vip_hw_stop(vip);
 	if (vip->is_atlas7_vip0)
-		vip_hw_stop_dma(vip);
+		vip_hw_wait_dma_idle(vip);
 	else
 		dmaengine_terminate_all(vip->dma_chan);
+
+	vip_hw_stop(vip);
 	vip->vb2_active = NULL;
 
 	while (!list_empty(&vip->capture)) {
@@ -381,9 +382,15 @@ static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 }
 
 /* single dma mode */
-static void vip_hw_stop_dma(struct vip_dev *vip)
+static void vip_hw_wait_dma_idle(struct vip_dev *vip)
 {
-	vip_write(DMAN_VALID, 0x1);		/* Stop dma */
+	/*
+	* Currently we have no workable way to abort an active DMA,
+	* so we have to wait for its finishing.
+	* It can finish in 1ms the fastest, and it runs atomic.
+	*/
+	while (vip_read(DMAN_VALID) & 0x1)
+		cpu_relax();
 }
 
 static u32 dma_hw_get_interrupts(struct vip_dev *vip)
@@ -874,12 +881,12 @@ static int vip_start_dma(struct vip_dev *vip)
 
 	/* maybe it can be removed */
 	if (vb == NULL) {
-		vip_hw_stop(vip);
-		mdelay(1);
 		if (vip->is_atlas7_vip0)
-			vip_hw_stop_dma(vip);
+			vip_hw_wait_dma_idle(vip);
 		else
 			dmaengine_terminate_all(vip->dma_chan);
+
+		vip_hw_stop(vip);
 		return -EINVAL;
 	}
 
@@ -1421,9 +1428,9 @@ static int vidioc_streamoff(struct file *file, void *priv,
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
-	v4l2_subdev_call(sd, video, s_stream, 0);
-
 	vb2_streamoff(&vip->vb2_vidq, i);
+
+	v4l2_subdev_call(sd, video, s_stream, 0);
 
 	return 0;
 }
@@ -2091,7 +2098,7 @@ static int vip_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&vip->v4l2_dev);
 
 	if (vip->is_atlas7_vip0) {
-		vip_hw_stop_dma(vip);
+		vip_hw_wait_dma_idle(vip);
 	} else {
 		dmaengine_terminate_all(vip->dma_chan);
 		dma_release_channel(vip->dma_chan);
@@ -2119,7 +2126,7 @@ static int vip_pm_suspend(struct device *dev)
 	disable_irq(vip->irq);
 
 	if (vip->is_atlas7_vip0)
-		vip_hw_stop_dma(vip);
+		vip_hw_wait_dma_idle(vip);
 	else
 		dmaengine_terminate_all(vip->dma_chan);
 
@@ -2157,7 +2164,7 @@ static int vip_pm_freeze(struct device *dev)
 	disable_irq(vip->irq);
 
 	if (vip->is_atlas7_vip0)
-		vip_hw_stop_dma(vip);
+		vip_hw_wait_dma_idle(vip);
 	else
 		dmaengine_terminate_all(vip->dma_chan);
 
