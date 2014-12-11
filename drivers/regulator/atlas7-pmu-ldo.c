@@ -72,11 +72,6 @@ static int atlas7_pmu_reg_probe(struct platform_device *pdev)
 	struct regulator_dev *rdev;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "no mem resource?\n");
-		return -ENODEV;
-	}
-
 	base = devm_ioremap(&pdev->dev, mem_res->start,
 		resource_size(mem_res));
 	if (IS_ERR(base))
