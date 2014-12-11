@@ -258,13 +258,28 @@
 			};
 
 			spi1: spi@18200000 {
-				status = "disabled";
+				status = "okay";
 				pinctrl-0 = <&sp1_spi_pmx>;
 				pinctrl-names = "default";
 				spidev {
+					status = "disabled";
 					compatible = "spidev";
 					spi-max-frequency = <1000000>;
 					reg = <0>;
+				};
+				spiflash: macronix@0{
+					status = "okay";
+					compatible = "macronix,mx25l6405d";
+					reg = <0>;
+					spi-max-frequency = <37500000>;
+					spi-cpha;
+					spi-cpol;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partitions@0 {
+						label = "myspiboot";
+						reg = <0x0 0x800000>;
+					};
 				};
 			};
 		};
