@@ -517,11 +517,6 @@ static int atlas7_iacc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem_res) {
-		dev_err(&pdev->dev, "no mem resource?\n");
-		return -ENODEV;
-	}
-
 	base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
@@ -578,7 +573,8 @@ static int atlas7_iacc_probe(struct platform_device *pdev)
 		&atlas7_iacc_soc_platform);
 	if (ret < 0)
 		goto out;
-	return ret;
+
+	return 0;
 
 out:
 	for (i = 0; i < IACC_DMA_CHANNELS; i++) {
