@@ -142,6 +142,13 @@
 				};
 			};
 
+			audio_i2s_extclk_pmx: audio_i2s_extclk@0 {
+				audio_i2s_extclk {
+					sirf,pins = "audio_i2s_extclk_grp";
+					sirf,function = "audio_i2s_extclk";
+				};
+			};
+
 			audio_uart0_pmx: audio_uart0@0 {
 				audio_uart0 {
 					sirf,pins = "audio_uart0_grp";
