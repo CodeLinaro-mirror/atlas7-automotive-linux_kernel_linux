@@ -542,6 +542,12 @@ config VEXPRESS_SYSCFG
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
 
+config A7CA_BT
+	bool "Character-device access CSR A7CA_BT"
+	default y
+	---help---
+	  This device provides character-level read-write and ioctrl access to CSR A7CA BT in /dev/a7ca_bt/
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

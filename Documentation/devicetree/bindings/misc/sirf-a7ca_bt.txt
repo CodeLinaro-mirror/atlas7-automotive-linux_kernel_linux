@@ -1,0 +1,13 @@
+SIRF Soc a7ca_bt driver
+
+Required properties:
+- compatible: "sirf,a7ca_bt"
+- clocks: The clock is needed by a7ca bt
+
+Example:
+a7ca_bt {
+	compatible = "sirf,a7ca_bt";
+	clocks = <&car 129>, <&car 137>, <&car 133>;
+	clock-names="a7ca_btss","a7ca_btslow","a7ca_io";
+};
+
