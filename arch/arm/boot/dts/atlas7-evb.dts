@@ -203,10 +203,6 @@
 					reg = <0x38>;
 				};
 			};
-
-			i2c1: i2c@17030000 {
-				status = "disabled";
-			};
 		};
 
 		vdifm {
