@@ -117,7 +117,7 @@ static int atlas7_iacc_hw_params(struct snd_pcm_substream *substream,
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_MODE_CTRL, RX_24BIT, 0);
 		break;
-	case SNDRV_PCM_FORMAT_S24_3LE:
+	case SNDRV_PCM_FORMAT_S24_LE:
 		if (playback)
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_MODE_CTRL, TX_24BIT, TX_24BIT);
@@ -179,7 +179,7 @@ struct snd_soc_dai_ops atlas7_iacc_dai_ops = {
 				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 \
 				| SNDRV_PCM_RATE_96000)
 #define AUDIO_IF_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE \
-				| SNDRV_PCM_FMTBIT_S24_3LE)
+				| SNDRV_PCM_FMTBIT_S24_LE)
 static int atlas7_iacc_dai_probe(struct snd_soc_dai *dai)
 {
 	struct atlas7_iacc *atlas7_iacc = snd_soc_dai_get_drvdata(dai);
