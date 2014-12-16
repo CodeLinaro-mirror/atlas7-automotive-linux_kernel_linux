@@ -157,7 +157,7 @@ struct snd_soc_dai_ops sirf_atlas7_codec_dai_ops = {
 				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 \
 				| SNDRV_PCM_RATE_96000)
 #define A7DA_CODEC_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE \
-				| SNDRV_PCM_FMTBIT_S24_3LE)
+				| SNDRV_PCM_FMTBIT_S24_LE)
 
 struct snd_soc_dai_driver sirf_atlas7_codec_dai = {
 	.name = "atlas7-codec-hifi",
