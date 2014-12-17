@@ -1196,6 +1196,8 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{133 , "a7ca_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 5, &leaf8_gate_lock},
 	{134 , "noc_btm_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 6, &leaf8_gate_lock},
 	{135 , "thbtm_io", "btm_io", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 7, &leaf8_gate_lock},
+	{136 , "btslow", "xinw_fixdiv_btslow", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 25, &root1_gate_lock},
+	{137 , "a7ca_btslow", "btslow", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 0, &leaf8_gate_lock},
 };
 
 static struct clk *atlas7_clks[ARRAY_SIZE(unit_list)];
@@ -1356,13 +1358,13 @@ static struct atlas7_reset_desc atlas7_reset_unit[] = {
 	{"UART6", 0x0548, 3, 0x0384, 2, &leaf8_gate_lock}, /*76-*/
 	{"USP3", 0x0548, 4, 0x0384, 3, &leaf8_gate_lock},
 	{"THBTM", 0x0548, 5, 0x0384, 5, &leaf8_gate_lock},
+	{"A7CA", 0x0548, 1, 0x0384, 0, &leaf8_gate_lock},
+	{"A7CA_APB", 0x0548, 5, 0x0384, 4, &leaf8_gate_lock},
 
 	/*Below reset has not yet implemented
 	*{"IPC", , , 0x0338, 14},
 	*{"INTC", , , 0x0368, 14},
 	*{"CPUIF", , , 0x0368, 15},
-	*{"A7CA", , , 0x0384, 0},
-	*{"A7CA_APB", , , 0x0384, 4},
 	*/
 };
 
@@ -1540,6 +1542,10 @@ void __init atlas7_clk_init(struct device_node *np)
 	BUG_ON(!clk);
 	clk = clk_register_fixed_factor(NULL, "sys3pll_fixdiv", "sys3pll_vco",
 					CLK_SET_RATE_PARENT, 1, 2);
+
+	BUG_ON(!clk);
+	clk = clk_register_fixed_factor(NULL, "xinw_fixdiv_btslow", "xinw",
+					CLK_SET_RATE_PARENT, 1, 4);
 
 	BUG_ON(!clk);
 	clk = clk_register_gate(NULL, "cpupll_clk1", "cpupll_div1",
