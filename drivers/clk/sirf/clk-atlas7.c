@@ -1277,94 +1277,93 @@ atlas7_unit_clk_register(struct device *dev, const char *name,
 }
 
 static struct atlas7_reset_desc atlas7_reset_unit[] = {
-	{"PWM", 0x0244, 0, 0x0320, 0, &leaf0_gate_lock},
+	{"PWM", 0x0244, 0, 0x0320, 0, &leaf0_gate_lock}, /*0-5*/
 	{"THCGUM", 0x0244, 3, 0x0320, 1, &leaf0_gate_lock},
 	{"CVD", 0x04A0, 0, 0x032C, 0, &leaf1_gate_lock},
 	{"TIMER", 0x04A0, 1, 0x032C, 1, &leaf1_gate_lock},
 	{"PULSEC", 0x04A0, 2, 0x032C, 2, &leaf1_gate_lock},
 	{"TSC", 0x04A0, 3, 0x032C, 3, &leaf1_gate_lock},
-	{"IOCTOP", 0x04A0, 4, 0x032C, 4, &leaf1_gate_lock},
+	{"IOCTOP", 0x04A0, 4, 0x032C, 4, &leaf1_gate_lock}, /*6-10*/
 	{"RSC", 0x04A0, 5, 0x032C, 5, &leaf1_gate_lock},
 	{"DVM", 0x04A0, 6, 0x032C, 6, &leaf1_gate_lock},
 	{"LVDS", 0x04A0, 7, 0x032C, 7, &leaf1_gate_lock},
 	{"KAS", 0x04A0, 8, 0x032C, 8, &leaf1_gate_lock},
-	{"AC97", 0x04A0, 9, 0x032C, 9, &leaf1_gate_lock},
+	{"AC97", 0x04A0, 9, 0x032C, 9, &leaf1_gate_lock}, /*11-15*/
 	{"USP0", 0x04A0, 10, 0x032C, 10, &leaf1_gate_lock},
 	{"USP1", 0x04A0, 11, 0x032C, 11, &leaf1_gate_lock},
 	{"USP2", 0x04A0, 12, 0x032C, 12, &leaf1_gate_lock},
 	{"DMAC2", 0x04A0, 13, 0x032C, 13, &leaf1_gate_lock},
-	{"DMAC3", 0x04A0, 14, 0x032C, 14, &leaf1_gate_lock},
+	{"DMAC3", 0x04A0, 14, 0x032C, 14, &leaf1_gate_lock}, /*16-20*/
 	{"AUDIO", 0x04A0, 15, 0x032C, 15, &leaf1_gate_lock},
 	{"I2S1", 0x04A0, 17, 0x032C, 16, &leaf1_gate_lock},
 	{"PMU_AUDIO", 0x04A0, 22, 0x032C, 17, &leaf1_gate_lock},
 	{"THAUDMSCM", 0x04A0, 23, 0x032C, 18, &leaf1_gate_lock},
-	{"SYS2PCI", 0x04B8, 0, 0x0338, 0, &leaf2_gate_lock},
+	{"SYS2PCI", 0x04B8, 0, 0x0338, 0, &leaf2_gate_lock}, /*21-25*/
 	{"PCIARB", 0x04B8, 1, 0x0338, 1, &leaf2_gate_lock},
 	{"PCICOPY", 0x04B8, 2, 0x0338, 2, &leaf2_gate_lock},
 	{"ROM", 0x04B8, 3, 0x0338, 3, &leaf2_gate_lock},
 	{"SDIO23", 0x04B8, 4, 0x0338, 4, &leaf2_gate_lock},
-	{"SDIO45", 0x04B8, 5, 0x0338, 5, &leaf2_gate_lock},
+	{"SDIO45", 0x04B8, 5, 0x0338, 5, &leaf2_gate_lock}, /*26-30*/
 	{"SDIO67", 0x04B8, 6, 0x0338, 6, &leaf2_gate_lock},
 	{"VIP1", 0x04B8, 7, 0x0338, 7, &leaf2_gate_lock},
 	{"VPP0", 0x04B8, 11, 0x0338, 8, &leaf2_gate_lock},
 	{"LCD0", 0x04B8, 12, 0x0338, 9, &leaf2_gate_lock},
-	{"VPP1", 0x04B8, 13, 0x0338, 10, &leaf2_gate_lock},
+	{"VPP1", 0x04B8, 13, 0x0338, 10, &leaf2_gate_lock}, /*31-35*/
 	{"LCD1", 0x04B8, 14, 0x0338, 11, &leaf2_gate_lock},
 	{"DCU", 0x04B8, 15, 0x0338, 12, &leaf2_gate_lock},
 	{"GPIO", 0x04B8, 18, 0x0338, 13, &leaf2_gate_lock},
-	/*
-	{"IPC", , , 0x0338, 14},
-	*/
 	{"DAPA_VDIFM", 0x04B8, 17, 0x0338, 15, &leaf2_gate_lock},
-	{"THVDIFM", 0x04B8, 19, 0x0338, 16, &leaf2_gate_lock},
+	{"THVDIFM", 0x04B8, 19, 0x0338, 16, &leaf2_gate_lock}, /*36-40*/
 	{"RGMII", 0x04D0, 0, 0x0344, 0, &leaf3_gate_lock},
 	{"GMAC", 0x04D0, 1, 0x0344, 1, &leaf3_gate_lock},
 	{"UART1", 0x04D0, 2, 0x0344, 2, &leaf3_gate_lock},
 	{"DMAC0", 0x04D0, 3, 0x0344, 3, &leaf3_gate_lock},
-	{"UART0", 0x04D0, 4, 0x0344, 4, &leaf3_gate_lock},
+	{"UART0", 0x04D0, 4, 0x0344, 4, &leaf3_gate_lock}, /*41-45*/
 	{"UART2", 0x04D0, 5, 0x0344, 5, &leaf3_gate_lock},
 	{"UART3", 0x04D0, 6, 0x0344, 6, &leaf3_gate_lock},
 	{"UART4", 0x04D0, 7, 0x0344, 7, &leaf3_gate_lock},
 	{"UART5", 0x04D0, 8, 0x0344, 8, &leaf3_gate_lock},
-	{"SPI1", 0x04D0, 9, 0x0344, 9, &leaf3_gate_lock},
+	{"SPI1", 0x04D0, 9, 0x0344, 9, &leaf3_gate_lock}, /*46-50*/
 	{"GNSS_SYS_M0", 0x04D0, 10, 0x0344, 10, &leaf3_gate_lock},
 	{"CANBUS1", 0x04D0, 12, 0x0344, 11, &leaf3_gate_lock},
 	{"CCSEC", 0x04D0, 15, 0x0344, 12, &leaf3_gate_lock},
 	{"CCPUB", 0x04D0, 16, 0x0344, 13, &leaf3_gate_lock},
-	{"DAPA_GNSSM", 0x04D0, 13, 0x0344, 14, &leaf3_gate_lock},
+	{"DAPA_GNSSM", 0x04D0, 13, 0x0344, 14, &leaf3_gate_lock}, /*51-55*/
 	{"THGNSSM", 0x04D0, 14, 0x0344, 15, &leaf3_gate_lock},
 	{"VDEC", 0x04E8, 0, 0x0350, 0, &leaf4_gate_lock},
 	{"JPENC", 0x04E8, 1, 0x0350, 1, &leaf4_gate_lock},
 	{"G2D", 0x04E8, 2, 0x0350, 2, &leaf4_gate_lock},
-	{"I2C0", 0x04E8, 3, 0x0350, 3, &leaf4_gate_lock},
+	{"I2C0", 0x04E8, 3, 0x0350, 3, &leaf4_gate_lock}, /*56-60*/
 	{"I2C1", 0x04E8, 4, 0x0350, 4, &leaf4_gate_lock},
 	{"GPIO0", 0x04E8, 5, 0x0350, 5, &leaf4_gate_lock},
 	{"NAND", 0x04E8, 6, 0x0350, 6, &leaf4_gate_lock},
 	{"SDIO01", 0x04E8, 7, 0x0350, 7, &leaf4_gate_lock},
-	{"SYS2PCI2", 0x04E8, 8, 0x0350, 8, &leaf4_gate_lock},
+	{"SYS2PCI2", 0x04E8, 8, 0x0350, 8, &leaf4_gate_lock}, /*61-65*/
 	{"USB0", 0x04E8, 11, 0x0350, 9, &leaf4_gate_lock},
 	{"USB1", 0x04E8, 12, 0x0350, 10, &leaf4_gate_lock},
 	{"THMEDIAM", 0x04E8, 15, 0x0350, 11, &leaf4_gate_lock},
 	{"MEMC_DDRPHY", 0x0500, 0, 0x035C, 0, &leaf5_gate_lock},
-	{"MEMC_UPCTL", 0x0500, 0, 0x035C, 1, &leaf5_gate_lock},
+	{"MEMC_UPCTL", 0x0500, 0, 0x035C, 1, &leaf5_gate_lock}, /*66-70*/
 	{"DAPA_MEM", 0x0500, 1, 0x035C, 2, &leaf5_gate_lock},
 	{"MEMC_MEMDIV", 0x0500, 0, 0x035C, 3, &leaf5_gate_lock},
 	{"THDDRM", 0x0500, 3, 0x035C, 4, &leaf5_gate_lock},
 	{"CORESIGHT", 0x0518, 3, 0x0368, 13, &leaf6_gate_lock},
-	/*
-	{"INTC", , , 0x0368, 14},
-	{"CPUIF", , , 0x0368, 15},
-	*/
-	{"THCPUM", 0x0518, 4, 0x0368, 17, &leaf6_gate_lock},
+	{"THCPUM", 0x0518, 4, 0x0368, 17, &leaf6_gate_lock}, /*71-75*/
 	{"GRAPHIC", 0x0530, 0, 0x0374, 0, &leaf7_gate_lock},
 	{"VSS_SDR", 0x0530, 1, 0x0374, 1, &leaf7_gate_lock},
 	{"THGPUM", 0x0530, 2, 0x0374, 2, &leaf7_gate_lock},
-	/* {"A7CA", , , 0x0384, 0}, */
 	{"DMAC4", 0x0548, 2, 0x0384, 1, &leaf8_gate_lock},
-	{"UART6", 0x0548, 3, 0x0384, 2, &leaf8_gate_lock},
+	{"UART6", 0x0548, 3, 0x0384, 2, &leaf8_gate_lock}, /*76-*/
 	{"USP3", 0x0548, 4, 0x0384, 3, &leaf8_gate_lock},
-	/* {"A7CA_APB", , , 0x0384, 4}, */
 	{"THBTM", 0x0548, 5, 0x0384, 5, &leaf8_gate_lock},
+
+	/*Below reset has not yet implemented
+	*{"IPC", , , 0x0338, 14},
+	*{"INTC", , , 0x0368, 14},
+	*{"CPUIF", , , 0x0368, 15},
+	*{"A7CA", , , 0x0384, 0},
+	*{"A7CA_APB", , , 0x0384, 4},
+	*/
 };
 
 static int atlas7_reset_module(struct reset_controller_dev *rcdev,
