@@ -9,6 +9,7 @@
 /dts-v1/;
 
 /include/ "atlas7.dtsi"
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "CSR SiRFatlas7 Evaluation Board";
@@ -138,6 +139,52 @@
 					compatible = "spidev";
 					reg = <0>;
 					spi-max-frequency = <1000000>;
+				};
+			};
+
+			adc@10d80000 {
+				adc-keys {
+					compatible = "sirf,atlas7-adc-keys";
+					interrupts = <0 32 0>;
+					io-channels = <&adc 5>;
+					io-channel-names = "adc_keys";
+
+					button-s2 {
+						label = "Volume Up";
+						linux,code = <KEY_VOLUMEUP>;
+						voltage = <1272>;
+					};
+
+					button-s7 {
+						label = "Volume Down";
+						linux,code = <KEY_VOLUMEDOWN>;
+						voltage = <1211>;
+					};
+
+					button-s1 {
+						label = "Brightness Up";
+						linux,code = <KEY_BRIGHTNESSUP>;
+						voltage = <1085>;
+					};
+
+					button-s4 {
+						label = "Brightness Down";
+						linux,code =
+							<KEY_BRIGHTNESSDOWN>;
+						voltage = <953>;
+					};
+
+					button-s5 {
+						label = "Home";
+						linux,code = <KEY_HOMEPAGE>;
+						voltage = <1368>;
+					};
+
+					button-s6 {
+						label = "Back";
+						linux,code = <KEY_BACK>;
+						voltage = <1416>;
+					};
 				};
 			};
 

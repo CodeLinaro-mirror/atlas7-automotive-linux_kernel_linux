@@ -1,0 +1,175 @@
+/*
+ * Atlas7 evb keypad Driver
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/err.h>
+#include <linux/init.h>
+#include <linux/input.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include <linux/iio/consumer.h>
+#include <linux/slab.h>
+
+struct atlas7_keys_keymap {
+	u32 voltage;
+	u32 keycode;
+};
+
+struct atlas7_keys {
+	struct device		*dev;
+	struct input_dev	*input;
+	struct iio_channel	*chan;
+	struct atlas7_keys_keymap *keys_map;
+	struct workqueue_struct	*keys_wq;
+	struct delayed_work	keys_poll;
+	u32			keys_map_count;
+	u32			keys_keycode;
+};
+
+static void atlas7_keys_check_volt_work(struct work_struct *work)
+{
+	struct delayed_work *delay = to_delayed_work(work);
+	struct atlas7_keys *keys = container_of(delay,
+				struct atlas7_keys, keys_poll);
+	int volt;
+	int ret;
+	int i;
+
+	ret = iio_read_channel_processed(keys->chan, &volt);
+	if (ret < 0)
+		dev_WARN(keys->dev, "read channel error\n");
+
+	for (i = 0; i < keys->keys_map_count; i++) {
+		if (abs(keys->keys_map[i].voltage - volt) < 35) {
+			input_report_key(keys->input,
+					keys->keys_map[i].keycode, 1);
+			input_sync(keys->input);
+
+			input_report_key(keys->input,
+					keys->keys_map[i].keycode, 0);
+			input_sync(keys->input);
+		}
+	}
+
+	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 30);
+}
+
+static int atlas7_keys_probe(struct platform_device *pdev)
+{
+	struct atlas7_keys *keys;
+	struct device_node *pp, *np;
+	int i, ret;
+
+	keys = devm_kzalloc(&pdev->dev,
+			sizeof(struct atlas7_keys), GFP_KERNEL);
+	if (!keys)
+		return -ENOMEM;
+
+	np = pdev->dev.of_node;
+	keys->keys_map_count = of_get_child_count(np);
+	keys->keys_map = devm_kmalloc(&pdev->dev, keys->keys_map_count *
+				sizeof(struct atlas7_keys_keymap), GFP_KERNEL);
+	if (!keys->keys_map)
+		return -ENOMEM;
+
+	i = 0;
+	for_each_child_of_node(np, pp) {
+		struct atlas7_keys_keymap *map = &keys->keys_map[i];
+
+		ret = of_property_read_u32(pp, "voltage", &map->voltage);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: no voltage prop\n", pp->name);
+			return -EINVAL;
+		}
+
+		ret = of_property_read_u32(pp, "linux,code", &map->keycode);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"%s: no linux,code prop\n", pp->name);
+			return -EINVAL;
+		}
+
+		i++;
+	}
+
+	keys->chan = iio_channel_get(&pdev->dev, "adc_keys");
+	if (IS_ERR(keys->chan)) {
+		dev_err(&pdev->dev,
+			"atlas7 keys: Unable to get the adc channel\n");
+		return PTR_ERR(keys->chan);
+	}
+
+	keys->dev = &pdev->dev;
+	keys->input = devm_input_allocate_device(&pdev->dev);
+	if (!keys->input)
+		return -ENOMEM;
+
+	keys->input->name = pdev->name;
+	keys->input->evbit[0] = BIT(EV_SYN) | BIT(EV_KEY);
+	for (i = 0; i < keys->keys_map_count; i++)
+		set_bit(keys->keys_map[i].keycode, keys->input->keybit);
+
+	input_set_drvdata(keys->input, keys);
+
+	ret = input_register_device(keys->input);
+	if (ret)
+		goto out;
+
+	keys->keys_wq = create_singlethread_workqueue("atlas7_keys");
+	if (!keys->keys_wq) {
+		dev_err(&pdev->dev, "can't create keys check thread\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	INIT_DELAYED_WORK(&keys->keys_poll, atlas7_keys_check_volt_work);
+
+	platform_set_drvdata(pdev, keys);
+
+	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 0);
+
+	return 0;
+out:
+	iio_channel_release(keys->chan);
+
+	return ret;
+}
+
+static int atlas7_keys_remove(struct platform_device *pdev)
+{
+	struct atlas7_keys *keys = platform_get_drvdata(pdev);
+
+	destroy_workqueue(keys->keys_wq);
+	input_unregister_device(keys->input);
+	iio_channel_release(keys->chan);
+
+	return 0;
+}
+
+static const struct of_device_id atlas7_keys_of_match[] = {
+	{ .compatible = "sirf,atlas7-adc-keys", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, atlas7_keys_of_match);
+
+static struct platform_driver atlas7_keys_driver = {
+	.driver = {
+		.name = "atlas7-keys",
+		.of_match_table = of_match_ptr(atlas7_keys_of_match),
+	},
+	.probe = atlas7_keys_probe,
+	.remove	= atlas7_keys_remove,
+};
+
+module_platform_driver(atlas7_keys_driver);
+
+MODULE_DESCRIPTION("Adc keys on atlas7 evb driver");
+MODULE_AUTHOR("Guoying Zhang <Guoying.Zhang@csr.com>");
+MODULE_LICENSE("GPL v2");
