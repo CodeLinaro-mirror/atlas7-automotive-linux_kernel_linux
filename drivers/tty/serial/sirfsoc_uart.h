@@ -432,6 +432,8 @@ struct sirfsoc_uart_port {
 	struct sirfsoc_loop_buffer	rx_dma_items[SIRFSOC_RX_LOOP_BUF_CNT];
 	int				rx_completed;
 	int				rx_issued;
+	bool				is_cts_reverted;
+	bool				is_rts_reverted;
 };
 
 /* Register Access Control */

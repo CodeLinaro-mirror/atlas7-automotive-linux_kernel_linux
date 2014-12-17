@@ -129,6 +129,28 @@ static void sirfsoc_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	}
 	if (!sirfport->hw_flow_ctrl || !sirfport->ms_enabled)
 		return;
+	if (mctrl & TIOCM_RTS_RVT) {
+		wr_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl,
+			rd_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl) &
+			~SIRFUART_AFC_RTS_CTRL);
+		sirfport->is_rts_reverted = 1;
+	} else {
+		wr_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl,
+			rd_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl) |
+			SIRFUART_AFC_RTS_CTRL);
+		sirfport->is_rts_reverted = 0;
+	}
+	if (mctrl & TIOCM_CTS_RVT) {
+		wr_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl,
+			rd_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl) &
+			~SIRFUART_AFC_CTS_CTRL);
+		sirfport->is_cts_reverted = 1;
+	} else {
+		wr_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl,
+			rd_regl(&sirfport->port, ureg->sirfsoc_afc_ctrl) |
+			SIRFUART_AFC_CTS_CTRL);
+		sirfport->is_cts_reverted = 0;
+	}
 	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART) {
 		current_val = rd_regl(port, ureg->sirfsoc_afc_ctrl) & ~0xFF;
 		val |= current_val;
@@ -641,9 +663,9 @@ recv_char:
 		cts_status = rd_regl(port, ureg->sirfsoc_afc_ctrl) &
 					SIRFUART_AFC_CTS_STATUS;
 		if (cts_status != 0)
-			cts_status = 0;
+			cts_status = sirfport->is_cts_reverted ? 1 : 0;
 		else
-			cts_status = 1;
+			cts_status = sirfport->is_cts_reverted ? 0 : 1;
 		uart_handle_cts_change(port, cts_status);
 		wake_up_interruptible(&state->port.delta_msr_wait);
 	}
@@ -1343,6 +1365,14 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-uart") ||
 		of_device_is_compatible(pdev->dev.of_node, "sirf,marco-uart"))
 		sirfport->uart_reg->uart_type = SIRF_REAL_UART;
+	/* SiRF platform cts/rts is reverted defaultly in hardware,
+	 * but normal sense in software that cts/rts is low active.
+	 */
+	if (sirfport->uart_reg->uart_type == SIRF_REAL_UART &&
+		sirfport->hw_flow_ctrl) {
+		sirfport->is_cts_reverted = 0;
+		sirfport->is_rts_reverted = 0;
+	}
 	if (of_device_is_compatible(pdev->dev.of_node,
 		"sirf,prima2-usp-uart") || of_device_is_compatible(
 		pdev->dev.of_node, "sirf,marco-usp-uart")) {
