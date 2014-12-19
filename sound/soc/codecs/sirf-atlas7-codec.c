@@ -132,7 +132,6 @@ static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 					+ (i * 0x10),
 					rate_reg_value(substream));
 		} else {
-			snd_soc_write(codec, AUDIO_ANA_REF_CTRL0, 0x37);
 			for (i = 0; i < channels; i++)
 				snd_soc_write(codec, KCODEC_ADC_A_SAMP_RATE
 					+ (i * 0x20),
@@ -226,7 +225,8 @@ static int loutbias_event(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(w->codec, AUDIO_REF_CTRL2,
 			AUDIO_REF_BIAS_BG_VTH_TRIM_MASK, 4);
 		snd_soc_update_bits(w->codec, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_MASK, 7);
+			AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_MASK,
+			(7 << AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_SHIFT));
 		snd_soc_update_bits(w->codec, AUDIO_REF_CTRL,
 			AUDIO_REF_BOOST_EN_DACBUFF_IREF_MASK, 3);
 	}
@@ -237,9 +237,15 @@ static int linbias_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	if (event == SND_SOC_DAPM_POST_PMU) {
+		/*
+		 * If only enable TX_EN bit, the quality of
+		 * audio data is not good.
+		 */
 		snd_soc_update_bits(w->codec, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN,
-			AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN);
+			AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN
+			| AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN,
+			AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN
+			| AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN);
 		snd_soc_update_bits(w->codec, AUDIO_CTRL_SPARE_0,
 			TXADC_IREF_EN, TXADC_IREF_EN);
 		snd_soc_update_bits(w->codec, AUDIO_REF_CTRL2,
@@ -247,7 +253,8 @@ static int linbias_event(struct snd_soc_dapm_widget *w,
 			| AUDIO_REF_BIAS_BG_PTAT_TRIM_MASK,
 			4 | (0xC << AUDIO_REF_BIAS_BG_PTAT_TRIM_SHIFT));
 		snd_soc_update_bits(w->codec, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_MASK, 7);
+			AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_MASK,
+			(7 << AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_SHIFT));
 	}
 	return 0;
 }
