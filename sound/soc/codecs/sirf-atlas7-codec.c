@@ -1,5 +1,5 @@
 /*
- * SiRF A7DA internal codec driver
+ * SiRF ATLAS7 internal codec driver
  *
  * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
@@ -54,6 +54,7 @@ static int sirf_atlas7_codec_hw_params(struct snd_pcm_substream *substream,
 		switch (params_rate(params)) {
 		case 8000:
 		case 11025:
+		case 16000:
 		case 22050:
 		case 32000:
 		case 44100:
@@ -86,6 +87,7 @@ struct rate_reg_values_t rate_dac_reg_values[] = {
 struct rate_reg_values_t rate_adc_reg_values[] = {
 	{8000, ADC_SAMPLE_RATE_08K},
 	{11025, ADC_SAMPLE_RATE_11K},
+	{16000, ADC_SAMPLE_RATE_16K},
 	{22050, ADC_SAMPLE_RATE_22K},
 	{32000, ADC_SAMPLE_RATE_32K},
 	{44100, ADC_SAMPLE_RATE_44K},
@@ -147,15 +149,16 @@ struct snd_soc_dai_ops sirf_atlas7_codec_dai_ops = {
 	.trigger = sirf_atlas7_codec_trigger,
 };
 
-#define A7DA_CODEC_DAC_RATES	(SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 \
+#define ATLAS7_CODEC_DAC_RATES	(SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 \
 				| SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 \
 				| SNDRV_PCM_RATE_192000)
 
-#define A7DA_CODEC_ADC_RATES	(SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 \
-				| SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_32000 \
-				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 \
-				| SNDRV_PCM_RATE_96000)
-#define A7DA_CODEC_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE \
+#define ATLAS7_CODEC_ADC_RATES	(SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 \
+				| SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 \
+				| SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 \
+				| SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000)
+
+#define ATLAS7_CODEC_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE \
 				| SNDRV_PCM_FMTBIT_S24_LE)
 
 struct snd_soc_dai_driver sirf_atlas7_codec_dai = {
@@ -164,15 +167,15 @@ struct snd_soc_dai_driver sirf_atlas7_codec_dai = {
 		.stream_name = "AIF Playback",
 		.channels_min = 1,
 		.channels_max = 4,
-		.rates = A7DA_CODEC_DAC_RATES,
-		.formats = A7DA_CODEC_FORMATS,
+		.rates = ATLAS7_CODEC_DAC_RATES,
+		.formats = ATLAS7_CODEC_FORMATS,
 	},
 	.capture = {
 		.stream_name = "AIF Capture",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = A7DA_CODEC_ADC_RATES,
-		.formats = A7DA_CODEC_FORMATS,
+		.rates = ATLAS7_CODEC_ADC_RATES,
+		.formats = ATLAS7_CODEC_FORMATS,
 	},
 	.ops = &sirf_atlas7_codec_dai_ops,
 };
