@@ -1389,7 +1389,7 @@ static int atlas7_reset_module(struct reset_controller_dev *rcdev,
 	/* clock enable or not */
 	if (clkc_readl(reset->clk_ofs + 8) & (1 << reset->clk_bit)) {
 		clkc_writel(1 << reset->rst_bit, reset->rst_ofs + 4);
-		msleep(20);
+		udelay(2);
 		clkc_writel(1 << reset->clk_bit, reset->clk_ofs + 4);
 		clkc_writel(1 << reset->rst_bit, reset->rst_ofs);
 		/* restore clock enable */
@@ -1397,7 +1397,7 @@ static int atlas7_reset_module(struct reset_controller_dev *rcdev,
 	} else {
 		clkc_writel(1 << reset->rst_bit, reset->rst_ofs + 4);
 		clkc_writel(1 << reset->clk_bit, reset->clk_ofs);
-		msleep(20);
+		udelay(2);
 		clkc_writel(1 << reset->clk_bit, reset->clk_ofs + 4);
 		clkc_writel(1 << reset->rst_bit, reset->rst_ofs);
 	}
