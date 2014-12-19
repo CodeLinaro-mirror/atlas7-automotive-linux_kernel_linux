@@ -397,7 +397,7 @@ static void sirfsocfb_calc_addr(const struct sirfsocfb_info *sfbi,
 
 /* setup overlay according to the fb */
 int sirfsocfb_setup_layer(struct fb_info *fbi, struct sirfsoc_vdss_layer *l,
-	int posx, int posy, int outw, int outh)
+	int posx, int posy, int outw, int outh, bool pre_mult_alpha)
 {
 	int r = 0;
 	struct sirfsocfb_info *sfbi = FB2SFB(fbi);
@@ -453,6 +453,8 @@ int sirfsocfb_setup_layer(struct fb_info *fbi, struct sirfsoc_vdss_layer *l,
 	info.dst_rect.top = posy;
 	info.dst_rect.bottom = info.dst_rect.top + outh - 1;
 
+	info.pre_mult_alpha = pre_mult_alpha;
+
 	r = l->set_info(l, &info);
 	if (r) {
 		DBG("layer set_info failed\n");
@@ -475,6 +477,7 @@ int sirfsocfb_apply_changes(struct fb_info *fbi, int init)
 	struct sirfsoc_vdss_layer *l;
 	int posx, posy;
 	int outw, outh;
+	bool pre_mult_alpha;
 	int i;
 
 
@@ -494,28 +497,24 @@ int sirfsocfb_apply_changes(struct fb_info *fbi, int init)
 		}
 
 		if (init) {
-			outw = var->xres;
-			outh = var->yres;
-		} else {
-			struct sirfsoc_vdss_layer_info info;
-
-			l->get_info(l, &info);
-			outw = info.dst_rect.right - info.dst_rect.left + 1;
-			outh = info.dst_rect.bottom - info.dst_rect.top + 1;
-		}
-
-		if (init) {
 			posx = 0;
 			posy = 0;
+			outw = var->xres;
+			outh = var->yres;
+			pre_mult_alpha = true;
 		} else {
 			struct sirfsoc_vdss_layer_info info;
 
 			l->get_info(l, &info);
 			posx = info.dst_rect.left;
 			posy = info.dst_rect.top;
+			outw = info.dst_rect.right - info.dst_rect.left + 1;
+			outh = info.dst_rect.bottom - info.dst_rect.top + 1;
+			pre_mult_alpha = info.pre_mult_alpha;
 		}
 
-		r = sirfsocfb_setup_layer(fbi, l, posx, posy, outw, outh);
+		r = sirfsocfb_setup_layer(fbi, l, posx, posy,
+			outw, outh, pre_mult_alpha);
 		if (r)
 			goto err;
 
