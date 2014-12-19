@@ -314,6 +314,18 @@ static int adc_reset_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static const char * const output_mode_text[] = {"Differential",
+		"Single-ended"};
+
+static const int output_mode_val[] = {0, 0xf};
+
+static const struct soc_enum output_mode_enum =
+	SOC_VALUE_ENUM_SINGLE(AUDIO_DAC_CTRL, 6, 0xf, 2, output_mode_text,
+		output_mode_val);
+
+static const struct snd_kcontrol_new sirf_atlas7_codec_output_mode_control =
+	SOC_DAPM_ENUM("Output mode", output_mode_enum);
+
 static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("PLL", AUDIO_PLL_CTRL_1, 11, 1, pll_event,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
@@ -321,6 +333,9 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 		loutbias_event, SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_SUPPLY_S("LINBIAS", 1, AUDIO_ANA_REF_CTRL0, 0, 0,
 		linbias_event, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_MUX("Output mode", SND_SOC_NOPM, 0, 0,
+			&sirf_atlas7_codec_output_mode_control),
 
 	SND_SOC_DAPM_SUPPLY_S("DACACLK", 3, AUDIO_REGS_CLK_CTRL, 6, 0,
 		NULL, 0),
@@ -425,10 +440,13 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"VGEN EN", NULL, "DACC"},
 	{"VGEN EN", NULL, "DACD"},
 
-	{"LOUT0 PGA", NULL, "VGEN EN"},
-	{"LOUT1 PGA", NULL, "VGEN EN"},
-	{"LOUT2 PGA", NULL, "VGEN EN"},
-	{"LOUT3 PGA", NULL, "VGEN EN"},
+	{"Output mode", "Single-ended", "VGEN EN"},
+	{"Output mode", "Differential", "VGEN EN"},
+
+	{"LOUT0 PGA", NULL, "Output mode"},
+	{"LOUT1 PGA", NULL, "Output mode"},
+	{"LOUT2 PGA", NULL, "Output mode"},
+	{"LOUT3 PGA", NULL, "Output mode"},
 
 	{"LOUT0 BUF PGA", NULL, "LOUT0 PGA"},
 	{"LOUT1 BUF PGA", NULL, "LOUT1 PGA"},
@@ -474,10 +492,6 @@ static struct snd_soc_codec_driver soc_codec_device_sirf_atlas7_codec = {
 	.num_dapm_widgets = ARRAY_SIZE(sirf_atlas7_codec_dapm_widgets),
 	.dapm_routes = sirf_atlas7_codec_map,
 	.num_dapm_routes = ARRAY_SIZE(sirf_atlas7_codec_map),
-#if 0
-	.controls = atlas7_codec_snd_controls,
-	.num_controls = ARRAY_SIZE(atlas7_codec_snd_controls),
-#endif
 	.idle_bias_off = true,
 };
 
