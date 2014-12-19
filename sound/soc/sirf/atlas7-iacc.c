@@ -53,8 +53,6 @@ static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 			INTCODECCTL_TXFIFO0_OP + (i * 20),
 			FIFO_RESET, ~FIFO_RESET);
 
-		regmap_write(atlas7_iacc->regmap, INTCODECCTL_TXFIFO0_LEV_CHK,
-			(24 << 0) | (16 << 10) | (4 << 20));
 		regmap_write(atlas7_iacc->regmap,
 			INTCODECCTL_TXFIFO0_INT_MSK + (i * 20), 0);
 		regmap_update_bits(atlas7_iacc->regmap,
@@ -175,11 +173,13 @@ struct snd_soc_dai_ops atlas7_iacc_dai_ops = {
 				| SNDRV_PCM_RATE_192000)
 
 #define AUDIO_IF_ADC_RATES	(SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 \
-				| SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_32000 \
-				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 \
-				| SNDRV_PCM_RATE_96000)
+				| SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 \
+				| SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 \
+				| SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000)
+
 #define AUDIO_IF_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE \
 				| SNDRV_PCM_FMTBIT_S24_LE)
+
 static int atlas7_iacc_dai_probe(struct snd_soc_dai *dai)
 {
 	struct atlas7_iacc *atlas7_iacc = snd_soc_dai_get_drvdata(dai);
@@ -202,7 +202,7 @@ static struct snd_soc_dai_driver atlas7_iacc_dai = {
 	.capture = {
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = AUDIO_IF_DAC_RATES,
+		.rates = AUDIO_IF_ADC_RATES,
 		.formats = AUDIO_IF_FORMATS,
 	},
 	.ops = &atlas7_iacc_dai_ops,
@@ -264,7 +264,22 @@ static const struct regmap_config atlas7_iacc_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
-static const struct snd_pcm_hardware atlas7_pcm_hardware = {
+static const struct snd_pcm_hardware atlas7_pcm_hardware_playback = {
+	.info                   = SNDRV_PCM_INFO_MMAP |
+				SNDRV_PCM_INFO_MMAP_VALID |
+				SNDRV_PCM_INFO_NONINTERLEAVED |
+				SNDRV_PCM_INFO_PAUSE |
+				SNDRV_PCM_INFO_RESUME |
+				SNDRV_PCM_INFO_BLOCK_TRANSFER,
+	.period_bytes_min	= 32,
+	.period_bytes_max	= 256 * 1024,
+	.periods_min		= 1,
+	.periods_max		= 2,
+	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
+	.fifo_size		= 16,
+};
+
+static const struct snd_pcm_hardware atlas7_pcm_hardware_capture = {
 	.info                   = SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_MMAP_VALID |
 				SNDRV_PCM_INFO_INTERLEAVED |
@@ -272,10 +287,10 @@ static const struct snd_pcm_hardware atlas7_pcm_hardware = {
 				SNDRV_PCM_INFO_RESUME |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER,
 	.period_bytes_min	= 32,
-	.period_bytes_max	= 0x10000,
+	.period_bytes_max	= 256 * 1024,
 	.periods_min		= 1,
 	.periods_max		= 2,
-	.buffer_bytes_max	= 0x20000, /* 128 kbytes */
+	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 	.fifo_size		= 16,
 };
 
@@ -287,21 +302,21 @@ static void atlas7_pcm_dma_complete(void *arg)
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		dma_data->pos += snd_pcm_lib_period_bytes(substream);
-		if (dma_data->pos >= snd_pcm_lib_buffer_bytes(substream))
-			dma_data->pos = 0;
-	} else {
-		dma_data->pos += snd_pcm_lib_period_bytes(substream);
-		if (dma_data->pos >= snd_pcm_lib_buffer_bytes(substream))
-			dma_data->pos = 0;
-	}
+	dma_data->pos += snd_pcm_lib_period_bytes(substream);
+	if (dma_data->pos >= snd_pcm_lib_buffer_bytes(substream))
+		dma_data->pos = 0;
+
 	snd_pcm_period_elapsed(substream);
 }
 
 static int atlas7_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct atlas7_dma_data *dma_data;
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	dma_data->pos = 0;
 	return snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 }
 
@@ -430,9 +445,13 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 static int atlas7_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	const struct snd_pcm_hardware *ppcm;
 	int ret;
 
-	snd_soc_set_runtime_hwparams(substream, &atlas7_pcm_hardware);
+	ppcm = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+			&atlas7_pcm_hardware_playback
+			: &atlas7_pcm_hardware_capture;
+	snd_soc_set_runtime_hwparams(substream, ppcm);
 
 	ret = snd_pcm_hw_constraint_integer(runtime,
 			SNDRV_PCM_HW_PARAM_PERIODS);
@@ -485,15 +504,35 @@ static struct snd_pcm_ops atlas7_pcm_iacc_ops = {
 static int atlas7_pcm_iacc_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
-	size_t size = atlas7_pcm_hardware.buffer_bytes_max;
+	struct snd_pcm *pcm = rtd->pcm;
 	int ret;
 
 	ret = dma_coerce_mask_and_coherent(card->dev, DMA_BIT_MASK(32));
 	if (ret)
 		return ret;
 
-	return snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
-				SNDRV_DMA_TYPE_DEV, card->dev, size, size);
+	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
+		ret =  snd_pcm_lib_preallocate_pages(
+			pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream,
+			SNDRV_DMA_TYPE_DEV, card->dev,
+			atlas7_pcm_hardware_playback.buffer_bytes_max,
+			atlas7_pcm_hardware_playback.buffer_bytes_max);
+		if (ret)
+			return ret;
+	}
+
+	if (pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {
+		ret =  snd_pcm_lib_preallocate_pages(
+			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream,
+			SNDRV_DMA_TYPE_DEV, card->dev,
+			atlas7_pcm_hardware_capture.buffer_bytes_max,
+			atlas7_pcm_hardware_capture.buffer_bytes_max);
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static struct snd_soc_platform_driver atlas7_iacc_soc_platform = {
