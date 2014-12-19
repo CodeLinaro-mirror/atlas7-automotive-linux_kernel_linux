@@ -336,6 +336,7 @@ static DEVICE_ATTR_RW(sysrtc);
 const struct regmap_config sysrtc_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
+	.fast_io = true,
 };
 
 MODULE_DEVICE_TABLE(of, sirfsoc_rtc_of_match);
