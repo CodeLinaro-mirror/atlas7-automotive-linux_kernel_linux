@@ -140,7 +140,7 @@ static void __init sirfsoc_reserve_cma(void)
 		pr_err("%s: failed to reserve cma %d\n", __func__, ret);
 }
 
-void __init sirfsoc_reserve(void)
+static void __init sirfsoc_reserve(void)
 {
 	sirfsoc_pre_reserve();
 	sirfsoc_gps_reserve_memblock();
@@ -148,7 +148,7 @@ void __init sirfsoc_reserve(void)
 	sirfsoc_reserve_cma();
 }
 
-void __init prima2_reserve(void)
+static void __init prima2_reserve(void)
 {
 	sirfsoc_reserve();
 	sirfsoc_video_codec_reserve_memblock();
