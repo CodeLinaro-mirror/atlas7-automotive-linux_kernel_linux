@@ -85,36 +85,6 @@ void __init sirfsoc_pre_reserve(void)
 		pr_err("failed to find reserved memory.\n");
 }
 
-#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
-#define SWITCH_TO_NON_SECURE 0
-
-static void smc_switch_to_non_secure(void)
-{
-	__asm__ __volatile__(".arch_extension sec\n\t"
-		"mov r0, %0\n\t"
-		"smc #0\n\t" :
-		: "I"(SWITCH_TO_NON_SECURE)
-		: "r0", "memory");
-}
-#endif
-
-static void __init csrvisor_reserve(void)
-{
-#if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
-	arm_pm_idle = smc_switch_to_non_secure;
-#else
-	/*
-	 * FIXME: we need the SMP wake-up codes in uboot yet
-	 * SMP code reside relocated uboot,which last MB of DRAM size
-	 * will release it after smp is completed.
-	 */
-#define DRAM_PHY_BASE	0x40000000UL
-#define DRAM_SIZE	0x20000000UL
-#define SMP_PHY_BASE (DRAM_PHY_BASE + DRAM_SIZE - SZ_1M)
-	memblock_reserve(SMP_PHY_BASE, SZ_1M);
-#endif
-}
-
 static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
 						const char *uname,
 						int depth, void *data)
@@ -172,7 +142,6 @@ static void __init sirfsoc_reserve_cma(void)
 
 void __init sirfsoc_reserve(void)
 {
-	csrvisor_reserve();
 	sirfsoc_pre_reserve();
 	sirfsoc_gps_reserve_memblock();
 	sirfsoc_pbb_reserve_memblock();
@@ -183,11 +152,6 @@ void __init prima2_reserve(void)
 {
 	sirfsoc_reserve();
 	sirfsoc_video_codec_reserve_memblock();
-}
-
-void __init atlas7_reserve(void)
-{
-	csrvisor_reserve();
 }
 
 /* specific device names for some device node */
@@ -359,7 +323,6 @@ static const char *atlas7_dt_match[] __initconst = {
 
 DT_MACHINE_START(ATLAS7_DT, "Generic ATLAS7 (Flattened Device Tree)")
 	/* Maintainer: Barry Song <baohua.song@csr.com> */
-	.reserve	= atlas7_reserve,
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
 	.init_machine   = sirfsoc_init_mach,
