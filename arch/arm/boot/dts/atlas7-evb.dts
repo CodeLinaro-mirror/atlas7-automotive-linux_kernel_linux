@@ -65,6 +65,11 @@
 			reg = <0x46000000 0x200000>;
 			no-map;
 		};
+
+		multimedia_reserved: multimedia@58800000 {
+			reg = <0x58800000 0x6000000>;
+			no-map;
+		};
 	};
 
 	bt_sco: bt_sco@0 {
@@ -168,6 +173,10 @@
 		mediam {
 			nand@17050000 {
 				memory-region = <&nanddisk_reserved>;
+			};
+
+			multimedia@15000000 {
+				memory-region = <&multimedia_reserved>;
 			};
 
 			sdhci@16000000 {

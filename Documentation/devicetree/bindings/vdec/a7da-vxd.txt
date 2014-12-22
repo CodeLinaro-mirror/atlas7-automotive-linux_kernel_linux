@@ -1,0 +1,16 @@
+CSR prima2/atlas7 VXD
+
+Required Properties:
+- compatible : Should be "sirf,prima2-video-codec" or "sirf,atlas7-video-codec"
+- reg : Address range of controller
+- interrupts : The VXD interrupt specification
+- clocks : The clocks needed by the VXD
+
+Example:
+
+multimedia@15000000 {
+	compatible = "sirf,atlas7-video-codec";
+	reg = <0x15000000 0x10000>;
+	interrupts = <0 5 0>;
+	clocks = <&car 109>;
+};
