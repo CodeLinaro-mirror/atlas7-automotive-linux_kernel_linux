@@ -27,3 +27,17 @@ Example:
 		spi-max-frequency = <40000000>;
 		m25p,fast-read;
 	};
+For mxicy product:
+	spiflash: mxicy@0{
+		compatible = "mxicy,mx25l6405d";
+		reg = <0>;
+		spi-max-frequency = <37500000>;
+		spi-cpha;
+		spi-cpol;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		partitions@0 {
+			label = "myspiboot";
+			reg = <0x0 0x800000>;
+		};
+	};
