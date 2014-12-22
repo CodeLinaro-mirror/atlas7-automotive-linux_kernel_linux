@@ -917,10 +917,6 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		writel(regval, sspi->base + spi_reg->spi_ctrl);
 	}
 	if (sspi->spi_type == SIRF_USP_SPI) {
-		writel(readl(sspi->base + spi_reg->usp_mode1) &
-			~SIRFSOC_USP_EN, sspi->base + spi_reg->usp_mode1);
-		writel(readl(sspi->base + spi_reg->usp_mode1) |
-			SIRFSOC_USP_EN, sspi->base + spi_reg->usp_mode1);
 		writel(readl(sspi->base + spi_reg->usp_mode2) |
 			((usp_mode2 & SIRFSOC_USP_CLK_DIVISOR_MASK) <<
 			SIRFSOC_USP_CLK_DIVISOR_OFFSET) |
