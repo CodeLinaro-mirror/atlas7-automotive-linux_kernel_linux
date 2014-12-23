@@ -42,6 +42,7 @@ MODULE_PARM_DESC(debug, "debug level (0-2)");
 #define VIDEO_MAX_HEIGHT 1080
 #define FPS_MAX 60
 
+
 static const struct v4l2_fract
 	fi_min = {.numerator = 1, .denominator = FPS_MAX},
 	fi_max = {.numerator = FPS_MAX, .denominator = 1};
@@ -220,7 +221,9 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
 	struct vb2_buffer *buf)
 {
-	if (vout->is_streaming) {
+	struct sirfsoc_vdss_layer *l = vout->layer;
+
+	if (l->is_enabled(l)) {
 		if ((vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB565) &&
 			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB32)) {
 			struct sirfsoc_vdss_layer *l = vout->layer;
@@ -237,23 +240,22 @@ static int __sirfsoc_vout_start_streaming(struct sirfsoc_vout_device *vout)
 {
 	struct sirfsoc_vout_buf *buf;
 	struct vb2_buffer *vb2_buf;
-	struct sirfsoc_vdss_layer *l;
+	struct sirfsoc_vdss_layer *l = vout->layer;
 
-	if (vout->is_streaming)
-		return 0;
+	buf = list_entry(vout->dma_queue.next, struct sirfsoc_vout_buf, list);
+	list_del_init(&buf->list);
 
-	buf = list_entry(vout->dma_queue.next,
-		struct sirfsoc_vout_buf, list);
 	vb2_buf = &buf->vb;
-	vout->active_vb2_buf = &buf->vb;
+	vout->active_frm = &buf->vb;
+	vout->next_frm = &buf->vb;
 
-	vout->active_vb2_buf->state = VB2_BUF_STATE_ACTIVE;
+	vout->active_frm->state = VB2_BUF_STATE_ACTIVE;
 
 	/*Start display*/
 	__sirfsoc_vout_display(vout, vb2_buf);
-	vout->is_streaming = 1;
-	l = vout->layer;
-	l->enable(l);
+
+	if (!l->is_enabled(l))
+		l->enable(l);
 
 	return 0;
 }
@@ -417,33 +419,30 @@ static int sirfsoc_vout_buf_prepare(struct vb2_buffer *vb)
 static void sirfsoc_vout_isr(void *pdata, unsigned int irqstatus)
 {
 	struct sirfsoc_vout_device *vout = pdata;
-	struct vb2_buffer *vb2_buf;
 	struct sirfsoc_vout_buf *vout_buf;
 
 	if (irqstatus | LCDC_INT_VSYNC) {
 		spin_lock(&vout->vbq_lock);
 
-		vb2_buf = vout->active_vb2_buf;
-
-		if (vb2_buf) {
-			vout_buf =  container_of(vb2_buf,
-				struct sirfsoc_vout_buf, vb);
-			list_del_init(&vout_buf->list);
-			v4l2_get_timestamp(&vb2_buf->v4l2_buf.timestamp);
-			vb2_buffer_done(vb2_buf, VB2_BUF_STATE_DONE);
+		if (vout->active_frm != vout->next_frm) {
+			v4l2_get_timestamp(&vout->active_frm->
+							v4l2_buf.timestamp);
+			vb2_buffer_done(vout->active_frm, VB2_BUF_STATE_DONE);
+			vout->active_frm = vout->next_frm;
 		}
 
 		if (!list_empty(&vout->dma_queue)) {
 			vout_buf = list_entry(vout->dma_queue.next,
 				struct sirfsoc_vout_buf, list);
-			vout->active_vb2_buf = &vout_buf->vb;
+			list_del_init(&vout_buf->list);
 
-			vout->active_vb2_buf->state =
+			vout->next_frm = &vout_buf->vb;
+
+			vout->next_frm->state =
 				VB2_BUF_STATE_ACTIVE;
 			__sirfsoc_vout_display(vout,
-				vout->active_vb2_buf);
-		} else
-			vout->active_vb2_buf = NULL;
+				vout->next_frm);
+		}
 
 		spin_unlock(&vout->vbq_lock);
 	}
@@ -457,11 +456,6 @@ static int sirfsoc_vout_start_streaming(struct vb2_queue *vq,
 	unsigned long flags;
 
 	spin_lock_irqsave(&vout->vbq_lock, flags);
-	if (list_empty(&vout->dma_queue)) {
-		v4l2_info(&vout->vid_dev->v4l2_dev, "queue is empty\n");
-		spin_unlock_irqrestore(&vout->vbq_lock, flags);
-		return 0;
-	}
 
 	__sirfsoc_vout_start_streaming(vout);
 
@@ -480,13 +474,21 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 
 	spin_lock_irqsave(&vout->vbq_lock, flags);
 
-	vout->active_vb2_buf = NULL;
+	if (vout->next_frm)
+		vb2_buffer_done(vout->next_frm, VB2_BUF_STATE_ERROR);
+
+	if (vout->active_frm && (vout->active_frm != vout->next_frm))
+		vb2_buffer_done(vout->active_frm, VB2_BUF_STATE_ERROR);
+
 	while (!list_empty(&vout->dma_queue)) {
 		buf = list_entry(vout->dma_queue.next,
 			struct sirfsoc_vout_buf, list);
 		list_del_init(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
+
+	vout->active_frm = NULL;
+	vout->next_frm = NULL;
 
 	spin_unlock_irqrestore(&vout->vbq_lock, flags);
 }
@@ -502,14 +504,6 @@ static void sirfsoc_vout_buf_queue(struct vb2_buffer *vb)
 	unsigned long flags;
 
 	spin_lock_irqsave(&vout->vbq_lock, flags);
-
-	if (list_empty(&vout->dma_queue) && vb2_is_streaming(vb->vb2_queue)) {
-		list_add_tail(&buf->list, &vout->dma_queue);
-		__sirfsoc_vout_start_streaming(vout);
-		spin_unlock_irqrestore(&vout->vbq_lock, flags);
-		return;
-	}
-
 	list_add_tail(&buf->list, &vout->dma_queue);
 	spin_unlock_irqrestore(&vout->vbq_lock, flags);
 }
@@ -695,6 +689,7 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 	vb2_q->mem_ops = &vb2_dma_contig_memops;
 	vb2_q->buf_struct_size = sizeof(struct sirfsoc_vout_buf);
 	vb2_q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	vb2_q->min_buffers_needed = 1;
 
 	ret = vb2_queue_init(vb2_q);
 	if (ret) {
@@ -1047,7 +1042,7 @@ static int sirfsoc_vout_release(struct file *file)
 {
 	struct sirfsoc_vout_device *vout = file->private_data;
 	struct v4l2_device *v4l2_dev;
-	struct sirfsoc_vdss_layer *l;
+	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	if (vout == NULL)
 		return -ENODEV;
@@ -1058,11 +1053,9 @@ static int sirfsoc_vout_release(struct file *file)
 
 	mutex_lock(&vout->lock);
 
-	if (vout->is_streaming) {
+	if (l->is_enabled(l)) {
 		/*disable the overlay*/
-		l = vout->layer;
 		l->disable(l);
-		vout->is_streaming = 0;
 		vb2_queue_release(&vout->vb2_q);
 		vb2_dma_contig_cleanup_ctx(&vout->vb2_q);
 	}

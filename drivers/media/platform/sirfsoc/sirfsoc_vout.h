@@ -44,11 +44,10 @@ struct sirfsoc_vout_device {
 
 	enum v4l2_buf_type type;
 	struct vb2_queue vb2_q;
-	struct vb2_buffer *active_vb2_buf;
+	struct vb2_buffer *active_frm, *next_frm;
 	/* allocator-specific contexts for each plane */
 	struct vb2_alloc_ctx *alloc_ctx;
 	struct list_head dma_queue;
-	bool is_streaming;
 	struct v4l2_rect rect;
 	u32 surf_width;
 	u32 surf_height;
