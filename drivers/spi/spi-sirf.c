@@ -1038,13 +1038,15 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	match = of_match_node(spi_sirfsoc_of_match, pdev->dev.of_node);
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
-	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-usp-spi") ||
-	    of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-usp-spi"))
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-usp-spi"))
 		sspi->spi_type = SIRF_USP_SPI;
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-usp-spi")) {
+		sspi->spi_type = SIRF_USP_SPI;
+		sspi->is_atlas7_usp = true;
+	}
+
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-spi"))
 		sspi->spi_type = SIRF_REAL_SPI;
-	sspi->is_atlas7_usp = of_property_read_bool(pdev->dev.of_node,
-						   "atlas7-usp-spi");
 	sspi->spi_register = (struct sirf_spi_register *)match->data;
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sspi->base = devm_ioremap_resource(&pdev->dev, mem_res);
