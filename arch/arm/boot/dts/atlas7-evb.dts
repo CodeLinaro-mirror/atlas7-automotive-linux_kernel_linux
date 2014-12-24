@@ -261,12 +261,6 @@
 				status = "okay";
 				pinctrl-0 = <&sp1_spi_pmx>;
 				pinctrl-names = "default";
-				spidev {
-					status = "disabled";
-					compatible = "spidev";
-					spi-max-frequency = <1000000>;
-					reg = <0>;
-				};
 				spiflash: macronix@0{
 					status = "okay";
 					compatible = "macronix,mx25l6405d";
