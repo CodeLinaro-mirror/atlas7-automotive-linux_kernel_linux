@@ -464,6 +464,7 @@ static int sdhci_sirf_resume(struct device *dev)
 	struct sdhci_host *host = dev_get_drvdata(dev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_sirf_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	struct device_node *np = dev->of_node;
 	int ret;
 
 	ret = clk_enable(priv->clk);
@@ -484,7 +485,8 @@ static int sdhci_sirf_resume(struct device *dev)
 	ret = sdhci_resume_host(host);
 
 	/* restore sirf hacked regs after resume, since lose in suspend */
-	sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
+	if (!of_device_is_compatible(np, "sirf,atlas7-sdhc"))
+		sdhci_writel(host, 0x60, SDHCI_CLK_DELAY_SETTING);
 	sdhci_writeb(host, 0xE, SDHCI_TIMEOUT_CONTROL);
 
 	return ret;
