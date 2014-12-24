@@ -24,14 +24,6 @@ config UIO_CIF
 	  To compile this driver as a module, choose M here: the module
 	  will be called uio_cif.
 
-config UIO_SIRF_SOC_VPP
-	tristate "Sirf Soc VPP"
-	depends on UIO
-	help
-	  Sirf soc uio vpp driver.
-
-	  If you don't know what to do here, say N.
-
 config UIO_PDRV_GENIRQ
 	tristate "Userspace I/O platform driver with generic IRQ handling"
 	help
@@ -142,5 +134,22 @@ config UIO_MF624
 	    git clone git://rtime.felk.cvut.cz/mf6xx.git
 
 	  If you compile this as a module, it will be called uio_mf624.
+
+config UIO_SIRF_SOC_VPP
+        tristate "Sirf Soc VPP"
+	depends on UIO
+	help
+	  Sirf soc uio vpp driver.
+
+	  If you don't know what to do here, say N.
+
+config UIO_LCD
+        tristate "Atlas7 LCD UIO driver"
+	depends on UIO
+	help
+	  Userspace I/O interface for Atlas7 LCD unit.
+	  A sample userspace application using this driver is available
+
+	  If you compile this as a module, it will be called uio_lcd.
 
 endif
