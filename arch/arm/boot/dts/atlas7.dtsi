@@ -310,6 +310,13 @@
 				};
 			};
 
+			gn_gnss_uart_nopause_pmx: gn_gnss_uart_nopause@0 {
+				gn_gnss_uart_nopause {
+					sirf,pins = "gn_gnss_uart_nopause_grp";
+					sirf,function = "gn_gnss_uart_nopause";
+				};
+			};
+
 			gn_gnss_uart_pmx: gn_gnss_uart@0 {
 				gn_gnss_uart {
 					sirf,pins = "gn_gnss_uart_grp";
@@ -450,10 +457,52 @@
 				};
 			};
 
-			gn_gnss_pmx: gn_gnss@0 {
-				gn_gnss {
-					sirf,pins = "gn_gnss_grp";
-					sirf,function = "gn_gnss";
+			gn_gnss_power_pmx: gn_gnss_power@0 {
+				gn_gnss_power {
+					sirf,pins = "gn_gnss_power_grp";
+					sirf,function = "gn_gnss_power";
+				};
+			};
+
+			gn_gnss_sw_status_pmx: gn_gnss_sw_status@0 {
+				gn_gnss_sw_status {
+					sirf,pins = "gn_gnss_sw_status_grp";
+					sirf,function = "gn_gnss_sw_status";
+				};
+			};
+
+			gn_gnss_eclk_pmx: gn_gnss_eclk@0 {
+				gn_gnss_eclk {
+					sirf,pins = "gn_gnss_eclk_grp";
+					sirf,function = "gn_gnss_eclk";
+				};
+			};
+
+			gn_gnss_irq1_pmx0: gn_gnss_irq1@0 {
+				gn_gnss_irq1_0 {
+					sirf,pins = "gn_gnss_irq1_grp0";
+					sirf,function = "gn_gnss_irq1_m0";
+				};
+			};
+
+			gn_gnss_irq2_pmx0: gn_gnss_irq2@0 {
+				gn_gnss_irq2_0 {
+					sirf,pins = "gn_gnss_irq2_grp0";
+					sirf,function = "gn_gnss_irq2_m0";
+				};
+			};
+
+			gn_gnss_tm_pmx: gn_gnss_tm@0 {
+				gn_gnss_tm {
+					sirf,pins = "gn_gnss_tm_grp";
+					sirf,function = "gn_gnss_tm";
+				};
+			};
+
+			gn_gnss_tsync_pmx: gn_gnss_tsync@0 {
+				gn_gnss_tsync {
+					sirf,pins = "gn_gnss_tsync_grp";
+					sirf,function = "gn_gnss_tsync";
 				};
 			};
 

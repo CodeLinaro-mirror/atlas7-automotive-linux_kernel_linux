@@ -726,7 +726,8 @@ static const unsigned int ca_uart_debug_pins[] = { 136, 135, 134, 133, };
 static const unsigned int clkc_pins0[] = { 30, 47, };
 static const unsigned int clkc_pins1[] = { 78, 54, };
 static const unsigned int gn_gnss_i2c_pins[] = { 128, 127, };
-static const unsigned int gn_gnss_uart_pins[] = { 134, 133, };
+static const unsigned int gn_gnss_uart_nopause_pins[] = { 134, 133, };
+static const unsigned int gn_gnss_uart_pins[] = { 134, 133, 136, 135, };
 static const unsigned int gn_trg_spi_pins0[] = { 22, 25, 23, 24, };
 static const unsigned int gn_trg_spi_pins1[] = { 82, 79, 80, 81, };
 static const unsigned int cvbs_dbg_pins[] = { 54, 53, 82, 74, 75, 76, 77, 78,
@@ -747,9 +748,15 @@ static const unsigned int cvbs_dbg_test_pins12[] = { 69, };
 static const unsigned int cvbs_dbg_test_pins13[] = { 70, };
 static const unsigned int cvbs_dbg_test_pins14[] = { 71, };
 static const unsigned int cvbs_dbg_test_pins15[] = { 72, };
-static const unsigned int gn_gnss_pins[] = { 136, 113, 123, 124, 121, 122,
-		112, 118, 56, 125, 120, 54, 135, 53, 55, 57, 58, 59, 60, 61,
-		62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 115, 114, };
+static const unsigned int gn_gnss_power_pins[] = { 123, 124, 121, 122, 125,
+		120, };
+static const unsigned int gn_gnss_sw_status_pins[] = { 57, 58, 59, 60, 61,
+		62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 53, 55, 56, 54, };
+static const unsigned int gn_gnss_eclk_pins[] = { 113, };
+static const unsigned int gn_gnss_irq1_pins0[] = { 112, };
+static const unsigned int gn_gnss_irq2_pins0[] = { 118, };
+static const unsigned int gn_gnss_tm_pins[] = { 115, };
+static const unsigned int gn_gnss_tsync_pins[] = { 114, };
 static const unsigned int gn_io_gnsssys_sw_cfg_pins[] = { 44, 43, 42, 41, 40,
 		39, 38, 37, 49, 50, 91, 92, 93, 94, 95, 96, };
 static const unsigned int gn_trg_pins0[] = { 29, 28, 26, 27, };
@@ -885,6 +892,7 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("clkc_grp0", clkc_pins0),
 	GROUP("clkc_grp1", clkc_pins1),
 	GROUP("gn_gnss_i2c_grp", gn_gnss_i2c_pins),
+	GROUP("gn_gnss_uart_nopause_grp", gn_gnss_uart_nopause_pins),
 	GROUP("gn_gnss_uart_grp", gn_gnss_uart_pins),
 	GROUP("gn_trg_spi_grp0", gn_trg_spi_pins0),
 	GROUP("gn_trg_spi_grp1", gn_trg_spi_pins1),
@@ -905,7 +913,13 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("cvbs_dbg_test_grp13", cvbs_dbg_test_pins13),
 	GROUP("cvbs_dbg_test_grp14", cvbs_dbg_test_pins14),
 	GROUP("cvbs_dbg_test_grp15", cvbs_dbg_test_pins15),
-	GROUP("gn_gnss_grp", gn_gnss_pins),
+	GROUP("gn_gnss_power_grp", gn_gnss_power_pins),
+	GROUP("gn_gnss_sw_status_grp", gn_gnss_sw_status_pins),
+	GROUP("gn_gnss_eclk_grp", gn_gnss_eclk_pins),
+	GROUP("gn_gnss_irq1_grp0", gn_gnss_irq1_pins0),
+	GROUP("gn_gnss_irq2_grp0", gn_gnss_irq2_pins0),
+	GROUP("gn_gnss_tm_grp", gn_gnss_tm_pins),
+	GROUP("gn_gnss_tsync_grp", gn_gnss_tsync_pins),
 	GROUP("gn_io_gnsssys_sw_cfg_grp", gn_io_gnsssys_sw_cfg_pins),
 	GROUP("gn_trg_grp0", gn_trg_pins0),
 	GROUP("gn_trg_grp1", gn_trg_pins1),
@@ -1023,6 +1037,8 @@ static const char * const ca_uart_debug_grp[] = { "ca_uart_debug_grp", };
 static const char * const clkc_grp0[] = { "clkc_grp0", };
 static const char * const clkc_grp1[] = { "clkc_grp1", };
 static const char * const gn_gnss_i2c_grp[] = { "gn_gnss_i2c_grp", };
+static const char * const gn_gnss_uart_nopause_grp[] = {
+				"gn_gnss_uart_nopause_grp", };
 static const char * const gn_gnss_uart_grp[] = { "gn_gnss_uart_grp", };
 static const char * const gn_trg_spi_grp0[] = { "gn_trg_spi_grp0", };
 static const char * const gn_trg_spi_grp1[] = { "gn_trg_spi_grp1", };
@@ -1043,7 +1059,14 @@ static const char * const cvbs_dbg_test_grp12[] = { "cvbs_dbg_test_grp12", };
 static const char * const cvbs_dbg_test_grp13[] = { "cvbs_dbg_test_grp13", };
 static const char * const cvbs_dbg_test_grp14[] = { "cvbs_dbg_test_grp14", };
 static const char * const cvbs_dbg_test_grp15[] = { "cvbs_dbg_test_grp15", };
-static const char * const gn_gnss_grp[] = { "gn_gnss_grp", };
+static const char * const gn_gnss_power_grp[] = { "gn_gnss_power_grp", };
+static const char * const gn_gnss_sw_status_grp[] = {
+				"gn_gnss_sw_status_grp", };
+static const char * const gn_gnss_eclk_grp[] = { "gn_gnss_eclk_grp", };
+static const char * const gn_gnss_irq1_grp0[] = { "gn_gnss_irq1_grp0", };
+static const char * const gn_gnss_irq2_grp0[] = { "gn_gnss_irq2_grp0", };
+static const char * const gn_gnss_tm_grp[] = { "gn_gnss_tm_grp", };
+static const char * const gn_gnss_tsync_grp[] = { "gn_gnss_tsync_grp", };
 static const char * const gn_io_gnsssys_sw_cfg_grp[] = {
 				"gn_io_gnsssys_sw_cfg_grp", };
 static const char * const gn_trg_grp0[] = { "gn_trg_grp0", };
@@ -1690,9 +1713,21 @@ static struct atlas7_grp_mux gn_gnss_i2c_grp_mux = {
 	.pad_mux_list = gn_gnss_i2c_grp_pad_mux,
 };
 
+static struct atlas7_pad_mux gn_gnss_uart_nopause_grp_pad_mux[] = {
+	MUX(1, 134, 4, N, N, N, N),
+	MUX(1, 133, 4, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_gnss_uart_nopause_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_uart_nopause_grp_pad_mux),
+	.pad_mux_list = gn_gnss_uart_nopause_grp_pad_mux,
+};
+
 static struct atlas7_pad_mux gn_gnss_uart_grp_pad_mux[] = {
 	MUX(1, 134, 4, N, N, N, N),
 	MUX(1, 133, 4, N, N, N, N),
+	MUX(1, 136, 4, N, N, N, N),
+	MUX(1, 135, 4, N, N, N, N),
 };
 
 static struct atlas7_grp_mux gn_gnss_uart_grp_mux = {
@@ -1892,22 +1927,21 @@ static struct atlas7_grp_mux cvbs_dbg_test_grp15_mux = {
 	.pad_mux_list = cvbs_dbg_test_grp15_pad_mux,
 };
 
-static struct atlas7_pad_mux gn_gnss_grp_pad_mux[] = {
-	MUX(1, 136, 4, N, N, N, N),
-	MUX(1, 113, 4, N, N, N, N),
+static struct atlas7_pad_mux gn_gnss_power_grp_pad_mux[] = {
 	MUX(1, 123, 7, N, N, N, N),
 	MUX(1, 124, 7, N, N, N, N),
 	MUX(1, 121, 7, N, N, N, N),
 	MUX(1, 122, 7, N, N, N, N),
-	MUX(1, 112, 4, 0xa08, 10, 0xa88, 10),
-	MUX(1, 118, 4, 0xa08, 11, 0xa88, 11),
-	MUX(1, 56, 7, 0xa08, 12, 0xa88, 12),
 	MUX(1, 125, 7, N, N, N, N),
 	MUX(1, 120, 7, N, N, N, N),
-	MUX(1, 54, 7, N, N, N, N),
-	MUX(1, 135, 4, N, N, N, N),
-	MUX(1, 53, 7, N, N, N, N),
-	MUX(1, 55, 7, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_gnss_power_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_power_grp_pad_mux),
+	.pad_mux_list = gn_gnss_power_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_sw_status_grp_pad_mux[] = {
 	MUX(1, 57, 7, N, N, N, N),
 	MUX(1, 58, 7, N, N, N, N),
 	MUX(1, 59, 7, N, N, N, N),
@@ -1924,13 +1958,60 @@ static struct atlas7_pad_mux gn_gnss_grp_pad_mux[] = {
 	MUX(1, 70, 7, N, N, N, N),
 	MUX(1, 71, 7, N, N, N, N),
 	MUX(1, 72, 7, N, N, N, N),
+	MUX(1, 53, 7, N, N, N, N),
+	MUX(1, 55, 7, N, N, N, N),
+	MUX(1, 56, 7, 0xa08, 12, 0xa88, 12),
+	MUX(1, 54, 7, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_gnss_sw_status_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_sw_status_grp_pad_mux),
+	.pad_mux_list = gn_gnss_sw_status_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_eclk_grp_pad_mux[] = {
+	MUX(1, 113, 4, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_gnss_eclk_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_eclk_grp_pad_mux),
+	.pad_mux_list = gn_gnss_eclk_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_irq1_grp0_pad_mux[] = {
+	MUX(1, 112, 4, 0xa08, 10, 0xa88, 10),
+};
+
+static struct atlas7_grp_mux gn_gnss_irq1_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_irq1_grp0_pad_mux),
+	.pad_mux_list = gn_gnss_irq1_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_irq2_grp0_pad_mux[] = {
+	MUX(1, 118, 4, 0xa08, 11, 0xa88, 11),
+};
+
+static struct atlas7_grp_mux gn_gnss_irq2_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_irq2_grp0_pad_mux),
+	.pad_mux_list = gn_gnss_irq2_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_tm_grp_pad_mux[] = {
 	MUX(1, 115, 4, N, N, N, N),
+};
+
+static struct atlas7_grp_mux gn_gnss_tm_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_tm_grp_pad_mux),
+	.pad_mux_list = gn_gnss_tm_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux gn_gnss_tsync_grp_pad_mux[] = {
 	MUX(1, 114, 4, N, N, N, N),
 };
 
-static struct atlas7_grp_mux gn_gnss_grp_mux = {
-	.pad_mux_count = ARRAY_SIZE(gn_gnss_grp_pad_mux),
-	.pad_mux_list = gn_gnss_grp_pad_mux,
+static struct atlas7_grp_mux gn_gnss_tsync_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(gn_gnss_tsync_grp_pad_mux),
+	.pad_mux_list = gn_gnss_tsync_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux gn_io_gnsssys_sw_cfg_grp_pad_mux[] = {
@@ -3035,6 +3116,9 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("clkc_m0", clkc_grp0, &clkc_grp0_mux),
 	FUNCTION("clkc_m1", clkc_grp1, &clkc_grp1_mux),
 	FUNCTION("gn_gnss_i2c", gn_gnss_i2c_grp, &gn_gnss_i2c_grp_mux),
+	FUNCTION("gn_gnss_uart_nopause",
+			gn_gnss_uart_nopause_grp,
+			&gn_gnss_uart_nopause_grp_mux),
 	FUNCTION("gn_gnss_uart", gn_gnss_uart_grp, &gn_gnss_uart_grp_mux),
 	FUNCTION("gn_trg_spi_m0", gn_trg_spi_grp0, &gn_trg_spi_grp0_mux),
 	FUNCTION("gn_trg_spi_m1", gn_trg_spi_grp1, &gn_trg_spi_grp1_mux),
@@ -3087,7 +3171,19 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("cvbs_dbg_test_m15",
 			cvbs_dbg_test_grp15,
 			&cvbs_dbg_test_grp15_mux),
-	FUNCTION("gn_gnss", gn_gnss_grp, &gn_gnss_grp_mux),
+	FUNCTION("gn_gnss_power", gn_gnss_power_grp, &gn_gnss_power_grp_mux),
+	FUNCTION("gn_gnss_sw_status",
+			gn_gnss_sw_status_grp,
+			&gn_gnss_sw_status_grp_mux),
+	FUNCTION("gn_gnss_eclk", gn_gnss_eclk_grp, &gn_gnss_eclk_grp_mux),
+	FUNCTION("gn_gnss_irq1_m0",
+			gn_gnss_irq1_grp0,
+			&gn_gnss_irq1_grp0_mux),
+	FUNCTION("gn_gnss_irq2_m0",
+			gn_gnss_irq2_grp0,
+			&gn_gnss_irq2_grp0_mux),
+	FUNCTION("gn_gnss_tm", gn_gnss_tm_grp, &gn_gnss_tm_grp_mux),
+	FUNCTION("gn_gnss_tsync", gn_gnss_tsync_grp, &gn_gnss_tsync_grp_mux),
 	FUNCTION("gn_io_gnsssys_sw_cfg",
 			gn_io_gnsssys_sw_cfg_grp,
 			&gn_io_gnsssys_sw_cfg_grp_mux),
