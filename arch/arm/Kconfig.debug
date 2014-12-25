@@ -1367,14 +1367,5 @@ config CORESIGHT_LINKS_AND_SINKS
 	  This enables support for CoreSight link and sink drivers that are
 	  responsible for transporting and collecting the trace data
 	  respectively.
-
-config CORESIGHT_SOURCE_ETM3X
-	bool "CoreSight Embedded Trace Macrocell 3.x driver"
-	select CORESIGHT_LINKS_AND_SINKS
-	help
-	  This driver provides support for processor ETM3.x and PTM1.x modules,
-	  which allows tracing the instructions that a processor is executing
-	  This is primarily useful for instruction level tracing.  Depending
-	  the ETM version data tracing may also be available.
 endif
 endmenu
