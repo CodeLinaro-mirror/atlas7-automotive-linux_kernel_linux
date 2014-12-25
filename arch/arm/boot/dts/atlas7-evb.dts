@@ -355,6 +355,8 @@
 				pinctrl-0 = <&lvds_analog_pmx>;
 				/* set to SYN or SLAVE for lvds panel */
 				lvds-mode = "SYN";
+				/* set lvds data src,0 for LCDC0,1 for LCDC1*/
+				lvds-source = <0>;
 			};
 		};
 

@@ -27,10 +27,12 @@
 static struct sirfsoc_lvdsc {
 	struct platform_device *pdev;
 	void __iomem    *base;
+	void __iomem	*rsc_base;
 
 	int irq;
 	enum vdss_lvdsc_mode mode;
-
+	/*set to 0 or 1 to select the lcdc0 or lcdc1 */
+	unsigned int source;
 	struct clk	*clk;
 } lvdsc;
 
@@ -76,6 +78,11 @@ static unsigned int lvdsc_read_reg(unsigned int offset)
 static void lvdsc_write_reg(unsigned int offset, unsigned int value)
 {
 	writel(value, lvdsc.base + offset);
+}
+
+static void lvdsc_write_rsc_reg(unsigned int offset, unsigned int value)
+{
+	writel(value, lvdsc.rsc_base + offset);
 }
 /*
  * Programming Guide of RGB888 LVDS panel configuration in PLL slave mode:
@@ -275,6 +282,17 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 		lvdsc.mode = SIRFSOC_VDSS_LVDSC_MODE_SYN;
 	}
 
+	ret = of_property_read_u32(dn, "lvds-source", &lvdsc.source);
+	if (!ret) {
+		if (lvdsc.source > 1) {
+			dev_info(&pdev->dev, "invalid lvdsc data source, set to LCDC0\n");
+			lvdsc.source = 0;
+		}
+	} else {
+		dev_info(&pdev->dev, "invalid lvdsc data source, set to LCDC0\n");
+		lvdsc.source = 0;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		VDSSERR("can't get IORESOURCE_MEM\n");
@@ -285,7 +303,20 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 	lvdsc.base = devm_ioremap(&pdev->dev, res->start,
 		resource_size(res));
 	if (!lvdsc.base) {
-		VDSSERR("can't ioremap\n");
+		VDSSERR("can't ioremap lvds controller regisger\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res) {
+		VDSSERR("can't get IORESOURCE_MEM\n");
+		return -EINVAL;
+	}
+
+	lvdsc.rsc_base = devm_ioremap(&pdev->dev, res->start,
+		resource_size(res));
+	if (!lvdsc.rsc_base) {
+		VDSSERR("can't ioremap rsc register\n");
 		return -ENOMEM;
 	}
 
@@ -296,6 +327,9 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 	}
 
 	clk_prepare_enable(lvdsc.clk);
+
+	if (lvdsc.source == 1)
+		lvdsc_write_rsc_reg(RSC_PIN_MUX_SET, LVDSC_LCDCSRC_SEL);
 
 	return 0;
 }
@@ -319,7 +353,7 @@ int __init lvdsc_init_platform_driver(void)
 		sirfsoc_lvdsc_probe);
 }
 
-void lvds_uninit_platform_driver(void)
+void lvdsc_uninit_platform_driver(void)
 {
 	platform_driver_unregister(&sirfsoc_lvdsc_driver);
 }

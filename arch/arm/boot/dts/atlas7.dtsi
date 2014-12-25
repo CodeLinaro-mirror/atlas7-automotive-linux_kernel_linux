@@ -1755,6 +1755,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x13100000 0x13100000 0x20000>,
+				 <0x10E50008 0x10E50008 0x00008>,
 				 <0x10e10000 0x10e10000 0x10000>;
 
 			lcd@13100000 {
@@ -1772,7 +1773,8 @@
 			};
 			lvds@10e10000 {
 				compatible = "sirf,atlas7-lvdsc";
-				reg = <0x10e10000 0x10000>;
+				reg = <0x10e10000 0x10000>,
+				      <0x10E50008 0x00008>;
 				interrupts = <0 64 0>;
 				clocks = <&car 54>;
 				resets = <&car 29>;
