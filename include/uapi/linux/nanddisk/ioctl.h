@@ -2,6 +2,7 @@
 #define LINUX_NANDDISK_IOCTL_H
 
 struct nanddisk_ioctl {
+	unsigned int handle;
 	unsigned int op;
 	void     *in_buf;
 	unsigned in_buf_size;

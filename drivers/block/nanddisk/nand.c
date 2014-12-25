@@ -604,10 +604,11 @@ static int nanddisk_locked_ioctl(struct block_device *bdev,
 					sizeof(nctl)))
 			return -EFAULT;
 
-		if (!nd->pfn_ioctrl(0, nctl.op, nctl.in_buf,
+		if (!nd->pfn_ioctrl(nctl.handle, nctl.op, nctl.in_buf,
 					nctl.in_buf_size, nctl.out_buf,
 					nctl.out_buf_size, NULL)) {
-			pr_err("%s:op is %x.\n", __func__, nctl.op);
+			pr_err("%s:handle is %x, op is %x.\n", __func__,
+					nctl.handle, nctl.op);
 			return -EIO;
 		}
 
