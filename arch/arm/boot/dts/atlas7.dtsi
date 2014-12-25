@@ -1072,14 +1072,14 @@
 		};
 
 		pmipc {
-				compatible = "arteris, flexnoc", "simple-bus";
-				#address-cells = <1>;
-				#size-cells = <1>;
-				ranges = <0x13240000 0x13240000 0x00010000>;
-				pmipc@0x13240000 {
-					compatible = "sirf,atlas7-pmipc";
-					reg = <0x13240000 0x00010000>;
-				};
+			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x13240000 0x13240000 0x00010000>;
+			pmipc@0x13240000 {
+				compatible = "sirf,atlas7-pmipc";
+				reg = <0x13240000 0x00010000>;
+			};
 		};
 
 		dramfw {
