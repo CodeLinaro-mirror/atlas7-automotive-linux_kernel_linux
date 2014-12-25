@@ -1359,13 +1359,4 @@ menuconfig CORESIGHT
 	  a topological view of the CoreSight components based on a DT
 	  specification and configure the right serie of components when a
 	  trace source gets enabled.
-
-if CORESIGHT
-config CORESIGHT_LINKS_AND_SINKS
-	bool "CoreSight Link and Sink drivers"
-	help
-	  This enables support for CoreSight link and sink drivers that are
-	  responsible for transporting and collecting the trace data
-	  respectively.
-endif
 endmenu
