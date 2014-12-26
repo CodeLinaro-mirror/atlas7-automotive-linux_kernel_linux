@@ -1200,7 +1200,7 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{137 , "a7ca_btslow", "btslow", 0, SIRFSOC_CLKC_LEAF_CLK_EN8_SET, 0, &leaf8_gate_lock},
 };
 
-static struct clk *atlas7_clks[ARRAY_SIZE(unit_list)];
+static struct clk *atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list)];
 
 static int unit_clk_is_enabled(struct clk_hw *hw)
 {
@@ -1655,6 +1655,7 @@ void __init atlas7_clk_init(struct device_node *np)
 			       sirfsoc_clk_vbase + mux->mux_offset,
 			       mux->shift, mux->width,
 			       mux->mux_flags, NULL);
+		atlas7_clks[ARRAY_SIZE(unit_list) + i] = clk;
 		BUG_ON(!clk);
 	}
 
@@ -1666,7 +1667,7 @@ void __init atlas7_clk_init(struct device_node *np)
 	}
 
 	clk_data.clks = atlas7_clks;
-	clk_data.clk_num = ARRAY_SIZE(unit_list);
+	clk_data.clk_num = ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list);
 
 	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 	BUG_ON(ret);
