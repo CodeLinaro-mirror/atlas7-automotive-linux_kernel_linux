@@ -14,7 +14,7 @@ LCDC is the lcd controller, which contains layer, screen and overlay control
 hardware logic, and it reads pixels from the memory and outputs a RGB or YUV
 pixel stream to the outputs.
 
-The output modules like rgb panel or LVDS panel receiving RGB/YUV pixel stream.
+The output modules like rgb panel, HDMI or LVDS panel receiving RGB/YUV pixel stream.
 
 SirfSoc Video Display Subsystem device tree properties
 -----------------------------------------------------
@@ -124,6 +124,33 @@ display0: display@0 {
 	power-vdd  = <0x00160015>;
 	power-vee  = <0x00180017>;
 	data-lines = <18>;
+
+	display-timings {
+	        native-mode = <&timing0>;
+	        timing0: timing0 {
+			clock-frequency = <51200000>;
+	                hactive = <1024>;
+	                vactive = <600>;
+	                hfront-porch = <288>;
+	                hback-porch = <28>;
+	                hsync-len = <4>;
+	                vback-porch = <8>;
+	                vfront-porch = <24>;
+	                vsync-len = <3>;
+	                hsync-active = <0>;
+	                vsync-active = <0>;
+	                de-active = <0>;
+	                pixelclk-active = <0>;
+	        };
+	};
+};
+
+An example of vdss panel(rgb interface, but the output is HDMI) control parameters and the display timing properties:
+display0: display@0 {
+	compatible = "tm,WSVGA-panel", "hdmi-panel";
+	source = "rgb.0";
+
+	data-lines = <24>;
 
 	display-timings {
 	        native-mode = <&timing0>;
