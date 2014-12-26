@@ -25,17 +25,9 @@ static struct platform_device sirfsoc_vdss_device = {
 	},
 };
 
-static struct platform_device sirfsoc_vout_device = {
-	.name		= "sirfsoc_vout",
-	.id		= -1,
-	.dev		= {
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-	},
-};
 
 static struct platform_device *sirfsoc_display_pdevs[] __initdata = {
 	&sirfsoc_vdss_device,
-	&sirfsoc_vout_device,
 };
 
 int __init sirfsoc_add_display_pdev(void)

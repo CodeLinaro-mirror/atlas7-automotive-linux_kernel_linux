@@ -1337,19 +1337,54 @@ static int sirfsoc_vout_remove(struct platform_device *pdev)
 
 static struct platform_driver __refdata sirfsoc_vout = {
 	.remove  = sirfsoc_vout_remove,
+	.probe	 = sirfsoc_vout_probe,
 	.driver  = {
 		.name	= SIRFSOC_VOUT_DRV_NAME,
 		.owner	= THIS_MODULE,
 	},
 };
 
-static void sirfsoc_vout_cleanup(void)
+static struct platform_device *vout_device;
+
+static int __init sirfsoc_vout_init(void)
 {
+	int ret = 0;
+	u64 mask = DMA_BIT_MASK(32);
+
+	ret = platform_driver_register(&sirfsoc_vout);
+	if (!ret) {
+		vout_device  = platform_device_alloc(
+						SIRFSOC_VOUT_DRV_NAME, 0);
+		if (vout_device) {
+			ret = dma_set_coherent_mask(&vout_device->dev, mask);
+			if (!ret) {
+				ret = platform_device_add(vout_device);
+				if (ret)
+					goto err_device_put;
+			} else
+				goto err_device_put;
+		} else {
+			ret = -ENOMEM;
+			goto err_unregister_driver;
+		}
+	}
+	return ret;
+
+err_device_put:
+	platform_device_put(vout_device);
+err_unregister_driver:
+	platform_driver_unregister(&sirfsoc_vout);
+	return ret;
+}
+
+static void __exit sirfsoc_vout_exit(void)
+{
+	platform_device_unregister(vout_device);
 	platform_driver_unregister(&sirfsoc_vout);
 }
 
-module_platform_driver_probe(sirfsoc_vout, sirfsoc_vout_probe);
-module_exit(sirfsoc_vout_cleanup);
+module_init(sirfsoc_vout_init);
+module_exit(sirfsoc_vout_exit);
 
 MODULE_DESCRIPTION("SirfSoc Video Output driver");
 MODULE_AUTHOR("Renwei Wu<renwei.wu@csr.com>");
