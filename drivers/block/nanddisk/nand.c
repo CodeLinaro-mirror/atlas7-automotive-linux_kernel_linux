@@ -1040,7 +1040,8 @@ err_blk_init_queue:
 err_nanddisk_init:
 	clk_disable_unprepare(nand_dev.nand_clk);
 err_clk_get:
-	dma_release_channel(nand_dev.rw_chan);
+	if (!of_device_is_compatible(dn, "sirf,atlas7-nand"))
+		dma_release_channel(nand_dev.rw_chan);
 err_exit:
 	return error;
 }
