@@ -1120,7 +1120,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x18641000 0x18641000 0x3000>,
-					 <0x18620000 0x18620000 0x1000>;
+					 <0x18620000 0x18620000 0x1000>,
+					<0x18630000 0x18630000 0x10000>;
 
 			cgum@18641000 {
 				compatible = "sirf,nocfw-cgum";
@@ -1132,6 +1133,12 @@
 				reg = <0x18620000 0x1000>;
 				#clock-cells = <1>;
 				#reset-cells = <1>;
+			};
+			pwm: pwm@18630000 {
+				compatible = "sirf,prima2-pwm";
+				reg = <0x18630000 0x10000>;
+				clocks = <&car 138>;
+				clock-names = "pwmc";
 			};
 		};
 
