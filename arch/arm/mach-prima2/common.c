@@ -26,7 +26,6 @@
 #include "common.h"
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
-static struct device fake_cma_dev;
 
 #ifdef CONFIG_NANDDISK
 #define NANDDISK_PHY_BASE 0x46000000UL
@@ -85,67 +84,11 @@ void __init sirfsoc_pre_reserve(void)
 		pr_err("failed to find reserved memory.\n");
 }
 
-static int __init sirfsoc_fdt_handle_fb_rsv_mem(unsigned long node,
-						const char *uname,
-						int depth, void *data)
-{
-	const __be32 *mem_info;
-	int len;
-
-	mem_info = of_get_flat_dt_prop(node,
-					"sirf,rsvmem_size", &len);
-	if (!mem_info || (len != 4 * sizeof(unsigned long)))
-		return 0;
-
-	/* assume the max reserve size of fb0 is 8M(1024*600,32bpp,tri-buf) */
-	*((unsigned long *)data) = 8 * SZ_1M + be32_to_cpu(mem_info[1]) +
-		be32_to_cpu(mem_info[2]) + be32_to_cpu(mem_info[3]);
-
-	return 1;
-}
-
-static int __init sirfsoc_fdt_handle_vip_rsv_mem(unsigned long node,
-						const char *uname,
-						int depth, void *data)
-{
-	const __be32 *mem_info;
-	int len;
-
-	mem_info = of_get_flat_dt_prop(node,
-				"sirf,vip_cma_size", &len);
-	if (!mem_info || (len != sizeof(unsigned long)))
-		return 0;
-
-	*((unsigned long *)data) = be32_to_cpu(mem_info[0]);
-
-	return 1;
-}
-
-static void __init sirfsoc_reserve_cma(void)
-{
-	int ret;
-	unsigned long rsv_size = 0, size;
-
-	if (!of_scan_flat_dt(sirfsoc_fdt_handle_fb_rsv_mem, &rsv_size))
-		pr_err("failed to get fb reserved memory size from dt\n");
-	size = rsv_size;
-
-	rsv_size = 0;
-	if (!of_scan_flat_dt(sirfsoc_fdt_handle_vip_rsv_mem, &rsv_size))
-		pr_err("failed to get vip reserved memory size from dt\n");
-	size += rsv_size;
-
-	ret = dma_declare_contiguous(&fake_cma_dev, size, 0, 0xFFFFFFFF);
-	if (ret)
-		pr_err("%s: failed to reserve cma %d\n", __func__, ret);
-}
-
 static void __init sirfsoc_reserve(void)
 {
 	sirfsoc_pre_reserve();
 	sirfsoc_gps_reserve_memblock();
 	sirfsoc_pbb_reserve_memblock();
-	sirfsoc_reserve_cma();
 }
 
 static void __init prima2_reserve(void)
@@ -160,35 +103,6 @@ static struct of_dev_auxdata sirf_auxdata_lookup[] __initdata = {
 	{ /* end */ },
 };
 
-static void __init sirfsoc_set_up_cma_areas(void)
-{
-	struct platform_device *pdev;
-	struct device_node *np;
-	struct cma *cma;
-
-	/* wrap lcd's cma area with fake device's */
-	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-lcd");
-	if (!np || !of_device_is_available(np)) {
-		pr_err("failed to get lcd device node\n");
-		return;
-	}
-	pdev = of_find_device_by_node(np);
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	cma = dev_get_cma_area(&fake_cma_dev);
-	dev_set_cma_area(&pdev->dev, cma);
-
-	/* wrap vip's cma area with fake device's */
-	np = of_find_compatible_node(NULL, NULL, "sirf,prima2-vip");
-	if (!np || !of_device_is_available(np)) {
-		pr_err("failed to get vip device node\n");
-		return;
-	}
-	pdev = of_find_device_by_node(np);
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	cma = dev_get_cma_area(&fake_cma_dev);
-	dev_set_cma_area(&pdev->dev, cma);
-}
-
 static void __init sirfsoc_init_mach(void)
 {
 	sirfsoc_add_display_pdev();
@@ -198,7 +112,6 @@ static void __init sirfsoc_init_mach(void)
 
 	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
 	platform_device_register_simple("bt-sco", -1, NULL, 0);
-	sirfsoc_set_up_cma_areas();
 }
 
 static void __init sirfsoc_init_late(void)

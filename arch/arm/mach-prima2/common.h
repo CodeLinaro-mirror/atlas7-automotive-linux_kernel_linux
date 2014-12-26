@@ -25,13 +25,6 @@ extern void sirfsoc_cpu_die(unsigned int cpu);
 
 extern int __init sirfsoc_add_display_pdev(void);
 extern void __init sirfsoc_of_irq_init(void);
-#ifdef CONFIG_FB_SIRF
-extern void sirfsoc_fb_reserve_memblock(void);
-#else
-static inline void sirfsoc_fb_reserve_memblock(void)
-{
-}
-#endif
 extern void sirfsoc_restart(char, const char *);
 extern asmlinkage void __exception_irq_entry
 	sirfsoc_handle_irq(struct pt_regs *regs);
