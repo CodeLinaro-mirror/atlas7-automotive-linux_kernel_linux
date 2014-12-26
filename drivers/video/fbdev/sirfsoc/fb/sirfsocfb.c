@@ -15,6 +15,7 @@
 #include "sirfsocfb.h"
 
 #define MODULE_NAME     "sirfsocfb"
+#define SIRFSOCFB_NAME  MODULE_NAME
 
 #define FB_SIRFSOC_NUM_FBS  2
 
@@ -1123,6 +1124,8 @@ static int sirfsocfb_create_framebuffers(struct sirfsocfb_device *fbdev)
 				"registering framebuffer %d failed\n", i);
 			return ret;
 		}
+
+		dev_info(fbdev->dev, "/dev/fb%i created\n", i);
 	}
 
 	DBG("framebuffers registered\n");
@@ -1236,6 +1239,15 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 	int i;
 	struct sirfsoc_vdss_panel *def_panel;
 	struct sirfsoc_vdss_panel *panel;
+
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret)
+		goto err0;
+
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+	else
+		dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
 
 	if (sirfsoc_vdss_is_initialized() == false)
 		return -EPROBE_DEFER;
@@ -1351,20 +1363,44 @@ static int sirfsocfb_remove(struct platform_device *pdev)
 
 static struct platform_driver sirfsocfb_driver = {
 	.driver = {
-		.name = "sirfsocfb",
+		.name = SIRFSOCFB_NAME,
 		.owner = THIS_MODULE,
 	},
 	.probe = sirfsocfb_probe,
 	.remove = sirfsocfb_remove,
 };
 
+static struct platform_device *sirfsocfb_device;
+
 static __init int sirfsocfb_init(void)
 {
-	return platform_driver_register(&sirfsocfb_driver);
+	int ret = 0;
+
+	ret = platform_driver_register(&sirfsocfb_driver);
+	if (!ret) {
+		sirfsocfb_device = platform_device_alloc(SIRFSOCFB_NAME, 0);
+
+		if (sirfsocfb_device) {
+			ret = platform_device_add(sirfsocfb_device);
+			if (ret)
+				goto init_err1;
+		} else {
+			ret = -ENOMEM;
+			goto init_err2;
+		}
+	}
+
+	return ret;
+init_err1:
+	platform_device_put(sirfsocfb_device);
+init_err2:
+	platform_driver_unregister(&sirfsocfb_driver);
+	return ret;
 }
 
-static void __exit sirfsocfb_exit(void)
+static __exit void sirfsocfb_exit(void)
 {
+	platform_device_unregister(sirfsocfb_device);
 	platform_driver_unregister(&sirfsocfb_driver);
 }
 
