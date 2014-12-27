@@ -207,21 +207,6 @@
 #define ATLAS7_MAX_TIMEOUT		0xffffffff
 #define ATLAS7_JEDEC_MFR(_jedec_id)	((_jedec_id) >> 16)
 
-/*
- *Micron command
- */
-/* read nonvolatile configuration register */
-#define ATLAS7_NOR_MICRON_RNCR		0xB5
-/* write novolatile configuration register */
-#define ATLAS7_NOR_MICRON_WNCR		0xB1
-#define ATLAS7_NOR_MICRON_EN32BIT	0xB7	/* enter 32 bit addressing*/
-#define ATLAS7_NOR_MICRON_EX32BIT	0xE9	/* exit 32 bit addressing*/
-
-#define ATLAS7_NOR_MICRON_DUAL_EN	(~BIT(2))
-#define ATLAS7_NOR_MICRON_DUAL_EN_MX	0x4    /* Dual I/O */
-#define ATLAS7_NOR_MICRON_QUAD_EN	(~BIT(3))
-#define ATLAS7_NOR_MICRON_QUAD_EN_MX	0x8    /* Quad I/O */
-
 struct atlas7_qspi_nor {
 	struct device		*dev;
 	void __iomem		*base;
@@ -283,18 +268,27 @@ struct nor_flash_rw_config {
 
 static struct nor_flash_info flash_types[] = {
 	/* Micron n25xxx */
-#define N25Q_FLAG (FLASH_FLAG_READ_WRITE       |	\
-		   FLASH_FLAG_READ_FAST         |	\
-		   FLASH_FLAG_READ_1_1_2        |	\
-		   FLASH_FLAG_READ_1_2_2        |	\
-		   FLASH_FLAG_READ_1_1_4        |	\
-		   FLASH_FLAG_READ_1_4_4        |	\
-		   FLASH_FLAG_WRITE_1_1_2       |	\
-		   FLASH_FLAG_WRITE_1_2_2       |	\
+#define N25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
+		   FLASH_FLAG_READ_FAST		|	\
+		   FLASH_FLAG_READ_1_1_2	|	\
+		   FLASH_FLAG_READ_1_2_2	|	\
+		   FLASH_FLAG_READ_1_1_4	|	\
+		   FLASH_FLAG_READ_1_4_4	|	\
+		   FLASH_FLAG_WRITE_1_1_2	|	\
+		   FLASH_FLAG_WRITE_1_2_2	|	\
 		   FLASH_FLAG_WRITE_1_1_4)
 	{ "n25q256a", 0x20ba19, 0, 256, 4 * 1024, 4096 * 2,
 		N25Q_FLAG | FLASH_FLAG_32BIT_ADDR,
 		108, 20, 20, 100},
+
+	/*Micronix mx25xx */
+#define MX25_FLAG (FLASH_FLAG_READ_WRITE	|	\
+		   FLASH_FLAG_READ_FAST		|	\
+		   FLASH_FLAG_READ_1_1_2	|	\
+		   FLASH_FLAG_READ_1_2_2)
+	{ "mx25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
+		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
+		133, 30, 20, 100},
 
 	/* Sentinel */
 	{},
@@ -320,11 +314,7 @@ static struct nor_flash_info flash_types[] = {
  */
 static struct nor_flash_rw_config n25q_read_3B_configs[] = {
 	{FLASH_FLAG_READ_1_4_4, 10},
-	{FLASH_FLAG_READ_1_1_4, 8},
 	{FLASH_FLAG_READ_1_2_2, 8},
-	{FLASH_FLAG_READ_1_1_2, 8},
-	{FLASH_FLAG_READ_FAST,	8},
-	{FLASH_FLAG_READ_WRITE, 0},
 	{0x00,			0},
 };
 
@@ -335,11 +325,27 @@ static struct nor_flash_rw_config n25q_read_3B_configs[] = {
  */
 static struct nor_flash_rw_config n25q_read_4B_configs[] = {
 	{FLASH_FLAG_READ_1_4_4, 10},
-	{FLASH_FLAG_READ_1_1_4, 8},
 	{FLASH_FLAG_READ_1_2_2, 8},
-	{FLASH_FLAG_READ_1_1_2, 8},
-	{FLASH_FLAG_READ_FAST,	8},
-	{FLASH_FLAG_READ_WRITE, 0},
+	{0x00,			0},
+};
+
+/*
+ * [MX25xxx] Configuration
+ */
+
+/* MX25 3-byte Address READ configurations
+ */
+static struct nor_flash_rw_config mx25_read_3B_configs[] = {
+	/*{FLASH_FLAG_READ_1_4_4, 6},*/
+	{FLASH_FLAG_READ_1_2_2, 4},
+	{0x00,			0},
+};
+
+/* MX25 4-byte Address READ configurations
+ */
+static struct nor_flash_rw_config mx25_read_4B_configs[] = {
+	/*{FLASH_FLAG_READ_1_4_4, 6},*/
+	{FLASH_FLAG_READ_1_2_2, 4},
 	{0x00,			0},
 };
 
@@ -428,7 +434,6 @@ atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 		regval = ATLAS7_QSPI_RDC_READ2IO(a7nor->dummy);
 	if (a7nor->read_flag & FLASH_FLAG_QUAD)
 		regval = ATLAS7_QSPI_RDC_READ4IO(a7nor->dummy);
-	/*in fpga, the clock only have 20M Hz, it will be chaged later*/
 	#if 0
 		rx_delay = (clk_get_rate(a7nor->clk) /
 				(2 * a7nor->speed_hz)) - 1;
@@ -767,6 +772,7 @@ static int atlas7_qspi_nor_quad_enable(struct atlas7_qspi_nor *a7nor)
 
 	switch (ATLAS7_JEDEC_MFR(a7nor->info->jedec_id)) {
 	case CFI_MFR_ST:
+	case CFI_MFR_MACRONIX:
 		return ret;
 	default:
 		return ret;
@@ -779,6 +785,7 @@ static int atlas7_qspi_nor_dual_enable(struct atlas7_qspi_nor *a7nor)
 
 	switch (ATLAS7_JEDEC_MFR(a7nor->info->jedec_id)) {
 	case CFI_MFR_ST:
+	case CFI_MFR_MACRONIX:
 		return ret;
 	default:
 		return ret;
@@ -816,6 +823,23 @@ atlas7_qspi_micron_search_dummy(u64 size, u32 read_opcode)
 }
 
 static u8
+atlas7_qspi_marconix_search_dummy(u64 size, u32 read_opcode)
+{
+	struct nor_flash_rw_config *config;
+
+	if (size > ATLAS7_QSPI_24BIT_FLASH_SIZE)
+		config = atlas7_qspi_nor_search_config(read_opcode,
+					mx25_read_4B_configs);
+	else
+		config = atlas7_qspi_nor_search_config(read_opcode,
+					mx25_read_3B_configs);
+	if (NULL == config)
+		return ATLAS7_DEFAULT_DUMMY_CYCLES;
+
+	return config->dummy_cycles;
+}
+
+static u8
 atlas7_qspi_nor_search_dummy(u32 jedec_id, u64 size, u32 read_opcode)
 {
 	u8 dummy;
@@ -824,6 +848,9 @@ atlas7_qspi_nor_search_dummy(u32 jedec_id, u64 size, u32 read_opcode)
 	case CFI_MFR_ST:
 		dummy = atlas7_qspi_micron_search_dummy(size, read_opcode);
 		break;
+	case CFI_MFR_MACRONIX:
+		dummy = atlas7_qspi_marconix_search_dummy(size, read_opcode);
+		break;
 	default:
 		dummy = ATLAS7_DEFAULT_DUMMY_CYCLES;
 	}
@@ -831,7 +858,7 @@ atlas7_qspi_nor_search_dummy(u32 jedec_id, u64 size, u32 read_opcode)
 }
 
 static int
-atlas7_qspi_micron_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
+atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
 {
 	int ret;
 	u8 cmd;
@@ -842,7 +869,7 @@ atlas7_qspi_micron_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
 	if (ret < 0)
 		goto out;
 
-	cmd = ATLAS7_NOR_MICRON_EN32BIT;
+	cmd = SPINOR_OP_EN4B;
 	ret = atlas7_qspi_custom_out(a7nor, cmd, NULL, 0);
 	if (ret < 0)
 		goto out;
@@ -861,7 +888,8 @@ atlas7_qspi_nor_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
 
 	switch (ATLAS7_JEDEC_MFR(a7nor->info->jedec_id)) {
 	case CFI_MFR_ST:
-		ret = atlas7_qspi_micron_enter_32bit_addr(a7nor);
+	case CFI_MFR_MACRONIX:
+		ret = atlas7_qspi_enter_32bit_addr(a7nor);
 		if (ret) {
 			dev_err(a7nor->dev,
 				"Micron cannot intro 32 bit addrssing mode\n");
@@ -901,6 +929,8 @@ atlas7_qspi_nor_erase_chip(struct atlas7_qspi_nor *a7nor)
 	return 0;
 }
 
+/* the block erase function is not used now*/
+#if 0
 static int
 atlas7_qspi_nor_erase_block(struct atlas7_qspi_nor *a7nor, u32 offset)
 {
@@ -928,9 +958,8 @@ atlas7_qspi_nor_erase_block(struct atlas7_qspi_nor *a7nor, u32 offset)
 	}
 	return 0;
 }
+#endif
 
-/* the sector erase function is not used now*/
-#if 0
 static int
 atlas7_qspi_nor_erase_sector(struct atlas7_qspi_nor *a7nor, u32 offset)
 {
@@ -958,7 +987,6 @@ atlas7_qspi_nor_erase_sector(struct atlas7_qspi_nor *a7nor, u32 offset)
 	}
 	return 0;
 }
-#endif
 
 /*
  * Read an address range from the flash chip. The address range
@@ -1035,7 +1063,7 @@ atlas7_qspi_nor_mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 			goto out;
 	} else {
 		while (len > 0) {
-			ret = atlas7_qspi_nor_erase_block(a7nor, addr);
+			ret = atlas7_qspi_nor_erase_sector(a7nor, addr);
 			if (ret)
 				goto out;
 			addr += mtd->erasesize;
@@ -1063,7 +1091,6 @@ atlas7_qspi_setup_controller(struct atlas7_qspi_nor *a7nor)
 	u32 clk_div, regval;
 	u32 clk_delay;
 
-	/*in fpga, the clock only have 20M Hz, it will be chaged later*/
 	#if 0
 		source_clk = clk_get_rate(a7nor->clk);
 	#else
@@ -1127,9 +1154,6 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 	if (info->flags & FLASH_FLAG_WRITE_1_4_4)
 		a7nor->write_flag = FLASH_FLAG_WRITE_1_4_4;
 
-	a7nor->read_flag = FLASH_FLAG_READ_1_4_4;
-	a7nor->write_flag = FLASH_FLAG_WRITE_1_1_4;
-
 	if ((a7nor->read_flag & FLASH_FLAG_READ_1_1_2) ||
 			(a7nor->read_flag & FLASH_FLAG_READ_1_2_2) ||
 			(a7nor->write_flag & FLASH_FLAG_WRITE_1_1_2)) {
@@ -1157,7 +1181,7 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 					a7nor->mtd.size,
 					a7nor->read_flag);
 	if (a7nor->mtd.size > ATLAS7_QSPI_24BIT_FLASH_SIZE) {
-		/* enable 4-byte addressing if the device exceeds 16MiB */
+		/* enable 4-byte addressing if the device exceeds 16MiB*/
 		ret = atlas7_qspi_nor_enter_32bit_addr(a7nor);
 		if (ret < 0) {
 			dev_err(a7nor->dev, "enter 32 bit address fail\n");
