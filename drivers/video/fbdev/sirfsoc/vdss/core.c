@@ -64,7 +64,7 @@ static struct notifier_block sirfsoc_vdss_pm_notif_block = {
 	.notifier_call = sirfsoc_vdss_pm_notif,
 };
 
-static int __init sirfsoc_vdss_probe(struct platform_device *pdev)
+static int sirfsoc_vdss_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_vdss_board_info *pdata = pdev->dev.platform_data;
 
@@ -94,6 +94,7 @@ static int sirfsoc_vdss_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver sirfsoc_vdss_driver = {
+	.probe		= sirfsoc_vdss_probe,
 	.remove         = sirfsoc_vdss_remove,
 	.shutdown	= sirfsoc_vdss_shutdown,
 	.driver         = {
@@ -102,13 +103,30 @@ static struct platform_driver sirfsoc_vdss_driver = {
 	},
 };
 
+static struct platform_device *sirfsoc_vdss_device;
+static struct sirfsoc_vdss_board_info sirfsoc_vdss_data = {
+	.default_display_name = "lvds",
+};
+
 static int __init sirfsoc_vdss_init(void)
 {
 	int ret;
 
-	ret = platform_driver_probe(&sirfsoc_vdss_driver, sirfsoc_vdss_probe);
+	ret = platform_driver_register(&sirfsoc_vdss_driver);
 	if (ret)
 		return ret;
+
+	sirfsoc_vdss_device = platform_device_alloc("sirfsoc_vdss", 0);
+	if (!sirfsoc_vdss_device) {
+		ret = -ENOMEM;
+		goto err_lcdc;
+	}
+
+	ret = platform_device_add_data(sirfsoc_vdss_device,
+			&sirfsoc_vdss_data,
+			sizeof(struct sirfsoc_vdss_board_info));
+	if (ret)
+		goto err_device_put;
 
 	ret = lcdc_init_platform_driver();
 	if (ret) {
@@ -138,10 +156,13 @@ err_lvdsc:
 err_vpp:
 	lcdc_uninit_platform_driver();
 
+err_device_put:
+	platform_device_put(sirfsoc_vdss_device);
+
 err_lcdc:
 	platform_driver_unregister(&sirfsoc_vdss_driver);
 
-	return 0;
+	return ret;
 }
 
 static void __exit sirfsoc_vdss_exit(void)
