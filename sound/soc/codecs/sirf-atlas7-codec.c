@@ -117,6 +117,13 @@ static u32 rate_reg_value(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+static u32 dac_sample_rate_regs[] = {
+	KCODEC_DAC_A_SAMP_RATE,
+	KCODEC_DAC_B_SAMP_RATE,
+	KCODEC_DAC_C_SAMP_RATE,
+	KCODEC_DAC_D_SAMP_RATE
+};
+
 static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 		int cmd, struct snd_soc_dai *dai)
 {
@@ -130,8 +137,7 @@ static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			for (i = 0; i < channels; i++)
-				snd_soc_write(codec, KCODEC_DAC_A_SAMP_RATE
-					+ (i * 0x10),
+				snd_soc_write(codec, dac_sample_rate_regs[i],
 					rate_reg_value(substream));
 		} else {
 			for (i = 0; i < channels; i++)
