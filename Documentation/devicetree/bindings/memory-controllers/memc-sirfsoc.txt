@@ -10,3 +10,13 @@ Example:
 		compatible = "sirf,atlas7-memc";
 		reg = <0x10800000 0x2000>;
 	};
+
+	memory-controller@0x10800000 {
+		compatible = "sirf,prima2-memc";
+		reg = <0x10800000 0x2000>;
+	};
+
+	memory-controller@0x10800000 {
+		compatible = "sirf,marco-memc";
+		reg = <0x10800000 0x2000>;
+	};

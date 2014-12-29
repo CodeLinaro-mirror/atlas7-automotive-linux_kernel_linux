@@ -1366,5 +1366,15 @@ config SIRF_SOC_IPC
 	  It's safe to say n here if you're not interested in SIRF
 	  IPC device or just want a bare minimum kernel.
 
+config MFD_SIRFSOC_PWRC
+        bool "CSR Power Control Chip"
+        select MFD_CORE
+        select REGMAP_IRQ
+        help
+         The SIRF Power Control Chip contains devices power
+         related operations, such as power on or power off
+         power on status, for example, sysctl power, gnss
+         power, onkey etc.
+
 endmenu
 endif

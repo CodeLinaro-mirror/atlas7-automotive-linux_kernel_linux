@@ -27,6 +27,10 @@
 extern int sirfsoc_prima2_finish_suspend(unsigned long);
 extern int sirfsoc_marco_finish_suspend(unsigned long);
 extern int sirfsoc_atlas7_finish_suspend(unsigned long);
+extern int sirfsoc_pre_suspend_power_off(void);
+extern void sirfsoc_pm_enter_power_saving(void);
+extern int sirfsoc_pwrc_init(void);
+
 #endif
 
 #endif

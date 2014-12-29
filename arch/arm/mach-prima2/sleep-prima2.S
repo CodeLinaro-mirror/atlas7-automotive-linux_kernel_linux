@@ -22,7 +22,7 @@ ENTRY(sirfsoc_prima2_finish_suspend)
 	ldr     r0, =sirfsoc_memc_base
 	ldr	r5, [r0]
 	@ r6: 	pwrc base offset
-	ldr     r0, =sirfsoc_pwrc_base
+	ldr	r0, =0x3000
 	ldr	r6, [r0]
 	@ r7: 	rtc iobrg controller
 	ldr     r0, =sirfsoc_rtciobrg_base

@@ -179,3 +179,4 @@ intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_crc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o
 
 obj-$(CONFIG_SIRF_SOC_IPC)	+= sirfsoc_ipc.o
+obj-$(CONFIG_MFD_SIRFSOC_PWRC)	+= sirfsoc_pwrc.o

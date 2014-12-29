@@ -1,0 +1,89 @@
+/*
+ * RTC I/O Bridge interfaces for CSR SiRFprimaII
+ * ARM access the registers of SYSRTC, GPSRTC and PWRC through this module
+ *
+ * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+#ifndef _SIRFSOC_PWRC_H_
+#define _SIRFSOC_PWRC_H_
+
+#define PWRC_PDN_CTRL_OFFSET	0
+#define AUDIO_POWER_EN_BIT	14
+
+struct sirfsoc_pwrc_register {
+	/* hardware pwrc specific */
+	u32 pwrc_pdn_ctrl_set;
+	u32 pwrc_pdn_ctrl_clr;
+	u32 pwrc_pon_status;
+	u32 pwrc_trigger_en_set;
+	u32 pwrc_trigger_en_clr;
+	u32 pwrc_int_mask_set;
+	u32 pwrc_int_mask_clr;
+	u32 pwrc_int_status;
+	u32 pwrc_pin_status;
+	u32 pwrc_rtc_pll_ctrl;
+	u32 pwrc_gpio3_debug;
+	u32 pwrc_rtc_noc_pwrctl_set;
+	u32 pwrc_rtc_noc_pwrctl_clr;
+	u32 pwrc_rtc_can_ctrl;
+	u32 pwrc_rtc_can_status;
+	u32 pwrc_fsm_m3_ctrl;
+	u32 pwrc_fsm_state;
+	u32 pwrc_rtcldo_reg;
+	u32 pwrc_gnss_ctrl;
+	u32 pwrc_gnss_status;
+	u32 pwrc_xtal_reg;
+	u32 pwrc_xtal_ldo_mux_sel;
+	u32 pwrc_rtc_sw_rstc_set;
+	u32 pwrc_rtc_sw_rstc_clr;
+	u32 pwrc_power_sw_ctrl_set;
+	u32 pwrc_power_sw_ctrl_clr;
+	u32 pwrc_rtc_dcog;
+	u32 pwrc_m3_memories;
+	u32 pwrc_can0_memory;
+	u32 pwrc_rtc_gnss_memory;
+	u32 pwrc_m3_clk_en;
+	u32 pwrc_can0_clk_en;
+	u32 pwrc_spi0_clk_en;
+	u32 pwrc_rtc_sec_clk_en;
+	u32 pwrc_rtc_noc_clk_en;
+
+	/*only for prima2*/
+	u32 pwrc_scratch_pad1;
+	u32 pwrc_scratch_pad2;
+	u32 pwrc_scratch_pad3;
+	u32 pwrc_scratch_pad4;
+	u32 pwrc_scratch_pad5;
+	u32 pwrc_scratch_pad6;
+	u32 pwrc_scratch_pad7;
+	u32 pwrc_scratch_pad8;
+	u32 pwrc_scratch_pad9;
+	u32 pwrc_scratch_pad10;
+	u32 pwrc_scratch_pad11;
+	u32 pwrc_scratch_pad12;
+	u32 pwrc_gpio3_clk;
+	u32 pwrc_gpio_ds;
+
+};
+
+enum pwrc_version {
+	PWRC_MARCO_VER,
+	PWRC_PRIMA2_VER,
+	PWRC_ATLAS7_VER,
+};
+
+struct sirfsoc_pwrc_info {
+	struct device *dev;
+	struct regmap *regmap;
+	struct sirfsoc_pwrc_register *pwrc_reg;
+	u32 ver;
+	u32 base;
+};
+
+
+extern struct sirfsoc_pwrc_register sirfsoc_a7da_pwrc;
+extern struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc;
+
+#endif
