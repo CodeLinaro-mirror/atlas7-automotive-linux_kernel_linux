@@ -1140,12 +1140,6 @@
 				clocks = <&car 138>;
 				clock-names = "pwmc";
 			};
-			pwm: pwm@18630000 {
-				compatible = "sirf,prima2-pwm";
-				reg = <0x18630000 0x10000>;
-				clocks = <&car 138>;
-				clock-names = "pwmc";
-			};
 		};
 
 		gnssm {
