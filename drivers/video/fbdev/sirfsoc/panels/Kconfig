@@ -14,4 +14,10 @@ config DISPLAY_PANEL_LVDS
 	help
 	  Driver for generic LVDS panels.
 
+config DISPLAY_HDMI
+	tristate "Generic HDMI panel"
+	default y
+	help
+	  Driver for generic HDMI output drived by IT6610 HDMI transmitter.
+
 endmenu
