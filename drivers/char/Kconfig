@@ -605,6 +605,17 @@ config TRIG_SIRFSOC
 	default n
 	---help---
 	  Support for SIRFSOC TriG module
+
+config SIRF_SPI_SLAVE
+	tristate "SiRF SOC SPI slave"
+	depends on ARCH_SIRF
+	default n
+	---help---
+	  Support for SIRFSOC spi slave module.
+	  It provides operation interface for user space to operate the SPI as slave.
+	  If you say Y here, a device node "/dev/spi-slave" will exist, user space application
+	  can operate it just as a file.
+
 source "drivers/s390/char/Kconfig"
 
 config MSM_SMD_PKT
