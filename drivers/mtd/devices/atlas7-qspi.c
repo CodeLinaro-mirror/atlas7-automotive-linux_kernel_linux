@@ -226,7 +226,6 @@ struct atlas7_qspi_nor {
 
 	u32			read_flag;
 	u32			write_flag;
-	u8			dummy;
 };
 
 
@@ -256,15 +255,9 @@ struct nor_flash_info {
 	u8		tshsl;
 	u8		twhsl;
 	u8		tshwl;
+	u8		dummy_2b;
+	u8		dummy_4b;
 };
-
-
-/* Parameters to configure a READ or WRITE operation */
-struct nor_flash_rw_config {
-	u32		flags;          /* flags to support config */
-	u8		dummy_cycles;   /* No. of DUMMY cycles */
-};
-
 
 static struct nor_flash_info flash_types[] = {
 	/* Micron n25xxx */
@@ -279,7 +272,7 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_WRITE_1_1_4)
 	{ "n25q256a", 0x20ba19, 0, 256, 4 * 1024, 4096 * 2,
 		N25Q_FLAG | FLASH_FLAG_32BIT_ADDR,
-		108, 20, 20, 100},
+		108, 20, 20, 100, 8, 10},
 
 	/*Micronix mx25xx */
 #define MX25_FLAG (FLASH_FLAG_READ_WRITE	|	\
@@ -288,66 +281,12 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_READ_1_2_2)
 	{ "mx25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
-		133, 30, 20, 100},
+		133, 30, 20, 100, 4, 6},
 
 	/* Sentinel */
 	{},
 };
 
-/*default dummy cycles for flash or opcode operation that not added in driver*/
-#define ATLAS7_DEFAULT_DUMMY_CYCLES	8
-
-/*
- * [N25Qxxx] Configuration
- */
-
-/* N25Q 3-byte Address READ configurations
- *	- 'FAST' variants configured for 8 dummy cycles.
- *
- * Note, the number of dummy cycles used for 'FAST' READ operations is
- * configurable and would normally be tuned according to the READ command and
- * operating frequency.  However, this applies universally to all 'FAST' READ
- * commands, including those used by the SPIBoot controller, and remains in
- * force until the device is power-cycled.  Since the SPIBoot controller is
- * hard-wired to use 8 dummy cycles, we must configure the device to also use 8
- * cycles.
- */
-static struct nor_flash_rw_config n25q_read_3B_configs[] = {
-	{FLASH_FLAG_READ_1_4_4, 10},
-	{FLASH_FLAG_READ_1_2_2, 8},
-	{0x00,			0},
-};
-
-/* N25Q 4-byte Address READ configurations
- *	- use special 4-byte address READ commands (reduces overheads, and
- *        reduces risk of hitting watchdog reset issues).
- *	- 'FAST' variants configured for 8 dummy cycles (see note above.)
- */
-static struct nor_flash_rw_config n25q_read_4B_configs[] = {
-	{FLASH_FLAG_READ_1_4_4, 10},
-	{FLASH_FLAG_READ_1_2_2, 8},
-	{0x00,			0},
-};
-
-/*
- * [MX25xxx] Configuration
- */
-
-/* MX25 3-byte Address READ configurations
- */
-static struct nor_flash_rw_config mx25_read_3B_configs[] = {
-	/*{FLASH_FLAG_READ_1_4_4, 6},*/
-	{FLASH_FLAG_READ_1_2_2, 4},
-	{0x00,			0},
-};
-
-/* MX25 4-byte Address READ configurations
- */
-static struct nor_flash_rw_config mx25_read_4B_configs[] = {
-	/*{FLASH_FLAG_READ_1_4_4, 6},*/
-	{FLASH_FLAG_READ_1_2_2, 4},
-	{0x00,			0},
-};
 
 static irqreturn_t atlas7_qspi_irq(int irq, void *_sr)
 {
@@ -430,10 +369,10 @@ atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 	u32 regval = 0;
 	u8 rx_delay = 0;
 
-	if (a7nor->read_flag & FLASH_FLAG_DUAL)
-		regval = ATLAS7_QSPI_RDC_READ2IO(a7nor->dummy);
-	if (a7nor->read_flag & FLASH_FLAG_QUAD)
-		regval = ATLAS7_QSPI_RDC_READ4IO(a7nor->dummy);
+	if (a7nor->read_flag & FLASH_FLAG_READ_1_2_2)
+		regval = ATLAS7_QSPI_RDC_READ2IO(a7nor->info->dummy_2b);
+	if (a7nor->read_flag & FLASH_FLAG_READ_1_4_4)
+		regval |= ATLAS7_QSPI_RDC_READ4IO(a7nor->info->dummy_4b);
 	#if 0
 		rx_delay = (clk_get_rate(a7nor->clk) /
 				(2 * a7nor->speed_hz)) - 1;
@@ -792,71 +731,6 @@ static int atlas7_qspi_nor_dual_enable(struct atlas7_qspi_nor *a7nor)
 	}
 }
 
-static struct nor_flash_rw_config *
-atlas7_qspi_nor_search_config(u32 read_opcode,
-			struct nor_flash_rw_config *cfgs)
-{
-	struct nor_flash_rw_config *config;
-
-	for (config = cfgs; config->flags != 0; config++)
-		if ((config->flags & read_opcode) == config->flags)
-			return config;
-
-	return NULL;
-}
-
-static u8
-atlas7_qspi_micron_search_dummy(u64 size, u32 read_opcode)
-{
-	struct nor_flash_rw_config *config;
-
-	if (size > ATLAS7_QSPI_24BIT_FLASH_SIZE)
-		config = atlas7_qspi_nor_search_config(read_opcode,
-					n25q_read_4B_configs);
-	else
-		config = atlas7_qspi_nor_search_config(read_opcode,
-					n25q_read_3B_configs);
-	if (NULL == config)
-		return ATLAS7_DEFAULT_DUMMY_CYCLES;
-
-	return config->dummy_cycles;
-}
-
-static u8
-atlas7_qspi_marconix_search_dummy(u64 size, u32 read_opcode)
-{
-	struct nor_flash_rw_config *config;
-
-	if (size > ATLAS7_QSPI_24BIT_FLASH_SIZE)
-		config = atlas7_qspi_nor_search_config(read_opcode,
-					mx25_read_4B_configs);
-	else
-		config = atlas7_qspi_nor_search_config(read_opcode,
-					mx25_read_3B_configs);
-	if (NULL == config)
-		return ATLAS7_DEFAULT_DUMMY_CYCLES;
-
-	return config->dummy_cycles;
-}
-
-static u8
-atlas7_qspi_nor_search_dummy(u32 jedec_id, u64 size, u32 read_opcode)
-{
-	u8 dummy;
-
-	switch (ATLAS7_JEDEC_MFR(jedec_id)) {
-	case CFI_MFR_ST:
-		dummy = atlas7_qspi_micron_search_dummy(size, read_opcode);
-		break;
-	case CFI_MFR_MACRONIX:
-		dummy = atlas7_qspi_marconix_search_dummy(size, read_opcode);
-		break;
-	default:
-		dummy = ATLAS7_DEFAULT_DUMMY_CYCLES;
-	}
-	return dummy;
-}
-
 static int
 atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
 {
@@ -1177,9 +1051,6 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 		}
 	}
 
-	a7nor->dummy = atlas7_qspi_nor_search_dummy(a7nor->info->jedec_id,
-					a7nor->mtd.size,
-					a7nor->read_flag);
 	if (a7nor->mtd.size > ATLAS7_QSPI_24BIT_FLASH_SIZE) {
 		/* enable 4-byte addressing if the device exceeds 16MiB*/
 		ret = atlas7_qspi_nor_enter_32bit_addr(a7nor);
