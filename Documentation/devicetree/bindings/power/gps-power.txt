@@ -1,0 +1,14 @@
+
+SiRFSoC gps power module
+
+gps power control is by pwrc iobg interface, thus can be
+controlled by A7 by existing regmap interface.
+
+Required properties:
+- compatible: "sirf,gps-power"
+
+Example:
+
+gps-power {
+	compatible = "sirf,gps-power";
+};

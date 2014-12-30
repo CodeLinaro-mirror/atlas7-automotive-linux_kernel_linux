@@ -285,6 +285,12 @@
 					};
 				};
 			};
+			gps-power {
+				   status = "okay";
+				   pinctrl-names = "default";
+				   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0
+						   &gn_trg_shutdown_pmx0>;
+			};
 		};
 
 		btm {
