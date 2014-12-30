@@ -194,6 +194,21 @@ static int nanddisk_zone_io(unsigned sector, unsigned  nsect, char *buffer,
 	return 0;
 }
 
+static int nanddisk_flush_cache(struct request *req)
+{
+	int ret = 0;
+
+	if (nanddisk_io_session(0, NAND_IOCTRL_DRAIN_BUFFER,
+			NULL, 0, NULL, 0, NULL)) {
+		pr_err("%s:flush data failed.\n", __func__);
+		ret = -EIO;
+	}
+
+	blk_end_request_all(req, ret);
+
+	return ret;
+}
+
 static irqreturn_t nanddisk_isr(int irq, void *dev_id)
 {
 	unsigned enable = 0;
@@ -345,6 +360,12 @@ static int nanddisk_transfer_thread(void *arg)
 			spin_unlock_irqrestore(q->queue_lock, flags);
 			continue;
 		}
+
+		if (req->cmd_flags & REQ_FLUSH) {
+			nanddisk_flush_cache(req);
+			continue;
+		}
+
 		total_bytes = (unsigned)blk_rq_bytes(req);
 		total_sectors = total_bytes >> nand_dev.sector_size_shift;
 		write = rq_data_dir(req);
@@ -964,6 +985,8 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	blk_queue_logical_block_size(nand_dev.queue,
 		0x1<<nand_dev.sector_size_shift);
 	blk_queue_max_hw_sectors(nand_dev.queue, 1024);
+
+	blk_queue_flush(nand_dev.queue, REQ_FLUSH | REQ_FUA);
 
 	nand_dev.data_buf = vmalloc(1024 * 512);
 	if (!nand_dev.data_buf) {
