@@ -70,6 +70,11 @@
 			reg = <0x58800000 0x6000000>;
 			no-map;
 		};
+
+		cm3_reserved: cm3@4fe00000 {
+			reg = <0x4fe00000 0x100000>;
+			no-map;
+		};
 	};
 
 	bt_sco: bt_sco@0 {
