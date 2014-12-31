@@ -24,7 +24,8 @@ struct sirfsoc_gps_power_info {
 
 enum sirfsoc_gps_power_config {
 	GNSS_FORCE_PON = 0,
-	GNSS_SW_RST_B,
+	GNSS_SW_RST_OFF,
+	GNSS_SW_RST_ON,
 	GNSS_FORCE_CLR,
 };
 
@@ -85,7 +86,7 @@ static ssize_t gps_power_store(struct device *dev,
 				tmp);
 		break;
 
-	case GNSS_SW_RST_B:
+	case GNSS_SW_RST_OFF:
 		regmap_read(gps_power_info->regmap,
 			gps_power_info->base +
 			pwrc->pwrc_gnss_ctrl, &tmp);
@@ -95,6 +96,12 @@ static ssize_t gps_power_store(struct device *dev,
 				gps_power_info->base +
 				pwrc->pwrc_gnss_ctrl,
 				tmp);
+		break;
+
+	case GNSS_SW_RST_ON:
+		regmap_read(gps_power_info->regmap,
+			gps_power_info->base +
+			pwrc->pwrc_gnss_ctrl, &tmp);
 		tmp |= (1<<2);
 		regmap_write(gps_power_info->regmap,
 				gps_power_info->base +
