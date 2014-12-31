@@ -365,6 +365,7 @@
 			compatible = "lvds-panel";
 			source = "lvds.0";
 
+			bl-gpios = <&gpio_1 63 0>;
 			data-lines  = <24>;
 
 			display-timings {
