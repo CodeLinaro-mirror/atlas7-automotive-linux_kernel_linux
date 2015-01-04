@@ -24,11 +24,6 @@ static void __iomem *clk_base;
 
 static DEFINE_SPINLOCK(boot_lock);
 
-static struct map_desc scu_io_desc __initdata = {
-	.length		= SZ_4K,
-	.type		= MT_DEVICE,
-};
-
 static void sirfsoc_secondary_init(unsigned int cpu)
 {
 	/*
