@@ -5,7 +5,5 @@ Required root node properties:
     - compatible:
     - "sirf,atlas7-cb" : atlas7 device based board
     - "sirf,prima2-cb" : prima2 "cb" evaluation board
-    - "sirf,marco-cb" : marco "cb" evaluation board
     - "sirf,atlas7" : atlas7 device based board
     - "sirf,prima2" : prima2 device based board
-    - "sirf,marco" : marco device based board
