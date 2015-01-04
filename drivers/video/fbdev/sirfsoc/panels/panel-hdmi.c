@@ -27,7 +27,6 @@ struct panel_drv_data {
 	int data_lines;
 
 	struct sirfsoc_video_timings timings;
-	struct i2c_client *client;
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, panel)
@@ -146,8 +145,6 @@ static int panel_hdmi_probe_of(struct platform_device *pdev)
 	struct display_timings *timings;
 	struct videomode vm;
 	const char *source;
-	struct i2c_client *client;
-	int gpio;
 
 	of_property_read_u32(node, "data-lines", &pdata->data_lines);
 
