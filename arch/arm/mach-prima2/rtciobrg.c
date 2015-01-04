@@ -151,7 +151,6 @@ EXPORT_SYMBOL_GPL(devm_regmap_init_iobg);
 
 static const struct of_device_id rtciobrg_ids[] = {
 	{ .compatible = "sirf,prima2-rtciobg" },
-	{ .compatible = "sirf,marco-rtciobg" },
 	{}
 };
 
