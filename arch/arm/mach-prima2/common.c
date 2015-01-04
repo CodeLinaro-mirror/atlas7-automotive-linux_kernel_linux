@@ -151,7 +151,7 @@ static void __init sirfsoc_init_late(void)
 
 static __init void sirfsoc_map_io(void)
 {
-	sirfsoc_map_lluart();
+	debug_ll_io_init();
 #if defined(CONFIG_CSRVISOR_DUALOS) && defined(CONFIG_SECURITY_MODE)
 	iotable_init(sirfsoc_csrvisor_map, ARRAY_SIZE(sirfsoc_csrvisor_map));
 #endif
