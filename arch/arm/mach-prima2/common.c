@@ -206,26 +206,6 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 MACHINE_END
 #endif
 
-#ifdef CONFIG_ARCH_MARCO
-static const char *marco_dt_match[] __initconst = {
-	"sirf,marco",
-	NULL
-};
-
-DT_MACHINE_START(MARCO_DT, "Generic MARCO (Flattened Device Tree)")
-	/* Maintainer: Barry Song <baohua.song@csr.com> */
-	.reserve	= sirfsoc_reserve,
-	.l2c_aux_val	= 0,
-	.l2c_aux_mask	= ~0,
-	.smp            = smp_ops(sirfsoc_smp_ops),
-	.map_io         = sirfsoc_map_io,
-	.init_irq	= sirfsoc_init_irq,
-	.init_machine   = sirfsoc_init_mach,
-	.init_late	= sirfsoc_init_late,
-	.dt_compat      = marco_dt_match,
-MACHINE_END
-#endif
-
 #ifdef CONFIG_ARCH_ATLAS7
 static const char *atlas7_dt_match[] __initconst = {
 	"sirf,atlas7",
