@@ -193,7 +193,7 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2c0_pmx>;
-				clock-frequency = <40000>;
+				clock-frequency = <400000>;
 
 				gpio_3: i2c_gpio_expander@20{
 					#gpio-cells = <2>;
