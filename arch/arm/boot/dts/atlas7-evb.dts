@@ -363,6 +363,7 @@
 		display0: display@0 {
 			compatible = "lvds-panel";
 			source = "lvds.0";
+			status = "okay";
 
 			bl-gpios = <&gpio_1 63 0>;
 			data-lines  = <24>;

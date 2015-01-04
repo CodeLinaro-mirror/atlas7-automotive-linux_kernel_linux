@@ -21,6 +21,8 @@
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
 
+#define DEFAULT_HDMI_PANEL_NAME	"hdmi"
+
 struct panel_drv_data {
 	struct sirfsoc_vdss_panel panel;
 	struct sirfsoc_vdss_output *in;
@@ -174,6 +176,10 @@ static int panel_hdmi_probe(struct platform_device *pdev)
 	struct panel_drv_data *pdata;
 	struct sirfsoc_vdss_panel *panel;
 	int ret;
+
+	ret = sirfsoc_vdss_set_default_panel_name(DEFAULT_HDMI_PANEL_NAME);
+	if (ret)
+		return ret;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)

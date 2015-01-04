@@ -23,10 +23,6 @@ static struct {
 	const char *default_display_name;
 } core;
 
-static char *def_disp_name;
-module_param_named(def_disp, def_disp_name, charp, 0);
-MODULE_PARM_DESC(def_disp, "default display name");
-
 static bool vdss_initialized;
 
 const char *sirfsoc_vdss_get_default_panel_name(void)
@@ -34,6 +30,16 @@ const char *sirfsoc_vdss_get_default_panel_name(void)
 	return core.default_display_name;
 }
 EXPORT_SYMBOL(sirfsoc_vdss_get_default_panel_name);
+
+int sirfsoc_vdss_set_default_panel_name(char *display_name)
+{
+	if (core.default_display_name)
+		return -EBUSY;
+
+	core.default_display_name = display_name;
+	return 0;
+}
+EXPORT_SYMBOL(sirfsoc_vdss_set_default_panel_name);
 
 bool sirfsoc_vdss_is_initialized(void)
 {
@@ -66,14 +72,7 @@ static struct notifier_block sirfsoc_vdss_pm_notif_block = {
 
 static int sirfsoc_vdss_probe(struct platform_device *pdev)
 {
-	struct sirfsoc_vdss_board_info *pdata = pdev->dev.platform_data;
-
 	core.pdev = pdev;
-
-	if (def_disp_name)
-		core.default_display_name = def_disp_name;
-	else if (pdata->default_display_name)
-		core.default_display_name = pdata->default_display_name;
 
 	register_pm_notifier(&sirfsoc_vdss_pm_notif_block);
 
@@ -104,9 +103,6 @@ static struct platform_driver sirfsoc_vdss_driver = {
 };
 
 static struct platform_device *sirfsoc_vdss_device;
-static struct sirfsoc_vdss_board_info sirfsoc_vdss_data = {
-	.default_display_name = "lvds",
-};
 
 static int __init sirfsoc_vdss_init(void)
 {
@@ -121,12 +117,6 @@ static int __init sirfsoc_vdss_init(void)
 		ret = -ENOMEM;
 		goto err_lcdc;
 	}
-
-	ret = platform_device_add_data(sirfsoc_vdss_device,
-			&sirfsoc_vdss_data,
-			sizeof(struct sirfsoc_vdss_board_info));
-	if (ret)
-		goto err_device_put;
 
 	ret = lcdc_init_platform_driver();
 	if (ret) {
@@ -156,10 +146,8 @@ err_lvdsc:
 err_vpp:
 	lcdc_uninit_platform_driver();
 
-err_device_put:
-	platform_device_put(sirfsoc_vdss_device);
-
 err_lcdc:
+	platform_device_put(sirfsoc_vdss_device);
 	platform_driver_unregister(&sirfsoc_vdss_driver);
 
 	return ret;

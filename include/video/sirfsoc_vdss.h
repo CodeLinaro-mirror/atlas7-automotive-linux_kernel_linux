@@ -467,12 +467,9 @@ struct sirfsoc_vdss_driver {
 			struct sirfsoc_video_timings *timings);
 };
 
-struct sirfsoc_vdss_board_info {
-	const char *default_display_name;
-};
-
 bool sirfsoc_vdss_is_initialized(void);
 const char *sirfsoc_vdss_get_default_panel_name(void);
+int sirfsoc_vdss_set_default_panel_name(char *display_name);
 
 int sirfsoc_vdss_register_panel(struct sirfsoc_vdss_panel *panel);
 void sirfsoc_vdss_unregister_panel(struct sirfsoc_vdss_panel *panel);
