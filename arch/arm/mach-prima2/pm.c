@@ -43,9 +43,6 @@ static const struct of_device_id memc_ids[] = {
 		.compatible = "sirf,prima2-memc",
 		.data = sirfsoc_prima2_finish_suspend,
 	}, {
-		.compatible = "sirf,marco-memc",
-		.data = sirfsoc_marco_finish_suspend,
-	}, {
 		.compatible = "sirf,atlas7-memc",
 		.data = sirfsoc_atlas7_finish_suspend,
 	}, {
