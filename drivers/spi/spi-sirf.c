@@ -132,31 +132,31 @@ enum sirf_spi_type {
 	SIRF_USP_SPI,
 };
 #define SIRFSOC_SPI_FIFO_LEVEL_MASK(s)	((s->spi_type == SIRF_REAL_SPI) ? \
-					0xFF : ((s->is_marco_usp == 1) ? \
+					0xFF : ((s->is_atlas7_usp == 1) ? \
 					0x1FF : 0x7F))
 #define SIRFSOC_SPI_FIFO_FULL(s)	((s->spi_type == SIRF_REAL_SPI) ? \
-					BIT(8) : ((s->is_marco_usp == 1) ? \
+					BIT(8) : ((s->is_atlas7_usp == 1) ? \
 					BIT(9) : BIT(7)))
 #define SIRFSOC_SPI_FIFO_EMPTY(s)	((s->spi_type == SIRF_REAL_SPI) ? \
-					BIT(9) : ((s->is_marco_usp == 1) ? \
+					BIT(9) : ((s->is_atlas7_usp == 1) ? \
 					BIT(10) : BIT(8)))
 
 #define SIRFSOC_SPI_FIFO_SIZE(s)	((s->spi_type == SIRF_REAL_SPI) ? \
-					256 : ((s->is_marco_usp == 1) ? \
+					256 : ((s->is_atlas7_usp == 1) ? \
 					512 : 128))
 #define SIRFSOC_SPI_DAT_FRM_LEN_MAX(s)	((s->spi_type == SIRF_REAL_SPI) ? \
 					(64 * 1024) : (1024 * 1024))
 #define SIRFSOC_SPI_FIFO_SC(s, x)	((s->spi_type == SIRF_REAL_SPI) ? \
-			((x) & 0x3F) : ((s->is_marco_usp == 1) ?\
+			((x) & 0x3F) : ((s->is_atlas7_usp == 1) ?\
 			((x) & 0x3F) : ((x) & 0x1F)))
 #define SIRFSOC_SPI_FIFO_LC(s, x)	((s->spi_type == SIRF_REAL_SPI) ? \
-			(((x) & 0x3F) << 10) : ((s->is_marco_usp == 1) ?\
+			(((x) & 0x3F) << 10) : ((s->is_atlas7_usp == 1) ?\
 			(((x) & 0x3F) << 10) : (((x) & 0x1F) << 10)))
 #define SIRFSOC_SPI_FIFO_HC(s, x)	((s->spi_type == SIRF_REAL_SPI) ? \
-			(((x) & 0x3F) << 20) : ((s->is_marco_usp == 1) ?\
+			(((x) & 0x3F) << 20) : ((s->is_atlas7_usp == 1) ?\
 			(((x) & 0x1F) << 20) : (((x) & 0x1F) << 20)))
 #define SIRFSOC_SPI_FIFO_THD(s, x)	((s->spi_type == SIRF_REAL_SPI) ? \
-			(((x) & 0xFF) << 2) : ((s->is_marco_usp == 1) ?\
+			(((x) & 0xFF) << 2) : ((s->is_atlas7_usp == 1) ?\
 			(((x) & 0x1FF) << 2) : (((x) & 0x7F) << 2)))
 
 /*
@@ -296,7 +296,7 @@ struct sirfsoc_spi {
 	bool	hw_cs;
 	enum sirf_spi_type spi_type;
 	struct sirf_spi_register *spi_register;
-	bool	is_marco_usp;
+	bool	is_atlas7_usp;
 };
 
 static struct sirf_spi_register *get_sirf_spi_register(struct sirfsoc_spi *sspi)
@@ -414,7 +414,7 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 	if (sspi->tx_by_cmd && sspi->spi_type == SIRF_REAL_SPI
 		&& (spi_stat & SIRFSOC_SPI_FRM_END)) {
 		complete(&sspi->tx_done);
-		if (sspi->is_marco_usp)
+		if (sspi->is_atlas7_usp)
 			writel(~0UL, sspi->base + spi_reg->usp_int_en_clr);
 		else
 			writel(0x0, sspi->base + spi_reg->int_en);
@@ -427,7 +427,7 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 			spi_stat & SIRFSOC_SPI_TX_UFLOW) {
 		complete(&sspi->tx_done);
 		complete(&sspi->rx_done);
-		if (sspi->is_marco_usp)
+		if (sspi->is_atlas7_usp)
 			writel(~0UL, sspi->base + spi_reg->usp_int_en_clr);
 		else
 			writel(0x0, sspi->base + spi_reg->int_en);
@@ -441,7 +441,7 @@ static irqreturn_t spi_sirfsoc_irq(int irq, void *dev_id)
 		SIRFSOC_SPI_RX_IO_DMA))
 		cpu_relax();
 	complete(&sspi->rx_done);
-	if (sspi->is_marco_usp)
+	if (sspi->is_atlas7_usp)
 		writel(~0UL, sspi->base + spi_reg->usp_int_en_clr);
 	else
 		writel(0x0, sspi->base + spi_reg->int_en);
@@ -511,7 +511,7 @@ static void spi_sirfsoc_dma_transfer(struct spi_device *spi,
 		writel(SIRFSOC_SPI_FIFO_START,
 			sspi->base + spi_reg->txfifo_op);
 	}
-	if (sspi->is_marco_usp)
+	if (sspi->is_atlas7_usp)
 		writel(~0UL, sspi->base + spi_reg->usp_int_en_clr);
 	else
 		writel(0, sspi->base + spi_reg->int_en);
@@ -624,7 +624,7 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 			writel(SIRFSOC_SPI_FIFO_START,
 				sspi->base + spi_reg->txfifo_op);
 		}
-		if (sspi->is_marco_usp)
+		if (sspi->is_atlas7_usp)
 			writel(~0UL, sspi->base + spi_reg->usp_int_en_clr);
 		else
 			writel(0, sspi->base + spi_reg->int_en);
@@ -644,7 +644,7 @@ static void spi_sirfsoc_pio_transfer(struct spi_device *spi,
 		}
 		if (sspi->spi_type == SIRF_USP_SPI) {
 			/*USP simulate SPI, tx/rx_dma_io_len indicates bytes*/
-			data_units = (sspi->is_marco_usp == 1) ? 512 : 128;
+			data_units = (sspi->is_atlas7_usp == 1) ? 512 : 128;
 			writel(min((unsigned int)(sspi->left_tx_word *
 				sspi->word_width), data_units),
 				sspi->base + spi_reg->tx_dma_io_len);
@@ -1009,9 +1009,8 @@ static void spi_sirfsoc_cleanup(struct spi_device *spi)
 
 static const struct of_device_id spi_sirfsoc_of_match[] = {
 	{ .compatible = "sirf,prima2-spi", .data = &sirf_real_spi},
-	{ .compatible = "sirf,marco-spi",},
 	{ .compatible = "sirf,prima2-usp-spi", .data = &sirf_usp_spi},
-	{ .compatible = "sirf,marco-usp-spi", .data = &sirf_usp_spi},
+	{ .compatible = "sirf,atlas7-usp-spi", .data = &sirf_usp_spi},
 	{}
 };
 MODULE_DEVICE_TABLE(of, spi_sirfsoc_of_match);
@@ -1034,12 +1033,12 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-usp-spi") ||
-	    of_device_is_compatible(pdev->dev.of_node, "sirf,marco-usp-spi"))
+	    of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-usp-spi"))
 		sspi->spi_type = SIRF_USP_SPI;
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-spi"))
 		sspi->spi_type = SIRF_REAL_SPI;
-	sspi->is_marco_usp = of_property_read_bool(pdev->dev.of_node,
-						   "marco-usp-spi");
+	sspi->is_atlas7_usp = of_property_read_bool(pdev->dev.of_node,
+						   "atlas7-usp-spi");
 	sspi->spi_register = (struct sirf_spi_register *)match->data;
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sspi->base = devm_ioremap_resource(&pdev->dev, mem_res);

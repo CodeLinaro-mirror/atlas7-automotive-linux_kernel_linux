@@ -116,7 +116,7 @@
 
 			usp2: usp@10d40000 {
 				status = "disabled";
-				compatible = "sirf,marco-usp-spi";
+				compatible = "sirf,atlas7-usp-spi";
 				pinctrl-0 = <&audio_uart2_pmx0>;
 				pinctrl-names = "default";
 				spi@0 {
