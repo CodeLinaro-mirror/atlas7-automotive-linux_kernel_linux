@@ -1516,7 +1516,7 @@
 					<0x10d30000 0x10d30000 0x1000>;
 
 			timer@10dc0000 {
-				compatible = "sirf,marco-tick";
+				compatible = "sirf,atlas7-tick";
 				reg = <0x10dc0000 0x1000>;
 				interrupts = <0 0 0>,
 					   <0 1 0>,
@@ -1528,7 +1528,7 @@
 			};
 
 			timerb@10dc8000 {
-					compatible = "sirf,marco-tick";
+					compatible = "sirf,atlas7-tick";
 					reg = <0x10dc8000 0x1000>;
 					interrupts = <0 74 0>,
 							   <0 75 0>,
