@@ -814,13 +814,6 @@ choice
 		  Say Y here if you want the debug print routines to direct
 		  their output to the uart1 port on SiRFprimaII devices.
 
-	config DEBUG_SIRFMARCO_UART1
-		bool "Kernel low-level debugging messages via SiRFmarco UART1"
-		depends on ARCH_MARCO
-		help
-		  Say Y here if you want the debug print routines to direct
-		  their output to the uart1 port on SiRFmarco devices.
-
         config DEBUG_SIRFATLAS7_UART0
                 bool "Kernel low-level debugging messages via SiRFatlas7 UART0"
                 depends on ARCH_ATLAS7
@@ -1080,7 +1073,6 @@ config DEBUG_LL_INCLUDE
 	default "debug/s3c24xx.S" if DEBUG_S3C24XX_UART
 	default "debug/s5pv210.S" if DEBUG_S5PV210_UART
 	default "debug/sirf.S" if DEBUG_SIRFPRIMA2_UART1 || \
-				  DEBUG_SIRFMARCO_UART1 || \
 				  DEBUG_SIRFATLAS7_UART0 || \
 				  DEBUG_SIRFATLAS7_UART1
 	default "debug/sti.S" if DEBUG_STI_UART
