@@ -1731,6 +1731,18 @@
 				pwrc@3000 {
 					compatible = "sirf,atlas7-pwrc";
 					reg = <0x3000 0x100>;
+					rtcm-clk {
+						compatible = "sirf,atlas7-rtcmclk";
+					};
+					onkey {
+						compatible = "sirf,atlas7-onkey";
+					};
+					gps-power {
+						compatible = "sirf,gps-power";
+					};
+					gps-sysctl {
+						compatible = "sirf,sirf-sysctl";
+					};
 				};
 			};
 

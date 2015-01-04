@@ -289,12 +289,6 @@
 					};
 				};
 			};
-			gps-power {
-				   status = "okay";
-				   pinctrl-names = "default";
-				   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0
-						   &gn_trg_shutdown_pmx0>;
-			};
 		};
 
 		btm {
@@ -315,6 +309,15 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&sp0_qspi_pmx>;
 				clock-rate = <20000000>;        /* 20MHz */
+			};
+			rtc-iobg@18840000 {
+				pwrc@3000 {
+					gps-power {
+					   status = "okay";
+					   pinctrl-names = "default";
+					   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0>;
+					};
+				};
 			};
 		};
 

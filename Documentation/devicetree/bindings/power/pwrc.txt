@@ -9,25 +9,30 @@ node's parent should be io bridge.
 Required properties:
 - compatible: "sirf,atlas7-pwrc"
 - reg: Address range of pwrc register set
+- sysctl:mfd cell device of pwrc
+- rtcm-clk:mfd cell device of pwrc
+- onkey:mfd cell device of pwrc
 
 Example:
 
 pwrc@3000 {
 	compatible = "sirf,atlas7-pwrc";
 	reg = <0x3000 0x100>;
+	sysctl {
+		compatible = "sirf,sirf-sysctl";
+	};
+
+	rtcm-clk {
+		compatible = "sirf,atlas7-rtcmclk";
+	};
+
+	onkey {
+		compatible = "sirf,atlas7-onkey";
+	};
 };
 
 pwrc@3000 {
 	compatible = "sirf,prima2-pwrc";
 	reg = <0x3000 0x100>;
-};
-
-pwrc@3000 {
-	compatible = "sirf,marco-pwrc";
-	reg = <0x3000 0x100>;
-};
-
-sysctl {
-	compatible = "sirf,sirf-sysctl";
 };
 
