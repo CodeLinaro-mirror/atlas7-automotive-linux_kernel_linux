@@ -119,7 +119,6 @@
 				compatible = "sirf,marco-usp-spi";
 				pinctrl-0 = <&audio_uart2_pmx0>;
 				pinctrl-names = "default";
-				marco-usp-spi;
 				spi@0 {
 					compatible = "spidev";
 					reg = <0>;
@@ -135,7 +134,7 @@
 
 			usp2: usp@10d40000 {
 				status = "disabled";
-				compatible = "sirf,marco-usp-uart";
+				compatible = "sirf,atlas7-usp-uart";
 				pinctrl-names = "default";
 				pinctrl-0 = <&audio_uart2_pmx0>;
 				fifosize = <512>;

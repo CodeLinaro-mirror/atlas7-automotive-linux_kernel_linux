@@ -1174,7 +1174,7 @@
 
 			uart0: uart@18010000 {
 				cell-index = <0>;
-				compatible = "sirf,marco-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x18010000 0x1000>;
 				interrupts = <0 17 0>;
 				clocks = <&car 90>;
@@ -1185,7 +1185,7 @@
 
 			uart1: uart@18020000 {
 				cell-index = <1>;
-				compatible = "sirf,marco-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x18020000 0x1000>;
 				interrupts = <0 18 0>;
 				clocks = <&car 88>;
@@ -1194,7 +1194,7 @@
 
 			uart2: uart@18030000 {
 				cell-index = <2>;
-				compatible = "sirf,marco-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x18030000 0x1000>;
 				interrupts = <0 19 0>;
 				clocks = <&car 91>;
@@ -1205,7 +1205,7 @@
 			};
 			uart3: uart@18040000 {
 				cell-index = <3>;
-				compatible = "sirf,marco-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x18040000 0x1000>;
 				interrupts = <0 66 0>;
 				clocks = <&car 92>;
@@ -1216,7 +1216,7 @@
 			};
 			uart4: uart@18050000 {
 				cell-index = <4>;
-				compatible = "sirf,marco-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x18050000 0x1000>;
 				interrupts = <0 69 0>;
 				clocks = <&car 93>;
@@ -1227,7 +1227,7 @@
 			};
 			uart5: uart@18060000 {
 				cell-index = <5>;
-				compatible = "sirf,marco-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x18060000 0x1000>;
 				interrupts = <0 71 0>;
 				clocks = <&car 94>;
@@ -1654,8 +1654,8 @@
 			};
 			uart6: uart@11000000 {
 				cell-index = <6>;
-				compatible = "sirf,marco-bt-uart",
-						"sirf,marco-uart";
+				compatible = "sirf,atlas7-bt-uart",
+						"sirf,atlas7-uart";
 				reg = <0x11000000 0x1000>;
 				interrupts = <0 100 0>;
 				clocks = <&car 131>, <&car 133>, <&car 134>;
