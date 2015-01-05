@@ -21,6 +21,27 @@
 #include "vdss.h"
 #include "lcdc.h"
 
+#define LCDC_MAX_NR_ISRS		8
+#define LCDC_INT_MASK_ERRS	(LCDC_INT_L0_OFLOW | \
+	LCDC_INT_L0_UFLOW | LCDC_INT_L1_OFLOW | \
+	LCDC_INT_L1_UFLOW | LCDC_INT_L2_OFLOW | \
+	LCDC_INT_L2_UFLOW | LCDC_INT_L3_OFLOW | \
+	LCDC_INT_L3_UFLOW)
+
+struct sirfsoc_lcdc_isr_data {
+	sirfsoc_lcdc_isr_t	isr;
+	void			*arg;
+	u32			mask;
+};
+
+struct sirfsoc_lcdc_irq {
+	spinlock_t irq_lock;
+	u32 irq_err_mask;
+	struct sirfsoc_lcdc_isr_data registered_isr[LCDC_MAX_NR_ISRS];
+	u32 err_irqs;
+	struct work_struct err_work;
+};
+
 static struct sirfsoc_lcdc {
 	struct platform_device *pdev;
 	void __iomem    *base;
@@ -32,6 +53,7 @@ static struct sirfsoc_lcdc {
 	bool	is_atlas7;
 
 	struct clk	*clk;
+	struct sirfsoc_lcdc_irq lcdc_irq;
 } lcdc;
 
 static void __lcdc_wait_idle(int layer, bool with_vpp)
@@ -993,27 +1015,6 @@ void lcdc_print_regs(void)
 
 #define VDSS_SUBSYS_NAME "LCDC"
 
-#define LCDC_MAX_NR_ISRS		8
-#define LCDC_INT_MASK_ERRS	(LCDC_INT_L0_OFLOW | \
-	LCDC_INT_L0_UFLOW | LCDC_INT_L1_OFLOW | \
-	LCDC_INT_L1_UFLOW | LCDC_INT_L2_OFLOW | \
-	LCDC_INT_L2_UFLOW | LCDC_INT_L3_OFLOW | \
-	LCDC_INT_L3_UFLOW)
-
-struct sirfsoc_lcdc_isr_data {
-	sirfsoc_lcdc_isr_t	isr;
-	void			*arg;
-	u32			mask;
-};
-
-static struct {
-	spinlock_t irq_lock;
-	u32 irq_err_mask;
-	struct sirfsoc_lcdc_isr_data registered_isr[LCDC_MAX_NR_ISRS];
-	u32 err_irqs;
-	struct work_struct err_work;
-} lcdc_irq;
-
 static struct {
 	struct platform_device *pdev;
 	struct mutex lock;
@@ -1320,29 +1321,32 @@ static void (*vdss_output_deinit_funcs[])(void) __exitdata = {
 
 static bool vdss_output_inited[ARRAY_SIZE(vdss_output_init_funcs)];
 
-static irqreturn_t lcdc_irq_handler(int irq, void *arg)
+static irqreturn_t lcdc_irq_handler(int irq, void *dev_id)
 {
-	return lcdc.user_handler(irq, lcdc.user_data);
+	struct sirfsoc_lcdc *lcdc = (struct sirfsoc_lcdc *)dev_id;
+
+	return lcdc->user_handler(irq, lcdc->user_data);
 }
 
 static int lcdc_request_irq(irq_handler_t handler, void *dev_id)
 {
 	int r;
+	struct sirfsoc_lcdc     *lcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	if (lcdc.user_handler != NULL)
+	if (!lcdc->user_handler)
 		return -EBUSY;
 
-	lcdc.user_handler = handler;
-	lcdc.user_data = dev_id;
+	lcdc->user_handler = handler;
+	lcdc->user_data = dev_id;
 
 	/* ensure the lcdc_irq_handler sees the values above */
 	smp_wmb();
 
-	r = devm_request_irq(&lcdc.pdev->dev, lcdc.irq, lcdc_irq_handler,
+	r = devm_request_irq(&lcdc->pdev->dev, lcdc->irq, lcdc_irq_handler,
 			     IRQF_SHARED, "SIRFSOC LCDC", &lcdc);
 	if (r) {
-		lcdc.user_handler = NULL;
-		lcdc.user_data = NULL;
+		lcdc->user_handler = NULL;
+		lcdc->user_data = NULL;
 	}
 
 	return r;
@@ -1350,10 +1354,12 @@ static int lcdc_request_irq(irq_handler_t handler, void *dev_id)
 
 static void lcdc_free_irq(void *dev_id)
 {
-	devm_free_irq(&lcdc.pdev->dev, lcdc.irq, &lcdc);
+	struct sirfsoc_lcdc *lcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	lcdc.user_handler = NULL;
-	lcdc.user_data = NULL;
+	devm_free_irq(&lcdc->pdev->dev, lcdc->irq, &lcdc);
+
+	lcdc->user_handler = NULL;
+	lcdc->user_data = NULL;
 }
 
 /* lcdc.irq_lock has to be locked by the caller */
@@ -1361,12 +1367,13 @@ static void _sirfsoc_lcdc_set_irqs(void)
 {
 	u32 mask;
 	int i;
+	struct sirfsoc_lcdc_irq *lcdc_irq = &lcdc.lcdc_irq;
 	struct sirfsoc_lcdc_isr_data *isr_data;
 
-	mask = lcdc_irq.irq_err_mask;
+	mask = lcdc_irq->irq_err_mask;
 
 	for (i = 0; i < LCDC_MAX_NR_ISRS; i++) {
-		isr_data = &lcdc_irq.registered_isr[i];
+		isr_data = &lcdc_irq->registered_isr[i];
 
 		if (isr_data->isr == NULL)
 			continue;
@@ -1382,16 +1389,17 @@ int sirfsoc_lcdc_register_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask)
 	int i;
 	int ret;
 	unsigned long flags;
+	struct sirfsoc_lcdc_irq *lcdc_irq = &lcdc.lcdc_irq;
 	struct sirfsoc_lcdc_isr_data *isr_data;
 
 	if (isr == NULL)
 		return -EINVAL;
 
-	spin_lock_irqsave(&lcdc_irq.irq_lock, flags);
+	spin_lock_irqsave(&lcdc_irq->irq_lock, flags);
 
 	/* check for duplicate entry */
 	for (i = 0; i < LCDC_MAX_NR_ISRS; i++) {
-		isr_data = &lcdc_irq.registered_isr[i];
+		isr_data = &lcdc_irq->registered_isr[i];
 		if (isr_data->isr == isr && isr_data->arg == arg &&
 				isr_data->mask == mask) {
 			ret = -EINVAL;
@@ -1403,7 +1411,7 @@ int sirfsoc_lcdc_register_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask)
 	ret = -EBUSY;
 
 	for (i = 0; i < LCDC_MAX_NR_ISRS; i++) {
-		isr_data = &lcdc_irq.registered_isr[i];
+		isr_data = &lcdc_irq->registered_isr[i];
 
 		if (isr_data->isr != NULL)
 			continue;
@@ -1421,11 +1429,11 @@ int sirfsoc_lcdc_register_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask)
 
 	_sirfsoc_lcdc_set_irqs();
 
-	spin_unlock_irqrestore(&lcdc_irq.irq_lock, flags);
+	spin_unlock_irqrestore(&lcdc_irq->irq_lock, flags);
 
 	return 0;
 err:
-	spin_unlock_irqrestore(&lcdc_irq.irq_lock, flags);
+	spin_unlock_irqrestore(&lcdc_irq->irq_lock, flags);
 
 	return ret;
 }
@@ -1437,11 +1445,12 @@ int sirfsoc_lcdc_unregister_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask)
 	unsigned long flags;
 	int ret = -EINVAL;
 	struct sirfsoc_lcdc_isr_data *isr_data;
+	struct sirfsoc_lcdc_irq *lcdc_irq = &lcdc.lcdc_irq;
 
-	spin_lock_irqsave(&lcdc_irq.irq_lock, flags);
+	spin_lock_irqsave(&lcdc_irq->irq_lock, flags);
 
 	for (i = 0; i < LCDC_MAX_NR_ISRS; i++) {
-		isr_data = &lcdc_irq.registered_isr[i];
+		isr_data = &lcdc_irq->registered_isr[i];
 		if (isr_data->isr != isr || isr_data->arg != arg ||
 			isr_data->mask != mask)
 			continue;
@@ -1459,13 +1468,13 @@ int sirfsoc_lcdc_unregister_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask)
 	if (ret == 0)
 		_sirfsoc_lcdc_set_irqs();
 
-	spin_unlock_irqrestore(&lcdc_irq.irq_lock, flags);
+	spin_unlock_irqrestore(&lcdc_irq->irq_lock, flags);
 
 	return ret;
 }
 EXPORT_SYMBOL(sirfsoc_lcdc_unregister_isr);
 
-static irqreturn_t sirfsoc_lcdc_irq_handler(int irq, void *arg)
+static irqreturn_t sirfsoc_lcdc_irq_handler(int irq, void *dev_id)
 {
 	int i;
 	u32 int_status, int_mask;
@@ -1473,15 +1482,17 @@ static irqreturn_t sirfsoc_lcdc_irq_handler(int irq, void *arg)
 	u32 unhandled_errors;
 	struct sirfsoc_lcdc_isr_data *isr_data;
 	struct sirfsoc_lcdc_isr_data registered_isr[LCDC_MAX_NR_ISRS];
+	struct sirfsoc_lcdc *plcdc = (struct sirfsoc_lcdc *)dev_id;
+	struct sirfsoc_lcdc_irq *lcdc_irq = &plcdc->lcdc_irq;
 
-	spin_lock(&lcdc_irq.irq_lock);
+	spin_lock(&lcdc_irq->irq_lock);
 
 	int_status = lcdc_read_intstatus();
 	int_mask = lcdc_read_intmask();
 
 	/* IRQ is not for us */
 	if (!(int_status & int_mask)) {
-		spin_unlock(&lcdc_irq.irq_lock);
+		spin_unlock(&lcdc_irq->irq_lock);
 		return IRQ_NONE;
 	}
 
@@ -1493,10 +1504,10 @@ static irqreturn_t sirfsoc_lcdc_irq_handler(int irq, void *arg)
 
 	/* make a copy and unlock, so that isrs can unregister
 	 * themselves */
-	memcpy(registered_isr, lcdc_irq.registered_isr,
+	memcpy(registered_isr, lcdc_irq->registered_isr,
 		sizeof(registered_isr));
 
-	spin_unlock(&lcdc_irq.irq_lock);
+	spin_unlock(&lcdc_irq->irq_lock);
 
 	for (i = 0; i < LCDC_MAX_NR_ISRS; i++) {
 		isr_data = &registered_isr[i];
@@ -1510,20 +1521,20 @@ static irqreturn_t sirfsoc_lcdc_irq_handler(int irq, void *arg)
 		}
 	}
 
-	spin_lock(&lcdc_irq.irq_lock);
+	spin_lock(&lcdc_irq->irq_lock);
 
-	unhandled_errors = int_status & ~handledirqs & lcdc_irq.irq_err_mask;
+	unhandled_errors = int_status & ~handledirqs & lcdc_irq->irq_err_mask;
 
 	if (unhandled_errors) {
-		lcdc_irq.err_irqs |= unhandled_errors;
+		lcdc_irq->err_irqs |= unhandled_errors;
 
-		lcdc_irq.irq_err_mask &= ~unhandled_errors;
+		lcdc_irq->irq_err_mask &= ~unhandled_errors;
 		_sirfsoc_lcdc_set_irqs();
 
-		schedule_work(&lcdc_irq.err_work);
+		schedule_work(&lcdc_irq->err_work);
 	}
 
-	spin_unlock(&lcdc_irq.irq_lock);
+	spin_unlock(&lcdc_irq->irq_lock);
 
 	return IRQ_HANDLED;
 }
@@ -1533,6 +1544,9 @@ static void lcdc_err_worker(struct work_struct *work)
 	int i;
 	u32 errors;
 	unsigned long flags;
+	struct sirfsoc_lcdc_irq *lcdc_irq = container_of(work,
+					struct sirfsoc_lcdc_irq, err_work);
+
 	static const unsigned fifo_abnormal_bits[] = {
 		LCDC_INT_L0_OFLOW | LCDC_INT_L0_UFLOW,
 		LCDC_INT_L1_OFLOW | LCDC_INT_L1_UFLOW,
@@ -1540,10 +1554,10 @@ static void lcdc_err_worker(struct work_struct *work)
 		LCDC_INT_L3_OFLOW | LCDC_INT_L3_UFLOW,
 	};
 
-	spin_lock_irqsave(&lcdc_irq.irq_lock, flags);
-	errors = lcdc_irq.err_irqs;
-	lcdc_irq.err_irqs = 0;
-	spin_unlock_irqrestore(&lcdc_irq.irq_lock, flags);
+	spin_lock_irqsave(&lcdc_irq->irq_lock, flags);
+	errors = lcdc_irq->err_irqs;
+	lcdc_irq->err_irqs = 0;
+	spin_unlock_irqrestore(&lcdc_irq->irq_lock, flags);
 
 	for (i = 0; i < sirfsoc_vdss_get_num_layers(); ++i) {
 		struct sirfsoc_vdss_layer *l;
@@ -1561,26 +1575,27 @@ static void lcdc_err_worker(struct work_struct *work)
 	}
 
 
-	spin_lock_irqsave(&lcdc_irq.irq_lock, flags);
-	lcdc_irq.irq_err_mask |= errors;
+	spin_lock_irqsave(&lcdc_irq->irq_lock, flags);
+	lcdc_irq->irq_err_mask |= errors;
 	_sirfsoc_lcdc_set_irqs();
-	spin_unlock_irqrestore(&lcdc_irq.irq_lock, flags);
+	spin_unlock_irqrestore(&lcdc_irq->irq_lock, flags);
 }
 
 static int lcdc_init_irq(void)
 {
 	int r;
+	struct sirfsoc_lcdc_irq *lcdc_irq = &lcdc.lcdc_irq;
 
-	spin_lock_init(&lcdc_irq.irq_lock);
+	spin_lock_init(&lcdc_irq->irq_lock);
 
-	memset(lcdc_irq.registered_isr, 0,
-		sizeof(lcdc_irq.registered_isr));
+	memset(lcdc_irq->registered_isr, 0,
+		sizeof(lcdc_irq->registered_isr));
 
-	lcdc_irq.irq_err_mask = LCDC_INT_MASK_ERRS;
+	lcdc_irq->irq_err_mask = LCDC_INT_MASK_ERRS;
 
 	lcdc_clear_intstatus(lcdc_read_intstatus());
 
-	INIT_WORK(&lcdc_irq.err_work, lcdc_err_worker);
+	INIT_WORK(&lcdc_irq->err_work, lcdc_err_worker);
 
 	_sirfsoc_lcdc_set_irqs();
 
@@ -1595,7 +1610,7 @@ static int lcdc_init_irq(void)
 
 static void lcdc_deinit_irq(void)
 {
-	lcdc_free_irq(&lcdc_irq);
+	lcdc_free_irq(&lcdc.lcdc_irq);
 }
 
 static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
