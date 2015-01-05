@@ -28,9 +28,6 @@
 #define SIRFSOC_VOUT_DRV_NAME	"sirfsoc_vout"
 #define SIRFSOC_VOUT_VERSION_CODE KERNEL_VERSION(0, 0, 1)
 
-#define SIRFSOC_DEFAULT_NUM_BUFS	3
-
-
 static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "debug level (0-2)");
@@ -349,9 +346,6 @@ static int sirfsoc_vout_queue_setup(struct vb2_queue *vq,
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
-
-	if (*nbuffers < SIRFSOC_DEFAULT_NUM_BUFS)
-		*nbuffers = SIRFSOC_DEFAULT_NUM_BUFS;
 
 	*nplanes = 1;
 	sizes[0] = vout->pix_fmt.sizeimage;
