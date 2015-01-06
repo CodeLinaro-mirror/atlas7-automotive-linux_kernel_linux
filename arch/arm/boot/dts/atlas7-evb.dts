@@ -46,6 +46,16 @@
 		#size-cells = <1>;
 		ranges;
 
+		/* global region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			alloc-ranges = <0x4EC00000 0x1000000>;
+			size = <0x1000000>;
+			alignment = <0x2000>;
+			linux,cma-default;
+		};
+
 		ipc_mem0: ns_m3_mem@4fd00000 {
 			compatible = "sirf,reserved-memory";
 			reg = <0x4FD00000 0x10000>;
