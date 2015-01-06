@@ -1333,7 +1333,7 @@ static int lcdc_request_irq(irq_handler_t handler, void *dev_id)
 	int r;
 	struct sirfsoc_lcdc     *lcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	if (!lcdc->user_handler)
+	if (lcdc->user_handler)
 		return -EBUSY;
 
 	lcdc->user_handler = handler;
@@ -1343,7 +1343,7 @@ static int lcdc_request_irq(irq_handler_t handler, void *dev_id)
 	smp_wmb();
 
 	r = devm_request_irq(&lcdc->pdev->dev, lcdc->irq, lcdc_irq_handler,
-			     IRQF_SHARED, "SIRFSOC LCDC", &lcdc);
+			     IRQF_SHARED, "SIRFSOC LCDC", lcdc);
 	if (r) {
 		lcdc->user_handler = NULL;
 		lcdc->user_data = NULL;
@@ -1356,7 +1356,7 @@ static void lcdc_free_irq(void *dev_id)
 {
 	struct sirfsoc_lcdc *lcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	devm_free_irq(&lcdc->pdev->dev, lcdc->irq, &lcdc);
+	devm_free_irq(&lcdc->pdev->dev, lcdc->irq, lcdc);
 
 	lcdc->user_handler = NULL;
 	lcdc->user_data = NULL;
@@ -1599,9 +1599,9 @@ static int lcdc_init_irq(void)
 
 	_sirfsoc_lcdc_set_irqs();
 
-	r = lcdc_request_irq(sirfsoc_lcdc_irq_handler, &lcdc_irq);
+	r = lcdc_request_irq(sirfsoc_lcdc_irq_handler, &lcdc);
 	if (r) {
-		VDSSERR("lcdc_request_irq failed\n");
+		VDSSERR("lcdc_request_irq failed, ret = %x\n", r);
 		return r;
 	}
 
