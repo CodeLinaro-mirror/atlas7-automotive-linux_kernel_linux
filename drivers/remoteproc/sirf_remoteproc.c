@@ -48,6 +48,10 @@
 #define TR_KAS_M3_2	0x0314
 
 enum sirf_rproc_idx {
+	NS2M30,
+	NS2M31,
+	NS2KAL0,
+	NS2KAL1,
 #ifdef CONFIG_CSRVISOR_DUALOS
 	S2NS0,
 	S2NS1,
@@ -58,13 +62,17 @@ enum sirf_rproc_idx {
 	S2KAL0
 	S2KAL1
 #endif
-	NS2M30,
-	NS2M31,
-	NS2KAL0,
-	NS2KAL1,
 };
 
 enum sirf_rproc_hwspinlock_idx {
+	NS2M30_WL,
+	NS2M30_RL,
+	NS2M31_WL,
+	NS2M31_RL,
+	NS2KAL0_WL,
+	NS2KAL0_RL,
+	NS2KAL1_WL,
+	NS2KAL1_RL,
 #ifdef CONFIG_CSRVISOR_DUALOS
 	S2NS0_WL,
 	S2NS0_RL,
@@ -83,14 +91,6 @@ enum sirf_rproc_hwspinlock_idx {
 	S2KAL1_WL,
 	S2KAL1_RL,
 #endif
-	NS2M30_WL,
-	NS2M30_RL,
-	NS2M31_WL,
-	NS2M31_RL,
-	NS2KAL0_WL,
-	NS2KAL0_RL,
-	NS2KAL1_WL,
-	NS2KAL1_RL,
 };
 
 #define DEF_FEATURES	(RPROC_F_DEVICE_MMIO | RPROC_F_DYNAMIC_VQ | \
@@ -423,6 +423,39 @@ failed:
 }
 
 static const struct hw_info sirf_rproc_hwinfo[] = {
+	{
+	  .name = "ns2m30-rproc",
+	  .setreg = TR_NS_M3_1, .clrreg = TR_M3_NS_1,
+	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
+	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
+	  .w_fifo_lock = NS2M30_WL, .r_fifo_lock = NS2M30_RL,
+	  .fifo_sz = 0x1000,
+	  .features = NS_FEATURES,
+	}, {
+	  .name = "ns2m31-rproc",
+	  .setreg = TR_NS_M3_2, .clrreg = TR_M3_NS_2,
+	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
+	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
+	  .w_fifo_lock = NS2M31_WL, .r_fifo_lock = NS2M31_RL,
+	  .fifo_sz = 0x1000,
+	  .features = NS_FEATURES,
+	}, {
+	  .name = "ns2kal0-rproc",
+	  .setreg = TR_NS_KAS_1, .clrreg = TR_KAS_NS_1,
+	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
+	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
+	  .w_fifo_lock = NS2KAL0_WL, .r_fifo_lock = NS2KAL0_RL,
+	  .fifo_sz = 0x1000,
+	  .features = NS_FEATURES,
+	}, {
+	  .name = "ns2kal1-rproc",
+	  .setreg = TR_NS_KAS_2, .clrreg = TR_KAS_NS_2,
+	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
+	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
+	  .w_fifo_lock = NS2KAL1_WL, .r_fifo_lock = NS2KAL1_RL,
+	  .fifo_sz = 0x1000,
+	  .features = NS_FEATURES,
+	}
 #ifdef CONFIG_CSRVISOR_DUALOS
 	{
 	  .name = "s2ns0-rproc",
@@ -492,42 +525,22 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .features = S_FEATURES,
 	},
 #endif
-	{
-	  .name = "ns2m30-rproc",
-	  .setreg = TR_NS_M3_1, .clrreg = TR_M3_NS_1,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2M30_WL, .r_fifo_lock = NS2M30_RL,
-	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
-	}, {
-	  .name = "ns2m31-rproc",
-	  .setreg = TR_NS_M3_2, .clrreg = TR_M3_NS_2,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2M31_WL, .r_fifo_lock = NS2M31_RL,
-	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
-	}, {
-	  .name = "ns2kal0-rproc",
-	  .setreg = TR_NS_KAS_1, .clrreg = TR_KAS_NS_1,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2KAL0_WL, .r_fifo_lock = NS2KAL0_RL,
-	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
-	}, {
-	  .name = "ns2kal1-rproc",
-	  .setreg = TR_NS_KAS_2, .clrreg = TR_KAS_NS_2,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2KAL1_WL, .r_fifo_lock = NS2KAL1_RL,
-	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
-	}
 };
 
 static const struct of_device_id sirf_rproc_dt_ids[] = {
+	{
+		.compatible = "sirf,ns2m30-rproc",
+		.data = &sirf_rproc_hwinfo[NS2M30],
+	}, {
+		.compatible = "sirf,ns2m31-rproc",
+		.data = &sirf_rproc_hwinfo[NS2M31],
+	}, {
+		.compatible = "sirf,ns2kal0-rproc",
+		.data = &sirf_rproc_hwinfo[NS2KAL0],
+	}, {
+		.compatible = "sirf,ns2kal1-rproc",
+		.data = &sirf_rproc_hwinfo[NS2KAL1],
+	},
 #ifdef CONFIG_CSRVISOR_DUALOS
 	{
 		.compatible = "sirf,s2ns0-rproc",
@@ -555,19 +568,6 @@ static const struct of_device_id sirf_rproc_dt_ids[] = {
 		.data = &sirf_rproc_hwinfo[S2KAL1],
 	},
 #endif
-	{
-		.compatible = "sirf,ns2m30-rproc",
-		.data = &sirf_rproc_hwinfo[NS2M30],
-	}, {
-		.compatible = "sirf,ns2m31-rproc",
-		.data = &sirf_rproc_hwinfo[NS2M31],
-	}, {
-		.compatible = "sirf,ns2kal0-rproc",
-		.data = &sirf_rproc_hwinfo[NS2KAL0],
-	}, {
-		.compatible = "sirf,ns2kal1-rproc",
-		.data = &sirf_rproc_hwinfo[NS2KAL1],
-	},
 };
 
 static u32 sirf_rproc_features(struct device *dev)
