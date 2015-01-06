@@ -33,7 +33,7 @@ int sirfsoc_vdss_output_set_panel(struct sirfsoc_vdss_output *out,
 		goto err;
 	}
 
-	if (out->type != panel->type) {
+	if (!(out->supported_panel && panel->type)) {
 		VDSSERR("output type and display type don't match\n");
 		r = -EINVAL;
 		goto err;

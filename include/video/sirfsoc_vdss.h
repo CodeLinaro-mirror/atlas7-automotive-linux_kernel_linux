@@ -32,9 +32,10 @@
 #define LCDC_INT_ALL		0xFFFFFFFF
 
 enum sirfsoc_panel_type {
-	SIRFSOC_PANEL_NONE,
-	SIRFSOC_PANEL_RGB,
-	SIRFSOC_PANEL_LVDS,
+	SIRFSOC_PANEL_NONE = 0x0,
+	SIRFSOC_PANEL_RGB = 0x1,
+	SIRFSOC_PANEL_HDMI = 0x2,
+	SIRFSOC_PANEL_LVDS = 0x4,
 };
 
 enum vdss_output {
@@ -428,7 +429,7 @@ struct sirfsoc_vdss_output {
 	} ops;
 
 	/* panel type supported by the output */
-	enum sirfsoc_panel_type type;
+	int supported_panel;
 
 
 	/* screen for this output */

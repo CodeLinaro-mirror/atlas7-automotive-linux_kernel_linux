@@ -1167,7 +1167,7 @@ static int lvds_init_output(struct platform_device *pdev)
 
 	/* FIXME: how to set the screen_id */
 	out->screen_id = SIRFSOC_VDSS_SCREEN0;
-	out->type = SIRFSOC_PANEL_LVDS;
+	out->supported_panel = SIRFSOC_PANEL_LVDS;
 	out->ops.lvds = &lvds_ops;
 	out->owner = THIS_MODULE;
 	sirfsoc_vdss_register_output(out);
@@ -1294,7 +1294,7 @@ static int rgb_init_output(struct platform_device *pdev)
 	out->name = "rgb.0";
 
 	out->screen_id = SIRFSOC_VDSS_SCREEN0;
-	out->type = SIRFSOC_PANEL_RGB;
+	out->supported_panel = SIRFSOC_PANEL_RGB | SIRFSOC_PANEL_HDMI;
 	out->ops.rgb = &rgb_ops;
 	out->owner = THIS_MODULE;
 	sirfsoc_vdss_register_output(out);
