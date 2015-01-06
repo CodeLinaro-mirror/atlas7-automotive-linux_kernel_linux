@@ -362,7 +362,7 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 		rate = fin;
 		rate *= 1 << 24;
 		do_div(rate, (256 * ((ssdiv >> ssdepth) << ssdepth)
-			+ ssmod << ssdepth));
+			+ (ssmod << ssdepth)));
 	} else {
 		rate = 2 * fin;
 		rate *= nf;
@@ -637,25 +637,6 @@ static struct clk_dto clk_disp1_dto = {
 	},
 };
 
-/* pwm clock as syspllvco/clk2 */
-static const char *pwm1_clk_parents[] = {
-	"sys0pll_clk2",
-	"sys1pll_clk2",
-	"sys3pll_clk2",
-};
-
-static const char *pwm2_clk_parents[] = {
-	"sys0pll_clk2",
-	"sys1pll_clk2",
-	"sys3pll_clk2",
-};
-
-static const char *pwm3_clk_parents[] = {
-	"sys0pll_clk2",
-	"sys1pll_clk2",
-	"sys3pll_clk2",
-};
-
 static __initdata struct atlas7_div_init_data divider_list[] = {
 	/* div_name, parent_name, gate_name, clk_flag, divider_flag, gate_flag, div_offset, shift, wdith, gate_offset, bit_enable, lock */
 	{"sys0pll_qa1", "sys0pll_fixdiv", "sys0pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 0, &usbphy_div_lock},
@@ -724,6 +705,24 @@ static __initdata struct atlas7_div_init_data divider_list[] = {
 	{"sys2pll_qa20", "sys2pll_fixdiv", "sys2pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG0, 0, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 0, &share_div_lock},
 	{"sys1pll_qa17", "sys1pll_fixdiv", "sys1pll_a17", 0, 0, CLK_IGNORE_UNUSED, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 8, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 20, &share_div_lock},
 	{"sys0pll_qa20", "sys0pll_fixdiv", "sys0pll_a20", 0, 0, 0, SIRFSOC_CLKC_SHARED_DIVIDER_CFG1, 0, 6, SIRFSOC_CLKC_SHARED_DIVIDER_ENA, 16, &share_div_lock},
+	{"sys0pll_div1", "sys0pll_vco", "sys0pll_clk1", 0, 0, 0, SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 12, &sys0pll_ctrl1_lock},
+	{"sys0pll_div2", "sys0pll_vco", "sys0pll_clk2", 0, 0, 0, SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 13, &sys0pll_ctrl1_lock},
+	{"sys0pll_div3", "sys0pll_vco", "sys0pll_clk3", 0, 0, 0, SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 14, &sys0pll_ctrl1_lock},
+	{"sys1pll_div1", "sys1pll_vco", "sys1pll_clk1", 0, 0, 0, SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 12, &sys1pll_ctrl1_lock},
+	{"sys1pll_div2", "sys1pll_vco", "sys1pll_clk2", 0, 0, 0, SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 13, &sys1pll_ctrl1_lock},
+	{"sys1pll_div3", "sys1pll_vco", "sys1pll_clk3", 0, 0, 0, SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 14, &sys1pll_ctrl1_lock},
+	{"sys2pll_div1", "sys2pll_vco", "sys2pll_clk1", 0, 0, 0, SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 12, &sys2pll_ctrl1_lock},
+	{"sys2pll_div2", "sys2pll_vco", "sys2pll_clk2", 0, 0, 0, SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 13, &sys2pll_ctrl1_lock},
+	{"sys2pll_div3", "sys2pll_vco", "sys2pll_clk3", 0, 0, 0, SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 14, &sys2pll_ctrl1_lock},
+	{"sys3pll_div1", "sys3pll_vco", "sys3pll_clk1", 0, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 12, &sys3pll_ctrl1_lock},
+	{"sys3pll_div2", "sys3pll_vco", "sys3pll_clk2", 0, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 13, &sys3pll_ctrl1_lock},
+	{"sys3pll_div3", "sys3pll_vco", "sys3pll_clk3", 0, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 14, &sys3pll_ctrl1_lock},
+	{"cpupll_div1", "cpupll_vco", "cpupll_clk1", 0, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 12, &cpupll_ctrl1_lock},
+	{"cpupll_div2", "cpupll_vco", "cpupll_clk2", 0, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 13, &cpupll_ctrl1_lock},
+	{"cpupll_div3", "cpupll_vco", "cpupll_clk3", 0, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 14, &cpupll_ctrl1_lock},
+	{"mempll_div1", "mempll_vco", "mempll_clk1", 0, 0, 0, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 12, &mempll_ctrl1_lock},
+	{"mempll_div2", "mempll_vco", "mempll_clk2", 0, 0, 0, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 13, &mempll_ctrl1_lock},
+	{"mempll_div3", "mempll_vco", "mempll_clk3", 0, 0, 0, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 14, &mempll_ctrl1_lock},
 };
 
 static const char *i2s_clk_parents[] = {
@@ -1204,7 +1203,7 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{141 , "thcgum_sys", "sys_mux", 0, SIRFSOC_CLKC_LEAF_CLK_EN0_SET, 3, &leaf0_gate_lock},
 };
 
-static struct clk *atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list)];
+static struct clk *atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + ARRAY_SIZE(divider_list)];
 
 static int unit_clk_is_enabled(struct clk_hw *hw)
 {
@@ -1375,7 +1374,6 @@ static struct atlas7_reset_desc atlas7_reset_unit[] = {
 static int atlas7_reset_module(struct reset_controller_dev *rcdev,
 					unsigned long reset_idx)
 {
-	u32 reset_bit = reset_idx;
 	struct atlas7_reset_desc *reset = &atlas7_reset_unit[reset_idx];
 	unsigned long flags = 0;
 
@@ -1461,175 +1459,26 @@ void __init atlas7_clk_init(struct device_node *np)
 	clk = clk_register(NULL, &clk_sys3pll.hw);
 	BUG_ON(!clk);
 
-	clk = clk_register_divider_table(NULL, "cpupll_div1", "cpupll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 0, 3, 0,
-			 pll_div_table, &cpupll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "cpupll_div2", "cpupll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 4, 3, 0,
-			 pll_div_table, &cpupll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "cpupll_div3", "cpupll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 8, 3, 0,
-			 pll_div_table, &cpupll_ctrl1_lock);
-	BUG_ON(!clk);
-
-	clk = clk_register_divider_table(NULL, "mempll_div1", "mempll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 0, 3, 0,
-			 pll_div_table, &mempll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "mempll_div2", "mempll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 4, 3, 0,
-			 pll_div_table, &mempll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "mempll_div3", "mempll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 8, 3, 0,
-			 pll_div_table, &mempll_ctrl1_lock);
-	BUG_ON(!clk);
-
-	clk = clk_register_divider_table(NULL, "sys0pll_div1", "sys0pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 0, 3, 0,
-			 pll_div_table, &sys0pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys0pll_div2", "sys0pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 4, 3, 0,
-			 pll_div_table, &sys0pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys0pll_div3", "sys0pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS0PLL_AB_CTRL1, 8, 3, 0,
-			 pll_div_table, &sys0pll_ctrl1_lock);
-	BUG_ON(!clk);
 	clk = clk_register_fixed_factor(NULL, "sys0pll_fixdiv", "sys0pll_vco",
 					CLK_SET_RATE_PARENT, 1, 2);
+	BUG_ON(!clk);
 
-	clk = clk_register_divider_table(NULL, "sys1pll_div1", "sys1pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 0, 3, 0,
-			 pll_div_table, &sys1pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys1pll_div2", "sys1pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 4, 3, 0,
-			 pll_div_table, &sys1pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys1pll_div3", "sys1pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS1PLL_AB_CTRL1, 8, 3, 0,
-			 pll_div_table, &sys1pll_ctrl1_lock);
-	BUG_ON(!clk);
 	clk = clk_register_fixed_factor(NULL, "sys1pll_fixdiv", "sys1pll_vco",
 					CLK_SET_RATE_PARENT, 1, 2);
+	BUG_ON(!clk);
 
-	clk = clk_register_divider_table(NULL, "sys2pll_div1", "sys2pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 0, 3, 0,
-			 pll_div_table, &sys2pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys2pll_div2", "sys2pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 4, 3, 0,
-			 pll_div_table, &sys2pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys2pll_div3", "sys2pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS2PLL_AB_CTRL1, 8, 3, 0,
-			 pll_div_table, &sys2pll_ctrl1_lock);
-	BUG_ON(!clk);
 	clk = clk_register_fixed_factor(NULL, "sys2pll_fixdiv", "sys2pll_vco",
 					CLK_SET_RATE_PARENT, 1, 2);
+	BUG_ON(!clk);
 
-	clk = clk_register_divider_table(NULL, "sys3pll_div1", "sys3pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 0, 3, 0,
-			 pll_div_table, &sys3pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys3pll_div2", "sys3pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 4, 3, 0,
-			 pll_div_table, &sys3pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_divider_table(NULL, "sys3pll_div3", "sys3pll_vco", 0,
-			 sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 8, 3, 0,
-			 pll_div_table, &sys3pll_ctrl1_lock);
-	BUG_ON(!clk);
 	clk = clk_register_fixed_factor(NULL, "sys3pll_fixdiv", "sys3pll_vco",
 					CLK_SET_RATE_PARENT, 1, 2);
-
 	BUG_ON(!clk);
 	clk = clk_register_fixed_factor(NULL, "xinw_fixdiv_btslow", "xinw",
 					CLK_SET_RATE_PARENT, 1, 4);
 
 	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "cpupll_clk1", "cpupll_div1",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_CPUPLL_AB_CTRL1,
-				12, 0, &cpupll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "cpupll_clk2", "cpupll_div2",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_CPUPLL_AB_CTRL1,
-				13, 0, &cpupll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "cpupll_clk3", "cpupll_div3",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_CPUPLL_AB_CTRL1,
-				14, 0, &cpupll_ctrl1_lock);
-	BUG_ON(!clk);
 
-	clk = clk_register_gate(NULL, "mempll_clk1", "mempll_div1",
-		CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
-		sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1,
-		12, 0, &mempll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "mempll_clk2", "mempll_div2",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1,
-				13, 0, &mempll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "mempll_clk3", "mempll_div3",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_MEMPLL_AB_CTRL1,
-				14, 0, &mempll_ctrl1_lock);
-	BUG_ON(!clk);
-
-	clk = clk_register_gate(NULL, "sys0pll_clk1", "sys0pll_div1",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS0PLL_AB_CTRL1,
-				12, 0, &sys0pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys0pll_clk2", "sys0pll_div2",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS0PLL_AB_CTRL1,
-				13, 0, &sys0pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys0pll_clk3", "sys0pll_div3",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS0PLL_AB_CTRL1,
-				14, 0, &sys0pll_ctrl1_lock);
-	BUG_ON(!clk);
-
-	clk = clk_register_gate(NULL, "sys1pll_clk1", "sys1pll_div1",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS1PLL_AB_CTRL1,
-				12, 0, &sys1pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys1pll_clk2", "sys1pll_div2",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS1PLL_AB_CTRL1,
-				13, 0, &sys1pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys1pll_clk3", "sys1pll_div3",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS1PLL_AB_CTRL1,
-				14, 0, &sys1pll_ctrl1_lock);
-	BUG_ON(!clk);
-
-	clk = clk_register_gate(NULL, "sys2pll_clk1", "sys2pll_div1",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS2PLL_AB_CTRL1,
-				12, 0, &sys2pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys2pll_clk2", "sys2pll_div2",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS2PLL_AB_CTRL1,
-				13, 0, &sys2pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys2pll_clk3", "sys2pll_div3",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS2PLL_AB_CTRL1,
-				14, 0, &sys2pll_ctrl1_lock);
-	BUG_ON(!clk);
-
-	clk = clk_register_gate(NULL, "sys3pll_clk1", "sys3pll_div1",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1,
-				12, 0, &sys3pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys3pll_clk2", "sys3pll_div2",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1,
-				13, 0, &sys3pll_ctrl1_lock);
-	BUG_ON(!clk);
-	clk = clk_register_gate(NULL, "sys3pll_clk3", "sys3pll_div3",
-		CLK_SET_RATE_PARENT, sirfsoc_clk_vbase + SIRFSOC_CLKC_SYS3PLL_AB_CTRL1,
-				14, 0, &sys3pll_ctrl1_lock);
-	BUG_ON(!clk);
 
 	clk = clk_register(NULL, &clk_audio_dto.hw);
 	BUG_ON(!clk);
@@ -1646,9 +1495,11 @@ void __init atlas7_clk_init(struct device_node *np)
 			div->parent_name, div->divider_flags, sirfsoc_clk_vbase + div->div_offset,
 			div->shift, div->width, 0, div->lock);
 		BUG_ON(!clk);
+
 		clk = clk_register_gate(NULL, div->gate_name, div->div_name,
 			div->gate_flags, sirfsoc_clk_vbase + div->gate_offset,
 				div->gate_bit, 0, div->lock);
+		atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + i] = clk;
 		BUG_ON(!clk);
 	}
 	/* ignore selector status register check */
@@ -1671,7 +1522,7 @@ void __init atlas7_clk_init(struct device_node *np)
 	}
 
 	clk_data.clks = atlas7_clks;
-	clk_data.clk_num = ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list);
+	clk_data.clk_num = ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + ARRAY_SIZE(divider_list);
 
 	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 	BUG_ON(ret);
