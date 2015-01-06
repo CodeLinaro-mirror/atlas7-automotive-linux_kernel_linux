@@ -236,6 +236,15 @@
 			};
 		};
 
+		sirf-backlight {
+			compatible = "pwm-backlight";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pw_pwm_pmx1>;
+			pwms = <&pwm 3 50000>;
+			brightness-levels = <0 48 56 64 96 112 128 255>;
+			default-brightness-level = <6>;
+		};
+
 		gnssm {
 			uart1: uart@18020000 {
 				status = "okay";
