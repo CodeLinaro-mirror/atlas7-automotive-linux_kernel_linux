@@ -260,6 +260,9 @@ struct nor_flash_info {
 };
 
 static struct nor_flash_info flash_types[] = {
+	/* default */
+	{ "default", 0, 0, 256, 4 * 1024, 4096,
+		0, 108, 20, 20, 100, 8, 8},
 	/* Micron n25xxx */
 #define N25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
 		   FLASH_FLAG_READ_FAST		|	\
@@ -977,16 +980,14 @@ atlas7_qspi_setup_controller(struct atlas7_qspi_nor *a7nor)
 
 	regval |= ATLAS7_QSPI_SPI_MODE;
 	/* clock delay */
-	if (NULL != a7nor->info) {
-		clk_delay = max3(a7nor->info->tshsl, a7nor->info->tshwl,
+	clk_delay = max3(a7nor->info->tshsl, a7nor->info->tshwl,
 				a7nor->info->twhsl);
-		clk_delay =
-			max(clk_delay, 9 * (1 * 1000000000 / a7nor->speed_hz));
-		clk_delay = clk_delay / (1000000000 / source_clk);
-		if (clk_delay > 0xff)
-			clk_delay = 0xff;
-		regval |= ATLAS7_QSPI_CLK_DELAY(clk_delay);
-	}
+	clk_delay = max(clk_delay, 9 * (1 * 1000000000 / a7nor->speed_hz));
+	clk_delay = clk_delay / (1000000000 / source_clk);
+	if (clk_delay > 0xff)
+		clk_delay = 0xff;
+	regval |= ATLAS7_QSPI_CLK_DELAY(clk_delay);
+
 	/* fifo threshold */
 	regval |= ATLAS7_QSPI_RX_FIFO_THD(ATLAS7_QSPI_FIFO_SIZE / 4 / 2) |
 		ATLAS7_QSPI_TX_FIFO_THD(ATLAS7_QSPI_FIFO_SIZE / 4 / 2);
@@ -1244,6 +1245,8 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(a7nor->clk);
 #endif
+	/* set flash info to a default value, hardware init need them */
+	a7nor->info = flash_types;
 	ret = atlas7_qspi_nor_hw_init(a7nor);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to initialise atlast7 qspi Controller\n");
