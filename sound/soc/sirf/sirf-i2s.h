@@ -9,19 +9,18 @@
 #ifndef _SIRF_I2S_H
 #define _SIRF_I2S_H
 
-#define AUDIO_CTRL_TX_FIFO_LEVEL_CHECK_MASK     0x3F
+#define AUDIO_CTRL_TX_FIFO_LEVEL_CHECK_MASK		0x3F
+#define AUDIO_CTRL_TX_FIFO_LEVEL_CHECK_MASK_ATLAS7	0x7F
 #define AUDIO_CTRL_TX_FIFO_SC_OFFSET    0
 #define AUDIO_CTRL_TX_FIFO_LC_OFFSET    10
 #define AUDIO_CTRL_TX_FIFO_HC_OFFSET    20
 
-#define TX_FIFO_SC(x)           (((x) & AUDIO_CTRL_TX_FIFO_LEVEL_CHECK_MASK) \
-				<< AUDIO_CTRL_TX_FIFO_SC_OFFSET)
-#define TX_FIFO_LC(x)           (((x) & AUDIO_CTRL_TX_FIFO_LEVEL_CHECK_MASK) \
-				<< AUDIO_CTRL_TX_FIFO_LC_OFFSET)
-#define TX_FIFO_HC(x)           (((x) & AUDIO_CTRL_TX_FIFO_LEVEL_CHECK_MASK) \
-				<< AUDIO_CTRL_TX_FIFO_HC_OFFSET)
+#define TX_FIFO_SC(x)           ((x) << AUDIO_CTRL_TX_FIFO_SC_OFFSET)
+#define TX_FIFO_LC(x)           ((x) << AUDIO_CTRL_TX_FIFO_LC_OFFSET)
+#define TX_FIFO_HC(x)           ((x) << AUDIO_CTRL_TX_FIFO_HC_OFFSET)
 
-#define AUDIO_CTRL_RX_FIFO_LEVEL_CHECK_MASK     0x0F
+#define AUDIO_CTRL_RX_FIFO_LEVEL_CHECK_MASK		0x0F
+#define AUDIO_CTRL_RX_FIFO_LEVEL_CHECK_MASK_ATLAS7	0x1F
 #define AUDIO_CTRL_RX_FIFO_SC_OFFSET    0
 #define AUDIO_CTRL_RX_FIFO_LC_OFFSET    10
 #define AUDIO_CTRL_RX_FIFO_HC_OFFSET    20
@@ -60,6 +59,8 @@
 #define I2S_MCLK_EN				(1<<2)
 #define I2S_REF_CLK_SEL_EXT			(1<<3)
 #define I2S_DOUT_OE				(1<<4)
+#define I2S_TX_24BIT_ATLAS7			(1<<5)
+#define I2S_RX_24BIT_ATLAS7			(1<<6)
 #define i2s_R2X_LP_TO_TX0			(1<<30)
 #define i2s_R2X_LP_TO_TX1			(2<<30)
 #define i2s_R2X_LP_TO_TX2			(3<<30)
@@ -85,4 +86,5 @@
 
 #define SIRF_I2S_EXT_CLK	0x0
 #define SIRF_I2S_PWM_CLK	0x1
+#define SIRF_I2S_DTO_CLK	0x2
 #endif /*__SIRF_I2S_H*/

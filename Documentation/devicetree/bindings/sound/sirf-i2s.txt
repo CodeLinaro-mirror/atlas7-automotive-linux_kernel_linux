@@ -1,7 +1,7 @@
 * SiRF SoC I2S module
 
 Required properties:
-- compatible: "sirf,prima2-i2s"
+- compatible: "sirf,prima2-i2s", "sirf,atlas7-i2s"
 - reg: Base address and size entries:
 - dmas: List of DMA controller phandle and DMA request line ordered pairs.
 - dma-names: Identifier string for each DMA request line in the dmas property.

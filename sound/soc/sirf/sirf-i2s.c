@@ -24,10 +24,16 @@ struct sirf_i2s {
 	u32 i2s_ctrl;
 	u32 i2s_ctrl_tx_rx_en;
 	bool master;
-	int ext_clk;
+	bool clkout;
+	int clk_id;
 	int sysclk;
 	struct snd_dmaengine_dai_dma_data playback_dma_data;
 	struct snd_dmaengine_dai_dma_data capture_dma_data;
+
+	/* Atlas7 specific */
+	bool is_atlas7;
+	struct clk *clk_audioif;
+	struct clk *clk_mux, *clk_dto;
 };
 
 static int sirf_i2s_dai_probe(struct snd_soc_dai *dai)
@@ -142,29 +148,32 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S8:
 		left_len = 8;
+		frame_len = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S16_LE:
 		left_len = 16;
+		frame_len = 32;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		left_len = 24;
-		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
-		left_len = 32;
+		frame_len = 64;
 		break;
 	default:
 		dev_err(dai->dev, "Format unsupported\n");
 		return -EINVAL;
 	}
 
-	frame_len = left_len * 2;
+	if (left_len == 24 && i2s->is_atlas7)
+		i2s_tx_rx_ctrl |=
+			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+			I2S_TX_24BIT_ATLAS7 : I2S_RX_24BIT_ATLAS7;
+
 	/* Fill the actual len - 1 */
 	i2s_ctrl |= ((frame_len - 1) << I2S_FRAME_LEN_SHIFT)
 		| ((left_len - 1) << I2S_L_CHAN_LEN_SHIFT);
 
 	if (i2s->master) {
 		i2s_ctrl &= ~I2S_SLAVE_MODE;
-		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
 		bitclk = params_rate(params) * frame_len;
 		div = i2s->sysclk / bitclk;
 		/* MCLK divide-by-2 from source clk */
@@ -178,24 +187,28 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		i2s_ctrl &= ~I2S_MCLK_DIV_MASK;
 	} else {
 		i2s_ctrl |= I2S_SLAVE_MODE;
-		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
 	}
 
-	if (i2s->ext_clk)
+	if (i2s->clk_id == SIRF_I2S_EXT_CLK)
 		i2s_tx_rx_ctrl |= I2S_REF_CLK_SEL_EXT;
 	else
 		i2s_tx_rx_ctrl &= ~I2S_REF_CLK_SEL_EXT;
 
+	if (i2s->clkout)
+		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
+	else
+		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
+
 	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s_ctrl);
 	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, i2s_tx_rx_ctrl);
-	regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
-		I2S_MODE, I2S_MODE);
+	if (!i2s->is_atlas7)
+		regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
+				I2S_MODE, I2S_MODE);
 
 	return 0;
 }
 
-static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai,
-		unsigned int fmt)
+static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
@@ -236,17 +249,31 @@ static int sirf_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 {
 	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 
+	i2s->clkout = (dir == SND_SOC_CLOCK_OUT);
+
 	switch (clk_id) {
 	case SIRF_I2S_EXT_CLK:
-		i2s->ext_clk = 1;
+		i2s->clkout = false;
 		break;
 	case SIRF_I2S_PWM_CLK:
-		i2s->ext_clk = 0;
+		if (i2s->is_atlas7)
+			return -EINVAL;	/* PWM deprecated in Atlas7 */
+		break;
+	case SIRF_I2S_DTO_CLK:
+		if (!i2s->is_atlas7)	/* DTO only available in Atlas7 */
+			return -EINVAL;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	if (clk_id == SIRF_I2S_DTO_CLK) {
+		if (clk_get_parent(i2s->clk_mux) != i2s->clk_dto)
+			clk_set_parent(i2s->clk_mux, i2s->clk_dto);
+		clk_set_rate(i2s->clk_dto, freq);
+	}
+
+	i2s->clk_id = clk_id;
 	i2s->sysclk = freq;
 	return 0;
 }
@@ -269,8 +296,7 @@ static struct snd_soc_dai_driver sirf_i2s_dai = {
 		.rates = SNDRV_PCM_RATE_8000_96000,
 		.formats = SNDRV_PCM_FMTBIT_S8 |
 			SNDRV_PCM_FMTBIT_S16_LE |
-			SNDRV_PCM_FMTBIT_S24_LE |
-			SNDRV_PCM_FMTBIT_S32_LE,
+			SNDRV_PCM_FMTBIT_S24_LE,
 	},
 	.capture = {
 		.stream_name = "SiRF I2S Capture",
@@ -279,8 +305,7 @@ static struct snd_soc_dai_driver sirf_i2s_dai = {
 		.rates = SNDRV_PCM_RATE_8000_96000,
 		.formats = SNDRV_PCM_FMTBIT_S8 |
 			SNDRV_PCM_FMTBIT_S16_LE |
-			SNDRV_PCM_FMTBIT_S24_LE |
-			SNDRV_PCM_FMTBIT_S32_LE,
+			SNDRV_PCM_FMTBIT_S24_LE,
 	},
 	.ops = &sirfsoc_i2s_dai_ops,
 };
@@ -290,14 +315,32 @@ static int sirf_i2s_runtime_suspend(struct device *dev)
 {
 	struct sirf_i2s *i2s = dev_get_drvdata(dev);
 	clk_disable_unprepare(i2s->clk);
+	if (i2s->is_atlas7) {
+		clk_disable_unprepare(i2s->clk_audioif);
+		clk_disable_unprepare(i2s->clk_mux);
+		clk_disable_unprepare(i2s->clk_dto);
+	}
 
 	return 0;
 }
 
 static int sirf_i2s_runtime_resume(struct device *dev)
 {
+	int ret;
 	struct sirf_i2s *i2s = dev_get_drvdata(dev);
-	return clk_prepare_enable(i2s->clk);
+
+	ret = clk_prepare_enable(i2s->clk);
+	if (ret == 0 && i2s->is_atlas7) {
+		ret = clk_prepare_enable(i2s->clk_audioif);
+		if (ret)
+			return ret;
+		ret = clk_prepare_enable(i2s->clk_dto);
+		if (ret)
+			return ret;
+		ret = clk_prepare_enable(i2s->clk_mux);
+	}
+
+	return ret;
 }
 #endif
 
@@ -323,8 +366,9 @@ static int sirf_i2s_resume(struct device *dev)
 		ret = sirf_i2s_runtime_resume(dev);
 		if (ret)
 			return ret;
-		regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
-			I2S_MODE, I2S_MODE);
+		if (!i2s->is_atlas7)
+			regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
+					I2S_MODE, I2S_MODE);
 		regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s->i2s_ctrl);
 		/* Restore MCLK enable and reference clock select bits. */
 		i2s->i2s_ctrl_tx_rx_en &= (I2S_MCLK_EN | I2S_REF_CLK_SEL_EXT);
@@ -386,6 +430,30 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-i2s")) {
+		i2s->clk_audioif = devm_clk_get(&pdev->dev, "audioif");
+		if (IS_ERR(i2s->clk_audioif)) {
+			dev_err(&pdev->dev, "Get audio clock failed.\n");
+			return PTR_ERR(i2s->clk_audioif);
+		}
+
+		i2s->clk_mux = devm_clk_get(&pdev->dev, "i2s_mux");
+		if (IS_ERR(i2s->clk_mux)) {
+			dev_err(&pdev->dev, "Get I2S clock mux failed.\n");
+			return PTR_ERR(i2s->clk_mux);
+		}
+
+		i2s->clk_dto = devm_clk_get(&pdev->dev, "audio_dto");
+		if (IS_ERR(i2s->clk_dto)) {
+			dev_err(&pdev->dev, "Get audio DTO clock failed.\n");
+			return PTR_ERR(i2s->clk_dto);
+		}
+
+		i2s->is_atlas7 = true;
+	} else {
+		i2s->is_atlas7 = false;
+	}
+
 	pm_runtime_enable(&pdev->dev);
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &sirf_i2s_component,
@@ -402,11 +470,13 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 static int sirf_i2s_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
+
 	return 0;
 }
 
 static const struct of_device_id sirf_i2s_of_match[] = {
 	{ .compatible = "sirf,prima2-i2s", },
+	{ .compatible = "sirf,atlas7-i2s", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirf_i2s_of_match);
