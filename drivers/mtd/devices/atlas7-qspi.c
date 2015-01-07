@@ -369,9 +369,9 @@ atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 	u32 regval = 0;
 	u8 rx_delay = 0;
 
-	if (a7nor->read_flag & FLASH_FLAG_READ_1_2_2)
+	if (a7nor->info->flags & FLASH_FLAG_READ_1_2_2)
 		regval = ATLAS7_QSPI_RDC_READ2IO(a7nor->info->dummy_2b);
-	if (a7nor->read_flag & FLASH_FLAG_READ_1_4_4)
+	if (a7nor->info->flags & FLASH_FLAG_READ_1_4_4)
 		regval |= ATLAS7_QSPI_RDC_READ4IO(a7nor->info->dummy_4b);
 	#if 0
 		rx_delay = (clk_get_rate(a7nor->clk) /
