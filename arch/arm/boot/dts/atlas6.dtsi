@@ -224,6 +224,7 @@
 				clocks = <&clks 26>;
 				sirf,nanddisk-uboot-commit-flag = <0x200000>;
 				sirf,nanddisk-rsvmem-range = <0x6000000 0x200000>;
+				status = "okay";
 			};
 
 			audio: audio@b00400e0 {
