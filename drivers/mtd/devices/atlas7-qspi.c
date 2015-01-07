@@ -169,6 +169,7 @@
 #define ATLAS7_QSPI_CI_WREN		BIT(15)
 
 /* QSPI read dummy cycles register defines */
+#define ATLAS7_QSPI_RX_DELAY_MAX	0x7
 #define ATLAS7_QSPI_RDC_READ2IO(x)	(((x) & 0xF) << 0)
 #define ATLAS7_QSPI_RDC_READ4IO(x)	(((x) & 0xF) << 4)
 #define ATLAS7_QSPI_RX_DELAY(x)		(((x) & 0x7) << 8)
@@ -382,6 +383,7 @@ atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 	#else
 		rx_delay = (ATLAS7_SOUCRE_CLOCK / (2 * a7nor->speed_hz)) - 1;
 	#endif
+	rx_delay = clamp(rx_delay, 1, ATLAS7_QSPI_RX_DELAY_MAX);
 	regval |= ATLAS7_QSPI_RX_DELAY(rx_delay);
 
 	writel(regval, a7nor->base + ATLAS7_QSPI_RDC);
