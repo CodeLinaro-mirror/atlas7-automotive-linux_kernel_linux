@@ -30,6 +30,17 @@ config SND_SOC_SIRF_I2S
 	select REGMAP_MMIO
 	tristate
 
+config SND_SOC_SIRF_ATLAS7_CS42XX8
+	tristate "SoC Audio support for CSRatlas7 board using CS42XX8 codec"
+	depends on SND_SOC_SIRF && I2C
+	select SND_SOC_SIRF_I2S
+	select SND_SOC_CS42XX8_I2C
+	help
+	  Say Y or M here if you want to add support for SoC audio on CSRatlas7
+	  boards using external codec.
+	  - CPU DAI: I2S
+	  - Codec: CS42XX8
+
 config SND_SOC_SIRF_USP
 	tristate "SoC Audio (I2S protocol) for SiRF SoC USP interface"
 	depends on SND_SOC_SIRF
