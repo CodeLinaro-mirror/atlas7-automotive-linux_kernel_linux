@@ -7,14 +7,12 @@
  * Licensed under GPLv2 or later.
  */
 
-#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <video/sirfsoc_vdss.h>
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
@@ -24,7 +22,6 @@
 struct panel_drv_data {
 	struct sirfsoc_vdss_panel panel;
 	struct sirfsoc_vdss_output *in;
-	int bl_gpio;
 	int data_lines;
 
 	struct sirfsoc_video_timings timings;
@@ -93,9 +90,6 @@ static int panel_lvds_enable(struct sirfsoc_vdss_panel *panel)
 	if (r)
 		return r;
 
-	if (gpio_is_valid(pdata->bl_gpio))
-		gpio_set_value_cansleep(pdata->bl_gpio, 1);
-
 	panel->state = SIRFSOC_VDSS_PANEL_ENABLED;
 
 	return 0;
@@ -108,9 +102,6 @@ static void panel_lvds_disable(struct sirfsoc_vdss_panel *panel)
 
 	if (!sirfsoc_vdss_panel_is_enabled(panel))
 		return;
-
-	if (gpio_is_valid(pdata->bl_gpio))
-		gpio_set_value_cansleep(pdata->bl_gpio, 0);
 
 	in->ops.lvds->disable(in);
 
@@ -166,19 +157,10 @@ static int panel_lvds_probe_of(struct platform_device *pdev)
 	struct sirfsoc_vdss_output *in;
 	struct display_timings *timings;
 	struct videomode vm;
-	int gpio;
 	const char *source;
 	int ret = 0;
 
 	of_property_read_u32(node, "data-lines", &pdata->data_lines);
-
-	gpio = of_get_named_gpio(node, "bl-gpios", 0);
-	if (gpio_is_valid(gpio))
-		pdata->bl_gpio = gpio;
-	else {
-		dev_err(&pdev->dev, "failed to parse backlight gpio\n");
-		return gpio;
-	}
 
 	timings = of_get_display_timings(node);
 	if (!timings) {
@@ -229,13 +211,6 @@ static int panel_lvds_probe(struct platform_device *pdev)
 	} else
 		return -ENODEV;
 
-	if (gpio_is_valid(pdata->bl_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, pdata->bl_gpio,
-			GPIOF_OUT_INIT_LOW, "panel backlight");
-		if (r)
-			goto err_gpio;
-	}
-
 	panel = &pdata->panel;
 	panel->dev = &pdev->dev;
 	panel->driver = &panel_lvds_ops;
@@ -254,7 +229,6 @@ static int panel_lvds_probe(struct platform_device *pdev)
 	return 0;
 
 err_reg:
-err_gpio:
 	dev_err(&pdev->dev, "lvds probe error\n");
 	return r;
 }

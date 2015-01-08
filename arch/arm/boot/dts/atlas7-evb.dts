@@ -382,7 +382,6 @@
 			source = "rgb.0";
 			status = "disabled";
 
-			bl-gpios = <&gpio_1 63 0>;
 			data-lines  = <24>;
 
 			display-timings {
