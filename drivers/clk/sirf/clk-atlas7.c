@@ -637,6 +637,12 @@ static struct clk_dto clk_disp1_dto = {
 	},
 };
 
+static __initdata struct clk_dto *dto_list[] = {
+	&clk_audio_dto,
+	&clk_disp0_dto,
+	&clk_disp1_dto,
+};
+
 static __initdata struct atlas7_div_init_data divider_list[] = {
 	/* div_name, parent_name, gate_name, clk_flag, divider_flag, gate_flag, div_offset, shift, wdith, gate_offset, bit_enable, lock */
 	{"sys0pll_qa1", "sys0pll_fixdiv", "sys0pll_a1", 0, 0, 0, SIRFSOC_CLKC_USBPHY_CLKDIV_CFG, 0, 6, SIRFSOC_CLKC_USBPHY_CLKDIV_ENA, 0, &usbphy_div_lock},
@@ -1203,7 +1209,8 @@ static __initdata struct atlas7_unit_init_data unit_list[] = {
 	{141 , "thcgum_sys", "sys_mux", 0, SIRFSOC_CLKC_LEAF_CLK_EN0_SET, 3, &leaf0_gate_lock},
 };
 
-static struct clk *atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + ARRAY_SIZE(divider_list)];
+static struct clk *atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) +
+			ARRAY_SIZE(divider_list) + ARRAY_SIZE(dto_list)];
 
 static int unit_clk_is_enabled(struct clk_hw *hw)
 {
@@ -1479,15 +1486,13 @@ void __init atlas7_clk_init(struct device_node *np)
 
 	BUG_ON(!clk);
 
+	for (i = 0; i < ARRAY_SIZE(dto_list); i++) {
+		clk = clk_register(NULL, &dto_list[i]->hw);
+		BUG_ON(!clk);
 
-	clk = clk_register(NULL, &clk_audio_dto.hw);
-	BUG_ON(!clk);
-
-	clk = clk_register(NULL, &clk_disp0_dto.hw);
-	BUG_ON(!clk);
-
-	clk = clk_register(NULL, &clk_disp1_dto.hw);
-	BUG_ON(!clk);
+		atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) +
+			ARRAY_SIZE(divider_list) + i] = clk;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(divider_list); i++) {
 		div = &divider_list[i];
@@ -1522,7 +1527,8 @@ void __init atlas7_clk_init(struct device_node *np)
 	}
 
 	clk_data.clks = atlas7_clks;
-	clk_data.clk_num = ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + ARRAY_SIZE(divider_list);
+	clk_data.clk_num = ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) +
+		ARRAY_SIZE(divider_list) + ARRAY_SIZE(dto_list);
 
 	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 	BUG_ON(ret);
