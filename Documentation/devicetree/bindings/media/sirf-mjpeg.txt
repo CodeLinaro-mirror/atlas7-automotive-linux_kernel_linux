@@ -1,0 +1,17 @@
+sirf SoC MJPEG codec
+
+Required properties:
+
+- compatible	: should be "sirf,jpeg";
+- reg		: register base and size;
+- interrupts	: the interrupt number;
+- clocks        : input clock (see clock-bindings.txt)
+Example:
+
+	jpeg@17000000 {
+		compatible = "sirf,atlas7-jpeg";
+		reg = <0x17000000 0x10000>;
+		interrupts = <0 72 0>,
+				<0 73 0>;
+		clocks = <&car 103>;
+	};

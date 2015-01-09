@@ -1,0 +1,8 @@
+config MJPEG
+	bool "MotionJPEG IP"
+	default y
+	---help---
+	  This enable the support for the MotionJPEG on Atlas7 platform. The
+	  MJPEG device driver could enocode yuv422 into jpeg files and can
+          decode yuv422 and yuv420 jpeg into yuv422 files.
+	  If you plan use the driver on atlas7, say Y here.

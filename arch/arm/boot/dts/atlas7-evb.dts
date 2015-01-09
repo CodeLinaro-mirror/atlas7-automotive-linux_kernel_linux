@@ -76,6 +76,11 @@
 			no-map;
 		};
 
+		jpeg_reserved: jpeg@57000000 {
+			reg = <0x57000000 0x1800000>;
+			no-map;
+		};
+
 		multimedia_reserved: multimedia@58800000 {
 			reg = <0x58800000 0x6000000>;
 			no-map;
@@ -249,6 +254,10 @@
 
 			multimedia@15000000 {
 				memory-region = <&multimedia_reserved>;
+			};
+
+			jpeg@17000000 {
+				memory-region = <&jpeg_reserved>;
 			};
 
 			sdhci@16000000 {
