@@ -577,9 +577,9 @@ static struct arch_nanddisk_resource arch_nres[] = {
 		3,
 		0x7, 0x3, 0x7,
 		{
-			{"sirf,marco-tick", 0},
+			{"sirf,atlas7-tick", 0},
 			{"sirf,atlas7-car", 0},
-			{"sirf,marco-uart", 1},
+			{"sirf,atlas7-uart", 1},
 		},
 	}
 };
