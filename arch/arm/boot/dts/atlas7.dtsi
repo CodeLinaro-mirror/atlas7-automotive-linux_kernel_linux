@@ -1139,7 +1139,7 @@
 				#pwm-cells = <2>;
 				reg = <0x18630000 0x10000>;
 				clocks = <&car 138>, <&car 139>, <&car 140>,
-					<&car 141>, <&car 141>, <&car 141>;
+					<&car 237>, <&car 240>, <&car 246>;
 				clock-names = "pwmc", "sigsrc0", "sigsrc1",
 					"sigsrc2", "sigsrc3", "sigsrc4";
 			};
