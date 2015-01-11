@@ -5,10 +5,25 @@ Required properties:
 		or "sirf,atlas7-usp-spi"
 - reg : Offset and length of the register set for the device
 - interrupts : Should contain SPI interrupt
-- sirf,spi-num-chipselects : Contains the number of the chipselect
-- cs-gpios : Specifies the gpio pins to be used for chipselects.
-if want use spidev driver, you may add sub node in spi or usp-spi,
-add compatible property "spidev" in the subnode will be ok.
+- resets : Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- dmas : Must contain an entry for each entry in clock-names.
+  See ../dma/dma.txt for details.
+- dma-names : Must include the following entries:
+  - rx
+  - tx
+- clocks : Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details.
+
+- #address-cells: Number of cells required to define a chip select
+                  address on the SPI bus. Should be set to 1.
+- #size-cells:    Should be zero.
+
+Optional properties:
+- spi-max-frequency: Specifies maximum SPI clock frequency,
+                     Units - Hz. Definition as per
+                     Documentation/devicetree/bindings/spi/spi-bus.txt
+- cs-gpios:     should specify GPIOs used for chipselects.
 
 Example:
 
@@ -16,12 +31,11 @@ spi0: spi@b00d0000 {
 	compatible = "sirf,prima2-spi";
 	reg = <0xb00d0000 0x10000>;
 	interrupts = <15>;
-	sirf,spi-num-chipselects = <2>;
-	cs-gpios = <&gpio 18 0>,
-		   <&gpio 19 0>;
-	spidev {
-		compatible = "spidev";
-		reg = <0>;
-		spi-max-frequency = <1000000>;
-	};
+	dmas = <&dmac1 9>,
+		<&dmac1 4>;
+	dma-names = "rx", "tx";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clocks = <&clks 19>;
+	resets = <&rstc 26>;
 };
