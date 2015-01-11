@@ -5,7 +5,8 @@ Required properties:
 		or "sirf,atlas7-usp-spi"
 - reg : Offset and length of the register set for the device
 - interrupts : Should contain SPI interrupt
-- resets : Must contain an entry for each entry in reset-names.
+- resets: phandle to the reset controller asserting this device in
+          reset
   See ../reset/reset.txt for details.
 - dmas : Must contain an entry for each entry in clock-names.
   See ../dma/dma.txt for details.
