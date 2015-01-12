@@ -299,7 +299,7 @@ struct sirfsoc_vdss_layer {
 		struct sirfsoc_vdss_layer_info *info);
 	struct sirfsoc_vdss_panel *(*get_panel)(
 		struct sirfsoc_vdss_layer *layer);
-	bool (*flip)(enum vdss_layer layer, u32 srcbase);
+	bool (*flip)(struct sirfsoc_vdss_layer *layer, u32 srcbase);
 };
 
 struct sirfsoc_vdss_screen_info {

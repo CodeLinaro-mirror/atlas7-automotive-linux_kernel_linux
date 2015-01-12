@@ -509,15 +509,14 @@ err:
 	return r;
 }
 
-bool vdss_layer_flip(enum vdss_layer layer, u32 srcbase)
+static bool vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
 {
-	struct sirfsoc_vdss_layer *l = &layers[layer];
 	struct layer_priv_data *ldata = get_layer_data(l);
 	struct sirfsoc_vdss_layer_info *info = &ldata->info;
 
 	info->base = srcbase;
 
-	return lcdc_flip(layer, info);
+	return lcdc_flip(l->id, info);
 }
 
 static struct sirfsoc_vdss_panel *vdss_layer_get_panel(

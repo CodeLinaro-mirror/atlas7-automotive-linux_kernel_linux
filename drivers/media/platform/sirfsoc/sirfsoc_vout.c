@@ -225,7 +225,7 @@ static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
 			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB32)) {
 			struct sirfsoc_vdss_layer *l = vout->layer;
 
-			l->flip(l->id, vb2_dma_contig_plane_dma_addr(buf, 0));
+			l->flip(l, vb2_dma_contig_plane_dma_addr(buf, 0));
 
 		} else
 			__sirfsoc_vout_set_display_info(vout, buf);
