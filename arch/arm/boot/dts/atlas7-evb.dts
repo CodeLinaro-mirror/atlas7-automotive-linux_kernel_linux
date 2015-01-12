@@ -132,11 +132,17 @@
 			};
 
 			usp1: usp@10d30000 {
-				status = "disabled";
-				compatible = "sirf,prima2-usp-pcm";
-				#sound-dai-cells = <0>;
+				status = "okay";
+				compatible = "sirf,atlas7-usp-spi";
 				pinctrl-names = "default";
 				pinctrl-0 = <&audio_uart1_pmx>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				spidev@0 {
+					compatible = "spidev";
+					reg = <0>;
+					spi-max-frequency = <1000000>;
+				};
 			};
 
 			usp2: usp@10d40000 {

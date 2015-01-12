@@ -1653,6 +1653,7 @@
 				cell-index = <1>;
 				reg = <0x10d30000 0x1000>;
 				fifosize = <512>;
+				interrupts = <0 21 0>;
 				clocks = <&car 58>;
 				dmas = <&dmac2 6>, <&dmac2 7>;
 				dma-names = "rx", "tx";
