@@ -899,59 +899,35 @@ err:
 	return ret;
 }
 
-
-static int noc_macro_probe(struct platform_device *pdev)
+__init int sirfsoc_noc_init(void)
 {
-	struct noc_macro *nocm;
+	struct device_node *np;
 	const struct of_device_id *match;
-	int ret;
+	struct noc_macro *nocm;
+	struct platform_device *pdev;
 
-	match = of_match_node(sirfsoc_nocfw_ids, pdev->dev.of_node);
-	if (!match) {
-		ret = -ENODEV;
-		goto err;
-	}
+	for_each_matching_node_and_match(np, sirfsoc_nocfw_ids, &match) {
+		if (!of_device_is_available(np))
+			continue;
 
-	nocm = (struct noc_macro *)match->data;
-	nocm->mbase = of_iomap(pdev->dev.of_node, 0);
-	if (!nocm->mbase) {
-		ret = -ENOMEM;
-		goto err;
-	}
+		nocm = (struct noc_macro *)match->data;
+		nocm->mbase = of_iomap(np, 0);
+		if (!nocm->mbase)
+			return -ENOMEM;
 
-	spin_lock_init(&nocm->lock);
-	platform_set_drvdata(pdev, nocm);
+		spin_lock_init(&nocm->lock);
+		pdev = of_find_device_by_node(np);
+		platform_set_drvdata(pdev, nocm);
 
-	if (nocm->init_macro)
-		nocm->init_macro(pdev);
-
-	return 0;
-
-err:
-	return ret;
-}
-
-static struct platform_driver sirf_nocfw_driver = {
-	.probe = noc_macro_probe,
-	.driver = {
-		.name = "sirfsoc_nocfw",
-		.owner = THIS_MODULE,
-		.of_match_table = sirfsoc_nocfw_ids,
-	},
-};
-
-static __init int sirfsoc_noc_init(void)
-{
-	if (of_machine_is_compatible("sirf,atlas7")) {
 		hook_fault_code(8, noc_abort_handler, SIGBUS, 0,
 			"external abort on non-linefetch");
 
 		hook_fault_code(22, noc_abort_handler, SIGBUS, 0,
 			"imprecise external abort");
+
+		if (nocm->init_macro)
+			nocm->init_macro(pdev);
 	}
 
-	return platform_driver_register(&sirf_nocfw_driver);
+	return 0;
 }
-
-arch_initcall(sirfsoc_noc_init);
-
