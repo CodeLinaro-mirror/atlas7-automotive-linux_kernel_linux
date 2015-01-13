@@ -786,6 +786,20 @@
 				};
 			};
 
+			pw_backlight_pmx0: pw_backlight@0 {
+				pw_backlight_0 {
+					sirf,pins = "pw_backlight_grp0";
+					sirf,function = "pw_backlight_m0";
+				};
+			};
+
+			pw_backlight_pmx1: pw_backlight@1 {
+				pw_backlight_1 {
+					sirf,pins = "pw_backlight_grp1";
+					sirf,function = "pw_backlight_m1";
+				};
+			};
+
 			rg_eth_mac_pmx: rg_eth_mac@0 {
 				rg_eth_mac {
 					sirf,pins = "rg_eth_mac_grp";
