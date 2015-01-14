@@ -338,9 +338,10 @@ static const struct snd_kcontrol_new sirf_atlas7_codec_output_mode_control =
 static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("PLL", AUDIO_PLL_CTRL_1, 11, 1, pll_event,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_SUPPLY_S("LOUTBIAS", 1, AUDIO_ANA_REF_CTRL0, 0, 0,
+	SND_SOC_DAPM_SUPPLY_S("IREF EN", 1, AUDIO_ANA_REF_CTRL0, 0, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY_S("LOUTBIAS", 2, SND_SOC_NOPM, 0, 0,
 		loutbias_event, SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_SUPPLY_S("LINBIAS", 1, AUDIO_ANA_REF_CTRL0, 0, 0,
+	SND_SOC_DAPM_SUPPLY_S("LINBIAS", 2, SND_SOC_NOPM, 0, 0,
 		linbias_event, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MUX("Output mode", SND_SOC_NOPM, 0, 0,
@@ -437,7 +438,8 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"DACCCLK", NULL, "LOUTBIAS"},
 	{"DACDCLK", NULL, "LOUTBIAS"},
 
-	{"LOUTBIAS", NULL, "PLL"},
+	{"LOUTBIAS", NULL, "IREF EN"},
+	{"IREF EN", NULL, "PLL"},
 
 	{"DACA", NULL, "AIFRX"},
 	{"DACB", NULL, "AIFRX"},
@@ -477,7 +479,8 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"LOUT2", NULL, "Dither EN CH23"},
 	{"LOUT3", NULL, "Dither EN CH23"},
 
-	{"LINBIAS", NULL, "PLL"},
+	{"IREF EN", NULL, "PLL"},
+	{"LINBIAS", NULL, "IREF EN"},
 	{"ADCACLK", NULL, "LINBIAS"},
 	{"ADCBCLK", NULL, "LINBIAS"},
 	{"ADCA", NULL, "ADCACLK"},
