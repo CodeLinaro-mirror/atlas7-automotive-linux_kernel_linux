@@ -22,6 +22,13 @@
 
 struct atlas7_dma_data {
 	struct dma_chan *chan[IACC_DMA_CHANNELS];
+	dma_cookie_t cookie[IACC_DMA_CHANNELS];
+};
+
+struct atlas7_pcm_runtime_data {
+	struct hrtimer hrt;
+	int poll_time_ns;
+	struct snd_pcm_substream *substream;
 	unsigned int pos;
 };
 
@@ -31,7 +38,6 @@ struct atlas7_iacc {
 	struct atlas7_dma_data tx_dma_data;
 	struct atlas7_dma_data rx_dma_data;
 };
-
 
 static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 	int channels)
@@ -273,8 +279,8 @@ static const struct snd_pcm_hardware atlas7_pcm_hardware_playback = {
 				SNDRV_PCM_INFO_BLOCK_TRANSFER,
 	.period_bytes_min	= 32,
 	.period_bytes_max	= 256 * 1024,
-	.periods_min		= 1,
-	.periods_max		= 2,
+	.periods_min		= 2,
+	.periods_max		= 128,
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 	.fifo_size		= 16,
 };
@@ -288,35 +294,64 @@ static const struct snd_pcm_hardware atlas7_pcm_hardware_capture = {
 				SNDRV_PCM_INFO_BLOCK_TRANSFER,
 	.period_bytes_min	= 32,
 	.period_bytes_max	= 256 * 1024,
-	.periods_min		= 1,
-	.periods_max		= 2,
+	.periods_min		= 2,
+	.periods_max		= 128,
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 	.fifo_size		= 16,
 };
 
-static void atlas7_pcm_dma_complete(void *arg)
+static enum hrtimer_restart snd_hrtimer_callback(struct hrtimer *hrt)
 {
-	struct snd_pcm_substream *substream = arg;
+	struct atlas7_pcm_runtime_data *aprtd =
+		container_of(hrt, struct atlas7_pcm_runtime_data, hrt);
+	struct snd_pcm_substream *substream = aprtd->substream;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct atlas7_dma_data *dma_data;
+	struct dma_tx_state state;
+	enum dma_status status;
+	unsigned int buf_size;
+	unsigned int pos = 0;
+	int channels = substream->runtime->channels;
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		status = dmaengine_tx_status(dma_data->chan[channels - 1],
+				dma_data->cookie[channels - 1], &state);
+	else
+		status = dmaengine_tx_status(dma_data->chan[0],
+				dma_data->cookie[0], &state);
+	if (status == DMA_IN_PROGRESS || status == DMA_PAUSED) {
+		buf_size = snd_pcm_lib_buffer_bytes(substream);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (state.residue > 0 &&
+				state.residue * channels <= buf_size)
+				pos = buf_size - state.residue * channels;
+		} else {
+			if (state.residue > 0 && state.residue <= buf_size)
+				pos = buf_size - state.residue;
+		}
+	}
 
-	dma_data->pos += snd_pcm_lib_period_bytes(substream);
-	if (dma_data->pos >= snd_pcm_lib_buffer_bytes(substream))
-		dma_data->pos = 0;
-
+	aprtd->pos = pos;
 	snd_pcm_period_elapsed(substream);
+
+	hrtimer_forward_now(hrt, ns_to_ktime(aprtd->poll_time_ns));
+
+	return HRTIMER_RESTART;
 }
 
 static int atlas7_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct atlas7_pcm_runtime_data *aprtd = runtime->private_data;
 	struct atlas7_dma_data *dma_data;
 
+	aprtd->poll_time_ns = 1000000000 / params_rate(params) *
+				params_period_size(params);
+
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
-	dma_data->pos = 0;
 	return snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 }
 
@@ -324,13 +359,6 @@ static unsigned int buffer_bytes_each_channels(
 	struct snd_pcm_substream *substream)
 {
 	return snd_pcm_lib_buffer_bytes(substream) /
-		substream->runtime->channels;
-}
-
-static unsigned int period_bytes_each_channels(
-	struct snd_pcm_substream *substream)
-{
-	return snd_pcm_lib_period_bytes(substream) /
 		substream->runtime->channels;
 }
 
@@ -359,35 +387,25 @@ static int atlas7_pcm_dma_prep_and_submit(struct snd_pcm_substream *substream)
 				substream->runtime->dma_addr +
 				buffer_bytes_each_channels(substream) * i,
 				buffer_bytes_each_channels(substream),
-				period_bytes_each_channels(substream),
+				buffer_bytes_each_channels(substream) / 2,
 				direction, flags);
 
 			if (!desc)
 				return -ENOMEM;
 
-			/* Only enable last dma interrupt callback, because
-			 * The last dma interrupt raise, that means all the
-			 * dma channels have been raised.
-			 */
-			if (i == (substream->runtime->channels - 1)) {
-				desc->callback = atlas7_pcm_dma_complete;
-				desc->callback_param = substream;
-			}
-			dmaengine_submit(desc);
+			dma_data->cookie[i] = dmaengine_submit(desc);
 		}
 	} else {
 		desc = dmaengine_prep_dma_cyclic(dma_data->chan[0],
 				substream->runtime->dma_addr,
 				snd_pcm_lib_buffer_bytes(substream),
-				snd_pcm_lib_period_bytes(substream),
+				snd_pcm_lib_buffer_bytes(substream) / 2,
 				direction, flags);
 
 		if (!desc)
 			return -ENOMEM;
 
-		desc->callback = atlas7_pcm_dma_complete;
-		desc->callback_param = substream;
-		dmaengine_submit(desc);
+		dma_data->cookie[0] = dmaengine_submit(desc);
 	}
 	return 0;
 }
@@ -400,17 +418,17 @@ static int atlas7_pcm_hw_free(struct snd_pcm_substream *substream)
 
 static snd_pcm_uframes_t atlas7_pcm_pointer(struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct atlas7_dma_data *dma_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct atlas7_pcm_runtime_data *aprtd = runtime->private_data;
 
-	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
-
-	return bytes_to_frames(substream->runtime, dma_data->pos);
+	return bytes_to_frames(substream->runtime, aprtd->pos);
 }
 
 static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct atlas7_pcm_runtime_data *aprtd = runtime->private_data;
 	struct atlas7_dma_data *dma_data;
 	int i;
 
@@ -426,6 +444,8 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				dma_async_issue_pending(dma_data->chan[i]);
 		} else
 			dma_async_issue_pending(dma_data->chan[0]);
+		hrtimer_start(&aprtd->hrt, ns_to_ktime(aprtd->poll_time_ns),
+		      HRTIMER_MODE_REL);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -435,6 +455,7 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				dmaengine_terminate_all(dma_data->chan[i]);
 		else
 			dma_async_issue_pending(dma_data->chan[0]);
+		hrtimer_cancel(&aprtd->hrt);
 		break;
 	default:
 		return -EINVAL;
@@ -445,8 +466,18 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 static int atlas7_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct atlas7_pcm_runtime_data *aprtd;
 	const struct snd_pcm_hardware *ppcm;
 	int ret;
+
+	aprtd = kzalloc(sizeof(*aprtd), GFP_KERNEL);
+	if (aprtd == NULL)
+		return -ENOMEM;
+	runtime->private_data = aprtd;
+
+	aprtd->substream = substream;
+	hrtimer_init(&aprtd->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	aprtd->hrt.function = snd_hrtimer_callback;
 
 	ppcm = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 			&atlas7_pcm_hardware_playback
@@ -461,36 +492,16 @@ static int atlas7_pcm_open(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static int atlas7_pcm_copy(struct snd_pcm_substream *substream, int channel,
-	snd_pcm_uframes_t pos, void *buf, snd_pcm_uframes_t count)
+static int atlas7_pcm_close(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	unsigned int sample_size = runtime->sample_bits / 8;
-	unsigned int i;
-	void *src, *dst;
+	struct atlas7_pcm_runtime_data *aprtd = runtime->private_data;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		src = buf;
-		dst = runtime->dma_area;
-		dst += pos * sample_size;
-		while (count--) {
-			for (i = 0; i < runtime->channels; i++) {
-				memcpy(dst + i *
-					buffer_bytes_each_channels(substream),
-					src, sample_size);
-				src += sample_size;
-			}
-			dst += sample_size;
-		}
-	} else {
-		src = runtime->dma_area;
-		src += frames_to_bytes(runtime, pos);
-		dst = buf;
-		memcpy(dst, src, frames_to_bytes(runtime, count));
-	}
+	kfree(aprtd);
 
 	return 0;
 }
+
 static struct snd_pcm_ops atlas7_pcm_iacc_ops = {
 	.open		= atlas7_pcm_open,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -498,7 +509,7 @@ static struct snd_pcm_ops atlas7_pcm_iacc_ops = {
 	.hw_free	= atlas7_pcm_hw_free,
 	.trigger	= atlas7_pcm_trigger,
 	.pointer	= atlas7_pcm_pointer,
-	.copy		= atlas7_pcm_copy,
+	.close		= atlas7_pcm_close,
 };
 
 static int atlas7_pcm_iacc_new(struct snd_soc_pcm_runtime *rtd)
@@ -549,6 +560,9 @@ static int atlas7_iacc_probe(struct platform_device *pdev)
 	void __iomem *base;
 	struct dma_chan *chan;
 	char tx_dma_name[16];
+	struct dma_slave_config rx_dma_cfg = {
+		.src_maxburst = 2,
+	};
 
 	atlas7_iacc = devm_kzalloc(&pdev->dev,
 			sizeof(struct atlas7_iacc), GFP_KERNEL);
@@ -590,6 +604,7 @@ static int atlas7_iacc_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	dmaengine_slave_config(chan, &rx_dma_cfg);
 	atlas7_iacc->rx_dma_data.chan[0] = chan;
 
 	atlas7_iacc->clk = clk;
