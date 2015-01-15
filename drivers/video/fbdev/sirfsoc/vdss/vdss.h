@@ -39,8 +39,6 @@ void vdss_screen_set_timings(struct sirfsoc_vdss_screen *scn,
 	const struct sirfsoc_video_timings *timings);
 void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	int data_lines);
-void vdss_screen_set_lvds_info(struct sirfsoc_vdss_screen *scn,
-	enum vdss_lvdsc_fmt fmt);
 int vdss_screen_enable(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_disable(struct sirfsoc_vdss_screen *scn);
 

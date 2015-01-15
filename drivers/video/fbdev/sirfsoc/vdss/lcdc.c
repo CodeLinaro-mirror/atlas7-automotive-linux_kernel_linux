@@ -1089,9 +1089,9 @@ static int lvds_enable(struct sirfsoc_vdss_output *out)
 
 	mutex_lock(&lvds.lock);
 
+	lvdsc_setup(lvds.fmt);
 	vdss_screen_set_timings(out->screen, t);
 	vdss_screen_set_data_lines(out->screen, lvds.data_lines);
-	vdss_screen_set_lvds_info(out->screen, lvds.fmt);
 	vdss_screen_enable(out->screen);
 
 	mutex_unlock(&lvds.lock);
