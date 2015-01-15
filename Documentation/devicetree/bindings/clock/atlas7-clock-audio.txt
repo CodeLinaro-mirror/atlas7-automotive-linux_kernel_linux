@@ -1,0 +1,20 @@
+Required properties:
+- compatible: Should be "sirf,atlas7-audioclk"
+- reg: Address and length of the register set
+- #clock-cells: Should be <1>
+- #reset-cells: Should be <1>
+
+audioclk: clock-controller@10E30000 {
+        compatible = "sirf,atlas7-audioclk";
+        reg = <0x10E30000 0x400>;
+        #clock-cells = <1>;
+        #reset-cells = <1>;
+};
+
+adc: adc@10d80000 {
+        compatible = "sirf,atlas7-adc";
+        reg = <0x10d80000 0xffff>;
+        interrupts = <0 34 0>;
+        clocks = <&audioclk 0>;
+};
+

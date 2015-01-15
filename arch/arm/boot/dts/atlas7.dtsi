@@ -68,6 +68,12 @@
 			ldo-supply = <&ldo>;
 		};
 
+		audioclk: clock-controller@10E30000 {
+			compatible = "sirf,atlas7-audioclk";
+			reg = <0x10E30000 0x400>;
+			#clock-cells = <1>;
+		};
+
 		atlas7_iacc: atlas7_iacc@10D01000 {
 			#sound-dai-cells = <0>;
 			compatible = "sirf,atlas7-iacc";
@@ -1608,7 +1614,7 @@
 				compatible = "sirf,atlas7-adc";
 				reg = <0x10d80000 0xffff>;
 				interrupts = <0 34 0>;
-				clocks = <&car 49>;
+				clocks = <&car 49>, <&audioclk 0>;
 				#io-channel-cells = <1>;
 			};
 
@@ -1763,8 +1769,10 @@
 				pwrc@3000 {
 					compatible = "sirf,atlas7-pwrc";
 					reg = <0x3000 0x100>;
-					rtcm-clk {
+
+					rtcmclk: clock-controller {
 						compatible = "sirf,atlas7-rtcmclk";
+						#clock-cells = <1>;
 					};
 					onkey {
 						compatible = "sirf,atlas7-onkey";
@@ -1783,6 +1791,7 @@
 				compatible = "sirf,atlas7-qspi-nor";
 				reg = <0x188B0000 0x10000>;
 				interrupts = <0 15 0>;
+				clocks = <&rtcmclk 2>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 			};

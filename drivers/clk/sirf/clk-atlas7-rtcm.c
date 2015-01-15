@@ -1,0 +1,241 @@
+/*
+ * Clock tree for CSR SiRFAtlas7
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/bitops.h>
+#include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/delay.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
+#include <linux/io.h>
+#include <linux/reset-controller.h>
+#include <linux/syscore_ops.h>
+#include <linux/slab.h>
+#include <asm/system_misc.h>
+#include <linux/regmap.h>
+#include <linux/rtc/sirfsoc_rtciobrg.h>
+#include <linux/mfd/sirfsoc_pwrc.h>
+#include "clk-atlas7.h"
+
+
+struct sirfsoc_rtcmclk_info {
+	struct device *dev;
+	struct regmap *regmap;
+	struct sirfsoc_pwrc_register *pwrc_reg;
+	u32 ver;
+	u32 base;
+};
+
+static struct sirfsoc_rtcmclk_info *s_rtcmclk_info;
+
+static inline unsigned long rtcm_clkc_readl(unsigned reg)
+{
+	u32 val;
+
+	regmap_read(s_rtcmclk_info->regmap, s_rtcmclk_info->base + reg, &val);
+	return val;
+}
+
+static inline void  rtcm_clkc_writel(u32 val, unsigned reg)
+{
+	regmap_write(s_rtcmclk_info->regmap, s_rtcmclk_info->base + reg, val);
+}
+static struct clk_onecell_data rtcmclk_data;
+	/* new unit should add start from the tail of list */
+static struct atlas7_unit_init_data rtcm_unit_list[] = {
+	/* unit_name, parent_name, flags, regofs, bit, lock */
+	{0, "m3", "rtcmpll_fast_fixdiv", 0,
+		SIRFSOC_RTCM_CLKC_M3_CLK_SEL, 0, NULL},
+	{1, "can0", "rtcmpll_fast_fixdiv", 0,
+		SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL, 0, NULL},
+	{2, "qspi0", "rtcmpll_fast_fixdiv", 0,
+		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, NULL},
+};
+/*AOPD clk controller*/
+
+static struct clk *rtcm_clks[ARRAY_SIZE(rtcm_unit_list)];
+
+static int rtcm_unit_clk_is_enabled(struct clk_hw *hw)
+{
+	struct clk_unit *clk = to_unitclk(hw);
+
+	return !!(rtcm_clkc_readl(clk->regofs) & BIT(clk->bit));
+}
+
+static int rtcm_unit_clk_enable(struct clk_hw *hw)
+{
+	struct clk_unit *clk = to_unitclk(hw);
+
+	rtcm_clkc_writel(BIT(clk->bit), clk->regofs);
+	return 0;
+}
+
+static void rtcm_unit_clk_disable(struct clk_hw *hw)
+{
+	struct clk_unit *clk = to_unitclk(hw);
+
+	rtcm_clkc_writel(rtcm_clkc_readl(clk->regofs) &
+		~BIT(clk->bit),
+		clk->regofs);
+}
+
+static struct clk_ops rtcm_unit_clk_ops = {
+	.is_enabled = rtcm_unit_clk_is_enabled,
+	.enable = rtcm_unit_clk_enable,
+	.disable = rtcm_unit_clk_disable,
+};
+
+static struct clk *atlas7_rtcm_unit_clk_register
+		(struct device *dev, const char *name,
+		 const char *parent_name, unsigned long flags,
+		 u32 regofs, u8 bit, spinlock_t *lock)
+{
+	struct clk *clk;
+	struct clk_unit *unit;
+	struct clk_init_data init;
+
+	unit = kzalloc(sizeof(*unit), GFP_KERNEL);
+	if (!unit)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = name;
+	init.parent_names = (parent_name ? &parent_name : NULL);
+	init.num_parents = (parent_name ? 1 : 0);
+	init.ops = &rtcm_unit_clk_ops;
+	init.flags = flags;
+
+	unit->hw.init = &init;
+	unit->regofs = regofs;
+	unit->bit = bit;
+	unit->lock = lock;
+
+	clk = clk_register(dev, &unit->hw);
+	if (IS_ERR(clk))
+		kfree(unit);
+
+	return clk;
+}
+
+static unsigned long pll_rtcmclk_recalc_rate(struct clk_hw *hw,
+	unsigned long parent_rate)
+{
+	struct clk_pll *clk = to_pllclk(hw);
+	u32 pllctl = rtcm_clkc_readl(clk->regofs);
+	u32 fbdiv;
+	u64 rate;
+
+	fbdiv = (pllctl>>1) & 0x3fff;
+	rate = parent_rate * fbdiv;
+
+	return rate;
+}
+
+
+static struct clk_ops rtcm_pll_ops = {
+	.recalc_rate = pll_rtcmclk_recalc_rate,
+};
+
+static const char *const rtcm_clk_parents[] = {
+	"xinw",
+};
+
+static struct clk_init_data clk_rtcmpll_init = {
+	.name = "rtcmpll_vco",
+	.ops = &rtcm_pll_ops,
+	.parent_names = rtcm_clk_parents,
+	.num_parents = 1,
+};
+
+static struct clk_pll clk_rtcmpll = {
+	.regofs = SIRFSOC_RTCM_CLKC_PLL_CTRL,
+	.hw = {
+		.init = &clk_rtcmpll_init,
+	},
+};
+
+const struct regmap_config rtcmclk_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.fast_io = true,
+};
+
+static const struct of_device_id rtcmclk_ids[] = {
+	{ .compatible = "sirf,atlas7-rtcmclk"},
+	{}
+};
+
+static int sirfsoc_rtcmclk_probe(struct platform_device *pdev)
+{
+	struct sirfsoc_pwrc_info *pwrcinfo = dev_get_drvdata(pdev->dev.parent);
+	struct atlas7_unit_init_data *unit;
+	struct sirfsoc_rtcmclk_info *info;
+	struct device_node *np;
+	struct clk *clk;
+	int ret;
+	int i;
+
+	info = kzalloc(sizeof(struct sirfsoc_rtcmclk_info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
+
+	info->dev = &pdev->dev;
+	info->pwrc_reg = pwrcinfo->pwrc_reg;
+	info->regmap  = pwrcinfo->regmap;
+	info->base	= pwrcinfo->base;
+	info->ver  = pwrcinfo->ver;
+
+	if (!info->regmap) {
+		dev_err(&pdev->dev, "no regmap!\n");
+		return -EINVAL;
+	}
+
+	s_rtcmclk_info = info;
+
+	clk = clk_register(NULL, &clk_rtcmpll.hw);
+	BUG_ON(!clk);
+
+	clk = clk_register_fixed_factor(NULL, "rtcmpll_fast_fixdiv",
+					"rtcmpll_vco",
+					CLK_SET_RATE_PARENT, 1, 1);
+	BUG_ON(!clk);
+
+	for (i = 0; i < ARRAY_SIZE(rtcm_unit_list); i++) {
+		unit = &rtcm_unit_list[i];
+		rtcm_clks[i] = atlas7_rtcm_unit_clk_register(NULL,
+				unit->unit_name, unit->parent_name,
+				unit->flags, unit->regofs,
+				unit->bit, unit->lock);
+		BUG_ON(!rtcm_clks[i]);
+	}
+
+	rtcmclk_data.clks = rtcm_clks;
+	rtcmclk_data.clk_num = ARRAY_SIZE(rtcm_unit_list);
+
+	np = of_find_matching_node(NULL, rtcmclk_ids);
+	if (!np)
+		panic("unable to find compatible sirf node in dtb\n");
+
+	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &rtcmclk_data);
+	BUG_ON(ret);
+	return 0;
+}
+
+
+static struct platform_driver sirfsoc_rtcmclk_driver = {
+	.probe		= sirfsoc_rtcmclk_probe,
+	.driver	= {
+	.name	= "rtcmclk",
+	.owner	= THIS_MODULE,
+	.of_match_table = rtcmclk_ids,
+	},
+};
+
+module_platform_driver(sirfsoc_rtcmclk_driver);
+

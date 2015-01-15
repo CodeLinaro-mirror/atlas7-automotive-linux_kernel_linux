@@ -97,7 +97,7 @@ static const struct of_device_id pwrc_ids[] = {
 
 static const struct mfd_cell pwrc_devs[] = {
 	{
-		.name = "rtcm-clk",
+		.name = "rtcmclk",
 		.of_compatible = "sirf,atlas7-rtcmclk",
 	},
 	{
