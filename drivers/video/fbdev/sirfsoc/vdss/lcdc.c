@@ -1015,7 +1015,7 @@ void lcdc_print_regs(void)
 
 #define VDSS_SUBSYS_NAME "LCDC"
 
-static struct {
+static struct sirfsoc_output_rgb {
 	struct platform_device *pdev;
 	struct mutex lock;
 	struct sirfsoc_video_timings timings;
@@ -1024,7 +1024,7 @@ static struct {
 	struct sirfsoc_vdss_output output;
 } rgb;
 
-static struct {
+static struct sirfsoc_output_lvds {
 	struct platform_device *pdev;
 	struct mutex lock;
 	struct sirfsoc_video_timings timings;
@@ -1085,58 +1085,71 @@ static void lvds_disconnect(struct sirfsoc_vdss_output *out,
 
 static int lvds_enable(struct sirfsoc_vdss_output *out)
 {
-	struct sirfsoc_video_timings *t = &lvds.timings;
+	struct sirfsoc_output_lvds *plvds = container_of(out,
+		struct sirfsoc_output_lvds, output);
+	struct sirfsoc_video_timings *t = &plvds->timings;
 
-	mutex_lock(&lvds.lock);
+	mutex_lock(&plvds->lock);
 
-	lvdsc_setup(lvds.fmt);
+	lvdsc_setup(plvds->fmt);
 	vdss_screen_set_timings(out->screen, t);
-	vdss_screen_set_data_lines(out->screen, lvds.data_lines);
+	vdss_screen_set_data_lines(out->screen, plvds->data_lines);
 	vdss_screen_enable(out->screen);
 
-	mutex_unlock(&lvds.lock);
+	mutex_unlock(&plvds->lock);
 
 	return 0;
 }
 
 static void lvds_disable(struct sirfsoc_vdss_output *out)
 {
+	struct sirfsoc_output_lvds *plvds = container_of(out,
+		struct sirfsoc_output_lvds, output);
 
-	mutex_lock(&lvds.lock);
+	mutex_lock(&plvds->lock);
 
 	vdss_screen_disable(out->screen);
 
-	mutex_unlock(&lvds.lock);
+	mutex_unlock(&plvds->lock);
 }
 
 static void lvds_set_timings(struct sirfsoc_vdss_output *out,
 	struct sirfsoc_video_timings *timings)
 {
-	mutex_lock(&lvds.lock);
+	struct sirfsoc_output_lvds *plvds = container_of(out,
+		struct sirfsoc_output_lvds, output);
 
-	lvds.timings = *timings;
+	mutex_lock(&plvds->lock);
 
-	mutex_unlock(&lvds.lock);
+	plvds->timings = *timings;
+
+	mutex_unlock(&plvds->lock);
 }
 
 static void lvds_set_data_lines(struct sirfsoc_vdss_output *out,
 	int data_lines)
 {
-	mutex_lock(&lvds.lock);
+	struct sirfsoc_output_lvds *plvds = container_of(out,
+		struct sirfsoc_output_lvds, output);
 
-	lvds.data_lines = data_lines;
+	mutex_lock(&plvds->lock);
 
-	mutex_unlock(&lvds.lock);
+	plvds->data_lines = data_lines;
+
+	mutex_unlock(&plvds->lock);
 }
 
 static void lvds_set_fmt(struct sirfsoc_vdss_output *out,
 	enum vdss_lvdsc_fmt fmt)
 {
-	mutex_lock(&lvds.lock);
+	struct sirfsoc_output_lvds *plvds = container_of(out,
+		struct sirfsoc_output_lvds, output);
 
-	lvds.fmt = fmt;
+	mutex_lock(&plvds->lock);
 
-	mutex_unlock(&lvds.lock);
+	plvds->fmt = fmt;
+
+	mutex_unlock(&plvds->lock);
 }
 
 static const struct sirfsoc_vdss_lvds_ops lvds_ops = {
@@ -1228,47 +1241,58 @@ static void rgb_disconnect(struct sirfsoc_vdss_output *out,
 
 static int rgb_enable(struct sirfsoc_vdss_output *out)
 {
-	struct sirfsoc_video_timings *t = &rgb.timings;
+	struct sirfsoc_output_rgb *prgb = container_of(out,
+		struct sirfsoc_output_rgb, output);
+	struct sirfsoc_video_timings *t = &prgb->timings;
 
-	mutex_lock(&rgb.lock);
+	mutex_lock(&prgb->lock);
 
 	vdss_screen_set_timings(out->screen, t);
-	vdss_screen_set_data_lines(out->screen, rgb.data_lines);
+	vdss_screen_set_data_lines(out->screen, prgb->data_lines);
 	vdss_screen_enable(out->screen);
 
-	mutex_unlock(&rgb.lock);
+	mutex_unlock(&prgb->lock);
 
 	return 0;
 }
 
 static void rgb_disable(struct sirfsoc_vdss_output *out)
 {
-	mutex_lock(&rgb.lock);
+	struct sirfsoc_output_rgb *prgb = container_of(out,
+		struct sirfsoc_output_rgb, output);
+
+	mutex_lock(&prgb->lock);
 
 	vdss_screen_disable(out->screen);
 
-	mutex_unlock(&rgb.lock);
+	mutex_unlock(&prgb->lock);
 }
 
 static void rgb_set_timings(struct sirfsoc_vdss_output *out,
 	struct sirfsoc_video_timings *timings)
 {
-	mutex_lock(&rgb.lock);
+	struct sirfsoc_output_rgb *prgb = container_of(out,
+		struct sirfsoc_output_rgb, output);
 
-	rgb.timings = *timings;
+	mutex_lock(&prgb->lock);
 
-	mutex_unlock(&rgb.lock);
+	prgb->timings = *timings;
+
+	mutex_unlock(&prgb->lock);
 }
 
 
 static void rgb_set_data_lines(struct sirfsoc_vdss_output *out,
 	int data_lines)
 {
-	mutex_lock(&rgb.lock);
+	struct sirfsoc_output_rgb *prgb = container_of(out,
+		struct sirfsoc_output_rgb, output);
 
-	rgb.data_lines = data_lines;
+	mutex_lock(&prgb->lock);
 
-	mutex_unlock(&rgb.lock);
+	prgb->data_lines = data_lines;
+
+	mutex_unlock(&prgb->lock);
 }
 
 static const struct sirfsoc_vdss_rgb_ops rgb_ops = {
