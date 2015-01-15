@@ -1323,30 +1323,30 @@ static bool vdss_output_inited[ARRAY_SIZE(vdss_output_init_funcs)];
 
 static irqreturn_t lcdc_irq_handler(int irq, void *dev_id)
 {
-	struct sirfsoc_lcdc *lcdc = (struct sirfsoc_lcdc *)dev_id;
+	struct sirfsoc_lcdc *plcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	return lcdc->user_handler(irq, lcdc->user_data);
+	return plcdc->user_handler(irq, plcdc->user_data);
 }
 
 static int lcdc_request_irq(irq_handler_t handler, void *dev_id)
 {
 	int r;
-	struct sirfsoc_lcdc     *lcdc = (struct sirfsoc_lcdc *)dev_id;
+	struct sirfsoc_lcdc *plcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	if (lcdc->user_handler)
+	if (plcdc->user_handler)
 		return -EBUSY;
 
-	lcdc->user_handler = handler;
-	lcdc->user_data = dev_id;
+	plcdc->user_handler = handler;
+	plcdc->user_data = dev_id;
 
 	/* ensure the lcdc_irq_handler sees the values above */
 	smp_wmb();
 
-	r = devm_request_irq(&lcdc->pdev->dev, lcdc->irq, lcdc_irq_handler,
-			     IRQF_SHARED, "SIRFSOC LCDC", lcdc);
+	r = devm_request_irq(&plcdc->pdev->dev, plcdc->irq, lcdc_irq_handler,
+			     IRQF_SHARED, "SIRFSOC LCDC", plcdc);
 	if (r) {
-		lcdc->user_handler = NULL;
-		lcdc->user_data = NULL;
+		plcdc->user_handler = NULL;
+		plcdc->user_data = NULL;
 	}
 
 	return r;
@@ -1354,12 +1354,12 @@ static int lcdc_request_irq(irq_handler_t handler, void *dev_id)
 
 static void lcdc_free_irq(void *dev_id)
 {
-	struct sirfsoc_lcdc *lcdc = (struct sirfsoc_lcdc *)dev_id;
+	struct sirfsoc_lcdc *plcdc = (struct sirfsoc_lcdc *)dev_id;
 
-	devm_free_irq(&lcdc->pdev->dev, lcdc->irq, lcdc);
+	devm_free_irq(&plcdc->pdev->dev, plcdc->irq, plcdc);
 
-	lcdc->user_handler = NULL;
-	lcdc->user_data = NULL;
+	plcdc->user_handler = NULL;
+	plcdc->user_data = NULL;
 }
 
 /* lcdc.irq_lock has to be locked by the caller */
