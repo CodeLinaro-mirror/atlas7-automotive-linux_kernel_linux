@@ -1,4 +1,11 @@
-#include <linux/kernel.h>
+/*
+ *Copyright (C) 2007 SiRF Technology, Inc
+ *
+ *This file is licensed under the terms of the GNU General Public
+ *License version 2. This program is licensed "as is" without any
+ *warranty of any kind, whether express or implied.
+ */
+
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/of.h>
@@ -31,14 +38,15 @@ enum sirfsoc_gps_power_config {
 
 static ssize_t gps_power_show(struct device *dev,
 					struct device_attribute *attr,
-					const char *buf)
+					char *buf)
 {
 	struct sirfsoc_gps_power_info *gps_power_info =
 		(struct sirfsoc_gps_power_info *)dev_get_drvdata(dev);
 	struct sirfsoc_pwrc_register *pwrc = gps_power_info->pwrc_reg;
 
 	ssize_t count = 0;
-	u32 tmp, val;
+	u32 tmp = 0;
+	u32 val = 0;
 
 	regmap_read(gps_power_info->regmap,
 		gps_power_info->base +
@@ -67,7 +75,8 @@ static ssize_t gps_power_store(struct device *dev,
 		dev_get_drvdata(dev);
 	struct sirfsoc_pwrc_register *pwrc =
 			gps_power_info->pwrc_reg;
-	u32 gps_power_config, val, tmp;
+	u32 gps_power_config = 0;
+	u32 tmp = 0;
 
 	if (sscanf(buf, "%x\n",
 				&gps_power_config) != 1)
@@ -133,7 +142,6 @@ static ssize_t gps_power_store(struct device *dev,
 		break;
 	}
 
-err:
 	return len;
 }
 
