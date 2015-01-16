@@ -120,11 +120,6 @@ static void __init sirfsoc_init_late(void)
 	sirfsoc_gps_nosave_memblock();
 	sirfsoc_pbb_nosave_memblock();
 
-#if defined(CONFIG_CSRVISOR_DUALOS) && !defined(CONFIG_SECURITY_MODE)
-	if (of_machine_is_compatible("sirf,atlas7"))
-		free_reserved_area(__va(SMP_PHY_BASE),
-			__va(SMP_PHY_BASE+SZ_1M), -1, "smp bringup");
-#endif
 	np = of_find_node_by_path("/sound");
 	if (!np) {
 		pr_err("No sound node found\n");
