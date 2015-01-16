@@ -94,7 +94,6 @@ Required properties:
  - compatible: specify the panel type
  - source: 	the output source of the lcdc
  - panel-ctrl: the mcu to power on/off the panel through i2c bus
- - bl-gpios:	backlight control gpio
  - data-lines: available data pins from the lcdc controller to panel
  - display-timings: display timing properties of the panel
 
@@ -119,7 +118,6 @@ display0: display@0 {
 
 	panel-ctrl = <&lcd_mcu>;
 
-	bl-gpios = <&gpio 7 0>;
 	vcc-gpios = <&gpio 4 0>;
 	power-vdd  = <0x00160015>;
 	power-vee  = <0x00180017>;
@@ -178,7 +176,6 @@ display0: display@0 {
 	compatible = "innolux,WSVGA-panel", "lvds-panel";
 	source = "lvds.0";
 
-	bl-gpios = <&gpio 7 0>;
 	data-lines = <24>;
 
 	display-timings {

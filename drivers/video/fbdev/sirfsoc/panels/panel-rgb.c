@@ -29,7 +29,6 @@ struct panel_drv_data {
 
 	struct sirfsoc_video_timings timings;
 
-	int bl_gpio;
 	int power_vcc;
 	int power_vdd;
 	int power_vee;
@@ -106,9 +105,6 @@ static int panel_rgb_enable(struct sirfsoc_vdss_panel *panel)
 				pdata->power_vee & 0xFFFF, 0x1);
 	}
 
-	if (gpio_is_valid(pdata->bl_gpio))
-		gpio_set_value_cansleep(pdata->bl_gpio, 1);
-
 	panel->state = SIRFSOC_VDSS_PANEL_ENABLED;
 
 	return 0;
@@ -121,9 +117,6 @@ static void panel_rgb_disable(struct sirfsoc_vdss_panel *panel)
 
 	if (!sirfsoc_vdss_panel_is_enabled(panel))
 		return;
-
-	if (gpio_is_valid(pdata->bl_gpio))
-		gpio_set_value_cansleep(pdata->bl_gpio, 0);
 
 	if (!of_machine_is_compatible("sirf,atlas7")) {
 		if (pdata->power_vee != 0)
@@ -221,14 +214,6 @@ static int panel_rgb_probe_of(struct platform_device *pdev)
 
 	of_property_read_u32(node, "data-lines", &pdata->data_lines);
 
-	gpio = of_get_named_gpio(node, "bl-gpios", 0);
-	if (gpio_is_valid(gpio)) {
-		pdata->bl_gpio = gpio;
-	} else {
-		dev_err(&pdev->dev, "failed to parse backlight gpio\n");
-		return gpio;
-	}
-
 	timings = of_get_display_timings(node);
 	if (!timings) {
 		dev_err(&pdev->dev, "failed to get video timing\n");
@@ -292,14 +277,6 @@ static int panel_rgb_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if (gpio_is_valid(pdata->bl_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, pdata->bl_gpio,
-			GPIOF_OUT_INIT_LOW, "panel backlight");
-		if (r)
-			goto err_gpio;
-	}
-
-
 	panel = &pdata->panel;
 	panel->dev = &pdev->dev;
 	panel->driver = &panel_rgb_ops;
@@ -318,7 +295,6 @@ static int panel_rgb_probe(struct platform_device *pdev)
 	return 0;
 
 err_reg:
-err_gpio:
 	return r;
 }
 
