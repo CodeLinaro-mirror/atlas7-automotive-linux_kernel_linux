@@ -1358,6 +1358,10 @@ err0:
 
 static int sirfsocfb_remove(struct platform_device *pdev)
 {
+	struct sirfsocfb_device *fbdev = platform_get_drvdata(pdev);
+
+	sirfsocfb_free_resources(fbdev);
+
 	return 0;
 }
 
