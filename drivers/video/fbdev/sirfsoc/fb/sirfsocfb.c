@@ -1370,7 +1370,7 @@ static struct platform_driver sirfsocfb_driver = {
 	.remove = sirfsocfb_remove,
 };
 
-static struct platform_device *sirfsocfb_device;
+static struct platform_device *sirfsocfb_dev;
 
 static __init int sirfsocfb_init(void)
 {
@@ -1378,10 +1378,10 @@ static __init int sirfsocfb_init(void)
 
 	ret = platform_driver_register(&sirfsocfb_driver);
 	if (!ret) {
-		sirfsocfb_device = platform_device_alloc(SIRFSOCFB_NAME, 0);
+		sirfsocfb_dev = platform_device_alloc(SIRFSOCFB_NAME, 0);
 
-		if (sirfsocfb_device) {
-			ret = platform_device_add(sirfsocfb_device);
+		if (sirfsocfb_dev) {
+			ret = platform_device_add(sirfsocfb_dev);
 			if (ret)
 				goto init_err1;
 		} else {
@@ -1392,7 +1392,7 @@ static __init int sirfsocfb_init(void)
 
 	return ret;
 init_err1:
-	platform_device_put(sirfsocfb_device);
+	platform_device_put(sirfsocfb_dev);
 init_err2:
 	platform_driver_unregister(&sirfsocfb_driver);
 	return ret;
@@ -1400,7 +1400,7 @@ init_err2:
 
 static __exit void sirfsocfb_exit(void)
 {
-	platform_device_unregister(sirfsocfb_device);
+	platform_device_unregister(sirfsocfb_dev);
 	platform_driver_unregister(&sirfsocfb_driver);
 }
 
