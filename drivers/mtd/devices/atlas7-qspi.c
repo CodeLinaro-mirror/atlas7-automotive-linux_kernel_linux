@@ -1103,7 +1103,7 @@ atlas7_qspi_nor_jedec_probe(struct atlas7_qspi_nor *a7nor)
 	tmp = atlas7_qspi_nor_read_jedec(a7nor, id, 5);
 	if (tmp < 0) {
 		dev_err(a7nor->dev, "read jedec fail.\n");
-		return ERR_PTR(tmp);
+		return NULL;
 	}
 
 	jedec     = id[0] << 16 | id[1] << 8 | id[2];
