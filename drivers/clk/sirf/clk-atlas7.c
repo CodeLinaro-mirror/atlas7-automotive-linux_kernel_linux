@@ -1117,12 +1117,12 @@ static struct atlas7_reset_desc atlas7_reset_unit[] = {
 	{"GRAPHIC", 0x0530, 0, 0x0374, 0, &leaf7_gate_lock},
 	{"VSS_SDR", 0x0530, 1, 0x0374, 1, &leaf7_gate_lock},
 	{"THGPUM", 0x0530, 2, 0x0374, 2, &leaf7_gate_lock},
-	{"DMAC4", 0x0548, 2, 0x0384, 1, &leaf8_gate_lock},
-	{"UART6", 0x0548, 3, 0x0384, 2, &leaf8_gate_lock}, /*76-*/
-	{"USP3", 0x0548, 4, 0x0384, 3, &leaf8_gate_lock},
-	{"THBTM", 0x0548, 5, 0x0384, 5, &leaf8_gate_lock},
-	{"A7CA", 0x0548, 1, 0x0384, 0, &leaf8_gate_lock},
-	{"A7CA_APB", 0x0548, 5, 0x0384, 4, &leaf8_gate_lock},
+	{"DMAC4", 0x0548, 2, 0x0380, 1, &leaf8_gate_lock},
+	{"UART6", 0x0548, 3, 0x0380, 2, &leaf8_gate_lock}, /*76-*/
+	{"USP3", 0x0548, 4, 0x0380, 3, &leaf8_gate_lock},
+	{"THBTM", 0x0548, 5, 0x0380, 5, &leaf8_gate_lock},
+	{"A7CA", 0x0548, 1, 0x0380, 0, &leaf8_gate_lock},
+	{"A7CA_APB", 0x0548, 5, 0x0380, 4, &leaf8_gate_lock},
 
 	/*Below reset has not yet implemented
 	*{"IPC", , , 0x0338, 14},
