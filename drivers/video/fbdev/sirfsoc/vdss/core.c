@@ -20,26 +20,9 @@
 
 static struct {
 	struct platform_device *pdev;
-	const char *default_display_name;
 } core;
 
 static bool vdss_initialized;
-
-const char *sirfsoc_vdss_get_default_panel_name(void)
-{
-	return core.default_display_name;
-}
-EXPORT_SYMBOL(sirfsoc_vdss_get_default_panel_name);
-
-int sirfsoc_vdss_set_default_panel_name(char *display_name)
-{
-	if (core.default_display_name)
-		return -EBUSY;
-
-	core.default_display_name = display_name;
-	return 0;
-}
-EXPORT_SYMBOL(sirfsoc_vdss_set_default_panel_name);
 
 bool sirfsoc_vdss_is_initialized(void)
 {

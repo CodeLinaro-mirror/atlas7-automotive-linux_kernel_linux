@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/jiffies.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
 
 #include <video/sirfsoc_vdss.h>
 
@@ -110,9 +111,20 @@ static int disp_num_counter;
 int sirfsoc_vdss_register_panel(struct sirfsoc_vdss_panel *panel)
 {
 	struct sirfsoc_vdss_driver *drv = panel->driver;
+	int id;
+
+	if (panel->dev->of_node) {
+		id = of_alias_get_id(panel->dev->of_node, "display");
+		if (id < 0)
+			id = disp_num_counter++;
+	} else {
+		id = disp_num_counter++;
+	}
 
 	snprintf(panel->alias, sizeof(panel->alias),
-		"display%d", disp_num_counter++);
+		"display%d", id);
+
+	panel->name = panel->alias;
 
 	if (drv && drv->get_resolution == NULL)
 		drv->get_resolution = sirfsoc_vdss_default_get_resolution;
@@ -158,6 +170,62 @@ void sirfsoc_vdss_put_panel(struct sirfsoc_vdss_panel *panel)
 	module_put(panel->owner);
 }
 EXPORT_SYMBOL(sirfsoc_vdss_put_panel);
+
+
+#define PRIMARY_DISPLAY		"display0"
+#define SECONDARY_DISPLAY	"display1"
+
+struct sirfsoc_vdss_panel *sirfsoc_vdss_get_primary_device(void)
+{
+	struct list_head *l;
+	struct sirfsoc_vdss_panel *panel = NULL;
+	struct sirfsoc_vdss_panel *p;
+
+	mutex_lock(&panel_list_mutex);
+
+	if (list_empty(&panel_list))
+		goto out;
+
+	list_for_each(l, &panel_list) {
+		p = list_entry(l, struct sirfsoc_vdss_panel, list);
+		if (p->name && strcmp(PRIMARY_DISPLAY, p->name) == 0) {
+			panel = p;
+			goto out;
+		}
+	}
+out:
+	mutex_unlock(&panel_list_mutex);
+	if (panel == NULL)
+		pr_err("No primary display device found\n");
+
+	return panel;
+}
+EXPORT_SYMBOL(sirfsoc_vdss_get_primary_device);
+
+struct sirfsoc_vdss_panel *sirfsoc_vdss_get_secondary_device(void)
+{
+	struct list_head *l;
+	struct sirfsoc_vdss_panel *panel = NULL;
+	struct sirfsoc_vdss_panel *p;
+
+	mutex_lock(&panel_list_mutex);
+
+	if (list_empty(&panel_list))
+		goto out;
+
+	list_for_each(l, &panel_list) {
+		p = list_entry(l, struct sirfsoc_vdss_panel, list);
+		if (p->name && strcmp(SECONDARY_DISPLAY, p->name) == 0) {
+			panel = p;
+			goto out;
+		}
+	}
+
+out:
+	mutex_unlock(&panel_list_mutex);
+	return panel;
+}
+EXPORT_SYMBOL(sirfsoc_vdss_get_secondary_device);
 
 /*
  * ref count of the found device is incremented.

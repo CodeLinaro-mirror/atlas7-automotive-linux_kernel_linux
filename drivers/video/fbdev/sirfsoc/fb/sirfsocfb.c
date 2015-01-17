@@ -851,7 +851,7 @@ static int sirfsocfb_alloc_fbmem_display(struct fb_info *fbi,
 	struct sirfsoc_vdss_panel *panel;
 	int bytespp;
 
-	panel = fbdev->displays[fbdev->def_display].panel;
+	panel = fbdev->panel;
 
 	if (!panel)
 		return 0;
@@ -1004,6 +1004,7 @@ static void fbinfo_cleanup(struct sirfsocfb_device *fbdev, struct fb_info *fbi)
 static void sirfsocfb_free_resources(struct sirfsocfb_device *fbdev)
 {
 	int i;
+	struct sirfsoc_vdss_panel *panel = fbdev->panel;
 
 	DBG("free_resources\n");
 
@@ -1021,20 +1022,17 @@ static void sirfsocfb_free_resources(struct sirfsocfb_device *fbdev)
 		framebuffer_release(fbdev->fbs[i]);
 	}
 
-	for (i = 0; i < fbdev->num_displays; i++) {
-		struct sirfsoc_vdss_panel *panel = fbdev->displays[i].panel;
+	if (panel->state != SIRFSOC_VDSS_PANEL_DISABLED)
+		panel->driver->disable(panel);
 
-		if (panel->state != SIRFSOC_VDSS_PANEL_DISABLED)
-			panel->driver->disable(panel);
+	panel->driver->disconnect(panel);
 
-		panel->driver->disconnect(panel);
-
-		sirfsoc_vdss_put_panel(panel);
-	}
+	sirfsoc_vdss_put_panel(panel);
 
 
 	dev_set_drvdata(fbdev->dev, NULL);
 }
+
 static int sirfsocfb_create_framebuffers(struct sirfsocfb_device *fbdev)
 {
 	int ret, i;
@@ -1196,19 +1194,6 @@ static int sirfsocfb_init_connections(struct sirfsocfb_device *fbdev,
 		return ret;
 	}
 
-	for (i = 0; i < fbdev->num_displays; ++i) {
-		struct sirfsoc_vdss_panel *panel = fbdev->displays[i].panel;
-
-		if (panel == def_panel)
-			continue;
-
-		/*
-		 * We don't care if the connect succeeds or not. We just want to
-		 * connect as many displays as possible.
-		 */
-		panel->driver->connect(panel);
-	}
-
 	scn = sirfsoc_vdss_find_screen_from_panel(def_panel);
 
 	if (!scn) {
@@ -1234,10 +1219,9 @@ static int sirfsocfb_init_connections(struct sirfsocfb_device *fbdev,
 
 static int sirfsocfb_probe(struct platform_device *pdev)
 {
-	struct sirfsocfb_device *fbdev = NULL;
+	struct sirfsocfb_device *fbdev;
 	int ret = 0;
 	int i;
-	struct sirfsoc_vdss_panel *def_panel;
 	struct sirfsoc_vdss_panel *panel;
 
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
@@ -1263,29 +1247,21 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 	fbdev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, fbdev);
 
-	fbdev->num_displays = 0;
-	panel = NULL;
-	for_each_vdss_panel(panel) {
-		struct sirfsocfb_display_data *d;
+	panel = sirfsoc_vdss_get_primary_device();
 
-		sirfsoc_vdss_get_panel(panel);
-
-		if (!panel->driver) {
-			dev_warn(&pdev->dev, "no driver for display: %s\n",
-				panel->name);
-			sirfsoc_vdss_put_panel(panel);
-			continue;
-		}
-
-		d = &fbdev->displays[fbdev->num_displays++];
-		d->panel = panel;
+	if (panel == NULL) {
+		dev_err(&pdev->dev, "no panel available\n");
+		goto err0;
 	}
 
-	if (fbdev->num_displays == 0) {
-		dev_err(&pdev->dev, "no displays\n");
-		ret = -EPROBE_DEFER;
-		goto cleanup;
+	if (panel->driver == NULL) {
+		dev_warn(&pdev->dev, "no driver for display: %s\n",
+			panel->name);
+		sirfsoc_vdss_put_panel(panel);
+		goto err0;
 	}
+
+	fbdev->panel = panel;
 
 	fbdev->num_layers = sirfsoc_vdss_get_num_layers();
 	for (i = 0; i < fbdev->num_layers; i++)
@@ -1295,30 +1271,7 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 	for (i = 0; i < fbdev->num_screens; i++)
 		fbdev->screens[i] = sirfsoc_vdss_get_screen(i);
 
-	def_panel = NULL;
-
-	for (i = 0; i < fbdev->num_displays; ++i) {
-		const char *def_name;
-
-		def_name = sirfsoc_vdss_get_default_panel_name();
-
-		panel = fbdev->displays[i].panel;
-
-		if (def_name == NULL ||
-			(panel->name && strcmp(def_name, panel->name) == 0)) {
-			def_panel = panel;
-			fbdev->def_display = i;
-			break;
-		}
-	}
-
-	if (def_panel == NULL) {
-		dev_err(fbdev->dev, "failed to find default display\n");
-		ret = -EPROBE_DEFER;
-		goto cleanup;
-	}
-
-	ret = sirfsocfb_init_connections(fbdev, def_panel);
+	ret = sirfsocfb_init_connections(fbdev, panel);
 	if (ret) {
 		dev_err(fbdev->dev, "failed to init layer connections\n");
 		goto cleanup;
@@ -1338,13 +1291,11 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 	}
 
 	DBG("mgr->apply'ed\n");
-	if (def_panel) {
-		ret = sirfsocfb_init_panel(fbdev, def_panel);
-		if (ret) {
-			dev_err(fbdev->dev,
-					"failed to initialize default panel\n");
-			goto cleanup;
-		}
+	ret = sirfsocfb_init_panel(fbdev, panel);
+	if (ret) {
+		dev_err(fbdev->dev,
+			"failed to initialize default panel\n");
+		goto cleanup;
 	}
 
 	return 0;

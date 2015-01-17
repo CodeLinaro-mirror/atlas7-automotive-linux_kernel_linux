@@ -26,6 +26,10 @@
 		reg = <0x40000000 0x20000000>; /* 512M for PXP */
 	};
 
+	aliases {
+		display0 = &lvds;
+	};
+
 	sound-internal-audio {
 		compatible = "simple-audio-card";
 		simple-audio-card,routing =
@@ -446,7 +450,7 @@
 			};
 		};
 
-		display0: display@0 {
+		rgb: display@0 {
 			compatible = "rgb-panel";
 			source = "rgb.0";
 			status = "disabled";
@@ -473,7 +477,7 @@
 			};
 		};
 
-		display1: display@1 {
+		lvds: display@1 {
 			compatible = "lvds-panel";
 			source = "lvds.0";
 			status = "okay";

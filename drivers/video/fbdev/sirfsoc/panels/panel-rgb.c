@@ -20,7 +20,7 @@
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
 
-#define DEFAULT_RGB_PANEL_NAME "rgb"
+#define DEFAULT_RGB_PANEL_NAME	"rgb"
 
 struct panel_drv_data {
 	struct sirfsoc_vdss_panel panel;
@@ -259,10 +259,6 @@ static int panel_rgb_probe(struct platform_device *pdev)
 	struct sirfsoc_vdss_panel *panel;
 	int r;
 
-	r = sirfsoc_vdss_set_default_panel_name(DEFAULT_RGB_PANEL_NAME);
-	if (r)
-		return r;
-
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (pdata == NULL)
 		return -ENOMEM;
@@ -284,7 +280,7 @@ static int panel_rgb_probe(struct platform_device *pdev)
 	panel->owner = THIS_MODULE;
 	panel->timings = pdata->timings;
 	panel->phy.rgb.data_lines = pdata->data_lines;
-	panel->name = "rgb";
+	panel->name = DEFAULT_RGB_PANEL_NAME;
 
 	r = sirfsoc_vdss_register_panel(panel);
 	if (r) {

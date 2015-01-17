@@ -177,10 +177,6 @@ static int panel_hdmi_probe(struct platform_device *pdev)
 	struct sirfsoc_vdss_panel *panel;
 	int ret;
 
-	ret = sirfsoc_vdss_set_default_panel_name(DEFAULT_HDMI_PANEL_NAME);
-	if (ret)
-		return ret;
-
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
@@ -195,11 +191,11 @@ static int panel_hdmi_probe(struct platform_device *pdev)
 	panel->dev = &pdev->dev;
 	panel->driver = &panel_hdmi_ops;
 	/*FIXME set the driver type to HDMI */
-	panel->type = SIRFSOC_PANEL_RGB;
+	panel->type = SIRFSOC_PANEL_HDMI;
 	panel->owner = THIS_MODULE;
 	panel->timings = pdata->timings;
 	panel->phy.rgb.data_lines = pdata->data_lines;
-	panel->name = "hdmi";
+	panel->name = DEFAULT_HDMI_PANEL_NAME;
 
 	ret = sirfsoc_vdss_register_panel(panel);
 	if (ret) {

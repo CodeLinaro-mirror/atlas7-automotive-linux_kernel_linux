@@ -56,10 +56,6 @@ struct sirfsocfb_info {
 	struct sirfsocfb_device *fbdev;
 };
 
-struct sirfsocfb_display_data {
-	struct sirfsoc_vdss_panel *panel;
-};
-
 struct sirfsocfb_device {
 	struct device *dev;
 	struct mutex  mtx;
@@ -72,9 +68,7 @@ struct sirfsocfb_device {
 	struct fb_info *fbs[10];
 	struct sirfsocfb_mem_region regions[10];
 
-	unsigned def_display;
-	unsigned num_displays;
-	struct sirfsocfb_display_data displays[10];
+	struct sirfsoc_vdss_panel *panel;
 	unsigned num_layers;
 	struct sirfsoc_vdss_layer *layers[10];
 	unsigned num_screens;
@@ -105,20 +99,6 @@ static inline struct sirfsoc_vdss_panel *fb2display(struct fb_info *fbi)
 	l = sfbi->layers[0];
 
 	return l->get_panel(l);
-}
-
-static inline struct sirfsocfb_display_data *get_display_data(
-	struct sirfsocfb_device *fbdev, struct sirfsoc_vdss_panel *panel)
-{
-	int i;
-
-	for (i = 0; i < fbdev->num_displays; ++i)
-		if (fbdev->displays[i].panel == panel)
-			return &fbdev->displays[i];
-
-	/* This should never happen */
-	BUG();
-	return NULL;
 }
 
 static inline void sirfsocfb_lock(struct sirfsocfb_device *fbdev)

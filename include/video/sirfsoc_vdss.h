@@ -469,8 +469,9 @@ struct sirfsoc_vdss_driver {
 };
 
 bool sirfsoc_vdss_is_initialized(void);
-const char *sirfsoc_vdss_get_default_panel_name(void);
-int sirfsoc_vdss_set_default_panel_name(char *display_name);
+
+struct sirfsoc_vdss_panel *sirfsoc_vdss_get_primary_device(void);
+struct sirfsoc_vdss_panel *sirfsoc_vdss_get_secondary_device(void);
 
 int sirfsoc_vdss_register_panel(struct sirfsoc_vdss_panel *panel);
 void sirfsoc_vdss_unregister_panel(struct sirfsoc_vdss_panel *panel);

@@ -195,10 +195,6 @@ static int panel_lvds_probe(struct platform_device *pdev)
 	struct sirfsoc_vdss_panel *panel;
 	int r;
 
-	r = sirfsoc_vdss_set_default_panel_name(DEFAULT_LVDS_PANEL_NAME);
-	if (r)
-		return r;
-
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (pdata == NULL)
 		return -ENOMEM;
@@ -218,7 +214,7 @@ static int panel_lvds_probe(struct platform_device *pdev)
 	panel->owner = THIS_MODULE;
 	panel->timings = pdata->timings;
 	panel->phy.lvds.data_lines = pdata->data_lines;
-	panel->name = "lvds";
+	panel->name = DEFAULT_LVDS_PANEL_NAME;
 
 	r = sirfsoc_vdss_register_panel(panel);
 	if (r) {
