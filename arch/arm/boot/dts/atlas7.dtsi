@@ -1778,7 +1778,7 @@
 				pwrc@3000 {
 					compatible = "sirf,atlas7-pwrc";
 					reg = <0x3000 0x100>;
-
+					interrupts = <0 32 0>;
 					rtcmclk: clock-controller {
 						compatible = "sirf,atlas7-rtcmclk";
 						#clock-cells = <1>;

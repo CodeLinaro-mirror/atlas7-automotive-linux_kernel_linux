@@ -8,6 +8,8 @@
  */
 #ifndef _SIRFSOC_PWRC_H_
 #define _SIRFSOC_PWRC_H_
+#include <linux/interrupt.h>
+#include <linux/regmap.h>
 
 #define PWRC_PDN_CTRL_OFFSET	0
 #define AUDIO_POWER_EN_BIT	14
@@ -78,12 +80,20 @@ struct sirfsoc_pwrc_info {
 	struct device *dev;
 	struct regmap *regmap;
 	struct sirfsoc_pwrc_register *pwrc_reg;
+	struct regmap_irq_chip *regmap_irq_chip;
+	struct regmap_irq_chip_data *irq_data;
 	u32 ver;
 	u32 base;
+	int irq;
 };
 
+enum {
+	PWRC_IRQ_ONKEY = 0,
+	PWRC_MAX_IRQ,
+};
+
+#define PWRC_ONKEY_BIT		BIT(PWRC_IRQ_ONKEY)
 
 extern struct sirfsoc_pwrc_register sirfsoc_a7da_pwrc;
 extern struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc;
-
 #endif

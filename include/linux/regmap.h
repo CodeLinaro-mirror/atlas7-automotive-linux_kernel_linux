@@ -545,6 +545,7 @@ struct regmap_irq_chip {
 	bool init_ack_masked:1;
 	bool mask_invert:1;
 	bool use_ack:1;
+	bool ack_invert:1;
 	bool wake_invert:1;
 	bool runtime_pm:1;
 

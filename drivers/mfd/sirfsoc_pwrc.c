@@ -12,11 +12,12 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/of.h>
-#include <linux/regmap.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/io.h>
+#include <linux/regmap.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/sirfsoc_pwrc.h>
@@ -86,6 +87,24 @@ struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc = {
 
 };
 
+static const struct regmap_irq pwrc_irqs[] = {
+	/* INT0 */
+	[PWRC_IRQ_ONKEY] = {
+		.mask = PWRC_ONKEY_BIT,
+	},
+
+};
+
+static struct regmap_irq_chip pwrc_irq_chip = {
+	.name = "pwrc_irq",
+	.irqs = pwrc_irqs,
+	.num_irqs = ARRAY_SIZE(pwrc_irqs),
+	.num_regs = 1,
+	.mask_invert = 1,
+	.ack_invert = 1,
+	.init_ack_masked = true,
+};
+
 
 static const struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc", .data = &sirfsoc_prima2_pwrc},
@@ -93,7 +112,6 @@ static const struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,atlas7-pwrc", .data = &sirfsoc_a7da_pwrc},
 	{}
 };
-
 
 static const struct mfd_cell pwrc_devs[] = {
 	{
@@ -118,17 +136,19 @@ static const struct regmap_config pwrc_regmap_config = {
 	.fast_io = true,
 	.reg_bits = 32,
 	.val_bits = 32,
+	.reg_stride = 4,
 };
-
 
 static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *match;
 	struct sirfsoc_pwrc_info *pwrcinfo;
+	struct regmap_irq_chip *regmap_irq_chip;
+	struct sirfsoc_pwrc_register *pwrc_reg;
 	struct regmap *map;
-	u32 base;
 	int ret;
+	u32 base;
 
 	if (of_property_read_u32(np, "reg", &base))
 		panic("unable to find base address of pwrc node in dtb\n");
@@ -153,8 +173,6 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 		pwrcinfo->ver = PWRC_ATLAS7_VER;
 	else if (of_device_is_compatible(np, "sirf,prima2-pwrc"))
 		pwrcinfo->ver = PWRC_PRIMA2_VER;
-	else if (of_device_is_compatible(np, "sirf,marco-pwrc"))
-		pwrcinfo->ver = PWRC_MARCO_VER;
 	else
 		return -EINVAL;
 
@@ -166,7 +184,7 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(map);
 		dev_err(&pdev->dev, "Failed to allocate register map: %d\n",
 			ret);
-		return ret;
+		goto err;
 	}
 
 	pwrcinfo->regmap = map;
@@ -175,11 +193,56 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 
 	ret = mfd_add_devices(pwrcinfo->dev, 0, pwrc_devs,
 		ARRAY_SIZE(pwrc_devs), NULL, 0, NULL);
-	if (ret < 0)
+	if (ret) {
 		dev_err(&pdev->dev, "Failed to add all pwrc subdev\n");
+		goto err;
+	}
+
+	ret = of_irq_get(pdev->dev.of_node, 0);
+	if (ret <= 0) {
+		dev_info(&pdev->dev,
+			"Unable to find IRQ for pwrc. ret=%d\n", ret);
+		goto err;
+	}
+
+	pwrcinfo->irq = ret;
+	regmap_irq_chip = &pwrc_irq_chip;
+	pwrcinfo->regmap_irq_chip = regmap_irq_chip;
+
+	pwrc_reg = pwrcinfo->pwrc_reg;
+	regmap_irq_chip->mask_base = pwrcinfo->base +
+						pwrc_reg->pwrc_int_mask_set;
+	regmap_irq_chip->status_base = pwrcinfo->base +
+						pwrc_reg->pwrc_int_status;
+	regmap_irq_chip->ack_base = pwrcinfo->base +
+						pwrc_reg->pwrc_int_status;
+
+	/*enable irq for onkey..*/
+	ret = regmap_update_bits(map,
+			pwrcinfo->base +
+			pwrc_reg->pwrc_trigger_en_set,
+			PWRC_ONKEY_BIT,
+			PWRC_ONKEY_BIT);
+	if (ret < 0)
+		goto err;
+
+	/*add irq controller for pwrc*/
+	ret = regmap_add_irq_chip(map, pwrcinfo->irq, IRQF_ONESHOT,
+				-1, pwrcinfo->regmap_irq_chip,
+				&pwrcinfo->irq_data);
+
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to add regmap irq controller for pwrc\n");
+		goto err;
+	}
 
 	return 0;
+err:
+	return ret;
+
 }
+
+
 
 static struct platform_driver sirfsoc_pwrc_driver = {
 	.probe		= sirfsoc_pwrc_probe,
