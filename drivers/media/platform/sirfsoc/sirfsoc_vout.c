@@ -144,8 +144,12 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 	switch (pix_fmt) {
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+		/*
+		 * New vxd hw deocder buffer alignment spec, width: 64byte,
+		 * heigh: 16. Seems had better define private fmt for it.
+		 */
 		*hor_stride = align_size(width, 64);
-		*ver_stride = align_size(height, 64);
+		*ver_stride = align_size(height, 16);
 		break;
 	case VDSS_PIXELFORMAT_I420:
 		*hor_stride = align_size(width, 16);
