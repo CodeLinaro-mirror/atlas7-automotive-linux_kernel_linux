@@ -35,11 +35,10 @@
 #define LVDS_PHY_CFG4                   0x0058
 #define LVDS_PHY_CFG5			0x005c
 #define LVDS_PHY_RAM_ACCESS             0x0060
-#define LVDS_VERSION                    0x0064
+#define LVDS_VERSION			0x0064
 
-
-#define RSC_PIN_MUX_SET                 0x0000
-#define RSC_PIN_MUX_CLR                 0x0004
+#define RSC_PIN_MUX_SET			0x0000
+#define RSC_PIN_MUX_CLR			0x0004
 /* LVDS_PHY_CONFIG2 */
 #define PLL_MODE(x)			((x & 0x1) << 0)
 #define IPLLLOGIC_A_SEL(x)		((x & 0x3) << 1)
@@ -59,6 +58,6 @@
 #define N(x)				((x & 0x7FFFFFF) << 0)
 #define FRACTIONAL(x)			((x & 0x1) << 27)
 
-#define LVDSC_LCDCSRC_SEL               BIT(17)
+#define LVDSC_LCDCSRC_SEL		BIT(17)
 
 #endif

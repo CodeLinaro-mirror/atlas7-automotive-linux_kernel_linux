@@ -13,7 +13,9 @@
 #include "vdss.h"
 #include "vpp.h"
 
-static void vpp_print_regs(void);
+#define NUM_VPP 2
+
+static void vpp_print_regs(u32 index);
 
 static struct {
 	struct platform_device *pdev;
@@ -22,7 +24,7 @@ static struct {
 	int irq;
 	struct clk	*clk;
 	bool is_atlas7;
-} vpp;
+} vpp[NUM_VPP];
 
 static const u32 tap_filter_coeff[] = {
 	0x00000000,
@@ -84,26 +86,26 @@ static const u32 rgb_offsets[] = {
 	0x114a0,
 };
 
-static unsigned int vpp_read_reg(unsigned int offset)
+static unsigned int vpp_read_reg(u32 index, unsigned int offset)
 {
-	return readl(vpp.base + offset);
+	return readl(vpp[index].base + offset);
 }
 
-static void vpp_write_reg(unsigned int offset, unsigned int value)
+static void vpp_write_reg(u32 index, unsigned int offset, unsigned int value)
 {
-	writel(value, vpp.base + offset);
+	writel(value, vpp[index].base + offset);
 }
 
-static void __vpp_setup(void)
+static void __vpp_setup(u32 index)
 {
 	u32 offset, val;
 	int i;
 
-	vpp_write_reg(VPP_FULL_THRESH, VPP_FIFO_FULL_THRESH(0x8));
+	vpp_write_reg(index, VPP_FULL_THRESH, VPP_FIFO_FULL_THRESH(0x8));
 
 	offset = VPP_HSCA_COEF00;
 	for (i = 0; i < ARRAY_SIZE(tap_filter_coeff); i++) {
-		vpp_write_reg(offset, tap_filter_coeff[i]);
+		vpp_write_reg(index, offset, tap_filter_coeff[i]);
 		offset += 4;
 	}
 
@@ -112,33 +114,34 @@ static void __vpp_setup(void)
 		val = rgb_yuv_coeff[i] |
 			(rgb_yuv_coeff[i+1] << 10) |
 			 (rgb_yuv_coeff[i+2] << 20);
-		vpp_write_reg(offset, val);
+		vpp_write_reg(index, offset, val);
 		offset += 4;
 	}
 
-	vpp_write_reg(VPP_OFFSET1, rgb_offsets[0]);
-	vpp_write_reg(VPP_OFFSET2, rgb_offsets[1]);
-	vpp_write_reg(VPP_OFFSET3, rgb_offsets[2]);
+	vpp_write_reg(index, VPP_OFFSET1, rgb_offsets[0]);
+	vpp_write_reg(index, VPP_OFFSET2, rgb_offsets[1]);
+	vpp_write_reg(index, VPP_OFFSET3, rgb_offsets[2]);
 
 	val = VPP_COLOR_B_CTRL(0x0) | VPP_COLOR_C_CTRL(0x80);
-	vpp_write_reg(VPP_COLOR_BC_CTRL, val);
+	vpp_write_reg(index, VPP_COLOR_BC_CTRL, val);
 
 	val = VPP_COLOR_UC_CTRL(0x100) | VPP_COLOR_VC_CTRL(0x0);
-	vpp_write_reg(VPP_COLOR_HS_CTRL, val);
+	vpp_write_reg(index, VPP_COLOR_HS_CTRL, val);
 }
 
 static void __vpp_set_rect(struct vdss_vpp_params *params)
 {
 	struct vdss_rect *src_rect = &params->src_rect;
 	struct vdss_rect *dst_rect = &params->dst_rect;
+	u32 index = params->index;
 	u32 src_width = src_rect->right - src_rect->left + 1;
 	u32 src_height = src_rect->bottom - src_rect->top + 1;
 	u32 dst_width = dst_rect->right - dst_rect->left + 1;
 	u32 dst_height = dst_rect->bottom - dst_rect->top + 1;
 
-	vpp_write_reg(VPP_WIDTH, VPP_SRC_WIDTH(src_width) |
+	vpp_write_reg(index, VPP_WIDTH, VPP_SRC_WIDTH(src_width) |
 		VPP_DES_WIDTH(dst_width));
-	vpp_write_reg(VPP_HEIGHT, VPP_SRC_HEIGHT(src_height) |
+	vpp_write_reg(index, VPP_HEIGHT, VPP_SRC_HEIGHT(src_height) |
 		VPP_DES_HEIGHT(dst_height));
 
 }
@@ -149,6 +152,7 @@ static bool __vpp_set_params(struct vdss_vpp_params *params)
 	u32 reg_stride0 = 0, reg_stride1 = 0;
 	struct vdss_vpp_interlace *interlace = &params->interlace;
 	u32 reg_thresh;
+	u32 index = params->index;
 
 	switch (params->src_fmt) {
 	case VDSS_PIXELFORMAT_YV12:
@@ -214,12 +218,12 @@ static bool __vpp_set_params(struct vdss_vpp_params *params)
 
 
 	if (params->src_fmt == VDSS_PIXELFORMAT_NV12) {
-		if (vpp.is_atlas7)
+		if (vpp[index].is_atlas7)
 			reg_ctrl |= (1 << 13);
 		else {
-			reg_thresh = vpp_read_reg(VPP_FULL_THRESH);
+			reg_thresh = vpp_read_reg(index, VPP_FULL_THRESH);
 			reg_thresh |= VPP_UVUV_MODE;
-			vpp_write_reg(VPP_FULL_THRESH, reg_thresh);
+			vpp_write_reg(index, VPP_FULL_THRESH, reg_thresh);
 		}
 	}
 
@@ -315,41 +319,41 @@ static bool __vpp_set_params(struct vdss_vpp_params *params)
 		return false;
 	}
 
-	vpp_write_reg(VPP_CTRL, reg_ctrl);
-	vpp_write_reg(VPP_STRIDE0, reg_stride0);
-	vpp_write_reg(VPP_STRIDE1, reg_stride1);
+	vpp_write_reg(index, VPP_CTRL, reg_ctrl);
+	vpp_write_reg(index, VPP_STRIDE0, reg_stride0);
+	vpp_write_reg(index, VPP_STRIDE1, reg_stride1);
 
 	if (params->dst_fmt == VDSS_PIXELFORMAT_RGBX_8880) {
-		vpp_write_reg(VPP_BCOEF, rgb_yuv_coeff[0] |
+		vpp_write_reg(index, VPP_BCOEF, rgb_yuv_coeff[0] |
 			(rgb_yuv_coeff[1] << 10) |
 			(rgb_yuv_coeff[2] << 20));
-		vpp_write_reg(VPP_RCOEF, rgb_yuv_coeff[6] |
+		vpp_write_reg(index, VPP_RCOEF, rgb_yuv_coeff[6] |
 			(rgb_yuv_coeff[7] << 10) |
 			(rgb_yuv_coeff[8] << 20));
 
-		vpp_write_reg(VPP_OFFSET3, rgb_offsets[0]);
-		vpp_write_reg(VPP_OFFSET1, rgb_offsets[2]);
+		vpp_write_reg(index, VPP_OFFSET3, rgb_offsets[0]);
+		vpp_write_reg(index, VPP_OFFSET1, rgb_offsets[2]);
 	} else {
-		vpp_write_reg(VPP_BCOEF, rgb_yuv_coeff[6] |
+		vpp_write_reg(index, VPP_BCOEF, rgb_yuv_coeff[6] |
 			(rgb_yuv_coeff[7] << 10) |
 			(rgb_yuv_coeff[8] << 20));
-		vpp_write_reg(VPP_RCOEF, rgb_yuv_coeff[0] |
+		vpp_write_reg(index, VPP_RCOEF, rgb_yuv_coeff[0] |
 			(rgb_yuv_coeff[1] << 10) |
 			(rgb_yuv_coeff[2] << 20));
 
-		vpp_write_reg(VPP_OFFSET1, rgb_offsets[0]);
-		vpp_write_reg(VPP_OFFSET3, rgb_offsets[2]);
+		vpp_write_reg(index, VPP_OFFSET1, rgb_offsets[0]);
+		vpp_write_reg(index, VPP_OFFSET3, rgb_offsets[2]);
 	}
 
 	return true;
 }
 
-static bool __vpp_start(void)
+static bool __vpp_start(u32 index)
 {
-	u32 reg_ctrl = vpp_read_reg(VPP_CTRL);
+	u32 reg_ctrl = vpp_read_reg(index, VPP_CTRL);
 
 	reg_ctrl |= VPP_CTRL_START;
-	vpp_write_reg(VPP_CTRL, reg_ctrl);
+	vpp_write_reg(index, VPP_CTRL, reg_ctrl);
 
 	return true;
 }
@@ -360,6 +364,7 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 	u32 ybase_bot = 0, ubase_bot = 0, vbase_bot = 0;
 	u32 yoffset, uoffset, voffset;
 	struct vdss_vpp_interlace *interlace = &params->interlace;
+	u32 index = params->index;
 
 	yoffset = params->src_hor_stride * params->src_rect.top +
 		params->src_rect.left;
@@ -418,12 +423,9 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
 		ybase = params->src_base + yoffset;
-		/*
-		 * According to spec, if the input format is semi-planar YUV420,
-		 * this value should be divided by 2 as it should be.
-		 */
 		ubase = (params->src_base + params->src_hor_stride *
-			params->src_ver_stride + uoffset) >> 1;
+			((params->src_ver_stride + 0x3f) & (~0x3f))
+			+ uoffset) >> 1;
 		vbase = ubase;
 		break;
 	case VDSS_PIXELFORMAT_UYVY:
@@ -483,24 +485,24 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 		}
 
 		if (interlace->input_top_first) {
-			vpp_write_reg(VPP_YBASE, ybase);
-			vpp_write_reg(VPP_UBASE, ubase);
-			vpp_write_reg(VPP_VBASE, vbase);
-			vpp_write_reg(VPP_YBASE_BOT, ybase_bot);
-			vpp_write_reg(VPP_UBASE_BOT, ubase_bot);
-			vpp_write_reg(VPP_VBASE_BOT, vbase_bot);
+			vpp_write_reg(index, VPP_YBASE, ybase);
+			vpp_write_reg(index, VPP_UBASE, ubase);
+			vpp_write_reg(index, VPP_VBASE, vbase);
+			vpp_write_reg(index, VPP_YBASE_BOT, ybase_bot);
+			vpp_write_reg(index, VPP_UBASE_BOT, ubase_bot);
+			vpp_write_reg(index, VPP_VBASE_BOT, vbase_bot);
 		} else {
-			vpp_write_reg(VPP_YBASE_BOT, ybase);
-			vpp_write_reg(VPP_UBASE_BOT, ubase);
-			vpp_write_reg(VPP_VBASE_BOT, vbase);
-			vpp_write_reg(VPP_YBASE, ybase_bot);
-			vpp_write_reg(VPP_UBASE, ubase_bot);
-			vpp_write_reg(VPP_VBASE, vbase_bot);
+			vpp_write_reg(index, VPP_YBASE_BOT, ybase);
+			vpp_write_reg(index, VPP_UBASE_BOT, ubase);
+			vpp_write_reg(index, VPP_VBASE_BOT, vbase);
+			vpp_write_reg(index, VPP_YBASE, ybase_bot);
+			vpp_write_reg(index, VPP_UBASE, ubase_bot);
+			vpp_write_reg(index, VPP_VBASE, vbase_bot);
 		}
 	} else {
-		vpp_write_reg(VPP_YBASE, ybase);
-		vpp_write_reg(VPP_UBASE, ubase);
-		vpp_write_reg(VPP_VBASE, vbase);
+		vpp_write_reg(index, VPP_YBASE, ybase);
+		vpp_write_reg(index, VPP_UBASE, ubase);
+		vpp_write_reg(index, VPP_VBASE, vbase);
 	}
 
 	return true;
@@ -511,6 +513,7 @@ static void  __vpp_set_dstbase(struct vdss_vpp_params *params)
 	u32 dstbase;
 	u32 bpp;
 	u32 yoffset;
+	u32 index = params->index;
 	struct vdss_vpp_interlace *interlace = &params->interlace;
 
 	if (params->dst_base) {
@@ -527,11 +530,11 @@ static void  __vpp_set_dstbase(struct vdss_vpp_params *params)
 
 		if (interlace->interlaced) {
 			if (interlace->out_mode == VDSS_INTERLACE)
-				vpp_write_reg(VPP_DESTBASE_BOT,
+				vpp_write_reg(index, VPP_DESTBASE_BOT,
 					dstbase +
 					params->dst_hor_stride * bpp);
 			else if (interlace->out_mode == VDSS_P_DOUBLE)
-				vpp_write_reg(VPP_DESTBASE_BOT,
+				vpp_write_reg(index, VPP_DESTBASE_BOT,
 					dstbase +
 					params->dst_hor_stride *
 					params->dst_ver_stride * bpp);
@@ -545,7 +548,7 @@ static int __vpp_blt(struct vdss_vpp_params *params)
 	__vpp_set_rect(params);
 	__vpp_set_srcbase(params);
 	__vpp_set_dstbase(params);
-	__vpp_start();
+	__vpp_start(params->index);
 
 	return 0;
 }
@@ -574,97 +577,99 @@ void vpp_passthrough_setup(struct vdss_vpp_params *params)
 	__vpp_set_rect(params);
 	__vpp_set_srcbase(params);
 	__vpp_set_dstbase(params);
-	vpp_print_regs();
+	vpp_print_regs(params->index);
 }
 
-static int vpp_init(void)
+static int vpp_init(u32 index)
 {
-	__vpp_setup();
+	__vpp_setup(index);
 
 	return 0;
 }
 
-static void vpp_print_regs(void)
+static void vpp_print_regs(u32 index)
 {
 	vpp_dump("VPP Regs:\n");
-	vpp_dump("CTRL=0x%08x\n",		vpp_read_reg(VPP_CTRL));
-	vpp_dump("YBASE=0x%08x\n",		vpp_read_reg(VPP_YBASE));
-	vpp_dump("UBASE=0x%08x\n",		vpp_read_reg(VPP_UBASE));
-	vpp_dump("VBASE=0x%08x\n",		vpp_read_reg(VPP_VBASE));
-	vpp_dump("DESBASE=0x%08x\n",		vpp_read_reg(VPP_DESBASE));
-	vpp_dump("WIDTH =0x%08x\n",		vpp_read_reg(VPP_WIDTH));
-	vpp_dump("HEIGHT=0x%08x\n",		vpp_read_reg(VPP_HEIGHT));
-	vpp_dump("STRIDE0=0x%08x\n",		vpp_read_reg(VPP_STRIDE0));
-	vpp_dump("STRIDE1=0x%08x\n",		vpp_read_reg(VPP_STRIDE1));
-	vpp_dump("HSCA_COEF00=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF00));
-	vpp_dump("HSCA_COEF01=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF01));
-	vpp_dump("HSCA_COEF02=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF02));
-	vpp_dump("HSCA_COEF10=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF10));
-	vpp_dump("HSCA_COEF11=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF11));
-	vpp_dump("HSCA_COEF12=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF12));
-	vpp_dump("HSCA_COEF20=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF20));
-	vpp_dump("HSCA_COEF21=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF21));
-	vpp_dump("HSCA_COEF22=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF22));
-	vpp_dump("HSCA_COEF30=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF30));
-	vpp_dump("HSCA_COEF31=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF31));
-	vpp_dump("HSCA_COEF32=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF32));
-	vpp_dump("HSCA_COEF40=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF40));
-	vpp_dump("HSCA_COEF41=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF41));
-	vpp_dump("HSCA_COEF42=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF42));
-	vpp_dump("HSCA_COEF50=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF50));
-	vpp_dump("HSCA_COEF51=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF51));
-	vpp_dump("HSCA_COEF52=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF52));
-	vpp_dump("HSCA_COEF60=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF60));
-	vpp_dump("HSCA_COEF61=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF61));
-	vpp_dump("HSCA_COEF62=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF62));
-	vpp_dump("HSCA_COEF70=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF70));
-	vpp_dump("HSCA_COEF71=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF71));
-	vpp_dump("HSCA_COEF72=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF72));
-	vpp_dump("HSCA_COEF80=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF80));
-	vpp_dump("HSCA_COEF81=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF81));
-	vpp_dump("HSCA_COEF82=0x%08x\n",	vpp_read_reg(VPP_HSCA_COEF82));
-	vpp_dump("VSCA_COEF00=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF00));
-	vpp_dump("VSCA_COEF01=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF01));
-	vpp_dump("VSCA_COEF10=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF10));
-	vpp_dump("VSCA_COEF11=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF11));
-	vpp_dump("VSCA_COEF20=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF20));
-	vpp_dump("VSCA_COEF21=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF21));
-	vpp_dump("VSCA_COEF30=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF30));
-	vpp_dump("VSCA_COEF31=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF31));
-	vpp_dump("VSCA_COEF40=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF40));
-	vpp_dump("VSCA_COEF41=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF41));
-	vpp_dump("VSCA_COEF50=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF50));
-	vpp_dump("VSCA_COEF51=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF51));
-	vpp_dump("VSCA_COEF60=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF60));
-	vpp_dump("VSCA_COEF61=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF61));
-	vpp_dump("VSCA_COEF70=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF70));
-	vpp_dump("VSCA_COEF71=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF71));
-	vpp_dump("VSCA_COEF80=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF80));
-	vpp_dump("VSCA_COEF81=0x%08x\n",	vpp_read_reg(VPP_VSCA_COEF81));
-	vpp_dump("RCOEF=0x%08x\n",		vpp_read_reg(VPP_RCOEF));
-	vpp_dump("GCOEF=0x%08x\n",		vpp_read_reg(VPP_GCOEF));
-	vpp_dump("BCOEF=0x%08x\n",		vpp_read_reg(VPP_BCOEF));
-	vpp_dump("OFFSET1=0x%08x\n",		vpp_read_reg(VPP_OFFSET1));
-	vpp_dump("OFFSET2=0x%08x\n",		vpp_read_reg(VPP_OFFSET2));
-	vpp_dump("OFFSET3=0x%08x\n",		vpp_read_reg(VPP_OFFSET3));
-	vpp_dump("INT_MASK=0x%08x\n",		vpp_read_reg(VPP_INT_MASK));
-	vpp_dump("INT_STATUS=0x%08x\n",		vpp_read_reg(VPP_INT_STATUS));
-	vpp_dump("ACC=0x%08x\n",		vpp_read_reg(VPP_ACC));
-	vpp_dump("FULL_THRESH=0x%08x\n",	vpp_read_reg(VPP_FULL_THRESH));
-	vpp_dump("COLOR_HS_CTRL=0x%08x\n", vpp_read_reg(VPP_COLOR_HS_CTRL));
-	vpp_dump("COLOR_BC_CTRL=0x%08x\n", vpp_read_reg(VPP_COLOR_BC_CTRL));
-	vpp_dump("YBASE_BOT=0x%08x\n",		vpp_read_reg(VPP_YBASE_BOT));
-	vpp_dump("UBASE_BOT=0x%08x\n",		vpp_read_reg(VPP_UBASE_BOT));
-	vpp_dump("VBASE_BOT=0x%08x\n",		vpp_read_reg(VPP_VBASE_BOT));
-	vpp_dump("DESBASE_BOT=0x%08x\n",	vpp_read_reg(VPP_DESTBASE_BOT));
+	vpp_dump("CTRL=0x%08x\n", vpp_read_reg(index, VPP_CTRL));
+	vpp_dump("YBASE=0x%08x\n", vpp_read_reg(index, VPP_YBASE));
+	vpp_dump("UBASE=0x%08x\n", vpp_read_reg(index, VPP_UBASE));
+	vpp_dump("VBASE=0x%08x\n", vpp_read_reg(index, VPP_VBASE));
+	vpp_dump("DESBASE=0x%08x\n", vpp_read_reg(index, VPP_DESBASE));
+	vpp_dump("WIDTH =0x%08x\n", vpp_read_reg(index, VPP_WIDTH));
+	vpp_dump("HEIGHT=0x%08x\n", vpp_read_reg(index, VPP_HEIGHT));
+	vpp_dump("STRIDE0=0x%08x\n", vpp_read_reg(index, VPP_STRIDE0));
+	vpp_dump("STRIDE1=0x%08x\n", vpp_read_reg(index, VPP_STRIDE1));
+	vpp_dump("HSCA_COEF00=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF00));
+	vpp_dump("HSCA_COEF01=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF01));
+	vpp_dump("HSCA_COEF02=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF02));
+	vpp_dump("HSCA_COEF10=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF10));
+	vpp_dump("HSCA_COEF11=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF11));
+	vpp_dump("HSCA_COEF12=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF12));
+	vpp_dump("HSCA_COEF20=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF20));
+	vpp_dump("HSCA_COEF21=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF21));
+	vpp_dump("HSCA_COEF22=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF22));
+	vpp_dump("HSCA_COEF30=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF30));
+	vpp_dump("HSCA_COEF31=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF31));
+	vpp_dump("HSCA_COEF32=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF32));
+	vpp_dump("HSCA_COEF40=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF40));
+	vpp_dump("HSCA_COEF41=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF41));
+	vpp_dump("HSCA_COEF42=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF42));
+	vpp_dump("HSCA_COEF50=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF50));
+	vpp_dump("HSCA_COEF51=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF51));
+	vpp_dump("HSCA_COEF52=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF52));
+	vpp_dump("HSCA_COEF60=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF60));
+	vpp_dump("HSCA_COEF61=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF61));
+	vpp_dump("HSCA_COEF62=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF62));
+	vpp_dump("HSCA_COEF70=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF70));
+	vpp_dump("HSCA_COEF71=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF71));
+	vpp_dump("HSCA_COEF72=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF72));
+	vpp_dump("HSCA_COEF80=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF80));
+	vpp_dump("HSCA_COEF81=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF81));
+	vpp_dump("HSCA_COEF82=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF82));
+	vpp_dump("VSCA_COEF00=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF00));
+	vpp_dump("VSCA_COEF01=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF01));
+	vpp_dump("VSCA_COEF10=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF10));
+	vpp_dump("VSCA_COEF11=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF11));
+	vpp_dump("VSCA_COEF20=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF20));
+	vpp_dump("VSCA_COEF21=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF21));
+	vpp_dump("VSCA_COEF30=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF30));
+	vpp_dump("VSCA_COEF31=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF31));
+	vpp_dump("VSCA_COEF40=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF40));
+	vpp_dump("VSCA_COEF41=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF41));
+	vpp_dump("VSCA_COEF50=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF50));
+	vpp_dump("VSCA_COEF51=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF51));
+	vpp_dump("VSCA_COEF60=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF60));
+	vpp_dump("VSCA_COEF61=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF61));
+	vpp_dump("VSCA_COEF70=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF70));
+	vpp_dump("VSCA_COEF71=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF71));
+	vpp_dump("VSCA_COEF80=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF80));
+	vpp_dump("VSCA_COEF81=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF81));
+	vpp_dump("RCOEF=0x%08x\n", vpp_read_reg(index, VPP_RCOEF));
+	vpp_dump("GCOEF=0x%08x\n", vpp_read_reg(index, VPP_GCOEF));
+	vpp_dump("BCOEF=0x%08x\n", vpp_read_reg(index, VPP_BCOEF));
+	vpp_dump("OFFSET1=0x%08x\n", vpp_read_reg(index, VPP_OFFSET1));
+	vpp_dump("OFFSET2=0x%08x\n", vpp_read_reg(index, VPP_OFFSET2));
+	vpp_dump("OFFSET3=0x%08x\n", vpp_read_reg(index, VPP_OFFSET3));
+	vpp_dump("INT_MASK=0x%08x\n", vpp_read_reg(index, VPP_INT_MASK));
+	vpp_dump("INT_STATUS=0x%08x\n",	vpp_read_reg(index, VPP_INT_STATUS));
+	vpp_dump("ACC=0x%08x\n", vpp_read_reg(index, VPP_ACC));
+	vpp_dump("FULL_THRESH=0x%08x\n", vpp_read_reg(index, VPP_FULL_THRESH));
+	vpp_dump("COLOR_HS_CTRL=0x%08x\n",
+		vpp_read_reg(index, VPP_COLOR_HS_CTRL));
+	vpp_dump("COLOR_BC_CTRL=0x%08x\n",
+		vpp_read_reg(index, VPP_COLOR_BC_CTRL));
+	vpp_dump("YBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_YBASE_BOT));
+	vpp_dump("UBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_UBASE_BOT));
+	vpp_dump("VBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_VBASE_BOT));
+	vpp_dump("DESBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_DESTBASE_BOT));
 }
 
 
 static int sirfsoc_vpp_probe(struct platform_device *pdev)
 {
+	struct device_node *dn = pdev->dev.of_node;
 	struct resource *res;
-
-	vpp.pdev = pdev;
+	u32 index;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -672,31 +677,44 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	vpp.base = devm_ioremap(&pdev->dev, res->start,
+	if (of_property_read_u32(dn, "cell-index", &index)) {
+		dev_err(&pdev->dev, "Fail to get vpp index\n");
+		return -ENODEV;
+	}
+
+	if (index > NUM_VPP - 1) {
+		dev_err(&pdev->dev, "vpp index error\n");
+		return -ENODEV;
+	}
+
+	vpp[index].pdev = pdev;
+	vpp[index].base = devm_ioremap(&pdev->dev, res->start,
 		resource_size(res));
-	if (!vpp.base) {
+
+	if (!vpp[index].base) {
 		VDSSERR("can't ioremap\n");
 		return -ENOMEM;
 	}
 
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-vpp"))
-		vpp.is_atlas7 = true;
+		vpp[index].is_atlas7 = true;
 
-	vpp.irq = platform_get_irq(pdev, 0);
-	if (vpp.irq < 0) {
+	vpp[index].irq = platform_get_irq(pdev, 0);
+	if (vpp[index].irq < 0) {
 		VDSSERR("platform_get_irq failed\n");
 		return -ENODEV;
 	}
 
-	vpp.clk = clk_get(&pdev->dev, NULL);
-	if (IS_ERR(vpp.clk)) {
+	vpp[index].clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(vpp[index].clk)) {
 		VDSSERR("Failed to get vpp clock!\n");
 		return -ENODEV;
 	}
 
-	clk_prepare_enable(vpp.clk);
+	clk_prepare_enable(vpp[index].clk);
 
-	vpp_init();
+	vpp_init(index);
+
 	return 0;
 
 }

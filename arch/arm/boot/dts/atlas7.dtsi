@@ -1817,20 +1817,40 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x13100000 0x13100000 0x20000>,
-				 <0x10E50008 0x10E50008 0x00008>,
-				 <0x10e10000 0x10e10000 0x10000>;
+				<0x13120000 0x13120000 0x20000>,
+				<0x10E50008 0x10E50008 0x00008>,
+				<0x10e10000 0x10e10000 0x10000>;
 
-			lcd@13100000 {
+			lcd0@13100000 {
+				cell-index = <0>;
 				compatible = "sirf,atlas7-lcdc";
 				reg = <0x13100000 0x10000>;
 				interrupts = <0 30 0>;
 				clocks = <&car 79>;
+				resets = <&car 29>;
 			};
-			vpp@13110000 {
+			vpp0@13110000 {
+				cell-index = <0>;
 				compatible = "sirf,atlas7-vpp";
 				reg = <0x13110000 0x10000>;
 				interrupts = <0 31 0>;
 				clocks = <&car 78>;
+				resets = <&car 29>;
+			};
+			lcd1@13120000 {
+				cell-index = <1>;
+				compatible = "sirf,atlas7-lcdc";
+				reg = <0x13120000 0x10000>;
+				interrupts = <0 62 0>;
+				clocks = <&car 81>;
+				reset = <&car 29>;
+			};
+			vpp1@13130000 {
+				cell-index = <1>;
+				compatible = "sirf,atlas7-vpp";
+				reg = <0x13130000 0x10000>;
+				interrupts = <0 65 0>;
+				clocks = <&car 80>;
 				resets = <&car 29>;
 			};
 			lvds@10e10000 {

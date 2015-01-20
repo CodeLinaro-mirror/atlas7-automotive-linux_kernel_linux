@@ -260,6 +260,17 @@ bool lvdsc_is_syn_mode(void)
 	return (lvdsc.mode == SIRFSOC_VDSS_LVDSC_MODE_SYN);
 }
 
+int lvdsc_select_src(u32 lcdc_index)
+{
+	lvdsc.source = lcdc_index;
+
+	if (lvdsc.source == 1)
+		lvdsc_write_rsc_reg(RSC_PIN_MUX_SET, LVDSC_LCDCSRC_SEL);
+
+	return 0;
+
+}
+
 static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
@@ -280,17 +291,6 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 	} else {
 		dev_info(&pdev->dev, "invalid lvds working mode, set to SYN\n");
 		lvdsc.mode = SIRFSOC_VDSS_LVDSC_MODE_SYN;
-	}
-
-	ret = of_property_read_u32(dn, "lvds-source", &lvdsc.source);
-	if (!ret) {
-		if (lvdsc.source > 1) {
-			dev_info(&pdev->dev, "invalid lvdsc data source, set to LCDC0\n");
-			lvdsc.source = 0;
-		}
-	} else {
-		dev_info(&pdev->dev, "invalid lvdsc data source, set to LCDC0\n");
-		lvdsc.source = 0;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -327,9 +327,6 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 	}
 
 	clk_prepare_enable(lvdsc.clk);
-
-	if (lvdsc.source == 1)
-		lvdsc_write_rsc_reg(RSC_PIN_MUX_SET, LVDSC_LCDCSRC_SEL);
 
 	return 0;
 }

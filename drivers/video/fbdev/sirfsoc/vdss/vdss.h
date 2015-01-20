@@ -27,11 +27,13 @@
 #define VDSSWARN(fmt, ...)	pr_warn(fmt, ##__VA_ARGS__)
 #define VDSSERR(fmt, ...)	pr_err(fmt, ##__VA_ARGS__)
 
+#define NUM_LCDC	2
+
 /* functions export from layer_screen.c and used by other vdss core files*/
-int vdss_init_screens(void);
-void vdss_uninit_screens(void);
-void vdss_init_layers(void);
-void vdss_uninit_layers(void);
+int vdss_init_screens(u32 lcdc_index);
+void vdss_uninit_screens(u32 lcdc_index);
+void vdss_init_layers(u32 lcdc_index);
+void vdss_uninit_layers(u32 lcdc_index);
 int vdss_screen_set_output(struct sirfsoc_vdss_screen *scn,
 	struct sirfsoc_vdss_output *output);
 int vdss_screen_unset_output(struct sirfsoc_vdss_screen *scn);
@@ -50,15 +52,17 @@ void vdss_disable_all_panels(void);
 /* functions export from lcdc.c and used by other vdss core files*/
 int lcdc_init_platform_driver(void) __init;
 void lcdc_uninit_platform_driver(void);
-void lcdc_screen_set_timings(enum vdss_screen scn_id,
+void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	const struct sirfsoc_video_timings *timings);
-void lcdc_screen_setup(enum vdss_screen scn_id,
+void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
 	const struct sirfsoc_vdss_screen_info *info);
-void lcdc_layer_setup(enum vdss_layer layer,
+void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info,
 	struct sirfsoc_video_timings *timing);
-void lcdc_layer_enable(enum vdss_layer layer, bool enable, bool passthrough);
-bool lcdc_flip(enum vdss_layer layer, struct sirfsoc_vdss_layer_info *info);
+void lcdc_layer_enable(u32 lcdc_index, enum vdss_layer layer,
+	bool enable, bool passthrough);
+bool lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
+	struct sirfsoc_vdss_layer_info *info);
 
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);
@@ -68,6 +72,7 @@ int vpp_blt(struct vdss_blt_params *blt_params);
 int lvdsc_init_platform_driver(void) __init;
 void lvdsc_uninit_platform_driver(void) __init;
 int lvdsc_setup(enum vdss_lvdsc_fmt fmt);
+int lvdsc_select_src(u32 lcdc_index);
 bool lvdsc_is_syn_mode(void);
 
 #endif

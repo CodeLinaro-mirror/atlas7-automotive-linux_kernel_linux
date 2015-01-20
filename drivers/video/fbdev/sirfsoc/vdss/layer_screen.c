@@ -19,42 +19,38 @@
 #define NUM_SCREENS_PER_LCDC	1
 #define NUM_LAYERS_PER_LCDC	4
 
-#define MAX_VDSS_LAYERS		8
-#define MAX_VDSS_SCREENS	2
+static int num_screens[NUM_LCDC];
+static struct sirfsoc_vdss_screen *screens[NUM_LCDC];
+static int num_layers[NUM_LCDC];
+static struct sirfsoc_vdss_layer *layers[NUM_LCDC];
 
-
-static int num_screens;
-static struct sirfsoc_vdss_screen *screens;
-static int num_layers;
-static struct sirfsoc_vdss_layer *layers;
-
-int sirfsoc_vdss_get_num_screens(void)
+int sirfsoc_vdss_get_num_screens(u32 lcdc_index)
 {
-	return num_screens;
+	return num_screens[lcdc_index];
 }
 EXPORT_SYMBOL(sirfsoc_vdss_get_num_screens);
 
-struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(int num)
+struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(u32 lcdc_index, int num)
 {
-	if (num >= num_screens)
+	if (num >= num_screens[lcdc_index])
 		return NULL;
 
-	return &screens[num];
+	return &screens[lcdc_index][num];
 }
 EXPORT_SYMBOL(sirfsoc_vdss_get_screen);
 
-int sirfsoc_vdss_get_num_layers(void)
+int sirfsoc_vdss_get_num_layers(u32 lcdc_index)
 {
-	return num_layers;
+	return num_layers[lcdc_index];
 }
 EXPORT_SYMBOL(sirfsoc_vdss_get_num_layers);
 
-struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(int num)
+struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(u32 lcdc_index, int num)
 {
-	if (num >= num_layers)
+	if (num >= num_layers[lcdc_index])
 		return NULL;
 
-	return &layers[num];
+	return &layers[lcdc_index][num];
 }
 EXPORT_SYMBOL(sirfsoc_vdss_get_layer);
 
@@ -65,8 +61,8 @@ struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
 	int i = 0;
 	struct sirfsoc_vdss_layer *l;
 
-	for (i = 0; i < num_layers; i++) {
-		l = &layers[i];
+	for (i = 0; i < num_layers[scn->lcdc_id]; i++) {
+		l = &layers[scn->lcdc_id][i];
 		if ((l->screen->id == scn->id) && !l->is_enabled(l)) {
 			if (l->screen)
 				l->unset_screen(l);
@@ -129,8 +125,8 @@ struct screen_priv_data {
 };
 
 static struct {
-	struct layer_priv_data layer_datas[MAX_VDSS_LAYERS];
-	struct screen_priv_data screen_datas[MAX_VDSS_SCREENS];
+	struct layer_priv_data layer_datas[NUM_LCDC][NUM_LAYERS_PER_LCDC];
+	struct screen_priv_data screen_datas[NUM_LCDC][NUM_SCREENS_PER_LCDC];
 
 	bool irq_enabled;
 } vdss_data;
@@ -141,12 +137,15 @@ static DEFINE_SPINLOCK(data_lock);
 static DEFINE_MUTEX(apply_lock);
 static struct layer_priv_data *get_layer_data(struct sirfsoc_vdss_layer *l)
 {
-	return &vdss_data.layer_datas[l->id];
+	return &vdss_data.layer_datas[l->lcdc_id][l->id];
 }
 
 static struct screen_priv_data *get_screen_data(struct sirfsoc_vdss_screen *scn)
 {
-	return &vdss_data.screen_datas[scn->id];
+	/*FIXME: current only one screen for each lcd, if there is more
+	 * screen with one lcdc, this logic need refine.*/
+
+	return &vdss_data.screen_datas[scn->lcdc_id][0];
 }
 
 /*
@@ -184,7 +183,7 @@ static void vdss_layer_update_regs(struct sirfsoc_vdss_layer *l)
 
 	sdata = get_screen_data(l->screen);
 
-	lcdc_layer_setup(l->id, info, &sdata->timings);
+	lcdc_layer_setup(l->lcdc_id, l->id, info, &sdata->timings);
 
 	ldata->info_dirty = false;
 	if (sdata->updating)
@@ -204,7 +203,8 @@ static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)
 	/* note: write also when op->enabled == false, so that the ovl gets
 	 * disabled */
 
-	lcdc_layer_enable(l->id, ldata->enabled, ldata->info.passthrough);
+	lcdc_layer_enable(l->lcdc_id, l->id, ldata->enabled,
+		ldata->info.passthrough);
 
 	sdata = get_screen_data(l->screen);
 
@@ -226,7 +226,7 @@ static void vdss_screen_update_regs(struct sirfsoc_vdss_screen *scn)
 	WARN_ON(sdata->busy);
 
 	if (sdata->info_dirty) {
-		lcdc_screen_setup(scn->id, &sdata->info);
+		lcdc_screen_setup(scn->lcdc_id, scn->id, &sdata->info);
 
 		sdata->info_dirty = false;
 		if (sdata->updating)
@@ -249,16 +249,16 @@ static void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
 	if (!sdata->extra_info_dirty)
 		return;
 
-	lcdc_screen_set_timings(scn->id, &sdata->timings);
+	lcdc_screen_set_timings(scn->lcdc_id, scn->id, &sdata->timings);
 
 	sdata->extra_info_dirty = false;
 	if (sdata->updating)
 		sdata->shadow_extra_info_dirty = true;
 }
 
-static void vdss_update_regs(void)
+static void vdss_update_regs(u32 lcdc_index)
 {
-	const int num_scns = sirfsoc_vdss_get_num_screens();
+	const int num_scns = sirfsoc_vdss_get_num_screens(lcdc_index);
 	int i;
 
 	for (i = 0; i < num_scns; ++i) {
@@ -266,7 +266,7 @@ static void vdss_update_regs(void)
 		struct screen_priv_data *sdata;
 		int r;
 
-		scn = sirfsoc_vdss_get_screen(i);
+		scn = sirfsoc_vdss_get_screen(lcdc_index, i);
 		sdata = get_screen_data(scn);
 
 		if (!sdata->enabled || sdata->busy)
@@ -457,7 +457,7 @@ static int vdss_layer_enable(struct sirfsoc_vdss_layer *layer)
 	ldata->enabling = false;
 	vdss_apply_layer_enable(layer, true);
 
-	vdss_update_regs();
+	vdss_update_regs(layer->lcdc_id);
 
 	spin_unlock_irqrestore(&data_lock, flags);
 
@@ -493,7 +493,7 @@ static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
 	spin_lock_irqsave(&data_lock, flags);
 
 	vdss_apply_layer_enable(layer, false);
-	vdss_update_regs();
+	vdss_update_regs(layer->lcdc_id);
 
 	spin_unlock_irqrestore(&data_lock, flags);
 
@@ -506,14 +506,14 @@ err:
 	return r;
 }
 
-static bool vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
+bool vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
 {
 	struct layer_priv_data *ldata = get_layer_data(l);
 	struct sirfsoc_vdss_layer_info *info = &ldata->info;
 
 	info->base = srcbase;
 
-	return lcdc_flip(l->id, info);
+	return lcdc_flip(l->lcdc_id, l->id, info);
 }
 
 static struct sirfsoc_vdss_panel *vdss_layer_get_panel(
@@ -564,6 +564,7 @@ static int vdss_screen_wait_for_vsync(struct sirfsoc_vdss_screen *scn)
 	{
 		complete((struct completion *)data);
 	}
+
 	unsigned long timeout = msecs_to_jiffies(100);
 	int r;
 	DECLARE_COMPLETION_ONSTACK(completion);
@@ -571,7 +572,7 @@ static int vdss_screen_wait_for_vsync(struct sirfsoc_vdss_screen *scn)
 	if (scn->output == NULL)
 		return -ENODEV;
 
-	r = sirfsoc_lcdc_register_isr(irq_handler, &completion,
+	r = sirfsoc_lcdc_register_isr(scn->lcdc_id, irq_handler, &completion,
 		LCDC_INT_VSYNC);
 
 	if (r)
@@ -580,7 +581,7 @@ static int vdss_screen_wait_for_vsync(struct sirfsoc_vdss_screen *scn)
 	timeout = wait_for_completion_interruptible_timeout(&completion,
 		timeout);
 
-	sirfsoc_lcdc_unregister_isr(irq_handler, &completion,
+	sirfsoc_lcdc_unregister_isr(scn->lcdc_id, irq_handler, &completion,
 		LCDC_INT_VSYNC);
 
 	if (timeout == 0)
@@ -724,7 +725,7 @@ int vdss_screen_enable(struct sirfsoc_vdss_screen *scn)
 		goto err;
 	}
 
-	vdss_update_regs();
+	vdss_update_regs(scn->lcdc_id);
 
 	spin_unlock_irqrestore(&data_lock, flags);
 out:
@@ -812,36 +813,40 @@ static int sirfsoc_vdss_screen_apply(struct sirfsoc_vdss_screen *scn)
 	/* Configure manager */
 	sirfsoc_vdss_screen_info_apply(scn);
 
-	vdss_update_regs();
+	vdss_update_regs(scn->lcdc_id);
 
 	spin_unlock_irqrestore(&data_lock, flags);
 
 	return 0;
 }
 
-int vdss_init_screens(void)
+int vdss_init_screens(u32 lcdc_index)
 {
 	int i;
 
-	num_screens = NUM_SCREENS_PER_LCDC;
+	num_screens[lcdc_index] = NUM_SCREENS_PER_LCDC;
 
-	screens = kzalloc(sizeof(struct sirfsoc_vdss_screen) * num_screens,
-		GFP_KERNEL);
+	screens[lcdc_index] = kzalloc(sizeof(struct sirfsoc_vdss_screen) *
+		num_screens[lcdc_index], GFP_KERNEL);
 
 	BUG_ON(screens == NULL);
 
-	for (i = 0; i < num_screens; ++i) {
-		struct sirfsoc_vdss_screen *scn = &screens[i];
-		struct screen_priv_data *sdata;
 
+	for (i = 0; i < num_screens[lcdc_index]; ++i) {
+		struct sirfsoc_vdss_screen *scn = &screens[lcdc_index][i];
+		struct screen_priv_data *sdata;
 
 		switch (i) {
 		case 0:
 			scn->name = "screen0";
 			scn->id = SIRFSOC_VDSS_SCREEN0;
-			scn->supported_outputs = SIRFSOC_VDSS_OUTPUT_RGB |
-				SIRFSOC_VDSS_OUTPUT_LVDS1;
-			break;
+			if (SIRFSOC_VDSS_LCDC0 == lcdc_index)
+				scn->supported_outputs =
+					SIRFSOC_VDSS_OUTPUT_RGB |
+					SIRFSOC_VDSS_OUTPUT_LVDS1;
+			else
+				scn->supported_outputs =
+					SIRFSOC_VDSS_OUTPUT_LVDS2;
 		}
 		/*
 		 * Sometimes the default setting of screen is applicable for
@@ -849,6 +854,7 @@ int vdss_init_screens(void)
 		 * screen regs need have the chance to be intialized. So flag
 		 * as dirty for the very first time.
 		 */
+		scn->lcdc_id = lcdc_index;
 		sdata = get_screen_data(scn);
 		sdata->user_info_dirty = true;
 		scn->caps = 0;
@@ -862,26 +868,26 @@ int vdss_init_screens(void)
 	return 0;
 }
 
-void vdss_uninit_screens(void)
+void vdss_uninit_screens(u32 lcdc_index)
 {
-	kfree(screens);
-	screens = NULL;
-	num_screens = 0;
+	kfree(screens[lcdc_index]);
+	screens[lcdc_index] = NULL;
+	num_screens[lcdc_index] = 0;
 }
 
-void vdss_init_layers(void)
+void vdss_init_layers(u32 lcdc_index)
 {
 	int i;
 
-	num_layers = NUM_LAYERS_PER_LCDC;
+	num_layers[lcdc_index] = NUM_LAYERS_PER_LCDC;
 
-	layers = kzalloc(sizeof(struct sirfsoc_vdss_layer) * num_layers,
-			GFP_KERNEL);
+	layers[lcdc_index] = kzalloc(sizeof(struct sirfsoc_vdss_layer) *
+		num_layers[lcdc_index], GFP_KERNEL);
 
 	BUG_ON(layers == NULL);
 
-	for (i = 0; i < num_layers; ++i) {
-		struct sirfsoc_vdss_layer *l = &layers[i];
+	for (i = 0; i < num_layers[lcdc_index]; ++i) {
+		struct sirfsoc_vdss_layer *l = &layers[lcdc_index][i];
 
 		switch (i) {
 		case 0:
@@ -902,6 +908,7 @@ void vdss_init_layers(void)
 			break;
 		}
 
+		l->lcdc_id = lcdc_index;
 		l->caps = 0;
 		l->supported_fmts = 0;
 		l->is_enabled = vdss_layer_is_enabled;
@@ -916,9 +923,9 @@ void vdss_init_layers(void)
 	}
 }
 
-void vdss_uninit_layers(void)
+void vdss_uninit_layers(u32 lcdc_index)
 {
-	kfree(layers);
-	layers = NULL;
-	num_layers = 0;
+	kfree(layers[lcdc_index]);
+	layers[lcdc_index] = NULL;
+	num_layers[lcdc_index] = 0;
 }

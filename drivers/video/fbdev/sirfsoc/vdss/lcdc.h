@@ -532,9 +532,9 @@ static unsigned int hwfmt_to_bpp[] = {
 	2,	/* LO_CTRL_BPP_UNKNOWN */
 };
 
-unsigned int lcdc_read_reg(unsigned int offset);
-void lcdc_write_reg(unsigned int offset, unsigned int value);
-unsigned long lcdc_clk_get_rate(void);
+unsigned int lcdc_read_reg(u32 lcdc_index, unsigned int offset);
+void lcdc_write_reg(u32 lcdc_index, unsigned int offset, unsigned int value);
+unsigned long lcdc_clk_get_rate(u32 lcdc_index);
 
 static inline unsigned int reg_offset(int layer, unsigned int reg_offset)
 {
@@ -549,27 +549,27 @@ static inline unsigned int __lcdc_dma_unit(bool tvmode)
 	return 128;
 }
 
-static inline void __lcdc_reset_layer_fifo(int layer)
+static inline void __lcdc_reset_layer_fifo(u32 lcdc_index, int layer)
 {
 	u32 lx_ctrl;
 
-	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+	lx_ctrl = lcdc_read_reg(lcdc_index, reg_offset(layer, L0_CTRL));
 
 	lx_ctrl |= LX_CTRL_FIFO_RESET;
-	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_CTRL), lx_ctrl);
 
 	lx_ctrl &= ~LX_CTRL_FIFO_RESET;
-	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_CTRL), lx_ctrl);
 }
 
-static inline void __lcdc_confirm_layer_setting(int layer)
+static inline void __lcdc_confirm_layer_setting(u32 lcdc_index, int layer)
 {
 	u32 lx_ctrl;
 
-	lx_ctrl = lcdc_read_reg(reg_offset(layer, L0_CTRL));
+	lx_ctrl = lcdc_read_reg(lcdc_index, reg_offset(layer, L0_CTRL));
 
 	lx_ctrl |= LX_CTRL_CONFIRM;
-	lcdc_write_reg(reg_offset(layer, L0_CTRL), lx_ctrl);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_CTRL), lx_ctrl);
 }
 
 static inline int __lcdc_fmt_to_hwfmt(enum vdss_pixelformat fmt)

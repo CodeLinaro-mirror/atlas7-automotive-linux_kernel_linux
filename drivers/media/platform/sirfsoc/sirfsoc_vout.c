@@ -797,7 +797,8 @@ static int sirfsoc_vout_streamon(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
-	sirfsoc_lcdc_register_isr(sirfsoc_vout_isr, vout, LCDC_INT_VSYNC);
+	sirfsoc_lcdc_register_isr(vout->layer->lcdc_id, sirfsoc_vout_isr,
+		vout, LCDC_INT_VSYNC);
 
 	ret = vb2_streamon(&vout->vb2_q, buf_type);
 	if (ret) {
@@ -824,7 +825,8 @@ static int sirfsoc_vout_streamoff(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
-	sirfsoc_lcdc_unregister_isr(sirfsoc_vout_isr, vout, LCDC_INT_VSYNC);
+	sirfsoc_lcdc_unregister_isr(vout->layer->lcdc_id, sirfsoc_vout_isr,
+		vout, LCDC_INT_VSYNC);
 
 	ret = vb2_streamoff(&vout->vb2_q, buf_type);
 

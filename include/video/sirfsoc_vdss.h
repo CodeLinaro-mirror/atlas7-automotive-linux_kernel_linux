@@ -57,6 +57,11 @@ enum vdss_screen {
 	SIRFSOC_VDSS_SCREEN1,
 };
 
+enum vdss_lcdc {
+	SIRFSOC_VDSS_LCDC0,
+	SIRFSOC_VDSS_LCDC1,
+};
+
 enum vdss_lvdsc_mode {
 	SIRFSOC_VDSS_LVDSC_MODE_NONE,
 	SIRFSOC_VDSS_LVDSC_MODE_SLAVE,
@@ -273,6 +278,8 @@ struct sirfsoc_vdss_layer {
 
 	/* dynamic fields */
 	struct sirfsoc_vdss_screen *screen;
+	/* the lcd the layer belongs to */
+	enum vdss_lcdc lcdc_id;
 
 	/*
 	 * The following functions do not block:
@@ -319,6 +326,7 @@ struct sirfsoc_vdss_screen {
 
 	/* dynamic fields */
 	struct sirfsoc_vdss_output *output;
+	enum vdss_lcdc lcdc_id;
 
 	int (*set_output)(struct sirfsoc_vdss_screen *screen,
 		struct sirfsoc_vdss_output *output);
@@ -388,7 +396,10 @@ struct sirfsoc_vdss_panel {
 
 	struct list_head list;
 
-	/* alias in the form of "display%d" */
+	/*
+	 * alias in the form of "display%d", primary or secondary
+	 * display will be choosed base on it.
+	 */
 	char alias[16];
 
 	enum sirfsoc_panel_type type;
@@ -431,8 +442,10 @@ struct sirfsoc_vdss_output {
 	/* panel type supported by the output */
 	int supported_panel;
 
+	/* lcd for this output */
+	enum vdss_lcdc lcdc_id;
 
-	/* screen for this output */
+	/* screen in the lcd for this output */
 	enum vdss_screen screen_id;
 
 	/* output instance */
@@ -469,7 +482,6 @@ struct sirfsoc_vdss_driver {
 };
 
 bool sirfsoc_vdss_is_initialized(void);
-
 struct sirfsoc_vdss_panel *sirfsoc_vdss_get_primary_device(void);
 struct sirfsoc_vdss_panel *sirfsoc_vdss_get_secondary_device(void);
 
@@ -501,16 +513,19 @@ struct sirfsoc_vdss_output *sirfsoc_vdss_find_output_from_panel(
 struct sirfsoc_vdss_screen *sirfsoc_vdss_find_screen_from_panel
 	(struct sirfsoc_vdss_panel *panel);
 
-int sirfsoc_vdss_get_num_screens(void);
-struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(int num);
-int sirfsoc_vdss_get_num_layers(void);
-struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(int num);
+int sirfsoc_vdss_get_num_lcdc(void);
+int sirfsoc_vdss_get_num_screens(u32 lcdc_index);
+struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(u32 lcdc_index, int num);
+int sirfsoc_vdss_get_num_layers(u32 lcdc_index);
+struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(u32 lcdc_index, int num);
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
 	struct sirfsoc_vdss_screen *scn);
 
 typedef void (*sirfsoc_lcdc_isr_t) (void *arg, u32 mask);
-int sirfsoc_lcdc_register_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask);
-int sirfsoc_lcdc_unregister_isr(sirfsoc_lcdc_isr_t isr, void *arg, u32 mask);
+int sirfsoc_lcdc_register_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
+	void *arg, u32 mask);
+int sirfsoc_lcdc_unregister_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
+	void *arg, u32 mask);
 
 static inline bool sirfsoc_vdss_panel_is_connected(
 		struct sirfsoc_vdss_panel *panel)

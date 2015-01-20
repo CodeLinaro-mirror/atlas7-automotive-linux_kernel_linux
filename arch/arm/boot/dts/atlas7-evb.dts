@@ -433,7 +433,7 @@
 		};
 
 		disp-iobg {
-			lcd@13100000 {
+			lcd0@13100000 {
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&ld_ldd_pmx &ld_ldd_fck_pmx
@@ -445,8 +445,6 @@
 				pinctrl-0 = <&lvds_analog_pmx>;
 				/* set to SYN or SLAVE for lvds panel */
 				lvds-mode = "SYN";
-				/* set lvds data src,0 for LCDC0,1 for LCDC1*/
-				lvds-source = <0>;
 			};
 		};
 
