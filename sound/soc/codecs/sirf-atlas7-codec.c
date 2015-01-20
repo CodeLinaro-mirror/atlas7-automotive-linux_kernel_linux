@@ -209,20 +209,11 @@ struct snd_soc_dai_driver sirf_atlas7_codec_dai = {
 	.ops = &sirf_atlas7_codec_dai_ops,
 };
 
-static int pll_event(struct snd_soc_dapm_widget *w,
+static int vbg_trim_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
-	u32 pll_status;
-
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		snd_soc_update_bits(w->codec, AUDIO_PLL_CTRL_1,
-			CLKSYNR_NRST, CLKSYNR_NRST);
-		/* Wait for PLL lock */
-		do {
-			pll_status = snd_soc_read(w->codec, AUDIO_PLL_STATUS);
-		} while (!pll_status);
-		/*Enable VBG trim*/
 		snd_soc_update_bits(w->codec, ANA_PMUCTL2,
 			PMUCTRL2_VBG_TRIM, PMUCTRL2_VBG_TRIM_0XF);
 
@@ -432,7 +423,7 @@ static const struct snd_kcontrol_new sirf_atlas7_volume_mixer_controls[] = {
 };
 
 static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
-	SND_SOC_DAPM_SUPPLY("PLL", AUDIO_PLL_CTRL_1, 11, 1, pll_event,
+	SND_SOC_DAPM_SUPPLY("VBG TRIM", SND_SOC_NOPM, 0, 0, vbg_trim_event,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY_S("IREF EN", 1, AUDIO_ANA_REF_CTRL0, 0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("LOUTBIAS", 2, SND_SOC_NOPM, 0, 0,
@@ -541,7 +532,7 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"DACDCLK", NULL, "LOUTBIAS"},
 
 	{"LOUTBIAS", NULL, "IREF EN"},
-	{"IREF EN", NULL, "PLL"},
+	{"IREF EN", NULL, "VBG TRIM"},
 
 	{"DACA", NULL, "AIFRX"},
 	{"DACB", NULL, "AIFRX"},
@@ -586,7 +577,7 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"LOUT2", NULL, "Dither EN CH23"},
 	{"LOUT3", NULL, "Dither EN CH23"},
 
-	{"IREF EN", NULL, "PLL"},
+	{"IREF EN", NULL, "VBG TRIM"},
 	{"LINBIAS", NULL, "IREF EN"},
 	{"ADCACLK", NULL, "LINBIAS"},
 	{"ADCBCLK", NULL, "LINBIAS"},

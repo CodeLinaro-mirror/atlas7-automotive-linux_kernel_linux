@@ -64,7 +64,7 @@
 			#sound-dai-cells = <0>;
 			compatible = "sirf,atlas7-codec";
 			reg = <0x10E30000 0x400>;
-			clocks = <&car 62>;
+			clocks = <&audioclk 0>;
 			ldo-supply = <&ldo>;
 		};
 
