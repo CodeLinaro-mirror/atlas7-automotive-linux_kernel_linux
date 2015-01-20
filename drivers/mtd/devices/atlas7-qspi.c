@@ -253,17 +253,33 @@ struct nor_flash_info {
 	 * FAST_READ frequency, not the READ frequency.
 	 */
 	u32             max_freq;
+	/*these there values is used for clock configure*/
 	u8		tshsl;
 	u8		twhsl;
 	u8		tshwl;
+	/*
+	 * dummy_2b is for read2io dummy cycles
+	 * dummy_4b is for read4io dummy cycles
+	 */
 	u8		dummy_2b;
 	u8		dummy_4b;
+	/*callback function for enable dual, quad and enter 32bit address*/
+	int		(*dual_enable)(struct atlas7_qspi_nor *a7nor);
+	int		(*quad_enable)(struct atlas7_qspi_nor *a7nor);
+	int		(*enter_32addr)(struct atlas7_qspi_nor *a7nor);
 };
+
+static int
+atlas7_qspi_nor_macronix_quad_enable(struct atlas7_qspi_nor *a7nor);
+
+static int
+atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor);
 
 static struct nor_flash_info flash_types[] = {
 	/* default */
 	{ "default", 0, 0, 256, 4 * 1024, 4096,
-		0, 108, 20, 20, 100, 8, 8},
+		0, 108, 20, 20, 100, 8, 8,
+		NULL, NULL, NULL},
 	/* Micron n25xxx */
 #define N25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
 		   FLASH_FLAG_READ_FAST		|	\
@@ -276,16 +292,24 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_WRITE_1_1_4)
 	{ "n25q256a", 0x20ba19, 0, 256, 4 * 1024, 4096 * 2,
 		N25Q_FLAG | FLASH_FLAG_32BIT_ADDR,
-		108, 20, 20, 100, 8, 10},
+		108, 20, 20, 100, 8, 10,
+		NULL, NULL, atlas7_qspi_enter_32bit_addr},
 
 	/*Micronix mx25xx */
 #define MX25_FLAG (FLASH_FLAG_READ_WRITE	|	\
 		   FLASH_FLAG_READ_FAST		|	\
 		   FLASH_FLAG_READ_1_1_2	|	\
-		   FLASH_FLAG_READ_1_2_2)
+		   FLASH_FLAG_READ_1_2_2	|	\
+		   FLASH_FLAG_READ_1_1_4	|	\
+		   FLASH_FLAG_READ_1_4_4	|	\
+		   FLASH_FLAG_WRITE_1_4_4)
+#define ATLAS7_QSPI_MACRONIX_QUAD_EN_BIT	(0x1<<6)
+
 	{ "mx25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
-		133, 30, 20, 100, 4, 6},
+		133, 30, 20, 100, 4, 6,
+		NULL, atlas7_qspi_nor_macronix_quad_enable,
+		atlas7_qspi_enter_32bit_addr},
 
 	/* Sentinel */
 	{},
@@ -371,7 +395,7 @@ static void
 atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 {
 	u32 regval = 0;
-	u8 rx_delay = 0;
+	int rx_delay = 0;
 
 	if (a7nor->info->flags & FLASH_FLAG_READ_1_2_2)
 		regval = ATLAS7_QSPI_RDC_READ2IO(a7nor->info->dummy_2b);
@@ -533,7 +557,6 @@ atlas7_qspi_custom_in(struct atlas7_qspi_nor *a7nor,
 	}
 	return 0;
 }
-
 
 static void
 atlas7_qspi_host_out_data(struct atlas7_qspi_nor *a7nor, u32 data)
@@ -710,30 +733,37 @@ atlas7_qspi_dma_data_in(struct atlas7_qspi_nor *a7nor,
 }
 #endif
 
-static int atlas7_qspi_nor_quad_enable(struct atlas7_qspi_nor *a7nor)
+static int
+atlas7_qspi_nor_macronix_quad_enable(struct atlas7_qspi_nor *a7nor)
 {
-	int ret = 0;
+	int ret;
+	u8 val = 0;
 
-	switch (ATLAS7_JEDEC_MFR(a7nor->info->jedec_id)) {
-	case CFI_MFR_ST:
-	case CFI_MFR_MACRONIX:
-		return ret;
-	default:
-		return ret;
+	mutex_lock(&a7nor->lock);
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR, &val, 1);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WREN, NULL, 0);
+	if (ret < 0)
+		goto out;
+
+	val |= ATLAS7_QSPI_MACRONIX_QUAD_EN_BIT;
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WRSR, &val, 1);
+	if (ret < 0)
+		goto out;
+
+	val = 0;
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR, &val, 1);
+	if (ret < 0)
+		goto out;
+	if (!(val > 0 && (val & ATLAS7_QSPI_MACRONIX_QUAD_EN_BIT))) {
+		dev_err(a7nor->dev, "Macronix Quad bit not set\n");
+		ret = -EINVAL;
 	}
-}
-
-static int atlas7_qspi_nor_dual_enable(struct atlas7_qspi_nor *a7nor)
-{
-	int ret = 0;
-
-	switch (ATLAS7_JEDEC_MFR(a7nor->info->jedec_id)) {
-	case CFI_MFR_ST:
-	case CFI_MFR_MACRONIX:
-		return ret;
-	default:
-		return ret;
-	}
+out:
+	mutex_unlock(&a7nor->lock);
+	return ret;
 }
 
 static int
@@ -758,26 +788,6 @@ atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
 out:
 	mutex_unlock(&a7nor->lock);
 	return ret;
-}
-
-static int
-atlas7_qspi_nor_enter_32bit_addr(struct atlas7_qspi_nor *a7nor)
-{
-	int ret = 0;
-
-	switch (ATLAS7_JEDEC_MFR(a7nor->info->jedec_id)) {
-	case CFI_MFR_ST:
-	case CFI_MFR_MACRONIX:
-		ret = atlas7_qspi_enter_32bit_addr(a7nor);
-		if (ret) {
-			dev_err(a7nor->dev,
-				"Micron cannot intro 32 bit addrssing mode\n");
-			return -EINVAL;
-		}
-		return ret;
-	default:
-		return ret;
-	}
 }
 
 static int
@@ -1031,10 +1041,9 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 	if (info->flags & FLASH_FLAG_WRITE_1_4_4)
 		a7nor->write_flag = FLASH_FLAG_WRITE_1_4_4;
 
-	if ((a7nor->read_flag & FLASH_FLAG_READ_1_1_2) ||
-			(a7nor->read_flag & FLASH_FLAG_READ_1_2_2) ||
-			(a7nor->write_flag & FLASH_FLAG_WRITE_1_1_2)) {
-		ret = atlas7_qspi_nor_dual_enable(a7nor);
+	if ((a7nor->read_flag & FLASH_FLAG_DUAL) ||
+			(a7nor->write_flag & FLASH_FLAG_DUAL)) {
+		ret = info->dual_enable(a7nor);
 		if (ret < 0) {
 			dev_err(a7nor->dev, "set dual mode fail, use fast mode.\n");
 			a7nor->read_flag = FLASH_FLAG_READ_FAST;
@@ -1042,11 +1051,9 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 		}
 	}
 
-	if ((a7nor->read_flag & FLASH_FLAG_READ_1_1_4) ||
-			(a7nor->read_flag & FLASH_FLAG_READ_1_4_4) ||
-			(a7nor->write_flag & FLASH_FLAG_WRITE_1_1_4) ||
-			(a7nor->write_flag & FLASH_FLAG_WRITE_1_4_4)) {
-		ret = atlas7_qspi_nor_quad_enable(a7nor);
+	if ((a7nor->read_flag & FLASH_FLAG_QUAD) ||
+			(a7nor->write_flag & FLASH_FLAG_QUAD)) {
+		ret = info->quad_enable(a7nor);
 		if (ret < 0) {
 			dev_err(a7nor->dev, "set quad mode fail, use fast mode.\n");
 			a7nor->read_flag = FLASH_FLAG_READ_FAST;
@@ -1056,7 +1063,7 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 
 	if (a7nor->mtd.size > ATLAS7_QSPI_24BIT_FLASH_SIZE) {
 		/* enable 4-byte addressing if the device exceeds 16MiB*/
-		ret = atlas7_qspi_nor_enter_32bit_addr(a7nor);
+		ret = info->enter_32addr(a7nor);
 		if (ret < 0) {
 			dev_err(a7nor->dev, "enter 32 bit address fail\n");
 			return ret;
