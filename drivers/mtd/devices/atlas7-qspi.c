@@ -401,12 +401,8 @@ atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 		regval = ATLAS7_QSPI_RDC_READ2IO(a7nor->info->dummy_2b);
 	if (a7nor->info->flags & FLASH_FLAG_READ_1_4_4)
 		regval |= ATLAS7_QSPI_RDC_READ4IO(a7nor->info->dummy_4b);
-	#if 0
-		rx_delay = (clk_get_rate(a7nor->clk) /
-				(2 * a7nor->speed_hz)) - 1;
-	#else
-		rx_delay = (ATLAS7_SOUCRE_CLOCK / (2 * a7nor->speed_hz)) - 1;
-	#endif
+
+	rx_delay = (clk_get_rate(a7nor->clk) / (2 * a7nor->speed_hz)) - 1;
 	rx_delay = clamp(rx_delay, 1, ATLAS7_QSPI_RX_DELAY_MAX);
 	regval |= ATLAS7_QSPI_RX_DELAY(rx_delay);
 
@@ -980,11 +976,7 @@ atlas7_qspi_setup_controller(struct atlas7_qspi_nor *a7nor)
 	u32 clk_div, regval;
 	u32 clk_delay;
 
-	#if 0
-		source_clk = clk_get_rate(a7nor->clk);
-	#else
-		source_clk = ATLAS7_SOUCRE_CLOCK;
-	#endif
+	source_clk = clk_get_rate(a7nor->clk);
 	clk_div = (source_clk / (2 * a7nor->speed_hz)) - 1;
 	if (clk_div > ATLAS7_QSPI_CLK_DIV_MASK || regval < 0)
 		return -EINVAL;
@@ -1138,26 +1130,8 @@ atlas7_qspi_nor_jedec_probe(struct atlas7_qspi_nor *a7nor)
 	return NULL;
 }
 
-#if 1 /* Fixme: drop this after clk driver is ready */
-static void enable_clk(struct atlas7_qspi_nor *a7nor)
-{
-	unsigned long hw_addr = 0x18840000;
-	void __iomem *io_addr;
-	unsigned long size = 0x100;
-
-	io_addr = devm_ioremap(a7nor->dev, hw_addr, size);
-	writel(0xF1, io_addr + 0x4);
-	writel(0x3094, io_addr + 0x8);
-	writel(0x1, io_addr + 0xc);
-	writel(0x1, io_addr + 0x0);
-}
-#endif
-
 static int atlas7_qspi_nor_hw_init(struct atlas7_qspi_nor *a7nor)
 {
-#if 1
-	enable_clk(a7nor);
-#endif
 	mutex_lock(&a7nor->lock);
 
 	/*
@@ -1245,15 +1219,14 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 	mutex_init(&a7nor->lock);
 	init_waitqueue_head(&a7nor->wait);
 
-#if 0 /* the clock function for qspi have not be ready */
 	a7nor->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(a7nor->clk)) {
 		dev_err(&pdev->dev, "cannot get clock\n");
-		ret = PTR_ERR(a7nor->clk);
+		ret = -EPROBE_DEFER;
 		goto err;
 	}
 	clk_prepare_enable(a7nor->clk);
-#endif
+
 	/* set flash info to a default value, hardware init need them */
 	a7nor->info = flash_types;
 	ret = atlas7_qspi_nor_hw_init(a7nor);
