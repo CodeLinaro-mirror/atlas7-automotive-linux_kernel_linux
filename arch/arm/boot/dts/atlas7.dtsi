@@ -1818,7 +1818,6 @@
 			pulsec@10d90000 {
 				compatible = "sirf,prima2-pulsec";
 				reg = <0x10d90000 0xffff>;
-				interrupts = <0 42 0>;
 				clocks = <&car 54>;
 			};
 
