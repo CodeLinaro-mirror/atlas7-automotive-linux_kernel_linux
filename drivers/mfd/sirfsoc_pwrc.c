@@ -128,7 +128,7 @@ static const struct mfd_cell pwrc_devs[] = {
 	},
 	{
 		.name = "onkey",
-		.of_compatible = "sirf,atlas7-onkey",
+		.of_compatible = "sirf,prima2-onkey",
 	},
 };
 

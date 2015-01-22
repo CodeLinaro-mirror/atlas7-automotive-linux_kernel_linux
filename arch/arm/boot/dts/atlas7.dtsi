@@ -1784,7 +1784,7 @@
 						#clock-cells = <1>;
 					};
 					onkey {
-						compatible = "sirf,atlas7-onkey";
+						compatible = "sirf,prima2-onkey";
 					};
 					gps-power {
 						compatible = "sirf,gps-power";

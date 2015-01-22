@@ -10,169 +10,158 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/regmap.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
+#include <linux/mfd/core.h>
+#include <linux/mfd/sirfsoc_pwrc.h>
+#include <linux/irq.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/workqueue.h>
 
-struct sirfsoc_pwrc_drvdata {
-	u32			pwrc_base;
+struct sirfsoc_onkey_info {
+	struct device *dev;
+	struct regmap *regmap;
+	struct sirfsoc_pwrc_register *pwrc_reg;
 	struct input_dev	*input;
 	struct delayed_work	work;
+	u32 base;
+	int virq;
 };
 
-#define PWRC_ON_KEY_BIT			(1 << 0)
+#define PWRC_KEY_DETECT_UP_TIME		320	/* ms*/
 
-#define PWRC_INT_STATUS			0xc
-#define PWRC_INT_MASK			0x10
-#define PWRC_PIN_STATUS			0x14
-#define PWRC_KEY_DETECT_UP_TIME		20	/* ms*/
-
-static int sirfsoc_pwrc_is_on_key_down(struct sirfsoc_pwrc_drvdata *pwrcdrv)
+static int sirfsoc_onkey_down(struct sirfsoc_onkey_info *info)
 {
-	u32 state = sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base +
-							PWRC_PIN_STATUS);
-	return !(state & PWRC_ON_KEY_BIT); /* ON_KEY is active low */
+	struct sirfsoc_pwrc_register *pwrc = info->pwrc_reg;
+	u32 state;
+
+	regmap_read(info->regmap,
+					info->base +
+					pwrc->pwrc_pin_status,
+					&state);
+	return !(state & PWRC_ONKEY_BIT); /* ON_KEY is active low */
 }
 
-static void sirfsoc_pwrc_report_event(struct work_struct *work)
+static void sirfsoc_onkey_event(struct work_struct *work)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv =
-		container_of(work, struct sirfsoc_pwrc_drvdata, work.work);
+	struct sirfsoc_onkey_info *info =
+		container_of(work, struct sirfsoc_onkey_info, work.work);
 
-	if (sirfsoc_pwrc_is_on_key_down(pwrcdrv)) {
-		schedule_delayed_work(&pwrcdrv->work,
+	if (sirfsoc_onkey_down(info)) {
+		schedule_delayed_work(&info->work,
 			msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
 	} else {
-		input_event(pwrcdrv->input, EV_KEY, KEY_POWER, 0);
-		input_sync(pwrcdrv->input);
+		input_event(info->input, EV_KEY, KEY_POWER, 0);
+		input_sync(info->input);
 	}
 }
 
-static irqreturn_t sirfsoc_pwrc_isr(int irq, void *dev_id)
+static irqreturn_t sirfsoc_onkey_handler(int irq, void *dev_id)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_id;
-	u32 int_status;
+	struct sirfsoc_onkey_info *info = dev_id;
 
-	int_status = sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base +
-							PWRC_INT_STATUS);
-	sirfsoc_rtc_iobrg_writel(int_status & ~PWRC_ON_KEY_BIT,
-				 pwrcdrv->pwrc_base + PWRC_INT_STATUS);
-
-	input_event(pwrcdrv->input, EV_KEY, KEY_POWER, 1);
-	input_sync(pwrcdrv->input);
-	schedule_delayed_work(&pwrcdrv->work,
+	input_event(info->input, EV_KEY, KEY_POWER, 1);
+	input_sync(info->input);
+	schedule_delayed_work(&info->work,
 			      msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
 
 	return IRQ_HANDLED;
 }
 
-static void sirfsoc_pwrc_toggle_interrupts(struct sirfsoc_pwrc_drvdata *pwrcdrv,
-					   bool enable)
+static int sirfsoc_onkey_open(struct input_dev *input)
 {
-	u32 int_mask;
+	struct sirfsoc_onkey_info *info = input_get_drvdata(input);
 
-	int_mask = sirfsoc_rtc_iobrg_readl(pwrcdrv->pwrc_base + PWRC_INT_MASK);
-	if (enable)
-		int_mask |= PWRC_ON_KEY_BIT;
-	else
-		int_mask &= ~PWRC_ON_KEY_BIT;
-	sirfsoc_rtc_iobrg_writel(int_mask, pwrcdrv->pwrc_base + PWRC_INT_MASK);
-}
-
-static int sirfsoc_pwrc_open(struct input_dev *input)
-{
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = input_get_drvdata(input);
-
-	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, true);
-
+	enable_irq(info->virq);
 	return 0;
 }
 
-static void sirfsoc_pwrc_close(struct input_dev *input)
+static void sirfsoc_onkey_close(struct input_dev *input)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = input_get_drvdata(input);
+	struct sirfsoc_onkey_info *info = input_get_drvdata(input);
 
-	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, false);
-	cancel_delayed_work_sync(&pwrcdrv->work);
+	disable_irq(info->virq);
+	cancel_delayed_work_sync(&info->work);
 }
 
-static const struct of_device_id sirfsoc_pwrc_of_match[] = {
-	{ .compatible = "sirf,prima2-pwrc" },
+static const struct of_device_id sirfsoc_onkey_of_match[] = {
+	{ .compatible = "sirf,prima2-onkey" },
 	{},
 }
-MODULE_DEVICE_TABLE(of, sirfsoc_pwrc_of_match);
+MODULE_DEVICE_TABLE(of, sirfsoc_onkey_of_match);
 
-static int sirfsoc_pwrc_probe(struct platform_device *pdev)
+
+static int sirfsoc_onkey_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
-	struct sirfsoc_pwrc_drvdata *pwrcdrv;
-	int irq;
-	int error;
+	struct sirfsoc_pwrc_info *pwrcinfo = dev_get_drvdata(pdev->dev.parent);
+	struct sirfsoc_onkey_info *info;
+	int ret;
 
-	pwrcdrv = devm_kzalloc(&pdev->dev, sizeof(struct sirfsoc_pwrc_drvdata),
-			       GFP_KERNEL);
-	if (!pwrcdrv) {
-		dev_info(&pdev->dev, "Not enough memory for the device data\n");
+	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
+	if (!info)
 		return -ENOMEM;
-	}
 
-	/*
-	 * We can't use of_iomap because pwrc is not mapped in memory,
-	 * the so-called base address is only offset in rtciobrg
-	 */
-	error = of_property_read_u32(np, "reg", &pwrcdrv->pwrc_base);
-	if (error) {
+	info->dev = &pdev->dev;
+	info->pwrc_reg = pwrcinfo->pwrc_reg;
+	info->regmap  = pwrcinfo->regmap;
+	info->base  = pwrcinfo->base;
+
+	if (!info->regmap) {
 		dev_err(&pdev->dev,
-			"unable to find base address of pwrc node in dtb\n");
-		return error;
+			"no regmap from parent mfd, should never happen\n");
+		ret = -ENXIO;
+		goto err;
 	}
 
-	pwrcdrv->input = devm_input_allocate_device(&pdev->dev);
-	if (!pwrcdrv->input)
+	info->input = devm_input_allocate_device(&pdev->dev);
+	if (!info->input)
 		return -ENOMEM;
 
-	pwrcdrv->input->name = "sirfsoc pwrckey";
-	pwrcdrv->input->phys = "pwrc/input0";
-	pwrcdrv->input->evbit[0] = BIT_MASK(EV_KEY);
-	input_set_capability(pwrcdrv->input, EV_KEY, KEY_POWER);
+	info->input->name = "sirfsoc pwrckey";
+	info->input->phys = "pwrc/input0";
+	info->input->evbit[0] = BIT_MASK(EV_KEY);
+	input_set_capability(info->input, EV_KEY, KEY_POWER);
 
-	INIT_DELAYED_WORK(&pwrcdrv->work, sirfsoc_pwrc_report_event);
+	INIT_DELAYED_WORK(&info->work, sirfsoc_onkey_event);
 
-	pwrcdrv->input->open = sirfsoc_pwrc_open;
-	pwrcdrv->input->close = sirfsoc_pwrc_close;
+	info->input->open = sirfsoc_onkey_open;
+	info->input->close = sirfsoc_onkey_close;
 
-	input_set_drvdata(pwrcdrv->input, pwrcdrv);
+	input_set_drvdata(info->input, info);
 
-	/* Make sure the device is quiesced */
-	sirfsoc_pwrc_toggle_interrupts(pwrcdrv, false);
+	info->virq = regmap_irq_get_virq(pwrcinfo->irq_data, PWRC_IRQ_ONKEY);
 
-	irq = platform_get_irq(pdev, 0);
-	error = devm_request_irq(&pdev->dev, irq,
-				 sirfsoc_pwrc_isr, 0,
-				 "sirfsoc_pwrc_int", pwrcdrv);
-	if (error) {
-		dev_err(&pdev->dev, "unable to claim irq %d, error: %d\n",
-			irq, error);
-		return error;
+	irq_set_status_flags(info->virq, IRQ_NOAUTOEN);
+	ret = request_threaded_irq(info->virq, NULL, sirfsoc_onkey_handler,
+					    0, "onkey", info);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to request IRQ: #%d: %d\n",
+			info->virq, ret);
+		goto err;
 	}
 
-	error = input_register_device(pwrcdrv->input);
-	if (error) {
+	ret = input_register_device(info->input);
+	if (ret) {
 		dev_err(&pdev->dev,
 			"unable to register input device, error: %d\n",
-			error);
-		return error;
+			ret);
+		goto err;
 	}
 
-	dev_set_drvdata(&pdev->dev, pwrcdrv);
+	dev_set_drvdata(&pdev->dev, info);
 	device_init_wakeup(&pdev->dev, 1);
-
 	return 0;
+err:
+	return ret;
+
 }
 
-static int sirfsoc_pwrc_remove(struct platform_device *pdev)
+
+static int sirfsoc_onkey_remove(struct platform_device *pdev)
 {
 	device_init_wakeup(&pdev->dev, 0);
 
@@ -180,10 +169,10 @@ static int sirfsoc_pwrc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int sirfsoc_pwrc_resume(struct device *dev)
+static int sirfsoc_onkey_resume(struct device *dev)
 {
-	struct sirfsoc_pwrc_drvdata *pwrcdrv = dev_get_drvdata(dev);
-	struct input_dev *input = pwrcdrv->input;
+	struct sirfsoc_onkey_info *info = dev_get_drvdata(dev);
+	struct input_dev *input = info->input;
 
 	/*
 	 * Do not mask pwrc interrupt as we want pwrc work as a wakeup source
@@ -191,29 +180,30 @@ static int sirfsoc_pwrc_resume(struct device *dev)
 	 */
 	mutex_lock(&input->mutex);
 	if (input->users)
-		sirfsoc_pwrc_toggle_interrupts(pwrcdrv, true);
+		enable_irq(info->virq);
+
 	mutex_unlock(&input->mutex);
 
 	return 0;
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(sirfsoc_pwrc_pm_ops, NULL, sirfsoc_pwrc_resume);
+static SIMPLE_DEV_PM_OPS(sirfsoc_onkey_pm_ops, NULL, sirfsoc_onkey_resume);
 
-static struct platform_driver sirfsoc_pwrc_driver = {
-	.probe		= sirfsoc_pwrc_probe,
-	.remove		= sirfsoc_pwrc_remove,
+static struct platform_driver sirfsoc_onkey_driver = {
+	.probe		= sirfsoc_onkey_probe,
+	.remove		= sirfsoc_onkey_remove,
 	.driver		= {
-		.name	= "sirfsoc-pwrc",
+		.name	= "onkey",
 		.owner	= THIS_MODULE,
-		.pm	= &sirfsoc_pwrc_pm_ops,
-		.of_match_table = sirfsoc_pwrc_of_match,
+		.pm	= &sirfsoc_onkey_pm_ops,
+		.of_match_table = sirfsoc_onkey_of_match,
 	}
 };
 
-module_platform_driver(sirfsoc_pwrc_driver);
+module_platform_driver(sirfsoc_onkey_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Binghua Duan <Binghua.Duan@csr.com>, Xianglong Du <Xianglong.Du@csr.com>");
-MODULE_DESCRIPTION("CSR Prima2 PWRC Driver");
-MODULE_ALIAS("platform:sirfsoc-pwrc");
+MODULE_DESCRIPTION("CSR Prima2 onkey Driver");
+MODULE_ALIAS("platform:onkey");
