@@ -351,7 +351,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 			goto err_pclk_prepare;
 	}
 
-	host->quirks2 = SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
+	host->quirks2 &= ~SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
 	host->mmc->caps2 |= MMC_CAP2_NO_PRESCAN_POWERUP;
 
 	ret = sdhci_add_host(host);
