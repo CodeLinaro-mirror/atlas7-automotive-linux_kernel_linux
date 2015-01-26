@@ -768,89 +768,15 @@ static void spi_sirfsoc_chipselect(struct spi_device *spi, int value)
 	}
 }
 
-static int
-spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
+static int spi_sirfsoc_config_mode(struct spi_device *spi)
 {
 	struct sirfsoc_spi *sspi;
-	u8 bits_per_word = 0;
-	int hz = 0;
-	u32 regval;
-	u32 txfifo_ctrl, rxfifo_ctrl;
-	u32 fifo_size;
-	u32 usp_mode1, usp_mode2, tx_frm_ctl, rx_frm_ctl;
+	u32 regval, fifo_size, usp_mode1;
 	struct sirf_spi_register *spi_reg;
 
 	sspi = spi_master_get_devdata(spi->master);
 	spi_reg = get_sirf_spi_register(sspi);
-	bits_per_word = (t) ? t->bits_per_word : spi->bits_per_word;
-	hz = t && t->speed_hz ? t->speed_hz : spi->max_speed_hz;
-
-	usp_mode2 = regval = (sspi->ctrl_freq / (2 * hz)) - 1;
-	if (regval > 0xFFFF || regval < 0) {
-		dev_err(&spi->dev, "Speed %d not supported\n", hz);
-		return -EINVAL;
-	}
-	switch (bits_per_word) {
-	case 8:
-		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_8;
-		sspi->rx_word = spi_sirfsoc_rx_word_u8;
-		sspi->tx_word = spi_sirfsoc_tx_word_u8;
-		break;
-	case 12:
-	case 16:
-		regval |= (bits_per_word ==  12) ?
-			SIRFSOC_SPI_TRAN_DAT_FORMAT_12 :
-			SIRFSOC_SPI_TRAN_DAT_FORMAT_16;
-		sspi->rx_word = spi_sirfsoc_rx_word_u16;
-		sspi->tx_word = spi_sirfsoc_tx_word_u16;
-		break;
-	case 32:
-		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_32;
-		sspi->rx_word = spi_sirfsoc_rx_word_u32;
-		sspi->tx_word = spi_sirfsoc_tx_word_u32;
-		break;
-	default:
-		dev_err(&spi->dev, "bpw %d not supported\n", bits_per_word);
-		return -EINVAL;
-	}
-	sspi->word_width = DIV_ROUND_UP(bits_per_word, 8);
-	txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(sspi,
-			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) |
-			(sspi->word_width >> 1);
-	rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(sspi,
-			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) |
-			(sspi->word_width >> 1);
-	if (sspi->spi_type == SIRF_USP_SPI) {
-		tx_frm_ctl = 0;
-		tx_frm_ctl |= ((bits_per_word - 1) & SIRFSOC_USP_TX_DATA_MASK)
-				<< SIRFSOC_USP_TX_DATA_OFFSET;
-		tx_frm_ctl |= ((bits_per_word + 1 + SIRFSOC_USP_TXD_DELAY_LEN
-				- 1) & SIRFSOC_USP_TX_SYNC_MASK) <<
-				SIRFSOC_USP_TX_SYNC_OFFSET;
-		tx_frm_ctl |= ((bits_per_word + 1 + SIRFSOC_USP_TXD_DELAY_LEN
-				+ 2 - 1) & SIRFSOC_USP_TX_FRAME_MASK) <<
-				SIRFSOC_USP_TX_FRAME_OFFSET;
-		tx_frm_ctl |= ((bits_per_word - 1) &
-				SIRFSOC_USP_TX_SHIFTER_MASK) <<
-				SIRFSOC_USP_TX_SHIFTER_OFFSET;
-		rx_frm_ctl = 0;
-		rx_frm_ctl |= ((bits_per_word - 1) & SIRFSOC_USP_RX_DATA_MASK)
-				<< SIRFSOC_USP_RX_DATA_OFFSET;
-		rx_frm_ctl |= ((bits_per_word + 1 + SIRFSOC_USP_RXD_DELAY_LEN
-				+ 2 - 1) & SIRFSOC_USP_RX_FRAME_MASK) <<
-				SIRFSOC_USP_RX_FRAME_OFFSET;
-		rx_frm_ctl |= ((bits_per_word - 1)
-				& SIRFSOC_USP_RX_SHIFTER_MASK) <<
-				SIRFSOC_USP_RX_SHIFTER_OFFSET;
-		writel(tx_frm_ctl | (((usp_mode2 >> 10) &
-			SIRFSOC_USP_CLK_10_11_MASK) <<
-			SIRFSOC_USP_CLK_10_11_OFFSET),
-			sspi->base + spi_reg->usp_tx_frame_ctrl);
-		writel(rx_frm_ctl | (((usp_mode2 >> 12) &
-			SIRFSOC_USP_CLK_12_15_MASK) <<
-			SIRFSOC_USP_CLK_12_15_OFFSET),
-			sspi->base + spi_reg->usp_rx_frame_ctrl);
-	}
+	regval = readl(sspi->base + spi_reg->spi_ctrl);
 	usp_mode1 = readl(sspi->base + spi_reg->usp_mode1);
 	if (!(spi->mode & SPI_CS_HIGH)) {
 		regval |= SIRFSOC_SPI_CS_IDLE_STAT;
@@ -891,24 +817,11 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	writel(SIRFSOC_SPI_FIFO_SC(sspi, fifo_size - 2) |
 			SIRFSOC_SPI_FIFO_LC(sspi, fifo_size / 2) |
 			SIRFSOC_SPI_FIFO_HC(sspi, 2),
-		sspi->base + spi_reg->txfifo_level_chk);
+			sspi->base + spi_reg->txfifo_level_chk);
 	writel(SIRFSOC_SPI_FIFO_SC(sspi, 2) |
 			SIRFSOC_SPI_FIFO_LC(sspi, fifo_size / 2) |
 			SIRFSOC_SPI_FIFO_HC(sspi, fifo_size - 2),
-		sspi->base + spi_reg->rxfifo_level_chk);
-	writel(txfifo_ctrl, sspi->base + spi_reg->txfifo_ctrl);
-	writel(rxfifo_ctrl, sspi->base + spi_reg->rxfifo_ctrl);
-
-	if (sspi->spi_type != SIRF_USP_SPI && t && t->tx_buf &&
-		!t->rx_buf && (t->len <= SIRFSOC_MAX_CMD_BYTES)) {
-		regval |= (SIRFSOC_SPI_CMD_BYTE_NUM((t->len - 1)) |
-				SIRFSOC_SPI_CMD_MODE);
-		sspi->tx_by_cmd = true;
-	} else {
-		if (sspi->spi_type != SIRF_USP_SPI)
-			regval &= ~SIRFSOC_SPI_CMD_MODE;
-		sspi->tx_by_cmd = false;
-	}
+			sspi->base + spi_reg->rxfifo_level_chk);
 	/*
 	 * it should never set to hardware cs mode because in hardware cs mode,
 	 * cs signal can't controlled by driver.
@@ -918,6 +831,94 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		writel(regval, sspi->base + spi_reg->spi_ctrl);
 	}
 	if (sspi->spi_type == SIRF_USP_SPI) {
+		usp_mode1 |= SIRFSOC_USP_SYNC_MODE;
+		usp_mode1 |= SIRFSOC_USP_TFS_IO_MODE;
+		usp_mode1 &= ~SIRFSOC_USP_TFS_IO_INPUT;
+		writel(usp_mode1, sspi->base + spi_reg->usp_mode1);
+	}
+	return 0;
+}
+static int
+spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
+{
+	struct sirfsoc_spi *sspi;
+	struct sirf_spi_register *spi_reg;
+	u8 bits_per_word = 0;
+	int hz = 0;
+	u32 regval, txfifo_ctrl, rxfifo_ctrl, tx_frm_ctl, rx_frm_ctl, usp_mode2;
+
+	sspi = spi_master_get_devdata(spi->master);
+	spi_reg = get_sirf_spi_register(sspi);
+	bits_per_word = (t) ? t->bits_per_word : spi->bits_per_word;
+	hz = t && t->speed_hz ? t->speed_hz : spi->max_speed_hz;
+	usp_mode2 = regval = (sspi->ctrl_freq / (2 * hz)) - 1;
+
+	if (regval > 0xFFFF || regval < 0) {
+		dev_err(&spi->dev, "Speed %d not supported\n", hz);
+		return -EINVAL;
+	}
+	switch (bits_per_word) {
+	case 8:
+		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_8;
+		sspi->rx_word = spi_sirfsoc_rx_word_u8;
+		sspi->tx_word = spi_sirfsoc_tx_word_u8;
+		break;
+	case 12:
+	case 16:
+		regval |= (bits_per_word ==  12) ?
+			SIRFSOC_SPI_TRAN_DAT_FORMAT_12 :
+			SIRFSOC_SPI_TRAN_DAT_FORMAT_16;
+		sspi->rx_word = spi_sirfsoc_rx_word_u16;
+		sspi->tx_word = spi_sirfsoc_tx_word_u16;
+		break;
+	case 32:
+		regval |= SIRFSOC_SPI_TRAN_DAT_FORMAT_32;
+		sspi->rx_word = spi_sirfsoc_rx_word_u32;
+		sspi->tx_word = spi_sirfsoc_tx_word_u32;
+		break;
+	default:
+		dev_err(&spi->dev, "bpw %d not supported\n", bits_per_word);
+		return -EINVAL;
+	}
+	sspi->word_width = DIV_ROUND_UP(bits_per_word, 8);
+	txfifo_ctrl = SIRFSOC_SPI_FIFO_THD(sspi,
+			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) |
+			(sspi->word_width >> 1);
+	rxfifo_ctrl = SIRFSOC_SPI_FIFO_THD(sspi,
+			SIRFSOC_SPI_FIFO_SIZE(sspi) / 2) |
+			(sspi->word_width >> 1);
+	writel(txfifo_ctrl, sspi->base + spi_reg->txfifo_ctrl);
+	writel(rxfifo_ctrl, sspi->base + spi_reg->rxfifo_ctrl);
+	if (sspi->spi_type == SIRF_USP_SPI) {
+		tx_frm_ctl = 0;
+		tx_frm_ctl |= ((bits_per_word - 1) & SIRFSOC_USP_TX_DATA_MASK)
+				<< SIRFSOC_USP_TX_DATA_OFFSET;
+		tx_frm_ctl |= ((bits_per_word + 1 + SIRFSOC_USP_TXD_DELAY_LEN
+				- 1) & SIRFSOC_USP_TX_SYNC_MASK) <<
+				SIRFSOC_USP_TX_SYNC_OFFSET;
+		tx_frm_ctl |= ((bits_per_word + 1 + SIRFSOC_USP_TXD_DELAY_LEN
+				+ 2 - 1) & SIRFSOC_USP_TX_FRAME_MASK) <<
+				SIRFSOC_USP_TX_FRAME_OFFSET;
+		tx_frm_ctl |= ((bits_per_word - 1) &
+				SIRFSOC_USP_TX_SHIFTER_MASK) <<
+				SIRFSOC_USP_TX_SHIFTER_OFFSET;
+		rx_frm_ctl = 0;
+		rx_frm_ctl |= ((bits_per_word - 1) & SIRFSOC_USP_RX_DATA_MASK)
+				<< SIRFSOC_USP_RX_DATA_OFFSET;
+		rx_frm_ctl |= ((bits_per_word + 1 + SIRFSOC_USP_RXD_DELAY_LEN
+				+ 2 - 1) & SIRFSOC_USP_RX_FRAME_MASK) <<
+				SIRFSOC_USP_RX_FRAME_OFFSET;
+		rx_frm_ctl |= ((bits_per_word - 1)
+				& SIRFSOC_USP_RX_SHIFTER_MASK) <<
+				SIRFSOC_USP_RX_SHIFTER_OFFSET;
+		writel(tx_frm_ctl | (((usp_mode2 >> 10) &
+			SIRFSOC_USP_CLK_10_11_MASK) <<
+			SIRFSOC_USP_CLK_10_11_OFFSET),
+			sspi->base + spi_reg->usp_tx_frame_ctrl);
+		writel(rx_frm_ctl | (((usp_mode2 >> 12) &
+			SIRFSOC_USP_CLK_12_15_MASK) <<
+			SIRFSOC_USP_CLK_12_15_OFFSET),
+			sspi->base + spi_reg->usp_rx_frame_ctrl);
 		writel(readl(sspi->base + spi_reg->usp_mode2) |
 			((usp_mode2 & SIRFSOC_USP_CLK_DIVISOR_MASK) <<
 			SIRFSOC_USP_CLK_DIVISOR_OFFSET) |
@@ -926,11 +927,24 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 			(SIRFSOC_USP_TXD_DELAY_LEN <<
 			 SIRFSOC_USP_TXD_DELAY_OFFSET),
 			sspi->base + spi_reg->usp_mode2);
-
-		usp_mode1 |= SIRFSOC_USP_SYNC_MODE;
-		usp_mode1 |= SIRFSOC_USP_TFS_IO_MODE;
-		usp_mode1 &= ~SIRFSOC_USP_TFS_IO_INPUT;
-		writel(usp_mode1, sspi->base + spi_reg->usp_mode1);
+	}
+	if (sspi->spi_type == SIRF_REAL_SPI)
+		writel(regval, sspi->base + spi_reg->spi_ctrl);
+	spi_sirfsoc_config_mode(spi);
+	if (sspi->spi_type == SIRF_REAL_SPI) {
+		if (t && t->tx_buf && !t->rx_buf &&
+			(t->len <= SIRFSOC_MAX_CMD_BYTES)) {
+			sspi->tx_by_cmd = true;
+			writel(readl(sspi->base + spi_reg->spi_ctrl) |
+				(SIRFSOC_SPI_CMD_BYTE_NUM((t->len - 1)) |
+				SIRFSOC_SPI_CMD_MODE),
+				sspi->base + spi_reg->spi_ctrl);
+		} else {
+			sspi->tx_by_cmd = false;
+			writel(readl(sspi->base + spi_reg->spi_ctrl) &
+				~SIRFSOC_SPI_CMD_MODE,
+				sspi->base + spi_reg->spi_ctrl);
+		}
 	}
 	if (IS_DMA_VALID(t)) {
 		/* Enable DMA mode for RX, TX */
@@ -950,12 +964,9 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 static int spi_sirfsoc_setup(struct spi_device *spi)
 {
 	struct sirfsoc_spi *sspi;
-	struct sirf_spi_register *spi_reg;
 	int ret = 0;
-	u32 usp_mode1;
 
 	sspi = spi_master_get_devdata(spi->master);
-	spi_reg = get_sirf_spi_register(sspi);
 	if (spi->cs_gpio == -ENOENT)
 		sspi->hw_cs = true;
 	else {
@@ -981,26 +992,7 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 			spi_set_ctldata(spi, cs);
 		}
 	}
-	if (sspi->spi_type == SIRF_REAL_SPI) {
-		writel(0, sspi->base + spi_reg->spi_dummy_delay_ctrl);
-		writel(readl(sspi->base + spi_reg->spi_ctrl) |
-			SIRFSOC_SPI_CS_IO_MODE, sspi->base + spi_reg->spi_ctrl);
-	}
-	if (sspi->spi_type == SIRF_USP_SPI) {
-		writel(readl(sspi->base + spi_reg->usp_mode1) & ~SIRFSOC_USP_EN,
-				sspi->base + spi_reg->usp_mode1);
-		writel(readl(sspi->base + spi_reg->usp_mode1) | SIRFSOC_USP_EN,
-					sspi->base + spi_reg->usp_mode1);
-		usp_mode1 = readl(sspi->base + spi_reg->usp_mode1);
-		if (!(spi->mode & SPI_CS_HIGH))
-			usp_mode1 &= ~SIRFSOC_USP_CS_HIGH_VALID;
-		else
-			usp_mode1 |= SIRFSOC_USP_CS_HIGH_VALID;
-		usp_mode1 |= SIRFSOC_USP_SYNC_MODE;
-		usp_mode1 |= SIRFSOC_USP_TFS_IO_MODE;
-		usp_mode1 &= ~SIRFSOC_USP_TFS_IO_INPUT;
-		writel(usp_mode1, sspi->base + spi_reg->usp_mode1);
-	}
+	spi_sirfsoc_config_mode(spi);
 	spi_sirfsoc_chipselect(spi, BITBANG_CS_INACTIVE);
 exit:
 	return ret;
@@ -1027,6 +1019,7 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	struct sirfsoc_spi *sspi;
 	struct spi_master *master;
 	struct resource *mem_res;
+	struct sirf_spi_register *spi_reg;
 	int irq;
 	int ret;
 	const struct of_device_id *match;
@@ -1049,6 +1042,7 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(pdev->dev.of_node, "sirf,prima2-spi"))
 		sspi->spi_type = SIRF_REAL_SPI;
 	sspi->spi_register = (struct sirf_spi_register *)match->data;
+	spi_reg = get_sirf_spi_register(sspi);
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sspi->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (IS_ERR(sspi->base)) {
@@ -1113,7 +1107,19 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_clk;
 	dev_info(&pdev->dev, "registerred, bus number = %d\n", master->bus_num);
-
+	if (sspi->spi_type == SIRF_REAL_SPI) {
+		/* disable dummy delay between command and data */
+		writel(0, sspi->base + spi_reg->spi_dummy_delay_ctrl);
+		writel(readl(sspi->base + spi_reg->spi_ctrl) |
+			SIRFSOC_SPI_CS_IO_MODE, sspi->base + spi_reg->spi_ctrl);
+	}
+	if (sspi->spi_type == SIRF_USP_SPI) {
+		/* reset USP and let USP can operate */
+		writel(readl(sspi->base + spi_reg->usp_mode1) & ~SIRFSOC_USP_EN,
+				sspi->base + spi_reg->usp_mode1);
+		writel(readl(sspi->base + spi_reg->usp_mode1) | SIRFSOC_USP_EN,
+					sspi->base + spi_reg->usp_mode1);
+	}
 	return 0;
 free_clk:
 	clk_disable_unprepare(sspi->clk);
