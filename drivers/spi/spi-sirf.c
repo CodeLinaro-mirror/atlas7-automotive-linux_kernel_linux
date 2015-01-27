@@ -951,6 +951,7 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 	struct sirfsoc_spi *sspi;
 	struct sirf_spi_register *spi_reg;
 	int ret = 0;
+	u32 usp_mode1;
 
 	sspi = spi_master_get_devdata(spi->master);
 	spi_reg = get_sirf_spi_register(sspi);
@@ -989,6 +990,15 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 				sspi->base + spi_reg->usp_mode1);
 		writel(readl(sspi->base + spi_reg->usp_mode1) | SIRFSOC_USP_EN,
 					sspi->base + spi_reg->usp_mode1);
+		usp_mode1 = readl(sspi->base + spi_reg->usp_mode1);
+		if (!(spi->mode & SPI_CS_HIGH))
+			usp_mode1 &= ~SIRFSOC_USP_CS_HIGH_VALID;
+		else
+			usp_mode1 |= SIRFSOC_USP_CS_HIGH_VALID;
+		usp_mode1 |= SIRFSOC_USP_SYNC_MODE;
+		usp_mode1 |= SIRFSOC_USP_TFS_IO_MODE;
+		usp_mode1 &= ~SIRFSOC_USP_TFS_IO_INPUT;
+		writel(usp_mode1, sspi->base + spi_reg->usp_mode1);
 	}
 	spi_sirfsoc_chipselect(spi, BITBANG_CS_INACTIVE);
 exit:
