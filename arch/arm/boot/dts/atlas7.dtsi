@@ -1448,13 +1448,15 @@
 				gpio-controller;
 				interrupt-controller;
 
-				gpio-banks = <3>;
+				gpio-banks = <4>;
 				gpio-ranges = <&pinctrl 0 0 0>,
 						<&pinctrl 32 0 0>,
-						<&pinctrl 64 0 0>;
+						<&pinctrl 64 0 0>,
+						<&pinctrl 96 0 0>;
 				gpio-ranges-group-names = "gnss_gpio_grp",
 							"lcd_vip_gpio_grp",
-							"sdio_i2s_gpio_grp";
+							"sdio_i2s_gpio_grp",
+							"sp_rgmii_gpio_grp";
 			};
 
 			sd2: sdhci@14200000 {
