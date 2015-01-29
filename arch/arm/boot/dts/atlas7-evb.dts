@@ -146,7 +146,7 @@
 			};
 
 			usp2: usp@10d40000 {
-				status = "okay";
+				status = "disabled";
 				compatible = "sirf,atlas7-usp-spi";
 				pinctrl-0 = <&audio_uart2_pmx0>;
 				pinctrl-names = "default";
@@ -380,7 +380,8 @@
 			};
 
 			spi1: spi@18200000 {
-				status = "disabled";
+				status = "okay";
+				compatible = "sirf,prima2-spi-slave";
 				pinctrl-0 = <&sp1_spi_pmx>;
 				pinctrl-names = "default";
 				spiflash: mxicy@0{
