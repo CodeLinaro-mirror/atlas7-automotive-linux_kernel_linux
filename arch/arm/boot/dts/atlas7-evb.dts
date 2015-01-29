@@ -304,6 +304,12 @@
 				pinctrl-0 = <&sd2_pmx0>;
 			};
 
+			sdhci@14300000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd3_pmx>;
+			};
+
 			sdhci@14500000 {
 				status = "okay";
 				pinctrl-names = "default";
