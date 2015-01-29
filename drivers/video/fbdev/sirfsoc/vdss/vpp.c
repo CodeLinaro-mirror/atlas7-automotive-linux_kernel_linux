@@ -423,9 +423,12 @@ static bool __vpp_set_srcbase(struct vdss_vpp_params *params)
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
 		ybase = params->src_base + yoffset;
+		/*
+		 * According to spec, if the input format is semi-planar YUV420,
+		 * this value should be divided by 2 as it should be.
+		 */
 		ubase = (params->src_base + params->src_hor_stride *
-			((params->src_ver_stride + 0x3f) & (~0x3f))
-			+ uoffset) >> 1;
+			params->src_ver_stride + uoffset) >> 1;
 		vbase = ubase;
 		break;
 	case VDSS_PIXELFORMAT_UYVY:
