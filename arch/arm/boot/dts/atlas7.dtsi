@@ -1485,7 +1485,7 @@
 				compatible = "sirf,atlas7-sdhc";
 				reg = <0x14300000 0x100000>;
 				interrupts = <0 23 0>;
-				clocks = <&car 76>, <&car 81>;
+				clocks = <&car 70>, <&car 75>;
 				clock-names = "core", "iface";
 				status = "disabled";
 				bus-width = <4>;
