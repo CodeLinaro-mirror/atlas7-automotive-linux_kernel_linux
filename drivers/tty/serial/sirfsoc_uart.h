@@ -331,31 +331,34 @@ struct sirfsoc_uart_register sirfsoc_uart = {
 #define SIRFUART_UART_RECV_TIMEOUT(x)	((x & 0xFFFF) << 16)
 
 #define SIRFUART_FIFO_THD(port)		(port->fifosize >> 1)
-#define SIRFUART_ERR_INT_STAT(port, unit_st)			\
+#define SIRFUART_ERR_INT_STAT(unit_st, uart_type)			\
 				(uint_st->sirfsoc_rx_oflow |		\
 				uint_st->sirfsoc_frm_err |		\
 				uint_st->sirfsoc_rxd_brk |		\
-		((port->line > 2) ? 0 : uint_st->sirfsoc_parity_err))
-#define SIRFUART_RX_IO_INT_EN(port, uint_en)				\
+				((uart_type != SIRF_REAL_UART) ? \
+				 0 : uint_st->sirfsoc_parity_err))
+#define SIRFUART_RX_IO_INT_EN(uint_en, uart_type)			\
 				(uint_en->sirfsoc_rx_done_en |\
 				 uint_en->sirfsoc_rxfifo_thd_en |\
 				 uint_en->sirfsoc_rxfifo_full_en |\
 				 uint_en->sirfsoc_frm_err_en |\
 				 uint_en->sirfsoc_rx_oflow_en |\
 				 uint_en->sirfsoc_rxd_brk_en |\
-		((port->line > 2) ? 0 : uint_en->sirfsoc_parity_err_en))
+				((uart_type != SIRF_REAL_UART) ? \
+				 0 : uint_en->sirfsoc_parity_err_en))
 #define SIRFUART_RX_IO_INT_ST(uint_st)				\
 				(uint_st->sirfsoc_rxfifo_thd |\
 				 uint_st->sirfsoc_rxfifo_full|\
 				 uint_st->sirfsoc_rx_done |\
 				 uint_st->sirfsoc_rx_timeout)
 #define SIRFUART_CTS_INT_ST(uint_st)	(uint_st->sirfsoc_cts)
-#define SIRFUART_RX_DMA_INT_EN(port, uint_en)				\
+#define SIRFUART_RX_DMA_INT_EN(uint_en, uart_type)		\
 				(uint_en->sirfsoc_rx_timeout_en |\
 				 uint_en->sirfsoc_frm_err_en |\
 				 uint_en->sirfsoc_rx_oflow_en |\
 				 uint_en->sirfsoc_rxd_brk_en |\
-		((port->line > 2) ? 0 : uint_en->sirfsoc_parity_err_en))
+				((uart_type != SIRF_REAL_UART) ? \
+				 0 : uint_en->sirfsoc_parity_err_en))
 /* Generic Definitions */
 #define SIRFSOC_UART_NAME			"ttySiRF"
 #define SIRFSOC_UART_MAJOR			0

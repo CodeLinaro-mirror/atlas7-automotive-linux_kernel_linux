@@ -316,21 +316,25 @@ static void sirfsoc_uart_stop_rx(struct uart_port *port)
 		if (!sirfport->is_atlas7)
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
 				rd_regl(port, ureg->sirfsoc_int_en_reg) &
-				~(SIRFUART_RX_DMA_INT_EN(port, uint_en) |
+				~(SIRFUART_RX_DMA_INT_EN(uint_en,
+				sirfport->uart_reg->uart_type) |
 				uint_en->sirfsoc_rx_done_en));
 		else
 			wr_regl(port, ureg->sirfsoc_int_en_clr_reg,
-					SIRFUART_RX_DMA_INT_EN(port, uint_en)|
-					uint_en->sirfsoc_rx_done_en);
+				SIRFUART_RX_DMA_INT_EN(uint_en,
+				sirfport->uart_reg->uart_type)|
+				uint_en->sirfsoc_rx_done_en);
 		dmaengine_terminate_all(sirfport->rx_dma_chan);
 	} else {
 		if (!sirfport->is_atlas7)
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
 				rd_regl(port, ureg->sirfsoc_int_en_reg)&
-				~(SIRFUART_RX_IO_INT_EN(port, uint_en)));
+				~(SIRFUART_RX_IO_INT_EN(uint_en,
+				sirfport->uart_reg->uart_type)));
 		else
 			wr_regl(port, ureg->sirfsoc_int_en_clr_reg,
-					SIRFUART_RX_IO_INT_EN(port, uint_en));
+				SIRFUART_RX_IO_INT_EN(uint_en,
+				sirfport->uart_reg->uart_type));
 	}
 }
 
@@ -631,7 +635,8 @@ static irqreturn_t sirfsoc_uart_isr(int irq, void *dev_id)
 	intr_status = rd_regl(port, ureg->sirfsoc_int_st_reg);
 	wr_regl(port, ureg->sirfsoc_int_st_reg, intr_status);
 	intr_status &= rd_regl(port, ureg->sirfsoc_int_en_reg);
-	if (unlikely(intr_status & (SIRFUART_ERR_INT_STAT(port, uint_st)))) {
+	if (unlikely(intr_status & (SIRFUART_ERR_INT_STAT(uint_st,
+				sirfport->uart_reg->uart_type)))) {
 		if (intr_status & uint_st->sirfsoc_rxd_brk) {
 			port->icount.brk++;
 			if (uart_handle_break(port))
@@ -799,10 +804,12 @@ static void sirfsoc_uart_start_next_rx_dma(struct uart_port *port)
 	if (!sirfport->is_atlas7)
 		wr_regl(port, ureg->sirfsoc_int_en_reg,
 				rd_regl(port, ureg->sirfsoc_int_en_reg) |
-				SIRFUART_RX_DMA_INT_EN(port, uint_en));
+				SIRFUART_RX_DMA_INT_EN(uint_en,
+				sirfport->uart_reg->uart_type));
 	else
 		wr_regl(port, ureg->sirfsoc_int_en_reg,
-			SIRFUART_RX_DMA_INT_EN(port, uint_en));
+				SIRFUART_RX_DMA_INT_EN(uint_en,
+				sirfport->uart_reg->uart_type));
 }
 
 static void sirfsoc_uart_start_rx(struct uart_port *port)
@@ -821,10 +828,12 @@ static void sirfsoc_uart_start_rx(struct uart_port *port)
 		if (!sirfport->is_atlas7)
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
 				rd_regl(port, ureg->sirfsoc_int_en_reg) |
-				SIRFUART_RX_IO_INT_EN(port, uint_en));
+				SIRFUART_RX_IO_INT_EN(uint_en,
+					sirfport->uart_reg->uart_type));
 		else
 			wr_regl(port, ureg->sirfsoc_int_en_reg,
-				SIRFUART_RX_IO_INT_EN(port, uint_en));
+				SIRFUART_RX_IO_INT_EN(uint_en,
+					sirfport->uart_reg->uart_type));
 	}
 }
 
