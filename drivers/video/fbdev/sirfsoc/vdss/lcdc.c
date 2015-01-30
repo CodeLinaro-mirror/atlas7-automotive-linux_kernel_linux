@@ -732,53 +732,6 @@ void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 		(20 << 16) | (22 << 24));
 	lcdc_write_reg(lcdc_index, BLS_LEVEL_TB3, 24 | (26 << 8) |
 		(28 << 16) | (30 << 24));
-	/* atlas7: can't use default value any more */
-	if (lcdc[lcdc_index].is_atlas7) {
-		if (lcdc_index == 1) {
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x80000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x100000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x400000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x800);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x400);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x2000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x800000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x8000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x200000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x4000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x10);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x1000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x40);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x80);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x8);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x20);
-		} else {
-			/* HDMI setting */
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x100);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x200);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x400);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x800);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x1000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x2000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x4000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x8000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x10000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x20000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x40000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x80000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x100000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x200000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x400000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x800000);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_16, 0x1);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_17, 0x2);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_18, 0x4);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_19, 0x8);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_20, 0x10);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_21, 0x20);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_22, 0x40);
-			lcdc_write_reg(lcdc_index, PADMUX_LDD_23, 0x80);
-		}
-	}
 }
 
 void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
@@ -817,6 +770,59 @@ void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
 	}
 	lcdc_write_reg(lcdc_index, S0_YUV_CTRL, s0_yuv_ctrl);
 	lcdc_write_reg(lcdc_index, S0_TV_FIELD, s0_tv_field);
+}
+
+static void lcdc_output_configure_pins(u32 lcdc_index, bool hdmi)
+{
+	/* atlas7: can't use default value any more */
+	if (!lcdc[lcdc_index].is_atlas7)
+		return;
+
+	if (hdmi) {
+		/* HDMI setting */
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x100);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x200);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x400);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x800);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x1000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x2000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x4000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x8000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x10000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x20000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x40000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x80000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x100000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x200000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x400000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x800000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_16, 0x1);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_17, 0x2);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_18, 0x4);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_19, 0x8);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_20, 0x10);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_21, 0x20);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_22, 0x40);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_23, 0x80);
+	} else {
+		/* lvds or rgb setting */
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x80000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x100000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x400000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x800);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x400);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x2000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x800000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x8000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x200000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x4000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x10);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x1000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x40);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x80);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x8);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x20);
+	}
 }
 
 void lcdc_print_regs(u32 lcdc_index)
@@ -1300,6 +1306,8 @@ static int lvds_connect(struct sirfsoc_vdss_output *out,
 
 	lvdsc_select_src(out->lcdc_id);
 
+	lcdc_output_configure_pins(out->lcdc_id, false);
+
 	return 0;
 }
 
@@ -1470,6 +1478,9 @@ static int rgb_connect(struct sirfsoc_vdss_output *out,
 		vdss_screen_unset_output(scn);
 		return r;
 	}
+
+	lcdc_output_configure_pins(out->lcdc_id,
+		dst->type == SIRFSOC_PANEL_HDMI);
 
 	return 0;
 }
