@@ -455,7 +455,6 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				dmaengine_terminate_all(dma_data->chan[i]);
 		else
 			dma_async_issue_pending(dma_data->chan[0]);
-		hrtimer_cancel(&aprtd->hrt);
 		break;
 	default:
 		return -EINVAL;
@@ -497,6 +496,7 @@ static int atlas7_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct atlas7_pcm_runtime_data *aprtd = runtime->private_data;
 
+	hrtimer_cancel(&aprtd->hrt);
 	kfree(aprtd);
 
 	return 0;
