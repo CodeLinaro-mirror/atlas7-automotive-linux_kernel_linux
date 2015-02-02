@@ -1,24 +1,22 @@
 #include <linux/module.h>
-#include <linux/of_address.h>	/*of_address */
+#include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
-#include <linux/poll.h>
+#include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/cdev.h>
-#include <linux/dma-mapping.h>
+#include <linux/sched.h>
+#include <linux/mm.h>
+#include <linux/uaccess.h>
+#include <linux/io.h>
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
-#include <linux/module.h>
-#include <asm/irq.h>
-#include <linux/wait.h>
-#include <linux/sched.h>
 #include <linux/clk.h>
-#include <linux/reset.h>
 
 #include "mjpegdev.h"
-/*               Local Variables                  */
+
 static struct jpeg_data jpeg;
 
 static void jpeg_get_hw_pool(struct platform_device *pdev)
@@ -99,17 +97,11 @@ static void jpeg_free_buf(struct jpg_hw_buf *hwbuf)
 static void write_reg(unsigned long reg_offset, unsigned long data)
 {
 	writel(data, (void *)(jpeg.dev_info.reg_vaddr + reg_offset));
-	dbg_msg(1, "JPGREG:write %lx %lx\n", reg_offset, data);
 }
 
 static unsigned long read_reg(unsigned long reg_offset)
 {
-	unsigned long data = 0;
-
-	data = readl((void *)(jpeg.dev_info.reg_vaddr
-		+ reg_offset));
-	dbg_msg(1, "JPGREG:read %lx %lx\n", reg_offset, data);
-	return data;
+	return readl((void *)(jpeg.dev_info.reg_vaddr + reg_offset));
 }
 
 static void jpeg_update_thumbnail_mb_geometry(struct jpeg_codec_param *param)
@@ -191,21 +183,17 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 		ret = -ETIMEDOUT;
 	}
 
-	data =
-	    read_reg(REGISTER_JPEG_INT_CTRL_STAT);
+	data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 	while (poll) {
-		data =
-		    read_reg(REGISTER_JPEG_INT_CTRL_STAT);
+		data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 		poll--;
 	}
-	if (codec_param->mode == JPEG_PATH_MODE_ENCODER_FINAL) {
-		data =
-		    read_reg(REGISTER_VLC_BTS_CNT);
-	} else if (codec_param->mode == JPEG_PATH_MODE_DECODER) {
 
-		write_reg(REGISTER_CODE_GG_LINE_ABORT,
-			 1);
-	}
+	if (codec_param->mode == JPEG_PATH_MODE_ENCODER_FINAL)
+		data = read_reg(REGISTER_VLC_BTS_CNT);
+	else if (codec_param->mode == JPEG_PATH_MODE_DECODER)
+		write_reg(REGISTER_CODE_GG_LINE_ABORT, 1);
+
 	if (jpeg_info->bfail) {
 		dbg_msg(1, "JPEGInterruptFunc:handle the fail\n");
 		jpeg_info->bfail = false;
@@ -213,6 +201,7 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	} else {
 		dbg_msg(1, "JPEGInterruptFunc:clear the interrupts\n");
 	}
+
 	return ret;
 }
 
@@ -253,11 +242,9 @@ static void jpeg_set_default(struct jpeg_codec_param *param)
 			codec_mode.reg_code_mode = 0x00000004;
 		else
 			codec_mode.reg_code_mode = 0x00000014;
-		write_reg(REGISTER_CODEC_MODE,
-			 codec_mode.reg_code_mode);
+		write_reg(REGISTER_CODEC_MODE, codec_mode.reg_code_mode);
 	}
-	write_reg(REGISTER_CODEC_ENCDEC_RESET,
-	0x00000001);
+	write_reg(REGISTER_CODEC_ENCDEC_RESET, 0x00000001);
 }
 
 static void jpeg_update_thumbnail_burst(unsigned char addr_align)
@@ -265,7 +252,6 @@ static void jpeg_update_thumbnail_burst(unsigned char addr_align)
 	write_reg(REGISTER_THUMB_BG_MAX_BURST_SIZE, (addr_align << 1));
 	write_reg(REGISTER_THUMB_BG_MIN_BURST_SIZE, (addr_align >> 2));
 	write_reg(REGISTER_THUMB_BG_ADDR_ALIGN, addr_align);
-
 }
 
 static void jpeg_update_code_line_burst(unsigned char addr_align)
@@ -370,13 +356,10 @@ static void jpeg_update_image_mb_geometry(struct jpeg_codec_param *param)
 
 	/*Indicates the access direction. Set to Read
 	(0) when encoding and Write (1) when decoding*/
-	if (param->mode == JPEG_PATH_MODE_ENCODER_FINAL) {
-		write_reg(REGISTER_IMAGE_GG_MBLK_RD_WR,
-		0);
-	} else if (param->mode == JPEG_PATH_MODE_DECODER) {
-		write_reg(REGISTER_IMAGE_GG_MBLK_RD_WR,
-		1);
-	}
+	if (param->mode == JPEG_PATH_MODE_ENCODER_FINAL)
+		write_reg(REGISTER_IMAGE_GG_MBLK_RD_WR, 0);
+	else if (param->mode == JPEG_PATH_MODE_DECODER)
+		write_reg(REGISTER_IMAGE_GG_MBLK_RD_WR, 1);
 	/*write DRAM Start address of transaction*/
 	write_reg(REGISTER_IMAGE_GG_MBLK_START_ADDR,
 		 ((param->path.in_frame.hw_buf_info)->paddr >> 2));
@@ -391,16 +374,15 @@ static void jpeg_update_quant_table(struct jpeg_codec_param *param)
 	short i;
 
 	dbg_msg(1, ("JPG:jpeg_update_quant_table\r\n"));
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < 64; i++)
 		write_reg(REGISTER_QT_FIRST_Q_MATRIX,
-			 (unsigned int)(param->y_qt[i]));
-	}
+			(unsigned int)(param->y_qt[i]));
 
 	pulqt = (unsigned long *)REGISTER_QT_SECOND_Q_MATRIX;
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < 64; i++)
 		write_reg(REGISTER_QT_SECOND_Q_MATRIX,
 			 (unsigned int)(param->c_qt[i]));
-	}
+
 	dbg_msg(1, ("JPG:jpeg_update_quant_table end\r\n"));
 }
 
@@ -410,25 +392,21 @@ static void jpeg_update_vlc_table(struct jpeg_codec_param *param)
 	union un_vlc_stuffing_type vlc_stuff_t;
 
 	write_reg(REGISTER_VLC_START_FILL_ADDR, 0);
-	for (i = 0; i < param->table_size; i++) {
+	for (i = 0; i < param->table_size; i++)
 		write_reg(REGISTER_VLC_TABLE_MEM_FILL,
 			 (param->t_mem[i]));
-	}
 	write_reg(REGISTER_VLC_START_FILL_ADDR, 0);
-	for (i = 0; i < param->c_mem_size; i++) {
-		write_reg(REGISTER_VLC_CODE_MEM_FILL,
-			 (param->c_mem[i]));
-	}
-	write_reg(REGISTER_VLC_HW_POINTERS,
-		 VLM_HW_TABLE_JPEG);
+	for (i = 0; i < param->c_mem_size; i++)
+		write_reg(REGISTER_VLC_CODE_MEM_FILL, param->c_mem[i]);
+
+	write_reg(REGISTER_VLC_HW_POINTERS, VLM_HW_TABLE_JPEG);
 
 	vlc_stuff_t.reg_vlc_stuffing_type = 0;
 	vlc_stuff_t.s_vlc_stuffing_type.all_stuf_bits_but_msb = 1;
 	vlc_stuff_t.s_vlc_stuffing_type.msb_stuf_bit = 1;
 	write_reg(REGISTER_VLC_STUFFING_TYPE,
 		vlc_stuff_t.reg_vlc_stuffing_type);
-	write_reg(REGISTER_VLC_ENABLE_AND_RESET,
-		0x00000001);
+	write_reg(REGISTER_VLC_ENABLE_AND_RESET, 0x00000001);
 }
 
 static void jpeg_set_interrupt_mask(bool enable)
@@ -474,20 +452,18 @@ static void jpeg_setclients(struct jpeg_codec_param *param)
 		 0x00000001);
 	write_reg(REGISTER_ARBITER_CL_THUMB_DISABLE, 1);
 
-	if (param->path.in_frame.color_fmt < 8) {
+	if (param->path.in_frame.color_fmt < 8)
 		write_reg(REGISTER_BRIDGE_CL_IMAGE_BYTE_SWAP,
 			 (unsigned int)(param->path.in_frame.color_fmt));
-	}
 
-	if (param->path.extra_frame.color_fmt < 8) {
+	if (param->path.extra_frame.color_fmt < 8)
 		write_reg(REGISTER_BRIDGE_CL_THUMB_BYTE_SWAP,
 			 (unsigned int)(param->path.extra_frame.color_fmt));
-	}
 
-	if (param->path.out_frame.color_fmt < 8) {
+	if (param->path.out_frame.color_fmt < 8)
 		write_reg(REGISTER_BRIDGE_CL_CODE_BYTE_SWAP,
 			 (unsigned int)(param->path.out_frame.color_fmt));
-	}
+
 	/* IMAGE_BG */
 	jpeg_update_image_burst(32);
 	/* IMAGE_GG */
@@ -538,7 +514,7 @@ static void jpeg_setalign(struct jpeg_codec_param *param)
 
 		while (cur_align_bits > 0) {
 			unsigned long mask =
-			    0xFFFFFFFF >> (32 - cur_align_bits);
+			    0xFFFFFFFFUL >> (32 - cur_align_bits);
 
 			unsigned long val;
 
@@ -552,7 +528,6 @@ static void jpeg_setalign(struct jpeg_codec_param *param)
 				 MAX_VAL_OF_VLC_PUSH_POP_NUMBIT);
 		}
 	}
-
 }
 
 static void jpeg_go(struct jpeg_codec_param *param)
@@ -883,9 +858,7 @@ ERROR:
 
 static int jpeg_remove(struct platform_device *pdev)
 {
-	struct clk *ck = NULL;
-
-	ck = jpeg.ck;
+	struct clk *ck = jpeg.ck;
 
 	clk_disable_unprepare(ck);
 	clk_put(ck);
@@ -898,9 +871,9 @@ static int jpeg_remove(struct platform_device *pdev)
 
 static struct platform_driver jpeg_driver = {
 	.driver = {
-	.name = "jpeg",
-	.owner = THIS_MODULE,
-	.of_match_table = jpeg_match_tbl,
+		.name = "csr_atlas7jpeg",
+		.owner = THIS_MODULE,
+		.of_match_table = jpeg_match_tbl,
 	},
 	.probe = jpeg_probe,
 	.remove = jpeg_remove,
