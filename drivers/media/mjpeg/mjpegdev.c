@@ -887,7 +887,6 @@ static int jpeg_remove(struct platform_device *pdev)
 
 	ck = jpeg.ck;
 
-	clk_disable(ck);
 	clk_disable_unprepare(ck);
 	clk_put(ck);
 	mutex_destroy(&jpeg.pool_lock);
