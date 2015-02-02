@@ -63,8 +63,8 @@ static int debug_level = 1;
 
 /* Basic double link list item. This object must be the first item in any */
 struct jpg_hw_buf {
-	unsigned int vaddr;
-	unsigned int paddr;
+	void *vaddr;
+	unsigned long paddr;
 	unsigned long size;
 	unsigned long real_size;
 };
@@ -165,7 +165,7 @@ struct s_path {
 struct jpeg_codec_param {
 	/* Compress / statistic / decompress / MPEG */
 	struct s_path path;
-	void *reg_vaddr;
+	void __iomem *reg_vaddr;
 	unsigned short mode;
 
 	/* 422 / 420 */
@@ -202,14 +202,14 @@ struct jpeg_codec_param {
 };
 
 struct jpeg_dev_info {
-	u32 reg_vaddr;
+	void __iomem *reg_vaddr;
 	int irq;
 	unsigned int reg_size;
 };
 
 struct jpg_hw_pool {
-	unsigned int vaddr;
-	unsigned int paddr;
+	void *vaddr;
+	unsigned long paddr;
 	unsigned long size;
 	unsigned long used_size;
 };

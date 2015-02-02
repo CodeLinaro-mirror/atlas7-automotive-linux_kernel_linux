@@ -35,10 +35,10 @@ static void jpeg_get_hw_pool(struct platform_device *pdev)
 	hw_pool->paddr = of_translate_address(vdec_memory,
 		of_get_address(vdec_memory, 0,
 		(u64 *)(&(hw_pool->size)), NULL));
-	hw_pool->vaddr =
-		(u32) ioremap_nocache(hw_pool->paddr, hw_pool->size);
-	dbg_msg(1, KERN_INFO "hw_pool.paddr=0x%x\n", hw_pool->paddr);
-	dbg_msg(1, KERN_INFO "hw_pool.vaddr=0x%x\n", hw_pool->vaddr);
+	hw_pool->vaddr = ioremap_nocache(hw_pool->paddr, hw_pool->size);
+
+	dbg_msg(1, KERN_INFO "hw_pool.paddr=%lx\n", hw_pool->paddr);
+	dbg_msg(1, KERN_INFO "hw_pool.vaddr=%p\n", hw_pool->vaddr);
 }
 
 static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
@@ -64,9 +64,9 @@ static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
 	hwbuf->size = size;
 	hwbuf->real_size = realsize;
 	hw_pool->used_size += realsize;
-	dbg_msg(1, "JPG:jpeg_alloc_buf hwbuf->vaddr %x hwbuf->paddr %x\n",
+	dbg_msg(1, "JPG:jpeg_alloc_buf hwbuf->vaddr %p hwbuf->paddr %lx\n",
 		hwbuf->vaddr, hwbuf->paddr);
-	dbg_msg(1, "hwbuf->size %lx,hw_pool->used_size %lx\r\n",
+	dbg_msg(1, "hwbuf->size %lx,hw_pool->used_size %lx\n",
 		hwbuf->size, hw_pool->used_size);
 	mutex_unlock(&jpeg.pool_lock);
 }
@@ -89,19 +89,19 @@ static void jpeg_free_buf(struct jpg_hw_buf *hwbuf)
 		return;
 	}
 	hw_pool->used_size -= hwbuf->real_size;
-	dbg_msg(1, "JPG:jpeg_free_buf vaddr %x paddr %x size %lx\r\n",
+	dbg_msg(1, "JPG:jpeg_free_buf vaddr %p paddr %lx size %lx\r\n",
 		  hwbuf->vaddr, hwbuf->paddr, hwbuf->size);
 	mutex_unlock(&jpeg.pool_lock);
 }
 
 static void write_reg(unsigned long reg_offset, unsigned long data)
 {
-	writel(data, (void *)(jpeg.dev_info.reg_vaddr + reg_offset));
+	writel(data, jpeg.dev_info.reg_vaddr + reg_offset);
 }
 
 static unsigned long read_reg(unsigned long reg_offset)
 {
-	return readl((void *)(jpeg.dev_info.reg_vaddr + reg_offset));
+	return readl(jpeg.dev_info.reg_vaddr + reg_offset);
 }
 
 static void jpeg_update_thumbnail_mb_geometry(struct jpeg_codec_param *param)
@@ -271,9 +271,9 @@ static void jpeg_update_image_mb_geometry(struct jpeg_codec_param *param)
 	unsigned int i;
 
 	pdata = (unsigned char *)((param->path.in_frame.hw_buf_info)->vaddr);
-	dbg_msg(1, "vaddr = %x\n",
+	dbg_msg(1, "vaddr = %p\n",
 	       (param->path.in_frame.hw_buf_info)->vaddr);
-	dbg_msg(1, "paddr = %x\n",
+	dbg_msg(1, "paddr = %lx\n",
 	       (param->path.in_frame.hw_buf_info)->paddr);
 	pixels =
 	    param->path.in_frame.frameheight *
@@ -798,8 +798,8 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	dev_info = &jpeg.dev_info;
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	dev_info->reg_vaddr = (u32)devm_ioremap_resource(&pdev->dev, regs);
-	if (IS_ERR((void *)(dev_info->reg_vaddr)))
+	dev_info->reg_vaddr = devm_ioremap_resource(&pdev->dev, regs);
+	if (IS_ERR(dev_info->reg_vaddr))
 		goto ERROR;
 
 	jpeg.ck = devm_clk_get(&pdev->dev, NULL);
