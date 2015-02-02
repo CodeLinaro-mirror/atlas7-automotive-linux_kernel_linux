@@ -1,3 +1,11 @@
+/*
+ * CSR sirfsoc framebuffer header file
+ *
+ * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
+ *
+ * Licensed under GPLv2 or later.
+ */
 #ifndef __SIRFSOC_FB_H
 #define __SIRFSOC_FB_H
 
