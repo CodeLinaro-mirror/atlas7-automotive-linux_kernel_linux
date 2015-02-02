@@ -802,7 +802,7 @@ static int jpeg_probe(struct platform_device *pdev)
 	if (IS_ERR((void *)(dev_info->reg_vaddr)))
 		goto ERROR;
 
-	jpeg.ck = clk_get(&pdev->dev, NULL);
+	jpeg.ck = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(jpeg.ck)) {
 		dbg_msg(1, "jpeg_enable_clock error!\n");
 		goto ERROR;
@@ -837,11 +837,8 @@ static int jpeg_probe(struct platform_device *pdev)
 			"sirf,mjpeg", jpeg_info);
 	return ret;
 ERROR:
-	if (jpeg.ck) {
-		clk_disable(jpeg.ck);
+	if (jpeg.ck)
 		clk_disable_unprepare(jpeg.ck);
-		clk_put(jpeg.ck);
-	}
 	if (jpeg_class && devno)
 		device_destroy(jpeg_class, devno);
 	if (jpeg_class)
@@ -861,7 +858,6 @@ static int jpeg_remove(struct platform_device *pdev)
 	struct clk *ck = jpeg.ck;
 
 	clk_disable_unprepare(ck);
-	clk_put(ck);
 	mutex_destroy(&jpeg.pool_lock);
 	device_destroy(jpeg.jpeg_class, jpeg.devno);
 	class_destroy(jpeg.jpeg_class);
