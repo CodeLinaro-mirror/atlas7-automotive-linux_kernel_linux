@@ -846,11 +846,8 @@ ERROR:
 	if (devno)
 		unregister_chrdev_region(devno, 1);
 	mutex_destroy(&jpeg.pool_lock);
-	if (ret)
-		return ret;
-	else
-		return -EINVAL;
 
+	return ret;
 }
 
 static int jpeg_remove(struct platform_device *pdev)
