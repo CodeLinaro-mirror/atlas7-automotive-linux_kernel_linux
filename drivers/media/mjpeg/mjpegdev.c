@@ -19,7 +19,7 @@
 
 static struct jpeg_data jpeg;
 
-static void jpeg_get_hw_pool(struct platform_device *pdev)
+static int jpeg_get_hw_pool(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *vdec_memory;
@@ -29,16 +29,23 @@ static void jpeg_get_hw_pool(struct platform_device *pdev)
 	vdec_memory = of_parse_phandle(dev->of_node, "memory-region", 0);
 	if (!vdec_memory) {
 		dbg_msg(1, KERN_INFO "Get reserved memory error\n");
-		return;
+		return -ENOMEM;
 	}
 
 	hw_pool->paddr = of_translate_address(vdec_memory,
 		of_get_address(vdec_memory, 0,
 		(u64 *)(&(hw_pool->size)), NULL));
-	hw_pool->vaddr = ioremap_nocache(hw_pool->paddr, hw_pool->size);
+	hw_pool->vaddr = devm_ioremap(&pdev->dev, hw_pool->paddr,
+		hw_pool->size);
+	if (!hw_pool->vaddr) {
+		dev_err(&pdev->dev, "ioremap failed for hw poll\n");
+		return -ENOMEM;
+	}
 
-	dbg_msg(1, KERN_INFO "hw_pool.paddr=%lx\n", hw_pool->paddr);
-	dbg_msg(1, KERN_INFO "hw_pool.vaddr=%p\n", hw_pool->vaddr);
+	dev_dbg(&pdev->dev, "hw_pool.paddr=%lx vddr=%p\n", hw_pool->paddr,
+		hw_pool->vaddr);
+
+	return 0;
 }
 
 static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
@@ -819,7 +826,9 @@ static int jpeg_probe(struct platform_device *pdev)
 		  (u32) dev_info->reg_size,
 		  (u32) dev_info->reg_vaddr);
 	pdev->dev.coherent_dma_mask = ~0;
-	jpeg_get_hw_pool(pdev);
+	ret = jpeg_get_hw_pool(pdev);
+	if (ret)
+		goto ERROR;
 
 	jpeg_info = &jpeg.jpeg_info;
 	irq = platform_get_irq(pdev, 0);
