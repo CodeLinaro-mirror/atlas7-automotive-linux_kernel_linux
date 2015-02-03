@@ -158,12 +158,6 @@ static __init void sirfsoc_map_io(void)
 #endif
 }
 
-static void __init sirfsoc_init_irq(void)
-{
-	l2x0_of_init(0, 0xfdffffff);
-	irqchip_init();
-}
-
 #ifdef CONFIG_ARCH_ATLAS6
 static const char *atlas6_dt_match[] __initconst = {
 	"sirf,atlas6",
@@ -176,7 +170,6 @@ DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= sirfsoc_init_irq,
 	.init_machine	= sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas6_dt_match,
@@ -195,7 +188,6 @@ DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
 	.map_io         = sirfsoc_map_io,
-	.init_irq	= sirfsoc_init_irq,
 	.init_machine   = sirfsoc_init_mach,
 	.dma_zone_size	= SZ_256M,
 	.init_late	= sirfsoc_init_late,
