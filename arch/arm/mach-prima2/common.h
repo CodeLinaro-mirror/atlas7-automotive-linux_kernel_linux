@@ -60,37 +60,10 @@ static inline void sirfsoc_video_codec_reverve_memblock(void)
 }
 #endif
 
-#ifdef CONFIG_NANDDISK
-extern void sirfsoc_nand_reserve_memblock(void);
-extern void sirfsoc_nand_nosave_memblock(void);
-#else
-static inline void sirfsoc_nand_reserve_memblock(void)
-{
-};
-static inline void sirfsoc_nand_nosave_memblock(void)
-{
-};
-#endif
-
-#ifndef CONFIG_DEBUG_LL
-static inline void sirfsoc_map_lluart(void)  {}
-#else
-extern void __init sirfsoc_map_lluart(void);
-#endif
-
-#ifndef CONFIG_SMP
-static inline void sirfsoc_map_scu(void) {}
-#else
-extern void sirfsoc_map_scu(void);
-#endif
-
 #ifdef CONFIG_SUSPEND
 extern int sirfsoc_pm_init(void);
 #else
 static inline int sirfsoc_pm_init(void) { return 0; }
-#endif
-#ifdef CONFIG_SECURITY_MODE
-extern void (*arm_pm_idle)(void);
 #endif
 
 #ifdef CONFIG_ATLAS7DA_NOC
