@@ -1033,27 +1033,32 @@ atlas7_qspi_nor_configure_flash(struct atlas7_qspi_nor *a7nor)
 	if (info->flags & FLASH_FLAG_WRITE_1_4_4)
 		a7nor->write_flag = FLASH_FLAG_WRITE_1_4_4;
 
-	if ((a7nor->read_flag & FLASH_FLAG_DUAL) ||
-			(a7nor->write_flag & FLASH_FLAG_DUAL)) {
+	if (((a7nor->read_flag & FLASH_FLAG_DUAL) ||
+		(a7nor->write_flag & FLASH_FLAG_DUAL)) &&
+		info->dual_enable) {
 		ret = info->dual_enable(a7nor);
 		if (ret < 0) {
-			dev_err(a7nor->dev, "set dual mode fail, use fast mode.\n");
+			dev_err(a7nor->dev,
+				"set dual mode fail, use fast mode.\n");
 			a7nor->read_flag = FLASH_FLAG_READ_FAST;
 			a7nor->write_flag = SPINOR_OP_WRITE;
 		}
 	}
 
-	if ((a7nor->read_flag & FLASH_FLAG_QUAD) ||
-			(a7nor->write_flag & FLASH_FLAG_QUAD)) {
+	if (((a7nor->read_flag & FLASH_FLAG_QUAD) ||
+		(a7nor->write_flag & FLASH_FLAG_QUAD)) &&
+		info->quad_enable) {
 		ret = info->quad_enable(a7nor);
 		if (ret < 0) {
-			dev_err(a7nor->dev, "set quad mode fail, use fast mode.\n");
+			dev_err(a7nor->dev,
+				"set quad mode fail, use fast mode.\n");
 			a7nor->read_flag = FLASH_FLAG_READ_FAST;
 			a7nor->write_flag = SPINOR_OP_WRITE;
 		}
 	}
 
-	if (a7nor->mtd.size > ATLAS7_QSPI_24BIT_FLASH_SIZE) {
+	if ((a7nor->mtd.size > ATLAS7_QSPI_24BIT_FLASH_SIZE) &&
+		info->enter_32addr) {
 		/* enable 4-byte addressing if the device exceeds 16MiB*/
 		ret = info->enter_32addr(a7nor);
 		if (ret < 0) {
