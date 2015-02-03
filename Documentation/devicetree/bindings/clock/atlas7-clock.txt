@@ -17,7 +17,7 @@ The ID list atlas7_reset_unit defined in drivers/clk/sirf/clk-atlas7.c
 Examples:
 
 timer@10dc0000 {
-	compatible = "sirf,macro-tick";
+	compatible = "sirf,atlas7-tick";
 	reg = <0x10dc0000 0x1000>;
 	clocks = <&car 54>;
 	interrupts = <0 0 0>,
