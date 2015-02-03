@@ -181,10 +181,7 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	struct dev_intr_info *jpeg_info = &jpeg.jpeg_info;
 
 	dbg_msg(1, KERN_INFO"wait cond %d\n", 100);
-	rc = wait_event_interruptible_timeout(
-		jpeg_info->wq,
-		1,
-		100);
+	rc = wait_for_completion_timeout(&jpeg.jpeg_info.ready, 100);
 	if (!rc) {
 		dbg_msg(1, "wait timeout!\n");
 		ret = -ETIMEDOUT;
@@ -765,7 +762,7 @@ static irqreturn_t jpeg_irq_handler(int irq, void *data)
 	unsigned long read_data;
 
 	intr_info = (struct dev_intr_info *)data;
-	wake_up_interruptible(&(intr_info->wq));
+	complete(&jpeg.jpeg_info.ready);
 	read_data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 	write_reg(REGISTER_JPEG_INT_CTRL_STAT, 0x0000001F);
 
@@ -840,7 +837,7 @@ static int jpeg_probe(struct platform_device *pdev)
 	dbg_msg(1, KERN_INFO"DevInfo irq = %d\n", jpeg_info->irq_id);
 
 	dbg_msg(1, KERN_INFO"Install ISR irq = %d\n", jpeg_info->irq_id);
-	init_waitqueue_head(&jpeg_info->wq);
+	init_completion(&jpeg.jpeg_info.ready);
 	ret = devm_request_irq(&pdev->dev, jpeg_info->irq_id,
 			jpeg_irq_handler, 0,
 			"sirf,mjpeg", jpeg_info);
