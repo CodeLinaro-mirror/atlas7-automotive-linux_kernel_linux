@@ -49,6 +49,7 @@ struct sdhci_sirf_priv {
 	unsigned int buffer_err[2];
 	unsigned int buffer_crc_err;
 	unsigned int buffer_dma_int;
+	unsigned int lpdma_buf_sft;
 };
 
 #define LOOPDMA_BUFF0_RDY_FLAG  (1 << 10)

@@ -437,6 +437,7 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		priv->mem_buf[1] = dma_alloc_coherent(&pdev->dev,
 			512 * (1 << LOOPDMA_BUF_SIZE_SHIFT),
 			&priv->loopdma_buf[1], GFP_KERNEL | GFP_DMA);
+		priv->lpdma_buf_sft = LOOPDMA_BUF_SIZE_SHIFT;
 	}
 
 	return 0;

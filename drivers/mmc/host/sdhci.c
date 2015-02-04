@@ -934,7 +934,7 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 			data->blksz), SDHCI_BLOCK_SIZE);
 		sdhci_writew(host, data->blocks, SDHCI_BLOCK_COUNT);
 	} else
-		sdhci_writew(host, SDHCI_MAKE_BLKSZ(LOOPDMA_BUF_SIZE_SHIFT - 3,
+		sdhci_writew(host, SDHCI_MAKE_BLKSZ((priv->lpdma_buf_sft - 3),
 			data->blksz), SDHCI_BLOCK_SIZE);
 }
 
