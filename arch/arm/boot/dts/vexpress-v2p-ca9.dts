@@ -18,9 +18,7 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
-	chosen {
-		bootargs = "root=/dev/mmcblk0 rw init=/bin/sh console=ttyAMA1,38400n8 mem=1024M ip=dhcp";
-	};
+	chosen { };
 
 	aliases {
 		serial0 = &v2m_serial0;
@@ -297,49 +295,6 @@
 			arm,vexpress-sysreg,func = <12 1>;
 			label = "PVD10_S3";
 		};
-	};
-
-	remoteproc {
-		compatible = "csr,csrvisor-remoteproc";
-		reg = <0x80200000 0x200000>;
-		interrupt_s = <63>;
-		interrupt_ns = <62>;
-
-		/* virtio i2c adapter#0 (pcie-i2c) */
-		virtual_i2c_pcie {
-			device_type = "virtio";
-			compatible = "csr,virtio-i2c-frontend";
-			bus_id = <0>;
-
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			pcie-switch@60 {
-				compatible = "idt,89hpes32h8";
-				reg = <0x60>;
-			};
-		};
-
-		/* virtio i2c adapter#1 (dvi-i2c) */
-		virtual_i2c_dvi {
-			device_type = "virtio";
-			compatible = "csr,virtio-i2c-frontend";
-			bus_id = <1>;
-
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			dvi-transmitter@39 {
-				compatible = "sil,sii9022-tpi", "sil,sii9022";
-				reg = <0x39>;
-			};
-
-			dvi-transmitter@60 {
-				compatible = "sil,sii9022-cpi", "sil,sii9022";
-				reg = <0x60>;
-			};
-		};
-
 	};
 
 	smb {

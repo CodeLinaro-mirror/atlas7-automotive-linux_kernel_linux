@@ -17,7 +17,6 @@
 #include <linux/of_device.h>
 
 #include <linux/remoteproc.h>
-#include <linux/remoteproc_dualos.h>
 
 #include "remoteproc_internal.h"
 
@@ -52,16 +51,6 @@ enum sirf_rproc_idx {
 	NS2M31,
 	NS2KAL0,
 	NS2KAL1,
-#ifdef CONFIG_CSRVISOR_DUALOS
-	S2NS0,
-	S2NS1,
-	NS2S0,
-	NS2S1,
-	S2M30,
-	S2M31,
-	S2KAL0
-	S2KAL1
-#endif
 };
 
 enum sirf_rproc_hwspinlock_idx {
@@ -73,24 +62,6 @@ enum sirf_rproc_hwspinlock_idx {
 	NS2KAL0_RL,
 	NS2KAL1_WL,
 	NS2KAL1_RL,
-#ifdef CONFIG_CSRVISOR_DUALOS
-	S2NS0_WL,
-	S2NS0_RL,
-	S2NS1_WL,
-	S2NS1_RL,
-	NS2S0_WL,
-	NS2S0_RL,
-	NS2S1_WL,
-	NS2S1_RL,
-	S2M30_WL,
-	S2M30_RL,
-	S2M31_WL,
-	S2M31_RL,
-	S2KAL0_WL,
-	S2KAL0_RL,
-	S2KAL1_WL,
-	S2KAL1_RL,
-#endif
 };
 
 #define DEF_FEATURES	(RPROC_F_DEVICE_MMIO | RPROC_F_DYNAMIC_VQ | \
@@ -101,81 +72,6 @@ enum sirf_rproc_hwspinlock_idx {
 
 #define NS_FEATURES	(DEF_FEATURES | RPROC_F_FRONTEND | \
 			RPROC_F_PREDEFINED_VQ_NOTIFYID)
-
-#ifdef CONFIG_CSRVISOR_DUALOS
-
-#include <linux/virtio_ids.h>
-#include <linux/rpmsg.h>
-#include <linux/virtio_i2c.h>
-#include <linux/virtio_console.h>
-#include <linux/virtio_clk.h>
-
-/* This table defined the channels will be created when rpmsg backend
- * become ready. And the corresponded channels for the frontend will be
- * created by ns_service automatically.
- *
- * The channel that was created by ns_serice will receive msg from any
- * address, so dst address should be RPMSG_ADDR_ANY.
- *
- * If you want to restrict the address, you have to create the channel
- * manually in remote side, and change RPMSG_ADDR_ANY to customized address
- * and do the restriction in your client& service driver.
- */
-static struct rpmsg_channel_descriptor s_rpmsg_channels[] = {
-	{ "rpmsg-client-sample", 0x1234, RPMSG_ADDR_ANY, {0, 0} },
-};
-
-/* This table defined the virtio i2c adapter descriptors */
-static struct virtio_i2c_desc s_virtio_i2c_descs[] = {
-	{ 0, "CSR Virtual I2C Adapter#0" },
-	{ 1, "CSR Virtual I2C Adapter#1" },
-};
-
-/* This table defined the virtio console device descriptors */
-static struct virtio_rproc_console_desc s_virtio_console_descs[] = {
-	{ 0, "vport" },
-};
-
-/*
- * The compatible string of virtual device where all virtual
- * clock units connected.
- */
-static const char s_virtio_clk_np_string[] = "sirf,virtio-clkc";
-
-/* This table defined the virtio device will be create on remoteproc bus */
-static struct rproc_vdev_desc s2ns0_rproc_vdev_desc[] = {
-	/* virtio clock device descriptor */
-	{ VIRTIO_ID_CLOCK, 1, 256,
-		{	/* Prepare Features */
-			VIRTIO_CLK_F_PREPARE,
-			VIRTIO_CLK_F_UNPREPARE,
-			VIRTIO_CLK_F_IS_PREPARED,
-			/* Control Features */
-			VIRTIO_CLK_F_ENABLE,
-			VIRTIO_CLK_F_DISABLE,
-			VIRTIO_CLK_F_IS_ENABLED,
-		}, 6, RPROC_VDEV_MMIO_SIZE,
-		(void *)s_virtio_clk_np_string,
-		ARRAY_SIZE(s_virtio_clk_np_string)},
-	/* virtio rpmsg bus device descriptor */
-	{ VIRTIO_ID_RPMSG, 2, 256, { VIRTIO_RPMSG_F_NS, }, 1,
-		RPROC_VDEV_MMIO_SIZE,
-		s_rpmsg_channels, ARRAY_SIZE(s_rpmsg_channels) },
-	/* virtio i2c device#0 descriptor */
-	{ VIRTIO_ID_I2C, 1, 256, { VIRTIO_RING_F_INDIRECT_DESC, }, 1,
-		RPROC_VDEV_MMIO_SIZE,
-		&s_virtio_i2c_descs[0], sizeof(struct virtio_i2c_desc) },
-	/* virtio i2c device#1 descriptor */
-	{ VIRTIO_ID_I2C, 1, 256, { VIRTIO_RING_F_INDIRECT_DESC, }, 1,
-		RPROC_VDEV_MMIO_SIZE,
-		&s_virtio_i2c_descs[1], sizeof(struct virtio_i2c_desc) },
-	/* virtio console device#0 descriptor */
-	{ VIRTIO_ID_RPROC_SERIAL, 2, 256, {}, 0,
-		RPROC_VDEV_MMIO_SIZE,
-		&s_virtio_console_descs[0],
-		sizeof(struct virtio_rproc_console_desc) },
-};
-#endif
 
 struct fifo_buffer {
 	struct hwspinlock *lock;
@@ -456,75 +352,6 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .fifo_sz = 0x1000,
 	  .features = NS_FEATURES,
 	}
-#ifdef CONFIG_CSRVISOR_DUALOS
-	{
-	  .name = "s2ns0-rproc",
-	  .setreg = TR_S_NS_1, .clrreg = TR_NS_S_1,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = S2NS0_WL, .r_fifo_lock = S2NS0_RL,
-	  .fifo_sz = 0x10000,
-	  .features = S_FEATURES,
-	  .vdev_num = ARRAY_SIZE(s2ns0_rproc_vdev_desc),
-	  .vdev_desc = s2ns0_rproc_vdev_desc,
-	}, {
-	  .name = "s2ns1-rproc",
-	  .setreg = TR_S_NS_2, .clrreg = TR_NS_S_2,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = S2NS1_WL, .r_fifo_lock = S2NS1_RL,
-	  .fifo_sz = 0x10000,
-	  .features = S_FEATURES,
-	}, {
-	  .name = "ns2s0-rproc",
-	  .setreg = TR_NS_S_1, .clrreg = TR_S_NS_1,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .w_fifo_lock = NS2S0_WL, .r_fifo_lock = NS2S0_RL,
-	  .fifo_sz = 0x10000,
-	  .features = NS_FEATURES,
-	}, {
-	  .name = "ns2s1-rproc",
-	  .setreg = TR_NS_S_2, .clrreg = TR_S_NS_2,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .w_fifo_lock = NS2S1_WL, .r_fifo_lock = NS2S1_RL,
-	  .fifo_sz = 0x10000,
-	  .features = NS_FEATURES,
-	}, {
-	  .name = "s2m30-rproc",
-	  .setreg = TR_S_M3_1, .clrreg = TR_M3_S_1,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = S2M30_WL, .r_fifo_lock = S2M30_RL,
-	  .fifo_sz = 0x1000,
-	  .features = S_FEATURES,
-	}, {
-	  .name = "s2m31-rproc",
-	  .setreg = TR_S_M3_2, .clrreg = TR_M3_S_2,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = S2M31_WL, .r_fifo_lock = S2M31_RL,
-	  .fifo_sz = 0x1000,
-	  .features = S_FEATURES,
-	}, {
-	  .name = "s2kal0-rproc",
-	  .setreg = TR_S_KAS_1, .clrreg = TR_KAS_S_1,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = S2KAL0_WL, .r_fifo_lock = S2KAL0_RL,
-	  .fifo_sz = 0x1000,
-	  .features = S_FEATURES,
-	}, {
-	  .name = "s2kal1-rproc",
-	  .setreg = TR_S_KAS_2, .clrreg = TR_KAS_S_2,
-	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
-	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = S2KAL1_WL, .r_fifo_lock = S2KAL1_RL,
-	  .fifo_sz = 0x1000,
-	  .features = S_FEATURES,
-	},
-#endif
 };
 
 static const struct of_device_id sirf_rproc_dt_ids[] = {
@@ -541,33 +368,6 @@ static const struct of_device_id sirf_rproc_dt_ids[] = {
 		.compatible = "sirf,ns2kal1-rproc",
 		.data = &sirf_rproc_hwinfo[NS2KAL1],
 	},
-#ifdef CONFIG_CSRVISOR_DUALOS
-	{
-		.compatible = "sirf,s2ns0-rproc",
-		.data = &sirf_rproc_hwinfo[S2NS0],
-	}, {
-		.compatible = "sirf,s2ns1-rproc",
-		.data = &sirf_rproc_hwinfo[S2NS1],
-	}, {
-		.compatible = "sirf,ns2s0-rproc",
-		.data = &sirf_rproc_hwinfo[NS2S0],
-	}, {
-		.compatible = "sirf,ns2s1-rproc",
-		.data = &sirf_rproc_hwinfo[NS2S1],
-	}, {
-		.compatible = "sirf,s2m30-rproc",
-		.data = &sirf_rproc_hwinfo[S2M30],
-	}, {
-		.compatible = "sirf,s2m31-rproc",
-		.data = &sirf_rproc_hwinfo[S2M31],
-	}, {
-		.compatible = "sirf,s2kal0-rproc",
-		.data = &sirf_rproc_hwinfo[S2KAL0],
-	}, {
-		.compatible = "sirf,s2kal1-rproc",
-		.data = &sirf_rproc_hwinfo[S2KAL1],
-	},
-#endif
 };
 
 static u32 sirf_rproc_features(struct device *dev)

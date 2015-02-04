@@ -40,12 +40,6 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqchip/arm-gic.h>
 
-#ifdef CONFIG_SECURITY_MODE
-#ifdef CONFIG_CSRVISOR_SW_FIFO
-#include <linux/csrvisor_syscalls.h>
-#endif
-#endif
-
 #include <asm/cputype.h>
 #include <asm/irq.h>
 #include <asm/exception.h>
@@ -286,7 +280,6 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 #endif
 			continue;
 		}
-
 		break;
 	} while (1);
 }
@@ -383,39 +376,6 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 
 	writel_relaxed(GICD_DISABLE, base + GIC_DIST_CTRL);
 
-#ifdef CONFIG_SECURITY_MODE
-	/*
-	 * Set all global interrupts upper than 64 to be non-security
-	 */
-	for (i = 64; i < gic_irqs; i += 32)
-		writel_relaxed(0xffffffff, base + GIC_DIST_IGROUP + i * 4 / 32);
-
-	/*
-	 * Set SPI32~63 based on board configuration, some SPI can be secure
-	 */
-	writel_relaxed(CONFIG_SPI32_IGROUP, base + GIC_DIST_IGROUP + 32 * 4 / 32);
-
-	/*
-	 * Set IPC interrupts to TGT0 secure. IRQ 116~121 (add 32 is 148 ~ 153)
-	 */
-	if (of_machine_is_compatible("sirf,atlas7"))
-		writel_relaxed(0xfc0fffff,
-			base + GIC_DIST_IGROUP + 128 * 4 / 32);
-
-	/*
-	 * Secure Linux will run in single core, so make all SGI non-secure
-	 * for IPI in non-secure Linux
-	 */
-	writel_relaxed(0xffffffff, base + GIC_DIST_IGROUP);
-
-#ifdef CONFIG_CSRVISOR_SW_FIFO
-	/*
-	 * write interrupt set-pending register address to csrvisor.
-	 */
-	csrvisor_set_ispr((unsigned long)base + GIC_DIST_PENDING_SET);
-#endif
-#endif
-
 	/*
 	 * Set all global interrupts to this CPU only.
 	 */
@@ -425,52 +385,7 @@ static void __init gic_dist_init(struct gic_chip_data *gic)
 	for (i = 32; i < gic_irqs; i += 4)
 		writel_relaxed(cpumask, base + GIC_DIST_TARGET + i * 4 / 4);
 
-#ifdef CONFIG_CSRVISOR_DUALOS
-	/*
-	 * Set priority on all global interrupts.
-	 */
-	for (i = 0; i < gic_irqs; i += 4)
-		writel_relaxed(0xa0a0a0a0, base + GIC_DIST_PRI + i * 4 / 4);
-
-#ifdef CONFIG_SECURITY_MODE
-	/*
-	 * make security interrupt highest priority
-	 */
-	for (i = 32; i < gic_irqs; i += 4) {
-		u32 prio = 0xa0a0a0a0UL;
-		u32 igroup;
-		int j;
-
-		for (j = i; j < i + 4; j++) {
-			if (j < 64)
-				/* SPI32 setting */
-				igroup = CONFIG_SPI32_IGROUP;
-			else if (j >= 128 && j < 160 &&
-				of_machine_is_compatible("sirf,atlas7"))
-				/* IPC interrupt to secure core */
-				igroup = 0xfc0fffffUL;
-			else
-				igroup = 0xffffffffUL;
-
-			if (!(igroup & BIT(j - i / 32 * 32)))
-				prio &= ~(0xFF << ((j & 0x3) * 8));
-		}
-
-		writel_relaxed(prio, base + GIC_DIST_PRI + i * 4 / 4);
-		if (prio != 0xa0a0a0a0UL)
-			pr_info("irq %d~%d priority set:%x\n", i, i + 3, prio);
-	}
-#endif
-
-	/*
-	 * Disable all interrupts.  Leave the PPI and SGIs alone
-	 * as these enables are banked registers.
-	 */
-	for (i = 32; i < gic_irqs; i += 32)
-		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4 / 32);
-#else
 	gic_dist_config(base, gic_irqs, NULL);
-#endif
 
 	writel_relaxed(GICD_ENABLE, base + GIC_DIST_CTRL);
 }
@@ -500,16 +415,7 @@ static void gic_cpu_init(struct gic_chip_data *gic)
 	gic_cpu_config(dist_base, NULL);
 
 	writel_relaxed(GICC_INT_PRI_THRESHOLD, base + GIC_CPU_PRIMASK);
-
-#ifdef CONFIG_SECURITY_MODE
-	/*
-	 * NS enable:0x2, S enable:0x1, FIQ enable:0x8
-	 * Let security interrupts route to FIQ
-	 */
-	writel_relaxed(0x1FB, base + GIC_CPU_CTRL);
-#else
 	gic_cpu_if_up();
-#endif
 }
 
 void gic_cpu_if_down(void)
@@ -655,11 +561,7 @@ static void gic_cpu_restore(unsigned int gic_nr)
 					dist_base + GIC_DIST_PRI + i * 4);
 
 	writel_relaxed(GICC_INT_PRI_THRESHOLD, cpu_base + GIC_CPU_PRIMASK);
-#ifdef CONFIG_SECURITY_MODE
-	writel_relaxed(0x1FB, cpu_base + GIC_CPU_CTRL);
-#else
 	gic_cpu_if_up();
-#endif
 }
 
 static int gic_notifier(struct notifier_block *self, unsigned long cmd,	void *v)

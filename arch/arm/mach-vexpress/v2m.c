@@ -21,13 +21,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/vexpress.h>
 #include <linux/clkdev.h>
-#include <linux/memblock.h>
-#include <linux/jump_label.h>
-#include <linux/csrvisor_syscalls.h>
-#include <linux/suspend.h>
-#include <linux/proc_fs.h>
-#include <linux/completion.h>
-#include <linux/kthread.h>
 
 #include <asm/mach-types.h>
 #include <asm/sizes.h>
@@ -37,8 +30,6 @@
 #include <asm/hardware/arm_timer.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/timer-sp.h>
-#include <asm/system_misc.h>
-#include <asm/suspend.h>
 
 #include <mach/ct-ca9x4.h>
 #include <mach/motherboard.h>
@@ -48,16 +39,11 @@
 
 #include "core.h"
 
-
 #define V2M_PA_CS0	0x40000000
 #define V2M_PA_CS1	0x44000000
 #define V2M_PA_CS2	0x48000000
 #define V2M_PA_CS3	0x4c000000
 #define V2M_PA_CS7	0x10000000
-
-#define CSRVISOR_PHY_BASE               0x80000000
-#define CSRVISOR_VIRTIO_BUS_PHY_BASE    0x80200000
-#define CSRVISOR_SW_FIFO_PHY_BASE       0x80400000
 
 static struct map_desc v2m_io_desc[] __initdata = {
 	{
@@ -65,25 +51,7 @@ static struct map_desc v2m_io_desc[] __initdata = {
 		.pfn		= __phys_to_pfn(V2M_PA_CS7),
 		.length		= SZ_128K,
 		.type		= MT_DEVICE,
-	}, { /* csrvisor */
-		.virtual	= 0xD0000000,
-		.pfn		= __phys_to_pfn(CSRVISOR_PHY_BASE),
-		.length		= SZ_1M,
-		.type		= MT_MEMORY_RWX,
 	},
-#ifndef CONFIG_SECURITY_MODE
-	{   /* Virtio Resource Table */
-		.virtual	= 0xD0200000,
-		.pfn		= __phys_to_pfn(CSRVISOR_VIRTIO_BUS_PHY_BASE),
-		.length		= SZ_2M,
-		.type		= MT_DEVICE,
-	}, {   /* SW FIFO Buffer */
-		.virtual	= 0xD0400000,
-		.pfn		= __phys_to_pfn(CSRVISOR_SW_FIFO_PHY_BASE),
-		.length		= SZ_16K,
-		.type		= MT_DEVICE,
-	},
-#endif
 };
 
 static void __init v2m_sp804_init(void __iomem *base, unsigned int irq)
@@ -91,29 +59,10 @@ static void __init v2m_sp804_init(void __iomem *base, unsigned int irq)
 	if (WARN_ON(!base || irq == NO_IRQ))
 		return;
 
-#ifdef CONFIG_SECURITY_MODE
-	sp804_clocksource_init(base + TIMER_2_BASE, "v2m-timer3");
-	sp804_clockevents_init(base + TIMER_1_BASE, irq, "v2m-timer2");
-#else
 	sp804_clocksource_init(base + TIMER_2_BASE, "v2m-timer1");
 	sp804_clockevents_init(base + TIMER_1_BASE, irq, "v2m-timer0");
-#endif
 }
 
-static struct resource v2m_remoteproc_resources[] = {
-	{
-		.start	= CSRVISOR_VIRTIO_BUS_PHY_BASE,
-		.end	= CSRVISOR_VIRTIO_BUS_PHY_BASE + 0x200000,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device v2m_remoteproc_device = {
-	.name		= "csrvisor-remoteproc",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(v2m_remoteproc_resources),
-	.resource	= v2m_remoteproc_resources,
-};
 
 static struct resource v2m_pcie_i2c_resource = {
 	.start	= V2M_SERIAL_BUS_PCI,
@@ -335,11 +284,7 @@ static struct amba_device *v2m_amba_devs[] __initdata = {
 static void __init v2m_timer_init(void)
 {
 	vexpress_clk_init(ioremap(V2M_SYSCTL, SZ_4K));
-#ifdef CONFIG_SECURITY_MODE
-	v2m_sp804_init(ioremap(V2M_TIMER23, SZ_4K), IRQ_V2M_TIMER2);
-#else
 	v2m_sp804_init(ioremap(V2M_TIMER01, SZ_4K), IRQ_V2M_TIMER0);
-#endif
 }
 
 static void __init v2m_init_early(void)
@@ -389,153 +334,6 @@ static void __init v2m_init_irq(void)
 	ct_desc->init_irq();
 }
 
-struct static_key paravirt_steal_enabled = STATIC_KEY_INIT_TRUE;
-struct static_key paravirt_steal_rq_enabled = STATIC_KEY_INIT_TRUE;
-
-#ifdef CONFIG_SECURITY_MODE
-
-#define SWITCH_TO_NON_SECURE 0
-static void smc_switch_to_non_secure(void)
-{
-	__asm__ __volatile__(".arch_extension sec\n\t"
-		"mov r0, %0\n\t"
-		"smc #0\n\t" :
-		: "I"(SWITCH_TO_NON_SECURE)
-		: "r0", "memory");
-}
-
-struct notifier_block s_v2m_pm_nb;
-static struct completion s_v2m_pm_secure_suspend;
-
-#define V2M_PM_SECURE_SOFTIRQ_S		61
-static int v2m_pm_secure_suspend(void *__unused)
-{
-	int leftover;
-	while (1) {
-		leftover = wait_for_completion_timeout(
-		&s_v2m_pm_secure_suspend, 10*HZ);
-		reinit_completion(&s_v2m_pm_secure_suspend);
-		if (leftover)
-			pm_suspend(PM_SUSPEND_MEM);
-	}
-
-	return 0;
-}
-
-static irqreturn_t v2m_pm_secure_irq_handle(int irq, void *data)
-{
-	complete(&s_v2m_pm_secure_suspend);
-	return IRQ_HANDLED;
-}
-
-static int v2m_pm_notify(struct notifier_block *nb,
-			       unsigned long mode, void *_unused)
-{
-	switch (mode) {
-	case PM_POST_SUSPEND:
-		csrvisor_nt_resume();
-		break;
-	}
-
-	return 0;
-}
-
-static int  v2m_pm_secure_irq_init(void)
-{
-	init_completion(&s_v2m_pm_secure_suspend);
-
-	kthread_run(v2m_pm_secure_suspend, NULL,
-			"v2m_pm_secure_suspend");
-
-	return request_irq(V2M_PM_SECURE_SOFTIRQ_S,
-			v2m_pm_secure_irq_handle,
-			0,
-			"v2m_pm_secure_irq_handle",
-			NULL);
-}
-
-static int v2m_mapped_to_frontend_thread(void *__unused)
-{
-	/*
-	 * we map the whole Frontend OS as a thread in Backend Linux
-	 * and Frontend is "guaranteed" to execute a budget in every
-	 * period.
-	 * this is simulating we use a timer in hypervisor to assign
-	 * time slots to two guests
-	 */
-#if 0
-	/*
-	 * Fix me:decide the policy and priority based on real user
-	 * scenarios
-	 */
-	struct sched_param param = { .sched_priority = 50 };
-	sched_setscheduler(current, SCHED_FIFO, &param);
-#else
-	set_user_nice(current, -5);
-#endif
-
-	/*
-	 * Fix me:decide the budget based on real scenarios
-	 */
-#define FRONTEND_PERIOD 10
-#define FRONTEND_DUTY   5
-	do {
-		unsigned long timeout = jiffies + FRONTEND_DUTY;
-		/*
-		 * for every "period", we give frontend a "duty" to run
-		 */
-		while (!time_after(jiffies, timeout))
-			smc_switch_to_non_secure();
-
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(FRONTEND_PERIOD - FRONTEND_DUTY);
-	} while (1);
-
-	return 0;
-}
-
-static int __init v2m_frontend_switch_init(void)
-{
-	kthread_run(v2m_mapped_to_frontend_thread, NULL,
-			"v2m_pm_frontos_mapped");
-
-	return 0;
-}
-
-late_initcall(v2m_frontend_switch_init);
-
-#else
-int v2m_nonsecure_finish_suspend(long unsigned int val)
-{
-#ifdef CONFIG_PM_SLEEP
-	csrvisor_nt_suspend(virt_to_phys(cpu_resume));
-#endif
-	return 0;
-}
-#endif
-
-static int v2m_pm_enter(suspend_state_t state)
-{
-	switch (state) {
-	case PM_SUSPEND_MEM:
-#ifdef CONFIG_SECURITY_MODE
-	/*go zzz*/
-#else
-#ifdef CONFIG_PM_SLEEP
-	cpu_suspend(0, v2m_nonsecure_finish_suspend);
-#endif /* CONFIG_PM_SLEEP */
-#endif
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static const struct platform_suspend_ops v2m_pm_ops = {
-	.enter = v2m_pm_enter,
-	.valid = suspend_valid_only_mem,
-};
 static void __init v2m_init(void)
 {
 	int i;
@@ -550,7 +348,6 @@ static void __init v2m_init(void)
 	platform_device_register(&v2m_cf_device);
 	platform_device_register(&v2m_eth_device);
 	platform_device_register(&v2m_usb_device);
-	platform_device_register(&v2m_remoteproc_device);
 
 	for (i = 0; i < ARRAY_SIZE(v2m_amba_devs); i++)
 		amba_device_register(v2m_amba_devs[i], &iomem_resource);
@@ -561,30 +358,11 @@ static void __init v2m_init(void)
 	vexpress_syscfg_device_register(&v2m_dvimode_device);
 
 	ct_desc->init_tile();
-
-#ifdef CONFIG_SECURITY_MODE
-	arm_pm_idle = smc_switch_to_non_secure;
-
-	v2m_pm_secure_irq_init();
-	s_v2m_pm_nb.notifier_call = v2m_pm_notify;
-	register_pm_notifier(&s_v2m_pm_nb);
-#endif
-	suspend_set_ops(&v2m_pm_ops);
-}
-
-void __init csrvisor_reserve(void)
-{
-#ifdef CONFIG_SECURITY_MODE
-	memblock_reserve(CSRVISOR_PHY_BASE, SZ_1M);
-	memblock_reserve(CSRVISOR_VIRTIO_BUS_PHY_BASE, SZ_2M);
-	memblock_reserve(CSRVISOR_SW_FIFO_PHY_BASE, SZ_16K);
-#endif
 }
 
 MACHINE_START(VEXPRESS, "ARM-Versatile Express")
 	.atag_offset	= 0x100,
 	.smp		= smp_ops(vexpress_smp_ops),
-	.reserve        = csrvisor_reserve,
 	.map_io		= v2m_map_io,
 	.init_early	= v2m_init_early,
 	.init_irq	= v2m_init_irq,
@@ -602,18 +380,6 @@ static const char * const v2m_dt_match[] __initconst = {
 	NULL,
 };
 
-#ifdef CONFIG_SECURITY_MODE
-DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
-	.dt_compat	= v2m_dt_match,
-	.smp		= smp_ops(vexpress_smp_ops),
-	.reserve        = csrvisor_reserve,
-	.map_io		= v2m_map_io,
-	.init_early	= v2m_init_early,
-	.init_irq	= v2m_init_irq,
-	.init_time	= v2m_timer_init,
-	.init_machine	= v2m_init,
-MACHINE_END
-#else
 DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
 	.dt_compat	= v2m_dt_match,
 	.l2c_aux_val	= 0x00400000,
@@ -622,4 +388,3 @@ DT_MACHINE_START(VEXPRESS_DT, "ARM-Versatile Express")
 	.smp_init	= smp_init_ops(vexpress_smp_init_ops),
 	.init_machine	= v2m_dt_init,
 MACHINE_END
-#endif

@@ -840,59 +840,6 @@ config ARCH_MULTI_CPU_AUTO
 
 endmenu
 
-menuconfig CSRVISOR_DUALOS
-	bool "CSRVisor Dual OS Support"
-	default n
-	help
-	  CSRVisor is a ARM TrustZone based Hypervisor. Enable this
-	  will make Linux has the ability of running on CSRVisor based
-	  Dual OS environment. If this option is enabled, the Linux
-	  can be configured to be running on security mode or non-
-	  security-mode.
-
-	  If in doubt, say N here.
-
-if CSRVISOR_DUALOS
-
-config SECURITY_MODE
-	bool "Linux running in security mode"
-	depends on CPU_V7
-	default n
-	help
-	  Enable this if Linux is running in security mode based on CSRVisor.
-
-config PARAVIRT
-	bool "Enable paravirtualization code"
-	help
-	  This changes the kernel so it can modify itself when it is run
-	  under a hypervisor, potentially improving performance significantly
-	  over full virtualization.  However, when run without a hypervisor
-	  the kernel is theoretically slower and slightly larger.
-
-config PARAVIRT_TIME_ACCOUNTING
-	bool "Paravirtual steal time accounting"
-	depends on PARAVIRT
-	default n
-	help
-	  Select this option to enable fine granularity task steal time
-	  accounting. Time spent executing other tasks in parallel with
-	  the current vCPU is discounted from the vCPU power. To account for
-	  that, there can be a small performance impact.
-
-	  If in doubt, say N here.
-
-config SPI32_IGROUP
-	hex "Interrupt Group Configuration for SPI 32~63"
-	depends on SECURITY_MODE
-	default 0x5FFFFFB7
-	help
-	  Interrupt Group Configuration for SPI 32~63. Interrupts higher than
-	  63 will be non-security interrupt; SGI(0-15) will be set by OS.
-	  0: The corresponding interrupt is Secure.
-	  1: The corresponding interrupt is Non-secure.
-
-endif # CSRVISOR_DUALOS
-
 config ARCH_VIRT
 	bool "Dummy Virtual Machine" if ARCH_MULTI_V7
 	select ARM_AMBA
