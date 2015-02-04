@@ -580,51 +580,34 @@ static int jpeg_close(struct inode *inode, struct file *filp)
 
 static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	bool ret = true;
+	long ret = 0;
 	struct jpeg_codec_param codec_param;
 
 	switch (cmd) {
-	case IOCTL_JPEG_OPEN_DEVICE: {
-		dbg_msg(1, "IOCTL_JPEG_OPEN_DEVICE\r\n");
-		break;
-	}
 	case IOCTL_JPEG_UPDATE_VLC_TABLE: {
 		dbg_msg(1, ("IOCTL_JPEG_UPDATE_VLC_TABLE\r\n"));
-		if (copy_from_user
-		    (&codec_param, (void __user *)arg,
-		     sizeof(codec_param))) {
-			dbg_msg(1,
-				  ("[ERR]: UPDATE_VLC_TABLE Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		jpeg_update_vlc_table(&codec_param);
-		break;
-	}
-	case IOCTL_JPEG_CLOSE_DEV_BY_ID: {
-		dbg_msg(1, ("IOCTL_JPEG_CLOSE_DEV_BY_ID\r\n"));
 		break;
 	}
 	case IOCTL_JPEG_SET_DEFAULT: {
 		dbg_msg(1, ("IOCTL_JPEG_SET_DEFAULT\r\n"));
-		if (copy_from_user
-		    (&codec_param, (void __user *)arg,
-		     sizeof(codec_param))) {
-			dbg_msg(1,
-				  ("[ERR]: JPEG_SET_DEFAULT Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		jpeg_set_default(&codec_param);
 		break;
 	}
 	case IOCTL_JPEG_UPDATEQT: {
 		dbg_msg(1, ("IOCTL_JPEG_UPDATEQT\r\n"));
-		if (copy_from_user
-		    (&codec_param, (void __user *)arg,
-		     sizeof(codec_param))) {
-			dbg_msg(1,
-				  ("[ERR]: JPEG_SET_DEFAULT Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		jpeg_update_quant_table(&codec_param);
 		break;
 	}
@@ -634,10 +617,13 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		dbg_msg(1, ("IOCTL_JPEG_GETBUFFER\r\n"));
 		phwbuf = kzalloc(sizeof(*phwbuf), GFP_KERNEL);
-		if (copy_from_user(phwbuf, (void __user *)arg,
-			sizeof(*phwbuf))) {
-			dbg_msg(1, "[ERR]: JPEG_GETBUFFER Invalid Param!");
-			ret = false;
+		if (NULL == phwbuf)
+			return -ENOMEM;
+		ret = copy_from_user(phwbuf, (void __user *)arg,
+			sizeof(*phwbuf));
+		if (ret) {
+			kfree(phwbuf);
+			return ret;
 		}
 		dbg_msg(1, "getbuffer copy size %lx from user",
 			  phwbuf->size);
@@ -646,11 +632,8 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		phwbuf->paddr = buf_info.paddr;
 		phwbuf->size = buf_info.size;
 		phwbuf->real_size = buf_info.real_size;
-		if (copy_to_user((void __user *)arg, phwbuf,
-			sizeof(*phwbuf))) {
-			dbg_msg(1, "[ERR]: JPEG_GETBUFFER Invalid Param!");
-			ret = false;
-		}
+		ret = copy_to_user((void __user *)arg, phwbuf,
+			sizeof(*phwbuf));
 		kfree(phwbuf);
 		break;
 	}
@@ -659,49 +642,39 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		dbg_msg(1, ("IOCTL_JPEG_FREEBUFFER\r\n"));
 		phwbuf = kzalloc(sizeof(*phwbuf), GFP_KERNEL);
-		if (copy_from_user(phwbuf, (void __user *)arg,
-			sizeof(*phwbuf))) {
-			dbg_msg(1,
-				("[ERR]: JPEG_FREEBUFFER Invalid Param!"));
-			ret = false;
-		}
+		if (NULL == phwbuf)
+			return -ENOMEM;
+		ret = copy_from_user(phwbuf, (void __user *)arg,
+			sizeof(*phwbuf));
 		jpeg_free_buf(phwbuf);
 		/*unmap the viradd in user mode. */
 		break;
 	}
 	case IOCTL_JPEG_GO: {
 		dbg_msg(1, ("IOCTL_JPEG_GO\r\n"));
-		if (copy_from_user
-		    (&codec_param, (void __user *)arg,
-		     sizeof(codec_param))) {
-			dbg_msg(1,
-				  ("[ERR]: JPEG_SET_DEFAULT Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		jpeg_go(&codec_param);
 		break;
 	}
 	case IOCTL_JPEG_WAIT: {
 		dbg_msg(1, ("IOCTL_JPEG_WAIT\r\n"));
-		if (copy_from_user(&codec_param, (void __user *)arg,
-			sizeof(codec_param))) {
-			dbg_msg(1,
-				("[ERR]: IOCTL_JPEG_WAIT Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		dbg_msg(1, "JPEG: -- JPEG_WAIT --\r\n");
-		if (0 != jpeg_wait_interrupt(&codec_param))
-			ret = false;
+		ret = jpeg_wait_interrupt(&codec_param);
 		break;
 	}
 	case IOCTL_JPEG_SETCLIENTS: {
 		dbg_msg(1, ("IOCTL_JPEG_SETCLIENTS\r\n"));
-		if (copy_from_user(&codec_param, (void __user *)arg,
-			sizeof(codec_param))) {
-			dbg_msg(1,
-			("[ERR]: IOCTL_JPEG_SETCLIENTS Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		dbg_msg(1, ("JPEG: -- IOCTL_JPEG_SETCLIENTS --\r\n"));
 		mutex_lock(&jpeg.pool_lock);
 		jpeg_setclients(&codec_param);
@@ -710,19 +683,17 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_ALIGN: {
 		dbg_msg(1, ("IOCTL_JPEG_ALIGN\r\n"));
-		if (copy_from_user(&codec_param, (void __user *)arg,
-			sizeof(codec_param))) {
-			dbg_msg(1,
-				("[ERR]: IOCTL_JPEG_ALIGN Invalid Param!"));
-			ret = false;
-		}
+		ret = copy_from_user(&codec_param, (void __user *)arg,
+			sizeof(codec_param));
+		if (ret)
+			break;
 		dbg_msg(1, ("JPEG: -- IOCTL_JPEG_ALIGN -- \r\n"));
 		jpeg_setalign(&codec_param);
 		break;
 	}
 	default:
 		dbg_msg(1, ("[ERR]: default\r\n"));
-		ret = false;
+		ret = -EINVAL;
 		break;
 	}
 

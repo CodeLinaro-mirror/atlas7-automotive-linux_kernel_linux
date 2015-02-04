@@ -433,9 +433,7 @@ struct jpeg_data {
 #define CLKC_LEAF_CLK_EN4_CLR			0x4EC
 
 #define IOCTL_JPEG_FREEBUFFER	_IOW('J', 1000, struct jpg_hw_buf*)
-#define IOCTL_JPEG_OPEN_DEVICE	_IOW('J', 1001, void*)
 #define IOCTL_JPEG_UPDATE_VLC_TABLE _IOW('J', 1002, struct jpeg_codec_param*)
-#define IOCTL_JPEG_CLOSE_DEV_BY_ID	_IOW('J', 1003, void*)
 #define IOCTL_JPEG_SET_DEFAULT	_IOW('J', 1004, struct jpeg_codec_param*)
 #define IOCTL_JPEG_UPDATEQT	_IOW('J', 1005, struct jpeg_codec_param*)
 #define IOCTL_JPEG_GETBUFFER	_IOWR('J', 1006, struct jpg_hw_buf*)
