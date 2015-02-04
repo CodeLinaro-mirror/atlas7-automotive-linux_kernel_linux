@@ -1044,20 +1044,4 @@ config SCx200_ACB
 	  This support is also available as a module.  If so, the module
 	  will be called scx200_acb.
 
-config VIRTIO_I2C_BACKEND
-	tristate "VIRTIO I2C bus for backend OS"
-	depends on REMOTEPROC && OF && SECURITY_MODE
-	help
-	  Enable the use of the Virtio i2c backend driver.
-	  If you don't know what to do here, say N.
-	  This support is also available as a module.
-
-config VIRTIO_I2C_FRONTEND
-	tristate "VIRTIO I2C bus for frontend OS"
-	depends on REMOTEPROC && !SECURITY_MODE
-	help
-	  Enable the use of the Virtio i2c frontend driver.
-	  If you don't know what to do here, say N.
-	  This support is also available as a module.
-
 endmenu

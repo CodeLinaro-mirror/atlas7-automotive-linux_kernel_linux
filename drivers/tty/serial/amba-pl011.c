@@ -59,16 +59,7 @@
 #include <linux/sizes.h>
 #include <linux/io.h>
 
-
-#ifndef CONFIG_SECURITY_MODE
-/*
- * backend Linux is using uart1, so let frontend Linux only hold
- * uart0 to avoid HW conflit
- */
-#define UART_NR			1
-#else
 #define UART_NR			14
-#endif
 
 #define SERIAL_AMBA_MAJOR	204
 #define SERIAL_AMBA_MINOR	64
@@ -1552,13 +1543,6 @@ static int pl011_startup(struct uart_port *port)
 	    container_of(port, struct uart_amba_port, port);
 	unsigned int cr, lcr_h, fbrd, ibrd;
 	int retval;
-
-#ifdef CONFIG_SECURITY_MODE
-	if (uap->port.line == 0) {
-		printk(KERN_ERR "UART0 is held by frontend Linux\n");
-		return -EBUSY;
-	}
-#endif
 
 	retval = pl011_hwinit(port);
 	if (retval)

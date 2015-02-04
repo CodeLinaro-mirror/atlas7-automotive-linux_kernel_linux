@@ -1,19 +1,9 @@
 menu "Rpmsg drivers"
 
 # RPMSG always gets selected by whoever wants it
-config RPMSG_FRONTEND
-	tristate
-	default n
-
-config RPMSG_BACKEND
-	tristate
-	default n
-
 config RPMSG
 	tristate
 	select VIRTIO
 	select VIRTUALIZATION
-	select RPMSG_BACKEND if (REMOTEPROC && SECURITY_MODE)
-	select RPMSG_FRONTEND if (REMOTEPROC && !SECURITY_MODE)
 
 endmenu

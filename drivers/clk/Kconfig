@@ -122,26 +122,6 @@ config COMMON_CLK_KEYSTONE
           Supports clock drivers for Keystone based SOCs. These SOCs have local
 	  a power sleep control module that gate the clock to the IPs and PLLs.
 
-config VIRTIO_CLK_BACKEND
-	tristate "Virtio Clock driver for backend OS"
-	depends on SECURITY_MODE && OF && REMOTEPROC
-	---help---
-	  This Virtual Clock driver will transfer the Clock operation requests
-	  that come from frontend OS to real Clock Controller.
-
-	  It's safe to say n here if you're not interested in virtio clock
-	  controller or just want a bare minimum kernel.
-
-config VIRTIO_CLK_FRONTEND
-	tristate "Virtio Clock drivers for frontend OS"
-	depends on !SECURITY_MODE && OF && REMOTEPROC
-	---help---
-	  This Virtual Clock controller is used for devices drivers in
-	  frontend OS to manage their clock status.
-
-	  It's safe to say n here if you're not interested in virtio clock
-	  controller or just want a bare minimum kernel.
-
 config COMMON_CLK_PALMAS
 	tristate "Clock driver for TI Palmas devices"
 	depends on MFD_PALMAS
