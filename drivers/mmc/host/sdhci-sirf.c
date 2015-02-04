@@ -23,7 +23,7 @@
 #define SDHCI_CLK_DELAY_SETTING	0x4C
 #define SDHCI_SIRF_8BITBUS BIT(3)
 #define SDHCI_SIRF_LDO_CNTL 0x6c
-#define SIRF_TUNING_COUNT 128
+#define SIRF_TUNING_COUNT 16384
 
 static const unsigned int sirf_vqmmc_voltages[] = {
 	1650000,
@@ -195,12 +195,11 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 	clock_setting = sdhci_readw(host, SDHCI_CLK_DELAY_SETTING);
 	clock_setting &= ~0x3fff;
-
 retry:
 	phase = 0;
 	do {
 		sdhci_writel(host,
-			clock_setting | phase | (phase << 7) | (phase << 16),
+			clock_setting | phase,
 			SDHCI_CLK_DELAY_SETTING);
 
 		if (!mmc_send_tuning(mmc)) {
@@ -226,7 +225,6 @@ retry:
 			end = range = 0;
 		}
 	} while (++phase < ARRAY_SIZE(tuned_phases));
-
 	if (tuned_phase_cnt && tuning_value > 0) {
 		/*
 		 * Finally set the selected phase in delay
@@ -234,11 +232,10 @@ retry:
 		 */
 		phase = tuning_value;
 		sdhci_writel(host,
-			clock_setting | phase | (phase << 7) | (phase << 16),
+			clock_setting | phase,
 			SDHCI_CLK_DELAY_SETTING);
-
 		dev_dbg(mmc_dev(mmc), "%s: Setting the tuning phase to %d\n",
-			 mmc_hostname(mmc), phase);
+			mmc_hostname(mmc), phase);
 	} else {
 		if (--tuning_seq_cnt)
 			goto retry;
@@ -247,7 +244,6 @@ retry:
 		       mmc_hostname(mmc));
 		rc = -EIO;
 	}
-
 	return rc;
 }
 
