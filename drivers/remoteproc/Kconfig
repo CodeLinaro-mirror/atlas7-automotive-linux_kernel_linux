@@ -7,7 +7,6 @@ config REMOTEPROC
 	select CRC32
 	select FW_LOADER
 	select VIRTIO
-	select VHOST_RING
 	select VIRTUALIZATION
 
 config OMAP_REMOTEPROC
@@ -69,32 +68,5 @@ config SIRF_REMOTEPROC
 	tristate
 	select REMOTEPROC
 	default n
-
-config SIRF_REMOTEPROC_BACKEND
-	tristate "SIRF remoteproc support for backend OS"
-	depends on SECURITY_MODE && OF_RESERVED_MEM
-	select VIRTIO_BACKEND
-	select SIRF_REMOTEPROC
-	default n
-	help
-	  Say y here to support SIRF remote processors via the
-	  remote processor framework in backend OS which is running
-	  in ARM secure mode.
-
-	  This can be either built-in or a loadable module.
-	  If unsure say N.
-
-config SIRF_REMOTEPROC_FRONTEND
-	tristate "SIRF remoteproc support for frontend OS"
-	depends on !SECURITY_MODE && OF_RESERVED_MEM
-	select SIRF_REMOTEPROC
-	default n
-	help
-	  Say y here to support SIRF remote processors via the
-	  remote processor framework in frontend OS which is running
-	  in ARM non-secure mode.
-
-	  This can be either built-in or a loadable module.
-	  If unsure say N.
 
 endmenu

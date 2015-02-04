@@ -451,8 +451,23 @@ static inline bool more_used(const struct vring_virtqueue *vq)
 	return vq->last_used_idx != vq->vring.used->idx;
 }
 
-static void *__virtqueue_get_buf(struct virtqueue *_vq,
-			unsigned int *p_idx, unsigned int *len)
+/**
+ * virtqueue_get_buf - get the next used buffer
+ * @vq: the struct virtqueue we're talking about.
+ * @len: the length written into the buffer
+ *
+ * If the driver wrote data into the buffer, @len will be set to the
+ * amount written.  This means you don't need to clear the buffer
+ * beforehand to ensure there's no data leakage in the case of short
+ * writes.
+ *
+ * Caller must ensure we don't call this with other virtqueue
+ * operations at the same time (except where noted).
+ *
+ * Returns NULL if there are no used buffers, or the "data" token
+ * handed to virtqueue_add_*().
+ */
+void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
 {
 	struct vring_virtqueue *vq = to_vvq(_vq);
 	void *ret;
@@ -478,8 +493,6 @@ static void *__virtqueue_get_buf(struct virtqueue *_vq,
 	last_used = (vq->last_used_idx & (vq->vring.num - 1));
 	i = vq->vring.used->ring[last_used].id;
 	*len = vq->vring.used->ring[last_used].len;
-	if (p_idx)
-		*p_idx = i;
 
 	if (unlikely(i >= vq->vring.num)) {
 		BAD_RING(vq, "id %u out of range\n", i);
@@ -509,48 +522,7 @@ static void *__virtqueue_get_buf(struct virtqueue *_vq,
 	END_USE(vq);
 	return ret;
 }
-
-/**
- * virtqueue_get_buf - get the next used buffer
- * @vq: the struct virtqueue we're talking about.
- * @len: the length written into the buffer
- *
- * If the driver wrote data into the buffer, @len will be set to the
- * amount written.  This means you don't need to clear the buffer
- * beforehand to ensure there's no data leakage in the case of short
- * writes.
- *
- * Caller must ensure we don't call this with other virtqueue
- * operations at the same time (except where noted).
- *
- * Returns NULL if there are no used buffers, or the "data" token
- * handed to virtqueue_add_*().
- */
-void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
-{
-	return __virtqueue_get_buf(_vq, NULL, len);
-}
 EXPORT_SYMBOL_GPL(virtqueue_get_buf);
-
-
-/**
- * virtqueue_get_buf_with_idx - get the next used buffer
- * @vq: the struct virtqueue we're talking about.
- * @p_idx: the pointer of index id of the grabbed buffer.
- * @len: the length written into the buffer
- *
- * This function is an extention of virtqueue_get_buf. It return
- * one more infomation of buffer's index.
- *
- * Returns NULL if there are no used buffers, or the "data" token
- * handed to virtqueue_add_*().
- */
-void *virtqueue_get_buf_with_idx(struct virtqueue *_vq,
-			unsigned int *p_idx, unsigned int *len)
-{
-	return __virtqueue_get_buf(_vq, p_idx, len);
-}
-EXPORT_SYMBOL_GPL(virtqueue_get_buf_with_idx);
 
 /**
  * virtqueue_disable_cb - disable callbacks
@@ -709,37 +681,6 @@ void *virtqueue_detach_unused_buf(struct virtqueue *_vq)
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(virtqueue_detach_unused_buf);
-
-/**
- * virtqueue_set_used_buf - set a buffer as used
- * @vq: the struct virtqueue we're talking about.
- * @idx: the index id of the buffer.
- * @len: the length of the buffer
- *
- * Returns true if success, otherwise false.
- */
-bool virtqueue_set_used_buf(struct virtqueue *_vq,
-			unsigned int idx, unsigned int len)
-{
-	struct vring_virtqueue *vq = to_vvq(_vq);
-	struct vring_used_elem *used;
-
-	if ((idx > vq->vring.num) || (idx < 0))
-		return false;
-
-	/*
-	* The virtqueue contains a ring of used buffers.  Get a pointer to the
-	* next entry in that used ring.
-	*/
-	used = &vq->vring.used->ring[vq->vring.used->idx % vq->vring.num];
-	used->id = idx;
-	used->len = len;
-
-	vq->vring.used->idx++;
-
-	return true;
-}
-EXPORT_SYMBOL_GPL(virtqueue_set_used_buf);
 
 irqreturn_t vring_interrupt(int irq, void *_vq)
 {
