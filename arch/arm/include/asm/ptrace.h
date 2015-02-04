@@ -38,13 +38,8 @@ struct pt_regs {
 #define processor_mode(regs) \
 	((regs)->ARM_cpsr & MODE_MASK)
 
-#ifdef CONFIG_SECURITY_MODE
-#define interrupts_enabled(regs) \
-	(!((regs)->ARM_cpsr & PSR_F_BIT))
-#else
 #define interrupts_enabled(regs) \
 	(!((regs)->ARM_cpsr & PSR_I_BIT))
-#endif
 
 #define fast_interrupts_enabled(regs) \
 	(!((regs)->ARM_cpsr & PSR_F_BIT))
@@ -60,17 +55,9 @@ static inline int valid_user_regs(struct pt_regs *regs)
 	/*
 	 * Always clear the F (FIQ) and A (delayed abort) bits
 	 */
-#ifdef CONFIG_SECURITY_MODE
-	regs->ARM_cpsr &= ~PSR_A_BIT;
-#else
 	regs->ARM_cpsr &= ~(PSR_F_BIT | PSR_A_BIT);
-#endif
 
-#ifdef CONFIG_SECURITY_MODE
-	if ((regs->ARM_cpsr & PSR_F_BIT) == 0) {
-#else
 	if ((regs->ARM_cpsr & PSR_I_BIT) == 0) {
-#endif
 		if (mode == USR_MODE)
 			return 1;
 		if (elf_hwcap & HWCAP_26BIT && mode == USR26_MODE)

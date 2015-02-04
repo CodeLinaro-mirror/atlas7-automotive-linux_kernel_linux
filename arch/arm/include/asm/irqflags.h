@@ -16,44 +16,10 @@
 #define IRQMASK_REG_NAME_R "cpsr"
 #define IRQMASK_REG_NAME_W "cpsr_c"
 #define IRQMASK_I_BIT	PSR_I_BIT
-#define IRQMASK_F_BIT	PSR_F_BIT
 #endif
 
 #if __LINUX_ARM_ARCH__ >= 6
 
-#ifdef CONFIG_SECURITY_MODE
-static inline unsigned long arch_local_irq_save(void)
-{
-	unsigned long flags;
-
-	asm volatile(
-		"	mrs	%0, " IRQMASK_REG_NAME_R "	@ arch_local_irq_save\n"
-		"	cpsid	f"
-		: "=r" (flags) : : "memory", "cc");
-	return flags;
-}
-
-static inline void arch_local_irq_enable(void)
-{
-	asm volatile(
-		"	cpsie f			@ arch_local_irq_enable"
-		:
-		:
-		: "memory", "cc");
-}
-
-static inline void arch_local_irq_disable(void)
-{
-	asm volatile(
-		"	cpsid f			@ arch_local_irq_disable"
-		:
-		:
-		: "memory", "cc");
-}
-
-#define local_fiq_enable()
-#define local_fiq_disable()
-#else
 static inline unsigned long arch_local_irq_save(void)
 {
 	unsigned long flags;
@@ -85,8 +51,6 @@ static inline void arch_local_irq_disable(void)
 
 #define local_fiq_enable()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
 #define local_fiq_disable() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
-#endif /* CONFIG_SECURITY_MODE */
-
 #else
 
 /*
@@ -194,11 +158,7 @@ static inline void arch_local_irq_restore(unsigned long flags)
 
 static inline int arch_irqs_disabled_flags(unsigned long flags)
 {
-#ifdef CONFIG_SECURITY_MODE
-	return flags & IRQMASK_F_BIT;
-#else
 	return flags & IRQMASK_I_BIT;
-#endif
 }
 
 #endif /* ifdef __KERNEL__ */

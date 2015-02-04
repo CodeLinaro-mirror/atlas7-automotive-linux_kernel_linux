@@ -1036,9 +1036,6 @@ __kuser_helper_end:
 	.align	5
 
 vector_\name:
-#ifdef CONFIG_SECURITY_MODE
-	cpsid f
-#endif
 	.if \correction
 	sub	lr, lr, #\correction
 	.endif

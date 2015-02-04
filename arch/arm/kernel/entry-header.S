@@ -209,17 +209,9 @@
 	@ IRQs off again before pulling preserved data off the stack
 	disable_irq_notrace
 #ifdef CONFIG_TRACE_IRQFLAGS
-#ifdef CONFIG_SECURITY_MODE
-	tst	\rpsr, #PSR_F_BIT
-#else
 	tst	\rpsr, #PSR_I_BIT
-#endif
 	bleq	trace_hardirqs_on
-#ifdef CONFIG_SECURITY_MODE
-	tst	\rpsr, #PSR_F_BIT
-#else
 	tst	\rpsr, #PSR_I_BIT
-#endif
 	blne	trace_hardirqs_off
 #endif
 	.endif
