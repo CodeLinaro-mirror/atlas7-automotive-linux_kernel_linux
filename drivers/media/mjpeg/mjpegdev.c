@@ -176,7 +176,6 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 {
 	int rc = 0;
 	bool ret = 0;
-	int poll = 5;
 	unsigned long data;
 	struct dev_intr_info *jpeg_info = &jpeg.jpeg_info;
 
@@ -188,10 +187,6 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	}
 
 	data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
-	while (poll) {
-		data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
-		poll--;
-	}
 
 	if (codec_param->mode == JPEG_PATH_MODE_ENCODER_FINAL)
 		data = read_reg(REGISTER_VLC_BTS_CNT);
@@ -546,22 +541,11 @@ static void jpeg_go(struct jpeg_codec_param *param)
 	} while (code_stat != 1);
 
 	if (param->mode == JPEG_PATH_MODE_DECODER) {
-		int poll = 10;
 		unsigned long vlc_stat;
 
 		vlc_stat = read_reg(REGISTER_VLC_CODE_FIFO_GAP);
-		while (poll) {
-			vlc_stat = read_reg(REGISTER_VLC_CODE_FIFO_GAP);
-			poll--;
-		}
-		poll = 5;
 		write_reg(REGISTER_VLC_VLCD_LOAD, 1);
-		vlc_stat =
-		    read_reg(REGISTER_VLC_VLCD_LOADED);
-		while (poll) {
-			vlc_stat = read_reg(REGISTER_VLC_VLCD_LOADED);
-			poll--;
-		}
+		vlc_stat = read_reg(REGISTER_VLC_VLCD_LOADED);
 	}
 	int_stat = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 	write_reg(REGISTER_CONVERTER_RESET, 0x00000001);
