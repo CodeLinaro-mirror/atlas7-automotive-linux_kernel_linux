@@ -30,6 +30,22 @@
 		display0 = &lvds;
 	};
 
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg_usb0_otg_vbus: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "usb0_otg_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio_0 46 0>;
+		};
+	};
+
 	sound-internal-audio {
 		compatible = "simple-audio-card";
 		simple-audio-card,routing =
@@ -309,6 +325,9 @@
 					VLS-supply = <0>;
 					VLC-supply = <0>;
 				};
+			};
+			usb0: usb@17060000 {
+				vbus-supply = <&reg_usb0_otg_vbus>;
 			};
 		};
 
