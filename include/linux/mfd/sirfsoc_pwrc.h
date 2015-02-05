@@ -89,10 +89,9 @@ struct sirfsoc_pwrc_info {
 
 enum {
 	PWRC_IRQ_ONKEY = 0,
+	PWRC_IRQ_EXT_ONKEY,
 	PWRC_MAX_IRQ,
 };
-
-#define PWRC_ONKEY_BIT		BIT(PWRC_IRQ_ONKEY)
 
 extern struct sirfsoc_pwrc_register sirfsoc_a7da_pwrc;
 extern struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc;

@@ -90,9 +90,11 @@ struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc = {
 static const struct regmap_irq pwrc_irqs[] = {
 	/* INT0 */
 	[PWRC_IRQ_ONKEY] = {
-		.mask = PWRC_ONKEY_BIT,
+		.mask = BIT(PWRC_IRQ_ONKEY),
 	},
-
+	[PWRC_IRQ_EXT_ONKEY] = {
+		.mask = BIT(PWRC_IRQ_EXT_ONKEY),
+	},
 };
 
 static struct regmap_irq_chip pwrc_irq_chip = {
@@ -221,8 +223,8 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	ret = regmap_update_bits(map,
 			pwrcinfo->base +
 			pwrc_reg->pwrc_trigger_en_set,
-			PWRC_ONKEY_BIT,
-			PWRC_ONKEY_BIT);
+			BIT(PWRC_IRQ_ONKEY),
+			BIT(PWRC_IRQ_ONKEY));
 	if (ret < 0)
 		goto err;
 

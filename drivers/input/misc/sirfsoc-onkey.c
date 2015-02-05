@@ -30,6 +30,7 @@ struct sirfsoc_onkey_info {
 	struct delayed_work	work;
 	u32 base;
 	int virq;
+	int exton_virq;
 };
 
 #define PWRC_KEY_DETECT_UP_TIME		320	/* ms*/
@@ -43,7 +44,9 @@ static int sirfsoc_onkey_down(struct sirfsoc_onkey_info *info)
 					info->base +
 					pwrc->pwrc_pin_status,
 					&state);
-	return !(state & PWRC_ONKEY_BIT); /* ON_KEY is active low */
+	/* active low */
+	return !(state & BIT(PWRC_IRQ_ONKEY)) ||
+		!(state & BIT(PWRC_IRQ_EXT_ONKEY));
 }
 
 static void sirfsoc_onkey_event(struct work_struct *work)
@@ -51,6 +54,11 @@ static void sirfsoc_onkey_event(struct work_struct *work)
 	struct sirfsoc_onkey_info *info =
 		container_of(work, struct sirfsoc_onkey_info, work.work);
 
+	/*
+	* FIXME: we need to define event for EXT_ONKEY,
+	* but since requirement is not clear
+	* for now just report same event as ONKEY
+	*/
 	if (sirfsoc_onkey_down(info)) {
 		schedule_delayed_work(&info->work,
 			msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
@@ -143,6 +151,22 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 			info->virq, ret);
 		goto err;
 	}
+
+	irq_set_status_flags(info->exton_virq,
+			IRQ_NOAUTOEN);
+	info->exton_virq = regmap_irq_get_virq(pwrcinfo->irq_data,
+			PWRC_IRQ_EXT_ONKEY);
+
+	ret = request_threaded_irq(info->exton_virq, NULL,
+			sirfsoc_onkey_handler,
+			0, "ext_onkey", info);
+
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to request IRQ: #%d: %d\n",
+			info->virq, ret);
+		goto err;
+	}
+
 
 	ret = input_register_device(info->input);
 	if (ret) {
