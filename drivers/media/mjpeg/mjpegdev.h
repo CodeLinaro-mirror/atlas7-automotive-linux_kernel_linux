@@ -30,17 +30,6 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 
-static int debug_level = 1;
-#define MJPEG_DEBUG_ENBLE
-#ifdef MJPEG_DEBUG_ENBLE
-#define dbg_msg(level, fmt, args...) \
-	do { \
-		if (debug_level >= level) \
-			printk(fmt, ##args); \
-	} while (0)
-#else
-#define dbg_msg(level, fmt, args...)
-#endif
 #define VLC_PUSH_POP_NUMBIT__FIELD_0__WIDTH       4
 #define MAX_VAL_OF_VLC_PUSH_POP_NUMBIT  \
 	((1 << VLC_PUSH_POP_NUMBIT__FIELD_0__WIDTH) - 1)

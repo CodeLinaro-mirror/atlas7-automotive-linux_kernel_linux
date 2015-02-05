@@ -28,7 +28,7 @@ static int jpeg_get_hw_pool(struct platform_device *pdev)
 	hw_pool = &(jpeg.hw_pool);
 	vdec_memory = of_parse_phandle(dev->of_node, "memory-region", 0);
 	if (!vdec_memory) {
-		dbg_msg(1, KERN_INFO "Get reserved memory error\n");
+		pr_err("Get reserved memory error\n");
 		return -ENOMEM;
 	}
 
@@ -54,7 +54,7 @@ static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
 	struct jpg_hw_pool *hw_pool;
 
 	hw_pool = &(jpeg.hw_pool);
-	dbg_msg(1, KERN_INFO "jpeg_alloc_buf realsize = %d\n", (int)realsize);
+	pr_debug("jpeg_alloc_buf realsize = %d\n", (int)realsize);
 	mutex_lock(&jpeg.pool_lock);
 	if ((!hwbuf) || hw_pool->used_size + realsize > hw_pool->size
 	    || size <= 0) {
@@ -63,7 +63,7 @@ static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
 			hwbuf->paddr = 0;
 			hwbuf->size = 0;
 		}
-		dbg_msg(1, "JPG:no enough HW buffer, alloc fail\r\n");
+		pr_err("JPG:no enough HW buffer, alloc fail\r\n");
 		return;
 	}
 	hwbuf->vaddr = hw_pool->vaddr + hw_pool->used_size;
@@ -71,9 +71,10 @@ static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
 	hwbuf->size = size;
 	hwbuf->real_size = realsize;
 	hw_pool->used_size += realsize;
-	dbg_msg(1, "JPG:jpeg_alloc_buf hwbuf->vaddr %p hwbuf->paddr %lx\n",
+	pr_debug(
+		"JPG:jpeg_alloc_buf hwbuf->vaddr %p hwbuf->paddr %lx\n",
 		hwbuf->vaddr, hwbuf->paddr);
-	dbg_msg(1, "hwbuf->size %lx,hw_pool->used_size %lx\n",
+	pr_debug("hwbuf->size %lx,hw_pool->used_size %lx\n",
 		hwbuf->size, hw_pool->used_size);
 	mutex_unlock(&jpeg.pool_lock);
 }
@@ -91,12 +92,11 @@ static void jpeg_free_buf(struct jpg_hw_buf *hwbuf)
 			hwbuf->paddr = 0;
 			hwbuf->size = 0;
 		}
-		dbg_msg(1,
-			  "JPG:no available HW buffer, free fail\r\n");
+		pr_err("JPG:no available HW buffer, free fail\r\n");
 		return;
 	}
 	hw_pool->used_size -= hwbuf->real_size;
-	dbg_msg(1, "JPG:jpeg_free_buf vaddr %p paddr %lx size %lx\r\n",
+	pr_debug("JPG:jpeg_free_buf vaddr %p paddr %lx size %lx\r\n",
 		  hwbuf->vaddr, hwbuf->paddr, hwbuf->size);
 	mutex_unlock(&jpeg.pool_lock);
 }
@@ -179,10 +179,9 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	unsigned long data;
 	struct dev_intr_info *jpeg_info = &jpeg.jpeg_info;
 
-	dbg_msg(1, KERN_INFO"wait cond %d\n", 100);
 	rc = wait_for_completion_timeout(&jpeg.jpeg_info.ready, 100);
 	if (!rc) {
-		dbg_msg(1, "wait timeout!\n");
+		pr_err("wait timeout!\n");
 		ret = -ETIMEDOUT;
 	}
 
@@ -194,11 +193,11 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 		write_reg(REGISTER_CODE_GG_LINE_ABORT, 1);
 
 	if (jpeg_info->bfail) {
-		dbg_msg(1, "JPEGInterruptFunc:handle the fail\n");
+		pr_err("JPEGInterruptFunc:handle the fail\n");
 		jpeg_info->bfail = false;
 		ret = -EINVAL;
 	} else {
-		dbg_msg(1, "JPEGInterruptFunc:clear the interrupts\n");
+		pr_debug("JPEGInterruptFunc:clear the interrupts\n");
 	}
 
 	return ret;
@@ -270,25 +269,26 @@ static void jpeg_update_image_mb_geometry(struct jpeg_codec_param *param)
 	unsigned int i;
 
 	pdata = (unsigned char *)((param->path.in_frame.hw_buf_info)->vaddr);
-	dbg_msg(1, "vaddr = %p\n",
+	pr_debug("vaddr = %p\n",
 	       (param->path.in_frame.hw_buf_info)->vaddr);
-	dbg_msg(1, "paddr = %lx\n",
+	pr_debug("paddr = %lx\n",
 	       (param->path.in_frame.hw_buf_info)->paddr);
 	pixels =
 	    param->path.in_frame.frameheight *
 	    param->path.in_frame.framewidthbytes;
 	for (i = 0; i < 1; i++) {
 		mdelay(10);
-		dbg_msg(1, "!! delay 10 ms\n");
+		pr_debug("!! delay 10 ms\n");
 	}
-	dbg_msg(1, "pixels = %d\n", pixels);
-	dbg_msg(1, "JPG:Input data image:\r\n");
+	pr_debug("pixels = %d\n", pixels);
+	pr_debug("JPG:Input data image:\r\n");
 
-	dbg_msg(1, "%x %x %x %x %x\r\n", pdata[pixels - 10],
+	pr_debug("%x %x %x %x %x\r\n", pdata[pixels - 10],
 		  pdata[pixels - 9], pdata[pixels - 8], pdata[pixels - 7],
 		  pdata[pixels - 6]);
-	dbg_msg(1, "%x %x %x %x %x\r\n", pdata[pixels - 5], pdata[pixels - 4],
-		  pdata[pixels - 3], pdata[pixels - 2], pdata[pixels - 1]);
+	pr_debug(
+		"%x %x %x %x %x\r\n", pdata[pixels - 5], pdata[pixels - 4],
+		pdata[pixels - 3], pdata[pixels - 2], pdata[pixels - 1]);
 
 	h_block_num = (param->path.in_frame.framewidthpixels + 15) >> 4;
 	stride = (h_block_num << 3);
@@ -372,7 +372,7 @@ static void jpeg_update_quant_table(struct jpeg_codec_param *param)
 	unsigned long *pulqt = (unsigned long *)REGISTER_QT_FIRST_Q_MATRIX;
 	short i;
 
-	dbg_msg(1, ("JPG:jpeg_update_quant_table\r\n"));
+	pr_debug("JPG:jpeg_update_quant_table\r\n");
 	for (i = 0; i < 64; i++)
 		write_reg(REGISTER_QT_FIRST_Q_MATRIX,
 			(unsigned int)(param->y_qt[i]));
@@ -382,7 +382,7 @@ static void jpeg_update_quant_table(struct jpeg_codec_param *param)
 		write_reg(REGISTER_QT_SECOND_Q_MATRIX,
 			 (unsigned int)(param->c_qt[i]));
 
-	dbg_msg(1, ("JPG:jpeg_update_quant_table end\r\n"));
+	pr_debug("JPG:jpeg_update_quant_table end\r\n");
 }
 
 static void jpeg_update_vlc_table(struct jpeg_codec_param *param)
@@ -414,7 +414,7 @@ static void jpeg_set_interrupt_mask(bool enable)
 
 	int_mask.reg_jpeg_int_mask = 0;
 	if (enable) {
-		dbg_msg(1, "JPG:JPEG_INT_MASK enable mask 1\r\n");
+		pr_debug("JPG:JPEG_INT_MASK enable mask 1\r\n");
 		int_mask.s_jpeg_int_mask.image_end_int = 0;
 		int_mask.s_jpeg_int_mask.jpeg_end = 1;
 		int_mask.s_jpeg_int_mask.sample_done = 0;
@@ -470,7 +470,7 @@ static void jpeg_setclients(struct jpeg_codec_param *param)
 	/* CODE_BG */
 
 	/* CODE_GG */
-	dbg_msg(1, "TEST output code Frame 0x%x\r\n",
+	pr_debug("TEST output code Frame 0x%x\r\n",
 		  (int)param->path.out_frame.hw_buf_info);
 	read_or_write = param->mode == JPEG_PATH_MODE_ENCODER_FINAL ? 1 : 0;
 	jpeg_update_code_line_geometry(param->code_buf_size,
@@ -569,7 +569,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case IOCTL_JPEG_UPDATE_VLC_TABLE: {
-		dbg_msg(1, ("IOCTL_JPEG_UPDATE_VLC_TABLE\r\n"));
+		pr_debug("IOCTL_JPEG_UPDATE_VLC_TABLE\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -578,7 +578,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case IOCTL_JPEG_SET_DEFAULT: {
-		dbg_msg(1, ("IOCTL_JPEG_SET_DEFAULT\r\n"));
+		pr_debug("IOCTL_JPEG_SET_DEFAULT\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -587,7 +587,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case IOCTL_JPEG_UPDATEQT: {
-		dbg_msg(1, ("IOCTL_JPEG_UPDATEQT\r\n"));
+		pr_debug("IOCTL_JPEG_UPDATEQT\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -599,7 +599,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct jpg_hw_buf buf_info = {0};
 		struct jpg_hw_buf *phwbuf;
 
-		dbg_msg(1, ("IOCTL_JPEG_GETBUFFER\r\n"));
+		pr_debug("IOCTL_JPEG_GETBUFFER\r\n");
 		phwbuf = kzalloc(sizeof(*phwbuf), GFP_KERNEL);
 		if (NULL == phwbuf)
 			return -ENOMEM;
@@ -609,7 +609,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			kfree(phwbuf);
 			return ret;
 		}
-		dbg_msg(1, "getbuffer copy size %lx from user",
+		pr_debug("getbuffer copy size %lx from user",
 			  phwbuf->size);
 		jpeg_alloc_buf(phwbuf->size, &buf_info);
 		phwbuf->vaddr = buf_info.vaddr;
@@ -624,7 +624,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_JPEG_FREEBUFFER: {
 		struct jpg_hw_buf *phwbuf;
 
-		dbg_msg(1, ("IOCTL_JPEG_FREEBUFFER\r\n"));
+		pr_debug("IOCTL_JPEG_FREEBUFFER\r\n");
 		phwbuf = kzalloc(sizeof(*phwbuf), GFP_KERNEL);
 		if (NULL == phwbuf)
 			return -ENOMEM;
@@ -635,7 +635,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case IOCTL_JPEG_GO: {
-		dbg_msg(1, ("IOCTL_JPEG_GO\r\n"));
+		pr_debug("IOCTL_JPEG_GO\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -644,39 +644,39 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case IOCTL_JPEG_WAIT: {
-		dbg_msg(1, ("IOCTL_JPEG_WAIT\r\n"));
+		pr_debug("IOCTL_JPEG_WAIT\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
 			break;
-		dbg_msg(1, "JPEG: -- JPEG_WAIT --\r\n");
+		pr_debug("JPEG: -- JPEG_WAIT --\r\n");
 		ret = jpeg_wait_interrupt(&codec_param);
 		break;
 	}
 	case IOCTL_JPEG_SETCLIENTS: {
-		dbg_msg(1, ("IOCTL_JPEG_SETCLIENTS\r\n"));
+		pr_debug("IOCTL_JPEG_SETCLIENTS\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
 			break;
-		dbg_msg(1, ("JPEG: -- IOCTL_JPEG_SETCLIENTS --\r\n"));
+		pr_debug("JPEG: -- IOCTL_JPEG_SETCLIENTS --\r\n");
 		mutex_lock(&jpeg.pool_lock);
 		jpeg_setclients(&codec_param);
 		mutex_unlock(&jpeg.pool_lock);
 		break;
 	}
 	case IOCTL_JPEG_ALIGN: {
-		dbg_msg(1, ("IOCTL_JPEG_ALIGN\r\n"));
+		pr_debug("IOCTL_JPEG_ALIGN\r\n");
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
 			break;
-		dbg_msg(1, ("JPEG: -- IOCTL_JPEG_ALIGN -- \r\n"));
+		pr_debug("JPEG: -- IOCTL_JPEG_ALIGN -- \r\n");
 		jpeg_setalign(&codec_param);
 		break;
 	}
 	default:
-		dbg_msg(1, ("[ERR]: default\r\n"));
+		pr_err("[ERR]: default\r\n");
 		ret = -EINVAL;
 		break;
 	}
@@ -690,7 +690,8 @@ static int jpeg_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 			    vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
-		dbg_msg(1, "Mmap failed for address %lX\n", vma->vm_pgoff);
+		pr_err(
+		"Mmap failed for address %lX\n", vma->vm_pgoff);
 		return -EINVAL;
 	}
 
@@ -736,25 +737,24 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	ret = alloc_chrdev_region(&devno, 0, 1, "jpeg");
 	if (ret < 0) {
-		dbg_msg(1, KERN_ERR"%s: jpeg register chrdev failed\n",
+		dev_err(&pdev->dev, "%s: jpeg register chrdev failed\n",
 			  __FILE__);
 		return ret;
 	}
 	jpeg_class = class_create(THIS_MODULE, "jpeg");
 	if (IS_ERR(jpeg_class)) {
-		dbg_msg(1, KERN_ERR"jpeg class create failed\n");
+		dev_err(&pdev->dev, "jpeg class create failed\n");
 		goto ERROR;
 	}
 	if (device_create(jpeg_class, NULL, devno, NULL, "jpeg") == NULL) {
-		dbg_msg(1, KERN_ERR"jpeg devic_create failed\n");
+		dev_err(&pdev->dev, "jpeg devic_create failed\n");
 		goto ERROR;
 	}
 	cdev_init(&jpeg.jpeg_cdev, &jpeg_fops);
 	if (cdev_add(&jpeg.jpeg_cdev, devno, 1) == -1) {
-		dbg_msg(1, KERN_ERR"jpeg cdev_add failed\n");
+		dev_err(&pdev->dev, "jpeg cdev_add failed\n");
 		goto ERROR;
 	}
-
 	dev_info = &jpeg.dev_info;
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dev_info->reg_vaddr = devm_ioremap_resource(&pdev->dev, regs);
@@ -763,7 +763,7 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	jpeg.ck = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(jpeg.ck)) {
-		dbg_msg(1, "jpeg_enable_clock error!\n");
+		dev_err(&pdev->dev, "jpeg_enable_clock error!\n");
 		goto ERROR;
 	}
 
@@ -774,9 +774,6 @@ static int jpeg_probe(struct platform_device *pdev)
 	mutex_init(&jpeg.pool_lock);
 	jpeg.devno = devno;
 	platform_set_drvdata(pdev, &jpeg);
-	dbg_msg(1, KERN_INFO"size = %d, vaddr = 0x%x\n",
-		  (u32) dev_info->reg_size,
-		  (u32) dev_info->reg_vaddr);
 	pdev->dev.coherent_dma_mask = ~0;
 	ret = jpeg_get_hw_pool(pdev);
 	if (ret)
@@ -786,12 +783,10 @@ static int jpeg_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	jpeg_info->irq_id = irq;
 	if (jpeg_info->irq_id == 0) {
-		dbg_msg(1, KERN_ERR"jpeg0: Error mapping IRQ!\n");
+		dev_err(&pdev->dev, "jpeg0: Error mapping IRQ!\n");
 		goto ERROR;
 	}
-	dbg_msg(1, KERN_INFO"DevInfo irq = %d\n", jpeg_info->irq_id);
 
-	dbg_msg(1, KERN_INFO"Install ISR irq = %d\n", jpeg_info->irq_id);
 	init_completion(&jpeg.jpeg_info.ready);
 	ret = devm_request_irq(&pdev->dev, jpeg_info->irq_id,
 			jpeg_irq_handler, 0,
