@@ -811,7 +811,7 @@ static int spi_sirfsoc_config_mode(struct spi_device *spi)
 	} else {
 		regval |= SIRFSOC_SPI_DRV_POS_EDGE;
 		usp_mode1 &= ~(SIRFSOC_USP_RXD_FALLING_EDGE |
-				SIRFSOC_USP_RXD_FALLING_EDGE);
+				SIRFSOC_USP_TXD_FALLING_EDGE);
 	}
 	fifo_size = SIRFSOC_SPI_FIFO_SIZE(sspi);
 	writel(SIRFSOC_SPI_FIFO_SC(sspi, fifo_size - 2) |
