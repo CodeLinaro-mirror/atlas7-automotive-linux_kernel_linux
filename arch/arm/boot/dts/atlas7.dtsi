@@ -1076,6 +1076,13 @@
 				};
 			};
 
+			vi_vip1_ext_pmx: vi_vip1_ext@0 {
+				vi_vip1_ext {
+					sirf,pins = "vi_vip1_ext_grp";
+					sirf,function = "vi_vip1_ext";
+				};
+			};
+
 			vi_vip1_low8bit_pmx: vi_vip1_low8bit@0 {
 				vi_vip1_low8bit {
 					sirf,pins = "vi_vip1_low8bit_grp";

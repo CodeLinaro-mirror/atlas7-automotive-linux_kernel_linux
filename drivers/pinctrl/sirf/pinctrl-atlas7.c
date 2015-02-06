@@ -851,8 +851,10 @@ static const unsigned int visbus_dout_pins[] = { 57, 58, 59, 60, 61, 62, 63,
 		64, 65, 66, 67, 68, 69, 70, 71, 72, 53, 54, 55, 56, 85, 86,
 		87, 88, 89, 90, 91, 92, 93, 94, 95, 96, };
 static const unsigned int vi_vip1_pins[] = { 74, 75, 76, 77, 78, 79, 80, 81,
-		82, 83, 84, 108, 103, 104, 105, 106, 107, 102, 97, 98, 99,
-		100, };
+		82, 83, 84, 103, 104, 105, 106, 107, 102, 97, 98, };
+static const unsigned int vi_vip1_ext_pins[] = { 74, 75, 76, 77, 78, 79, 80,
+		81, 82, 83, 84, 108, 103, 104, 105, 106, 107, 102, 97, 98,
+		99, 100, };
 static const unsigned int vi_vip1_low8bit_pins[] = { 74, 75, 76, 77, 78, 79,
 		80, 81, };
 static const unsigned int vi_vip1_high8bit_pins[] = { 82, 83, 84, 108, 103,
@@ -1002,6 +1004,7 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("usb1_drvvbus_grp", usb1_drvvbus_pins),
 	GROUP("visbus_dout_grp", visbus_dout_pins),
 	GROUP("vi_vip1_grp", vi_vip1_pins),
+	GROUP("vi_vip1_ext_grp", vi_vip1_ext_pins),
 	GROUP("vi_vip1_low8bit_grp", vi_vip1_low8bit_pins),
 	GROUP("vi_vip1_high8bit_grp", vi_vip1_high8bit_pins),
 };
@@ -1155,6 +1158,7 @@ static const char * const usb0_drvvbus_grp[] = { "usb0_drvvbus_grp", };
 static const char * const usb1_drvvbus_grp[] = { "usb1_drvvbus_grp", };
 static const char * const visbus_dout_grp[] = { "visbus_dout_grp", };
 static const char * const vi_vip1_grp[] = { "vi_vip1_grp", };
+static const char * const vi_vip1_ext_grp[] = { "vi_vip1_ext_grp", };
 static const char * const vi_vip1_low8bit_grp[] = { "vi_vip1_low8bit_grp", };
 static const char * const vi_vip1_high8bit_grp[] = { "vi_vip1_high8bit_grp", };
 
@@ -3047,6 +3051,33 @@ static struct atlas7_pad_mux vi_vip1_grp_pad_mux[] = {
 	MUX(1, 82, 1, N, N, N, N),
 	MUX(1, 83, 1, N, N, N, N),
 	MUX(1, 84, 1, N, N, N, N),
+	MUX(1, 103, 2, N, N, N, N),
+	MUX(1, 104, 2, N, N, N, N),
+	MUX(1, 105, 2, N, N, N, N),
+	MUX(1, 106, 2, N, N, N, N),
+	MUX(1, 107, 2, N, N, N, N),
+	MUX(1, 102, 2, N, N, N, N),
+	MUX(1, 97, 2, N, N, N, N),
+	MUX(1, 98, 2, N, N, N, N),
+};
+
+static struct atlas7_grp_mux vi_vip1_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(vi_vip1_grp_pad_mux),
+	.pad_mux_list = vi_vip1_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux vi_vip1_ext_grp_pad_mux[] = {
+	MUX(1, 74, 1, N, N, N, N),
+	MUX(1, 75, 1, N, N, N, N),
+	MUX(1, 76, 1, N, N, N, N),
+	MUX(1, 77, 1, N, N, N, N),
+	MUX(1, 78, 1, N, N, N, N),
+	MUX(1, 79, 1, N, N, N, N),
+	MUX(1, 80, 1, N, N, N, N),
+	MUX(1, 81, 1, N, N, N, N),
+	MUX(1, 82, 1, N, N, N, N),
+	MUX(1, 83, 1, N, N, N, N),
+	MUX(1, 84, 1, N, N, N, N),
 	MUX(1, 108, 2, N, N, N, N),
 	MUX(1, 103, 2, N, N, N, N),
 	MUX(1, 104, 2, N, N, N, N),
@@ -3060,9 +3091,9 @@ static struct atlas7_pad_mux vi_vip1_grp_pad_mux[] = {
 	MUX(1, 100, 2, N, N, N, N),
 };
 
-static struct atlas7_grp_mux vi_vip1_grp_mux = {
-	.pad_mux_count = ARRAY_SIZE(vi_vip1_grp_pad_mux),
-	.pad_mux_list = vi_vip1_grp_pad_mux,
+static struct atlas7_grp_mux vi_vip1_ext_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(vi_vip1_ext_grp_pad_mux),
+	.pad_mux_list = vi_vip1_ext_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux vi_vip1_low8bit_grp_pad_mux[] = {
@@ -3330,6 +3361,7 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("usb1_drvvbus", usb1_drvvbus_grp, &usb1_drvvbus_grp_mux),
 	FUNCTION("visbus_dout", visbus_dout_grp, &visbus_dout_grp_mux),
 	FUNCTION("vi_vip1", vi_vip1_grp, &vi_vip1_grp_mux),
+	FUNCTION("vi_vip1_ext", vi_vip1_ext_grp, &vi_vip1_ext_grp_mux),
 	FUNCTION("vi_vip1_low8bit",
 			vi_vip1_low8bit_grp,
 			&vi_vip1_low8bit_grp_mux),
