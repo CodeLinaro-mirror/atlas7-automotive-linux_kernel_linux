@@ -265,7 +265,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	u32 *ver_stride)
 {
 	int index = 0;
-	int bpp = 0;
+	int bpp = 0; /* bits per pixel */
 	int vdss_pixfmt;
 
 	pix->width = clamp(pix->width, (u32)VIDEO_MIN_WIDTH,
@@ -292,24 +292,24 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	case V4L2_PIX_FMT_VYUY:
 	case V4L2_PIX_FMT_UYVY:
 		pix->colorspace = V4L2_COLORSPACE_JPEG;
-		bpp = 2;
+		bpp = 16;
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_YUV420:
 		pix->colorspace = V4L2_COLORSPACE_JPEG;
-		bpp = 1;
+		bpp = 12;
 		break;
 	case V4L2_PIX_FMT_RGB565:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
-		bpp = 2;
+		bpp = 16;
 		break;
 	case V4L2_PIX_FMT_RGB32:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
-		bpp = 4;
+		bpp = 32;
 		break;
 	default:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
-		bpp = 2;
+		bpp = 16;
 		break;
 	}
 
@@ -318,19 +318,9 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	__sirfsoc_vout_alignment(vdss_pixfmt, pix->width, pix->height,
 		hor_stride, ver_stride);
 
-	pix->bytesperline = *hor_stride * bpp;
+	pix->bytesperline = *hor_stride * bpp / 8;
 
-	switch (vdss_pixfmt) {
-	case VDSS_PIXELFORMAT_NV12:
-	case VDSS_PIXELFORMAT_NV21:
-	case VDSS_PIXELFORMAT_I420:
-		pix->sizeimage = pix->bytesperline * *ver_stride +
-				(pix->bytesperline * *ver_stride >> 1);
-		break;
-	default:
-		pix->sizeimage = pix->bytesperline * *ver_stride;
-		break;
-	}
+	pix->sizeimage = pix->bytesperline * (*ver_stride);
 
 	return 0;
 }
