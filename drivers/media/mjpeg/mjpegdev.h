@@ -42,6 +42,7 @@
 #define JPEG_PATH_FORMAT_422                       0x0000
 #define JPEG_PATH_FORMAT_420                       0x0001
 
+#define JPEG_READ_CODE_GG_LINE_STATUS_TIMEOUT 1000
 #define JPEG_CMP_QTTABLE_SIZE                                64
 
 #define ALIGN_DOWN(a, b)     (((a) / (b)) * (b))

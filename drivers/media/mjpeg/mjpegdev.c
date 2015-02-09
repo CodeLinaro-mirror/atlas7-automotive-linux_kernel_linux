@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -529,17 +531,22 @@ static void jpeg_setalign(struct jpeg_codec_param *param)
 	}
 }
 
-static void jpeg_go(struct jpeg_codec_param *param)
+static long jpeg_go(struct jpeg_codec_param *param)
 {
 	unsigned long code_stat;
 	unsigned long int_stat;
+	int timeout = JPEG_READ_CODE_GG_LINE_STATUS_TIMEOUT;
 
 	write_reg(REGISTER_CODE_GG_LINE_ENABLE, 1);
 	do {
+		udelay(1);
 		code_stat =
 		    read_reg(REGISTER_CODE_GG_LINE_STATUS);
-	} while (code_stat != 1);
-
+	} while (code_stat != 1 && --timeout);
+	if (code_stat != 1) {
+		pr_err("read REGISTER_CODE_GG_LINE_STATUS timeout!\n");
+		return -ETIMEDOUT;
+	}
 	if (param->mode == JPEG_PATH_MODE_DECODER) {
 		unsigned long vlc_stat;
 
@@ -550,6 +557,7 @@ static void jpeg_go(struct jpeg_codec_param *param)
 	int_stat = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 	write_reg(REGISTER_CONVERTER_RESET, 0x00000001);
 	write_reg(REGISTER_CODEC_JPEG_GO, 1);
+	return 0;
 }
 
 static int jpeg_open(struct inode *inode, struct file *filp)
@@ -640,7 +648,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			sizeof(codec_param));
 		if (ret)
 			break;
-		jpeg_go(&codec_param);
+		ret = jpeg_go(&codec_param);
 		break;
 	}
 	case IOCTL_JPEG_WAIT: {
