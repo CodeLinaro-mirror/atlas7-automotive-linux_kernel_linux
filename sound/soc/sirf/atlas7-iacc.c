@@ -434,6 +434,11 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
+	/* With playback, driver wants to start and stop
+	 * many dma, each channels have own dma channels.
+	 * With capture, only one dma channel wants to start
+	 * and stop.
+	 */
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
@@ -454,7 +459,7 @@ static int atlas7_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			for (i = 0; i < substream->runtime->channels; i++)
 				dmaengine_terminate_all(dma_data->chan[i]);
 		else
-			dma_async_issue_pending(dma_data->chan[0]);
+			dmaengine_terminate_all(dma_data->chan[0]);
 		break;
 	default:
 		return -EINVAL;
