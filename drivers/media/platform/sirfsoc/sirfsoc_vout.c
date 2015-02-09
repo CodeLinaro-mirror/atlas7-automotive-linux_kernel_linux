@@ -678,6 +678,7 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 	ret = vb2_queue_init(vb2_q);
 	if (ret) {
 		vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
+		vout->alloc_ctx = NULL;
 		goto reqbuf_err;
 	}
 
@@ -1043,7 +1044,8 @@ static int sirfsoc_vout_release(struct file *file)
 		/*disable the overlay*/
 		l->disable(l);
 		vb2_queue_release(&vout->vb2_q);
-		vb2_dma_contig_cleanup_ctx(&vout->vb2_q);
+		vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
+		vout->alloc_ctx = NULL;
 	}
 
 	vout->opened -= 1;
