@@ -201,15 +201,15 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 
 	info.base = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	info.src_rect.left = vout->rect.left;
-	info.src_rect.top = vout->rect.top;
-	info.src_rect.right = vout->rect.width - 1;
-	info.src_rect.bottom = vout->rect.height - 1;
+	info.src_rect.left = vout->src_rect.left;
+	info.src_rect.top = vout->src_rect.top;
+	info.src_rect.right = vout->src_rect.left + vout->src_rect.width - 1;
+	info.src_rect.bottom = vout->src_rect.top + vout->src_rect.height - 1;
 
-	info.dst_rect.left = 0;
-	info.dst_rect.right =  vout->display->timings.xres - 1;
-	info.dst_rect.top = 0;
-	info.dst_rect.bottom = vout->display->timings.yres - 1;
+	info.dst_rect.left = vout->dst_rect.left;
+	info.dst_rect.top = vout->dst_rect.top;
+	info.dst_rect.right =  vout->dst_rect.left + vout->dst_rect.width - 1;
+	info.dst_rect.bottom = vout->dst_rect.top + vout->dst_rect.height - 1;
 	info.fmt = pixfmt;
 
 	info.surf_width = vout->surf_width;
@@ -324,6 +324,63 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 
 	return 0;
 }
+
+static int __sirfsoc_vout_try_rect(struct v4l2_rect *new_rect, u32 ref_width,
+	u32 ref_height)
+{
+	if (new_rect->left < 0) {
+		new_rect->width += new_rect->left;
+		new_rect->left = 0;
+	}
+
+	if (new_rect->top < 0) {
+		new_rect->height += new_rect->top;
+		new_rect->top = 0;
+	}
+
+	new_rect->width = (new_rect->width < ref_width) ?
+			new_rect->width : ref_width;
+	new_rect->height = (new_rect->height < ref_height) ?
+			new_rect->height : ref_height;
+
+	if (new_rect->left + new_rect->width  > ref_width)
+		new_rect->width = ref_width - new_rect->left;
+	if (new_rect->top + new_rect->height > ref_height)
+		new_rect->height = ref_height - new_rect->top;
+
+	return 0;
+}
+
+static int __sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
+{
+	struct v4l2_pix_format *fmt = &vout->pix_fmt;
+
+	fmt->width = vout->display->timings.xres;
+	fmt->height = vout->display->timings.yres;
+
+	fmt->pixelformat = V4L2_PIX_FMT_RGB565;
+	fmt->field = V4L2_FIELD_ANY;
+	fmt->bytesperline = fmt->width * 2;
+	fmt->sizeimage = fmt->bytesperline * fmt->height;
+	fmt->priv = 0;
+	fmt->colorspace = V4L2_COLORSPACE_SRGB;
+
+	vout->src_rect.left = 0;
+	vout->src_rect.top = 0;
+	vout->src_rect.width = vout->display->timings.xres;
+	vout->src_rect.height = vout->display->timings.yres;
+
+	vout->dst_rect.left = 0;
+	vout->dst_rect.top = 0;
+	vout->dst_rect.width = vout->display->timings.xres;
+	vout->dst_rect.height = vout->display->timings.yres;
+
+	vout->surf_width = fmt->width;
+	vout->surf_height = fmt->height;
+
+	return 0;
+}
+
 /*
  * sirfsoc_vout_queue_setup()
  * This function allocates memory for the buffers
@@ -529,7 +586,8 @@ static int sirfsoc_vout_querycap(struct file *file, void  *priv,
 
 	strlcpy(cap->driver, SIRFSOC_VOUT_DRV_NAME, sizeof(cap->driver));
 	cap->version = SIRFSOC_VOUT_VERSION_CODE;
-	cap->capabilities = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING;
+	cap->capabilities = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING |
+		V4L2_CAP_VIDEO_OUTPUT_OVERLAY;
 
 	return 0;
 }
@@ -599,10 +657,10 @@ static int sirfsoc_vout_s_fmt_vid_out(struct file *file, void *priv,
 	vout->surf_width = hor_stride;
 	vout->surf_height = ver_stride;
 	/* set new crop and window according to the new format?*/
-	vout->rect.left = 0;
-	vout->rect.top = 0;
-	vout->rect.width = vout->pix_fmt.width;
-	vout->rect.height = vout->pix_fmt.height;
+	vout->src_rect.left = 0;
+	vout->src_rect.top = 0;
+	vout->src_rect.width = vout->pix_fmt.width;
+	vout->src_rect.height = vout->pix_fmt.height;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 	return 0;
@@ -626,6 +684,74 @@ static int sirfsoc_vout_try_fmt_vid_out(struct file *file, void *priv,
 	}
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+	return 0;
+}
+
+static int sirfsoc_vout_try_fmt_vid_out_overlay(struct file *file, void *priv,
+			struct v4l2_format *fmt)
+{
+	int ret = 0;
+	struct sirfsoc_vout_device *vout = priv;
+	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+	struct v4l2_window *win = &fmt->fmt.win;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
+
+	ret = __sirfsoc_vout_try_rect(&win->w, vout->dst_rect.width,
+		vout->dst_rect.height);
+
+	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+
+	return ret;
+}
+
+static int sirfsoc_vout_s_fmt_vid_out_overlay(struct file *file, void *priv,
+			struct v4l2_format *fmt)
+{
+	int ret = 0;
+	struct sirfsoc_vout_device *vout = priv;
+	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+	struct v4l2_window *win = &fmt->fmt.win;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
+
+	if (vout->vb2_q.streaming) {
+		v4l2_err(v4l2_dev, "device is already in streaming state\n");
+		return -EBUSY;
+	}
+
+	if (V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY != fmt->type) {
+		v4l2_err(v4l2_dev, "unsupport buf type\n");
+		return -EINVAL;
+	}
+
+	ret = __sirfsoc_vout_try_rect(&win->w, vout->display->timings.xres,
+		vout->display->timings.yres);
+
+	vout->dst_rect = win->w;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+
+	return ret;
+}
+
+static int sirfsoc_vout_g_fmt_vid_out_overlay(struct file *file, void *priv,
+			struct v4l2_format *fmt)
+{
+	struct sirfsoc_vout_device *vout = priv;
+	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
+
+	fmt->fmt.win.w.left = vout->dst_rect.left;
+	fmt->fmt.win.w.top = vout->dst_rect.top;
+	fmt->fmt.win.w.width = vout->dst_rect.width;
+	fmt->fmt.win.w.height = vout->dst_rect.height;
+
+	fmt->fmt.win.field = vout->pix_fmt.field;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+
 	return 0;
 }
 
@@ -833,7 +959,7 @@ static int sirfsoc_vout_g_crop(struct file *file, void *priv,
 	if (crop->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
 		return -EINVAL;
 
-	crop->c = vout->rect;
+	crop->c = vout->src_rect;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 
@@ -843,6 +969,7 @@ static int sirfsoc_vout_g_crop(struct file *file, void *priv,
 static int sirfsoc_vout_s_crop(struct file *file, void *priv,
 	const struct v4l2_crop *crop)
 {
+	int ret = 0;
 	struct sirfsoc_vout_device *vout = priv;
 	struct sirfsoc_video_device *vid_dev = vout->vid_dev;
 	struct v4l2_device *v4l2_dev = &vid_dev->v4l2_dev;
@@ -855,33 +982,17 @@ static int sirfsoc_vout_s_crop(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
-	if (rect.top < 0) {
-		rect.height += rect.top;
-		rect.top = 0;
-	}
-	if (rect.left < 0) {
-		rect.width += rect.left;
-		rect.left = 0;
-	}
+	ret = __sirfsoc_vout_try_rect(&rect, vout->pix_fmt.width,
+		vout->pix_fmt.height);
 
-	rect.width = (rect.width < vout->pix_fmt.width) ?
-		rect.width : vout->pix_fmt.width;
-	rect.height = (rect.height < vout->pix_fmt.height) ?
-		rect.height : vout->pix_fmt.height;
-
-	if (rect.left + rect.width  > vout->pix_fmt.width)
-		rect.width = vout->pix_fmt.width - rect.left;
-	if (rect.top + rect.height > vout->pix_fmt.height)
-		rect.height = vout->pix_fmt.height - rect.top;
-
-	vout->rect = rect;
+	vout->src_rect = rect;
 
 	v4l2_info(v4l2_dev, "src rect(l:%x,t:%x,w:%x,h:%x)\n",
 		rect.left, rect.top, rect.width, rect.height);
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 
-	return 0;
+	return ret;
 }
 
 static int sirfsoc_vout_cropcap(struct file *file, void *priv,
@@ -1017,6 +1128,11 @@ static int sirfsoc_vout_open(struct file *file)
 
 	vout->opened += 1;
 
+	if (__sirfsoc_setup_video_data(vout)) {
+		v4l2_err(v4l2_dev, "get default output information fail\n");
+		return -EBUSY;
+	}
+
 	file->private_data = vout;
 	vout->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	mutex_unlock(&vout->lock);
@@ -1104,6 +1220,9 @@ static const struct v4l2_ioctl_ops sirfsoc_vout_ioctl_ops = {
 	.vidioc_g_fmt_vid_out		= sirfsoc_vout_g_fmt_vid_out,
 	.vidioc_s_fmt_vid_out		= sirfsoc_vout_s_fmt_vid_out,
 	.vidioc_try_fmt_vid_out		= sirfsoc_vout_try_fmt_vid_out,
+	.vidioc_try_fmt_vid_out_overlay	= sirfsoc_vout_try_fmt_vid_out_overlay,
+	.vidioc_s_fmt_vid_out_overlay	= sirfsoc_vout_s_fmt_vid_out_overlay,
+	.vidioc_g_fmt_vid_out_overlay	= sirfsoc_vout_g_fmt_vid_out_overlay,
 	.vidioc_enum_framesizes		= sirfsoc_vout_enum_framesizes,
 	.vidioc_reqbufs			= sirfsoc_vout_reqbufs,
 	.vidioc_querybuf		= sirfsoc_vout_querybuf,
@@ -1131,26 +1250,7 @@ static const struct v4l2_file_operations sirfsoc_vout_fops = {
 
 static int sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 {
-	struct v4l2_pix_format *fmt = &vout->pix_fmt;
-
-	fmt->width = vout->display->timings.xres;
-	fmt->height = vout->display->timings.yres;
-
-	fmt->pixelformat = V4L2_PIX_FMT_RGB565;
-	fmt->field = V4L2_FIELD_ANY;
-	fmt->bytesperline = fmt->width * 2;
-	fmt->sizeimage = fmt->bytesperline * fmt->height;
-	fmt->priv = 0;
-	fmt->colorspace = V4L2_COLORSPACE_SRGB;
-
-	vout->rect.left = 0;
-	vout->rect.top = 0;
-	vout->rect.width = vout->display->timings.xres;
-	vout->rect.height = vout->display->timings.yres;
-	vout->surf_width = fmt->width;
-	vout->surf_height = fmt->height;
-
-	return 0;
+	return __sirfsoc_setup_video_data(vout);
 }
 
 static int sirfsoc_setup_video_device(struct sirfsoc_vout_device *vout)

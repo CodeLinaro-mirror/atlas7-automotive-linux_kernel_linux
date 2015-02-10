@@ -48,7 +48,8 @@ struct sirfsoc_vout_device {
 	/* allocator-specific contexts for each plane */
 	struct vb2_alloc_ctx *alloc_ctx;
 	struct list_head dma_queue;
-	struct v4l2_rect rect;
+	struct v4l2_rect src_rect;
+	struct v4l2_rect dst_rect;
 	u32 surf_width;
 	u32 surf_height;
 	struct sirfsoc_vdss_panel *display;
