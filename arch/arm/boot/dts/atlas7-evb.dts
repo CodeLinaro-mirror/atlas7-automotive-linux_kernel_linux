@@ -9,6 +9,13 @@
 /dts-v1/;
 
 /include/ "atlas7.dtsi"
+
+#ifdef CONFIG_ANDROID
+/include/ "atlas7-amber.dtsi"
+#else
+/include/ "atlas7-a7ca.dtsi"
+#endif
+
 #include <dt-bindings/input/input.h>
 
 / {
@@ -105,25 +112,6 @@
 		cm3_reserved: cm3@4fe00000 {
 			reg = <0x4fe00000 0x100000>;
 			no-map;
-		};
-	};
-
-	bt_sco: bt_sco@0 {
-		#sound-dai-cells = <0>;
-		compatible = "bt-sco";
-		status = "okay";
-	};
-
-	sirf-bt-sco {
-		compatible = "simple-audio-card";
-		simple-audio-card,format = "dsp_a";
-		simple-audio-card,cpu {
-			sound-dai = <&usp3>;
-		};
-		simple-audio-card,codec {
-			sound-dai = <&bt_sco>;
-			bitclock-master;
-			frame-master;
 		};
 	};
 
@@ -338,21 +326,12 @@
 				pinctrl-0 = <&sd2_pmx0>;
 			};
 
-			sdhci@14300000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&sd3_pmx>;
-			};
-
 			sdhci@14500000 {
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&sd5_pmx>;
 			};
 
-			sdhci@14700000 {
-				status = "okay";
-			};
 		};
 
 		sirf-backlight {
@@ -388,12 +367,6 @@
 				pinctrl-names = "default";
 			};
 
-			uart4: uart@18050000 {
-				status = "okay";
-				pinctrl-0 = <&uart4_pmx1>;
-				pinctrl-names = "default";
-			};
-
 			uart5: uart@18060000 {
 				status = "okay";
 			};
@@ -416,23 +389,6 @@
 						reg = <0x0 0x800000>;
 					};
 				};
-			};
-		};
-
-		btm {
-			usp3: usp@11001000 {
-				status = "okay";
-				#sound-dai-cells = <0>;
-			};
-
-			uart6: uart@11000000 {
-				status = "okay";
-				sirf,uart-has-rtscts;
-			};
-			a7ca_bt {
-				compatible = "sirf,a7ca_bt";
-				clocks = <&car 129>, <&car 137>, <&car 133>;
-				clock-names="a7ca_btss","a7ca_btslow","a7ca_io";
 			};
 		};
 

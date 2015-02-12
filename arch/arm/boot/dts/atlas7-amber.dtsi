@@ -1,0 +1,53 @@
+/*
+ * DTS file for CSR SiRFatlas7 SoC External Amber Chip
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/ {
+	bt_sco: bt_sco@0 {
+		#sound-dai-cells = <0>;
+		compatible = "bt-sco";
+		status = "okay";
+	};
+
+	sirf-bt-sco {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,cpu {
+		sound-dai = <&usp1>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco>;
+			bitclock-master;
+			frame-master;
+		};
+	};
+
+	noc {
+		vdifm {
+			sdhci@14300000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd3_pmx>;
+				clocks = <&car 70>, <&car 75>;
+				broken-cd;
+			};
+		};
+		gnssm {
+			uart4: uart@18050000 {
+				status = "okay";
+				pinctrl-0 = <&uart4_pmx1>;
+				pinctrl-names = "default";
+			};
+			bt {
+				compatible = "sirf,bt-9300";
+				bt_gpio_power = <&gpio_3 15 0>;
+				bt_gpio_reset = <&gpio_1 76 0>;
+			};
+		};
+	};
+};
+

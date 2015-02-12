@@ -1,0 +1,56 @@
+/*
+ * DTS file for CSR SiRFatlas7 SoC Internal Bluetooth IP
+ *
+ * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/ {
+
+	bt_sco: bt_sco@0 {
+		#sound-dai-cells = <0>;
+		compatible = "bt-sco";
+		status = "okay";
+	};
+
+	sirf-bt-sco {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,cpu {
+			sound-dai = <&usp3>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco>;
+			bitclock-master;
+			frame-master;
+		};
+	};
+
+	noc {
+		vdifm {
+			sdhci@14700000 {
+				status = "okay";
+			};
+		};
+
+		btm {
+			usp3: usp@11001000 {
+				status = "okay";
+				#sound-dai-cells = <0>;
+			};
+
+			uart6: uart@11000000 {
+				status = "okay";
+				sirf,uart-has-rtscts;
+			};
+			a7ca_bt {
+				compatible = "sirf,a7ca_bt";
+				clocks = <&car 129>, <&car 137>, <&car 133>;
+				clock-names="a7ca_btss","a7ca_btslow",
+				"a7ca_io";
+			};
+		};
+	};
+};
+

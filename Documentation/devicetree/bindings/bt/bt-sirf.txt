@@ -1,0 +1,31 @@
+CSR bluetooth chip
+
+Required properties:
+ - compatible : Should be "sirf,bt-9300" or "sirf,bt-8311-evb" or "sirf,a7ca_bt"
+
+Optional properties:
+ - bt_gpio_power : gpio number of power pin for external chip
+   should be set when external chip is used
+ - bt_gpio_reset : gpio number of reset pin for external chip
+   should be set when external chip is used
+ - clocks : Must contain an entry for each entry in clock-names.
+   should be set when internal chip is used
+   See ../clocks/clock-bindings.txt for details.
+ - clock-names : list of clock names sorted in the same order as the clocks
+   property. Must contain "a7ca_btss", "a7ca_btslow" and "a7ca_io".
+   should be set when internal chip is used
+   See ../clocks/clock-bindings.txt for details.
+
+Example:
+	external_bt {
+		compatible = "sirf,bt-9300";
+		bt_gpio_power = <&gpio_3 15 0>;
+		bt_gpio_reset = <&gpio_1 76 0>;
+	};
+
+	internal_bt {
+		compatible = "sirf,a7ca_bt";
+		clocks = <&car 129>, <&car 137>, <&car 133>;
+		clock-names="a7ca_btss","a7ca_btslow",
+		"a7ca_io";
+	};
