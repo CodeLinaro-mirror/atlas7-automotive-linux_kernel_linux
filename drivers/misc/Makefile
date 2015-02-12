@@ -54,7 +54,6 @@ obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
 obj-$(CONFIG_SRAM)		+= sram.o
 obj-$(CONFIG_SIRF_MEMC_MONITOR) += sirf_memc_monitor.o
 obj-$(CONFIG_CSR_RFKILL)	+= btcsr.o
-obj-$(CONFIG_CSR_RFKILL)	+= wlancsr.o
 obj-$(CONFIG_SIRF_MINIGPSRTC)	+= sirf_minigpsrtc.o
 obj-y				+= mic/
 obj-$(CONFIG_GENWQE)		+= genwqe/
