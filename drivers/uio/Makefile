@@ -10,3 +10,4 @@ obj-$(CONFIG_UIO_PRUSS)         += uio_pruss.o
 obj-$(CONFIG_UIO_MF624)         += uio_mf624.o
 obj-$(CONFIG_UIO_SIRF_SOC_VPP)  += uio_vpp.o
 obj-$(CONFIG_UIO_LCD)           += uio_lcd.o
+obj-$(CONFIG_UIO_BLE)           += uio_ble.o

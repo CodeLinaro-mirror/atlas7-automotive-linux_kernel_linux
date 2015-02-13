@@ -152,4 +152,13 @@ config UIO_LCD
 
 	  If you compile this as a module, it will be called uio_lcd.
 
+config UIO_BLE
+        tristate "Atlas7 G2D UIO driver"
+	depends on UIO
+	help
+	  Userspace I/O interface for Atlas7 G2D unit.
+	  A sample userspace application using this driver is available
+
+	  If you compile this as a module, it will be called uio_ble.
+
 endif

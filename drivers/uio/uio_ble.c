@@ -1,0 +1,166 @@
+/*
+ * UIO driver for CSR sirfsoc BLE module
+ *
+ * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
+ * company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/uio_driver.h>
+#include <linux/slab.h>
+#include <linux/dma-mapping.h>
+#include <linux/clk.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+
+#define SMEM_SIZE                       (9*SZ_1M)
+
+struct sirf_ble_info {
+	int irq;
+	struct clk *clk;
+	unsigned long size;
+	void *base;
+	dma_addr_t smem_start;
+	struct uio_info *uio_info;
+};
+
+
+static irqreturn_t sirf_ble_irq_handler(int irq, struct uio_info *info)
+{
+	return IRQ_HANDLED;
+}
+
+
+static int sirf_ble_probe(struct platform_device *pdev)
+{
+	struct sirf_ble_info *ble_info;
+	struct uio_info *info;
+	int ret;
+	struct resource *res;
+
+	ble_info = devm_kzalloc(&pdev->dev, sizeof(*ble_info), GFP_KERNEL);
+	if (!ble_info) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+
+	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ble_info->clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(ble_info->clk)) {
+		pr_err("%s: fail to get ble clock!\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+
+
+	ble_info->base = dma_alloc_coherent(&pdev->dev, SMEM_SIZE,
+		&ble_info->smem_start, GFP_KERNEL);
+	if (!ble_info->base) {
+		pr_err("%s: fail to allocate ble dma mem!\n", __func__);
+		ret = -ENOMEM;
+		goto err;
+	}
+	ble_info->size = SMEM_SIZE;
+
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		pr_err("%s: fail to find IO resource\n", __func__);
+		ret = -ENOENT;
+		goto err_free;
+	}
+
+	info->mem[0].addr = res->start;
+	info->mem[0].size = res->end - res->start + 1;
+
+	info->mem[0].memtype = UIO_MEM_PHYS;
+	info->mem[1].addr = ble_info->smem_start;
+	info->mem[1].size = ble_info->size;
+	info->mem[1].memtype = UIO_MEM_PHYS;
+	info->name = "sirf_ble";
+	info->version = "0.1";
+	info->irq = ble_info->irq;
+	info->irq_flags = IRQF_TRIGGER_NONE;
+	info->handler = sirf_ble_irq_handler;
+
+	if (uio_register_device(&pdev->dev, info)) {
+		pr_err("%s: fail to register uio device!\n", __func__);
+		ret = -ENODEV;
+		goto err_free;
+	}
+
+
+	ble_info->uio_info = info;
+	platform_set_drvdata(pdev, ble_info);
+
+	clk_prepare_enable(ble_info->clk);
+
+	pr_info("%s: uio ble is loaded!\n", __func__);
+
+
+	return 0;
+
+err_free:
+	dma_free_coherent(&pdev->dev, ble_info->size,
+		ble_info->base, ble_info->smem_start);
+err:
+	return ret;
+}
+
+static int sirf_ble_remove(struct platform_device *pdev)
+{
+	struct sirf_ble_info *ble_info = platform_get_drvdata(pdev);
+
+	uio_unregister_device(ble_info->uio_info);
+
+	dma_free_coherent(&pdev->dev, ble_info->size,
+		ble_info->base, ble_info->smem_start);
+
+	clk_disable_unprepare(ble_info->clk);
+	clk_put(ble_info->clk);
+
+	return 0;
+}
+
+
+const struct of_device_id sirf_ble_match_tbl[] = {
+	{ .compatible = "sirf, atlas7-ble", },
+	{ /* end */ }
+};
+
+static struct platform_driver uio_ble_driver = {
+	.driver = {
+		.name = "sirfsoc_ble",
+		.of_match_table = sirf_ble_match_tbl,
+	},
+	.probe = sirf_ble_probe,
+	.remove = sirf_ble_remove,
+};
+
+static int __init uio_ble_init(void)
+{
+	return platform_driver_register(&uio_ble_driver);
+}
+
+static void __exit uio_ble_exit(void)
+{
+	platform_driver_unregister(&uio_ble_driver);
+}
+
+module_init(uio_ble_init);
+module_exit(uio_ble_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_AUTHOR("Chun Chen <cc19@csr.com>");
+MODULE_DESCRIPTION("UIO BLE module driver");
