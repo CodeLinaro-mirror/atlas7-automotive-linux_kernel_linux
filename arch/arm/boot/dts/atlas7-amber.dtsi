@@ -48,6 +48,15 @@
 				bt_gpio_reset = <&gpio_1 76 0>;
 			};
 		};
+		audiom {
+			usp1: usp@10d30000 {
+				status = "okay";
+				#sound-dai-cells = <0>;
+				compatible = "sirf,prima2-usp-pcm";
+				pinctrl-names = "default";
+				pinctrl-0 = <&audio_uart1_pmx>;
+			};
+		};
 	};
 };
 
