@@ -183,6 +183,40 @@ static int sirf_signal_voltage_switch(struct sdhci_host *host,
 	}
 }
 
+static u32 sdhci_sirf_readl_le(struct sdhci_host *host, int reg)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	u32 val = readl(host->ioaddr + reg);
+
+	if (unlikely(reg == SDHCI_CAPABILITIES_1)) {
+		/*A7DA step A does not have cap_1 register, fake one */
+		val = SDHCI_SUPPORT_SDR50 | SDHCI_USE_SDR50_TUNING;
+	}
+
+	if (unlikely(reg == SDHCI_SLOT_INT_STATUS)) {
+		u32 fsl_prss = val;
+		/*fake A7DA step A as V3.0 host conreoller*/
+		fsl_prss &= ~(0xFF << 16);
+		val = fsl_prss | (SDHCI_SPEC_300 << 16);
+	}
+	return val;
+}
+
+static u16 sdhci_sirf_readw_le(struct sdhci_host *host, int reg)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	u16 ret = 0;
+
+	ret = readw(host->ioaddr + reg);
+
+	if (unlikely(reg == SDHCI_HOST_VERSION)) {
+		ret = readw(host->ioaddr + SDHCI_HOST_VERSION);
+		ret |= SDHCI_SPEC_300;
+	}
+
+	return ret;
+}
+
 static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	int tuning_seq_cnt = 3;
@@ -193,7 +227,6 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int start = -1, end = 0, tuning_value = -1, range = 0;
 	u16 clock_setting;
 	struct mmc_host *mmc = host->mmc;
-
 	clock_setting = sdhci_readw(host, SDHCI_CLK_DELAY_SETTING);
 	clock_setting &= ~0x3fff;
 retry:
@@ -249,6 +282,8 @@ retry:
 }
 
 static struct sdhci_ops sdhci_sirf_ops = {
+	.read_l = sdhci_sirf_readl_le,
+	.read_w = sdhci_sirf_readw_le,
 	.platform_execute_tuning = sdhci_sirf_execute_tuning,
 	.set_clock = sdhci_set_clock,
 	.get_max_clock	= sdhci_sirf_get_max_clk,
