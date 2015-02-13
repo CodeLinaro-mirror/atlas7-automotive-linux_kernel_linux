@@ -186,7 +186,8 @@ static int sirf_signal_voltage_switch(struct sdhci_host *host,
 static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	int tuning_seq_cnt = 3;
-	u8 phase, tuned_phases[SIRF_TUNING_COUNT];
+	int phase;
+	u8 tuned_phases[SIRF_TUNING_COUNT];
 	u8 tuned_phase_cnt = 0;
 	int rc = 0, longest_range = 0;
 	int start = -1, end = 0, tuning_value = -1, range = 0;
