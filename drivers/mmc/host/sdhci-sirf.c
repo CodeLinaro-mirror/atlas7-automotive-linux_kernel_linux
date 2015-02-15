@@ -227,8 +227,10 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int start = -1, end = 0, tuning_value = -1, range = 0;
 	u16 clock_setting;
 	struct mmc_host *mmc = host->mmc;
+
 	clock_setting = sdhci_readw(host, SDHCI_CLK_DELAY_SETTING);
 	clock_setting &= ~0x3fff;
+
 retry:
 	phase = 0;
 	do {
@@ -259,6 +261,7 @@ retry:
 			end = range = 0;
 		}
 	} while (++phase < ARRAY_SIZE(tuned_phases));
+
 	if (tuned_phase_cnt && tuning_value > 0) {
 		/*
 		 * Finally set the selected phase in delay
@@ -268,8 +271,9 @@ retry:
 		sdhci_writel(host,
 			clock_setting | phase,
 			SDHCI_CLK_DELAY_SETTING);
+
 		dev_dbg(mmc_dev(mmc), "%s: Setting the tuning phase to %d\n",
-			mmc_hostname(mmc), phase);
+			 mmc_hostname(mmc), phase);
 	} else {
 		if (--tuning_seq_cnt)
 			goto retry;
@@ -278,6 +282,7 @@ retry:
 		       mmc_hostname(mmc));
 		rc = -EIO;
 	}
+
 	return rc;
 }
 
