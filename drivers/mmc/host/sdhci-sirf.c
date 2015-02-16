@@ -221,7 +221,6 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	int tuning_seq_cnt = 3;
 	int phase;
-	u8 tuned_phases[SIRF_TUNING_COUNT];
 	u8 tuned_phase_cnt = 0;
 	int rc = 0, longest_range = 0;
 	int start = -1, end = 0, tuning_value = -1, range = 0;
@@ -233,6 +232,7 @@ static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 retry:
 	phase = 0;
+	tuned_phase_cnt = 0;
 	do {
 		sdhci_writel(host,
 			clock_setting | phase,
@@ -240,7 +240,7 @@ retry:
 
 		if (!mmc_send_tuning(mmc)) {
 			/* Tuning is successful at this tuning point */
-			tuned_phases[tuned_phase_cnt++] = phase;
+			tuned_phase_cnt++;
 			dev_dbg(mmc_dev(mmc), "%s: Found good phase = %d\n",
 				 mmc_hostname(mmc), phase);
 			if (start == -1)
@@ -260,7 +260,7 @@ retry:
 			start = -1;
 			end = range = 0;
 		}
-	} while (++phase < ARRAY_SIZE(tuned_phases));
+	} while (++phase < SIRF_TUNING_COUNT);
 
 	if (tuned_phase_cnt && tuning_value > 0) {
 		/*
