@@ -2119,6 +2119,8 @@ static int vip_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int vip_pm_suspend(struct device *dev)
 {
+#if 0	/*FIXME: system suspend hung here*/
+
 	struct vip_dev *vip = dev_get_drvdata(dev);
 
 	dev_info(dev, "%s\n", __func__);
@@ -2131,7 +2133,7 @@ static int vip_pm_suspend(struct device *dev)
 		dmaengine_terminate_all(vip->dma_chan);
 
 	vip_deactivate(vip);
-
+#endif
 	return 0;
 }
 
