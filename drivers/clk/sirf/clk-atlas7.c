@@ -1257,6 +1257,15 @@ void __init atlas7_clk_init(struct device_node *np)
 		clk = clk_register_gate(NULL, div->gate_name, div->div_name,
 			div->gate_flags, sirfsoc_clk_vbase + div->gate_offset,
 				div->gate_bit, 0, div->lock);
+
+		/*
+		* always enable sys1pll_a19, because it is a common clk gate,
+		* and which serve many subclocks, so that during system
+		* when subclocks disabled, it can still on
+		*/
+		if (!strcmp(div->gate_name, "sys1pll_a19"))
+			clk_prepare_enable(clk);
+
 		atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + i] = clk;
 		BUG_ON(!clk);
 	}
