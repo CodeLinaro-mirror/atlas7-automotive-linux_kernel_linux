@@ -41,6 +41,7 @@
 				status = "okay";
 				pinctrl-0 = <&uart4_pmx1>;
 				pinctrl-names = "default";
+				sirf,uart-has-rtscts;
 			};
 			bt {
 				compatible = "sirf,bt-9300";
