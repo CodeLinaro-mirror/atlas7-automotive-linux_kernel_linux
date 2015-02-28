@@ -190,11 +190,31 @@ set_a_clr_err(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(a_clr_err, S_IWUSR, NULL, set_a_clr_err);
 
+static ssize_t
+set_a_apple_rs_req(struct device *dev, struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
+
+	if (count > 2)
+		return -1;
+
+	mutex_lock(&ci->fsm.lock);
+	if (buf[0] == '1')
+		ci->fsm.a_apple_rs_req = 1;
+
+	mutex_unlock(&ci->fsm.lock);
+
+	return count;
+}
+static DEVICE_ATTR(a_apple_rs_req, S_IWUSR, NULL, set_a_apple_rs_req);
+
 static struct attribute *inputs_attrs[] = {
 	&dev_attr_a_bus_req.attr,
 	&dev_attr_a_bus_drop.attr,
 	&dev_attr_b_bus_req.attr,
 	&dev_attr_a_clr_err.attr,
+	&dev_attr_a_apple_rs_req.attr,
 	NULL,
 };
 

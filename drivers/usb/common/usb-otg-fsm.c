@@ -103,6 +103,7 @@ static void otg_leave_state(struct otg_fsm *fsm, enum usb_otg_state old_state)
 		otg_del_timer(fsm, A_AIDL_BDIS);
 		fsm->a_aidl_bdis_tmout = 0;
 		fsm->a_suspend_req_inf = 0;
+		fsm->a_apple_rs_req = 0;
 		break;
 	case OTG_STATE_A_PERIPHERAL:
 		otg_del_timer(fsm, A_BIDL_ADIS);
@@ -323,6 +324,8 @@ int otg_statemachine(struct otg_fsm *fsm)
 		else if ((!fsm->a_bus_req || fsm->a_suspend_req_inf) &&
 				fsm->otg->host->b_hnp_enable)
 			otg_set_state(fsm, OTG_STATE_A_SUSPEND);
+		else if (!fsm->b_conn && fsm->a_apple_rs_req)
+			otg_set_state(fsm, OTG_STATE_A_SUSPEND);
 		else if (!fsm->b_conn)
 			otg_set_state(fsm, OTG_STATE_A_WAIT_BCON);
 		else if (!fsm->a_vbus_vld)
@@ -330,6 +333,8 @@ int otg_statemachine(struct otg_fsm *fsm)
 		break;
 	case OTG_STATE_A_SUSPEND:
 		if (!fsm->b_conn && fsm->otg->host->b_hnp_enable)
+			otg_set_state(fsm, OTG_STATE_A_PERIPHERAL);
+		else if (!fsm->b_conn && fsm->a_apple_rs_req)
 			otg_set_state(fsm, OTG_STATE_A_PERIPHERAL);
 		else if (!fsm->b_conn && !fsm->otg->host->b_hnp_enable)
 			otg_set_state(fsm, OTG_STATE_A_WAIT_BCON);

@@ -29,12 +29,12 @@
 					 * a_wait_vfall_tmr: section: 7.4.5.2
 					 */
 /* Wait for B-Connect */
-#define TA_WAIT_BCON         (10000)	/* a_wait_bcon: section 7.1.3
+#define TA_WAIT_BCON         (0x7fffffff)	/* a_wait_bcon: section 7.1.3
 					 * TA_WAIT_BCON: should be between 1100
 					 * and 30000 ms, section 5.5, Table 5-1
 					 */
 /* A-Idle to B-Disconnect */
-#define TA_AIDL_BDIS         (5000)	/* a_suspend min 200 ms, section 5.2.1
+#define TA_AIDL_BDIS         (2000)	/* a_suspend min 200 ms, section 5.2.1
 					 * TA_AIDL_BDIS: section 5.5, Table 5-1
 					 */
 /* B-Idle to A-Disconnect */

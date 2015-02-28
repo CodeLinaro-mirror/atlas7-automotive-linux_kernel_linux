@@ -102,6 +102,7 @@ struct otg_fsm {
 	int b_bus_req_inf;
 	/* Auxilary informative variables */
 	int a_suspend_req_inf;
+	int a_apple_rs_req;
 
 	/* Timeout indicator for timers */
 	int a_wait_vrise_tmout;
