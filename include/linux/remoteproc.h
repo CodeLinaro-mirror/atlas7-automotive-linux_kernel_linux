@@ -39,14 +39,8 @@
 #include <linux/klist.h>
 #include <linux/mutex.h>
 #include <linux/virtio.h>
-#include <linux/vringh.h>
 #include <linux/completion.h>
 #include <linux/idr.h>
-#include <linux/interrupt.h>
-#include <linux/semaphore.h>
-
-
-#define RPROC_RSC_TABLE_VER_DUAL_OS	0x80001000
 
 /**
  * struct resource_table - firmware resource table header
@@ -241,9 +235,7 @@ struct fw_rsc_trace {
 
 /**
  * struct fw_rsc_vdev_vring - vring descriptor entry
- * @da: device address. In dual OS environment, da is the physical memory
- *      address of vring descriptor start address, this memory is allocated
- *      by frontend OS.
+ * @da: device address
  * @align: the alignment between the consumer and producer parts of the vring
  * @num: num of buffers supported by this vring (must be power of two)
  * @notifyid is a unique rproc-wide notify index for this vring. This notify
@@ -338,30 +330,12 @@ struct rproc;
  * @start:	power on the device and boot it
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
- * @resource:	alloc the resource table for rproc
- * @release:	release the resource table.
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
-	void (*resource)(struct rproc *rproc);
-	void (*release)(struct rproc *rproc);
-	u32 (*features)(struct device *dev);
 };
-
-/* Definition of remoteproc features */
-#define RPROC_F_FIRMWARE		(0x1 << 0)
-#define RPROC_F_BACKEND			(0x1 << 1)
-#define RPROC_F_FRONTEND		(0x1 << 2)
-#define RPROC_F_BUS_WRITE		(0x1 << 3)
-#define RPROC_F_LIFECYCLE		(0x1 << 4)
-#define RPROC_F_DEVICE_MMIO		(0x1 << 5)
-#define RPROC_F_DYNAMIC_VQ		(0x1 << 6)
-#define RPROC_F_DEVICE_UPDATE_NOTIFY	(0x1 << 7)
-#define RPROC_F_PREDEFINED_VQ_NOTIFYID	(0x1 << 8)
-
-#define RPROC_HAS_FEATURE(rproc, f)	((rproc)->features & (f))
 
 /**
  * enum rproc_state - remote processor states
@@ -400,30 +374,7 @@ enum rproc_crash_type {
 };
 
 /**
- * struct rproc_vdev_desc - descriptor of rproc virtio device
- * @virtio_id:	virtio device type id
- * @vq_number:	number of virtqueue of this virtio device
- * @vq_length:	number of desciptor per virtqueue
- * @features:	virtio device feature array
- * @feature_sz:	number of features
- * @config_len: virtio rproc config iomem length
- * @priv_data: address of device private data
- * @priv_size: size of device private data
- */
-struct rproc_vdev_desc {
-	u32 virtio_id;
-	u32 vq_number;
-	u32 vq_length;
-	u32 features[32];
-	u32 feature_sz;
-	u32 config_len;
-	void *priv_data;
-	u32 priv_size;
-};
-
-/**
  * struct rproc - represents a physical remote processor device
- * @features: the features of this rproc contained
  * @node: klist node of this rproc object
  * @domain: iommu domain
  * @name: human readable name of the rproc
@@ -453,22 +404,8 @@ struct rproc_vdev_desc {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
- * @vdev_desc_tbl: virtio rproc device descriptor table
- * @vdev_desc_tbl_len: number of virtio rproc device descriptor
- * @vdev_notifyid_index: the index base of virtio device notifyid
- * @vq_notifyid_index: the index base of virtqueue notifyid
- * @rvdev_ids: idr for dynamically assigning device unique notify ids
- * @bus_task: thread for rproc bus task
- * @async_kick_task: thread for async kick task
- * @bus_task_head: list of bus task
- * @async_kick_head: list of async kick
- * @bus_task_lock: lock of bus task list
- * @bus_task_wq: wait queue of bus task
- * @async_kick_wq: wait queue of async kick
- * @table_len: length of rproc resource table
  */
 struct rproc {
-	u32 features;
 	struct klist_node node;
 	struct iommu_domain *domain;
 	const char *name;
@@ -498,27 +435,10 @@ struct rproc {
 	struct resource_table *table_ptr;
 	struct resource_table *cached_table;
 	u32 table_csum;
-
-	/* the following are used for dual os */
-	struct rproc_vdev_desc *vdev_desc_tbl;
-	u32 vdev_desc_tbl_len;
-	u32 vdev_notifyid_index;
-	u32 vq_notifyid_index;
-	struct idr rvdev_ids;
-	struct task_struct *bus_task;
-	struct task_struct *async_kick_task;
-	struct list_head bus_task_head;
-	struct list_head async_kick_head;
-	spinlock_t bus_task_lock;
-	wait_queue_head_t bus_task_wq;
-	wait_queue_head_t async_kick_wq;
-	u32 table_len;
 };
 
-/**
- * We currently support only two vrings per rvdev for firmware.
- * But for dual OS, rproc will expand the vring array dynamically.
- */
+/* we currently support only two vrings per rvdev */
+
 #define RVDEV_NUM_VRINGS 2
 
 /**
@@ -531,8 +451,6 @@ struct rproc {
  * @notifyid: rproc-specific unique vring index
  * @rvdev: remote vdev
  * @vq: the virtqueue of this vring
- * @vrh_cb: callback used when device has kicked
- * @vrh: the host-side vring
  */
 struct rproc_vring {
 	void *va;
@@ -543,11 +461,7 @@ struct rproc_vring {
 	int notifyid;
 	struct rproc_vdev *rvdev;
 	struct virtqueue *vq;
-	vrh_callback_t *vrh_cb;
-	struct vringh vrh;
 };
-
-typedef int rproc_dev_mmio(struct virtio_device *dev, u32 offset);
 
 /**
  * struct rproc_vdev - remoteproc state for a supported virtio device
@@ -556,13 +470,6 @@ typedef int rproc_dev_mmio(struct virtio_device *dev, u32 offset);
  * @vdev: the virio device
  * @vring: the vrings for this vdev
  * @rsc_offset: offset of the vdev's resource entry
- * @kick_disable: disable the device to notify remote side about device
- *		configuration has been changed
- * @notifyid: device configuration changed notify id
- * @num_of_vring: how many vrings this device hold
- * @features: the features of this device
- * @status: device status
- * @mmio: the handler of mmio space changed
  */
 struct rproc_vdev {
 	struct list_head node;
@@ -570,21 +477,11 @@ struct rproc_vdev {
 	struct virtio_device vdev;
 	struct rproc_vring vring[RVDEV_NUM_VRINGS];
 	u32 rsc_offset;
-	/* the following are used for dual os. */
-	bool kick_disable;
-	u32 notifyid;
-	u32 num_of_vring;
-	u32 features;
-	u32 status;
-	rproc_dev_mmio *mmio;
 };
 
 struct rproc *rproc_alloc(struct device *dev, const char *name,
 				const struct rproc_ops *ops,
 				const char *firmware, int len);
-
-int rproc_set_mmio_handler(struct virtio_device *vdev, rproc_dev_mmio *mmio);
-
 void rproc_put(struct rproc *rproc);
 int rproc_add(struct rproc *rproc);
 int rproc_del(struct rproc *rproc);
@@ -603,11 +500,6 @@ static inline struct rproc *vdev_to_rproc(struct virtio_device *vdev)
 	struct rproc_vdev *rvdev = vdev_to_rvdev(vdev);
 
 	return rvdev->rproc;
-}
-
-static inline struct rproc_vring *vrh_to_rvring(struct vringh *vrh)
-{
-	return container_of(vrh, struct rproc_vring, vrh);
 }
 
 #endif /* REMOTEPROC_H */
