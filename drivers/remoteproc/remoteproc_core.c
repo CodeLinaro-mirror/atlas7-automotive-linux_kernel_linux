@@ -914,6 +914,10 @@ static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
 
 	rproc->table_csum = crc32(0, table, tablesz);
 
+	if (rproc->state == RPROC_ALWAYS_ON) {
+		rproc->table_ptr = table;
+		goto handl_res;
+	}
 	/*
 	 * Create a copy of the resource table. When a virtio device starts
 	 * and calls vring_new_virtqueue() the address of the allocated vring
@@ -926,6 +930,7 @@ static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
 
 	rproc->table_ptr = rproc->cached_table;
 
+handl_res:
 	/* count the number of notify-ids */
 	rproc->max_notifyid = -1;
 	ret = rproc_handle_resources(rproc, tablesz, rproc_count_vrings_handler);

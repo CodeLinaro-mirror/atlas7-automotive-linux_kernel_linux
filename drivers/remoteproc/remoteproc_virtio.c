@@ -138,9 +138,13 @@ static void rproc_virtio_del_vqs(struct virtio_device *vdev)
 {
 	struct rproc *rproc = vdev_to_rproc(vdev);
 
+	if (rproc->state == RPROC_ALWAYS_ON)
+		goto del_vqs;
+
 	/* power down the remote processor before deleting vqs */
 	rproc_shutdown(rproc);
 
+del_vqs:
 	__rproc_virtio_del_vqs(vdev);
 }
 
@@ -159,6 +163,10 @@ static int rproc_virtio_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 			goto error;
 		}
 	}
+
+	/* always on rproc */
+	if (rproc->state == RPROC_ALWAYS_ON)
+		return 0;
 
 	/* now that the vqs are all set, boot the remote processor */
 	ret = rproc_boot(rproc);
