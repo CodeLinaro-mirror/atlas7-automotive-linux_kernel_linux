@@ -95,14 +95,21 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, hwspin);
 
+	/*
+	 * make sure the module is enabled and clocked before reading
+	 * the module register
+	 */
+	pm_runtime_enable(&pdev->dev);
+
 	ret = hwspin_lock_register(&hwspin->bank, &pdev->dev,
 				&sirf_hwspinlock_ops, 0, num_of_locks);
 	if (ret)
-		goto unmap_io;
+		goto reg_failed;
 
 	return 0;
 
-unmap_io:
+reg_failed:
+	pm_runtime_disable(&pdev->dev);
 	iounmap(hwspin->io_base);
 
 	return ret;
@@ -118,6 +125,8 @@ static int sirf_hwspinlock_remove(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s failed: %d\n", __func__, ret);
 		return ret;
 	}
+
+	pm_runtime_disable(&pdev->dev);
 
 	iounmap(hwspin->io_base);
 
