@@ -9,13 +9,14 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/interrupt.h>
 #include <linux/kthread.h>
 #include <linux/hwspinlock.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_device.h>
-
+#include <linux/vmalloc.h>
 #include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
@@ -64,15 +65,6 @@ enum sirf_rproc_hwspinlock_idx {
 	NS2KAL1_RL,
 };
 
-#define DEF_FEATURES	(RPROC_F_DEVICE_MMIO | RPROC_F_DYNAMIC_VQ | \
-			RPROC_F_DEVICE_UPDATE_NOTIFY)
-
-#define S_FEATURES	(DEF_FEATURES | RPROC_F_BACKEND | \
-			RPROC_F_BUS_WRITE | RPROC_F_PREDEFINED_VQ_NOTIFYID)
-
-#define NS_FEATURES	(DEF_FEATURES | RPROC_F_FRONTEND | \
-			RPROC_F_PREDEFINED_VQ_NOTIFYID)
-
 struct fifo_buffer {
 	struct hwspinlock *lock;
 	unsigned char *buffer;
@@ -85,15 +77,16 @@ struct fifo_buffer {
 static int fifo_write(struct fifo_buffer *fifo,
 		const void *data, u32 len)
 {
-	u32 overflow, count;
 	int err;
+	u32 overflow, count;
+	ulong flags;
 
-	err = hwspin_lock_timeout(fifo->lock, 10);
+	err = hwspin_lock_timeout_irqsave(fifo->lock, 100, &flags);
 	if (err) {
 		pr_err("%s, Get hwspinlock failed!err= %d\n",
 			__func__, err);
 		WARN_ON(err);
-		return err;
+		return -EBUSY;
 	}
 
 	if (len > fifo->size) {
@@ -115,14 +108,10 @@ static int fifo_write(struct fifo_buffer *fifo,
 	fifo->w_pos = (fifo->w_pos + len) % fifo->size;
 	*fifo->count = count + len;
 
-	/* memory barrier */
-	smp_mb();
-
+	hwspin_unlock_irqrestore(fifo->lock, &flags);
 	err = 0;
 
 err_exit:
-	hwspin_unlock(fifo->lock);
-
 	return err;
 }
 
@@ -132,7 +121,7 @@ static int fifo_read(struct fifo_buffer *fifo,
 	int err;
 	u32 count;
 
-	err = hwspin_lock_timeout(fifo->lock, 10);
+	err = hwspin_lock_timeout(fifo->lock, 100);
 	if (err) {
 		pr_err("%s, Get hwspinlock failed!err= %d\n",
 			__func__, err);
@@ -178,7 +167,7 @@ static int fifo_init(struct fifo_buffer *fifo, void *buffer,
 	fifo->buffer = (unsigned char *)(buffer + sizeof(u32));
 	fifo->w_pos = 0;
 	fifo->r_pos = 0;
-	fifo->size = size - 4;
+	fifo->size = size - sizeof(u32);
 	*fifo->count = 0;
 
 	return 0;
@@ -186,7 +175,8 @@ static int fifo_init(struct fifo_buffer *fifo, void *buffer,
 
 /* Hardware info for remoteproc */
 struct hw_info {
-	const char name[32];
+	const char *name;
+	const char *fw;
 	u32 setreg;
 	u32 clrreg;
 	u32 w_fifo_chn;
@@ -194,9 +184,6 @@ struct hw_info {
 	u32 w_fifo_lock;
 	u32 r_fifo_lock;
 	u32 fifo_sz;
-	u32 features;
-	u32 vdev_num;
-	struct rproc_vdev_desc *vdev_desc;
 };
 
 /* FIFO shared memory has been divide into 2 logical channels */
@@ -206,8 +193,10 @@ struct hw_info {
 /**
  * struct sirf_rproc - SIRF remote processor instance state
  * @rproc: rproc handle
- * @rsc_table_pa: the physical address of rproc resource table area.
- * @rsc_table_len: the length of rproc resource table.
+ * @rsc_dma: the dma address of the resource memory, include fifo.
+ * @rsc_size: resource memory size.
+ * @table_ptr: the virtual address of rproc resource table area.
+ * @table_len: the length of rproc resource table.
  * @fifo_rx_lock: lock for fifo receive data.
  * @fifo_tx_lock: lock for fifo send data.
  * @tx_avail_wq: wait queue of send data when fifo is busy.
@@ -223,10 +212,10 @@ struct hw_info {
 struct sirf_rproc {
 	struct rproc *rproc;
 	const struct hw_info *hwinfo;
-	void *rsc_table_pa;
-	u32 rsc_table_len;
-	void *vdev_list;
-	u32 vdev_num;
+	void *rsc_dma;
+	size_t rsc_size;
+	struct resource_table *table_ptr;
+	u32 table_len;
 	void __iomem *io_base;
 	void __iomem *set_reg;
 	void __iomem *clr_reg;
@@ -247,61 +236,21 @@ static irqreturn_t sirf_rproc_ipc_isr(int irq, void *data)
 
 	/* clear interrupt */
 	readl(srproc->clr_reg);
+
 	do {
-		err = fifo_read(&srproc->r_fifo, &notifyid,
-				sizeof(notifyid));
+		err = fifo_read(&srproc->r_fifo, &notifyid, sizeof(notifyid));
 		if (err)
 			break;
-		/* We will handle vq, vdev, vbus in different route */
-		if (IS_VQ_NOTIFY(notifyid))
-			rproc_vq_interrupt(rproc, GET_NOTIFY_ID(notifyid));
-		else
-			rproc_bus_interrupt(rproc, notifyid);
+		rproc_vq_interrupt(rproc, notifyid);
 	} while (1);
 
 	return IRQ_HANDLED;
-}
-
-static int sirf_rproc_start(struct rproc *rproc)
-{
-	return 0;
-}
-
-static int sirf_rproc_stop(struct rproc *rproc)
-{
-	return 0;
-}
-
-static void sirf_rproc_resource(struct rproc *rproc)
-{
-	struct sirf_rproc *srproc = (struct sirf_rproc *)rproc->priv;
-
-	rproc->table_ptr = srproc->rsc_table_pa;
-	rproc->table_len = srproc->rsc_table_len;
-}
-
-static void sirf_rproc_release(struct rproc *rproc)
-{
-	struct sirf_rproc *srproc = rproc->priv;
-
-	if (srproc->hwinfo->features & RPROC_F_BACKEND)
-		iounmap(srproc->rsc_table_pa);
-
-	iounmap(srproc->io_base);
-
-	kfree(rproc->vdev_desc_tbl);
-
-	rproc->table_ptr = 0;
-	rproc->table_len = 0;
 }
 
 static void sirf_rproc_kick(struct rproc *rproc, int notify_id)
 {
 	struct sirf_rproc *srproc = rproc->priv;
 	int ret;
-	unsigned long flags;
-
-	spin_lock_irqsave(&srproc->w_fifo_lock, flags);
 
 	ret = fifo_write(&srproc->w_fifo, &notify_id, sizeof(notify_id));
 	if (ret) {
@@ -309,24 +258,26 @@ static void sirf_rproc_kick(struct rproc *rproc, int notify_id)
 			"%s could not completed, err=%d\n",
 			__func__, ret);
 		WARN_ON(1);
-		goto failed;
 	}
 
-	/* Trigger interrupt to remote side */
+	/*
+	 * Trigger interrupt to ask remote side to get new added data
+	 * or handle the data already in the FIFO as fast as possible.
+	 */
+	smp_mb();
+
 	writel(0x01, srproc->set_reg);
-failed:
-	spin_unlock_irqrestore(&srproc->w_fifo_lock, flags);
 }
 
 static const struct hw_info sirf_rproc_hwinfo[] = {
 	{
 	  .name = "ns2m30-rproc",
+	  .fw = "RTOSDemo.bin",
 	  .setreg = TR_NS_M3_1, .clrreg = TR_M3_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = NS2M30_WL, .r_fifo_lock = NS2M30_RL,
 	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2m31-rproc",
 	  .setreg = TR_NS_M3_2, .clrreg = TR_M3_NS_2,
@@ -334,7 +285,6 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = NS2M31_WL, .r_fifo_lock = NS2M31_RL,
 	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2kal0-rproc",
 	  .setreg = TR_NS_KAS_1, .clrreg = TR_KAS_NS_1,
@@ -342,7 +292,6 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = NS2KAL0_WL, .r_fifo_lock = NS2KAL0_RL,
 	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
 	}, {
 	  .name = "ns2kal1-rproc",
 	  .setreg = TR_NS_KAS_2, .clrreg = TR_KAS_NS_2,
@@ -350,7 +299,6 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .w_fifo_lock = NS2KAL1_WL, .r_fifo_lock = NS2KAL1_RL,
 	  .fifo_sz = 0x1000,
-	  .features = NS_FEATURES,
 	}
 };
 
@@ -370,26 +318,23 @@ static const struct of_device_id sirf_rproc_dt_ids[] = {
 	},
 };
 
-static u32 sirf_rproc_features(struct device *dev)
+static struct rproc_ops sirf_rproc_ops = {
+	.kick = sirf_rproc_kick,
+};
+
+static struct resource_table *
+srproc_fw_find_rsc_table(struct rproc *rproc,
+				const struct firmware *fw,
+				int *tablesz)
 {
-	const struct of_device_id *match;
+	struct sirf_rproc *srproc = (struct sirf_rproc *)rproc->priv;
 
-	match = of_match_device(sirf_rproc_dt_ids, dev);
-	if (!match) {
-		dev_err(dev, "Using default features!\n");
-		return DEF_FEATURES;
-	}
-
-	return ((struct hw_info *)match->data)->features;
+	*tablesz = srproc->table_len;
+	return srproc->table_ptr;
 }
 
-static struct rproc_ops sirf_rproc_ops = {
-	.start = sirf_rproc_start,
-	.stop = sirf_rproc_stop,
-	.kick = sirf_rproc_kick,
-	.resource = sirf_rproc_resource,
-	.release = sirf_rproc_release,
-	.features = sirf_rproc_features,
+struct rproc_fw_ops sirf_rproc_fw_ops = {
+	.find_rsc_table = srproc_fw_find_rsc_table,
 };
 
 static int __sirf_rproc_parse_memory(struct platform_device *pdev,
@@ -397,6 +342,8 @@ static int __sirf_rproc_parse_memory(struct platform_device *pdev,
 {
 	struct device_node *m_node;
 	struct resource res;
+	void *rsc_addr;
+	size_t rsc_size;
 	int ret;
 
 	m_node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
@@ -411,8 +358,18 @@ static int __sirf_rproc_parse_memory(struct platform_device *pdev,
 		return ret;
 	}
 
-	srproc->rsc_table_pa = (void *)__phys_to_virt(res.start);
-	srproc->rsc_table_len = res.end - res.start + 1;
+	rsc_addr = (void *)__phys_to_virt(res.start);
+	rsc_size = res.end - res.start + 1;
+
+	/* create a coherent mapping */
+	srproc->rsc_dma = dma_common_contiguous_remap(virt_to_page(rsc_addr),
+				rsc_size, VM_IO,
+				pgprot_dmacoherent(PAGE_KERNEL),
+				NULL);
+	if (!srproc->rsc_dma)
+		return -ENOMEM;
+
+	srproc->rsc_size = rsc_size;
 
 	return 0;
 }
@@ -421,7 +378,6 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 				struct sirf_rproc *srproc)
 {
 	void *tx_buffer, *rx_buffer;
-	struct resource_table *rsc_table;
 	int ret;
 
 	ret = of_irq_get(pdev->dev.of_node, 0);
@@ -448,55 +404,55 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 			ret);
 		goto free_io;
 	}
+	srproc->table_ptr = srproc->rsc_dma;
 
+	/* check resource table size */
 	srproc->fifo_sz = srproc->hwinfo->fifo_sz;
-	if (srproc->fifo_sz * 2 >= srproc->rsc_table_len) {
+	if (srproc->fifo_sz * 2 >= srproc->rsc_size) {
 		dev_err(&pdev->dev,
 			"There is no memory left for resource table!\n");
 		ret = -EINVAL;
-		goto free_io;
+		goto free_rsc;
 	}
 
-	if (srproc->hwinfo->features & RPROC_F_BACKEND)
-		goto setup_rsc;
-
-	rsc_table = srproc->rsc_table_pa;
-	if (rsc_table->ver != 1 &&
-		rsc_table->ver != RPROC_RSC_TABLE_VER_DUAL_OS) {
+	if (srproc->table_ptr->ver != 1) {
 		dev_err(&pdev->dev,
 			"unsupported fw ver: %d\n",
-			rsc_table->ver);
+			srproc->table_ptr->ver);
 		ret = -EINVAL;
-		goto free_io;
+		goto free_rsc;
 	}
 
-setup_rsc:
-	srproc->rsc_table_len = srproc->rsc_table_len - srproc->fifo_sz * 2;
-
-	tx_buffer = srproc->rsc_table_pa + srproc->rsc_table_len +
+	srproc->table_len = srproc->rsc_size - srproc->fifo_sz * 2;
+	tx_buffer = srproc->rsc_dma + srproc->table_len +
 		srproc->fifo_sz * srproc->hwinfo->w_fifo_chn;
-	rx_buffer = srproc->rsc_table_pa + srproc->rsc_table_len +
+	rx_buffer = srproc->rsc_dma + srproc->table_len +
 		srproc->fifo_sz * srproc->hwinfo->r_fifo_chn;
 
 	ret = fifo_init(&srproc->w_fifo, tx_buffer,
 			srproc->fifo_sz, srproc->hwinfo->w_fifo_lock);
 	if (ret)
-		goto free_io;
+		goto free_rsc;
 
 	ret = fifo_init(&srproc->r_fifo, rx_buffer,
 			srproc->fifo_sz, srproc->hwinfo->r_fifo_lock);
 	if (ret)
-		goto free_io;
+		goto free_rsc;
 
 	srproc->set_reg = srproc->io_base + srproc->hwinfo->setreg;
 	srproc->clr_reg = srproc->io_base + srproc->hwinfo->clrreg;
 
 	return 0;
 
+free_rsc:
+	dma_common_free_remap(srproc->rsc_dma,
+			srproc->rsc_size, VM_IO);
+	srproc->table_ptr = NULL;
+	srproc->rsc_dma = NULL;
+
 free_io:
 	iounmap(srproc->io_base);
 	srproc->io_base = NULL;
-	srproc->rsc_table_pa = NULL;
 
 failed:
 	return ret;
@@ -505,6 +461,13 @@ failed:
 static int sirf_rproc_remove(struct platform_device *pdev)
 {
 	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct sirf_rproc *srproc = rproc->priv;
+
+	dma_common_free_remap(srproc->rsc_dma,
+				srproc->rsc_size, VM_IO);
+
+	iounmap(srproc->io_base);
+	rproc->table_ptr = 0;
 
 	rproc_del(rproc);
 	rproc_put(rproc);
@@ -534,16 +497,18 @@ static int sirf_rproc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	rproc = rproc_alloc(&pdev->dev, hwinfo->name,
-			&sirf_rproc_ops, NULL, sizeof(*srproc));
+	rproc = rproc_alloc(&pdev->dev, hwinfo->name, &sirf_rproc_ops,
+				hwinfo->fw, sizeof(*srproc));
 	if (!rproc)
 		return -ENOMEM;
 
-	rproc->vdev_desc_tbl = hwinfo->vdev_desc;
-	rproc->vdev_desc_tbl_len = hwinfo->vdev_num;
 	srproc = rproc->priv;
 	srproc->rproc = rproc;
 	srproc->hwinfo = hwinfo;
+	/* Setup sirf rproc firmware ops */
+	rproc->fw_ops = &sirf_rproc_fw_ops;
+	/* This rproc is always on */
+	rproc->state = RPROC_ALWAYS_ON;
 
 	spin_lock_init(&srproc->w_fifo_lock);
 
@@ -551,8 +516,10 @@ static int sirf_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	ret = devm_request_irq(&rproc->dev, srproc->irq, sirf_rproc_ipc_isr,
-				0, hwinfo->name, rproc);
+	ret = devm_request_threaded_irq(&rproc->dev, srproc->irq,
+				NULL, sirf_rproc_ipc_isr,
+				IRQF_ONESHOT,
+				hwinfo->name, rproc);
 	if (ret) {
 		dev_err(&rproc->dev,
 			"request_threaded_irq %d error: %d\n",
@@ -569,9 +536,6 @@ static int sirf_rproc_probe(struct platform_device *pdev)
 		dev_err(&rproc->dev, "rproc_add failed: %d\n", ret);
 		goto free_rproc;
 	}
-
-	/* sync resource table share memory */
-	smp_mb();
 
 	platform_set_drvdata(pdev, rproc);
 

@@ -65,8 +65,14 @@ config DA8XX_REMOTEPROC
 	  offloading.
 
 config SIRF_REMOTEPROC
-	tristate
+	tristate "CSR atals7 remoteproc support"
 	select REMOTEPROC
+	select RPMSG
 	default n
+	help
+	  Say y or m here to support CSR Atlas7 Inter-Processors
+	  Communication driver via remote processor framework.
 
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
 endmenu
