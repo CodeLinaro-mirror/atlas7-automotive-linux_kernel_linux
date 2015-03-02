@@ -197,7 +197,7 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 	struct fw_rsc_vdev *rsc;
 	dma_addr_t dma;
 	void *va;
-	int ret, size, notifyid;
+	int ret, size, notifyid, pre_nid;
 
 	/* actual size of vring (in bytes) */
 	size = PAGE_ALIGN(vring_size(rvring->len, rvring->align));
@@ -213,11 +213,16 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 	}
 
 	/*
+	 * read predefined notifyids (via resource table)
+	 */
+	rsc = (void *)rproc->table_ptr + rvdev->rsc_offset;
+	pre_nid = rsc->vring[i].notifyid;
+
+	/*
 	 * Assign an rproc-wide unique index for this vring
 	 * TODO: assign a notifyid for rvdev updates as well
-	 * TODO: support predefined notifyids (via resource table)
 	 */
-	ret = idr_alloc(&rproc->notifyids, rvring, 0, 0, GFP_KERNEL);
+	ret = idr_alloc(&rproc->notifyids, rvring, pre_nid, 0, GFP_KERNEL);
 	if (ret < 0) {
 		dev_err(dev, "idr_alloc failed: %d\n", ret);
 		dma_free_coherent(dev->parent, size, va, dma);
@@ -238,9 +243,10 @@ int rproc_alloc_vring(struct rproc_vdev *rvdev, int i)
 	 * set up the iommu. In this case the device address (da) will
 	 * hold the physical address and not the device address.
 	 */
-	rsc = (void *)rproc->table_ptr + rvdev->rsc_offset;
 	rsc->vring[i].da = dma;
-	rsc->vring[i].notifyid = notifyid;
+	/* If notifyid is not predefined, write back to rsc */
+	if (!pre_nid)
+		rsc->vring[i].notifyid = notifyid;
 	return 0;
 }
 
