@@ -612,39 +612,187 @@ int nand_getgeo(struct block_device *block_device, struct hd_geometry *geo)
 	return 0;
 }
 
-static int nanddisk_locked_ioctl(struct block_device *bdev,
-		fmode_t mode, unsigned int cmd, unsigned long arg)
+#define NDISK_CMD_BUF_MAX_SIZE  (512)
+#define NDISK_SI_MAX_SIZE	(22)
+
+#define NDISK_CMD_P_RD(op) ((op) == NAND_IOCTRL_DBG_READ_SECTOR)
+#define NDISK_CMD_P_WR(op) ((op) == NAND_IOCTRL_DBG_WRITE_SECTOR)
+#define NDISK_CMD_P_IO(op) (NDISK_CMD_P_RD(op) || NDISK_CMD_P_WR(op))
+
+#define NDISK_CMD_L_RD(op) ((op) == NAND_IOCTRL_READ_SECTOR)
+#define NDISK_CMD_L_WR(op) ((op) == NAND_IOCTRL_WRITE_SECTOR)
+#define NDISK_CMD_L_IO(op) (NDISK_CMD_L_RD(op) || NDISK_CMD_L_WR(op))
+
+static int nd_blk_cmd(struct block_device *bdev,
+		struct nanddisk_ioctl __user *user_ctl)
 {
 	struct nanddisk_device *nd = bdev->bd_disk->private_data;
 	struct nanddisk_ioctl nctl;
+	unsigned char *in_buf, *out_buf;
+	unsigned int page_size;
+	struct NANDDBG_IO usr_p_io, *fw_p_io = NULL;
+	struct NAND_IO usr_l_io, *fw_l_io = NULL;
+	unsigned char *data_buf, *si_buf;
 
-	switch (cmd) {
-	case NANDDISK_IOCTL:
-		/* Copy the user command info to our buffer. */
-		if (copy_from_user(&nctl, (void __user *)arg,
-					sizeof(nctl)))
-			return -EFAULT;
+	int ret = 0;
 
-		if (!nd->pfn_ioctrl(nctl.handle, nctl.op, nctl.in_buf,
-					nctl.in_buf_size, nctl.out_buf,
-					nctl.out_buf_size, NULL)) {
-			pr_err("%s:handle is %x, op is %x.\n", __func__,
-					nctl.handle, nctl.op);
-			return -EIO;
-		}
+	page_size = nd->nand_chip_info.phy_bdev_info.byte_per_sector;
 
-		/* Copy the status back to the users buffer. */
-		if (copy_to_user((void __user *)arg, &nctl,
-					sizeof(nctl)))
-			return -EFAULT;
-
-		break;
-	default:
-		return -EINVAL;
-
+	/* Copy the user command info to our buffer */
+	if (copy_from_user(&nctl, user_ctl, sizeof(nctl))) {
+		ret = -EFAULT;
+		goto out;
 	}
 
-	return 0;
+	in_buf = kzalloc(NDISK_CMD_BUF_MAX_SIZE, GFP_KERNEL);
+	if (!in_buf) {
+		ret = -ENOMEM;
+		goto in_buf_err;
+	}
+
+	/* Copy the command in buffer */
+	if (copy_from_user(in_buf, nctl.in_buf, nctl.in_buf_size)) {
+		ret = -EFAULT;
+		goto copy_in_buf_err;
+	}
+
+	out_buf = kzalloc(NDISK_CMD_BUF_MAX_SIZE, GFP_KERNEL);
+	if (!out_buf) {
+		ret = -ENOMEM;
+		goto out_buf_err;
+	}
+
+	data_buf = kzalloc(page_size * 2, GFP_KERNEL);
+	if (!data_buf) {
+		ret = -ENOMEM;
+		goto data_buf_err;
+	}
+
+	si_buf = kzalloc(NDISK_SI_MAX_SIZE, GFP_KERNEL);
+	if (!si_buf) {
+		ret = -ENOMEM;
+		goto si_buf_err;
+	}
+
+	/* physical read/write */
+	if (NDISK_CMD_P_IO(nctl.op)) {
+		/* backup usr_p_io */
+		memcpy(&usr_p_io, in_buf, nctl.in_buf_size);
+		fw_p_io = (struct NANDDBG_IO *)in_buf;
+
+		if (usr_p_io.data_buf) {
+			fw_p_io->data_buf = data_buf;
+			if (NDISK_CMD_P_WR(nctl.op)) {
+				if (copy_from_user(fw_p_io->data_buf,
+						usr_p_io.data_buf,
+						page_size * 2)) {
+					ret = -EFAULT;
+					goto wt_data_err;
+				}
+			}
+		} else {
+			fw_p_io->data_buf = NULL;
+		}
+
+		if (usr_p_io.si_buf) {
+			fw_p_io->si_buf = (struct NANDDBG_SECTOR_INFO *)si_buf;
+			if (NDISK_CMD_P_WR(nctl.op)) {
+				if (copy_from_user(fw_p_io->si_buf,
+						usr_p_io.si_buf,
+						NDISK_SI_MAX_SIZE)) {
+					ret = -EFAULT;
+					goto wt_data_err;
+				}
+			}
+		} else {
+			fw_p_io->si_buf = NULL;
+		}
+	}
+
+	/* logical read/write */
+	if (NDISK_CMD_L_IO(nctl.op)) {
+		/* backup usr_p_io */
+		memcpy(&usr_l_io, in_buf, nctl.in_buf_size);
+		fw_l_io = (struct NAND_IO *)in_buf;
+		fw_l_io->sector_buf = data_buf;
+
+		if (NDISK_CMD_L_WR(nctl.op)) {
+			if (copy_from_user(fw_l_io->sector_buf,
+						usr_l_io.sector_buf,
+						page_size * 2)) {
+				ret = -EFAULT;
+				goto wt_data_err;
+			}
+		}
+	}
+
+	if (!nd->pfn_ioctrl(nctl.handle, nctl.op, in_buf,
+				nctl.in_buf_size,
+				nctl.out_buf ? out_buf : NULL,
+				nctl.out_buf_size, NULL)) {
+		pr_err("%s:handle is %x, op is %x.\n", __func__,
+				nctl.handle, nctl.op);
+		ret = -EIO;
+		goto cmd_err;
+	}
+
+	if (NDISK_CMD_P_RD(nctl.op)) {
+		if (usr_p_io.data_buf) {
+			if (copy_to_user(usr_p_io.data_buf, fw_p_io->data_buf,
+						page_size * 2)) {
+				ret = -EFAULT;
+				goto rd_data_err;
+			}
+		}
+
+		if (usr_p_io.si_buf) {
+			if (copy_to_user(usr_p_io.si_buf, fw_p_io->si_buf,
+						NDISK_SI_MAX_SIZE)) {
+				ret = -EFAULT;
+				goto rd_data_err;
+			}
+		}
+	}
+
+	if (NDISK_CMD_L_RD(nctl.op)) {
+		if (copy_to_user(usr_l_io.sector_buf, fw_l_io->sector_buf,
+					page_size * 2)) {
+			ret = -EFAULT;
+			goto rd_data_err;
+		}
+	}
+
+	/* Copy the status back to the users buffer */
+	if (nctl.out_buf)
+		if (copy_to_user(nctl.out_buf, out_buf, nctl.out_buf_size))
+			ret = -EFAULT;
+
+rd_data_err:
+cmd_err:
+wt_data_err:
+	kfree(si_buf);
+si_buf_err:
+	kfree(data_buf);
+data_buf_err:
+out_buf_err:
+	kfree(out_buf);
+copy_in_buf_err:
+in_buf_err:
+	kfree(in_buf);
+out:
+	return ret;
+
+}
+
+static int nanddisk_locked_ioctl(struct block_device *bdev,
+		fmode_t mode, unsigned int cmd, unsigned long arg)
+{
+	int ret = -EINVAL;
+
+	if (cmd == NANDDISK_IOCTL)
+		ret = nd_blk_cmd(bdev, (struct nanddisk_ioctl __user *)arg);
+
+	return ret;
 }
 
 static int nanddisk_ioctl(struct block_device *bdev,
