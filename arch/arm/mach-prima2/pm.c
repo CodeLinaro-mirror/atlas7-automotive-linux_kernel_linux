@@ -160,6 +160,9 @@ int sirfsoc_pre_suspend_power_off(void)
 		sirfsoc_retain_base = sirfsoc_pm_get_base(retainreg_ids);
 		writel_relaxed(wakeup_entry,
 			sirfsoc_retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
+		writel_relaxed(1,
+			sirfsoc_retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
+
 
 		/*for atlas7, M3 responsible for enter deep sleep,
 		**sirfsoc_finish_suspend responsible for trigger IPC
