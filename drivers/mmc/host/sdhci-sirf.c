@@ -188,7 +188,8 @@ static u32 sdhci_sirf_readl_le(struct sdhci_host *host, int reg)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	u32 val = readl(host->ioaddr + reg);
 
-	if (unlikely(reg == SDHCI_CAPABILITIES_1)) {
+	if (unlikely((reg == SDHCI_CAPABILITIES_1) &&
+			(host->mmc->caps & MMC_CAP_UHS_SDR50))) {
 		/*A7DA step A does not have cap_1 register, fake one */
 		val = SDHCI_SUPPORT_SDR50 | SDHCI_USE_SDR50_TUNING;
 	}
