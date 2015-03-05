@@ -188,6 +188,8 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 				SIRFSOC_DMA_CH_YLEN);
 			writel_relaxed(sdesc->width,
 				sdma->base + SIRFSOC_DMA_WIDTH_ATLAS7);
+			writel_relaxed((sdesc->width*((sdesc->ylen+1)>>1)),
+				sdma->base + SIRFSOC_DMA_MUL_ATLAS7);
 			writel_relaxed((
 				sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT_ATLAS7) |
 				(sdesc->chain <<
@@ -212,9 +214,10 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	}
 
 	if (sdma->is_atlas7_dma_v2) {
-		writel_relaxed((1 << SIRFSOC_DMA_CHAIN_INT_BIT_ATLAS7) |
-				(1 << 3),
-				sdma->base + SIRFSOC_DMA_INT_EN_ATLAS7);
+		writel_relaxed(sdesc->chain ? SIRFSOC_DMA_INT_END_INT_ATLAS7 :
+				(SIRFSOC_DMA_INT_FINI_INT_ATLAS7 |
+				 SIRFSOC_DMA_INT_LOOP_INT_ATLAS7),
+					sdma->base + SIRFSOC_DMA_INT_EN_ATLAS7);
 	} else {
 		writel_relaxed(readl_relaxed(sdma->base + SIRFSOC_DMA_INT_EN) |
 				(1 << cid), sdma->base + SIRFSOC_DMA_INT_EN);
@@ -258,6 +261,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	struct sirfsoc_dma_chan *schan;
 	struct sirfsoc_dma_desc *sdesc = NULL;
 	u32 is;
+	bool chain;
 	int ch;
 	u32 reg;
 
@@ -270,13 +274,18 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 		spin_lock(&schan->lock);
 		sdesc = list_first_entry(&schan->active,
 					 struct sirfsoc_dma_desc, node);
-		if (!sdesc->cyclic && (is & SIRFSOC_DMA_INT_END_INT_ATLAS7)) {
-			/* Execute queued descriptors */
-			list_splice_tail_init(&schan->active,
-				&schan->completed);
-			dma_cookie_complete(&sdesc->desc);
-			if (!list_empty(&schan->queued))
-				sirfsoc_dma_execute(schan);
+		if (!sdesc->cyclic) {
+			chain = sdesc->chain;
+			if (chain && (is & SIRFSOC_DMA_INT_END_INT_ATLAS7) ||
+				!(chain) &&
+				(is & SIRFSOC_DMA_INT_FINI_INT_ATLAS7)) {
+				/* Execute queued descriptors */
+				list_splice_tail_init(&schan->active,
+						      &schan->completed);
+				dma_cookie_complete(&sdesc->desc);
+				if (!list_empty(&schan->queued))
+					sirfsoc_dma_execute(schan);
+			}
 		} else if (sdesc->cyclic && (is &
 					SIRFSOC_DMA_INT_LOOP_INT_ATLAS7))
 			schan->happened_cyclic++;
