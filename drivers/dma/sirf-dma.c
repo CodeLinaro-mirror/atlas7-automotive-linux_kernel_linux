@@ -69,6 +69,8 @@
 
 /* xlen and dma_width register is in 4 bytes boundary */
 #define SIRFSOC_DMA_WORD_LEN			4
+#define SIRFSOC_DMA_XLEN_MAX_V1         0x800
+#define SIRFSOC_DMA_XLEN_MAX_V2         0x1000
 
 struct sirfsoc_dma_desc {
 	struct dma_async_tx_descriptor	desc;
@@ -749,6 +751,7 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	dma_addr_t addr;
 	unsigned int len;
 	int desc_req_cnt;
+	unsigned int xlen_max;
 
 	spin_lock_irqsave(&schan->lock, iflags);
 	list_for_each(l, &schan->free)
@@ -762,6 +765,8 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		goto err;
 	}
 
+	xlen_max = (sdma->is_atlas7_dma_v1) ? SIRFSOC_DMA_XLEN_MAX_V1 :
+				SIRFSOC_DMA_XLEN_MAX_V2;
 	first_sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
 			node);
 
@@ -824,11 +829,11 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 			 * xlen and ylen must be set to proper value and dma
 			 * works in 2D mode.
 			 * */
-			if (len / 4 < 2048) {
+			if (len / 4 < xlen_max) {
 				sdesc->xlen = len / 4;
 				sdesc->ylen = 0;
 			} else {
-				for (i = 2048 - 1; i > 0; i--)
+				for (i = xlen_max - 1; i > 0; i--)
 					if (!(len%(4 * i)))
 						break;
 				if (!i) {
