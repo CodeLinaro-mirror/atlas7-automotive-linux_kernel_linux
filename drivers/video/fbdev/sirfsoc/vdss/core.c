@@ -98,8 +98,11 @@ static int __init sirfsoc_vdss_init(void)
 	sirfsoc_vdss_device = platform_device_alloc("sirfsoc_vdss", 0);
 	if (!sirfsoc_vdss_device) {
 		ret = -ENOMEM;
-		goto err_lcdc;
+		goto err_alloc_dev;
 	}
+	ret = platform_device_add(sirfsoc_vdss_device);
+	if (ret)
+		goto err_add_dev;
 
 	ret = lcdc_init_platform_driver();
 	if (ret) {
@@ -130,7 +133,10 @@ err_vpp:
 	lcdc_uninit_platform_driver();
 
 err_lcdc:
+	platform_device_del(sirfsoc_vdss_device);
+err_add_dev:
 	platform_device_put(sirfsoc_vdss_device);
+err_alloc_dev:
 	platform_driver_unregister(&sirfsoc_vdss_driver);
 
 	return ret;
@@ -138,6 +144,7 @@ err_lcdc:
 
 static void __exit sirfsoc_vdss_exit(void)
 {
+	platform_device_unregister(sirfsoc_vdss_device);
 	platform_driver_unregister(&sirfsoc_vdss_driver);
 }
 
