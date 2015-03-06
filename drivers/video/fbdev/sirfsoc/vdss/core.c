@@ -10,6 +10,8 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/seq_file.h>
+#include <linux/debugfs.h>
 #include <linux/platform_device.h>
 #include <linux/suspend.h>
 #include <linux/device.h>
@@ -29,6 +31,73 @@ bool sirfsoc_vdss_is_initialized(void)
 	return vdss_initialized;
 }
 EXPORT_SYMBOL(sirfsoc_vdss_is_initialized);
+
+#if defined(CONFIG_DEBUG_FS)
+static int vdss_debug_show(struct seq_file *s, void *data)
+{
+	void (*func)(struct seq_file *) = s->private;
+
+	func(s);
+
+	return 0;
+}
+
+static int vdss_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vdss_debug_show, inode->i_private);
+}
+
+static const struct file_operations vdss_debug_fops = {
+	.open           = vdss_debug_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
+static struct dentry *vdss_debugfs_dir;
+
+static int vdss_init_debugfs(void)
+{
+	int err;
+
+	vdss_debugfs_dir = debugfs_create_dir("sirfsoc_vdss", NULL);
+	if (IS_ERR(vdss_debugfs_dir)) {
+		err = PTR_ERR(vdss_debugfs_dir);
+		vdss_debugfs_dir = NULL;
+		return err;
+	}
+
+	return 0;
+}
+
+static void vdss_deinit_debugfs(void)
+{
+	debugfs_remove_recursive(vdss_debugfs_dir);
+}
+
+int vdss_debugfs_create_file(const char *name, void (*dump)(struct seq_file *))
+{
+	struct dentry *d;
+
+	d = debugfs_create_file(name, S_IRUGO, vdss_debugfs_dir,
+		dump, &vdss_debug_fops);
+
+	return PTR_ERR_OR_ZERO(d);
+}
+#else
+static inline int vdss_init_debugfs(void)
+{
+	return 0;
+}
+static inline void vdss_deinit_debugfs(void)
+{
+}
+int vdss_debugfs_create_file(const char *name, void (*write)(struct seq_file *))
+{
+	return 0;
+}
+#endif
+
 
 static int sirfsoc_vdss_pm_notif(struct notifier_block *b,
 	unsigned long v, void *d)
@@ -55,7 +124,13 @@ static struct notifier_block sirfsoc_vdss_pm_notif_block = {
 
 static int sirfsoc_vdss_probe(struct platform_device *pdev)
 {
+	int ret;
+
 	core.pdev = pdev;
+
+	ret = vdss_init_debugfs();
+	if (ret)
+		return ret;
 
 	register_pm_notifier(&sirfsoc_vdss_pm_notif_block);
 
@@ -71,6 +146,8 @@ static void sirfsoc_vdss_shutdown(struct platform_device *pdev)
 static int sirfsoc_vdss_remove(struct platform_device *pdev)
 {
 	unregister_pm_notifier(&sirfsoc_vdss_pm_notif_block);
+
+	vdss_deinit_debugfs();
 
 	return 0;
 }

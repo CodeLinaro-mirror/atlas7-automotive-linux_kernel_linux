@@ -49,6 +49,9 @@ int vdss_suspend_all_panels(void);
 int vdss_resume_all_panels(void);
 void vdss_disable_all_panels(void);
 
+int vdss_debugfs_create_file(const char *name,
+	void (*dump)(struct seq_file *));
+
 /* functions export from lcdc.c and used by other vdss core files*/
 int lcdc_init_platform_driver(void) __init;
 void lcdc_uninit_platform_driver(void);

@@ -209,7 +209,6 @@ enum vpp_hw_di_mode {
 
 #define vpp_err(fmt, ...)	pr_err(fmt, ## __VA_ARGS__)
 #define vpp_dbg(fmt, ...)	pr_debug(fmt, ## __VA_ARGS__)
-#define vpp_dump(fmt, ...)	pr_debug(fmt, ## __VA_ARGS__)
 #define vpp_info(fmt, ...)	pr_info(fmt, ## __VA_ARGS__)
 
 #endif

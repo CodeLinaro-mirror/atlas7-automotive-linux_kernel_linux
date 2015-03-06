@@ -457,7 +457,6 @@
 #define LCDC_ERR(fmt, ...)	pr_err(fmt, ## __VA_ARGS__)
 #define LCDC_DEBUG(fmt, ...)	pr_debug(fmt, ## __VA_ARGS__)
 #define LCDC_ENTRY(fmt, ...)
-#define LCDC_DUMP(fmt, ...)	pr_info(fmt, ## __VA_ARGS__)
 
 enum s0_layer_sel {
 	PRIMARY = 0,

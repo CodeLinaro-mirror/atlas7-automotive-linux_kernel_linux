@@ -15,8 +15,6 @@
 
 #define NUM_VPP 2
 
-static void vpp_print_regs(u32 index);
-
 static struct {
 	struct platform_device *pdev;
 	void __iomem    *base;
@@ -580,7 +578,6 @@ void vpp_passthrough_setup(struct vdss_vpp_params *params)
 	__vpp_set_rect(params);
 	__vpp_set_srcbase(params);
 	__vpp_set_dstbase(params);
-	vpp_print_regs(params->index);
 }
 
 static int vpp_init(u32 index)
@@ -590,81 +587,93 @@ static int vpp_init(u32 index)
 	return 0;
 }
 
-static void vpp_print_regs(u32 index)
+static void vpp_dump_regs(struct seq_file *s, u32 index)
 {
-	vpp_dump("VPP Regs:\n");
-	vpp_dump("CTRL=0x%08x\n", vpp_read_reg(index, VPP_CTRL));
-	vpp_dump("YBASE=0x%08x\n", vpp_read_reg(index, VPP_YBASE));
-	vpp_dump("UBASE=0x%08x\n", vpp_read_reg(index, VPP_UBASE));
-	vpp_dump("VBASE=0x%08x\n", vpp_read_reg(index, VPP_VBASE));
-	vpp_dump("DESBASE=0x%08x\n", vpp_read_reg(index, VPP_DESBASE));
-	vpp_dump("WIDTH =0x%08x\n", vpp_read_reg(index, VPP_WIDTH));
-	vpp_dump("HEIGHT=0x%08x\n", vpp_read_reg(index, VPP_HEIGHT));
-	vpp_dump("STRIDE0=0x%08x\n", vpp_read_reg(index, VPP_STRIDE0));
-	vpp_dump("STRIDE1=0x%08x\n", vpp_read_reg(index, VPP_STRIDE1));
-	vpp_dump("HSCA_COEF00=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF00));
-	vpp_dump("HSCA_COEF01=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF01));
-	vpp_dump("HSCA_COEF02=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF02));
-	vpp_dump("HSCA_COEF10=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF10));
-	vpp_dump("HSCA_COEF11=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF11));
-	vpp_dump("HSCA_COEF12=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF12));
-	vpp_dump("HSCA_COEF20=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF20));
-	vpp_dump("HSCA_COEF21=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF21));
-	vpp_dump("HSCA_COEF22=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF22));
-	vpp_dump("HSCA_COEF30=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF30));
-	vpp_dump("HSCA_COEF31=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF31));
-	vpp_dump("HSCA_COEF32=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF32));
-	vpp_dump("HSCA_COEF40=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF40));
-	vpp_dump("HSCA_COEF41=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF41));
-	vpp_dump("HSCA_COEF42=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF42));
-	vpp_dump("HSCA_COEF50=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF50));
-	vpp_dump("HSCA_COEF51=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF51));
-	vpp_dump("HSCA_COEF52=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF52));
-	vpp_dump("HSCA_COEF60=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF60));
-	vpp_dump("HSCA_COEF61=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF61));
-	vpp_dump("HSCA_COEF62=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF62));
-	vpp_dump("HSCA_COEF70=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF70));
-	vpp_dump("HSCA_COEF71=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF71));
-	vpp_dump("HSCA_COEF72=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF72));
-	vpp_dump("HSCA_COEF80=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF80));
-	vpp_dump("HSCA_COEF81=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF81));
-	vpp_dump("HSCA_COEF82=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF82));
-	vpp_dump("VSCA_COEF00=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF00));
-	vpp_dump("VSCA_COEF01=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF01));
-	vpp_dump("VSCA_COEF10=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF10));
-	vpp_dump("VSCA_COEF11=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF11));
-	vpp_dump("VSCA_COEF20=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF20));
-	vpp_dump("VSCA_COEF21=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF21));
-	vpp_dump("VSCA_COEF30=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF30));
-	vpp_dump("VSCA_COEF31=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF31));
-	vpp_dump("VSCA_COEF40=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF40));
-	vpp_dump("VSCA_COEF41=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF41));
-	vpp_dump("VSCA_COEF50=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF50));
-	vpp_dump("VSCA_COEF51=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF51));
-	vpp_dump("VSCA_COEF60=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF60));
-	vpp_dump("VSCA_COEF61=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF61));
-	vpp_dump("VSCA_COEF70=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF70));
-	vpp_dump("VSCA_COEF71=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF71));
-	vpp_dump("VSCA_COEF80=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF80));
-	vpp_dump("VSCA_COEF81=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF81));
-	vpp_dump("RCOEF=0x%08x\n", vpp_read_reg(index, VPP_RCOEF));
-	vpp_dump("GCOEF=0x%08x\n", vpp_read_reg(index, VPP_GCOEF));
-	vpp_dump("BCOEF=0x%08x\n", vpp_read_reg(index, VPP_BCOEF));
-	vpp_dump("OFFSET1=0x%08x\n", vpp_read_reg(index, VPP_OFFSET1));
-	vpp_dump("OFFSET2=0x%08x\n", vpp_read_reg(index, VPP_OFFSET2));
-	vpp_dump("OFFSET3=0x%08x\n", vpp_read_reg(index, VPP_OFFSET3));
-	vpp_dump("INT_MASK=0x%08x\n", vpp_read_reg(index, VPP_INT_MASK));
-	vpp_dump("INT_STATUS=0x%08x\n",	vpp_read_reg(index, VPP_INT_STATUS));
-	vpp_dump("ACC=0x%08x\n", vpp_read_reg(index, VPP_ACC));
-	vpp_dump("FULL_THRESH=0x%08x\n", vpp_read_reg(index, VPP_FULL_THRESH));
-	vpp_dump("COLOR_HS_CTRL=0x%08x\n",
+#define VPP_DUMP(fmt, ...) seq_printf(s, fmt, ##__VA_ARGS__)
+
+	VPP_DUMP("VPP Regs:\n");
+	VPP_DUMP("CTRL=0x%08x\n", vpp_read_reg(index, VPP_CTRL));
+	VPP_DUMP("YBASE=0x%08x\n", vpp_read_reg(index, VPP_YBASE));
+	VPP_DUMP("UBASE=0x%08x\n", vpp_read_reg(index, VPP_UBASE));
+	VPP_DUMP("VBASE=0x%08x\n", vpp_read_reg(index, VPP_VBASE));
+	VPP_DUMP("DESBASE=0x%08x\n", vpp_read_reg(index, VPP_DESBASE));
+	VPP_DUMP("WIDTH =0x%08x\n", vpp_read_reg(index, VPP_WIDTH));
+	VPP_DUMP("HEIGHT=0x%08x\n", vpp_read_reg(index, VPP_HEIGHT));
+	VPP_DUMP("STRIDE0=0x%08x\n", vpp_read_reg(index, VPP_STRIDE0));
+	VPP_DUMP("STRIDE1=0x%08x\n", vpp_read_reg(index, VPP_STRIDE1));
+	VPP_DUMP("HSCA_COEF00=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF00));
+	VPP_DUMP("HSCA_COEF01=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF01));
+	VPP_DUMP("HSCA_COEF02=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF02));
+	VPP_DUMP("HSCA_COEF10=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF10));
+	VPP_DUMP("HSCA_COEF11=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF11));
+	VPP_DUMP("HSCA_COEF12=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF12));
+	VPP_DUMP("HSCA_COEF20=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF20));
+	VPP_DUMP("HSCA_COEF21=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF21));
+	VPP_DUMP("HSCA_COEF22=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF22));
+	VPP_DUMP("HSCA_COEF30=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF30));
+	VPP_DUMP("HSCA_COEF31=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF31));
+	VPP_DUMP("HSCA_COEF32=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF32));
+	VPP_DUMP("HSCA_COEF40=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF40));
+	VPP_DUMP("HSCA_COEF41=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF41));
+	VPP_DUMP("HSCA_COEF42=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF42));
+	VPP_DUMP("HSCA_COEF50=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF50));
+	VPP_DUMP("HSCA_COEF51=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF51));
+	VPP_DUMP("HSCA_COEF52=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF52));
+	VPP_DUMP("HSCA_COEF60=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF60));
+	VPP_DUMP("HSCA_COEF61=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF61));
+	VPP_DUMP("HSCA_COEF62=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF62));
+	VPP_DUMP("HSCA_COEF70=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF70));
+	VPP_DUMP("HSCA_COEF71=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF71));
+	VPP_DUMP("HSCA_COEF72=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF72));
+	VPP_DUMP("HSCA_COEF80=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF80));
+	VPP_DUMP("HSCA_COEF81=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF81));
+	VPP_DUMP("HSCA_COEF82=0x%08x\n", vpp_read_reg(index, VPP_HSCA_COEF82));
+	VPP_DUMP("VSCA_COEF00=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF00));
+	VPP_DUMP("VSCA_COEF01=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF01));
+	VPP_DUMP("VSCA_COEF10=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF10));
+	VPP_DUMP("VSCA_COEF11=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF11));
+	VPP_DUMP("VSCA_COEF20=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF20));
+	VPP_DUMP("VSCA_COEF21=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF21));
+	VPP_DUMP("VSCA_COEF30=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF30));
+	VPP_DUMP("VSCA_COEF31=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF31));
+	VPP_DUMP("VSCA_COEF40=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF40));
+	VPP_DUMP("VSCA_COEF41=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF41));
+	VPP_DUMP("VSCA_COEF50=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF50));
+	VPP_DUMP("VSCA_COEF51=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF51));
+	VPP_DUMP("VSCA_COEF60=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF60));
+	VPP_DUMP("VSCA_COEF61=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF61));
+	VPP_DUMP("VSCA_COEF70=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF70));
+	VPP_DUMP("VSCA_COEF71=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF71));
+	VPP_DUMP("VSCA_COEF80=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF80));
+	VPP_DUMP("VSCA_COEF81=0x%08x\n", vpp_read_reg(index, VPP_VSCA_COEF81));
+	VPP_DUMP("RCOEF=0x%08x\n", vpp_read_reg(index, VPP_RCOEF));
+	VPP_DUMP("GCOEF=0x%08x\n", vpp_read_reg(index, VPP_GCOEF));
+	VPP_DUMP("BCOEF=0x%08x\n", vpp_read_reg(index, VPP_BCOEF));
+	VPP_DUMP("OFFSET1=0x%08x\n", vpp_read_reg(index, VPP_OFFSET1));
+	VPP_DUMP("OFFSET2=0x%08x\n", vpp_read_reg(index, VPP_OFFSET2));
+	VPP_DUMP("OFFSET3=0x%08x\n", vpp_read_reg(index, VPP_OFFSET3));
+	VPP_DUMP("INT_MASK=0x%08x\n", vpp_read_reg(index, VPP_INT_MASK));
+	VPP_DUMP("INT_STATUS=0x%08x\n",	vpp_read_reg(index, VPP_INT_STATUS));
+	VPP_DUMP("ACC=0x%08x\n", vpp_read_reg(index, VPP_ACC));
+	VPP_DUMP("FULL_THRESH=0x%08x\n", vpp_read_reg(index, VPP_FULL_THRESH));
+	VPP_DUMP("COLOR_HS_CTRL=0x%08x\n",
 		vpp_read_reg(index, VPP_COLOR_HS_CTRL));
-	vpp_dump("COLOR_BC_CTRL=0x%08x\n",
+	VPP_DUMP("COLOR_BC_CTRL=0x%08x\n",
 		vpp_read_reg(index, VPP_COLOR_BC_CTRL));
-	vpp_dump("YBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_YBASE_BOT));
-	vpp_dump("UBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_UBASE_BOT));
-	vpp_dump("VBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_VBASE_BOT));
-	vpp_dump("DESBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_DESTBASE_BOT));
+	VPP_DUMP("YBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_YBASE_BOT));
+	VPP_DUMP("UBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_UBASE_BOT));
+	VPP_DUMP("VBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_VBASE_BOT));
+	VPP_DUMP("DESBASE_BOT=0x%08x\n", vpp_read_reg(index, VPP_DESTBASE_BOT));
+}
+
+static void vpp0_dump_regs(struct seq_file *s)
+{
+	vpp_dump_regs(s, 0);
+}
+
+static void vpp1_dump_regs(struct seq_file *s)
+{
+	vpp_dump_regs(s, 1);
 }
 
 
@@ -717,6 +726,11 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 	clk_prepare_enable(vpp[index].clk);
 
 	vpp_init(index);
+
+	if (index == 0)
+		vdss_debugfs_create_file("vpp0_regs", vpp0_dump_regs);
+	else if (index == 1)
+		vdss_debugfs_create_file("vpp1_regs", vpp1_dump_regs);
 
 	return 0;
 

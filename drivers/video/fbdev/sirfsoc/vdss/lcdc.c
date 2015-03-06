@@ -825,8 +825,10 @@ static void lcdc_output_configure_pins(u32 lcdc_index, bool hdmi)
 	}
 }
 
-void lcdc_print_regs(u32 lcdc_index)
+static void lcdc_dump_regs(struct seq_file *s, u32 lcdc_index)
 {
+#define LCDC_DUMP(fmt, ...) seq_printf(s, fmt, ##__VA_ARGS__)
+
 	LCDC_DUMP("LCD registers:\n");
 	LCDC_DUMP("S0_HSYNC_PERIOD=0x%08x\n",
 		lcdc_read_reg(lcdc_index, S0_HSYNC_PERIOD));
@@ -1244,6 +1246,16 @@ void lcdc_print_regs(u32 lcdc_index)
 		lcdc_read_reg(lcdc_index, L3_YUV2RGB_OFFSET2));
 	LCDC_DUMP("L3_YUV2RGB_OFFSET3=0X%08X\n",
 		lcdc_read_reg(lcdc_index, L3_YUV2RGB_OFFSET3));
+}
+
+static void lcdc0_dump_regs(struct seq_file *s)
+{
+	lcdc_dump_regs(s, SIRFSOC_VDSS_LCDC0);
+}
+
+static void lcdc1_dump_regs(struct seq_file *s)
+{
+	lcdc_dump_regs(s, SIRFSOC_VDSS_LCDC1);
 }
 
 #define VDSS_SUBSYS_NAME "LCDC"
@@ -1972,6 +1984,11 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 	if (SIRFSOC_VDSS_LCDC0 == id)
 		rgb_init_output(pdev);
 	lvds_init_output(pdev);
+
+	if (SIRFSOC_VDSS_LCDC0 == id)
+		vdss_debugfs_create_file("lcdc0_regs", lcdc0_dump_regs);
+	else if (SIRFSOC_VDSS_LCDC1 == id)
+		vdss_debugfs_create_file("lcdc1_regs", lcdc1_dump_regs);
 
 	num_lcdc++;
 	return 0;
