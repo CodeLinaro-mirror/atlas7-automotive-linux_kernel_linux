@@ -95,10 +95,6 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, hwspin);
 
-	/*
-	 * make sure the module is enabled and clocked before reading
-	 * the module register
-	 */
 	pm_runtime_enable(&pdev->dev);
 
 	ret = hwspin_lock_register(&hwspin->bank, &pdev->dev,
