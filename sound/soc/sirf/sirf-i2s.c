@@ -121,7 +121,7 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 {
 	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 	u32 i2s_ctrl = 0;
-	u32 i2s_tx_rx_ctrl = 0;
+	u32 i2s_tx_rx_ctrl = 0, i2s_tx_rx_mask = 0;
 	u32 left_len, frame_len;
 	int channels = params_channels(params);
 	u32 bitclk;
@@ -163,10 +163,18 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	if (left_len == 24 && i2s->is_atlas7)
-		i2s_tx_rx_ctrl |=
-			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
-			I2S_TX_24BIT_ATLAS7 : I2S_RX_24BIT_ATLAS7;
+	/* Atlas7 supports 24bit resolution */
+	if (i2s->is_atlas7) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			i2s_tx_rx_mask |= I2S_TX_24BIT_ATLAS7;
+			i2s_tx_rx_ctrl |=
+				(left_len == 24 ? I2S_TX_24BIT_ATLAS7 : 0);
+		} else {
+			i2s_tx_rx_mask |= I2S_RX_24BIT_ATLAS7;
+			i2s_tx_rx_ctrl |=
+				(left_len == 24 ? I2S_RX_24BIT_ATLAS7 : 0);
+		}
+	}
 
 	/* Fill the actual len - 1 */
 	i2s_ctrl |= ((frame_len - 1) << I2S_FRAME_LEN_SHIFT)
@@ -189,18 +197,16 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		i2s_ctrl |= I2S_SLAVE_MODE;
 	}
 
-	if (i2s->clk_id == SIRF_I2S_EXT_CLK)
-		i2s_tx_rx_ctrl |= I2S_REF_CLK_SEL_EXT;
-	else
-		i2s_tx_rx_ctrl &= ~I2S_REF_CLK_SEL_EXT;
+	i2s_tx_rx_mask |= I2S_REF_CLK_SEL_EXT;
+	i2s_tx_rx_ctrl |=
+		(i2s->clk_id == SIRF_I2S_EXT_CLK ? I2S_REF_CLK_SEL_EXT : 0);
 
-	if (i2s->clkout)
-		i2s_tx_rx_ctrl |= I2S_MCLK_EN;
-	else
-		i2s_tx_rx_ctrl &= ~I2S_MCLK_EN;
+	i2s_tx_rx_mask |= I2S_MCLK_EN;
+	i2s_tx_rx_ctrl |= (i2s->clkout ? I2S_MCLK_EN : 0);
 
 	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s_ctrl);
-	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, i2s_tx_rx_ctrl);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+			i2s_tx_rx_mask, i2s_tx_rx_ctrl);
 	if (!i2s->is_atlas7)
 		regmap_update_bits(i2s->regmap, AUDIO_CTRL_MODE_SEL,
 				I2S_MODE, I2S_MODE);
