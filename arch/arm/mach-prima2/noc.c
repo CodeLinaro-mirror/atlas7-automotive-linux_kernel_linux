@@ -86,7 +86,7 @@ struct dramfw_regs_access_t {
 };
 
 
-/*dram fw*/
+/* dram fw */
 struct dramfw_regs_t {
 	u32 start;
 	u32 end;
@@ -106,7 +106,7 @@ struct dramfw_regs_t {
 	u32 target_val_clr;
 };
 
-/*reg fw*/
+/* reg fw */
 struct regfw_regs_t {
 	u32 ns_set;
 	u32 ns_clr;
@@ -362,6 +362,7 @@ struct noc_macro {
 	char name[NOC_MACRO_NAME_LEN];
 	int (*init_macro)(struct platform_device *);
 };
+
 static int noc_macro_init(struct platform_device *);
 static int noc_spram_firewall_init(struct platform_device *);
 static int noc_dram_firewall_init(struct platform_device *);
@@ -374,58 +375,47 @@ static struct noc_macro noc_macro_list[] = {
 		.errlogoff = NOC_CPUM_ERRLOG,
 		.faultenoff = NOC_CPUM_FAULTEN,
 		.init_macro = noc_a7_init,
-	},
-	{
+	}, {
 		.name = "cgum",
 		.idx = CGUM_IDX,
-	},
-	{
+	}, {
 		.name = "btm",
 		.idx = BTM_IDX,
-	},
-	{
+	}, {
 		.name = "gnssm",
 		.idx = GNSSM_IDX,
-	},
-	{
+	}, {
 		.name = "gpum",
 		.idx = GPUM_IDX,
-	},
-	{
+	}, {
 		.name = "mediam",
 		.idx = MEDIAM_IDX,
-	},
-	{
+	}, {
 		.name = "vdifm",
 		.idx = VDIFM_IDX,
-	},
-	{
+	}, {
 		.name = "audiom",
 		.idx = AUDIOM_IDX,
 		.errlogoff = NOC_AUDMSCM_ERRLOG,
 		.faultenoff = NOC_AUDMSCM_FAULTEN,
 		.init_macro = noc_macro_init,
-	},
-	{
+	}, {
 		.name = "ddrm",
 		.idx = DDRM_IDX,
 		.errlogoff = NOC_DDRM_ERRLOG,
 		.faultenoff = NOC_DDRM_FAULTEN,
 		.init_macro = noc_macro_init,
-	},
-	{
+	}, {
 		.name = "rtcm",
 		.idx = RTCM_IDX,
 		.errlogoff = NOC_RTCM_ERRLOG,
 		.faultenoff = NOC_RTCM_FAULTEN,
 		.init_macro = noc_macro_init,
-	},
-	{
+	}, {
 		.name = "dramfw",
 		.idx = DRAMFW_IDX,
 		.init_macro = noc_dram_firewall_init,
-	},
-	{
+	}, {
 		.name = "spramfw",
 		.idx = SPRFW_IDX,
 		.init_macro = noc_spram_firewall_init,
@@ -491,7 +481,7 @@ static int noc_has_err(void __iomem *noc_errlog_mbase)
 
 	vld = readl_relaxed(noc_errlog_mbase + ERRORLOGGER_0_ERRVLD);
 	vld &= 0x1;
-	/*1 indicates an error has been logged (default: 0x0)*/
+	/* 1 indicates an error has been logged (default: 0x0) */
 	return vld;
 }
 
@@ -557,7 +547,7 @@ static int noc_abort_handler(unsigned long addr, unsigned int fsr,
 	return 0;
 }
 
-/*handler noc audio macro interrupt*/
+/* handler noc audio macro interrupt */
 static irqreturn_t noc_irq_handle(int irq, void *data)
 {
 	struct noc_macro *nocm = (struct noc_macro *)data;
@@ -574,7 +564,7 @@ static void  noc_fault_enable(struct noc_macro *nocm)
 	 *rtcm_sb_main_SidebandManager_FlagInEn0
 	 *0  StatAlarm  rtcm_probe  Statistics alarm
 	 *1  Fault  rtcm_observer  Error logging event
-	*/
+	 */
 	writel_relaxed(0x3, nocm->mbase +
 		nocm->faultenoff + NOC_SB_FLAGINEN0);
 	writel_relaxed(0x1, nocm->mbase +
@@ -584,7 +574,8 @@ static void  noc_fault_enable(struct noc_macro *nocm)
 static void noc_dramfw_cpu_set(void __iomem *fw_cpu_clr,
 			void __iomem *fw_cpu_set, u32 initiator, u32 access)
 {
-	/* clear all except r_CA7 and w_CA7,set r_CA7 and w_CA7
+	/*
+	 * clear all except r_CA7 and w_CA7,set r_CA7 and w_CA7
 	 * r_KAS r_CM3 r_CSSI r_CA7 w_KAS w_CM3 w_CSSI w_CA7
 	 */
 	writel_relaxed(0xFFFFFFFF, fw_cpu_clr);
@@ -602,7 +593,7 @@ static void noc_dramfw_noncpu_acess_set(struct dramfw_regs_t *base,
 	u32 i = 0;
 	u32 val;
 
-	/*non-cpu initiator*/
+	/* non-cpu initiator */
 	for (i = 0; i < 4; i++) {
 		writel_relaxed(0xFFFFFFFF,
 				&base->access[i].initiator_r_clr);
@@ -612,13 +603,13 @@ static void noc_dramfw_noncpu_acess_set(struct dramfw_regs_t *base,
 
 	i = initiator / 32;
 	val = 1<<(initiator - 32 * i);
-	/*dram access read/write*/
+	/* dram access read/write */
 	if (access & ACCESS_READ)
 		writel_relaxed(val, &base->access[i].initiator_r_set);
 	if (access & ACCESS_WRITE)
 		writel_relaxed(val, &base->access[i].initiator_w_set);
 
-	/*initiator access read/write*/
+	/* initiator access read/write */
 	if (initiator_access & ACCESS_INITIATOR_READ) {
 		if (FLAGS_INITIATOR_S & flags)
 			writel_relaxed(val,
@@ -644,15 +635,16 @@ static void noc_dramfw_noncpu_secure_set(struct dramfw_regs_t *base,
 		u32 access, u32 flags)
 {
 	/*
-	*clear AxPROT[0] and AxPROT[2] enable,set AxPROT[1]
-	* arprot_2 arprot_1 arprot_0 r.awprot_2 awprot_1 awprot_0
-	*/
+	 *clear AxPROT[0] and AxPROT[2] enable,set AxPROT[1]
+	 * arprot_2 arprot_1 arprot_0 r.awprot_2 awprot_1 awprot_0
+	 */
 	writel_relaxed(0x00000077, &base->prot_clr);
 	writel_relaxed(0x000000FF, &base->prot_val_clr);
 
-	/*r_strict	arprot_2 arprot_1 arprot_0 w_strict
-	*awprot_2 awprot_1 awprot_0
-	*/
+	/*
+	 * r_strict	arprot_2 arprot_1 arprot_0 w_strict
+	 *awprot_2 awprot_1 awprot_0
+	 */
 
 	if (access & ACCESS_READ) {
 		writel_relaxed(0x00000020, &base->prot_set);
@@ -720,7 +712,7 @@ static void noc_dramfw_set(struct noc_dram_params_t *params)
 	}
 	noc_dramfw_noncpu_secure_set(base, access, flags);
 
-	/*last step enable rp*/
+	/* last step enable rp */
 	writel_relaxed(1<<rpnum, mbase + FW_RP_ENABLE_SET);
 }
 
@@ -831,7 +823,10 @@ static const struct of_device_id sirfsoc_nocfw_ids[] = {
 static int noc_dram_firewall_init(struct platform_device *pdev)
 {
 	int ret;
-
+	/*
+	 * fireware has been set earlier in secure mode, here
+	 * it is only for debug purpose
+	 */
 	ret = device_create_file(&pdev->dev, &dev_attr_dramfw);
 	if (ret)
 		dev_err(&pdev->dev,
@@ -849,7 +844,10 @@ static int noc_dram_firewall_init(struct platform_device *pdev)
 static int noc_spram_firewall_init(struct platform_device *pdev)
 {
 	int ret;
-
+	/*
+	 * fireware has been set earlier in secure mode, here
+	 * it is only for debug purpose
+	 */
 	ret = device_create_file(&pdev->dev, &dev_attr_spramfw);
 	if (ret)
 		dev_err(&pdev->dev,
@@ -864,7 +862,7 @@ static int noc_a7_init(struct platform_device *pdev)
 	struct noc_macro *nocm;
 
 	nocm = platform_get_drvdata(pdev);
-	/*enable errlog trigger, A7 use abort*/
+	/* enable errlog trigger, A7 use abort */
 	noc_fault_enable(nocm);
 
 	return 0;
@@ -884,7 +882,7 @@ static int noc_macro_init(struct platform_device *pdev)
 		goto err;
 	}
 	nocm->irq = ret;
-	/*enable errlog trigger, thus irq/abort could come*/
+	/* enable errlog trigger, thus irq/abort could come */
 	noc_fault_enable(nocm);
 	ret = devm_request_irq(&pdev->dev,
 			nocm->irq,
