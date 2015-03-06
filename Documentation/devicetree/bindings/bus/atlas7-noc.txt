@@ -1,0 +1,34 @@
+Device tree bindings for CSRatlas7 NoC(Network on Chip)
+
+CSR atlas7 uses a NoC bus, SoC is splitted into mutiple MACROs. Every MACRO
+holds some hardware modules. For each MACRO
+properties:
+- compatible : Should be "arteris, flexnoc"
+- #address-cells: should be 1
+- #size-cells: should be 1
+- ranges : the child address space are mapped 1:1 onto the parent address space
+
+Sub-nodes:
+All the devices connected to noc are described using sub-node to noc. For
+example, AUDMSCM MARCO includes multimediam nodes such as KAS, AC97, IACC, I2S,
+USP0~3, LVDS.
+For each MARCO, there is at least a firewall sub-node. This firewall can detect
+illegal hardware access for security protection.
+
+Firewall sub-nodes:
+properties:
+- compatible : Should be one of
+	"sirf,nocfw-cpum",
+	"sirf,nocfw-cgum",
+	"sirf,nocfw-btm",
+	"sirf,nocfw-gnssm",
+	"sirf,nocfw-gpum",
+	"sirf,nocfw-mediam",
+	"sirf,nocfw-vdifm",
+	"sirf,nocfw-audiom",
+	"sirf,nocfw-ddrm",
+	"sirf,nocfw-rtcm",
+	"sirf,nocfw-dramfw",
+	"sirf,nocfw-spramfw"
+- reg: A resource specifier for the register space
+- interrupts : Should be the interrupt number - optional
