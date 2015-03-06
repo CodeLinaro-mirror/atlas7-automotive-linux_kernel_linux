@@ -144,7 +144,6 @@ static struct platform_driver sirf_hwspinlock_driver = {
 	.remove = sirf_hwspinlock_remove,
 	.driver = {
 		.name = "atlas7_hwspinlock",
-		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(sirf_hwpinlock_ids),
 	},
 };
@@ -153,3 +152,4 @@ module_platform_driver(sirf_hwspinlock_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("SIRF Hardware spinlock driver");
+MODULE_AUTHOR("Wei Chen <wei.chen@csr.com>");
