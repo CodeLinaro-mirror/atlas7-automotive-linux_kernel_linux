@@ -91,6 +91,7 @@ void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 {
 	unsigned long flags;
+
 	 /* TODO: add hwspinlock to sync with M3 */
 	spin_lock_irqsave(&rtciobrg_lock, flags);
 
@@ -99,8 +100,8 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 	writel_relaxed(0x01, sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_CTRL);
 
 	sirfsoc_rtc_iobrg_wait_sync();
-	spin_unlock_irqrestore(&rtciobrg_lock, flags);
 
+	spin_unlock_irqrestore(&rtciobrg_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_writel);
 
