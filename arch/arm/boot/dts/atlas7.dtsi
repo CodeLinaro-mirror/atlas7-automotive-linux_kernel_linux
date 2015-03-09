@@ -46,7 +46,9 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x10000000 0x10000000 0xc0000000>;
+		ranges = <0x00000000 0x00000000 0x00014000>,
+		       <0x04000000 0x04000000 0x00030000>,
+		       <0x10000000 0x10000000 0xc0000000>;
 
 		gic: interrupt-controller@10301000 {
 			compatible = "arm,cortex-a9-gic";
@@ -1139,11 +1141,18 @@
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x10200000 0x10200000 0x3000>;
+			ranges = <0x00000000 0x00000000 0x00014000>,
+			       <0x04000000 0x04000000 0x00030000>,
+			       <0x10200000 0x10200000 0x3000>;
 			cpum@10200000 {
 				compatible = "sirf,nocfw-cpum";
 				reg = <0x10200000 0x3000>;
 			};
+
+			sdrsram@0401F000 {
+				reg = <0x0401F000 0x10000>;
+			};
+
 		};
 
 		cgum {
