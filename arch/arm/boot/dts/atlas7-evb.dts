@@ -57,8 +57,14 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,routing =
 			"Headphone Jack", "LOUT0",
-			"LIN0", "Line In Jack";
+			"LIN0", "Line In Jack",
+			"LIN1", "Line In Jack",
+			"LIN2", "Line In Jack",
+			"LIN3", "Line In Jack",
+			"MICIN0", "Microphone Jack",
+			"MICIN1", "Microphone Jack";
 		simple-audio-card,widgets =
+			"Microphone", "Microphone Jack",
 			"Headphone", "Headphone Jack",
 			"Line", "Line In Jack";
 		simple-audio-card,codec {

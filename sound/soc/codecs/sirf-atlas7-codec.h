@@ -102,5 +102,6 @@
 #define AUDIO_ANA_CTRL_ADC_EN				1
 #define AUDIO_ANA_CAL_CLK_EN				(1 << 13)
 
-#define AUDIO_GAIN_MASK				0x1FF
+#define AUDIO_GAIN_MASK					0x1FF
+#define AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK		(0xf << 3)
 #endif /* _SIRF_ATLAS7_CODEC_H */

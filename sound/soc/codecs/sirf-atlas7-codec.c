@@ -28,6 +28,16 @@ struct sirf_atlas7_codec {
 	struct regulator *regulator;
 	unsigned int playback_volume;
 	unsigned int capture_volume;
+	unsigned int input_path;
+};
+
+enum input_path_enum {
+	MIC0_IN,
+	MIC1_IN,
+	LINE0_IN,
+	LINE1_IN,
+	LINE2_IN,
+	LINE3_IN
 };
 
 static int sirf_atlas7_codec_hw_params(struct snd_pcm_substream *substream,
@@ -138,6 +148,8 @@ static u32 adc_gain_regs[] = {
 	KCODEC_ADC_B_GAIN
 };
 
+static const int input_path_val[];
+
 static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 		int cmd, struct snd_soc_dai *dai)
 {
@@ -159,6 +171,17 @@ static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 					rate_reg_value(substream));
 			}
 		} else {
+			if (atlas7_codec->input_path == MIC0_IN)
+				snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
+					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
+					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK);
+			else if (atlas7_codec->input_path == MIC1_IN)
+				snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
+					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
+					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK);
+			snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL0, 0xFFFF,
+				input_path_val[atlas7_codec->input_path]);
+
 			for (i = 0; i < channels; i++) {
 				snd_soc_update_bits(codec, adc_gain_regs[i],
 					AUDIO_GAIN_MASK,
@@ -328,7 +351,6 @@ static int adc_reset_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	if (event == SND_SOC_DAPM_PRE_PMU) {
-		snd_soc_write(w->codec, AUDIO_ANA_ADC_CTRL0, 0x1850);
 		snd_soc_update_bits(w->codec,  w->reg,
 			AUDIO_ANA_CTRL_ADC_EN, 0);
 		snd_soc_update_bits(w->codec, AUDIO_REGS_CLK_CTRL,
@@ -389,6 +411,43 @@ static int sirf_atlas7_codec_put_capture_volume(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sirf_atlas7_codec_dapm_get_input_path_enum(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
+	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(codec->dev);
+
+	ucontrol->value.enumerated.item[0] = atlas7_codec->input_path;
+	return 0;
+}
+
+static int sirf_atlas7_codec_dapm_put_input_path_enum(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_kcontrol_codec(kcontrol);
+	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(codec->dev);
+
+	atlas7_codec->input_path = ucontrol->value.enumerated.item[0];
+	if (atlas7_codec->input_path == 0)
+		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK);
+	else if (atlas7_codec->input_path == 1)
+		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK);
+	else {
+		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK, 0);
+		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK, 0);
+	}
+
+	return snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
+}
+
 static const char * const output_mode_text[] = {"Differential",
 		"Single-ended"};
 
@@ -400,6 +459,18 @@ static const struct soc_enum output_mode_enum =
 
 static const struct snd_kcontrol_new sirf_atlas7_codec_output_mode_control =
 	SOC_DAPM_ENUM("Output mode", output_mode_enum);
+
+static const char * const input_path_text[] = {"MIC0", "MIC1", "LINE0",
+		"LINE1", "LINE2", "LINE3"};
+static const int input_path_val[] = {0x1080, 0x0041, 0x1850, 0x1448,
+		0x1244, 0x1142};
+static const struct soc_enum input_path_enum =
+	SOC_VALUE_ENUM_SINGLE(AUDIO_ANA_ADC_CTRL0, 0, 0xFFFF, 6,
+		input_path_text, input_path_val);
+static const struct snd_kcontrol_new sirf_atlas7_codec_input_path_control =
+	SOC_DAPM_ENUM_EXT("Input path", input_path_enum,
+		sirf_atlas7_codec_dapm_get_input_path_enum,
+		sirf_atlas7_codec_dapm_put_input_path_enum);
 
 static const DECLARE_TLV_DB_RANGE(sirf_atlas7_volume_tlv,
 	0, 63, TLV_DB_SCALE_ITEM(-3000, 10, 0),
@@ -433,6 +504,8 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MUX("Output mode", SND_SOC_NOPM, 0, 0,
 			&sirf_atlas7_codec_output_mode_control),
+	SND_SOC_DAPM_MUX("Input path", SND_SOC_NOPM, 0, 0,
+			&sirf_atlas7_codec_input_path_control),
 
 	SND_SOC_DAPM_SUPPLY_S("DACACLK", 3, AUDIO_REGS_CLK_CTRL, 6, 0,
 		NULL, 0),
@@ -518,6 +591,10 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 
 	SND_SOC_DAPM_INPUT("LIN0"),
 	SND_SOC_DAPM_INPUT("LIN1"),
+	SND_SOC_DAPM_INPUT("LIN2"),
+	SND_SOC_DAPM_INPUT("LIN3"),
+	SND_SOC_DAPM_INPUT("MICIN0"),
+	SND_SOC_DAPM_INPUT("MICIN1"),
 };
 
 static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
@@ -595,8 +672,14 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"ADCB ANA DWA EN", NULL, "ADCB ANA Dither EN"},
 	{"ADCA ANA Dither EN", NULL, "ADC RESET"},
 	{"ADCB ANA Dither EN", NULL, "ADC RESET"},
-	{"ADC RESET", NULL, "LIN0"},
-	{"ADC RESET", NULL, "LIN1"},
+
+	{"ADC RESET", NULL, "Input path"},
+	{"Input path", "MIC0", "MICIN0"},
+	{"Input path", "MIC1", "MICIN1"},
+	{"Input path", "LINE0", "LIN0"},
+	{"Input path", "LINE1", "LIN1"},
+	{"Input path", "LINE2", "LIN2"},
+	{"Input path", "LINE3", "LIN3"},
 };
 
 static struct snd_soc_codec_driver soc_codec_device_sirf_atlas7_codec = {
