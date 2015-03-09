@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
- * Licensed under GPLv2 or later.
+ * Licensed under GPLv2.
  */
 
 #include <linux/kernel.h>
