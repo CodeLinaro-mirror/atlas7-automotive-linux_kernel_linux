@@ -35,6 +35,7 @@ config ION_TEGRA
 
 config ION_SIRF
 	tristate "Ion for SIRF"
+	default y
 	depends on ARCH_SIRF && ION
 	help
 	  Choose this option if you wish to use ion on sirf soc.
