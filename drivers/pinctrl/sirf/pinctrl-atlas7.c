@@ -699,6 +699,7 @@ static const unsigned int audio_func_dbg_pins[] = { 141, 144, 44, 43, 42, 41,
 		115, 49, 50, 142, 143, 80, };
 static const unsigned int audio_i2s_pins[] = { 118, 115, 116, 117, 112, 113,
 		114, };
+static const unsigned int audio_i2s_2ch_pins[] = { 118, 115, 112, 113, 114, };
 static const unsigned int audio_i2s_extclk_pins[] = { 112, };
 static const unsigned int audio_uart0_pins[] = { 143, 142, 141, 144, };
 static const unsigned int audio_uart1_pins[] = { 147, 146, 145, 148, };
@@ -872,6 +873,7 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("audio_ac97_grp", audio_ac97_pins),
 	GROUP("audio_func_dbg_grp", audio_func_dbg_pins),
 	GROUP("audio_i2s_grp", audio_i2s_pins),
+	GROUP("audio_i2s_2ch_grp", audio_i2s_2ch_pins),
 	GROUP("audio_i2s_extclk_grp", audio_i2s_extclk_pins),
 	GROUP("audio_uart0_grp", audio_uart0_pins),
 	GROUP("audio_uart1_grp", audio_uart1_pins),
@@ -1020,6 +1022,7 @@ static const char * const rtc_gpio_grp[] = { "rtc_gpio_grp", };
 static const char * const audio_ac97_grp[] = { "audio_ac97_grp", };
 static const char * const audio_func_dbg_grp[] = { "audio_func_dbg_grp", };
 static const char * const audio_i2s_grp[] = { "audio_i2s_grp", };
+static const char * const audio_i2s_2ch_grp[] = { "audio_i2s_2ch_grp", };
 static const char * const audio_i2s_extclk_grp[] = { "audio_i2s_extclk_grp", };
 static const char * const audio_uart0_grp[] = { "audio_uart0_grp", };
 static const char * const audio_uart1_grp[] = { "audio_uart1_grp", };
@@ -1431,6 +1434,19 @@ static struct atlas7_pad_mux audio_i2s_grp_pad_mux[] = {
 static struct atlas7_grp_mux audio_i2s_grp_mux = {
 	.pad_mux_count = ARRAY_SIZE(audio_i2s_grp_pad_mux),
 	.pad_mux_list = audio_i2s_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux audio_i2s_2ch_grp_pad_mux[] = {
+	MUX(1, 118, 1, N, N, N, N),
+	MUX(1, 115, 1, N, N, N, N),
+	MUX(1, 112, 1, N, N, N, N),
+	MUX(1, 113, 1, N, N, N, N),
+	MUX(1, 114, 1, N, N, N, N),
+};
+
+static struct atlas7_grp_mux audio_i2s_2ch_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(audio_i2s_2ch_grp_pad_mux),
+	.pad_mux_list = audio_i2s_2ch_grp_pad_mux,
 };
 
 static struct atlas7_pad_mux audio_i2s_extclk_grp_pad_mux[] = {
@@ -3143,6 +3159,7 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 			audio_func_dbg_grp,
 			&audio_func_dbg_grp_mux),
 	FUNCTION("audio_i2s", audio_i2s_grp, &audio_i2s_grp_mux),
+	FUNCTION("audio_i2s_2ch", audio_i2s_2ch_grp, &audio_i2s_2ch_grp_mux),
 	FUNCTION("audio_i2s_extclk",
 			audio_i2s_extclk_grp,
 			&audio_i2s_extclk_grp_mux),

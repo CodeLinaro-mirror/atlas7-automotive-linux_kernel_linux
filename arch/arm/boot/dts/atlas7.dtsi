@@ -154,6 +154,13 @@
 				};
 			};
 
+			audio_i2s_2ch_pmx: audio_i2s_2ch@0 {
+				audio_i2s_2ch {
+					sirf,pins = "audio_i2s_2ch_grp";
+					sirf,function = "audio_i2s_2ch";
+				};
+			};
+
 			audio_i2s_extclk_pmx: audio_i2s_extclk@0 {
 				audio_i2s_extclk {
 					sirf,pins = "audio_i2s_extclk_grp";
