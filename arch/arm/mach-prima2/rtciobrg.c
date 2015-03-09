@@ -124,12 +124,6 @@ static struct regmap_bus regmap_iobg = {
 	.reg_read = regmap_iobg_regread,
 };
 
-
-static const struct regmap_bus *regmap_get_iobg_bus(void)
-{
-	return &regmap_iobg;
-}
-
 /**
  * devm_regmap_init_iobg(): Initialise managed register map
  *
@@ -143,7 +137,7 @@ static const struct regmap_bus *regmap_get_iobg_bus(void)
 struct regmap *devm_regmap_init_iobg(struct device *dev,
 				    const struct regmap_config *config)
 {
-	const struct regmap_bus *bus = regmap_get_iobg_bus();
+	const struct regmap_bus *bus = &regmap_iobg;
 
 	return devm_regmap_init(dev, bus, dev, config);
 }
