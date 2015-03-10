@@ -122,13 +122,13 @@
 	};
 
 	sound-hdmi {
-		compatible = "sirf,hdmi-card";
+		compatible = "sirf,hdmi-card-olm";
 		i2s-controller = <&i2s>;
 		audio-codec = <&cs42888>;
 		ext-rst = <&gpio_3 0 0>;
 		sw1-sel = <&gpio_3 8 0>;
 		sw2-sel = <&gpio_3 9 0>;
-		sw3-sel = <&gpio_3 14 0>;
+		sw3-sel = <&gpio_3 14 0>;	/* Don't drive if OLM */
 	};
 
 	noc {

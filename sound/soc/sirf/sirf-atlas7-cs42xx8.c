@@ -15,6 +15,7 @@ struct sirf_hdmi_data {
 	int clk_id;
 	unsigned int fmt;
 	int gpio_rst, gpio_sw1, gpio_sw2, gpio_sw3;
+	bool olm;	/* One line mode */
 };
 
 static int sirf_hdmi_init(struct snd_soc_pcm_runtime *rtd)
@@ -27,7 +28,8 @@ static int sirf_hdmi_init(struct snd_soc_pcm_runtime *rtd)
 	/* Enable slot#0 audio pins */
 	gpio_set_value_cansleep(data->gpio_sw1, 0);
 	gpio_set_value_cansleep(data->gpio_sw2, 1);
-	gpio_set_value_cansleep(data->gpio_sw3, 1);
+	if (data->olm)
+		gpio_set_value_cansleep(data->gpio_sw3, 1);
 
 	return 0;
 }
@@ -132,15 +134,19 @@ static int sirf_hdmi_card_probe(struct platform_device *pdev)
 	else
 		data->fmt |= SND_SOC_DAIFMT_CBS_CFS;
 
+	data->olm = of_device_is_compatible(np, "sirf,hdmi-card-olm");
+
 	/* Request slot#0 audio pins */
 	data->gpio_rst = of_get_named_gpio(pdev->dev.of_node, "ext-rst", 0);
 	data->gpio_sw1 = of_get_named_gpio(pdev->dev.of_node, "sw1-sel", 0);
 	data->gpio_sw2 = of_get_named_gpio(pdev->dev.of_node, "sw2-sel", 0);
-	data->gpio_sw3 = of_get_named_gpio(pdev->dev.of_node, "sw3-sel", 0);
+	if (data->olm)
+		data->gpio_sw3 = of_get_named_gpio(pdev->dev.of_node,
+				"sw3-sel", 0);
 	if (!gpio_is_valid(data->gpio_rst) ||
 			!gpio_is_valid(data->gpio_sw1) ||
 			!gpio_is_valid(data->gpio_sw2) ||
-			!gpio_is_valid(data->gpio_sw3)) {
+			(data->olm && !gpio_is_valid(data->gpio_sw3))) {
 		dev_err(&pdev->dev, "Failed to parse GPIO pins\n");
 		return -EINVAL;
 	}
@@ -151,8 +157,9 @@ static int sirf_hdmi_card_probe(struct platform_device *pdev)
 			GPIOF_OUT_INIT_LOW, "sw1-sel");
 	ret |= devm_gpio_request_one(&pdev->dev, data->gpio_sw2,
 			GPIOF_OUT_INIT_HIGH, "sw2-sel");
-	ret |= devm_gpio_request_one(&pdev->dev, data->gpio_sw3,
-			GPIOF_OUT_INIT_HIGH, "sw3-sel");
+	if (data->olm)
+		ret |= devm_gpio_request_one(&pdev->dev, data->gpio_sw3,
+				GPIOF_OUT_INIT_HIGH, "sw3-sel");
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request GPIO pins\n");
 		return -EIO;
@@ -182,6 +189,7 @@ static int sirf_hdmi_card_remove(struct platform_device *pdev)
 
 static const struct of_device_id sirf_hdmi_card_of_match[] = {
 	{ .compatible = "sirf,hdmi-card", },
+	{ .compatible = "sirf,hdmi-card-olm", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, sirf_hdmi_card_of_match);

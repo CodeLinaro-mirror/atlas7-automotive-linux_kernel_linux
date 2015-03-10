@@ -1617,7 +1617,7 @@
 				clock-names = "i2s", "audioif", "i2s_mux",
 					"audio_dto";
 				pinctrl-names = "default";
-				pinctrl-0 = <&audio_i2s_pmx>;
+				pinctrl-0 = <&audio_i2s_2ch_pmx>;
 			};
 
 			timer@10dc0000 {
