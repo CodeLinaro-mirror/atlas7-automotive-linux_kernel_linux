@@ -60,12 +60,8 @@ static void jpeg_alloc_buf(unsigned int size, struct jpg_hw_buf *hwbuf)
 	mutex_lock(&jpeg.pool_lock);
 	if ((!hwbuf) || hw_pool->used_size + realsize > hw_pool->size
 	    || size <= 0) {
-		if (!hwbuf) {
-			hwbuf->vaddr = 0;
-			hwbuf->paddr = 0;
-			hwbuf->size = 0;
-		}
 		pr_err("JPG:no enough HW buffer, alloc fail\r\n");
+		mutex_unlock(&jpeg.pool_lock);
 		return;
 	}
 	hwbuf->vaddr = hw_pool->vaddr + hw_pool->used_size;
@@ -89,11 +85,7 @@ static void jpeg_free_buf(struct jpg_hw_buf *hwbuf)
 	mutex_lock(&jpeg.pool_lock);
 	if ((!hwbuf) ||
 	    (hw_pool->used_size - hwbuf->real_size > hw_pool->size)) {
-		if (!hwbuf) {
-			hwbuf->vaddr = 0;
-			hwbuf->paddr = 0;
-			hwbuf->size = 0;
-		}
+		mutex_unlock(&jpeg.pool_lock);
 		pr_err("JPG:no available HW buffer, free fail\r\n");
 		return;
 	}
@@ -194,13 +186,6 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	else if (codec_param->mode == JPEG_PATH_MODE_DECODER)
 		write_reg(REGISTER_CODE_GG_LINE_ABORT, 1);
 
-	if (jpeg_info->bfail) {
-		pr_err("JPEGInterruptFunc:handle the fail\n");
-		jpeg_info->bfail = false;
-		ret = -EINVAL;
-	} else {
-		pr_debug("JPEGInterruptFunc:clear the interrupts\n");
-	}
 
 	return ret;
 }
@@ -560,15 +545,7 @@ static long jpeg_go(struct jpeg_codec_param *param)
 	return 0;
 }
 
-static int jpeg_open(struct inode *inode, struct file *filp)
-{
-	return 0;
-}
 
-static int jpeg_close(struct inode *inode, struct file *filp)
-{
-	return 0;
-}
 
 static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -639,6 +616,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(phwbuf, (void __user *)arg,
 			sizeof(*phwbuf));
 		jpeg_free_buf(phwbuf);
+		kfree(phwbuf);
 		/*unmap the viradd in user mode. */
 		break;
 	}
@@ -709,9 +687,7 @@ static int jpeg_mmap(struct file *filp, struct vm_area_struct *vma)
 static const struct file_operations jpeg_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = jpeg_ioctl,
-	.open = jpeg_open,
 	.mmap = jpeg_mmap,
-	.release = jpeg_close,
 };
 
 static struct of_device_id jpeg_match_tbl[] = {

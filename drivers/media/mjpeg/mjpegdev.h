@@ -207,7 +207,6 @@ struct jpg_hw_pool {
 struct dev_intr_info {
 	unsigned int irq_id;
 	struct completion ready;
-	bool bfail;
 };
 
 
