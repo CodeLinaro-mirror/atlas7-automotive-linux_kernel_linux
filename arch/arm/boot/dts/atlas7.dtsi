@@ -1332,7 +1332,7 @@
 				compatible = "sirf,atlas7-dmac-v2";
 				reg = <0x13011000 0x100>;
 				interrupts = <0 9 0>;
-				#clocks = <&car 127>;
+				clocks = <&car 127>;
 				#dma-cells = <1>;
 				#dma-channels = <1>;
 			};
