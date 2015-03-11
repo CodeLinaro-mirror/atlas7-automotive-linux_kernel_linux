@@ -39,7 +39,7 @@
 		gnssm {
 			uart4: uart@18050000 {
 				status = "okay";
-				pinctrl-0 = <&uart4_pmx1>;
+				pinctrl-0 = <&uart4_pmx2>;
 				pinctrl-names = "default";
 				sirf,uart-has-rtscts;
 			};
