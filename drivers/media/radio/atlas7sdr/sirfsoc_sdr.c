@@ -184,7 +184,7 @@ static int sdr_dmaengine_start_dma(struct sirf_sdr *sdr,
 
 	if (info->rd_dma_chain) {
 		ret = sdr_prepare_rd_chain_sg(sdr, info);
-		if (!ret)
+		if (ret)
 			return ret;
 		count = info->rd_dma_entry_cnt;
 		dev_info(&sdr->pdev->dev, "chain dma\n");
@@ -209,7 +209,7 @@ static int sdr_dmaengine_start_dma(struct sirf_sdr *sdr,
 	if (info->wt_dma_chain) {
 		ret = sdr_prepare_wt_chain_sg(sdr, info);
 
-		if (!ret)
+		if (ret)
 			return ret;
 		count = info->wt_dma_entry_cnt;
 		desc = dmaengine_prep_slave_sg(sdr->rx_dma_chan, sdr->wt_sg,
@@ -264,7 +264,7 @@ static long sdr_ioctl_decoder(struct sirf_sdr *sdr,
 
 	ret = sdr_dmaengine_start_dma(sdr, &cfg_info);
 
-	if (!ret)
+	if (ret)
 		return ret;
 
 	wait = wait_for_completion_interruptible_timeout(&sdr->data_ready,
