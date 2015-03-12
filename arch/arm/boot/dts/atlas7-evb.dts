@@ -171,39 +171,39 @@
 					io-channel-names = "adc_keys";
 
 					button-s2 {
-						label = "Volume Up";
-						linux,code = <KEY_VOLUMEUP>;
+						label = "Home";
+						linux,code = <KEY_HOMEPAGE>;
 						voltage = <1272>;
 					};
 
 					button-s7 {
-						label = "Volume Down";
-						linux,code = <KEY_VOLUMEDOWN>;
+						label = "Back";
+						linux,code = <KEY_BACK>;
 						voltage = <1211>;
 					};
 
 					button-s1 {
-						label = "Brightness Up";
-						linux,code = <KEY_BRIGHTNESSUP>;
+						label = "Volume Up";
+						linux,code = <KEY_VOLUMEUP>;
 						voltage = <1085>;
 					};
 
 					button-s4 {
-						label = "Brightness Down";
+						label = "Volume Down";
 						linux,code =
-							<KEY_BRIGHTNESSDOWN>;
+							<KEY_VOLUMEDOWN>;
 						voltage = <953>;
 					};
 
 					button-s5 {
-						label = "Home";
-						linux,code = <KEY_HOMEPAGE>;
+						label = "Recent APP";
+						linux,code = <KEY_DASHBOARD>;
 						voltage = <1368>;
 					};
 
 					button-s6 {
-						label = "Back";
-						linux,code = <KEY_BACK>;
+						label = "RearView";
+						linux,code = <KEY_DIRECTION>;
 						voltage = <1416>;
 					};
 				};
