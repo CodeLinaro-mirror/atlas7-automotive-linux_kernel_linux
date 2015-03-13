@@ -120,9 +120,9 @@ static unsigned int sdhci_sirf_get_max_clk(struct sdhci_host *host)
 	struct sdhci_sirf_priv *priv = sdhci_pltfm_priv(pltfm_host);
 
 	if (priv->has_pclk)
-		return clk_get_rate(priv->pclk);
+		return ((clk_get_rate(priv->pclk) / 1000000) * 1000000);
 	else
-		return clk_get_rate(priv->clk);
+		return ((clk_get_rate(priv->clk) / 1000000) * 1000000);
 }
 
 static void sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
@@ -218,6 +218,7 @@ static u16 sdhci_sirf_readw_le(struct sdhci_host *host, int reg)
 	return ret;
 }
 
+
 static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	int tuning_seq_cnt = 3;
@@ -306,6 +307,7 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
 		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
 static int sdhci_sirf_probe(struct platform_device *pdev)
