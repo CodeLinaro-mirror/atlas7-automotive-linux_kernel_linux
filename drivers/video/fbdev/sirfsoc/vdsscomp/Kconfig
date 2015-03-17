@@ -1,0 +1,21 @@
+menuconfig VDSSCOMP
+	tristate "SIRFSOC VDSS Composition support"
+	depends on SIRF_VDSS
+	default n
+
+	help
+	  Frame composition driver using SIRFSOC VDSS. Allows using
+	  all VDSS resources in a unified configuration. Should not
+	  be used together with other VDSS client devices, such as
+	  V4L2 output or SIRFSOCFB.
+
+config VDSSCOMP_DEBUG
+	bool "Debug support for VDSSComp"
+	depends on VDSSCOMP
+	default n
+
+	help
+	  Support for debug output. you can dump detailed layer
+	  setting information for some vdsscomp configuration.
+	  The default is n, please choose y to to enable such
+	  support.
