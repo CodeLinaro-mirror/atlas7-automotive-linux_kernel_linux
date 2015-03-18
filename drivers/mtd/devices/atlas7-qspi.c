@@ -647,7 +647,6 @@ atlas7_qspi_dma_data_out(struct atlas7_qspi_nor *a7nor,
 				u32 *buf, u32 size,
 				u32 offset)
 {
-	int timeout = (size * 8 * 1000) / a7nor->speed_hz + 10;
 	dma_addr_t addr;
 
 	writel(ATLAS7_QSPI_IRR_REQUEST_RDY, a7nor->base + ATLAS7_QSPI_INTMSK);
@@ -667,7 +666,8 @@ atlas7_qspi_dma_data_out(struct atlas7_qspi_nor *a7nor,
 		a7nor->base + ATLAS7_QSPI_DMA_CST);
 
 	writel(ATLAS7_QSPI_IRR_REQUEST_RDY, a7nor->base + ATLAS7_QSPI_INTMSK);
-	if (!wait_for_completion_timeout(&a7nor->req_rdy, timeout)) {
+	if (!wait_for_completion_timeout(&a7nor->req_rdy,
+		ATLAS7_QSPI_MAX_TIMEOUT)) {
 		dev_err(a7nor->dev, "wait for request ready timeout\n");
 		return -ETIMEDOUT;
 	}
@@ -680,7 +680,6 @@ atlas7_qspi_dma_data_in(struct atlas7_qspi_nor *a7nor,
 				u32 *buf, u32 size,
 				u32 offset)
 {
-	int timeout = (size * 8 * 1000) / a7nor->speed_hz + 10;
 	dma_addr_t addr;
 
 	writel(ATLAS7_QSPI_IRR_REQUEST_RDY, a7nor->base + ATLAS7_QSPI_INTMSK);
@@ -700,7 +699,8 @@ atlas7_qspi_dma_data_in(struct atlas7_qspi_nor *a7nor,
 		a7nor->base + ATLAS7_QSPI_DMA_CST);
 
 	writel(ATLAS7_QSPI_IRR_REQUEST_RDY, a7nor->base + ATLAS7_QSPI_INTMSK);
-	if (!wait_for_completion_timeout(&a7nor->req_rdy, timeout)) {
+	if (!wait_for_completion_timeout(&a7nor->req_rdy,
+		ATLAS7_QSPI_MAX_TIMEOUT)) {
 		dev_err(a7nor->dev, "wait for request ready timeout\n");
 		return -ETIMEDOUT;
 	}
