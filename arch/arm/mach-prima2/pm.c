@@ -23,7 +23,7 @@
 #include <asm/suspend.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/uaccess.h>
-
+#include <asm/system_misc.h>
 #include "pm.h"
 
 struct sirfsoc_sysctl_info {
@@ -32,25 +32,26 @@ struct sirfsoc_sysctl_info {
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	u32 ver;
 	u32 base;
+	void __iomem *retain_base;
+	void __iomem *clkc_base;
+	void __iomem *timer_base;
 };
 
-static const struct of_device_id retainreg_ids[] = {
-	{ .compatible = "sirf,atlas7-retain"},
+enum SIRFSOC_SYSCTL_IDX {
+	IPC_IDX,
+	RETAIN_IDX,
+	MEMC_ATLAS7_IDX,
+	TICK_IDX,
+	CLK_IDX,
+	MEMC_PRIMA2_IDX,
+	MAX_IDX
 };
 
-static const struct of_device_id memc_ids[] = {
-	{
-		.compatible = "sirf,prima2-memc",
-		.data = sirfsoc_prima2_finish_suspend,
-	}, {
-		.compatible = "sirf,atlas7-memc",
-		.data = sirfsoc_atlas7_finish_suspend,
-	}, {
-	}
-};
-
-static const struct of_device_id pmipc_ids[] = {
-	{ .compatible = "sirf,atlas7-pmipc"},
+struct sirfsoc_pm_init_t {
+	char *name;
+	u32 idx;
+	void __iomem *base;
+	int (*init_pm)(struct sirfsoc_pm_init_t *);
 };
 
 static struct sirfsoc_sysctl_info *sinfo;
@@ -58,6 +59,41 @@ static struct sirfsoc_sysctl_info *sinfo;
 void __iomem *sirfsoc_memc_base;
 void __iomem *sirfsoc_pm_ipc_base;
 static int (*sirfsoc_finish_suspend)(unsigned long);
+
+static int atlas7_pm_retain_init(struct sirfsoc_pm_init_t *);
+static int atlas7_pm_clk_init(struct sirfsoc_pm_init_t *);
+static int atlas7_pm_ipc_init(struct sirfsoc_pm_init_t *);
+static int atlas7_pm_memc_init(struct sirfsoc_pm_init_t *);
+static int prima2_pm_memc_init(struct sirfsoc_pm_init_t *);
+static int atlas7_pm_tick_init(struct sirfsoc_pm_init_t *);
+
+static struct sirfsoc_pm_init_t sirfsoc_pm_init_table[] = {
+	{
+		.name = "IPC_IDX",
+		.idx = IPC_IDX,
+		.init_pm = atlas7_pm_ipc_init,
+	}, {
+		.name = "RETAIN_IDX",
+		.idx = RETAIN_IDX,
+		.init_pm = atlas7_pm_retain_init,
+	}, {
+		.name = "MEMC_ATLAS7_IDX",
+		.idx = MEMC_ATLAS7_IDX,
+		.init_pm = atlas7_pm_memc_init,
+	}, {
+		.name = "TICK_IDX",
+		.idx = TICK_IDX,
+		.init_pm = atlas7_pm_tick_init,
+	}, {
+		.name = "CLK_IDX",
+		.idx = CLK_IDX,
+		.init_pm = atlas7_pm_clk_init,
+	}, {
+		.name = "MEMC_PRIMA2_IDX",
+		.idx = MEMC_PRIMA2_IDX,
+		.init_pm = prima2_pm_memc_init,
+	},
+};
 
 static void sirfsoc_set_wakeup_source(void)
 {
@@ -96,33 +132,9 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 	sirfsoc_set_wakeup_source();
 }
 
-void __iomem *sirfsoc_pm_get_base(const struct of_device_id *ids)
-{
-	struct device_node *np;
-	void __iomem *ret;
-
-	np = of_find_matching_node(NULL, ids);
-	if (!np)
-		panic("unable to find compatible sirf node in dtb\n");
-
-	ret = of_iomap(np, 0);
-	if (!ret)
-		panic("unable to map base\n");
-
-	return ret;
-}
-
 void sirfsoc_pm_enter_power_saving(void)
 {
 	cpu_suspend(0, sirfsoc_finish_suspend);
-}
-
-void sirfsoc_pm_get_finish_suspend(void)
-{
-	struct device_node *np;
-
-	np = of_find_matching_node(NULL, memc_ids);
-	sirfsoc_finish_suspend = of_match_node(memc_ids, np)->data;
 }
 
 void sirfsoc_pm_power_off(void)
@@ -130,14 +142,14 @@ void sirfsoc_pm_power_off(void)
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
 	u32 sleep_mode;
 
-	sirfsoc_set_sleep_mode(SIRFSOC_HIBERNATION_MODE);
-
+	/*for atlas7, M3 responsible for power off,
+	**set retain register as 0x3 for software shutdown
+	*/
 	if (sinfo->ver == PWRC_ATLAS7_VER)
-		/*for atlas7, M3 responsible for power off,
-		**sirfsoc_finish_suspend responsible for trigger IPC
-		*/
-		sirfsoc_pm_ipc_base = sirfsoc_pm_get_base(pmipc_ids);
-	else {
+		writel_relaxed(3,
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
+	else if (sinfo->ver == PWRC_PRIMA2_VER) {
+		sirfsoc_set_sleep_mode(SIRFSOC_HIBERNATION_MODE);
 		regmap_read(sinfo->regmap, sinfo->base +
 			pwrc_reg->pwrc_pdn_ctrl_set, &sleep_mode);
 
@@ -145,42 +157,33 @@ void sirfsoc_pm_power_off(void)
 				sinfo->base + pwrc_reg->pwrc_pdn_ctrl_set,
 				sleep_mode |  1 << SIRFSOC_START_PSAVING_BIT);
 	}
-
-	sirfsoc_pm_get_finish_suspend();
 }
 
 int sirfsoc_pre_suspend_power_off(void)
 {
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
-	void __iomem *sirfsoc_retain_base;
 	u32 wakeup_entry;
 
 	wakeup_entry = virt_to_phys(cpu_resume);
 	if (sinfo->ver == PWRC_ATLAS7_VER) {
-		sirfsoc_retain_base = sirfsoc_pm_get_base(retainreg_ids);
 		writel_relaxed(wakeup_entry,
-			sirfsoc_retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
 		writel_relaxed(1,
-			sirfsoc_retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
-
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
 
 		/*for atlas7, M3 responsible for enter deep sleep,
 		**sirfsoc_finish_suspend responsible for trigger IPC
 		*/
 
-		sirfsoc_pm_ipc_base = sirfsoc_pm_get_base(pmipc_ids);
 	} else {
 		regmap_write(sinfo->regmap,
 				sinfo->base + pwrc_reg->pwrc_scratch_pad1,
 				wakeup_entry);
-		sirfsoc_memc_base = sirfsoc_pm_get_base(memc_ids);
+
+		sirfsoc_set_sleep_mode(SIRFSOC_DEEP_SLEEP_MODE);
 	}
 
-
 	sirfsoc_set_wakeup_source();
-	sirfsoc_set_sleep_mode(SIRFSOC_DEEP_SLEEP_MODE);
-	sirfsoc_pm_get_finish_suspend();
-
 	return 0;
 }
 
@@ -190,14 +193,13 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 
 	int i;
 	u32 boot_stat;
-	void __iomem *sirfsoc_retain_base;
+
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
 
-	if (sinfo->ver == PWRC_ATLAS7_VER) {
-		sirfsoc_retain_base = sirfsoc_pm_get_base(retainreg_ids);
-		boot_stat = readl_relaxed(sirfsoc_retain_base
+	if (sinfo->ver == PWRC_ATLAS7_VER)
+		boot_stat = readl_relaxed(sinfo->retain_base
 				+ SIRFSOC_BOOT_STATUS);
-	} else
+	else
 		boot_stat = sirfsoc_rtc_iobrg_readl(sinfo->base +
 			pwrc_reg->pwrc_scratch_pad3);
 
@@ -217,7 +219,6 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 {
 	u32 boot_stat = 0;
 	char data[SIRFSOC_BOOT_STATUS_BITS];
-	void __iomem *sirfsoc_retain_base;
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
 	int i;
 
@@ -234,11 +235,10 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 		boot_stat |= (((data[i] - '0') & 0x1) << i);
 
 
-	if (sinfo->ver == PWRC_ATLAS7_VER) {
-		sirfsoc_retain_base = sirfsoc_pm_get_base(retainreg_ids);
+	if (sinfo->ver == PWRC_ATLAS7_VER)
 		writel_relaxed(boot_stat,
-			sirfsoc_retain_base + SIRFSOC_BOOT_STATUS);
-	} else
+			sinfo->retain_base + SIRFSOC_BOOT_STATUS);
+	else
 		regmap_write(sinfo->regmap,
 			sinfo->base + pwrc_reg->pwrc_scratch_pad3,
 			boot_stat);
@@ -266,6 +266,7 @@ static ssize_t pwrc_store(struct device *dev,
 	regmap_write(info->regmap, info->base + offset, val);
 	return len;
 }
+
 static ssize_t pwrc_show(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
@@ -313,12 +314,113 @@ static const struct platform_suspend_ops sirfsoc_pm_ops = {
 	.valid = suspend_valid_only_mem,
 };
 
+static const struct of_device_id sirfsoc_pm_ids[] = {
+	{ .compatible = "sirf,atlas7-pmipc",
+		.data = &sirfsoc_pm_init_table[0]},
+	{ .compatible = "sirf,atlas7-retain",
+		.data = &sirfsoc_pm_init_table[1]},
+	{ .compatible = "sirf,atlas7-memc",
+		.data = &sirfsoc_pm_init_table[2]},
+	{ .compatible = "sirf,atlas7-tick",
+		.data = &sirfsoc_pm_init_table[3]},
+	{ .compatible = "sirf,atlas7-car",
+		.data = &sirfsoc_pm_init_table[4]},
+	{ .compatible = "sirf,prima2-memc",
+		.data = &sirfsoc_pm_init_table[5]},
+};
+
+static void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
+{
+#define CPU_CLK_SEL 0xf8
+#define WDOG_CNT64_LATCH_LO 0x7c
+#define WDOG_MATCH 0x18
+#define WDOG_TIMER_WDT_INDEX		5
+#define WDOG_EN 0x64
+#define WDOG_CNT_CTRL 0x0
+
+	/*
+	* set retain register as 0x2 for reset, so that uboot can
+	* disdinguish between real watchdog event and this workaroad
+	*/
+	writel_relaxed(2,
+		sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
+
+	/* workaround reset for atlas7 */
+	writel(0, sinfo->clkc_base + CPU_CLK_SEL);
+
+	/* enable watchdog */
+	writel(readl(sinfo->timer_base + WDOG_CNT_CTRL +
+			4 * WDOG_TIMER_WDT_INDEX) | 0x3,
+		sinfo->timer_base + WDOG_CNT_CTRL +
+			4 * WDOG_TIMER_WDT_INDEX);
+	writel(1, sinfo->timer_base + WDOG_EN);
+
+	/* update timeout for match */
+	writel(readl(sinfo->timer_base + WDOG_CNT64_LATCH_LO) +
+			0x3,
+		sinfo->timer_base + WDOG_MATCH +
+			4 * WDOG_TIMER_WDT_INDEX);
+
+}
+
+static int atlas7_pm_retain_init(struct sirfsoc_pm_init_t *pinit)
+{
+
+	sinfo->retain_base =  pinit->base;
+	return 0;
+}
+
+static int atlas7_pm_clk_init(struct sirfsoc_pm_init_t *pinit)
+{
+
+	sinfo->clkc_base =  pinit->base;
+	return 0;
+}
+
+static int atlas7_pm_ipc_init(struct sirfsoc_pm_init_t *pinit)
+{
+
+	sirfsoc_pm_ipc_base = pinit->base;
+
+	return 0;
+}
+
+static int atlas7_pm_memc_init(struct sirfsoc_pm_init_t *pinit)
+{
+
+	sirfsoc_finish_suspend = sirfsoc_atlas7_finish_suspend;
+	sirfsoc_memc_base = pinit->base;
+
+	return 0;
+}
+
+static int prima2_pm_memc_init(struct sirfsoc_pm_init_t *pinit)
+{
+	sirfsoc_finish_suspend = sirfsoc_prima2_finish_suspend;
+	sirfsoc_memc_base = pinit->base;
+
+	return 0;
+}
+
+static int atlas7_pm_tick_init(struct sirfsoc_pm_init_t *pinit)
+{
+	struct sirfsoc_pm_init_t *pinit_clk = &sirfsoc_pm_init_table[CLK_IDX];
+
+	if (pinit_clk->base)
+		arm_pm_restart = sirfsoc_atlas7_restart;
+
+	return 0;
+}
 static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 {
 
 	struct sirfsoc_pwrc_info *pwrcinfo = dev_get_drvdata(pdev->dev.parent);
 	struct sirfsoc_sysctl_info *info;
 	int ret;
+	struct device_node *np;
+	const struct of_device_id *match;
+	void __iomem *base;
+	struct sirfsoc_pm_init_t *pinit;
 
 	info = kzalloc(sizeof(struct sirfsoc_sysctl_info), GFP_KERNEL);
 	if (!info)
@@ -352,6 +454,24 @@ static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 
 #endif
 	sinfo = info;
+
+	/* handle pm related bases & callbacks*/
+	for_each_matching_node_and_match(np, sirfsoc_pm_ids, &match) {
+		if (!of_device_is_available(np))
+			continue;
+
+		pinit = (struct sirfsoc_pm_init_t *)match->data;
+		base = of_iomap(np, 0);
+		if (!base)
+			panic("unable to find compatible sirf node in dtb\n");
+
+		pinit->base = base;
+
+		if (pinit->init_pm)
+			pinit->init_pm(pinit);
+	}
+
+
 	return 0;
 out:
 	kfree(info);
