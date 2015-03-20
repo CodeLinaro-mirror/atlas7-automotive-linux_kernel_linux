@@ -1271,8 +1271,6 @@
 				interrupts = <0 69 0>;
 				clocks = <&car 93>;
 				fifosize = <128>;
-				dmas = <&dmac0 0>, <&dmac0 1>;
-				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 			uart5: uart@18060000 {
