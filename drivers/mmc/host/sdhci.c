@@ -716,14 +716,38 @@ static inline void sdhci_sg_to_dma(struct sdhci_host *host,
 	struct scatterlist *sg;
 	char *dmabuf = host->combined_dma_buffer;
 	char *sgbuf;
-
+	unsigned int length;
+	unsigned int partlen;
+	unsigned int pagenum;
+	unsigned int j;
+	struct page* firstpage;
 	sg = data->sg;
 	len = data->sg_len;
 
 	for (i = 0; i < len; i++) {
-		sgbuf = sg_virt(&sg[i]);
-		memcpy(dmabuf, sgbuf, sg[i].length);
-		dmabuf += sg[i].length;
+		void* page_base;
+		partlen = 0;
+		if (PageHighMem(sg_page(&sg[i]))) {
+			length = sg[i].length;
+			pagenum = (PAGE_SIZE + sg[i].length + sg[i].offset - 1)/PAGE_SIZE;
+			firstpage = sg_page(&sg[i]);
+			for (j = 0; j < pagenum; j++) {
+				page_base = kmap_atomic(nth_page(firstpage, j));
+				sgbuf = page_base;
+				if (j == 0) {
+					sgbuf += sg[i].offset;
+				}
+				partlen = min(length, (PAGE_SIZE - (unsigned int)sgbuf%PAGE_SIZE));
+				memcpy(dmabuf, sgbuf, partlen);
+				length -= partlen;
+				dmabuf += partlen;
+				kunmap_atomic(page_base);
+			}
+		}else {
+			sgbuf = sg_virt(&sg[i]);
+			memcpy(dmabuf, sgbuf, sg[i].length);
+			dmabuf += sg[i].length;
+		}
 	}
 }
 
@@ -734,14 +758,38 @@ static inline void sdhci_dma_to_sg(struct sdhci_host *host,
 	struct scatterlist *sg;
 	char *dmabuf = host->combined_dma_buffer;
 	char *sgbuf;
-
+	unsigned int length;
+	unsigned int partlen;
+	unsigned int pagenum;
+	unsigned int j;
+	struct page* firstpage;
 	sg = data->sg;
 	len = data->sg_len;
 
 	for (i = 0; i < len; i++) {
-		sgbuf = sg_virt(&sg[i]);
-		memcpy(sgbuf, dmabuf, sg[i].length);
-		dmabuf += sg[i].length;
+		void* page_base;
+		partlen = 0;
+		if (PageHighMem(sg_page(&sg[i]))) {
+			length = sg[i].length;
+			pagenum = (PAGE_SIZE + sg[i].length + sg[i].offset - 1)/PAGE_SIZE;
+			firstpage = sg_page(&sg[i]);
+			for (j = 0; j < pagenum; j++) {
+				page_base = kmap_atomic(nth_page(firstpage, j));
+				sgbuf = page_base;
+				if (j == 0) {
+					sgbuf += sg[i].offset;
+				}
+				partlen = min(length, (PAGE_SIZE - (unsigned int)sgbuf%PAGE_SIZE));
+				memcpy(sgbuf, dmabuf, partlen);
+				length -= partlen;
+				dmabuf += partlen;
+				kunmap_atomic(page_base);
+			}
+		}else {
+			sgbuf = sg_virt(&sg[i]);
+			memcpy(sgbuf, dmabuf, sg[i].length);
+			dmabuf += sg[i].length;
+		}
 	}
 }
 
