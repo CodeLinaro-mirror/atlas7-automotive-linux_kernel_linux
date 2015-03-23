@@ -399,69 +399,14 @@ atlas7_qspi_set_dummy(struct atlas7_qspi_nor *a7nor)
 	writel(regval, a7nor->base + ATLAS7_QSPI_RDC);
 }
 
-static int atlas7_qspi_get_data_from_buf(const u8 *buf, int len, u32 *data)
-{
-	int ret;
-
-	switch (len) {
-	case 0:
-		ret = 0;
-		break;
-	case 1:
-		*data = buf[0];
-		ret = 1;
-		break;
-	case 2:
-		*data = buf[0] | (buf[1] << 8);
-		ret = 2;
-		break;
-	case 3:
-		*data = buf[0] | (buf[1] << 8) | (buf[2] << 16);
-		ret = 3;
-		break;
-	default:
-		*data = buf[0] | (buf[1] << 8) | (buf[2] << 16) |
-			(buf[3] << 24);
-		ret = 4;
-		break;
-	}
-	return ret;
-}
-
-static void atlas7_qspi_put_data_to_buf(u8 *buf, int len, u32 data)
-{
-	switch (len) {
-	case 0:
-		break;
-	case 1:
-		buf[0] = (u8)data;
-		break;
-	case 2:
-		buf[0] = (u8)data;
-		buf[1] = (u8)(data >> 8);
-		break;
-	case 3:
-		buf[0] = (u8)data;
-		buf[1] = (u8)(data >> 8);
-		buf[2] = (u8)(data >> 16);
-		break;
-	default:
-		buf[0] = (u8)data;
-		buf[1] = (u8)(data >> 8);
-		buf[2] = (u8)(data >> 16);
-		buf[3] = (u8)(data >> 24);
-		break;
-	}
-}
-
 static int
 atlas7_qspi_custom_out(struct atlas7_qspi_nor *a7nor,
 			u32 command, u8 *data_buf, u32 size)
 {
 	u8 *buf = data_buf;
-	int tmp;
 	u32 data = 0;
 	int len = size;
+	int idx = 0;
 
 	writel(ATLAS7_QSPI_IRR_REQUEST_RDY, a7nor->base + ATLAS7_QSPI_INTMSK);
 	if (!wait_for_completion_timeout(&a7nor->req_rdy,
@@ -471,13 +416,24 @@ atlas7_qspi_custom_out(struct atlas7_qspi_nor *a7nor,
 	}
 
 	if (len > 0) {
-		tmp = atlas7_qspi_get_data_from_buf(buf, len, &data);
+		idx = 0;
+		data = 0;
+		while ((len > 0) && (idx < 4)) {
+			data |= buf[idx] << (idx * 8);
+			idx++;
+			len--;
+		}
 		writel(data, a7nor->base + ATLAS7_QSPI_CIDR0);
-		len -= tmp;
-		buf += tmp;
 	}
 	if (len > 0) {
-		tmp = atlas7_qspi_get_data_from_buf(buf, len, &data);
+		idx = 0;
+		data = 0;
+		buf += sizeof(u32);
+		while ((len > 0) && (idx < 4)) {
+			data |= buf[idx] << (idx * 8);
+			idx++;
+			len--;
+		}
 		writel(data, a7nor->base + ATLAS7_QSPI_CIDR1);
 	}
 	writel(ATLAS7_QSPI_CI_OPCODE(command) |
@@ -503,6 +459,8 @@ atlas7_qspi_custom_in(struct atlas7_qspi_nor *a7nor,
 	u8 *buf = data_buf;
 	u32 data = 0;
 	u32 len = size;
+	int idx = 0;
+	u8 *pbyte = (u8 *)&data;
 
 	writel(ATLAS7_QSPI_IRR_REQUEST_RDY, a7nor->base + ATLAS7_QSPI_INTMSK);
 	if (!wait_for_completion_timeout(&a7nor->req_rdy,
@@ -526,13 +484,22 @@ atlas7_qspi_custom_in(struct atlas7_qspi_nor *a7nor,
 
 	if (len > 0) {
 		data = readl(a7nor->base + ATLAS7_QSPI_CIDR0);
-		atlas7_qspi_put_data_to_buf(buf, len, data);
+		idx = 0;
+		while ((len > 0) && (idx < 4)) {
+			buf[idx] = pbyte[idx];
+			idx++;
+			len--;
+		}
 	}
-	if (len > 4) {
-		len -= sizeof(u32);
+	if (len > 0) {
 		buf += sizeof(u32);
+		idx = 0;
 		data = readl(a7nor->base + ATLAS7_QSPI_CIDR1);
-		atlas7_qspi_put_data_to_buf(buf, len, data);
+		while ((len > 0) && (idx < 4)) {
+			buf[idx] = pbyte[idx];
+			idx++;
+			len--;
+		}
 	}
 	return 0;
 }
