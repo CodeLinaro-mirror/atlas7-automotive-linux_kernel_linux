@@ -105,6 +105,16 @@
 			clocks = <&car 62>;
 		};
 
+		kalimba@10C10000 {
+			compatible = "csr,kalimba";
+			reg = <0x10C10000 0x1000 0x13240000 0x500>;
+			reg-names = "kas", "ipc";
+			clocks = <&car 55>, <&car 26>, <&car 31>;
+			clock-names = "kas_kas", "audmscm_nocd", "gpum_nocd";
+			interrupts = <0 118 0>;
+			resets = <&car 10>;
+		};
+
 		ipc@13240000 {
 			compatible = "sirf,atlas7-ipc";
 			ranges = <0x13240000 0x13240000 0x00010000>;
