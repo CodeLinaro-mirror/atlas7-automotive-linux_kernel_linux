@@ -856,6 +856,8 @@ int vdss_init_screens(u32 lcdc_index)
 		 */
 		scn->lcdc_id = lcdc_index;
 		sdata = get_screen_data(scn);
+		sdata->user_info.top_layer = SIRFSOC_VDSS_LAYER3;
+		sdata->user_info.back_color = 0;
 		sdata->user_info_dirty = true;
 		scn->caps = 0;
 		INIT_LIST_HEAD(&scn->layers);

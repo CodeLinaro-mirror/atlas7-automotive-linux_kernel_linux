@@ -641,6 +641,10 @@ void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	u32 so_act_hend = 0x0;
 	u32 so_act_vstart = 0x0;
 	u32 so_act_vend = 0x0;
+	u32 scr_ctrl = 0x0;
+	u32 s0_int_line = 0x0;
+	u32 s0_yuv_ctrl = 0x0;
+	u32 s0_tv_field = 0x0;
 
 	bool tv_mode = false;
 
@@ -732,24 +736,8 @@ void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 		(20 << 16) | (22 << 24));
 	lcdc_write_reg(lcdc_index, BLS_LEVEL_TB3, 24 | (26 << 8) |
 		(28 << 16) | (30 << 24));
-}
 
-void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
-	const struct sirfsoc_vdss_screen_info *info)
-{
-	u32 scr_ctrl = 0x0;
-	u32 s0_int_line = 0x0;
-	u32 s0_yuv_ctrl = 0x0;
-	u32 s0_tv_field = 0x0;
-	u32 s0_blank = 0x0;
-
-	bool tv_mode = false;
-
-	/* Debug purpose: to check if we set right SCN_*_VAL */
-	s0_blank = S0_BLANK_VALUE(0xff0000) | S0_BLANK_VALID;
-	lcdc_write_reg(lcdc_index, S0_BLANK, s0_blank);
-	lcdc_write_reg(lcdc_index, S0_BACK_COLOR, 0);
-
+	/* for other once setting */
 	scr_ctrl |= SCREEN0_EN;
 	lcdc_write_reg(lcdc_index, SCR_CTRL, scr_ctrl);
 
@@ -770,6 +758,24 @@ void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
 	}
 	lcdc_write_reg(lcdc_index, S0_YUV_CTRL, s0_yuv_ctrl);
 	lcdc_write_reg(lcdc_index, S0_TV_FIELD, s0_tv_field);
+}
+
+void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
+	const struct sirfsoc_vdss_screen_info *info)
+{
+	u32 s0_blank = 0x0;
+	u32 s0_disp_mode = 0x0;
+
+	/* Debug purpose: to check if we set right SCN_*_VAL */
+	s0_blank = S0_BLANK_VALUE(0xff0000) | S0_BLANK_VALID;
+	lcdc_write_reg(lcdc_index, S0_BLANK, s0_blank);
+	lcdc_write_reg(lcdc_index, S0_BACK_COLOR, info->back_color);
+
+	s0_disp_mode = lcdc_read_reg(lcdc_index, S0_DISP_MODE);
+	s0_disp_mode &= ~S0_TOP_LAYER_MASK;
+	s0_disp_mode |= S0_TOP_LAYER(info->top_layer);
+	s0_disp_mode |= S0_FRAME_VALID;
+	lcdc_write_reg(lcdc_index, S0_DISP_MODE, s0_disp_mode);
 }
 
 static void lcdc_output_configure_pins(u32 lcdc_index, bool hdmi)
