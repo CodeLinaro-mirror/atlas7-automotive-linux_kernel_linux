@@ -63,11 +63,13 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 		panel = gdev->displays[i].panel;
 		scn = sirfsoc_vdss_find_screen_from_panel(panel);
 
-		if ((disp->dirty_mask & SCREEN_DIRTY_MASK)) {
-			scn->get_info(scn, &screen_info);
+		scn->get_info(scn, &screen_info);
+		if (screen_info.top_layer != disp->scn.top_layer ||
+			screen_info.back_color != disp->scn.back_color) {
 			screen_info.top_layer = disp->scn.top_layer;
 			screen_info.back_color = disp->scn.back_color;
-			/*TODO: set screen info */
+			scn->set_info(scn, &screen_info);
+			scn->apply(scn);
 		}
 
 		for (layer = 0; layer < gdev->displays[i].num_layers; layer++) {

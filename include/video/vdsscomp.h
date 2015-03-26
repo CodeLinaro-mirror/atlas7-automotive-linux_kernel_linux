@@ -121,12 +121,6 @@ struct vdsscomp_screen_info {
 	__u32 top_layer;
 };
 
-#define LAYER0_DIRTY_MASK       (1 << 0)
-#define LAYER1_DIRTY_MASK       (1 << 1)
-#define LAYER2_DIRTY_MASK       (1 << 2)
-#define LAYER3_DIRTY_MASK       (1 << 3)
-#define SCREEN_DIRTY_MASK       (1 << 27)
-
 struct vdsscomp_setup_disp_data {
 	__u16 num_layers;
 	__u32 dirty_mask;
