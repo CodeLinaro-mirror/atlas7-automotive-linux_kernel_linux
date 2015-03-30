@@ -210,6 +210,7 @@
 #define SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL	0x230
 #define SIRFSOC_AUDIO_CLKC_IACC_CLK_STATUS	0x250
 
+#define SIRFSOC_DIVIDOR_TYPE_TABLE	0x1
 struct clk_pll {
 	struct clk_hw hw;
 	unsigned short regofs;  /* register offset */
