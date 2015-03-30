@@ -16,6 +16,7 @@
 	.text
 
 ENTRY(sirfsoc_atlas7_finish_suspend)
+	bl v7_flush_kern_cache_all
        ldr     r0, =sirfsoc_pm_ipc_base
        ldr     r5, [r0]
        mov r2, #0x1

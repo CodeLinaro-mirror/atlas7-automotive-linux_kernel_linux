@@ -409,6 +409,7 @@ static int atlas7_pm_tick_init(struct sirfsoc_pm_init_t *pinit)
 	if (pinit_clk->base)
 		arm_pm_restart = sirfsoc_atlas7_restart;
 
+	sinfo->timer_base =  pinit->base;
 	return 0;
 }
 static int sirfsoc_sysctl_probe(struct platform_device *pdev)
