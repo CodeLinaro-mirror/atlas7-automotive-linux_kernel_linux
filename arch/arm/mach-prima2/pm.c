@@ -132,11 +132,6 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 	sirfsoc_set_wakeup_source();
 }
 
-void sirfsoc_pm_enter_power_saving(void)
-{
-	cpu_suspend(0, sirfsoc_finish_suspend);
-}
-
 void sirfsoc_pm_power_off(void)
 {
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
@@ -300,7 +295,7 @@ static int sirfsoc_pm_enter(suspend_state_t state)
 		sirfsoc_pre_suspend_power_off();
 		outer_disable();
 		/* go zzz */
-		sirfsoc_pm_enter_power_saving();
+		cpu_suspend(0, sirfsoc_finish_suspend);
 		outer_resume();
 		break;
 	default:
