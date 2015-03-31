@@ -482,9 +482,12 @@ static void sirfsoc_vout_isr(void *pdata, unsigned int irqstatus)
 		spin_lock(&vout->vbq_lock);
 
 		if (vout->active_frm != vout->next_frm) {
-			v4l2_get_timestamp(&vout->active_frm->
-							v4l2_buf.timestamp);
-			vb2_buffer_done(vout->active_frm, VB2_BUF_STATE_DONE);
+			if (vout->active_frm != NULL) {
+				v4l2_get_timestamp(&vout->active_frm->
+						v4l2_buf.timestamp);
+				vb2_buffer_done(vout->active_frm,
+						VB2_BUF_STATE_DONE);
+			}
 			vout->active_frm = vout->next_frm;
 		}
 
