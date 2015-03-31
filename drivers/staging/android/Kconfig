@@ -112,8 +112,9 @@ config SW_SYNC_USER
 	  *WARNING* improper use of this can result in deadlocking kernel
 	  drivers from userspace.
 
-source "drivers/staging/android/ion/Kconfig"
+#source "drivers/staging/android/ion/Kconfig"
 
 endif # if ANDROID
 
+source "drivers/staging/android/ion/Kconfig"
 endmenu
