@@ -1933,7 +1933,7 @@
 			ble@17010000 {
 				compatible = "sirf, atlas7-ble";
 				reg = <0x17010000 0x10000>;
-				interrupts = <0 5 0>;
+				interrupts = <0 61 0>;
 				clocks = <&car 104>;
 			};
 
