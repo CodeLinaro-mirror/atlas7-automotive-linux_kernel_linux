@@ -1165,7 +1165,7 @@ static int g2d_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id g2d_match_tbl[] = {
-	{ .compatible = "sirf, atlas7-ble", },
+	{ .compatible = "sirf, atlas7-g2d", },
 	{ /* end */ }
 };
 
