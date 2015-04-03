@@ -11,6 +11,9 @@
 #include <linux/slab.h>
 #include <linux/fb.h>
 #include <linux/platform_device.h>
+#include <linux/uaccess.h>
+
+#include <video/sirfsoc_fb.h>
 
 #include "sirfsocfb.h"
 
@@ -646,10 +649,64 @@ exit:
 	return r;
 }
 
+static int sirfsocfb_set_gamma(struct fb_info *info, u8 *gamma)
+{
+	struct sirfsocfb_info *sfbi = FB2SFB(info);
+	struct sirfsoc_vdss_layer *l = sfbi->layers[0];
+	int r;
+
+	r = l->screen->set_gamma(l->screen, gamma);
+
+	l->screen->apply(l->screen);
+
+	return r;
+}
+
+static int sirfsocfb_get_gamma(struct fb_info *info, u8 *gamma)
+{
+	struct sirfsocfb_info *sfbi = FB2SFB(info);
+	struct sirfsoc_vdss_layer *l = sfbi->layers[0];
+	int r;
+
+	r = l->screen->get_gamma(l->screen, gamma);
+
+	return r;
+}
+
 static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 	unsigned long arg)
 {
-	return 0;
+	union {
+		u8 *gamma;
+	} data;
+	int r = 0;
+
+	switch (cmd) {
+	case SIRFSOCFB_SET_GAMMA:
+		data.gamma = memdup_user((void __user *)arg,
+			256 * 3 * sizeof(u8));
+		if (IS_ERR(data.gamma))
+			return PTR_ERR(data.gamma);
+		r = sirfsocfb_set_gamma(info, data.gamma);
+		kfree(data.gamma);
+		break;
+	case SIRFSOCFB_GET_GAMMA:
+		data.gamma = kmalloc(256 * 3 * sizeof(u8), GFP_KERNEL);
+		if (!data.gamma)
+			return -ENOMEM;
+		r = sirfsocfb_get_gamma(info, data.gamma);
+		if (copy_to_user((void __user *)arg, data.gamma,
+				256 * 3 * sizeof(u8))) {
+			kfree(data.gamma);
+			return -EFAULT;
+		}
+		kfree(data.gamma);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return r;
 }
 
 static int sirfsocfb_setcolreg(unsigned regno,

@@ -340,6 +340,11 @@ struct sirfsoc_vdss_screen {
 	int (*apply)(struct sirfsoc_vdss_screen *screen);
 	int (*wait_for_vsync)(struct sirfsoc_vdss_screen *screen);
 
+	int (*set_gamma)(struct sirfsoc_vdss_screen *screen,
+		const u8 *gamma);
+	int (*get_gamma)(struct sirfsoc_vdss_screen *screen,
+		u8 *gamma);
+
 	struct sirfsoc_vdss_panel *(*get_panel)(
 		struct sirfsoc_vdss_screen *screen);
 };
