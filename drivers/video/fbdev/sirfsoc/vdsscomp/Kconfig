@@ -1,7 +1,7 @@
 menuconfig VDSSCOMP
 	tristate "SIRFSOC VDSS Composition support"
-	depends on SIRF_VDSS
-	default n
+	depends on SIRF_VDSS && ANDROID
+	default y
 
 	help
 	  Frame composition driver using SIRFSOC VDSS. Allows using
