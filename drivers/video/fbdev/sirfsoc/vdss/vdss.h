@@ -64,7 +64,7 @@ void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_video_timings *timing);
 void lcdc_layer_enable(u32 lcdc_index, enum vdss_layer layer,
 	bool enable, bool passthrough);
-bool lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
+void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info);
 
 int vpp_init_platform_driver(void) __init;

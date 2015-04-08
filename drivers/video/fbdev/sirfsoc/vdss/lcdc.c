@@ -597,7 +597,7 @@ void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 	lcdc_layer_confirm_setting(lcdc_index, layer);
 }
 
-bool lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
+void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info)
 {
 	if (info->passthrough) {
@@ -618,13 +618,12 @@ bool lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 		params.params.dst_fmt = VPP_TO_LCD_PIXELFORMAT;
 
 		vpp_blt(&params);
-		lcdc_layer_confirm_setting(lcdc_index, layer);
 	} else
 		lcdc_layer_set_base(lcdc_index, layer, &info->src_rect,
 			info->surf_width, info->surf_height, info->fmt,
 			info->base);
 
-	return true;
+	lcdc_layer_confirm_setting(lcdc_index, layer);
 }
 
 void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
