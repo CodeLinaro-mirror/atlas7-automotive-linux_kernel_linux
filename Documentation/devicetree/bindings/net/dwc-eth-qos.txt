@@ -1,0 +1,25 @@
+* Synopsys DWC Ethernet QOS CORE
+
+dwc-eth-qos- EMAC(10/100/1000Mbps)
+
+Required properties:
+ - compatible: must be "snps, dwc-eth-qos"
+ - reg : address and length of the register set for the device
+ - interrupts: the EMAC interrupts
+ - clocks: reference to the clock supplying the EMAC
+ - phy-mode: set the PHY mode
+
+Examples:
+
+	gmac: eth@180b0000 {
+		compatible = "snps, dwc-eth-qos";
+		reg = <0x180b0000 0x4000>;
+		interrupts = <0 59 0>;
+		interrupt-names = "macirq";
+		clocks = <&car 39>, <&car 45>,
+		       <&car 86>, <&car 87>;
+		clock-names = "gnssm_rgmii", "gnssm_gmac",
+			"rgmii", "gmac";
+		local-mac-address = [00 00 00 00 00 00];
+		phy-mode = "rgmii";
+	};

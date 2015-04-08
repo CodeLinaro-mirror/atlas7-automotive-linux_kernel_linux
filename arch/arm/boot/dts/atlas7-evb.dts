@@ -363,6 +363,14 @@
 				status = "okay";
 			};
 
+			gmac: eth@180b0000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&rg_eth_mac_pmx
+					&rg_gmac_phy_intr_n_pmx
+					&rg_rgmii_mac_pmx>;
+			};
+
 			spi1: spi@18200000 {
 				status = "okay";
 				compatible = "sirf,prima2-spi-slave";
