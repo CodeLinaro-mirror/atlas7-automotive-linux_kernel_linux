@@ -8,10 +8,6 @@ Required properties:
 - gpio-controller : Indicates this device is a GPIO controller
 - interrupt-controller  : Marks the device node as an interrupt controller
 
-Optional properties:
-- sirf,gpio-pullups : if n-th bit of m-th bank is set, set a pullup on GPIO-n of bank m
-- sirf,gpio-pulldowns : if n-th bit of m-th bank is set, set a pulldown on GPIO-n of bank m
-
 The GPIO controller also acts as an interrupt controller. It uses the default
 two cells specifier as described in Documentation/devicetree/bindings/
 interrupt-controller/interrupts.txt.

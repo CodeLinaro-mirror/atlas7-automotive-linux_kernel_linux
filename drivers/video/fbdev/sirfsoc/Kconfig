@@ -4,5 +4,6 @@ source "drivers/video/fbdev/sirfsoc/vdss/Kconfig"
 source "drivers/video/fbdev/sirfsoc/vdsscomp/Kconfig"
 source "drivers/video/fbdev/sirfsoc/fb/Kconfig"
 source "drivers/video/fbdev/sirfsoc/panels/Kconfig"
+source "drivers/video/fbdev/sirfsoc/g2d/Kconfig"
 
 endif

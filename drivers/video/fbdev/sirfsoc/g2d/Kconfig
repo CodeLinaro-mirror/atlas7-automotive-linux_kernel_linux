@@ -1,0 +1,26 @@
+#
+# 2D Graphics Accelerator On Sirf Soc.
+#
+
+menuconfig SIRF_G2D
+	bool "SirfSOc 2D Graphics Accelerator"
+	depends on ARCH_ATLAS7 && SIRF_VDSS
+	default y
+	help
+	 This module could accelerate 2D bitblt operation. It implements
+	 bitblt in RGB mode with G2D hardware. It also provides the
+	 interface to VPP in VDSS for YUV to RGB conversion. To unify blt
+	 api, the two functions are integrated together.
+
+if SIRF_G2D
+
+config SIRF_G2D_DEBUG_LOG
+	bool "Enable debug log in G2D"
+	default n
+	help
+	 This enabled extra debug checks and messages in the G2D driver.
+	 for example, operations and parameters with them.
+	 It only for internal debuging.
+	 If you are not sure of it, let it remain NO.
+
+endif #SIRF_G2D

@@ -4492,36 +4492,6 @@ static void atlas7_gpio_set_value(struct gpio_chip *chip,
 	spin_unlock_irqrestore(&a7gc->lock, flags);
 }
 
-static void __atlas7_gpio_set_pull(struct atlas7_gpio_chip *a7gc,
-			const u32 *gpiolist, u32 npins, u32 sel)
-{
-	struct atlas7_gpio_bank *bank;
-	u32 idx, gpio, pin, ofs;
-	int rc = 0;
-
-	for (idx = 0; idx < npins; idx++) {
-		gpio = gpiolist[idx];
-		bank = atlas7_gpio_to_bank(a7gc, gpio);
-		ofs = gpio - bank->gpio_offset;
-		pin = bank->gpio_pins[ofs];
-
-		rc = __altas7_pinctrl_pull_sel(bank->pctldev, pin, sel);
-		BUG_ON(rc);
-	}
-}
-
-static void atlas7_gpio_set_pullup(struct atlas7_gpio_chip *a7gc,
-				const u32 *pullups, u32 npins)
-{
-	__atlas7_gpio_set_pull(a7gc, pullups, npins, PULL_UP);
-}
-
-static void atlas7_gpio_set_pulldown(struct atlas7_gpio_chip *a7gc,
-				const u32 *pulldowns, u32 npins)
-{
-	__atlas7_gpio_set_pull(a7gc, pulldowns, npins, PULL_DOWN);
-}
-
 static const struct of_device_id atlas7_gpio_ids[] = {
 	{ .compatible = "sirf,atlas7-gpio", },
 };
@@ -4531,8 +4501,8 @@ static int atlas7_gpio_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct atlas7_gpio_chip *a7gc;
 	struct gpio_chip *chip;
-	u32 nbank, cfg_pins[NGPIO_OF_BANK];
-	int ret, cfg_npins, idx;
+	u32 nbank;
+	int ret, idx;
 
 	ret = of_property_read_u32(np, "gpio-banks", &nbank);
 	if (ret) {
@@ -4638,20 +4608,6 @@ static int atlas7_gpio_probe(struct platform_device *pdev)
 		}
 
 		BUG_ON(!bank->pctldev);
-	}
-
-	cfg_npins = of_property_count_u32_elems(np, "sirf,gpio-pullups");
-	if (cfg_npins > 0) {
-		if (!of_property_read_u32_array(np,
-				"sirf,gpio-pullups", cfg_pins, cfg_npins))
-			atlas7_gpio_set_pullup(a7gc, cfg_pins, cfg_npins);
-	}
-
-	cfg_npins = of_property_count_u32_elems(np, "sirf,gpio-pulldowns");
-	if (cfg_npins > 0) {
-		if (!of_property_read_u32_array(np,
-				"sirf,gpio-pulldowns", cfg_pins, cfg_npins))
-			atlas7_gpio_set_pulldown(a7gc, cfg_pins, cfg_npins);
 	}
 
 	dev_info(&pdev->dev, "add to system.\n");
