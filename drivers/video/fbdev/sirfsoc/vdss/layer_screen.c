@@ -506,14 +506,18 @@ err:
 	return r;
 }
 
-bool vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
+static void vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
 {
 	struct layer_priv_data *ldata = get_layer_data(l);
 	struct sirfsoc_vdss_layer_info *info = &ldata->info;
+	unsigned long flags;
+
+	spin_lock_irqsave(&data_lock, flags);
 
 	info->base = srcbase;
+	lcdc_flip(l->lcdc_id, l->id, info);
 
-	return lcdc_flip(l->lcdc_id, l->id, info);
+	spin_unlock_irqrestore(&data_lock, flags);
 }
 
 static struct sirfsoc_vdss_panel *vdss_layer_get_panel(
