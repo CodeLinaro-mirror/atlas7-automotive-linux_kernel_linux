@@ -331,8 +331,9 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pw_backlight_pmx1>;
 			pwms = <&pwm 3 50000>;
-			brightness-levels = <0 48 56 64 96 112 128 255>;
-			default-brightness-level = <6>;
+			brightness-levels = <0 32 48 56 64 96 112 128 144 160
+				176 192 208 214 230 255>;
+			default-brightness-level = <7>;
 		};
 
 		gnssm {
