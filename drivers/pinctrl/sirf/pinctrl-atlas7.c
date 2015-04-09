@@ -804,8 +804,14 @@ static const unsigned int pw_cko1_pins0[] = { 124, };
 static const unsigned int pw_cko1_pins1[] = { 110, };
 static const unsigned int pw_i2s01_clk_pins0[] = { 125, };
 static const unsigned int pw_i2s01_clk_pins1[] = { 117, };
-static const unsigned int pw_pwm_pins0[] = { 119, 120, 121, 122, };
-static const unsigned int pw_pwm_pins1[] = { 119, 120, 98, 73, };
+static const unsigned int pw_pwm0_pins[] = { 119, };
+static const unsigned int pw_pwm1_pins[] = { 120, };
+static const unsigned int pw_pwm2_pins0[] = { 121, };
+static const unsigned int pw_pwm2_pins1[] = { 98, };
+static const unsigned int pw_pwm3_pins0[] = { 122, };
+static const unsigned int pw_pwm3_pins1[] = { 73, };
+static const unsigned int pw_pwm_cpu_vol_pins0[] = { 121, };
+static const unsigned int pw_pwm_cpu_vol_pins1[] = { 98, };
 static const unsigned int pw_backlight_pins0[] = { 122, };
 static const unsigned int pw_backlight_pins1[] = { 73, };
 static const unsigned int rg_eth_mac_pins[] = { 108, 103, 104, 105, 106, 107,
@@ -964,8 +970,14 @@ struct atlas7_pin_group altas7_pin_groups[] = {
 	GROUP("pw_cko1_grp1", pw_cko1_pins1),
 	GROUP("pw_i2s01_clk_grp0", pw_i2s01_clk_pins0),
 	GROUP("pw_i2s01_clk_grp1", pw_i2s01_clk_pins1),
-	GROUP("pw_pwm_grp0", pw_pwm_pins0),
-	GROUP("pw_pwm_grp1", pw_pwm_pins1),
+	GROUP("pw_pwm0_grp", pw_pwm0_pins),
+	GROUP("pw_pwm1_grp", pw_pwm1_pins),
+	GROUP("pw_pwm2_grp0", pw_pwm2_pins0),
+	GROUP("pw_pwm2_grp1", pw_pwm2_pins1),
+	GROUP("pw_pwm3_grp0", pw_pwm3_pins0),
+	GROUP("pw_pwm3_grp1", pw_pwm3_pins1),
+	GROUP("pw_pwm_cpu_vol_grp0", pw_pwm_cpu_vol_pins0),
+	GROUP("pw_pwm_cpu_vol_grp1", pw_pwm_cpu_vol_pins1),
 	GROUP("pw_backlight_grp0", pw_backlight_pins0),
 	GROUP("pw_backlight_grp1", pw_backlight_pins1),
 	GROUP("rg_eth_mac_grp", rg_eth_mac_pins),
@@ -1116,8 +1128,14 @@ static const char * const pw_cko1_grp0[] = { "pw_cko1_grp0", };
 static const char * const pw_cko1_grp1[] = { "pw_cko1_grp1", };
 static const char * const pw_i2s01_clk_grp0[] = { "pw_i2s01_clk_grp0", };
 static const char * const pw_i2s01_clk_grp1[] = { "pw_i2s01_clk_grp1", };
-static const char * const pw_pwm_grp0[] = { "pw_pwm_grp0", };
-static const char * const pw_pwm_grp1[] = { "pw_pwm_grp1", };
+static const char * const pw_pwm0_grp[] = { "pw_pwm0_grp", };
+static const char * const pw_pwm1_grp[] = { "pw_pwm1_grp", };
+static const char * const pw_pwm2_grp0[] = { "pw_pwm2_grp0", };
+static const char * const pw_pwm2_grp1[] = { "pw_pwm2_grp1", };
+static const char * const pw_pwm3_grp0[] = { "pw_pwm3_grp0", };
+static const char * const pw_pwm3_grp1[] = { "pw_pwm3_grp1", };
+static const char * const pw_pwm_cpu_vol_grp0[] = { "pw_pwm_cpu_vol_grp0", };
+static const char * const pw_pwm_cpu_vol_grp1[] = { "pw_pwm_cpu_vol_grp1", };
 static const char * const pw_backlight_grp0[] = { "pw_backlight_grp0", };
 static const char * const pw_backlight_grp1[] = { "pw_backlight_grp1", };
 static const char * const rg_eth_mac_grp[] = { "rg_eth_mac_grp", };
@@ -2516,28 +2534,76 @@ static struct atlas7_grp_mux pw_i2s01_clk_grp1_mux = {
 	.pad_mux_list = pw_i2s01_clk_grp1_pad_mux,
 };
 
-static struct atlas7_pad_mux pw_pwm_grp0_pad_mux[] = {
+static struct atlas7_pad_mux pw_pwm0_grp_pad_mux[] = {
 	MUX(1, 119, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_pwm0_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm0_grp_pad_mux),
+	.pad_mux_list = pw_pwm0_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_pwm1_grp_pad_mux[] = {
 	MUX(1, 120, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_pwm1_grp_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm1_grp_pad_mux),
+	.pad_mux_list = pw_pwm1_grp_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_pwm2_grp0_pad_mux[] = {
 	MUX(1, 121, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_pwm2_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm2_grp0_pad_mux),
+	.pad_mux_list = pw_pwm2_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_pwm2_grp1_pad_mux[] = {
+	MUX(1, 98, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_pwm2_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm2_grp1_pad_mux),
+	.pad_mux_list = pw_pwm2_grp1_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_pwm3_grp0_pad_mux[] = {
 	MUX(1, 122, 3, N, N, N, N),
 };
 
-static struct atlas7_grp_mux pw_pwm_grp0_mux = {
-	.pad_mux_count = ARRAY_SIZE(pw_pwm_grp0_pad_mux),
-	.pad_mux_list = pw_pwm_grp0_pad_mux,
+static struct atlas7_grp_mux pw_pwm3_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm3_grp0_pad_mux),
+	.pad_mux_list = pw_pwm3_grp0_pad_mux,
 };
 
-static struct atlas7_pad_mux pw_pwm_grp1_pad_mux[] = {
-	MUX(1, 119, 3, N, N, N, N),
-	MUX(1, 120, 3, N, N, N, N),
-	MUX(1, 98, 3, N, N, N, N),
+static struct atlas7_pad_mux pw_pwm3_grp1_pad_mux[] = {
 	MUX(1, 73, 4, N, N, N, N),
 };
 
-static struct atlas7_grp_mux pw_pwm_grp1_mux = {
-	.pad_mux_count = ARRAY_SIZE(pw_pwm_grp1_pad_mux),
-	.pad_mux_list = pw_pwm_grp1_pad_mux,
+static struct atlas7_grp_mux pw_pwm3_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm3_grp1_pad_mux),
+	.pad_mux_list = pw_pwm3_grp1_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_pwm_cpu_vol_grp0_pad_mux[] = {
+	MUX(1, 121, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_pwm_cpu_vol_grp0_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm_cpu_vol_grp0_pad_mux),
+	.pad_mux_list = pw_pwm_cpu_vol_grp0_pad_mux,
+};
+
+static struct atlas7_pad_mux pw_pwm_cpu_vol_grp1_pad_mux[] = {
+	MUX(1, 98, 3, N, N, N, N),
+};
+
+static struct atlas7_grp_mux pw_pwm_cpu_vol_grp1_mux = {
+	.pad_mux_count = ARRAY_SIZE(pw_pwm_cpu_vol_grp1_pad_mux),
+	.pad_mux_list = pw_pwm_cpu_vol_grp1_pad_mux,
 };
 
 static struct atlas7_pad_mux pw_backlight_grp0_pad_mux[] = {
@@ -3320,8 +3386,18 @@ static struct atlas7_pmx_func atlas7_pmx_functions[] = {
 	FUNCTION("pw_i2s01_clk_m1",
 			pw_i2s01_clk_grp1,
 			&pw_i2s01_clk_grp1_mux),
-	FUNCTION("pw_pwm_m0", pw_pwm_grp0, &pw_pwm_grp0_mux),
-	FUNCTION("pw_pwm_m1", pw_pwm_grp1, &pw_pwm_grp1_mux),
+	FUNCTION("pw_pwm0", pw_pwm0_grp, &pw_pwm0_grp_mux),
+	FUNCTION("pw_pwm1", pw_pwm1_grp, &pw_pwm1_grp_mux),
+	FUNCTION("pw_pwm2_m0", pw_pwm2_grp0, &pw_pwm2_grp0_mux),
+	FUNCTION("pw_pwm2_m1", pw_pwm2_grp1, &pw_pwm2_grp1_mux),
+	FUNCTION("pw_pwm3_m0", pw_pwm3_grp0, &pw_pwm3_grp0_mux),
+	FUNCTION("pw_pwm3_m1", pw_pwm3_grp1, &pw_pwm3_grp1_mux),
+	FUNCTION("pw_pwm_cpu_vol_m0",
+			pw_pwm_cpu_vol_grp0,
+			&pw_pwm_cpu_vol_grp0_mux),
+	FUNCTION("pw_pwm_cpu_vol_m1",
+			pw_pwm_cpu_vol_grp1,
+			&pw_pwm_cpu_vol_grp1_mux),
 	FUNCTION("pw_backlight_m0",
 			pw_backlight_grp0,
 			&pw_backlight_grp0_mux),

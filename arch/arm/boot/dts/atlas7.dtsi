@@ -796,17 +796,59 @@
 				};
 			};
 
-			pw_pwm_pmx0: pw_pwm@0 {
-				pw_pwm_0 {
-					sirf,pins = "pw_pwm_grp0";
-					sirf,function = "pw_pwm_m0";
+			pw_pwm0_pmx: pw_pwm0@0 {
+				pw_pwm0 {
+					sirf,pins = "pw_pwm0_grp";
+					sirf,function = "pw_pwm0";
 				};
 			};
 
-			pw_pwm_pmx1: pw_pwm@1 {
-				pw_pwm_1 {
-					sirf,pins = "pw_pwm_grp1";
-					sirf,function = "pw_pwm_m1";
+			pw_pwm1_pmx: pw_pwm1@0 {
+				pw_pwm1 {
+					sirf,pins = "pw_pwm1_grp";
+					sirf,function = "pw_pwm1";
+				};
+			};
+
+			pw_pwm2_pmx0: pw_pwm2@0 {
+				pw_pwm2_0 {
+					sirf,pins = "pw_pwm2_grp0";
+					sirf,function = "pw_pwm2_m0";
+				};
+			};
+
+			pw_pwm2_pmx1: pw_pwm2@1 {
+				pw_pwm2_1 {
+					sirf,pins = "pw_pwm2_grp1";
+					sirf,function = "pw_pwm2_m1";
+				};
+			};
+
+			pw_pwm3_pmx0: pw_pwm3@0 {
+				pw_pwm3_0 {
+					sirf,pins = "pw_pwm3_grp0";
+					sirf,function = "pw_pwm3_m0";
+				};
+			};
+
+			pw_pwm3_pmx1: pw_pwm3@1 {
+				pw_pwm3_1 {
+					sirf,pins = "pw_pwm3_grp1";
+					sirf,function = "pw_pwm3_m1";
+				};
+			};
+
+			pw_pwm_cpu_vol_pmx0: pw_pwm_cpu_vol@0 {
+				pw_pwm_cpu_vol_0 {
+					sirf,pins = "pw_pwm_cpu_vol_grp0";
+					sirf,function = "pw_pwm_cpu_vol_m0";
+				};
+			};
+
+			pw_pwm_cpu_vol_pmx1: pw_pwm_cpu_vol@1 {
+				pw_pwm_cpu_vol_1 {
+					sirf,pins = "pw_pwm_cpu_vol_grp1";
+					sirf,function = "pw_pwm_cpu_vol_m1";
 				};
 			};
 
