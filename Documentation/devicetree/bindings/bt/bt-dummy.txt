@@ -1,0 +1,9 @@
+Dummy bluetooth SCO and A2DP link codec
+
+Required properties:
+- compatible : "bt-sco", "bt-sco-a2dp"
+
+Example:
+	external_bt {
+		compatible = "bt-sco-a2dp";
+	};
