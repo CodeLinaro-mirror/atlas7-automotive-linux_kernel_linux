@@ -7,20 +7,20 @@
  */
 
 / {
-	bt_sco: bt_sco@0 {
+	bt_sco_a2dp: bt-sco-a2dp {
 		#sound-dai-cells = <0>;
-		compatible = "bt-sco";
+		compatible = "bt-sco-a2dp";
 		status = "okay";
 	};
 
-	sirf-bt-sco {
+	sirf-bt-sco-a2dp {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "dsp_a";
 		simple-audio-card,cpu {
 		sound-dai = <&usp1>;
 		};
 		simple-audio-card,codec {
-			sound-dai = <&bt_sco>;
+			sound-dai = <&bt_sco_a2dp>;
 			bitclock-master;
 			frame-master;
 		};
@@ -60,4 +60,3 @@
 		};
 	};
 };
-
