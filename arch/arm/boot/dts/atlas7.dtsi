@@ -44,7 +44,7 @@
 
 	arm-pmu {
 		compatible = "arm,cortex-a7-pmu";
-		interrupt = <29>;
+		interrupts = <0 29 4>, <0 82 4>;
 	};
 
 	noc {
