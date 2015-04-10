@@ -9,5 +9,8 @@ struct kalimba {
 	struct clk *clk_audmscm;
 	struct clk *clk_gpum;
 	struct ipc_data *ipc_data;
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
+	struct device *debug_dev;
+#endif
 };
 #endif /* _KAS_DSP_H */

@@ -12,6 +12,9 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
+#include "debug.h"
+#endif
 #include "dsp.h"
 #include "ipc.h"
 #include "regs.h"
@@ -93,6 +96,13 @@ static int kalimba_probe(struct platform_device *pdev)
 	ret = ipc_init(pdev);
 	if (ret != 0)
 		goto kalimba_reset_failed;
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
+	ret = debug_init(pdev);
+	if (ret != 0) {
+		dev_err(&pdev->dev, "Initialize debug interface failed.\n");
+		goto kalimba_reset_failed;
+	}
+#endif
 	return 0;
 
 kalimba_reset_failed:
@@ -112,6 +122,9 @@ static int kalimba_remove(struct platform_device *pdev)
 	clk_disable_unprepare(kalimba->clk_audmscm);
 	clk_disable_unprepare(kalimba->clk_kas);
 
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
+	debug_deinit(pdev);
+#endif
 	return 0;
 }
 
