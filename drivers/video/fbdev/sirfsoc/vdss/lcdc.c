@@ -1896,8 +1896,15 @@ static void lcdc_err_worker(struct work_struct *work)
 		if (bit & errors) {
 			VDSSERR("FIFO exception on %s,disable the layer\n",
 				l->name);
+			/*
+			* Fix me. Temporarily, do not disable layer
+			* when underflow and overflow happen.
+			* Need to fix later.
+			*/
+#if 0
 			l->disable(l);
 			msleep(50);
+#endif
 		}
 	}
 
