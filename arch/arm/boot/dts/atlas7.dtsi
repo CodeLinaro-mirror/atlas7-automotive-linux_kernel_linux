@@ -1525,7 +1525,8 @@
 				#interrupt-cells = <2>;
 				compatible = "sirf,atlas7-gpio";
 				reg = <0x13300000 0x1000>;
-				interrupts = <0 43 0>, <0 44 0>, <0 45 0>;
+				interrupts = <0 43 0>, <0 44 0>,
+						<0 45 0>, <0 46 0>;
 				clocks = <&car 84>;
 				clock-names = "gpio1_io";
 				gpio-controller;
