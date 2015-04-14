@@ -1765,6 +1765,7 @@
 			};
 
 			dmac3: dma-controller@10d60000 {
+				status = "disabled";	/* Kalimba takes over */
 				cell-index = <3>;
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d60000 0xffff>;

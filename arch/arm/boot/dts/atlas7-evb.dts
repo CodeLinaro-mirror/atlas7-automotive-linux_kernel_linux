@@ -71,6 +71,7 @@
 	};
 
 	sound-internal-audio {
+		status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,routing =
 			"Headphone Jack", "LOUT0",
@@ -90,6 +91,14 @@
 		simple-audio-card,cpu {
 			sound-dai = <&atlas7_iacc>;
 		};
+	};
+
+	kas-pcm-audio {
+		compatible = "csr,kas-pcm";
+	};
+
+	sound-kas-audio-card {
+		compatible = "csr,kas-audio";
 	};
 
 	reserved-memory {
@@ -360,7 +369,7 @@
 			};
 
 			uart0: uart@18010000 {
-				status = "disabled";
+				status = "okay";	/* Kalimba debug */
 				pinctrl-0 = <&uart0_pmx>;
 				pinctrl-names = "default";
 				sirf,uart-has-rtscts;
