@@ -1830,12 +1830,11 @@
 			};
 			uart6: uart@11000000 {
 				cell-index = <6>;
-				compatible = "sirf,atlas7-bt-uart",
-						"sirf,atlas7-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x11000000 0x1000>;
 				interrupts = <0 100 0>;
-				clocks = <&car 131>, <&car 133>, <&car 134>;
-				clock-names = "uart", "general", "noc";
+				clocks = <&car 131>;
+				clock-names = "uart";
 				fifosize = <128>;
 				dmas = <&dmac4 12>, <&dmac4 13>;
 				dma-names = "rx", "tx";
