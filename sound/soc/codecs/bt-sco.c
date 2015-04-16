@@ -35,11 +35,31 @@ static struct snd_soc_dai_driver bt_sco_dai = {
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 	.capture = {
-		 .stream_name = "Capture",
+		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 1,
 		.rates = SNDRV_PCM_RATE_8000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+};
+
+static struct snd_soc_dai_driver bt_sco_a2dp_dai = {
+	.name = "bt-sco-a2dp-pcm",
+	.playback = {
+		.stream_name = "Playback",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			SNDRV_PCM_FMTBIT_S24_3LE,
+	},
+	.capture = {
+		.stream_name = "Capture",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			SNDRV_PCM_FMTBIT_S24_3LE,
 	},
 };
 
@@ -52,8 +72,11 @@ static struct snd_soc_codec_driver soc_codec_dev_bt_sco = {
 
 static int bt_sco_probe(struct platform_device *pdev)
 {
+	struct snd_soc_dai_driver *dai = (struct snd_soc_dai_driver *)
+		platform_get_device_id(pdev)->driver_data;
+
 	return snd_soc_register_codec(&pdev->dev, &soc_codec_dev_bt_sco,
-			&bt_sco_dai, 1);
+			dai, 1);
 }
 
 static int bt_sco_remove(struct platform_device *pdev)
@@ -63,20 +86,18 @@ static int bt_sco_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
-static const struct of_device_id bt_sco_of_match[] = {
-	{ .compatible = "bt-sco", },
-	{}
-};
-MODULE_DEVICE_TABLE(of, bt_sco_of_match);
-#endif
-
 static struct platform_device_id bt_sco_driver_ids[] = {
 	{
-		.name		= "dfbmcs320",
+		.name = "dfbmcs320",
+		.driver_data = (kernel_ulong_t)&bt_sco_dai,
 	},
 	{
-		.name		= "bt-sco",
+		.name = "bt-sco",
+		.driver_data = (kernel_ulong_t)&bt_sco_dai,
+	},
+	{
+		.name = "bt-sco-a2dp",
+		.driver_data = (kernel_ulong_t)&bt_sco_a2dp_dai,
 	},
 	{},
 };
@@ -86,9 +107,6 @@ static struct platform_driver bt_sco_driver = {
 	.driver = {
 		.name = "bt-sco",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
-		.of_match_table = bt_sco_of_match,
-#endif
 	},
 	.probe = bt_sco_probe,
 	.remove = bt_sco_remove,

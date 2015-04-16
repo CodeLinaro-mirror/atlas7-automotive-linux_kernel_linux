@@ -759,6 +759,26 @@ void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	lcdc_write_reg(lcdc_index, S0_TV_FIELD, s0_tv_field);
 }
 
+void lcdc_screen_set_gamma(u32 lcdc_index, enum vdss_screen scn_id,
+	const u8 *gamma)
+{
+	int i;
+	u32 *pval;
+	u32 s0_disp_mode = 0x0;
+
+	s0_disp_mode = lcdc_read_reg(lcdc_index, S0_DISP_MODE);
+	s0_disp_mode &= ~S0_GAMMA_COR_EN;
+	s0_disp_mode |= S0_FRAME_VALID;
+	lcdc_write_reg(lcdc_index, S0_DISP_MODE, s0_disp_mode);
+
+	pval = (u32 *)gamma;
+	for (i = 0; i < 256 * 3; i += 4)
+		lcdc_write_reg(lcdc_index, S0_GAMMAFIFO_R + i, pval[i>>2]);
+	s0_disp_mode |= S0_GAMMA_COR_EN;
+	s0_disp_mode |= S0_FRAME_VALID;
+	lcdc_write_reg(lcdc_index, S0_DISP_MODE, s0_disp_mode);
+}
+
 void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
 	const struct sirfsoc_vdss_screen_info *info)
 {

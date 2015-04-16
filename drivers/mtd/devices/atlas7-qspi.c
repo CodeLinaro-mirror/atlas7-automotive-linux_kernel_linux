@@ -1069,6 +1069,12 @@ atlas7_qspi_nor_jedec_probe(struct atlas7_qspi_nor *a7nor)
 	return NULL;
 }
 
+static int atlas7_qspi_is_xip(struct atlas7_qspi_nor *a7nor)
+{
+	return readl(a7nor->base + ATLAS7_QSPI_XOTF_EN) &
+			ATLAS7_QSPI_XOTF_ACTIVATED;
+}
+
 static int atlas7_qspi_nor_hw_init(struct atlas7_qspi_nor *a7nor)
 {
 	mutex_lock(&a7nor->lock);
@@ -1153,6 +1159,16 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 			"Failed to reserve memory region %pR\n", res);
 		ret = PTR_ERR(a7nor->base);
 		goto err;
+	}
+
+	/*
+	* if the QSPI is on XIP mode, M3 is run on it,
+	* a7 should not use qspi.
+	*/
+	if (atlas7_qspi_is_xip(a7nor)) {
+		dev_err(&pdev->dev,
+			"The QSPI is on XIP mode.\n");
+		return -EBUSY;
 	}
 
 	init_completion(&a7nor->tx_av);

@@ -24,6 +24,10 @@ static struct sirfsoc_vdss_screen *screens[NUM_LCDC];
 static int num_layers[NUM_LCDC];
 static struct sirfsoc_vdss_layer *layers[NUM_LCDC];
 
+#define SCREEN_TIMING		BIT(0)
+#define SCREEN_DATALINES	BIT(1)
+#define SCREEN_GAMMA		BIT(2)
+
 int sirfsoc_vdss_get_num_screens(u32 lcdc_index)
 {
 	return num_screens[lcdc_index];
@@ -117,11 +121,12 @@ struct screen_priv_data {
 	/* If true, a display is enabled using this manager */
 	bool enabled;
 
-	bool extra_info_dirty;
+	int extra_info_dirty;
 	bool shadow_extra_info_dirty;
 
 	struct sirfsoc_video_timings timings;
 	int data_lines;
+	u8 gamma[256 * 3];
 };
 
 static struct {
@@ -249,9 +254,16 @@ static void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
 	if (!sdata->extra_info_dirty)
 		return;
 
-	lcdc_screen_set_timings(scn->lcdc_id, scn->id, &sdata->timings);
+	if (sdata->extra_info_dirty & SCREEN_TIMING) {
+		lcdc_screen_set_timings(scn->lcdc_id, scn->id, &sdata->timings);
+		sdata->extra_info_dirty &= ~SCREEN_TIMING;
+	}
 
-	sdata->extra_info_dirty = false;
+	if (sdata->extra_info_dirty & SCREEN_GAMMA) {
+		lcdc_screen_set_gamma(scn->lcdc_id, scn->id, &sdata->gamma[0]);
+		sdata->extra_info_dirty &= ~SCREEN_GAMMA;
+	}
+
 	if (sdata->updating)
 		sdata->shadow_extra_info_dirty = true;
 }
@@ -682,9 +694,51 @@ void vdss_screen_set_timings(struct sirfsoc_vdss_screen *scn,
 	}
 
 	sdata->timings = *timings;
-	sdata->extra_info_dirty = true;
+	sdata->extra_info_dirty |= SCREEN_TIMING;
 out:
 	spin_unlock_irqrestore(&data_lock, flags);
+}
+
+int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
+	const u8 *gamma)
+{
+	int i;
+	struct screen_priv_data *sdata = get_screen_data(scn);
+	unsigned long flags;
+
+	if (gamma == NULL)
+		return -EFAULT;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	for (i = 0; i < 256 * 3; i++)
+		sdata->gamma[i] = *(gamma + i);
+
+	sdata->extra_info_dirty |= SCREEN_GAMMA;
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	return 0;
+}
+
+int vdss_screen_get_gamma(struct sirfsoc_vdss_screen *scn,
+	u8 *gamma)
+{
+	int i;
+	struct screen_priv_data *sdata = get_screen_data(scn);
+	unsigned long flags;
+
+	if (gamma == NULL)
+		return -EFAULT;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	for (i = 0; i < 256 * 3; i++)
+		*(gamma + i) = sdata->gamma[i];
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	return 0;
 }
 
 void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
@@ -702,7 +756,7 @@ void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	}
 
 	sdata->data_lines = data_lines;
-	sdata->extra_info_dirty = true;
+	sdata->extra_info_dirty |= SCREEN_DATALINES;
 out:
 	spin_unlock_irqrestore(&data_lock, flags);
 }
@@ -863,12 +917,19 @@ int vdss_init_screens(u32 lcdc_index)
 		sdata->user_info.top_layer = SIRFSOC_VDSS_LAYER3;
 		sdata->user_info.back_color = 0;
 		sdata->user_info_dirty = true;
+		for (i = 0; i < 256; i++) {
+			sdata->gamma[i] = i;
+			sdata->gamma[256 + i] = i;
+			sdata->gamma[512 + i] = i;
+		}
 		scn->caps = 0;
 		INIT_LIST_HEAD(&scn->layers);
 		scn->apply = sirfsoc_vdss_screen_apply;
 		scn->set_info = vdss_screen_set_info;
 		scn->get_info = vdss_screen_get_info;
 		scn->wait_for_vsync = vdss_screen_wait_for_vsync;
+		scn->set_gamma = vdss_screen_set_gamma;
+		scn->get_gamma = vdss_screen_get_gamma;
 	}
 
 	return 0;

@@ -44,7 +44,7 @@
 
 	arm-pmu {
 		compatible = "arm,cortex-a7-pmu";
-		interrupt = <29>;
+		interrupts = <0 29 4>, <0 82 4>;
 	};
 
 	noc {
@@ -796,17 +796,59 @@
 				};
 			};
 
-			pw_pwm_pmx0: pw_pwm@0 {
-				pw_pwm_0 {
-					sirf,pins = "pw_pwm_grp0";
-					sirf,function = "pw_pwm_m0";
+			pw_pwm0_pmx: pw_pwm0@0 {
+				pw_pwm0 {
+					sirf,pins = "pw_pwm0_grp";
+					sirf,function = "pw_pwm0";
 				};
 			};
 
-			pw_pwm_pmx1: pw_pwm@1 {
-				pw_pwm_1 {
-					sirf,pins = "pw_pwm_grp1";
-					sirf,function = "pw_pwm_m1";
+			pw_pwm1_pmx: pw_pwm1@0 {
+				pw_pwm1 {
+					sirf,pins = "pw_pwm1_grp";
+					sirf,function = "pw_pwm1";
+				};
+			};
+
+			pw_pwm2_pmx0: pw_pwm2@0 {
+				pw_pwm2_0 {
+					sirf,pins = "pw_pwm2_grp0";
+					sirf,function = "pw_pwm2_m0";
+				};
+			};
+
+			pw_pwm2_pmx1: pw_pwm2@1 {
+				pw_pwm2_1 {
+					sirf,pins = "pw_pwm2_grp1";
+					sirf,function = "pw_pwm2_m1";
+				};
+			};
+
+			pw_pwm3_pmx0: pw_pwm3@0 {
+				pw_pwm3_0 {
+					sirf,pins = "pw_pwm3_grp0";
+					sirf,function = "pw_pwm3_m0";
+				};
+			};
+
+			pw_pwm3_pmx1: pw_pwm3@1 {
+				pw_pwm3_1 {
+					sirf,pins = "pw_pwm3_grp1";
+					sirf,function = "pw_pwm3_m1";
+				};
+			};
+
+			pw_pwm_cpu_vol_pmx0: pw_pwm_cpu_vol@0 {
+				pw_pwm_cpu_vol_0 {
+					sirf,pins = "pw_pwm_cpu_vol_grp0";
+					sirf,function = "pw_pwm_cpu_vol_m0";
+				};
+			};
+
+			pw_pwm_cpu_vol_pmx1: pw_pwm_cpu_vol@1 {
+				pw_pwm_cpu_vol_1 {
+					sirf,pins = "pw_pwm_cpu_vol_grp1";
+					sirf,function = "pw_pwm_cpu_vol_m1";
 				};
 			};
 
@@ -1208,6 +1250,7 @@
 				<0x18040000 0x18040000 0x1000>,
 				<0x18050000 0x18050000 0x1000>,
 				<0x18060000 0x18060000 0x1000>,
+				<0x180b0000 0x180b0000 0x4000>,
 				<0x18100000 0x18100000 0x3000>,
 				<0x18250000 0x18250000 0x10000>,
 				<0x18200000 0x18200000 0x1000>;
@@ -1288,6 +1331,18 @@
 				dmas = <&dmac0 8>, <&dmac0 9>;
 				dma-names = "rx", "tx";
 				status = "disabled";
+			};
+			gmac: eth@180b0000 {
+				compatible = "snps, dwc-eth-qos";
+				reg = <0x180b0000 0x4000>;
+				interrupts = <0 59 0>;
+				interrupt-names = "macirq";
+				clocks = <&car 39>, <&car 45>,
+				       <&car 86>, <&car 87>;
+				clock-names = "gnssm_rgmii", "gnssm_gmac",
+					"rgmii", "gmac";
+				local-mac-address = [00 00 00 00 00 00];
+				phy-mode = "rgmii";
 			};
 			dspub@18250000 {
 				compatible = "dx,cc44p";
@@ -1510,7 +1565,8 @@
 				#interrupt-cells = <2>;
 				compatible = "sirf,atlas7-gpio";
 				reg = <0x13300000 0x1000>;
-				interrupts = <0 43 0>, <0 44 0>, <0 45 0>;
+				interrupts = <0 43 0>, <0 44 0>,
+						<0 45 0>, <0 46 0>;
 				clocks = <&car 84>;
 				clock-names = "gpio1_io";
 				gpio-controller;
@@ -1772,12 +1828,11 @@
 			};
 			uart6: uart@11000000 {
 				cell-index = <6>;
-				compatible = "sirf,atlas7-bt-uart",
-						"sirf,atlas7-uart";
+				compatible = "sirf,atlas7-uart";
 				reg = <0x11000000 0x1000>;
 				interrupts = <0 100 0>;
-				clocks = <&car 131>, <&car 133>, <&car 134>;
-				clock-names = "uart", "general", "noc";
+				clocks = <&car 131>;
+				clock-names = "uart";
 				fifosize = <128>;
 				dmas = <&dmac4 12>, <&dmac4 13>;
 				dma-names = "rx", "tx";
