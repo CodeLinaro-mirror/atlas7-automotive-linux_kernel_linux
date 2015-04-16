@@ -23,8 +23,8 @@ For example, pinctrl might have properties like the following:
 
 			a_ac97_pmx: ac97@0 {
 				ac97 {
-					sirf,pins = "audio_ac97_grp";
-					sirf,function = "audio_ac97";
+					groups = "audio_ac97_grp";
+					function = "audio_ac97";
 				};
 			};
 
@@ -32,8 +32,8 @@ For example, pinctrl might have properties like the following:
 
 			sd2_pmx: sd2@0 {
 				sd2 {
-					sirf,pins = "sd2_grp0";
-					sirf,function = "sd2";
+					groups = "sd2_grp0";
+					function = "sd2";
 				};
 			};
 
@@ -59,8 +59,8 @@ SiRFatlas7's pinmux nodes act as a container for an abitrary number of subnodes.
 Each of these subnodes represents some desired configuration for a group of pins.
 
 Required subnode-properties:
-- sirf,pins : An array of strings. Each string contains the name of a group.
-- sirf,function: A string containing the name of the function to mux to the
+- groups : An array of strings. Each string contains the name of a group.
+- function: A string containing the name of the function to mux to the
   group.
 
   Valid values for group and function names can be found from looking at the
@@ -70,22 +70,22 @@ Required subnode-properties:
 For example, pinctrl might have subnodes like the following:
 	sd0_pmx: sd0@0 {
 		sd0 {
-			sirf,pins = "sd0_grp";
-			sirf,function = "sd0";
+			groups = "sd0_grp";
+			function = "sd0";
 		};
 	};
 
 	sd1_pmx0: sd1@0 {
 		sd1 {
-			sirf,pins = "sd1_grp0";
-			sirf,function = "sd1_m0";
+			groups = "sd1_grp0";
+			function = "sd1_m0";
 		};
 	};
 
 	sd1_pmx1: sd1@1 {
 		sd1 {
-			sirf,pins = "sd1_grp1";
-			sirf,function = "sd1_m1";
+			groups = "sd1_grp1";
+			function = "sd1_m1";
 		};
 	};
 

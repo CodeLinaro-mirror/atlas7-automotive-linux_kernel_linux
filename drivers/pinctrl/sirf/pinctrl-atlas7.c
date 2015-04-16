@@ -25,6 +25,7 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/pinctrl/pinconf-generic.h>
 #include <linux/gpio.h>
 
 /* Definition of Pad&Mux Properties */
@@ -3928,47 +3929,8 @@ static int atlas7_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 					struct pinctrl_map **map,
 					u32 *num_maps)
 {
-	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
-	struct device_node *np;
-	struct property *prop;
-	const char *function, *group;
-	int ret, index = 0, count = 0;
-
-	/* calculate number of maps required */
-	for_each_child_of_node(np_config, np) {
-		ret = of_property_read_string(np, "sirf,function", &function);
-		if (ret < 0)
-			return ret;
-
-		ret = of_property_count_strings(np, "sirf,pins");
-		if (ret < 0)
-			return ret;
-
-		count += ret;
-	}
-
-	if (!count) {
-		dev_err(pmx->dev, "No child nodes passed via DT\n");
-		return -ENODEV;
-	}
-
-	*map = kcalloc(count, sizeof(**map), GFP_KERNEL);
-	if (!*map)
-		return -ENOMEM;
-
-	for_each_child_of_node(np_config, np) {
-		of_property_read_string(np, "sirf,function", &function);
-		of_property_for_each_string(np, "sirf,pins", prop, group) {
-			(*map)[index].type = PIN_MAP_TYPE_MUX_GROUP;
-			(*map)[index].data.mux.group = group;
-			(*map)[index].data.mux.function = function;
-			index++;
-		}
-	}
-
-	*num_maps = count;
-
-	return 0;
+	return pinconf_generic_dt_node_to_map(pctldev, np_config, map,
+				num_maps, PIN_MAP_TYPE_CONFIGS_GROUP);
 }
 
 static void atlas7_pinctrl_dt_free_map(struct pinctrl_dev *pctldev,
