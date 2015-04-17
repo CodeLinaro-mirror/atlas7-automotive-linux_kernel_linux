@@ -79,6 +79,8 @@ config EVENT_TRACING
 
 config GPU_TRACEPOINTS
 	bool
+	depends on TRACEPOINTS
+	default y
 
 config CONTEXT_SWITCH_TRACER
 	bool
