@@ -50,13 +50,12 @@ static inline void  rtcm_clkc_writel(u32 val, unsigned reg)
 static struct clk_onecell_data rtcmclk_data;
 	/* new unit should add start from the tail of list */
 static struct atlas7_unit_init_data rtcm_unit_list[] = {
-	/* unit_name, parent_name, flags, regofs, bit, lock */
 	{0, "m3", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_M3_CLK_SEL, 0, NULL},
+		SIRFSOC_RTCM_CLKC_M3_CLK_SEL, 0, 0, 0, NULL},
 	{1, "can0", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL, 0, NULL},
+		SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL, 0, 0, 0, NULL},
 	{2, "qspi0", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, NULL},
+		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, 0, 0, NULL},
 };
 /*AOPD clk controller*/
 

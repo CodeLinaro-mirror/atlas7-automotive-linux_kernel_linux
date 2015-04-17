@@ -27,10 +27,9 @@ static DEFINE_SPINLOCK(audio_gate_lock);
 
 /*audio clk controller*/
 static struct atlas7_unit_init_data audio_unit_list[] = {
-	/* unit_name, parent_name, flags, regofs, bit, lock */
 	{0, "codec_iacc", "xin", 0,
-		SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL, 11,
-		&audio_gate_lock},
+		SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL, 11, 0,
+		0, &audio_gate_lock},
 };
 
 static struct clk *audio_clks[ARRAY_SIZE(audio_unit_list)];

@@ -200,6 +200,12 @@
 #define SIRFSOC_CLKC_LEAF_CLK_EN7_SET        0x0530
 #define SIRFSOC_CLKC_LEAF_CLK_EN8_SET        0x0548
 
+#define SIRFSOC_NOC_CLK_IDLEREQ_SET		0x02D0
+#define SIRFSOC_NOC_CLK_IDLEREQ_CLR		0x02D4
+#define SIRFSOC_NOC_CLK_SLVRDY_SET		0x02E8
+#define SIRFSOC_NOC_CLK_SLVRDY_CLR		0x02EC
+#define SIRFSOC_NOC_CLK_IDLE_STATUS		0x02F4
+
 /*RTCM clock*/
 #define SIRFSOC_RTCM_CLKC_PLL_CTRL		0x28
 #define SIRFSOC_RTCM_CLKC_M3_CLK_SEL		0x8C
@@ -224,10 +230,18 @@ struct clk_dto {
 };
 #define to_dtoclk(_hw) container_of(_hw, struct clk_dto, hw)
 
+enum clk_unit_type {
+	CLK_UNIT_NOC_OTHER,
+	CLK_UNIT_NOC_CLOCK,
+	CLK_UNIT_NOC_SOCKET,
+};
+
 struct clk_unit {
 	struct clk_hw hw;
 	unsigned short regofs;
 	unsigned short bit;
+	u32 type;
+	u8 idle_bit;
 	spinlock_t *lock;
 };
 #define to_unitclk(_hw) container_of(_hw, struct clk_unit, hw)
@@ -265,6 +279,8 @@ struct atlas7_unit_init_data {
 	unsigned long flags;
 	u32 regofs;
 	u8 bit;
+	u32 type;
+	u8 idle_bit;
 	spinlock_t *lock;
 };
 
