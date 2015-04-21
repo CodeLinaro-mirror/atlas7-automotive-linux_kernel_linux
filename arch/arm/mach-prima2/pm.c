@@ -490,9 +490,11 @@ static struct platform_driver sirfsoc_sysctl_driver = {
 
 int __init sirfsoc_pm_init(void)
 {
+	struct platform_device_info devinfo = { .name = "cpufreq-dt", };
+
 	platform_driver_register(&sirfsoc_sysctl_driver);
 	pm_power_off = sirfsoc_pm_power_off;
 	suspend_set_ops(&sirfsoc_pm_ops);
-
+	platform_device_register_full(&devinfo);
 	return 0;
 }

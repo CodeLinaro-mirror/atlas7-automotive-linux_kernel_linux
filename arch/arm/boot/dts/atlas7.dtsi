@@ -34,6 +34,16 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0>;
+			clocks = <&car 146>;
+			cpu0-supply = <&vdd_cpu>;
+			voltage-tolerance = <2>;
+			operating-points = <
+			/* kHz    uV */
+			793000	1260000
+			26000	1188000
+			>;
+			clock-latency = <150000>;
+
 		};
 		cpu@1 {
 			device_type = "cpu";
