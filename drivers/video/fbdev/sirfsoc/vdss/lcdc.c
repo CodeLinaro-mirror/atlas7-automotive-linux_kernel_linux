@@ -719,9 +719,7 @@ void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	so_act_vend += so_act_vstart + timings->yres - 1;
 	lcdc_write_reg(lcdc_index, S0_ACT_VEND, so_act_vend);
 
-	s0_disp_mode = S0_TOP_LAYER(3) |
-		S0_OUT_FORMAT(LCDC_OUT_24BIT_RBG888) |
-		S0_FRAME_VALID;
+	s0_disp_mode = S0_TOP_LAYER(3) | S0_FRAME_VALID;
 	lcdc_write_reg(lcdc_index, S0_DISP_MODE, s0_disp_mode);
 
 	lcdc_write_reg(lcdc_index, BLS_CTRL1, (timings->xres << 20) |
@@ -757,6 +755,30 @@ void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	}
 	lcdc_write_reg(lcdc_index, S0_YUV_CTRL, s0_yuv_ctrl);
 	lcdc_write_reg(lcdc_index, S0_TV_FIELD, s0_tv_field);
+}
+
+void lcdc_screen_set_data_lines(u32 lcdc_index, enum vdss_screen scn_id,
+	int data_lines)
+{
+	u32 s0_disp_mode = 0x0;
+
+	s0_disp_mode = lcdc_read_reg(lcdc_index, S0_DISP_MODE);
+
+	switch (data_lines) {
+	case 16:
+	case 18:
+		s0_disp_mode |= S0_OUT_FORMAT(LCDC_OUT_18BIT_RBG666);
+		break;
+	case 24:
+		s0_disp_mode |= S0_OUT_FORMAT(LCDC_OUT_24BIT_RBG888);
+		break;
+	default:
+		BUG();
+		return;
+	}
+
+	s0_disp_mode |= S0_FRAME_VALID;
+	lcdc_write_reg(lcdc_index, S0_DISP_MODE, s0_disp_mode);
 }
 
 void lcdc_screen_set_gamma(u32 lcdc_index, enum vdss_screen scn_id,
@@ -797,7 +819,8 @@ void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
 	lcdc_write_reg(lcdc_index, S0_DISP_MODE, s0_disp_mode);
 }
 
-static void lcdc_output_configure_pins(u32 lcdc_index, bool hdmi)
+static void lcdc_output_configure_pins(u32 lcdc_index,
+	bool hdmi, int data_lines)
 {
 	/* atlas7: can't use default value any more */
 	if (!lcdc[lcdc_index].is_atlas7)
@@ -829,24 +852,23 @@ static void lcdc_output_configure_pins(u32 lcdc_index, bool hdmi)
 		lcdc_write_reg(lcdc_index, PADMUX_LDD_21, 0x20);
 		lcdc_write_reg(lcdc_index, PADMUX_LDD_22, 0x40);
 		lcdc_write_reg(lcdc_index, PADMUX_LDD_23, 0x80);
-	} else {
-		/* lvds or rgb setting */
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x80000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x100000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x400000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x800);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x400);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x2000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x800000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x8000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x200000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x4000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x10);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x1000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x40);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x80);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x8);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x20);
+	} else if (data_lines == 16) {
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x800);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x1000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x4000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x40);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x20);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x100);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x8000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x400);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x2000);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x200);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x2);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x80);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x8);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x10);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x1);
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x4);
 	}
 }
 
@@ -1343,7 +1365,8 @@ static int lvds_connect(struct sirfsoc_vdss_output *out,
 
 	lvdsc_select_src(out->lcdc_id);
 
-	lcdc_output_configure_pins(out->lcdc_id, false);
+	lcdc_output_configure_pins(out->lcdc_id, false,
+		dst->phy.lvds.data_lines);
 
 	return 0;
 }
@@ -1517,7 +1540,7 @@ static int rgb_connect(struct sirfsoc_vdss_output *out,
 	}
 
 	lcdc_output_configure_pins(out->lcdc_id,
-		dst->type == SIRFSOC_PANEL_HDMI);
+		dst->type == SIRFSOC_PANEL_HDMI, dst->phy.rgb.data_lines);
 
 	return 0;
 }

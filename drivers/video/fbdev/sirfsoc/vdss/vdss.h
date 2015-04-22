@@ -61,6 +61,8 @@ int lcdc_init_platform_driver(void) __init;
 void lcdc_uninit_platform_driver(void);
 void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	const struct sirfsoc_video_timings *timings);
+void lcdc_screen_set_data_lines(u32 lcdc_index, enum vdss_screen scn_id,
+	int data_lines);
 void lcdc_screen_set_gamma(u32 lcdc_index, enum vdss_screen scn_id,
 	const u8 *gamma);
 void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,

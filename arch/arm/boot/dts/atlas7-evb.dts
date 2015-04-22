@@ -469,7 +469,7 @@
 			source = "rgb.0";
 			status = "disabled";
 
-			data-lines  = <24>;
+			data-lines  = <16>;
 
 			display-timings {
 				native-mode = <&timing0>;

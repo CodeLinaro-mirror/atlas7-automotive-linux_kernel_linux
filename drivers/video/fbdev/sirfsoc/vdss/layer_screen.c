@@ -25,7 +25,7 @@ static int num_layers[NUM_LCDC];
 static struct sirfsoc_vdss_layer *layers[NUM_LCDC];
 
 #define SCREEN_TIMING		BIT(0)
-#define SCREEN_DATALINES	BIT(1)
+#define SCREEN_DATA_LINES	BIT(1)
 #define SCREEN_GAMMA		BIT(2)
 
 int sirfsoc_vdss_get_num_screens(u32 lcdc_index)
@@ -257,6 +257,12 @@ static void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
 	if (sdata->extra_info_dirty & SCREEN_TIMING) {
 		lcdc_screen_set_timings(scn->lcdc_id, scn->id, &sdata->timings);
 		sdata->extra_info_dirty &= ~SCREEN_TIMING;
+	}
+
+	if (sdata->extra_info_dirty & SCREEN_DATA_LINES) {
+		lcdc_screen_set_data_lines(scn->lcdc_id, scn->id,
+			sdata->data_lines);
+		sdata->extra_info_dirty &= ~SCREEN_DATA_LINES;
 	}
 
 	if (sdata->extra_info_dirty & SCREEN_GAMMA) {
@@ -756,7 +762,7 @@ void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	}
 
 	sdata->data_lines = data_lines;
-	sdata->extra_info_dirty |= SCREEN_DATALINES;
+	sdata->extra_info_dirty |= SCREEN_DATA_LINES;
 out:
 	spin_unlock_irqrestore(&data_lock, flags);
 }
