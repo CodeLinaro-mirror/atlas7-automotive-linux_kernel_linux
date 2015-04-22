@@ -1506,6 +1506,7 @@
 				interrupts = <0 72 0>,
 					<0 73 0>;
 				clocks = <&car 103>;
+				resets = <&car 54>;
 			};
 			usb0: usb@17060000 {
 				cell-index = <0>;

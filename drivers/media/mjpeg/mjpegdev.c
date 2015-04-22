@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 
 #include "mjpegdev.h"
 
@@ -199,6 +200,8 @@ static void jpeg_set_default(struct jpeg_codec_param *param)
 	codec_mode.s_code_mode.enc_dec_mode = 1;
 	codec_mode.s_code_mode.jpeg_color_format = 0;
 	codec_mode.s_code_mode.standard = 2;
+
+	device_reset(jpeg.dev);
 
 	if (param->yuv_format == JPEG_PATH_FORMAT_422)
 		codec_mode.s_code_mode.inout_color_format = 0;
@@ -540,6 +543,7 @@ static long jpeg_go(struct jpeg_codec_param *param)
 		vlc_stat = read_reg(REGISTER_VLC_VLCD_LOADED);
 	}
 	int_stat = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
+	write_reg(REGISTER_JPEG_INT_CTRL_STAT, 0);
 	write_reg(REGISTER_CONVERTER_RESET, 0x00000001);
 	write_reg(REGISTER_CODEC_JPEG_GO, 1);
 	return 0;
@@ -702,9 +706,9 @@ static irqreturn_t jpeg_irq_handler(int irq, void *data)
 	unsigned long read_data;
 
 	intr_info = (struct dev_intr_info *)data;
-	complete(&jpeg.jpeg_info.ready);
 	read_data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 	write_reg(REGISTER_JPEG_INT_CTRL_STAT, 0x0000001F);
+	complete(&jpeg.jpeg_info.ready);
 
 	return IRQ_HANDLED;
 }
@@ -755,6 +759,7 @@ static int jpeg_probe(struct platform_device *pdev)
 	if (ret)
 		goto ERROR;
 
+	jpeg.dev = &(pdev->dev);
 	mutex_init(&jpeg.pool_lock);
 	jpeg.devno = devno;
 	platform_set_drvdata(pdev, &jpeg);
