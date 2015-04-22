@@ -27,6 +27,7 @@ static struct sirfsoc_vdss_layer *layers[NUM_LCDC];
 #define SCREEN_TIMING		BIT(0)
 #define SCREEN_DATA_LINES	BIT(1)
 #define SCREEN_GAMMA		BIT(2)
+#define SCREEN_ERROR_DIFFUSION	BIT(3)
 
 int sirfsoc_vdss_get_num_screens(u32 lcdc_index)
 {
@@ -127,6 +128,7 @@ struct screen_priv_data {
 	struct sirfsoc_video_timings timings;
 	int data_lines;
 	u8 gamma[256 * 3];
+	bool error_diffusion;
 };
 
 static struct {
@@ -268,6 +270,12 @@ static void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
 	if (sdata->extra_info_dirty & SCREEN_GAMMA) {
 		lcdc_screen_set_gamma(scn->lcdc_id, scn->id, &sdata->gamma[0]);
 		sdata->extra_info_dirty &= ~SCREEN_GAMMA;
+	}
+
+	if (sdata->extra_info_dirty & SCREEN_ERROR_DIFFUSION) {
+		lcdc_screen_set_error_diffusion(scn->lcdc_id, scn->id,
+			sdata->data_lines, sdata->error_diffusion);
+		sdata->extra_info_dirty &= ~SCREEN_ERROR_DIFFUSION;
 	}
 
 	if (sdata->updating)
@@ -747,6 +755,20 @@ int vdss_screen_get_gamma(struct sirfsoc_vdss_screen *scn,
 	return 0;
 }
 
+static void vdss_screen_set_error_diffusion(struct sirfsoc_vdss_screen *scn,
+	bool error_diffusion)
+{
+	unsigned long flags;
+	struct screen_priv_data *sdata = get_screen_data(scn);
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	sdata->error_diffusion = error_diffusion;
+	sdata->extra_info_dirty |= SCREEN_ERROR_DIFFUSION;
+
+	spin_unlock_irqrestore(&data_lock, flags);
+}
+
 void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	int data_lines)
 {
@@ -887,6 +909,7 @@ static int sirfsoc_vdss_screen_apply(struct sirfsoc_vdss_screen *scn)
 int vdss_init_screens(u32 lcdc_index)
 {
 	int i;
+	struct lcdc_prop *p = lcdc_get_prop(lcdc_index);
 
 	num_screens[lcdc_index] = NUM_SCREENS_PER_LCDC;
 
@@ -928,6 +951,8 @@ int vdss_init_screens(u32 lcdc_index)
 			sdata->gamma[256 + i] = i;
 			sdata->gamma[512 + i] = i;
 		}
+		sdata->error_diffusion = p->error_diffusion;
+		sdata->extra_info_dirty |= SCREEN_ERROR_DIFFUSION;
 		scn->caps = 0;
 		INIT_LIST_HEAD(&scn->layers);
 		scn->apply = sirfsoc_vdss_screen_apply;
@@ -936,6 +961,7 @@ int vdss_init_screens(u32 lcdc_index)
 		scn->wait_for_vsync = vdss_screen_wait_for_vsync;
 		scn->set_gamma = vdss_screen_set_gamma;
 		scn->get_gamma = vdss_screen_get_gamma;
+		scn->set_err_diff = vdss_screen_set_error_diffusion;
 	}
 
 	return 0;

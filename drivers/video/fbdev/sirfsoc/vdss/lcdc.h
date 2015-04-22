@@ -458,6 +458,11 @@
 #define LCDC_DEBUG(fmt, ...)	pr_debug(fmt, ## __VA_ARGS__)
 #define LCDC_ENTRY(fmt, ...)
 
+/* Screen error-diffusion configuration */
+#define DEFAULT_POLY_COEF 0x6801
+#define ED_LFSR_EN 0x1
+#define ED_BY_PASS_EN 0xf
+
 enum s0_layer_sel {
 	PRIMARY = 0,
 	OVERLAY_1,
@@ -518,6 +523,23 @@ enum lcdc_interrupt_type {
 	LCDC_INTERRUPT_L3_UFLOW,
 	LCDC_INTERRUPT_VSYNC = 18,
 	LCDC_INTERRUPT_ALL = 0xFFFFFFFF,
+};
+
+enum lcdc_ed_perform {
+	ED_CUT_LSB_ONLY,
+	ED_FLOYD_STEINBERG,
+	ED_HORIZONTAL,
+	ED_BYPASS,
+};
+
+enum lcdc_ed_start_state {
+	START_WITH_ZERO,
+	START_WITH_PREVIOUS_FRAME,
+};
+
+enum lcdc_ed_left_align {
+	RIGHT_ALIGN,
+	LEFT_ALIGN,
 };
 
 static unsigned int hwfmt_to_bpp[] = {

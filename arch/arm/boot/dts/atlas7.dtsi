@@ -1967,6 +1967,7 @@
 				interrupts = <0 30 0>;
 				clocks = <&car 79>;
 				resets = <&car 29>;
+				error-diffusion = <1>;
 			};
 			vpp0@13110000 {
 				cell-index = <0>;
@@ -1983,6 +1984,7 @@
 				interrupts = <0 62 0>;
 				clocks = <&car 81>;
 				reset = <&car 29>;
+				error-diffusion = <1>;
 			};
 			vpp1@13130000 {
 				cell-index = <1>;
