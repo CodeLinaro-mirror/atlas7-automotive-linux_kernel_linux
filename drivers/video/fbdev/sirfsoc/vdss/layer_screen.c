@@ -713,7 +713,7 @@ out:
 	spin_unlock_irqrestore(&data_lock, flags);
 }
 
-int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
+static int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
 	const u8 *gamma)
 {
 	int i;
@@ -735,7 +735,7 @@ int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
 	return 0;
 }
 
-int vdss_screen_get_gamma(struct sirfsoc_vdss_screen *scn,
+static int vdss_screen_get_gamma(struct sirfsoc_vdss_screen *scn,
 	u8 *gamma)
 {
 	int i;

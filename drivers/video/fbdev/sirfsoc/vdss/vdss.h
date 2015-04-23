@@ -45,10 +45,6 @@ int vdss_screen_set_output(struct sirfsoc_vdss_screen *scn,
 int vdss_screen_unset_output(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_set_timings(struct sirfsoc_vdss_screen *scn,
 	const struct sirfsoc_video_timings *timings);
-int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
-	const u8 *gamma);
-int vdss_screen_get_gamma(struct sirfsoc_vdss_screen *scn,
-	u8 *gamma);
 void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	int data_lines);
 int vdss_screen_enable(struct sirfsoc_vdss_screen *scn);
