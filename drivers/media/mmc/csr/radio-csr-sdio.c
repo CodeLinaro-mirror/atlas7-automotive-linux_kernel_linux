@@ -36,7 +36,7 @@
 
 #define WAIT_DATA_TIMEOUT 1000
 #define REG_TRANS_TIMEOUT 1000
-#define LOOPDMA_BUF_SIZE (1024 * (1 << LOOPDMA_BUF_SIZE_SHIFT))
+#define LOOPDMA_BUF_SIZE (2048 * (1 << LOOPDMA_BUF_SIZE_SHIFT))
 
 /*
  * tunex_writel write 4 registers of function 1-7 by CMD60 each time
@@ -964,6 +964,7 @@ static int tunex_sdio_probe(struct sdio_func *func,
 		radio->dma_addr = priv->loopdma_buf[0];
 		radio->dma_buf_size = LOOPDMA_BUF_SIZE;
 		radio->data_control.dma_status = STOP;
+		priv->lpdma_buf_sft = 10;
 
 		hrtimer_init(&radio->hrt,
 				CLOCK_MONOTONIC,
