@@ -175,17 +175,6 @@ static inline u32 g2d_cmd_set_reg(u32 start_offset, u32 num_reg)
 	return val;
 }
 
-static void g2d_log_cmd(void *addr, u32 length)
-{
-	char *taddr = (char *)addr;
-	u32 i;
-
-	for (i = 0; i < length; i++) {
-		g2d_inf("0x%.8x\n", *(u32 *)taddr);
-		taddr += 4;
-	}
-}
-
 static void g2d_log_ringbuf(struct g2d_context *context)
 {
 	u32 i;
@@ -579,8 +568,7 @@ static void g2d_swizzle_check(struct g2d_bltinfo *bltinfo,
 
 static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 			  struct g2d_bltinfo *bltinfo,
-			  struct g2d_rect *rclclip,
-			  bool print_command)
+			  struct g2d_rect *rclclip)
 {
 	struct g2d_registers g2dregs;
 	u32 submit_size = 0;
@@ -639,8 +627,6 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 	ret = g2d_get_rb_start(context, submit_size, &rb_start, &wptr);
 	if (ret == 0) {
 		memcpy(rb_start, bltcmd, submit_size << 2);
-		if (print_command)
-			g2d_log_cmd(bltcmd, submit_size);
 		g2d_write_reg(context, RB_WR_PTR, wptr);
 	}
 	return ret;
@@ -760,7 +746,7 @@ static int g2d_draw_with_sirfg2d(struct g2d_device_data *g2d_dev,
 		return 0;
 
 	for (i = 0; i < cliprects; i++)
-		ret = g2d_build_area(g2d_dev, &bltinfo, &rclclip[i], false);
+		ret = g2d_build_area(g2d_dev, &bltinfo, &rclclip[i]);
 
 	return ret;
 }
@@ -853,7 +839,6 @@ static int g2d_wait(struct g2d_device_data *g2d_dev)
 		g2d_err("Wait FenceBack Timeout");
 		g2d_err("DesiredSyncID =0x%.8x\n", dsyncid);
 		g2d_err("ReadID = 0x%.8x\n", *ret_sync);
-		g2d_log_ringbuf(g2d_dev->context);
 	}
 	return -EIO;
 }
@@ -982,7 +967,7 @@ static long g2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 #if defined(CONFIG_DEBUG_FS)
-static int g2d_regs_show(struct seq_file *s, void *data)
+static int g2d_debug_regs_show(struct seq_file *s, void *data)
 {
 	struct g2d_device_data *g2d_dev;
 	u32 i = 0;
@@ -1002,13 +987,48 @@ static int g2d_regs_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-static int g2d_debug_open(struct inode *inode, struct file *file)
+static int g2d_debug_regs_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, g2d_regs_show, inode->i_private);
+	return single_open(file, g2d_debug_regs_show, inode->i_private);
 }
 
-static const struct file_operations g2d_regs_fops = {
-	.open           = g2d_debug_open,
+static const struct file_operations g2d_debug_regs_fops = {
+	.open           = g2d_debug_regs_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
+static int g2d_debug_rbbuf_show(struct seq_file *s, void *data)
+{
+	struct g2d_device_data *g2d_dev;
+	struct g2d_context *context;
+	u32 *pcmd;
+	u32 i;
+	u32 rptr, wptr;
+
+	g2d_dev = (struct g2d_device_data *)s->private;
+	context = g2d_dev->context;
+
+	rptr = g2d_read_reg(context, RB_RD_PTR);
+	wptr = g2d_read_reg(context, RB_WR_PTR);
+	seq_printf(s, "## read pointer:%.8x write pointer:%.8x\n",
+		   rptr, wptr);
+
+	pcmd = context->ringbuf.vaddr;
+	for (i = 0; i < context->ringbuf.size; i++)
+		seq_printf(s, "[%.8x]\t%.8x\n", i, pcmd[i]);
+
+	return 0;
+}
+
+static int g2d_debug_rbbuf_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, g2d_debug_rbbuf_show, inode->i_private);
+}
+
+static const struct file_operations g2d_debug_rbbuf_fops = {
+	.open           = g2d_debug_rbbuf_open,
 	.read           = seq_read,
 	.llseek         = seq_lseek,
 	.release        = single_release,
@@ -1113,9 +1133,12 @@ static int g2d_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_DEBUG_FS)
 	g2d_dev->debugfs_dir = debugfs_create_dir(G2D_DEV_NAME, NULL);
-	if (g2d_dev->debugfs_dir != NULL)
+	if (g2d_dev->debugfs_dir != NULL) {
 		debugfs_create_file("regs", 0600, g2d_dev->debugfs_dir,
-				    g2d_dev, &g2d_regs_fops);
+				    g2d_dev, &g2d_debug_regs_fops);
+		debugfs_create_file("rbbuf", 0600, g2d_dev->debugfs_dir,
+				    g2d_dev, &g2d_debug_rbbuf_fops);
+	}
 #endif
 
 	g2d_dev->misc_dev.minor	= MISC_DYNAMIC_MINOR;
