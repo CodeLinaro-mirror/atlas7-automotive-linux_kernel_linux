@@ -133,6 +133,9 @@ struct vip_control {
 	bool	ccir565_en;
 	bool	single_cap;
 	bool	pad_mux_on_upli;
+	bool	cap_from_even_en;
+	bool	cap_from_odd_en;
+	bool	hor_mirror_en;
 };
 
 
@@ -168,6 +171,18 @@ struct vip_subdev_info {
 	struct vip_dev		*host;
 };
 
+/* rearview information */
+struct vip_rv_info {
+	struct vip_dev		*rv_vip;
+	bool			running;
+	bool			mirror_en;
+	unsigned int		subdev_index;
+	unsigned int		dma_table_addr;
+	unsigned int		match_addrs[3];
+	v4l2_std_id		std;
+	struct completion	done;	/* the first RAM filling done notify */
+};
+
 /*
  *  abstraction for sirfsoc VIP(Video Input Port) hardware module
  */
@@ -179,6 +194,8 @@ struct vip_dev {
 
 	struct vip_subdev_info	subdev[VIP_MAX_SUBDEVS];
 	unsigned int		num_subdev;
+
+	struct vip_rv_info	rv;
 
 	struct clk		*clk;
 
@@ -424,6 +441,7 @@ struct vip_dev {
 #define CAM_FIFO_OP_REG			0x54
 #define CAM_FIFO_OP_FIFO_RESET		(1 << 1)
 #define CAM_FIFO_OP_FIFO_START		(1 << 0)
+#define CAM_FIFO_OP_FIFO_STOP		(0 << 0)
 
 /* FIFO status register */
 #define CAM_FIFO_STATUS_REG		0x58
@@ -450,10 +468,15 @@ struct vip_dev {
 #define DMAN_XLEN			0x404
 #define DMAN_YLEN			0x408
 #define DMAN_CTRL			0x40C
+#define DMAN_CTRL_TABLE_NUM(x)		(((x) & 0xF) << 7)
+#define DMAN_CTRL_CHAIN_EN		(1 << 3)
 #define DMAN_WIDTH			0x410
 #define DMAN_VALID			0x414
 #define DMAN_INT			0x418
+#define DMAN_FINI_INT			(1 << 0)
+#define DMAN_CNT_INT			(1 << 1)
 #define DMAN_INT_MASK			(0x7F << 0)
+#define DMAN_INTMASK_FINI		(0x1 << 0)
 #define DMAN_INTMASK_CNT		(0x1 << 1)
 #define DMAN_INT_EN			0x41C
 #define DMAN_LOOP_CTRL			0x420
@@ -465,4 +488,13 @@ struct vip_dev {
 #define DMAN_MUL			0x438
 #define DMAN_STATE0			0x43C
 #define DMAN_STATE1			0x440
+#define DMAN_MATCH_ADDR1		0x448
+#define DMAN_MATCH_ADDR2		0x44c
+#define DMAN_MATCH_ADDR3		0x450
+#define DMAN_MATCH_ADDR_EN		0x454
+
+void vip_rv_config(struct vip_rv_info *rv_info);
+void vip_rv_start(void *data);
+void vip_rv_stop(void *data);
+
 #endif

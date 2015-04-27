@@ -1,7 +1,8 @@
 SiRFSOC camera host interface
 
 Required properties:
- - compatible: suppose to be one of "sirf,prima2-vip", "sirf,atlas7-vip0"
+ - compatible: suppose to be one of "sirf,prima2-vip", "sirf,atlas7-vip0", if
+ it is included in rearview pipe line then should add "sirf,rv-vip"
  - reg: register base and size
  - interrupts: the interrupt number
  - dmas: dma channels, atlas7 SoC needn't this
@@ -37,7 +38,7 @@ Example:
 	};
 
 	vip0@10db0000 {
-		compatible = "sirf,atlas7-vip0";
+		compatible = "sirf,atlas7-vip0", "sirf,rv-vip";
 		reg = <0x10db0000 0x2000>;
 		interrupts = <0 85 0>;
 		sirf,vip_cma_size = <0xC00000>;

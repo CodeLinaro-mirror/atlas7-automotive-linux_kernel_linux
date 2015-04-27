@@ -63,10 +63,12 @@
 
 static int brestart;
 
+
 static void vip_callback(void *pdata);
 static int vip_start_dma(struct vip_dev *vip);
 static void vip_hw_stop(struct vip_dev *vip);
 static void vip_hw_wait_dma_idle(struct vip_dev *vip);
+static void vip_hw_stop_fifo(struct vip_dev *vip);
 
 
 /* VIP supported formats */
@@ -358,6 +360,72 @@ static int vip_init_videobuf2(struct vip_dev *vip)
 #define vip_read(addr)		readl(vip->io_base + (addr))
 
 
+static u32 dma_hw_get_interrupts(struct vip_dev *vip)
+{
+	return (vip_read(DMAN_INT_EN) &	vip_read(DMAN_INT)) & DMAN_INT_MASK;
+}
+
+static void dma_hw_clear_interrupts(struct vip_dev *vip, u32 status)
+{
+	vip_write(DMAN_INT, status & DMAN_INT_MASK);
+}
+
+static void dma_hw_wait_first_table_done(struct vip_dev *vip)
+{
+	int ret, value;
+
+	dma_hw_clear_interrupts(vip, DMAN_FINI_INT);
+
+	value = vip_read(DMAN_INT_EN);
+	value |= DMAN_FINI_INT;
+	vip_write(DMAN_INT_EN, value);	/* table finish interrupt enable */
+
+	ret = wait_for_completion_interruptible_timeout(&vip->rv.done,
+							msecs_to_jiffies(120));
+	if (ret == 0)
+		dev_info(vip->dev, "wait completiont timeout\n");
+
+	if (ret < 0)
+		dev_info(vip->dev,
+			"wait completion error: %d\n", ret);
+
+	value = vip_read(DMAN_INT_EN);
+	value &= ~DMAN_FINI_INT;
+	vip_write(DMAN_INT_EN, value);	/* disable table finish interrupt */
+}
+
+static inline void dma_hw_set_start_addr(struct vip_dev *vip, u32 addr)
+{
+	vip_write(DMAN_ADDR, addr);
+}
+
+static void dma_hw_set_match_addr(struct vip_dev *vip,
+						u32 *addrs, bool enable)
+{
+	if (enable) {
+		vip_write(DMAN_MATCH_ADDR1, addrs[0]);
+		vip_write(DMAN_MATCH_ADDR2, addrs[1]);
+		vip_write(DMAN_MATCH_ADDR3, addrs[2]);
+
+		vip_write(DMAN_MATCH_ADDR_EN, 0x1);
+	} else {
+		vip_write(DMAN_MATCH_ADDR_EN, 0x0);
+
+		vip_write(DMAN_MATCH_ADDR1, 0x0);
+		vip_write(DMAN_MATCH_ADDR2, 0x0);
+		vip_write(DMAN_MATCH_ADDR3, 0x0);
+	}
+}
+
+static void dma_hw_set_chain_mode(struct vip_dev *vip)
+{
+	unsigned int value;
+
+	value = vip_read(DMAN_CTRL);
+	value |= DMAN_CTRL_TABLE_NUM(1) | DMAN_CTRL_CHAIN_EN;
+	vip_write(DMAN_CTRL, value);
+}
+
 /* single dma mode */
 static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 {
@@ -378,7 +446,7 @@ static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 	vip_write(DMAN_INT_CNT, size/4);	/* 32bit unit */
 	vip_write(DMAN_INT_EN, 0x2);		/* Counter interrupt enable */
 
-	vip_write(DMAN_ADDR, addr);		/* The last reg, start dma */
+	dma_hw_set_start_addr(vip, addr);	/* The last reg, start dma */
 }
 
 /* single dma mode */
@@ -391,16 +459,6 @@ static void vip_hw_wait_dma_idle(struct vip_dev *vip)
 	*/
 	while (vip_read(DMAN_VALID) & 0x1)
 		cpu_relax();
-}
-
-static u32 dma_hw_get_interrupts(struct vip_dev *vip)
-{
-	return (vip_read(DMAN_INT_EN) &	vip_read(DMAN_INT)) & DMAN_INT_MASK;
-}
-
-static void dma_hw_clear_interrupts(struct vip_dev *vip, u32 status)
-{
-	vip_write(DMAN_INT, status & DMAN_INT_MASK);
 }
 
 static void vip_hw_reset(struct vip_dev *vip)
@@ -433,7 +491,7 @@ static void vip_hw_reset(struct vip_dev *vip)
 		vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_SHIFT_0TO7);
 
 	/* Disable FIFO */
-	vip_write(CAM_FIFO_OP_REG, 0);
+	vip_hw_stop_fifo(vip);
 
 	/* Set FIFO config data, high check, low check and stop check. */
 	if (vip->is_atlas7_vip0)
@@ -453,7 +511,14 @@ static void vip_hw_reset(struct vip_dev *vip)
 	vip_write(CAM_DMA_CTRL, val);
 
 	/* DMA transfer will operate continuously until it is stopped */
-	vip_write(CAM_DMA_LEN,  0);
+	vip_write(CAM_DMA_LEN, 0);
+
+	vip_write(DMAN_XLEN, 0x0);
+	vip_write(DMAN_YLEN, 0x0);
+	vip_write(DMAN_CTRL, 0x4); /* 16 burst length */
+	vip_write(DMAN_WIDTH, 0x0);
+	vip_write(DMAN_INT_EN, 0x0);
+	vip_write(DMAN_MUL, 0x0);
 }
 
 static void vip_hw_set_src_size(struct vip_dev *vip, struct vip_rect rect)
@@ -583,6 +648,21 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 			val &= ~CAM_CTRL_PAD_MUX_ON_UPLI;
 	}
 
+	if (control.cap_from_even_en)
+		val |= CAM_CTRL_CAP_FROM_EVEN;
+	else
+		val &= ~CAM_CTRL_CAP_FROM_EVEN;
+
+	if (control.cap_from_odd_en)
+		val |= CAM_CTRL_CAP_FROM_ODD;
+	else
+		val &= ~CAM_CTRL_CAP_FROM_ODD;
+
+	if (control.hor_mirror_en)
+		val |= CAM_CTRL_HOR_MIRROR;
+	else
+		val &= ~CAM_CTRL_HOR_MIRROR;
+
 	vip_write(CAM_CTRL, val);
 }
 
@@ -617,7 +697,7 @@ static void vip_hw_set_int_count(struct vip_dev *vip, u16 x, u16 y)
 	vip_write(CAM_INT_COUNT, CAM_INT_COUNT_XI(x) | CAM_INT_COUNT_YI(y));
 }
 
-static void vip_hw_start(struct vip_dev *vip)
+static void vip_hw_reset_fifo(struct vip_dev *vip)
 {
 	u32 val;
 
@@ -625,6 +705,28 @@ static void vip_hw_start(struct vip_dev *vip)
 	val = vip_read(CAM_FIFO_OP_REG);
 	vip_write(CAM_FIFO_OP_REG, val | CAM_FIFO_OP_FIFO_RESET);
 	vip_write(CAM_FIFO_OP_REG, val & ~CAM_FIFO_OP_FIFO_RESET);
+}
+
+static void vip_hw_start_fifo(struct vip_dev *vip)
+{
+	u32 val;
+
+	/* Start FIFO transfer to DMA */
+	val = vip_read(CAM_FIFO_OP_REG);
+	vip_write(CAM_FIFO_OP_REG, val | CAM_FIFO_OP_FIFO_START);
+}
+
+static void vip_hw_stop_fifo(struct vip_dev *vip)
+{
+	vip_write(CAM_FIFO_OP_REG, CAM_FIFO_OP_FIFO_STOP);
+}
+
+static void vip_hw_start(struct vip_dev *vip)
+{
+	u32 val;
+
+	/* Reset fifo */
+	vip_hw_reset_fifo(vip);
 
 	/* Reset camera */
 	val = vip_read(CAM_CTRL);
@@ -649,16 +751,19 @@ static void vip_hw_start(struct vip_dev *vip)
 					CAM_INT_EN_FIFO_UFLOW);
 
 	/* Start FIFO transfer to DMA */
-	vip_write(CAM_FIFO_OP_REG, CAM_FIFO_OP_FIFO_START);
+	vip_hw_start_fifo(vip);
 }
 
 static void vip_hw_stop(struct vip_dev *vip)
 {
 	/* Stop the FIFO first */
-	vip_write(CAM_FIFO_OP_REG, 0);
+	vip_hw_stop_fifo(vip);
 
-	/* Disable camera interupt */
+	/* Disable camera interrupt */
 	vip_write(CAM_INT_EN, 0);
+
+	/* Disable DMA interrupt */
+	vip_write(DMAN_INT_EN, 0x0);
 }
 
 static u32 vip_hw_get_interrupts(struct vip_dev *vip)
@@ -845,7 +950,11 @@ static irqreturn_t vip_irq(int irq, void *data)
 
 		/* DMA CNT_INT happens */
 		if (dma_status & DMAN_INTMASK_CNT)
-			vip_callback(vip);
+				vip_callback(vip);
+
+		/* DMA FINI_INT happens */
+		if (dma_status & DMAN_INTMASK_FINI)
+				complete(&vip->rv.done);
 	}
 
 	/* VIP interrupt */
@@ -1107,6 +1216,9 @@ static int vip_config_host(struct vip_subdev_info *subdev)
 	control.hsync_invert	= 0;
 	control.vsync_invert	= 0;
 	control.single_cap	= 0;
+	control.hor_mirror_en	= 0;
+	control.cap_from_odd_en	= 0;
+	control.cap_from_even_en = 0;
 
 	if (subdev->endpoint.bus_type == V4L2_MBUS_BT656)
 		control.ccir565_en	= 1;
@@ -1807,6 +1919,9 @@ static int vip_get_subdev_input(struct device_node *remote,
 			continue;
 		}
 
+		if (strcmp(input_name, "camera") == 0)
+			vip->rv.subdev_index = vip->num_subdev;
+
 		subdev->inputs[input_id].index = input_id;
 		strncpy(subdev->inputs[input_id].name, input_name,
 					sizeof(subdev->inputs[input_id].name));
@@ -1976,6 +2091,107 @@ static int vip_video_devs_create(struct vip_dev *vip)
 	return 0;
 }
 
+void vip_rv_config(struct vip_rv_info *rv_info)
+{
+	struct vip_dev	*vip = rv_info->rv_vip;
+	struct vip_control control;
+	struct vip_rect rect;
+	v4l2_std_id std;
+	u32 *addrs;
+
+	vip->rv.std		= rv_info->std;
+	vip->rv.rv_vip		= rv_info->rv_vip;
+	vip->rv.mirror_en	= rv_info->mirror_en;
+	vip->rv.match_addrs[0]	= rv_info->match_addrs[0];
+	vip->rv.match_addrs[1]	= rv_info->match_addrs[1];
+	vip->rv.match_addrs[2]	= rv_info->match_addrs[2];
+	vip->rv.dma_table_addr	= rv_info->dma_table_addr;
+
+	std = vip->rv.std;
+	addrs = vip->rv.match_addrs;
+
+	vip_hw_reset(vip);
+
+	if (std == V4L2_STD_NTSC) {
+		rect.left	= 0;
+		rect.right	= 720 - 1;
+		rect.top	= 0;
+		rect.bottom	= 240 - 1;
+	} else if (std == V4L2_STD_PAL) {
+		rect.left	= 0;
+		rect.right	= 720 - 1;
+		rect.top	= 0;
+		rect.bottom	= 288 - 1;
+	} else {
+		rect.left	= 0;
+		rect.right	= VIP_DEFAULT_WIDTH - 1;
+		rect.top	= 0;
+		rect.bottom	= VIP_DEFAULT_HEIGHT/2 - 1;
+	}
+
+	vip_hw_set_src_size(vip, rect);
+
+	control.input_fmt = VIP_PIXELFORMAT_UYVY;
+	control.output_fmt = VIP_PIXELFORMAT_UYVY;
+	control.pixclk_internal	= 0;
+	control.hsync_internal	= 0;
+	control.vsync_internal	= 0;
+	control.pixclk_invert	= 0;
+	control.hsync_invert	= 0;
+	control.vsync_invert	= 0;
+	control.single_cap	= 0;
+	control.hor_mirror_en	= 0;
+	control.cap_from_odd_en	= 1;
+	control.cap_from_even_en = 0;
+	control.ccir565_en	= 0;
+	vip_hw_set_control(vip, control);
+
+	vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO15);
+
+	dma_hw_set_chain_mode(vip);
+
+	dma_hw_set_match_addr(vip, addrs, true);
+}
+
+void vip_rv_start(void *data)
+{
+	struct vip_dev	*vip = data;
+	unsigned int index = vip->rv.subdev_index;
+	struct vip_subdev_info *subdev = &vip->subdev[index];
+	struct v4l2_subdev *sd = subdev->sd;
+	unsigned int dma_table_addr = vip->rv.dma_table_addr;
+
+	vip->rv.running = true;
+
+	v4l2_subdev_call(sd, video, s_stream, 1);
+
+	dma_hw_set_start_addr(vip, dma_table_addr);
+
+	vip_hw_reset_fifo(vip);
+	vip_hw_start_fifo(vip);
+
+	dma_hw_wait_first_table_done(vip);
+}
+
+void vip_rv_stop(void *data)
+{
+	struct vip_dev	*vip = data;
+	unsigned int index = vip->rv.subdev_index;
+	struct vip_subdev_info *subdev = &vip->subdev[index];
+	struct v4l2_subdev *sd = subdev->sd;
+
+	vip_hw_wait_dma_idle(vip);
+
+	vip_hw_stop_fifo(vip);
+	vip_hw_reset_fifo(vip);
+
+	dma_hw_set_match_addr(vip, NULL, false);
+
+	v4l2_subdev_call(sd, video, s_stream, 0);
+
+	vip->rv.running = false;
+}
+
 /*
  * module interfaces.
  */
@@ -1997,6 +2213,7 @@ static int vip_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&vip->capture);
 	spin_lock_init(&vip->lock);
 	mutex_init(&vip->host_lock);
+	init_completion(&vip->rv.done);
 
 	vip->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (vip->res == NULL) {

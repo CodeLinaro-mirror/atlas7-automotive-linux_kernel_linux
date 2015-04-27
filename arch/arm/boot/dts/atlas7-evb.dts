@@ -233,6 +233,7 @@
 			};
 
 			vip0@10db0000 {
+				compatible = "sirf,atlas7-vip0", "sirf,rv-vip";
 				status = "okay";
 				port {
 					#address-cells = <1>;
@@ -251,7 +252,7 @@
 					input-number = <2>;
 					inputs = <&cvbs0 &cvbs1>;
 					cvbs0: cvbs@0 {
-						input-name = "camera";
+						input-name = "camera"; /* rv */
 						input-id = <0>;
 					};
 					cvbs1: cvbs@1 {
