@@ -1858,10 +1858,9 @@
 				cell-index = <3>;
 				reg = <0x11001000 0x1000>;
 				fifosize = <512>;
-				clocks = <&car 132>, <&car 129>, <&car 133>,
-					<&car 134>, <&car 135>;
-				clock-names = "usp3_io", "a7ca_btss", "a7ca_io",
-					"noc_btm_io", "thbtm_io";
+				clocks = <&car 132>, <&car 129>, <&car 135>;
+				clock-names = "usp3_io", "a7ca_btss",
+					"thbtm_io";
 				dmas = <&dmac4 0>, <&dmac4 1>;
 				dma-names = "rx", "tx";
 			};

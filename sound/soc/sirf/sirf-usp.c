@@ -18,7 +18,7 @@
 
 /* Extra clocks required by Atlas7 USP3 */
 static const char *const a7_exclks[] = {
-	"a7ca_btss", "a7ca_io", "noc_btm_io", "thbtm_io",
+	"a7ca_btss", "thbtm_io",
 };
 
 struct sirf_usp {
