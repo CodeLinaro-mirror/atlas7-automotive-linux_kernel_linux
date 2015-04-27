@@ -227,21 +227,19 @@ tunex_config_data_write(struct csr_radio *radio, unsigned int num,
 	 * the CMD60 write use the last CMD52 address, write 2 16bits
 	 * register firstly to set the register address
 	 */
-	if (num > 0) {
-		ret = tunex_sdio_writew(func, addr, buf[0]);
+	ret = tunex_sdio_writew(func, addr, buf[0]);
+	if (ret)
+		return ret;
+	ret = tunex_sdio_writew(func, addr, buf[1]);
+	if (ret)
+		return ret;
+	for (i = 2; i < num; i += 2) {
+		reg_write32 = buf[i + 1];
+		reg_write32 <<= 16;
+		reg_write32 |= buf[i];
+		ret = tunex_writel(func, reg_write32);
 		if (ret)
 			return ret;
-		ret = tunex_sdio_writew(func, addr, buf[1]);
-		if (ret)
-			return ret;
-		for (i = 2; i < num; i += 2) {
-			reg_write32 = buf[i + 1];
-			reg_write32 <<= 16;
-			reg_write32 |= buf[i];
-			ret = tunex_writel(func, reg_write32);
-			if (ret)
-				return ret;
-		}
 	}
 	return ret;
 }
@@ -254,7 +252,6 @@ tunex_config_data_read(struct csr_radio *radio, unsigned int num,
 	int i;
 	struct sdio_func *func = radio->radio_sdio.func;
 
-	/*reading odd count is possible (see writing)*/
 	for (i = 0; i < num; i++)
 		buf[i] = tunex_sdio_readw(func, addr, &ret);
 
@@ -275,7 +272,6 @@ static int tunex_sdio_reinit(struct csr_radio *radio)
 
 	sdio_enable_func(func);
 	ret = sdio_set_block_size(func, 512);
-	dev_info(radio->device, "set block size %d\n", ret);
 	sdio_release_host(func);
 
 	return ret;
@@ -287,7 +283,7 @@ static int tunex_sdio_reinit(struct csr_radio *radio)
  * 2. enable the function
  * 3. reinit the tunex sdio
  */
-static int tunex_operation_config(struct csr_radio *radio,
+static int tunex_get_params(struct csr_radio *radio,
 		int id, struct tx_message_element *element,
 		int *fn, int *addr)
 {
@@ -357,7 +353,7 @@ static void tunex_control_regs_rw(struct csr_radio *radio)
 		id = msg->elements[i].id;
 		pelmt = &msg->elements[i];
 		if (!(id & TX_MFLAG_BYREF)) {
-			tunex_operation_config(radio, id, pelmt, &fn, &addr);
+			tunex_get_params(radio, id, pelmt, &fn, &addr);
 			continue;
 		}
 		sdio_claim_host(func);
@@ -454,7 +450,7 @@ tunex_ioctl_rw_config(struct csr_radio *radio, unsigned long reg_msg)
 			}
 			break;
 		default:
-			dev_info(dev, "ignore id 0x%X\n", id);
+			dev_err(dev, "ignore id 0x%X\n", id);
 			break;
 		}
 	}
@@ -495,9 +491,7 @@ tunex_ioctl_rw_config(struct csr_radio *radio, unsigned long reg_msg)
 		kfree(radio->cfg_msg->elements[i].val.ptr);
 	}
 	kfree(radio->cfg_msg);
-	radio->cfg_msg = NULL;
 	kfree(radio->saved_msg);
-	radio->saved_msg = NULL;
 
 	return 0;
 
@@ -518,10 +512,8 @@ free_memory:
 			}
 		}
 		kfree(radio->cfg_msg);
-		radio->cfg_msg = NULL;
 	}
 	kfree(radio->saved_msg);
-	radio->saved_msg = NULL;
 	return ret;
 }
 
@@ -544,8 +536,7 @@ static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 	if (size >= dma_size) {
 		spin_lock(&radio->lock);
 		size = dma_size * (size / dma_size);
-		dma_sync_single_for_cpu(
-				mmc_dev(host->mmc),
+		dma_sync_single_for_cpu(mmc_dev(host->mmc),
 				loopdma_buf + radio->in,
 				size,
 				DMA_FROM_DEVICE);
@@ -623,7 +614,6 @@ static void tunex_dma_framecnt_wt(struct csr_radio *radio,
 				elmt->val.u32val, MAX_BUF_SIZE/512);
 	} else {
 		radio->data_control.dma_frames = elmt->val.u32val;
-		/*tunex_set_dma_length(radio);*/
 		radio->data_control.dma_length =
 			radio->data_control.dma_frames * 512;
 		dev_info(dev, "dma len: %d\n",
@@ -706,7 +696,6 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 
 	dev = radio->device;
 	msg = (struct tx_message *)data_msg;
-	dev_info(dev, "enter radio_ioctl_data_control\n");
 	if (copy_from_user(&count, (void __user *)data_msg,
 				sizeof(unsigned int)))
 		return -EINVAL;
