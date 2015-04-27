@@ -185,27 +185,25 @@ static int sirf_signal_voltage_switch(struct sdhci_host *host,
 
 static u32 sdhci_sirf_readl_le(struct sdhci_host *host, int reg)
 {
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	u32 val = readl(host->ioaddr + reg);
 
 	if (unlikely((reg == SDHCI_CAPABILITIES_1) &&
 			(host->mmc->caps & MMC_CAP_UHS_SDR50))) {
-		/*A7DA step A does not have cap_1 register, fake one */
+		/* fake CAP_1 register */
 		val = SDHCI_SUPPORT_SDR50 | SDHCI_USE_SDR50_TUNING;
 	}
 
 	if (unlikely(reg == SDHCI_SLOT_INT_STATUS)) {
-		u32 fsl_prss = val;
-		/*fake A7DA step A as V3.0 host conreoller*/
-		fsl_prss &= ~(0xFF << 16);
-		val = fsl_prss | (SDHCI_SPEC_300 << 16);
+		u32 prss = val;
+		/* fake chips as V3.0 host conreoller */
+		prss &= ~(0xFF << 16);
+		val = prss | (SDHCI_SPEC_300 << 16);
 	}
 	return val;
 }
 
 static u16 sdhci_sirf_readw_le(struct sdhci_host *host, int reg)
 {
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	u16 ret = 0;
 
 	ret = readw(host->ioaddr + reg);
@@ -217,7 +215,6 @@ static u16 sdhci_sirf_readw_le(struct sdhci_host *host, int reg)
 
 	return ret;
 }
-
 
 static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
