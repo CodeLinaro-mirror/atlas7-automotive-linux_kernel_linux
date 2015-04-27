@@ -29,7 +29,7 @@
 #include "../../../mmc/host/sdhci.h"
 #include "../../../mmc/host/sdhci-pltfm.h"
 
-#include "radio-csr-sdio.h"
+#include "tunex.h"
 #include "tx_regtrans.h"
 
 #define DRV_NAME "csr_radio"

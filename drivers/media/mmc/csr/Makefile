@@ -1,1 +1,1 @@
-obj-$(CONFIG_RADIO_CSR) += radio-csr-sdio.o
+obj-$(CONFIG_CSR_TUNEX) += tunex.o

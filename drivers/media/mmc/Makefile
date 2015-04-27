@@ -1,2 +1,2 @@
 obj-y += siano/
-obj-$(CONFIG_RADIO_CSR)	+= csr/
+obj-y += csr/

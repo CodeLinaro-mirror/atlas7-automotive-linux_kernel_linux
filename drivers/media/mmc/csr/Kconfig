@@ -1,9 +1,9 @@
 #
-# csr TunnerX chip sdio support
+# CSR TuneX chip SDIO support
 #
 #
-config RADIO_CSR
-	tristate "CSR SDIO Radio Char driver"
+config CSR_TUNEX
+	tristate "CSR Tunex SDIO Radio Char driver"
 	depends on MMC
 	default y
 	help
