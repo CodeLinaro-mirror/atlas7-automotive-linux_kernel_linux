@@ -906,7 +906,7 @@ static void noc_qos_probe_init(struct noc_macro *nocm)
 {
 	struct QosProbe_regs_t	 *probe_reg;
 	struct qos_probe_t *entry;
-	u32 i, j;
+	u32 i;
 	u32 period;
 	int ret;
 
@@ -918,24 +918,19 @@ static void noc_qos_probe_init(struct noc_macro *nocm)
 		if (entry->disabled)
 			continue;
 
-		pr_info("%s: probe_reg=0x%x\n", entry->name, probe_reg);
-
 		if (entry->clock_name) {
 			if (entry->clk == NULL) {
 				entry->clk = devm_clk_get(&nocm->pdev->dev,
 					entry->clock_name);
 				if (IS_ERR(entry->clk)) {
-					pr_info("%s: failed get clk of %s!\n",
+					pr_err("%s: failed get clk of %s!\n",
 						__func__, entry->clock_name);
 					entry->clk = NULL;
 					continue;
 				}
 			}
 
-			ret = clk_prepare_enable(entry->clk);
-			pr_info("%s: clk_prepare_enable %s %d, freq:%d!\n",
-				__func__, entry->clock_name, ret,
-				clk_get_rate(entry->clk));
+			ret = clk_prepare_enable(entry->clk); /* fixme: check the ret */
 		}
 
 		if (entry->bw == NULL) {
@@ -1144,19 +1139,6 @@ next:
 	}
 }
 
-static void noc_handle_qos_probe(void)
-{
-	struct noc_macro *nocm;
-	u32 i;
-
-	for (i = 0; i < ARRAY_SIZE(noc_macro_list); i++) {
-		nocm = &noc_macro_list[i];
-		if (!(nocm->qos_probe_enable))
-			continue;
-		noc_handle_qos_macro_probe(nocm);
-	}
-}
-
 /*handler noc audio macro interrupt*/
 static irqreturn_t noc_irq_handle(int irq, void *data)
 {
@@ -1172,12 +1154,11 @@ static irqreturn_t noc_irq_handle(int irq, void *data)
 
 	if (nocm->qos_probe_enable)
 		noc_handle_qos_macro_probe(nocm);
-		/*noc_handle_qos_probe();*/
 
 	return IRQ_HANDLED;
 }
 
-static void  noc_fault_enable(struct noc_macro *nocm)
+static void noc_fault_enable(struct noc_macro *nocm)
 {
 	writel_relaxed(0x1, nocm->mbase +
 		nocm->faultenoff + NOC_SB_FAULTEN);
@@ -1303,9 +1284,6 @@ static void noc_dramfw_set(struct noc_dram_params_t *params)
 	u32 rpnum;
 	u32 flags;
 
-	if (!params)
-		return;
-
 	mbase = params->mbase;
 	startaddr = params->startaddr;
 	endaddr = params->endaddr;
@@ -1349,9 +1327,6 @@ static void noc_regfw_set(void __iomem *mbase, u32 off, u32 ns,
 				u32 a7, u32 cssi, u32 m3, u32 kas)
 {
 	struct regfw_regs_t *base;
-
-	if (!mbase)
-		return;
 
 	base = (struct regfw_regs_t *)(mbase + off);
 	noc_regfw_setval(&base->ns_clr, &base->ns_set, ns);
@@ -1434,7 +1409,6 @@ static void QosGenerator_Get(struct noc_qos_t *entry,
 		entry->reg_offset);
 	int ret;
 
-	/*pr_info("%s+++:%s\n", __func__, entry->desc);*/
 	if (entry->clock_name) {
 		if (entry->clk == NULL) {
 			entry->clk = devm_clk_get(&nocm->pdev->dev,
@@ -1448,8 +1422,6 @@ static void QosGenerator_Get(struct noc_qos_t *entry,
 		}
 
 		ret = clk_prepare_enable(entry->clk);
-		/*pr_info("%s: clk_prepare_enable %s %d, freq:%d!\n", __func__,
-			entry->clock_name, ret, clk_get_rate(entry->clk));*/
 		if (ret) {
 			pr_err("%s: failed clk_prepare_enable %s!\n",
 				__func__, entry->clock_name);
@@ -1468,9 +1440,10 @@ static void QosGenerator_Get(struct noc_qos_t *entry,
 		0x%x, 0x%x\n", entry->desc, entry->bw, bw, entry->clkfreqMhz,
 		entry->priority, entry->mode, entry->saturation, extcontrol);
 
-	/*if (entry->clk)
+#if 0 /* fixme */
+	if (entry->clk)
 		clk_disable_unprepare(entry->clk);
-	pr_info("%s---:%s\n", __func__, entry->desc);*/
+#endif
 }
 
 static void QosGenerator_Set(struct noc_qos_t *entry,
@@ -1495,8 +1468,6 @@ static void QosGenerator_Set(struct noc_qos_t *entry,
 		}
 
 		ret = clk_prepare_enable(entry->clk);
-		/*pr_info("%s: clk_prepare_enable %s %d, freq:%d!\n", __func__,
-			entry->clock_name, ret, clk_get_rate(entry->clk));*/
 		if (ret) {
 			pr_err("%s: failed to clk_prepare_enable %s!\n",
 				__func__, entry->clock_name);
@@ -1518,8 +1489,10 @@ static void QosGenerator_Set(struct noc_qos_t *entry,
 		readl_relaxed(&qos_reg->saturation));
 	QosGenerator_Get(entry, nocm);
 
-	/*if (entry->clk)
-		clk_disable_unprepare(entry->clk);*/
+#if 0 /* fixme */
+	if (entry->clk)
+		clk_disable_unprepare(entry->clk);
+#endif
 }
 
 static void QosGenerator_init(struct noc_macro *nocm)
@@ -1655,7 +1628,6 @@ static ssize_t QosGenerator_store(struct device *dev,
 					const char *buf, size_t len)
 {
 	struct noc_macro *nocm;
-	u32 bw, priority, mode, saturation;
 	u32 i, j;
 	int cnt = 0;
 	char opc = 0;
@@ -2049,15 +2021,10 @@ __init int sirfsoc_noc_init(void)
 	const struct of_device_id *match;
 	struct noc_macro *nocm;
 	struct platform_device *pdev;
-	struct QosGenerator_register *qos_reg;
-
-	pr_info("sirfsoc_noc_init+++40\n");
 
 	for_each_matching_node_and_match(np, sirfsoc_nocfw_ids, &match) {
-		if (!of_device_is_available(np)) {
-			pr_info("%s: !of_device_is_available\n", np->name);
+		if (!of_device_is_available(np))
 			continue;
-		}
 
 		nocm = (struct noc_macro *)match->data;
 		nocm->mbase = of_iomap(np, 0);
@@ -2065,7 +2032,6 @@ __init int sirfsoc_noc_init(void)
 			pr_err("err: %s: of_iomap error\n", nocm->name);
 			return -ENOMEM;
 		}
-		pr_info("%s: mbase=0x%x\n", nocm->name, nocm->mbase);
 
 		spin_lock_init(&nocm->lock);
 		pdev = of_find_device_by_node(np);
