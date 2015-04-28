@@ -195,7 +195,7 @@ static u32 sdhci_sirf_readl_le(struct sdhci_host *host, int reg)
 
 	if (unlikely(reg == SDHCI_SLOT_INT_STATUS)) {
 		u32 prss = val;
-		/* fake chips as V3.0 host conreoller */
+		/* fake chips as V3.0 host controller */
 		prss &= ~(0xFF << 16);
 		val = prss | (SDHCI_SPEC_300 << 16);
 	}
