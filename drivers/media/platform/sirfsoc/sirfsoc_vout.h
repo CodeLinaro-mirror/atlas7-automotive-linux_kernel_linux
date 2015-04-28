@@ -54,6 +54,9 @@ struct sirfsoc_vout_device {
 	u32 surf_height;
 	struct sirfsoc_vdss_panel *display;
 	struct sirfsoc_vdss_layer *layer;
+	void *vpp_handle;
+	bool passthrough;
+	bool preempted;
 };
 
 

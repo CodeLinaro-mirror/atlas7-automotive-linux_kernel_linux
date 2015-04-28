@@ -74,13 +74,17 @@
 #define VPP_INT_STATUS		0x00f4
 #define VPP_ACC			0x00f8
 #define VPP_FULL_THRESH		0x00fc
-
-#define VPP_COLOR_HS_CTRL	0x100
-#define	VPP_COLOR_BC_CTRL	0x104
-#define	VPP_YBASE_BOT		0x108
-#define	VPP_UBASE_BOT		0x10c
-#define	VPP_VBASE_BOT		0x110
-#define	VPP_DESTBASE_BOT		0x114
+#define VPP_COLOR_HS_CTRL	0x0100
+#define VPP_COLOR_BC_CTRL	0x0104
+#define VPP_YBASE_BOT		0x0108
+#define VPP_UBASE_BOT		0x010c
+#define VPP_VBASE_BOT		0x0110
+#define VPP_DESTBASE_BOT	0x0114
+#define VPP_YBASE1		0x0118
+#define VPP_YBASE2		0x011C
+#define VPP_YBASE1_ADDR_BOT	0x0120
+#define VPP_YBASE2_ADDR_BOT	0x0124
+#define VPP_INLINE_ADDR	0x0128
 
 #define VPP_HSCA_REG_SPACE	((VPP_HSCA_COEF82 - VPP_HSCA_COEF00) / 4 + 1)
 #define VPP_VSCA_REG_SPACE	((VPP_VSCA_COEF81 - VPP_VSCA_COEF00) / 4 + 1)
@@ -115,6 +119,11 @@ enum vpp_endian_mode {
 enum vpp_dest {
 	VPP_DEST_MEMORY = 0,
 	VPP_DEST_LCD = 1,
+};
+
+enum vpp_ibv_src {
+	VPP_IBV_SRC_VIP0 = 0,
+	VPP_IBV_SRC_VIP1 = 1,
 };
 
 enum vpp_seq_type {
@@ -154,6 +163,13 @@ enum vpp_hw_di_mode {
 #define VPP_CTRL_TOP_FIELD_FIRST	(1 << 19)
 #define VPP_CTRL_DI_FIELD_BOT		(1 << 20)
 #define VPP_CTRL_DOUBLE_FRATE		(1 << 21)
+#define VPP_CTRL_HW_BUF_SWITCH		(1 << 22)
+#define VPP_CTRL_HW_BUF_NUM		(0x3 << 23)
+#define VPP_CTRL_IBV_SOURCE		(1 << 28)
+#define VPP_CTRL_IBV_MASK		(VPP_CTRL_IBV_SOURCE | \
+					VPP_CTRL_HW_BUF_NUM | \
+					VPP_CTRL_HW_BUF_SWITCH)
+
 #define VPP_CTRL_START			(1 << 29)
 #define VPP_CTRL_SCA_OVER		(1 << 30)
 #define VPP_CTRL_BUSY_STATUS		(1 << 31)

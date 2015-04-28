@@ -61,13 +61,15 @@ EXPORT_SYMBOL(sirfsoc_vdss_get_layer);
 
 
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
-	struct sirfsoc_vdss_screen *scn)
+	struct sirfsoc_vdss_screen *scn, bool rearview)
 {
 	int i = 0;
 	struct sirfsoc_vdss_layer *l;
 
 	for (i = 0; i < num_layers[scn->lcdc_id]; i++) {
 		l = &layers[scn->lcdc_id][i];
+		if (rearview && l->id != SIRFSOC_VDSS_REARVIEW_LAYER)
+			continue;
 		if ((l->screen->id == scn->id) && !l->is_enabled(l)) {
 			if (l->screen)
 				l->unset_screen(l);
