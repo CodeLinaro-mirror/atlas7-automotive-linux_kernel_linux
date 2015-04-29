@@ -382,7 +382,7 @@
 			};
 
 			uart3: uart@18040000 {
-				status = "okay";
+				status = "disabled";
 				pinctrl-0 = <&uart3_nopause_pmx0>;
 				pinctrl-names = "default";
 			};
