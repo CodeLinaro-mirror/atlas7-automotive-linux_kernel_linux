@@ -51,6 +51,23 @@
 			enable-active-high;
 			gpio = <&gpio_0 46 0>;
 		};
+
+		vdd_cpu: pwm_regulator  {
+			compatible = "pwm-regulator";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
+			pwms = <&pwm 2 600>;
+			voltage-table = <1260000 0>,
+				<1188000 10>,
+				<1116000 20>,
+				<1044000 30>,
+				<972000 40>,
+				<900000 50>;
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1260000>;
+			regulator-name = "vdd_cpu";
+		};
+
 	};
 
 	sound-internal-audio {
@@ -216,6 +233,7 @@
 			};
 
 			vip0@10db0000 {
+				compatible = "sirf,atlas7-vip0", "sirf,rv-vip";
 				status = "okay";
 				port {
 					#address-cells = <1>;
@@ -234,7 +252,7 @@
 					input-number = <2>;
 					inputs = <&cvbs0 &cvbs1>;
 					cvbs0: cvbs@0 {
-						input-name = "camera";
+						input-name = "camera"; /* rv */
 						input-id = <0>;
 					};
 					cvbs1: cvbs@1 {
@@ -452,7 +470,7 @@
 			source = "rgb.0";
 			status = "disabled";
 
-			data-lines  = <24>;
+			data-lines  = <16>;
 
 			display-timings {
 				native-mode = <&timing0>;

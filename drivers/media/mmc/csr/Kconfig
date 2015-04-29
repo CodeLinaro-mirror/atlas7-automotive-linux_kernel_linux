@@ -1,0 +1,17 @@
+#
+# CSR TuneX chip SDIO support
+#
+#
+config CSR_TUNEX
+	tristate "CSR Tunex SDIO Radio Char driver"
+	depends on MMC
+	default y
+	help
+	  Choose Y here if you have the CSR tuneX
+
+	  To complier this drver as a module, choose M here:
+	  the module will be called radio-csr
+	  the driver only transfer data and access register
+ 	  between the chip and SDR service
+
+

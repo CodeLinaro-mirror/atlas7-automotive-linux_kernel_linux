@@ -33,10 +33,7 @@ static int sirfsoc_vdss_default_get_recommended_bpp(
 	switch (panel->type) {
 	case SIRFSOC_PANEL_RGB:
 	case SIRFSOC_PANEL_HDMI:
-		if (panel->phy.rgb.data_lines == 24)
-			return 24;
-		else
-			return 16;
+		return 24;
 
 	case SIRFSOC_PANEL_LVDS:
 		/* FIXME: the bpp should depend on the data_lines,

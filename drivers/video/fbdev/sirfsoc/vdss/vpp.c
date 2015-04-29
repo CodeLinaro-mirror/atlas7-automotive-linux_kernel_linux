@@ -529,6 +529,8 @@ static void  __vpp_set_dstbase(struct vdss_vpp_params *params)
 			params->dst_rect.left;
 		dstbase = (params->dst_base + yoffset * bpp) & (~7);
 
+		vpp_write_reg(index, VPP_DESBASE, dstbase);
+
 		if (interlace->interlaced) {
 			if (interlace->out_mode == VDSS_INTERLACE)
 				vpp_write_reg(index, VPP_DESTBASE_BOT,

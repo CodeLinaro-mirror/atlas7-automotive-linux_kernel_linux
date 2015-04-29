@@ -29,6 +29,12 @@
 
 #define NUM_LCDC	2
 
+
+struct lcdc_prop {
+	bool error_diffusion;
+};
+
+
 /* functions export from layer_screen.c and used by other vdss core files*/
 int vdss_init_screens(u32 lcdc_index);
 void vdss_uninit_screens(u32 lcdc_index);
@@ -39,10 +45,6 @@ int vdss_screen_set_output(struct sirfsoc_vdss_screen *scn,
 int vdss_screen_unset_output(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_set_timings(struct sirfsoc_vdss_screen *scn,
 	const struct sirfsoc_video_timings *timings);
-int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
-	const u8 *gamma);
-int vdss_screen_get_gamma(struct sirfsoc_vdss_screen *scn,
-	u8 *gamma);
 void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 	int data_lines);
 int vdss_screen_enable(struct sirfsoc_vdss_screen *scn);
@@ -61,6 +63,10 @@ int lcdc_init_platform_driver(void) __init;
 void lcdc_uninit_platform_driver(void);
 void lcdc_screen_set_timings(u32 lcdc_index, enum vdss_screen scn_id,
 	const struct sirfsoc_video_timings *timings);
+void lcdc_screen_set_data_lines(u32 lcdc_index, enum vdss_screen scn_id,
+	int data_lines);
+void lcdc_screen_set_error_diffusion(u32 lcdc_index, enum vdss_screen scn_id,
+	int data_lines, bool error_diffusion);
 void lcdc_screen_set_gamma(u32 lcdc_index, enum vdss_screen scn_id,
 	const u8 *gamma);
 void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
@@ -72,6 +78,8 @@ void lcdc_layer_enable(u32 lcdc_index, enum vdss_layer layer,
 	bool enable, bool passthrough);
 void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info);
+struct lcdc_prop *lcdc_get_prop(u32 lcdc_index);
+
 
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);

@@ -12,6 +12,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -28,7 +29,7 @@
 #define G2D_DEV_NAME "g2d"
 #define G2D_DRI_NAME "g2d"
 
-#define G2D_DELAY_MAX 3000000UL
+#define G2D_DELAY_MAX 3000UL
 
 struct g2d_device_data {
 	struct miscdevice	misc_dev;
@@ -47,7 +48,7 @@ struct g2d_device_data {
 	bool			first_cmd;
 	struct platform_device	*dev;
 	struct dentry		*debugfs_dir;
-	unsigned long		is_opened;   /* whether the device is open */
+	struct mutex		rb_lock;
 };
 
 static int get_vpp_in_fmt(int fmt)
@@ -175,17 +176,6 @@ static inline u32 g2d_cmd_set_reg(u32 start_offset, u32 num_reg)
 	return val;
 }
 
-static void g2d_log_cmd(void *addr, u32 length)
-{
-	char *taddr = (char *)addr;
-	u32 i;
-
-	for (i = 0; i < length; i++) {
-		g2d_inf("0x%.8x\n", *(u32 *)taddr);
-		taddr += 4;
-	}
-}
-
 static void g2d_log_ringbuf(struct g2d_context *context)
 {
 	u32 i;
@@ -198,9 +188,8 @@ static void g2d_log_ringbuf(struct g2d_context *context)
 		g2d_inf("R%.8x  = %.8x\n", i, g2d_read_reg(context, i));
 }
 
-static int g2d_get_rb_start(struct g2d_context *context,
-			    u32 cmd_size, void **rb_addr,
-			    u32 *pwptr)
+static int g2d_commit_cmdlist(struct g2d_context *context, u32 *cmdlist,
+			      u32 cmdlist_size)
 {
 	/*
 	 * The value in RB_RD/WR_PTR register.
@@ -208,70 +197,55 @@ static int g2d_get_rb_start(struct g2d_context *context,
 	 */
 	u32 rptr;
 	u32 wptr;
-	u32 wnext;
-	u32 rw_dist; /* There is a gap between read and write pointer. */
+	u32 free;
 	struct ring_bufinfo *ring = &context->ringbuf;
-	u32 delays;
 
-	*rb_addr = NULL;
+	if (cmdlist_size > (ring->size - RINGBUFFULLGAP))
+		return -EINVAL;
+
 	rptr = g2d_read_reg(context, RB_RD_PTR);
 	wptr = g2d_read_reg(context, RB_WR_PTR);
 
-	if (cmd_size > (ring->size - RINGBUFFULLGAP))
-		return -EINVAL;
+	if (rptr == wptr)
+		free = ring->size;
+	else if (rptr > wptr)
+		free = rptr - wptr;
+	else /* rptr < wptr */
+		free = ring->size - wptr + rptr;
+	if ((cmdlist_size + RINGBUFFULLGAP) > free)
+		return -EAGAIN;
+
 	/*
-	 * XXX: I can't go through wraping the command
-	 *  blocks when the write pointer is near tails,
-	 *  and There so much restricting of wptr.
+	 * Split the command chunk if the free space is
+	 * not continuous,
 	 */
-	if ((wptr + cmd_size) >= ring->size) {
-		u32 skip;
-		void *start;
+	if ((wptr + cmdlist_size) > ring->size) {
+		void *dst = NULL;
+		u32 len_in_u32;
+		u32 len_in_u8;
+		void *src;
 
-		delays = 0;
-		while (rptr > wptr) {
-			rptr = g2d_read_reg(context, RB_RD_PTR);
+		src = cmdlist;
+		dst = ring->vaddr + (wptr << 2);
+		len_in_u32 = ring->size - wptr;
+		len_in_u8 = cmdlist_size << 2;
+		memcpy(dst, src, len_in_u8);
 
-			/*
-			 * Wait for the RB_RD_PTR to go ahead.
-			 * Something MUST be wrong if RB_RD_PTR
-			 * doesn't move in seconds.
-			 */
-			delays++;
-			usleep_range(1000, 1500);
-			if (delays > G2D_DELAY_MAX) {
-				g2d_log_ringbuf(context);
-				BUG();
-			}
-		}
+		src = cmdlist + len_in_u32;
+		dst = ring->vaddr;
+		len_in_u32 = cmdlist_size - len_in_u32;
+		len_in_u8 = len_in_u32 << 2;
+		memcpy(dst, src, len_in_u8);
+		wptr = len_in_u32;
+	} else {
+		void *dst;
 
-		skip = (ring->size - wptr) << 2;
-		start = ring->vaddr + (wptr << 2);
-		if (skip)
-			memset(start, 0, skip);
-		wptr = 0;
+		dst = ring->vaddr + (wptr << 2);
+		memcpy(dst, cmdlist, (cmdlist_size << 2));
+		wptr += cmdlist_size;
 	}
 
-	wnext = wptr + cmd_size;
-	rw_dist = wnext + RINGBUFFULLGAP;
-
-	delays = 0;
-	while (rptr > wptr && rptr < rw_dist) {
-		rptr = g2d_read_reg(context, RB_RD_PTR);
-		delays++;
-		usleep_range(1000, 1500);
-		if (delays > G2D_DELAY_MAX) {
-			g2d_log_ringbuf(context);
-			BUG();
-		}
-	}
-
-	*rb_addr = ring->vaddr + (wptr << 2);
-	*pwptr = wnext;
-	if (wnext >= ring->size) {
-		g2d_err("Bad write PTR!\n");
-		BUG();
-	}
+	g2d_write_reg(context, RB_WR_PTR, wptr);
 	return 0;
 }
 
@@ -579,17 +553,15 @@ static void g2d_swizzle_check(struct g2d_bltinfo *bltinfo,
 
 static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 			  struct g2d_bltinfo *bltinfo,
-			  struct g2d_rect *rclclip,
-			  bool print_command)
+			  struct g2d_rect *rclclip)
 {
 	struct g2d_registers g2dregs;
 	u32 submit_size = 0;
 	u32 bltcmd[G2D_MAX_BLIT_CMD_SIZE] = { 0, };
 	u32 cur_cmdindex = 0;
 	struct g2d_context *context = g2d_dev->context;
-	void *rb_start;
-	u32 wptr;
 	int ret = 0;
+	u32 delay_count;
 
 	memset(&g2dregs, 0xFF, sizeof(g2dregs));
 	g2dregs.draw_ctrl = 0;
@@ -598,6 +570,7 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 	/* probe the shape and material. */
 	if (bltinfo->flags & (G2D_BLIT_ROT_MASK | G2D_BLIT_FLIP_MASK))
 		g2d_swizzle_check(bltinfo, &g2dregs);
+
 	if (bltinfo->need_synclast && !g2d_dev->first_cmd) {
 		bltcmd[cur_cmdindex++] = G2D_CMD_OP(G2D_CMD_FENCE_WAIT) |
 		    CMD_FENCE_ADDR(context->sync_object.paddr);
@@ -631,18 +604,38 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 	bltcmd[cur_cmdindex++] = G2D_CMD_OP(G2DCMD_WRITE_FENCE_INTERRUPT) |
 				CMD_FENCE_ADDR(context->sync_object.paddr);
 	bltcmd[cur_cmdindex++] = context->sync_object.cur_id++;
+	if (context->sync_object.cur_id == 0)
+		context->sync_object.cur_id = 1;
 
 	submit_size = cur_cmdindex;
 	submit_size = ((submit_size + 3) & ~3);
 
 	/* Submit Command to ringbuf */
-	ret = g2d_get_rb_start(context, submit_size, &rb_start, &wptr);
-	if (ret == 0) {
-		memcpy(rb_start, bltcmd, submit_size << 2);
-		if (print_command)
-			g2d_log_cmd(bltcmd, submit_size);
-		g2d_write_reg(context, RB_WR_PTR, wptr);
-	}
+	delay_count = 0;
+	do {
+		mutex_lock(&g2d_dev->rb_lock);
+		ret = g2d_commit_cmdlist(context, bltcmd, submit_size);
+		mutex_unlock(&g2d_dev->rb_lock);
+
+		if (ret == 0) {
+			break;
+		} else if (ret == -EAGAIN) {
+			delay_count++;
+			usleep_range(1000, 1500);
+		} else
+		       BUG();
+
+		/*
+		 * Something MUST be wrong if RB_RD_PTR
+		 * doesn't move in seconds.
+		 */
+		if (delay_count > G2D_DELAY_MAX) {
+			g2d_log_ringbuf(context);
+			ret = -EIO;
+			break;
+		}
+	} while (ret == -EAGAIN);
+
 	return ret;
 }
 
@@ -760,7 +753,7 @@ static int g2d_draw_with_sirfg2d(struct g2d_device_data *g2d_dev,
 		return 0;
 
 	for (i = 0; i < cliprects; i++)
-		ret = g2d_build_area(g2d_dev, &bltinfo, &rclclip[i], false);
+		ret = g2d_build_area(g2d_dev, &bltinfo, &rclclip[i]);
 
 	return ret;
 }
@@ -853,7 +846,6 @@ static int g2d_wait(struct g2d_device_data *g2d_dev)
 		g2d_err("Wait FenceBack Timeout");
 		g2d_err("DesiredSyncID =0x%.8x\n", dsyncid);
 		g2d_err("ReadID = 0x%.8x\n", *ret_sync);
-		g2d_log_ringbuf(g2d_dev->context);
 	}
 	return -EIO;
 }
@@ -916,6 +908,7 @@ static void g2d_context_init(struct g2d_device_data *g2d_dev)
 
 	context->sync_object.vaddr = g2d_dev->rb_vaddr +
 	    (context->sync_object.paddr - g2d_dev->rb_paddr);
+
 	context->sync_object.cur_id = 1;
 	init_waitqueue_head(&context->bldwq);
 }
@@ -930,25 +923,11 @@ static inline struct g2d_device_data *to_g2d_device_data_priv(struct file *file)
 
 static int g2d_open(struct inode *inode, struct file *file)
 {
-	struct g2d_device_data *g2d_dev = to_g2d_device_data_priv(file);
-
-	/*
-	 * XXX: This module is defined for server side of GUI system at first,
-	 *  for example, DrectFB, or HWC, etc. For these, one instance seems
-	 *  enough. It could be updated...
-	 */
-	if (test_and_set_bit(0, &g2d_dev->is_opened)) {
-		dev_warn(&g2d_dev->dev->dev, "only one instance is permitted.\n");
-		return -EBUSY;
-	}
 	return 0;
 }
 
 static int g2d_release(struct inode *inode, struct file *file)
 {
-	struct g2d_device_data *g2d_dev = to_g2d_device_data_priv(file);
-
-	clear_bit(0, &g2d_dev->is_opened);
 	return 0;
 }
 
@@ -982,7 +961,7 @@ static long g2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 #if defined(CONFIG_DEBUG_FS)
-static int g2d_regs_show(struct seq_file *s, void *data)
+static int g2d_debug_regs_show(struct seq_file *s, void *data)
 {
 	struct g2d_device_data *g2d_dev;
 	u32 i = 0;
@@ -1002,13 +981,48 @@ static int g2d_regs_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-static int g2d_debug_open(struct inode *inode, struct file *file)
+static int g2d_debug_regs_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, g2d_regs_show, inode->i_private);
+	return single_open(file, g2d_debug_regs_show, inode->i_private);
 }
 
-static const struct file_operations g2d_regs_fops = {
-	.open           = g2d_debug_open,
+static const struct file_operations g2d_debug_regs_fops = {
+	.open           = g2d_debug_regs_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
+static int g2d_debug_rbbuf_show(struct seq_file *s, void *data)
+{
+	struct g2d_device_data *g2d_dev;
+	struct g2d_context *context;
+	u32 *pcmd;
+	u32 i;
+	u32 rptr, wptr;
+
+	g2d_dev = (struct g2d_device_data *)s->private;
+	context = g2d_dev->context;
+
+	rptr = g2d_read_reg(context, RB_RD_PTR);
+	wptr = g2d_read_reg(context, RB_WR_PTR);
+	seq_printf(s, "## read pointer:%.8x write pointer:%.8x\n",
+		   rptr, wptr);
+
+	pcmd = context->ringbuf.vaddr;
+	for (i = 0; i < context->ringbuf.size; i++)
+		seq_printf(s, "[%.8x]\t%.8x\n", i, pcmd[i]);
+
+	return 0;
+}
+
+static int g2d_debug_rbbuf_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, g2d_debug_rbbuf_show, inode->i_private);
+}
+
+static const struct file_operations g2d_debug_rbbuf_fops = {
+	.open           = g2d_debug_rbbuf_open,
 	.read           = seq_read,
 	.llseek         = seq_lseek,
 	.release        = single_release,
@@ -1113,9 +1127,12 @@ static int g2d_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_DEBUG_FS)
 	g2d_dev->debugfs_dir = debugfs_create_dir(G2D_DEV_NAME, NULL);
-	if (g2d_dev->debugfs_dir != NULL)
+	if (g2d_dev->debugfs_dir != NULL) {
 		debugfs_create_file("regs", 0600, g2d_dev->debugfs_dir,
-				    g2d_dev, &g2d_regs_fops);
+				    g2d_dev, &g2d_debug_regs_fops);
+		debugfs_create_file("rbbuf", 0600, g2d_dev->debugfs_dir,
+				    g2d_dev, &g2d_debug_rbbuf_fops);
+	}
 #endif
 
 	g2d_dev->misc_dev.minor	= MISC_DYNAMIC_MINOR;
@@ -1130,6 +1147,7 @@ static int g2d_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, g2d_dev);
 
+	mutex_init(&g2d_dev->rb_lock);
 	dev_info(&pdev->dev, "initialized\n");
 	return 0;
 

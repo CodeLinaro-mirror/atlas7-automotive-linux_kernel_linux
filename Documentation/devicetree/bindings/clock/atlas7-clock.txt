@@ -14,7 +14,16 @@ The reset consumer should specify the desired reset by having the reset
 ID in its "reset" phandle cell.
 The ID list atlas7_reset_unit defined in drivers/clk/sirf/clk-atlas7.c
 
-Examples:
+Examples: Clock and reset controller node:
+
+car: clock-controller@18620000 {
+	compatible = "sirf,atlas7-car";
+	reg = <0x18620000 0x1000>;
+	#clock-cells = <1>;
+	#reset-cells = <1>;
+};
+
+Examples: Consumers using clock or reset:
 
 timer@10dc0000 {
 	compatible = "sirf,atlas7-tick";

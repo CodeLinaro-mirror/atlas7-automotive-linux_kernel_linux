@@ -262,6 +262,7 @@ struct jpeg_data {
 	struct mutex pool_lock;
 	struct clk *ck;
 	dev_t devno;
+	struct device *dev;
 };
 
 #define REGISTER_CODEC_MODE                      0x1400

@@ -344,6 +344,8 @@ struct sirfsoc_vdss_screen {
 		const u8 *gamma);
 	int (*get_gamma)(struct sirfsoc_vdss_screen *screen,
 		u8 *gamma);
+	void (*set_err_diff)(struct sirfsoc_vdss_screen *screen,
+		bool error_diffusion);
 
 	struct sirfsoc_vdss_panel *(*get_panel)(
 		struct sirfsoc_vdss_screen *screen);

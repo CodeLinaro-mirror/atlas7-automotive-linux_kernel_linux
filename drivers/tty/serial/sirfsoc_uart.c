@@ -24,7 +24,6 @@
 #include <linux/dmaengine.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
-#include <linux/serial_core.h>
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 
@@ -1004,7 +1003,7 @@ static int sirfsoc_uart_startup(struct uart_port *port)
 		}
 	}
 	enable_irq(port->irq);
-	if (!uart_console(port) && !sirfport->is_hrt_enabled) {
+	if (sirfport->rx_dma_chan && !sirfport->is_hrt_enabled) {
 		sirfport->is_hrt_enabled = true;
 		sirfport->rx_period_time = 20000000;
 		sirfport->rx_dma_items.xmit.tail =
@@ -1040,7 +1039,7 @@ static void sirfsoc_uart_shutdown(struct uart_port *port)
 	}
 	if (sirfport->tx_dma_chan)
 		sirfport->tx_dma_state = TX_DMA_IDLE;
-	if (!uart_console(port) && sirfport->is_hrt_enabled) {
+	if (sirfport->rx_dma_chan && sirfport->is_hrt_enabled) {
 		while ((rd_regl(port, ureg->sirfsoc_rx_fifo_status) &
 			SIRFUART_RX_FIFO_MASK) > 0)
 			;
@@ -1400,7 +1399,7 @@ usp_no_flow_control:
 	sirfport->tx_dma_chan = dma_request_slave_channel(port->dev, "tx");
 	if (sirfport->tx_dma_chan)
 		dmaengine_slave_config(sirfport->tx_dma_chan, &tx_slv_cfg);
-	if (!uart_console(port)) {
+	if (sirfport->rx_dma_chan) {
 		hrtimer_init(&sirfport->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		sirfport->hrt.function = sirfsoc_uart_rx_dma_hrtimer_callback;
 		sirfport->is_hrt_enabled = false;

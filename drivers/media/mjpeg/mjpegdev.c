@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 
 #include "mjpegdev.h"
 
@@ -171,7 +172,6 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	int rc = 0;
 	bool ret = 0;
 	unsigned long data;
-	struct dev_intr_info *jpeg_info = &jpeg.jpeg_info;
 
 	rc = wait_for_completion_timeout(&jpeg.jpeg_info.ready, 100);
 	if (!rc) {
@@ -190,16 +190,22 @@ static int jpeg_wait_interrupt(struct jpeg_codec_param *codec_param)
 	return ret;
 }
 
-static void jpeg_set_default(struct jpeg_codec_param *param)
+static int jpeg_set_default(struct jpeg_codec_param *param)
 {
 	union un_codec_jpeg_config codec_config;
 	union un_code_mode codec_mode;
+	int ret = 0;
 
 	codec_mode.reg_code_mode = 0;
 	codec_mode.s_code_mode.enc_dec_mode = 1;
 	codec_mode.s_code_mode.jpeg_color_format = 0;
 	codec_mode.s_code_mode.standard = 2;
 
+	ret = device_reset(jpeg.dev);
+	if (ret) {
+		dev_err(jpeg.dev, "Failed to reset\n");
+		return ret;
+	}
 	if (param->yuv_format == JPEG_PATH_FORMAT_422)
 		codec_mode.s_code_mode.inout_color_format = 0;
 	else
@@ -230,6 +236,7 @@ static void jpeg_set_default(struct jpeg_codec_param *param)
 		write_reg(REGISTER_CODEC_MODE, codec_mode.reg_code_mode);
 	}
 	write_reg(REGISTER_CODEC_ENCDEC_RESET, 0x00000001);
+	return ret;
 }
 
 static void jpeg_update_thumbnail_burst(unsigned char addr_align)
@@ -540,6 +547,7 @@ static long jpeg_go(struct jpeg_codec_param *param)
 		vlc_stat = read_reg(REGISTER_VLC_VLCD_LOADED);
 	}
 	int_stat = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
+	write_reg(REGISTER_JPEG_INT_CTRL_STAT, 0);
 	write_reg(REGISTER_CONVERTER_RESET, 0x00000001);
 	write_reg(REGISTER_CODEC_JPEG_GO, 1);
 	return 0;
@@ -568,7 +576,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			sizeof(codec_param));
 		if (ret)
 			break;
-		jpeg_set_default(&codec_param);
+		ret = jpeg_set_default(&codec_param);
 		break;
 	}
 	case IOCTL_JPEG_UPDATEQT: {
@@ -702,9 +710,9 @@ static irqreturn_t jpeg_irq_handler(int irq, void *data)
 	unsigned long read_data;
 
 	intr_info = (struct dev_intr_info *)data;
-	complete(&jpeg.jpeg_info.ready);
 	read_data = read_reg(REGISTER_JPEG_INT_CTRL_STAT);
 	write_reg(REGISTER_JPEG_INT_CTRL_STAT, 0x0000001F);
+	complete(&jpeg.jpeg_info.ready);
 
 	return IRQ_HANDLED;
 }
@@ -755,6 +763,7 @@ static int jpeg_probe(struct platform_device *pdev)
 	if (ret)
 		goto ERROR;
 
+	jpeg.dev = &(pdev->dev);
 	mutex_init(&jpeg.pool_lock);
 	jpeg.devno = devno;
 	platform_set_drvdata(pdev, &jpeg);
