@@ -581,6 +581,27 @@
 				};
 			};
 		};
+
+		gpio_keys {
+			compatible = "gpio-keys";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rearview_key {
+				label = "rearview key";
+				linux,code = <KEY_CAMERA>;
+				gpios = <&gpio_1 1 0>;
+				debounce_interval = <100>;
+			};
+		};
+
+		sirf-rearview {
+			compatible = "sirf,rearview";
+			status = "okay";
+			mirror = <0>;
+			source-std = "NTSC";		/* NTSC or PAL */
+			display-panel = "display0";	/* display 0/1 */
+		};
 	};
 };
 

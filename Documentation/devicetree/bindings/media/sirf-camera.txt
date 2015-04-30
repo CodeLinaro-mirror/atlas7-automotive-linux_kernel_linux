@@ -93,3 +93,24 @@ Example:
 		reg = <0x10db2000 0x2000>;
 		clocks = <&clks 53>;
 	};
+
+SiRFSOC rearview virtual device interface
+
+Required properities
+ - compatible: should be "sirf,rearview"
+ - status: set "okay" to enable, "disable" to disable rearview module
+ - rearview-gpios: dedicated gpio pin to trigger rearview
+ - mirror: set non-zero value to enable horizontal mirror function
+ - source-std: point out the input signal standard, NTSC or PAL
+ - display-panel: display rearview picture on which panel
+
+Example:
+
+	sirf-rearview {
+			compatible = "sirf,rearview";
+			status = "okay";
+			rearview-gpios = <&gpio_1 1 0>;
+			mirror = <0>;
+			source-std = "NTSC";		/* NTSC or PAL */
+			display-panel = "display0";	/* display0 or display1 */
+		};
