@@ -73,38 +73,6 @@
 			     <0x10302000 0x0100>;
 		};
 
-		pmu_regulator: pmu_regulator@10E30020 {
-			compatible = "sirf,atlas7-pmu-ldo";
-			reg = <0x10E30020 0x4>;
-			ldo: ldo {
-				regulator-name = "ldo";
-			};
-		};
-
-		atlas7_codec: atlas7_codec@10E30000 {
-			#sound-dai-cells = <0>;
-			compatible = "sirf,atlas7-codec";
-			reg = <0x10E30000 0x400>;
-			clocks = <&audioclk 0>;
-			ldo-supply = <&ldo>;
-		};
-
-		audioclk: clock-controller@10E30000 {
-			compatible = "sirf,atlas7-audioclk";
-			reg = <0x10E30000 0x400>;
-			#clock-cells = <1>;
-		};
-
-		atlas7_iacc: atlas7_iacc@10D01000 {
-			#sound-dai-cells = <0>;
-			compatible = "sirf,atlas7-iacc";
-			reg = <0x10D01000 0x100>;
-			dmas = <&dmac3 0>, <&dmac3 7>, <&dmac3 8>,
-				<&dmac3 3>, <&dmac3 9>;
-			dma-names = "rx", "tx0", "tx1", "tx2", "tx3";
-			clocks = <&car 62>;
-		};
-
 		kalimba@10C10000 {
 			compatible = "csr,kalimba";
 			reg = <0x10C10000 0x1000 0x13240000 0x500>;
@@ -1540,7 +1508,7 @@
 				phy_type = "utmi";
 				dr_mode = "otg";
 				maximum-speed = "high-speed";
-				status = "okay";
+				status = "disabled";
 			};
 
 			usb1: usb@17070000 {
@@ -1553,21 +1521,21 @@
 				phy_type = "utmi";
 				dr_mode = "host";
 				maximum-speed = "high-speed";
-				status = "okay";
+				status = "disabled";
 			};
 
 			usbphy0: usbphy@0 {
 				compatible = "sirf,atlas7-usbphy";
 				reg = <0x17060200 0x100>;
 				clocks = <&car 115>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			usbphy1: usbphy@1 {
 				compatible = "sirf,atlas7-usbphy";
 				reg = <0x17070200 0x100>;
 				clocks = <&car 116>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			i2c0: i2c@17020000 {
@@ -1578,6 +1546,7 @@
 				clocks = <&car 105>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
 			};
 
 		};
@@ -1702,7 +1671,10 @@
 					<0x10db0000 0x10db0000 0x4000>,
 					<0x10d40000 0x10d40000 0x1000>,
 					<0x10d30000 0x10d30000 0x1000>,
-					<0x10d02000 0x10d02000 0x1000>;
+					<0x10d02000 0x10d02000 0x1000>,
+					<0x10e30000 0x10e30000 0x1000>,
+					<0x10d01000 0x10d01000 0x100>;
+
 
 			i2s: i2s@10d02000 {
 				compatible = "sirf,atlas7-i2s";
@@ -1782,6 +1754,7 @@
 				clocks = <&car 50>, <&car 49>, <&audioclk 0>;
 				clock-names = "xin", "io", "analog";
 				#io-channel-cells = <1>;
+				status = "disabled";
 
 				tsc {
 					compatible = "sirf,prima2-tsc";
@@ -1826,6 +1799,41 @@
 				dma-names = "rx", "tx";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			pmu_regulator: pmu_regulator@10E30020 {
+				compatible = "sirf,atlas7-pmu-ldo";
+				status = "disabled";
+				reg = <0x10E30020 0x4>;
+				ldo: ldo {
+					regulator-name = "ldo";
+				};
+			};
+
+			atlas7_codec: atlas7_codec@10E30000 {
+				#sound-dai-cells = <0>;
+				compatible = "sirf,atlas7-codec";
+				reg = <0x10E30000 0x400>;
+				clocks = <&audioclk 0>;
+				ldo-supply = <&ldo>;
+				status = "disabled";
+			};
+
+			audioclk: clock-controller@10E30000 {
+				compatible = "sirf,atlas7-audioclk";
+				reg = <0x10E30000 0x400>;
+				#clock-cells = <1>;
+			};
+
+			atlas7_iacc: atlas7_iacc@10D01000 {
+				#sound-dai-cells = <0>;
+				compatible = "sirf,atlas7-iacc";
+				reg = <0x10D01000 0x100>;
+				dmas = <&dmac3 0>, <&dmac3 7>, <&dmac3 8>,
+					<&dmac3 3>, <&dmac3 9>;
+				dma-names = "rx", "tx0", "tx1", "tx2", "tx3";
+				clocks = <&car 62>;
 				status = "disabled";
 			};
 		};
@@ -1999,6 +2007,7 @@
 				clocks = <&car 79>;
 				resets = <&car 29>;
 				error-diffusion = <1>;
+				status = "disabled";
 			};
 			vpp0@13110000 {
 				cell-index = <0>;
@@ -2007,6 +2016,7 @@
 				interrupts = <0 31 0>;
 				clocks = <&car 78>;
 				resets = <&car 29>;
+				status = "disabled";
 			};
 			lcd1@13120000 {
 				cell-index = <1>;
@@ -2016,6 +2026,7 @@
 				clocks = <&car 81>;
 				reset = <&car 29>;
 				error-diffusion = <1>;
+				status = "disabled";
 			};
 			vpp1@13130000 {
 				cell-index = <1>;
@@ -2024,6 +2035,7 @@
 				interrupts = <0 65 0>;
 				clocks = <&car 80>;
 				resets = <&car 29>;
+				status = "disabled";
 			};
 			lvds@10e10000 {
 				compatible = "sirf,atlas7-lvdsc";
@@ -2032,18 +2044,21 @@
 				interrupts = <0 64 0>;
 				clocks = <&car 54>;
 				resets = <&car 29>;
+				status = "disabled";
 			};
 			g2d@17010000 {
 				compatible = "sirf, atlas7-g2d";
 				reg = <0x17010000 0x10000>;
 				interrupts = <0 61 0>;
 				clocks = <&car 104>;
+				status = "disabled";
 			};
 
 		};
 
 		graphics-iobg {
 			compatible = "simple-bus";
+			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x12000000 0x12000000 0x1000000>;

@@ -190,6 +190,7 @@
 			};
 
 			adc@10d80000 {
+				status = "okay";
 				adc-keys {
 					compatible = "sirf,atlas7-adc-keys";
 					interrupts = <0 32 0>;
@@ -274,6 +275,19 @@
 					};
 				};
 			};
+
+			pmu_regulator: pmu_regulator@10E30020 {
+				status = "okay";
+			};
+
+			atlas7_codec: atlas7_codec@10E30000 {
+				status = "okay";
+			};
+
+			atlas7_iacc: atlas7_iacc@10D01000 {
+				status = "okay";
+			};
+
 		};
 
 		mediam {
@@ -335,6 +349,19 @@
 			};
 			usb0: usb@17060000 {
 				vbus-supply = <&reg_usb0_otg_vbus>;
+				status = "okay";
+			};
+
+			usb1: usb@17070000 {
+				status = "okay";
+			};
+
+			usbphy0: usbphy@0 {
+				status = "okay";
+			};
+
+			usbphy1: usbphy@1 {
+				status = "okay";
 			};
 		};
 
@@ -438,6 +465,32 @@
 			};
 		};
 
+		disp-iobg {
+
+			lcd0@13100000 {
+				status = "okay";
+			};
+			vpp0@13110000 {
+				status = "okay";
+			};
+			lcd1@13120000 {
+				status = "okay";
+			};
+			vpp1@13130000 {
+				status = "okay";
+			};
+			lvds@10e10000 {
+				status = "okay";
+			};
+			g2d@17010000 {
+				status = "okay";
+			};
+
+		};
+		graphics-iobg {
+			status = "okay";
+		};
+
 		ipc@13240000 {
 			ns_m3_rproc@0 {
 				memory-region = <&ipc_mem0>;
@@ -529,3 +582,4 @@
 		};
 	};
 };
+
