@@ -24,6 +24,8 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include "common.h"
+#include "pm.h"
+
 
 static struct gpio_extcon_platform_data h2w_extcon_data;
 
@@ -203,5 +205,6 @@ DT_MACHINE_START(ATLAS7_DT, "Generic ATLAS7 (Flattened Device Tree)")
 	.init_machine   = sirfsoc_init_mach,
 	.init_late	= sirfsoc_init_late,
 	.dt_compat      = atlas7_dt_match,
+	.restart = sirfsoc_atlas7_restart,
 MACHINE_END
 #endif
