@@ -1,0 +1,527 @@
+/*
+ * DTS file for CSR SiRFatlas7 Evaluation Board
+ *
+ * Copyright (c) 2012 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/dts-v1/;
+
+/include/ "atlas7.dtsi"
+#include "atlas7-amber.dtsi"
+#include "atlas7-a7ca.dtsi"
+
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "CSR SiRFatlas7 Entry Evaluation Board";
+	compatible = "sirf,atlas7-cb", "sirf,atlas7";
+
+	chosen {
+		/* bootargs = "console=ttySiRF1,115200 earlyprintk lpj=7970816
+				initrd=0x43008000,0x500000"; */
+		bootargs = "console=ttySiRF1,115200 earlyprintk";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x20000000>; /* 512M for entry */
+	};
+
+	aliases {
+		display0 = &rgb;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg_usb0_otg_vbus: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "usb0_otg_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio_0 46 0>;
+			status = "disabled";
+		};
+
+		vdd_cpu: pwm_regulator  {
+			compatible = "pwm-regulator";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
+			pwms = <&pwm 2 600>;
+			voltage-table = <1260000 0>,
+				<1188000 10>,
+				<1116000 20>,
+				<1044000 30>,
+				<972000 40>,
+				<900000 50>;
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1260000>;
+			regulator-name = "vdd_cpu";
+		};
+
+	};
+
+	sound-internal-audio {
+		compatible = "simple-audio-card";
+		simple-audio-card,routing =
+			"Headphone Jack", "LOUT0",
+			"LIN0", "Line In Jack",
+			"LIN1", "Line In Jack",
+			"LIN2", "Line In Jack",
+			"LIN3", "Line In Jack",
+			"MICIN0", "Microphone Jack",
+			"MICIN1", "Microphone Jack";
+		simple-audio-card,widgets =
+			"Microphone", "Microphone Jack",
+			"Headphone", "Headphone Jack",
+			"Line", "Line In Jack";
+		simple-audio-card,codec {
+			sound-dai = <&atlas7_codec>;
+		};
+		simple-audio-card,cpu {
+			sound-dai = <&atlas7_iacc>;
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* global region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			alloc-ranges = <0x4BC00000 0x4000000>;
+			size = <0x4000000>;
+			alignment = <0x2000>;
+			linux,cma-default;
+		};
+
+		ipc_mem0: ns_m3_mem@4fd00000 {
+			compatible = "sirf,reserved-memory";
+			reg = <0x4FD00000 0x10000>;
+		};
+
+		ipc_mem1: ns_kal_mem@4fd10000 {
+			compatible = "sirf,reserved-memory";
+			reg = <0x4FD10000 0x10000>;
+		};
+
+		nanddisk_reserved: nanddisk@46000000 {
+			reg = <0x46000000 0x200000>;
+			no-map;
+		};
+
+		jpeg_reserved: jpeg@57000000 {
+			reg = <0x57000000 0x1800000>;
+			no-map;
+		};
+
+		multimedia_reserved: multimedia@58800000 {
+			reg = <0x58800000 0x6000000>;
+			no-map;
+		};
+
+		cm3_reserved: cm3@4fe00000 {
+			reg = <0x4fe00000 0x100000>;
+			no-map;
+		};
+	};
+
+	sound-hdmi {
+		compatible = "sirf,hdmi-card-olm";
+		i2s-controller = <&i2s>;
+		audio-codec = <&cs42888>;
+		ext-rst = <&gpio_3 0 0>;
+		sw1-sel = <&gpio_3 8 0>;
+		sw2-sel = <&gpio_3 9 0>;
+		sw3-sel = <&gpio_3 14 0>;	/* Don't drive if OLM */
+	};
+
+	noc {
+		audiom {
+			timer@10dc0000 {
+				status = "okay";
+			};
+
+			timerb@10dc8000 {
+				status = "disabled";
+			};
+
+			usp2: usp@10d40000 {
+				status = "disabled";
+				compatible = "sirf,atlas7-usp-spi";
+				pinctrl-0 = <&audio_uart2_pmx0>;
+				pinctrl-names = "default";
+				fifosize = <512>;
+				uspspiflash: mxicy@0{
+					status = "okay";
+					compatible = "mxicy,mx25l6405d";
+					reg = <0>;
+					spi-max-frequency = <37500000>;
+					spi-cpha;
+					spi-cpol;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partitions@0 {
+						label = "myspiboot";
+						reg = <0x0 0x800000>;
+					};
+				};
+			};
+
+			adc@10d80000 {
+				adc-keys {
+					compatible = "sirf,atlas7-adc-keys";
+					interrupts = <0 32 0>;
+					io-channels = <&adc 5>;
+					io-channel-names = "adc_keys";
+
+					button-s2 {
+						label = "Home";
+						linux,code = <KEY_HOMEPAGE>;
+						voltage = <1272>;
+					};
+
+					button-s7 {
+						label = "Back";
+						linux,code = <KEY_BACK>;
+						voltage = <1211>;
+					};
+
+					button-s1 {
+						label = "Volume Up";
+						linux,code = <KEY_VOLUMEUP>;
+						voltage = <1085>;
+					};
+
+					button-s4 {
+						label = "Volume Down";
+						linux,code =
+							<KEY_VOLUMEDOWN>;
+						voltage = <953>;
+					};
+
+					button-s5 {
+						label = "Recent APP";
+						linux,code = <KEY_DASHBOARD>;
+						voltage = <1368>;
+					};
+
+					button-s6 {
+						label = "RearView";
+						linux,code = <KEY_DIRECTION>;
+						voltage = <1416>;
+					};
+				};
+			};
+
+			pulsec@10d90000 {
+				status = "disabled";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ps_pmx>;
+			};
+
+			vip0@10db0000 {
+				compatible = "sirf,atlas7-vip0", "sirf,rv-vip";
+				status = "okay";
+				port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					vip0_0: endpoint@0 {
+						reg = <0>;
+						hsync-active = <0>;
+						vsync-active = <0>;
+						remote-endpoint = <&cvd_1>;
+					};
+				};
+			};
+
+			cvd@10db2000 {
+				compatible = "sirf,cvd";
+					input-number = <2>;
+					inputs = <&cvbs0 &cvbs1>;
+					cvbs0: cvbs@0 {
+						input-name = "camera"; /* rv */
+						input-id = <0>;
+					};
+					cvbs1: cvbs@1 {
+						input-name = "dvd";
+						input-id = <1>;
+					};
+					port {
+						cvd_1: endpoint {
+						remote-endpoint = <&vip0_0>;
+					};
+				};
+			};
+		};
+
+		mediam {
+			nand@17050000 {
+				memory-region = <&nanddisk_reserved>;
+			};
+
+			multimedia@15000000 {
+				memory-region = <&multimedia_reserved>;
+			};
+
+			jpeg@17000000 {
+				memory-region = <&jpeg_reserved>;
+			};
+
+			sdhci@16000000 {
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd0_pmx>;
+				status = "okay";
+			};
+
+			i2c0: i2c@17020000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2c0_pmx>;
+				clock-frequency = <400000>;
+
+				gpio_3: i2c_gpio_expander@20{
+					#gpio-cells = <2>;
+					#interrupt-cells = <2>;
+					compatible = "semtech,sx1506q";
+					reg = <0x20>;
+					interrupt-parent = <&gpio_1>;
+					interrupts = <7 4>;
+					int-gpios = <&gpio_1 7 0>;
+					pulldn_ena = <0xff>;
+
+					gpio-controller;
+					interrupt-controller;
+				};
+
+				ft5x06@38{
+					compatible = "focaltech,ft5x06";
+					interrupt-parent = <&gpio_3>;
+					interrupts = <3 0x03>;
+					reg = <0x38>;
+				};
+
+				cs42888: cs42888@4B {
+					compatible = "cirrus,cs42888";
+					reg = <0x4B>;
+					clocks = <&car 7>;
+					clock-names = "mclk";
+					VA-supply = <0>;
+					VD-supply = <0>;
+					VLS-supply = <0>;
+					VLC-supply = <0>;
+				};
+			};
+			usb0: usb@17060000 {
+				vbus-supply = <&reg_usb0_otg_vbus>;
+				status = "disabled";
+			};
+			usbphy0: usbphy@0 {
+				status = "disabled";
+			};
+		};
+
+		vdifm {
+			sdhci@14200000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd2_pmx0>;
+			};
+
+			sdhci@14500000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd5_pmx>;
+			};
+
+		};
+
+		sirf-backlight {
+			compatible = "pwm-backlight";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pw_backlight_pmx1>;
+			pwms = <&pwm 3 50000>;
+			brightness-levels = <0 32 48 56 64 96 112 128 144 160
+				176 192 208 214 230 255>;
+			default-brightness-level = <7>;
+		};
+
+		gnssm {
+			uart1: uart@18020000 {
+				status = "okay";
+			};
+
+			uart0: uart@18010000 {
+				status = "disabled";
+				pinctrl-0 = <&uart0_pmx>;
+				pinctrl-names = "default";
+				sirf,uart-has-rtscts;
+						};
+
+			uart2: uart@18030000 {
+				status = "disabled";
+				pinctrl-0 = <&uart2_pmx>;
+				pinctrl-names = "default";
+			};
+
+			uart3: uart@18040000 {
+				status = "disabled";
+				pinctrl-0 = <&uart3_nopause_pmx0>;
+				pinctrl-names = "default";
+			};
+
+			uart4: uart@18050000 {
+				status = "disabled";
+			};
+
+			uart5: uart@18060000 {
+				status = "okay";
+			};
+
+			gmac: eth@180b0000 {
+				status = "disabled";
+				pinctrl-names = "default";
+				pinctrl-0 = <&rg_eth_mac_pmx
+					&rg_gmac_phy_intr_n_pmx
+					&rg_rgmii_mac_pmx>;
+			};
+
+			spi1: spi@18200000 {
+				status = "disabled";
+				compatible = "sirf,prima2-spi-slave";
+				pinctrl-0 = <&sp1_spi_pmx>;
+				pinctrl-names = "default";
+				spiflash: mxicy@0{
+					compatible = "mxicy,mx25l6405d";
+					reg = <0>;
+					spi-max-frequency = <37500000>;
+					spi-cpha;
+					spi-cpol;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partitions@0 {
+						label = "myspiboot";
+						reg = <0x0 0x800000>;
+					};
+				};
+			};
+		};
+
+		rtcm {
+			qspi: flash@188B0000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sp0_qspi_pmx>;
+				clock-rate = <20000000>;        /* 20MHz */
+			};
+			rtc-iobg@18840000 {
+				pwrc@3000 {
+					gps-power {
+					   status = "disabled";
+					   pinctrl-names = "default";
+					   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0>;
+					};
+				};
+			};
+		};
+
+		ipc@13240000 {
+			ns_m3_rproc@0 {
+				memory-region = <&ipc_mem0>;
+				status = "okay";
+			};
+
+			ns_m3_rproc@1 {
+				status = "disabled";
+			};
+
+			ns_kal_rproc@0 {
+				memory-region = <&ipc_mem1>;
+				status = "okay";
+			};
+
+			ns_kal_rproc@1 {
+				status = "disabled";
+			};
+		};
+
+		disp-iobg {
+			lcd0@13100000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ld_ldd_pmx &ld_ldd_fck_pmx
+					&ld_ldd_lck_pmx>;
+			};
+			lvds@10e10000 {
+				status = "disabled";
+				pinctrl-names = "default";
+				pinctrl-0 = <&lvds_analog_pmx>;
+				/* set to SYN or SLAVE for lvds panel */
+				lvds-mode = "SYN";
+			};
+		};
+
+		rgb: display@0 {
+			compatible = "rgb-panel";
+			source = "rgb.0";
+			status = "okay";
+
+			data-lines  = <16>;
+
+			display-timings {
+				native-mode = <&timing0>;
+				timing0: timing0 {
+					clock-frequency = <40000000>;
+					hactive = <800>;
+					vactive = <480>;
+					hfront-porch = <210>;
+					hback-porch = <45>;
+					hsync-len = <1>;
+					vback-porch = <22>;
+					vfront-porch = <132>;
+					vsync-len = <1>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+			};
+		};
+
+		lvds: display@1 {
+			compatible = "lvds-panel";
+			source = "lvds.0";
+			status = "disabled";
+
+			data-lines  = <24>;
+
+			display-timings {
+				native-mode = <&timing1>;
+				timing1: timing1 {
+					clock-frequency = <60000000>;
+					hactive = <1024>;
+					vactive = <600>;
+					hfront-porch = <220>;
+					hback-porch = <100>;
+					hsync-len = <1>;
+					vback-porch = <10>;
+					vfront-porch = <25>;
+					vsync-len = <1>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+			};
+		};
+	};
+};
