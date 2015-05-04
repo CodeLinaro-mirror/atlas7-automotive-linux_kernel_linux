@@ -29,8 +29,10 @@ struct kas_pcm_data {
 	void *hw_ep_buff;
 	u32 hw_ep_buff_phy_addr;
 	u32 pos;
+	snd_pcm_uframes_t last_appl_ptr;
 	void *action_id;
 	struct components_chain *components_chain;
+	struct component *data_produced_ack_component;
 };
 
 struct kas_priv_data {
@@ -93,6 +95,10 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	pdata->ipc_data = ipc_get_data();
 	pcm_data->pos = 0;
+	pcm_data->last_appl_ptr = 0;
+
+	pcm_data->data_produced_ack_component =
+		get_data_produced_ack_component(pcm_data->components_chain);
 
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 	if (ret < 0) {
@@ -188,19 +194,19 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		iacc_start(playback, substream->runtime->channels,
+				pcm_data->hw_ep_buff_phy_addr, 256);
 		ret = execute_components_chain(pcm_data->components_chain,
 			EXEC_PHASE_TRIGGER_START);
 		if (ret < 0)
 			return ret;
-		iacc_start(playback, substream->runtime->channels,
-				pcm_data->hw_ep_buff_phy_addr, 256);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		iacc_stop(playback);
 		execute_components_chain(pcm_data->components_chain,
 			EXEC_PHASE_TRIGGER_STOP);
+		iacc_stop(playback);
 		break;
 	default:
 		return -EINVAL;
@@ -218,6 +224,34 @@ static snd_pcm_uframes_t kas_pcm_pointer(struct snd_pcm_substream *substream)
 	return bytes_to_frames(substream->runtime, pcm_data->pos);
 }
 
+static int kas_pcm_ack(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data = &pdata->pcm[substream->stream];
+	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
+		return 0;
+
+	if (pcm_data->data_produced_ack_component == NULL)
+		return 0;
+
+	if (runtime->control->appl_ptr - pcm_data->last_appl_ptr >=
+		runtime->period_size)
+		pcm_data->last_appl_ptr = runtime->control->appl_ptr;
+	else
+		return 0;
+
+	pcm_data->sw_ep_handle->write_pointer =	frames_to_bytes(runtime,
+		pcm_data->last_appl_ptr % runtime->buffer_size) / 4;
+	execute_component(pcm_data->data_produced_ack_component);
+
+	return 0;
+}
+
 static struct snd_pcm_ops kas_pcm_ops = {
 	.open = kas_pcm_open,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -225,6 +259,7 @@ static struct snd_pcm_ops kas_pcm_ops = {
 	.hw_free = kas_pcm_hw_free,
 	.trigger = kas_pcm_trigger,
 	.pointer = kas_pcm_pointer,
+	.ack = kas_pcm_ack,
 };
 
 static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)

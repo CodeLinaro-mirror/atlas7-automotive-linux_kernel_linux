@@ -74,9 +74,8 @@ void __dmac_enable(int dmac, int ch, u32 addr, int buf_len, int dir, int burst)
 	writel_relaxed(ylen, base + DMA_CH_YLEN(ch));
 
 	/* Start DMA */
-	writel_relaxed(BIT(ch), base + DMA_INT_EN_SET);
-	writel_relaxed(BIT(ch) | BIT(ch+16), base + DMA_CH_LOOP_CTRL_SET);
 	writel(addr >> 2, base + DMA_CH_ADDR(ch));
+	writel_relaxed(BIT(ch) | BIT(ch+16), base + DMA_CH_LOOP_CTRL_SET);
 
 	iounmap(base);
 }
@@ -95,7 +94,6 @@ void __dmac_disable(int dmac, int ch)
 	}
 
 	/* Disable DMA channel */
-	writel_relaxed(BIT(ch), base + DMA_INT_EN_CLR);
 	writel_relaxed(BIT(ch) | BIT(ch+16), base + DMA_CH_LOOP_CTRL_CLR);
 
 	iounmap(base);

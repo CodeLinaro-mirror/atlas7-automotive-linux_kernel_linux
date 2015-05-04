@@ -197,6 +197,7 @@ int ipc_get_endpoint_info(struct ipc_data *ipc_data,
 #define ARM_SEND_COUNT_ADDR			0xFFAF9A
 #define ARM_ACK_COUNT_ADDR			0xFFAF9B
 #define ARM_MESSAGE_SEND_ADDR			0xFFAF9C
+#define DSP_START_OPERATOR_REPS_ADDR		0xFFAFA6
 
 #define DSP_SEND_COUNT_ADDR			0x007F9A
 #define DSP_ACK_COUNT_ADDR			0x007F9B
@@ -206,5 +207,9 @@ int ipc_get_endpoint_info(struct ipc_data *ipc_data,
 #define FRAME_MAX_SIZE					10
 #define FRAME_MAX_START_COMPLETE_DATA_SIZE		(FRAME_MAX_SIZE - 2)
 #define FRAME_MAX_CONTINUE_END_DATA_SIZE		(FRAME_MAX_SIZE - 1)
+
+#define START_OPERATOR_REPS_STATUS_CLEAN	0
+#define START_OPERATOR_REPS_SUCCESS		1
+#define START_OPERATOR_REPS_FAILED		0xff
 
 #endif /* _KAS_IPC_H */

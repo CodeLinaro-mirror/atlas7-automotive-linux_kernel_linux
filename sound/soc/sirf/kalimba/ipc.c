@@ -13,6 +13,8 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 
+#include <asm/processor.h>
+
 #include "dsp.h"
 #include "ipc.h"
 #include "regs.h"
@@ -108,7 +110,7 @@ static void print_req_or_rsp(u16 id)
 }
 #define DEBUG_MSG_OUTPUT(x) print_req_or_rsp(x)
 
-static u32 read_counter(struct ipc_data *ipc_data, u32 address)
+static u32 read_sram(struct ipc_data *ipc_data, u32 address)
 {
 	u32 counter;
 
@@ -119,18 +121,22 @@ static u32 read_counter(struct ipc_data *ipc_data, u32 address)
 	return counter;
 }
 
-static void increment_counter(struct ipc_data *ipc_data, u32 address)
+static void write_sram(struct ipc_data *ipc_data, u32 address, u32 value)
 {
-	u32 counter;
-
-	counter = read_counter(ipc_data, address);
-	counter++;
-
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_MODE, 4);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
 			(address << 2) | (0x2 << 30));
 
-	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, counter);
+	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, value);
+}
+
+static void increment_counter(struct ipc_data *ipc_data, u32 address)
+{
+	u32 counter;
+
+	counter = read_sram(ipc_data, address);
+	counter++;
+	write_sram(ipc_data, address, counter);
 }
 
 void ipc_raise_intr_for_ack(struct ipc_data *ipc_data)
@@ -141,8 +147,8 @@ void ipc_raise_intr_for_ack(struct ipc_data *ipc_data)
 	writel(1, ipc_data->base + 0x10);
 	if (ipc_data->debug)
 		pr_info("arm send ack: dsp send: %d, arm ack: %d\n",
-			read_counter(ipc_data, DSP_SEND_COUNT_ADDR),
-			read_counter(ipc_data, ARM_ACK_COUNT_ADDR));
+			read_sram(ipc_data, DSP_SEND_COUNT_ADDR),
+			read_sram(ipc_data, ARM_ACK_COUNT_ADDR));
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_MODE, 0);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
 			(DSP_INTR_RAISED_ADDR << 2) | (0x2 << 30));
@@ -217,15 +223,15 @@ static irqreturn_t ipc_irq_handler(int irq, void *pdata)
 	struct ipc_data *ipc_data = (struct ipc_data *)pdata;
 
 	readl(ipc_data->base + 0x300);
-	if (read_counter(ipc_data, ARM_ACK_COUNT_ADDR) ==
-			read_counter(ipc_data, DSP_SEND_COUNT_ADDR)) {
+	if (read_sram(ipc_data, ARM_ACK_COUNT_ADDR) ==
+			read_sram(ipc_data, DSP_SEND_COUNT_ADDR)) {
 		if (ipc_data->debug) {
 			pr_info("ack: arm send: %d, dsp ack: %d, ",
-				read_counter(ipc_data, ARM_SEND_COUNT_ADDR),
-				read_counter(ipc_data, DSP_ACK_COUNT_ADDR));
+				read_sram(ipc_data, ARM_SEND_COUNT_ADDR),
+				read_sram(ipc_data, DSP_ACK_COUNT_ADDR));
 			pr_info("dsp send %d, arm ack %d\n",
-				read_counter(ipc_data, DSP_SEND_COUNT_ADDR),
-				read_counter(ipc_data, ARM_ACK_COUNT_ADDR));
+				read_sram(ipc_data, DSP_SEND_COUNT_ADDR),
+				read_sram(ipc_data, ARM_ACK_COUNT_ADDR));
 		}
 		complete(&ipc_data->msg_send_ack);
 		regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
@@ -234,11 +240,11 @@ static irqreturn_t ipc_irq_handler(int irq, void *pdata)
 	} else {
 		if (ipc_data->debug) {
 			pr_info("rsp: dsp send:%d, arm ack:%d ",
-				read_counter(ipc_data, DSP_SEND_COUNT_ADDR),
-				read_counter(ipc_data, ARM_ACK_COUNT_ADDR));
+				read_sram(ipc_data, DSP_SEND_COUNT_ADDR),
+				read_sram(ipc_data, ARM_ACK_COUNT_ADDR));
 			pr_info("arm send:%d, dsp ack:%d\n",
-				read_counter(ipc_data, ARM_SEND_COUNT_ADDR),
-				read_counter(ipc_data, DSP_ACK_COUNT_ADDR));
+				read_sram(ipc_data, ARM_SEND_COUNT_ADDR),
+				read_sram(ipc_data, DSP_ACK_COUNT_ADDR));
 		}
 		schedule_work(&ipc_data->ipc_recv_work);
 	}
@@ -330,7 +336,8 @@ static void ipc_send_msg_package(struct ipc_data *ipc_data,
 				msg[i]);
 	increment_counter(ipc_data, ARM_SEND_COUNT_ADDR);
 	writel(1, ipc_data->base + 0x10);
-	if ((msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED))
+	if ((msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
+		&& msg[0] != START_OPERATOR_REQ))
 		wait_for_completion(&ipc_data->msg_send_ack);
 }
 
@@ -346,7 +353,8 @@ static void ipc_send_msg(struct ipc_data *ipc_data, u16 *msg, int size)
 		pr_info("\n");
 	}
 
-	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED)
+	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
+		&& msg[0] != START_OPERATOR_REQ)
 		mutex_lock(&ipc_data->msg_recv_mutex);
 
 	DEBUG_MSG_OUTPUT(msg[0]);
@@ -369,7 +377,8 @@ static void ipc_send_msg(struct ipc_data *ipc_data, u16 *msg, int size)
 		ipc_send_msg_package(ipc_data,
 				msg, size, MESSAGING_SHORT_END, 0);
 	}
-	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED) {
+	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
+		&& msg[0] != START_OPERATOR_REQ) {
 		mutex_unlock(&ipc_data->msg_recv_mutex);
 		wait_for_completion(&ipc_data->msg_rsp_completion);
 		DEBUG_MSG_OUTPUT(ipc_data->resp_from_kas[0]);
@@ -402,7 +411,7 @@ int ipc_start_operator(struct ipc_data *ipc_data,
 	int msg_size = 2 + operator_count;
 	u16 *msg;
 	int i;
-	int ret = 0;
+	u32 resp;
 
 	if (operator_count < 1)
 		return -EINVAL;
@@ -418,31 +427,28 @@ int ipc_start_operator(struct ipc_data *ipc_data,
 	for (i = 0; i < msg[1]; i++)
 		msg[2 + i] = operators_id[i];
 
+	/* Clear the flag of start_operator_respond,
+	 * - Value START_OPERATOR_REPS_SUCCESS is used to indicate
+	 *   that the command was successfully executed.
+	 * - Value START_OPERATOR_REPS_FAILED is used to indicate
+	 *   that the command failed.
+	 */
+	write_sram(ipc_data, DSP_START_OPERATOR_REPS_ADDR,
+		START_OPERATOR_REPS_STATUS_CLEAN);
 	ipc_send_msg(ipc_data, msg, msg_size);
 	kfree(msg);
 
-	if (ipc_data->resp_from_kas[0] != START_OPERATOR_RSP
-			|| ipc_data->resp_from_kas[2] != 0) {
-		pr_err("%s: error code: 0x%x\n", __func__,
-				ipc_data->resp_from_kas[2]);
-		ret = -EINVAL;
-		goto out;
-	}
+	do {
+		cpu_relax();
+		resp = read_sram(ipc_data, DSP_START_OPERATOR_REPS_ADDR);
+	} while (resp == 0);
 
-	if (ipc_data->resp_from_kas[3] != operator_count) {
-		dev_err(ipc_data->dev, "Operator start failed: %d %d\n",
-				operator_count, ipc_data->resp_from_kas[3]);
-		dev_err(ipc_data->dev, "First failure reason: %x\n",
-				ipc_data->resp_from_kas[4]);
-		ret = -EINVAL;
-	}
-out:
-	ipc_raise_intr_for_ack(ipc_data);
-	if (ret < 0)
+	if (resp == START_OPERATOR_REPS_FAILED) {
 		ipc_data->op_state = OPERATOR_STOPPED;
-	else
-		ipc_data->op_state = OPERATOR_STARTED;
-	return ret;
+		return -EINVAL;
+	}
+	ipc_data->op_state = OPERATOR_STARTED;
+	return 0;
 }
 
 int ipc_stop_operator(struct ipc_data *ipc_data,
