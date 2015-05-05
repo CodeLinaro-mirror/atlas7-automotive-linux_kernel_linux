@@ -17,7 +17,15 @@ struct a7ca_bt_trim {
 	u32 val;
 };
 
+/*
+* FIXME: bt driver need access atlas7 pmu for enabling BT ldo
+* which will be removed later when regulator driver is ready.
+*/
 #define SIRFSOC_PMU_BASE		0x10E30000
+
+#define SIRFSOC_INTC_BASE		0x10220000
+#define INTC_DEV_ID_OFFSET		0x48
+#define ATLAS7_CHIP_VER_A0		0x60A0
 
 #define reg_read_write(reg, val) writel(readl(reg)|val, reg)
 struct a7ca_bt_dev {
@@ -43,9 +51,10 @@ static int a7ca_bt_release(struct inode *inode, struct file *filp)
 static int a7ca_bt_hw_init(struct a7ca_bt_dev *dev)
 {
 	int err = 0;
-	void __iomem *pmu_base;
+	void __iomem *pmu_base, *intc_base;
 
 	pmu_base = ioremap(SIRFSOC_PMU_BASE, SZ_64K);
+	intc_base = ioremap(SIRFSOC_INTC_BASE, SZ_64K);
 
 	err = clk_prepare_enable(dev->a7ca_btss_clk);
 	if (err) {
@@ -62,7 +71,19 @@ static int a7ca_bt_hw_init(struct a7ca_bt_dev *dev)
 		pr_debug("a7ca_io_clk enable failed\n");
 		goto out;
 	}
-	reg_read_write(pmu_base + 0x58, 0xa);
+
+	/*
+	* BT LDO control bit polarity was reversed in atlas7 A1
+	* comparing with A0. Check chip ID here.
+	*
+	* FIXME: this is a temp resolution for making BT work on
+	* both A1 & A0 chips. When A0 is abandonded, the check
+	* can be removed.
+	*/
+	if (readl(intc_base + INTC_DEV_ID_OFFSET) == ATLAS7_CHIP_VER_A0)
+		reg_read_write(pmu_base + 0x58, 0xa);
+	else
+		reg_read_write(pmu_base + 0x58, 0x2);
 
 out:
 	return err;
