@@ -36,11 +36,11 @@
 			reg = <0>;
 			clocks = <&car 146>;
 			cpu0-supply = <&vdd_cpu>;
-			voltage-tolerance = <2>;
+			voltage-tolerance = <1>;
 			operating-points = <
 			/* kHz    uV */
-			793000	1260000
-			26000	1188000
+			793000	1127000
+			26000	990000
 			>;
 			clock-latency = <150000>;
 

@@ -52,15 +52,15 @@
 			compatible = "pwm-regulator";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
-			pwms = <&pwm 2 600>;
-			voltage-table = <1260000 0>,
-				<1188000 10>,
-				<1116000 20>,
-				<1044000 30>,
-				<972000 40>,
+			pwms = <&pwm 2 60>;
+			voltage-table = <1265000 0>,
+				<1196000 10>,
+				<1127000 20>,
+				<1058000 30>,
+				<990000 40>,
 				<900000 50>;
 			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <1260000>;
+			regulator-max-microvolt = <1265000>;
 			regulator-name = "vdd_cpu";
 		};
 
