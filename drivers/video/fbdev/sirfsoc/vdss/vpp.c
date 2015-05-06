@@ -226,7 +226,8 @@ static bool __vpp_setup_src(struct vpp_adapter *adapter,
 			VPP_CTRL_SEQ_TYPE_MASK |
 			VPP_CTRL_TOP_FIELD_FIRST |
 			VPP_CTRL_DI_FIELD_BOT |
-			VPP_CTRL_DOUBLE_FRATE;
+			VPP_CTRL_DOUBLE_FRATE |
+			VPP_CTRL_UVUV_MODE;
 
 	switch (surf->fmt) {
 	case VDSS_PIXELFORMAT_YV12:
@@ -292,7 +293,7 @@ static bool __vpp_setup_src(struct vpp_adapter *adapter,
 
 	if (surf->fmt == VDSS_PIXELFORMAT_NV12) {
 		if (adapter->is_atlas7)
-			reg_ctrl |= (1 << 13);
+			reg_ctrl |= VPP_CTRL_UVUV_MODE;
 		else {
 			reg_thresh = vpp_read_reg(adapter, VPP_FULL_THRESH);
 			reg_thresh |= VPP_UVUV_MODE;

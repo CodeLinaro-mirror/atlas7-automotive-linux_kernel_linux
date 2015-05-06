@@ -155,6 +155,7 @@ enum vpp_hw_di_mode {
 #define VPP_CTRL_OUT_FORMAT(x)		(((x) & 0x3) << 8)
 #define VPP_CTRL_OUT_ENDIAN_MODE	(1 << 10)
 #define VPP_CTRL_CLK_OFF_ENABLE		(1 << 11)
+#define VPP_CTRL_UVUV_MODE		(1 << 13)
 #define VPP_CTRL_UV_INTERLEAVE_EN	(1 << 14)
 #define VPP_CTRL_HW_DI_MODE_MASK	(0x3 << 15)
 #define VPP_CTRL_HW_DI_MODE(x)		(((x) & 0x3) << 15)
