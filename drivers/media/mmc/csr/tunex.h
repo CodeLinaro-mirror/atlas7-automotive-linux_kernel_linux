@@ -25,8 +25,11 @@
 
 #define SOFT_RST_CMD (1 << 25)
 #define SOFT_RST_DAT (1 << 26)
-/* radio SDIO driver define*/
 
+#define BUF0_READY	0x1
+#define BUF1_READY	0x2
+#define BUF0_ERR	0x1
+#define BUF1_ERR	0x2
 /*IOCTL numbers*/
 #define RADIO_IO_MAGIC			'R'
 #define IOCTL_RADIO_INIT		_IOR(RADIO_IO_MAGIC, 1, int)
@@ -79,18 +82,15 @@ struct csr_radio {
 	struct tx_message *saved_msg;
 	struct dma_config data_control;
 	struct csr_radio_sdio radio_sdio;
-	struct task_struct *intthread;
 	struct hrtimer	hrt;
 	dma_addr_t dma_addr;
 	int dma_buf_size;
 	unsigned int in;
 	unsigned int out;
 	unsigned int buf_full;
+	unsigned int buffer_ready;
 };
 
-extern unsigned int buffer_crc_err;
-extern unsigned int sdio_dma_int_complete(void);
-extern int sdio_dma_int_handler(void);
 extern int sdio_reset_comm(struct mmc_card *card);
 
 #endif

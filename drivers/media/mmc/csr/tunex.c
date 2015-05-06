@@ -525,6 +525,8 @@ static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 		container_of(hrt, struct csr_radio, hrt);
 	dma_addr_t loopdma_buf = radio->ss_sirfsoc->loopdma_buf[0];
 	struct sdhci_host *host = radio->radio_sdio.host;
+	unsigned int intmask;
+	unsigned int buffer_err;
 
 	sys_addr = readl(host->ioaddr + 0);
 	size = sys_addr - loopdma_buf - radio->in;
@@ -548,58 +550,32 @@ static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 		spin_unlock(&radio->lock);
 		wake_up(&(radio->data_avail));
 	}
+	intmask = readl(host->ioaddr + LOOPDMA_INT_STATUS);
+	if (intmask & LOOPDMA_BUFF0_RDY_FLAG)
+		radio->buffer_ready |= BUF0_READY;
+	if (intmask & LOOPDMA_BUFF1_RDY_FLAG)
+		radio->buffer_ready |= BUF1_READY;
+
+	buffer_err = 0;
+	if (intmask & LOOPDMA_BUFF0_ERR_FLAG)
+		buffer_err = BUF0_ERR;
+	if (intmask & LOOPDMA_BUFF1_ERR_FLAG)
+		buffer_err |= BUF1_ERR;
+	if (buffer_err) {
+		writel(intmask & (LOOPDMA_BUFF0_RDY_FLAG |
+				LOOPDMA_BUFF1_RDY_FLAG |
+				LOOPDMA_BUFF0_ERR_FLAG |
+				LOOPDMA_BUFF1_ERR_FLAG),
+				host->ioaddr + LOOPDMA_INT_STATUS);
+
+		sdhci_writel(host, radio->ss_sirfsoc->loopdma_buf[0],
+				SDHCI_DMA_ADDRESS);
+		radio->buffer_ready = 0;
+	}
 
 	hrtimer_forward_now(hrt, ns_to_ktime(20000000));
 
 	return HRTIMER_RESTART;
-}
-
-static int tunex_int_thread(void *data)
-{
-	struct csr_radio *radio;
-	struct sdhci_host *host;
-	unsigned int intmask;
-	struct device *dev;
-	unsigned int buffer_ready, buffer_err;
-
-	struct sched_param param = {
-		.sched_priority = 14
-	};
-
-	radio = (struct csr_radio *)data;
-	host = radio->radio_sdio.host;
-	dev = radio->device;
-
-	sched_setscheduler(current, SCHED_FIFO, &param);
-	while (!kthread_should_stop()) {
-
-		sdio_dma_int_handler();
-
-		buffer_ready = 0;
-		buffer_err = 0;
-		intmask = readl(host->ioaddr + LOOPDMA_INT_STATUS);
-		if (intmask & LOOPDMA_BUFF0_RDY_FLAG)
-			buffer_ready |= 1;
-		if (intmask & LOOPDMA_BUFF1_RDY_FLAG)
-			buffer_ready |= 0x2;
-
-		if (intmask & LOOPDMA_BUFF0_ERR_FLAG)
-			buffer_err = 1;
-		if (intmask & LOOPDMA_BUFF1_ERR_FLAG)
-			buffer_err |= 0x2;
-
-		if (!buffer_ready)
-			dev_info(dev, "both buffer not ready\n");
-		writel(intmask & (LOOPDMA_BUFF0_RDY_FLAG |
-					LOOPDMA_BUFF1_RDY_FLAG |
-					LOOPDMA_BUFF0_ERR_FLAG |
-					LOOPDMA_BUFF1_ERR_FLAG),
-					host->ioaddr + LOOPDMA_INT_STATUS);
-		if (buffer_err)
-			sdhci_writel(host, radio->ss_sirfsoc->loopdma_buf[0],
-					SDHCI_DMA_ADDRESS);
-	}
-	return 0;
 }
 
 static void tunex_dma_framecnt_wt(struct csr_radio *radio,
@@ -821,11 +797,24 @@ static long
 tunex_ioctl_release_buf(struct csr_radio *radio,
 		unsigned long data_msg)
 {
+	struct sdhci_host *host = radio->radio_sdio.host;
+
 	spin_lock(&radio->lock);
 	radio->out += radio->data_control.dma_length;
-	if (radio->out >= LOOPDMA_BUF_SIZE)
+	if ((radio->buffer_ready & BUF0_READY) &&
+			(radio->out > LOOPDMA_BUF_SIZE / 2)) {
+		writel(LOOPDMA_BUFF0_RDY_FLAG,
+				host->ioaddr + LOOPDMA_INT_STATUS);
+		radio->buffer_ready &= ~BUF0_READY;
+	}
+	if (radio->out >= LOOPDMA_BUF_SIZE) {
+		if (radio->buffer_ready & BUF1_READY) {
+			writel(LOOPDMA_BUFF1_RDY_FLAG,
+					host->ioaddr + LOOPDMA_INT_STATUS);
+			radio->buffer_ready &= ~BUF1_READY;
+		}
 		radio->out = 0;
-
+	}
 	if (radio->buf_full)
 		radio->buf_full = 0;
 	spin_unlock(&radio->lock);
@@ -959,19 +948,9 @@ static int tunex_sdio_probe(struct sdio_func *func,
 				CLOCK_MONOTONIC,
 				HRTIMER_MODE_REL);
 		radio->hrt.function = tunex_hrtimer_callback;
-
-		radio->intthread = kthread_run(tunex_int_thread,
-				radio,
-				"radio.intthread");
-		if (IS_ERR(radio->intthread)) {
-			dev_err(dev, "Unable to start radio int thread\n");
-			ret = PTR_ERR(radio->intthread);
-			goto fail_exit;
-		}
 	} else {
 		dev_err(dev, "csrradio: host do not support loop dma!\n");
-		ret = -ENODEV;
-		goto fail_exit;
+		return -ENODEV;
 	}
 
 	radio->misc_radio.name = DRV_NAME;
@@ -980,18 +959,10 @@ static int tunex_sdio_probe(struct sdio_func *func,
 	ret = misc_register(&radio->misc_radio);
 	if (unlikely(ret)) {
 		dev_err(&pdev->dev, "misc register fail\n");
-		goto dev_add_fail;
+		return ret;
 	}
 
 	return 0;
-
-dev_add_fail:
-	if (priv->loopdma) {
-		kthread_stop(radio->intthread);
-		sdio_dma_int_complete();
-	}
-fail_exit:
-	return ret;
 }
 
 static void tunex_sdio_remove(struct sdio_func *func)
@@ -1012,8 +983,6 @@ static void tunex_sdio_remove(struct sdio_func *func)
 		dev_err(dev, "misc_deregiser fail %d\n", ret);
 	radio->data_control.dma_status = STOP;
 
-	kthread_stop(radio->intthread);
-	sdio_dma_int_complete();
 	sdio_claim_host(func);
 	sdio_disable_func(func);
 	sdio_release_host(func);
