@@ -635,7 +635,7 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	vout->next_frm = NULL;
 
 	if (vout->layer->is_enabled(vout->layer))
-		vout->layer->enable(vout->layer);
+		vout->layer->disable(vout->layer);
 
 	if (vout->vpp_handle) {
 		sirfsoc_vpp_destroy_device(vout->vpp_handle);
