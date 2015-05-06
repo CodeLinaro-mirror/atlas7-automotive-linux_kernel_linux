@@ -137,6 +137,16 @@ config CAN_XILINXCAN
 	  Xilinx CAN driver. This driver supports both soft AXI CAN IP and
 	  Zynq CANPS IP.
 
+config CAN_VIRTIO
+	tristate "VIRTIO CAN"
+	depends on VIRTIO
+	---help---
+	  VIRTIO CAN driver. This driver provides basic communication between
+	  Linux and CAN controller that hidden behind MCU.
+
+	  Say Y here if you want to use enable this driver, To compile this
+	  driver as a module, choose M here.
+
 source "drivers/net/can/mscan/Kconfig"
 
 source "drivers/net/can/sja1000/Kconfig"
