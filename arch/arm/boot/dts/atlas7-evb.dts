@@ -9,12 +9,8 @@
 /dts-v1/;
 
 /include/ "atlas7.dtsi"
-
-#ifdef CONFIG_ANDROID
-/include/ "atlas7-amber.dtsi"
-#else
-/include/ "atlas7-a7ca.dtsi"
-#endif
+#include "atlas7-amber.dtsi"
+#include "atlas7-a7ca.dtsi"
 
 #include <dt-bindings/input/input.h>
 
