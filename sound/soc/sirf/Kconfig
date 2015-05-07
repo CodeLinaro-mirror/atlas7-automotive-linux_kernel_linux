@@ -46,3 +46,6 @@ config SND_SOC_SIRF_USP
 	depends on SND_SOC_SIRF
 	select REGMAP_MMIO
 	tristate
+
+# SiRF kalimba DSP support
+source "sound/soc/sirf/kalimba/Kconfig"

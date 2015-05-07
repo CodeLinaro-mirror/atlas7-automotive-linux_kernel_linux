@@ -100,11 +100,11 @@ static int get_vpp_out_fmt(int fmt)
  */
 int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 {
-	struct vdss_blt_params vpp_params;
+	struct vdss_vpp_op_params vpp_params = {0};
 	struct vdss_rect srcrc, dstrc;
 	int fmt;
+	int ret;
 
-	memset((void *)&vpp_params, 0, sizeof(vpp_params));
 	srcrc.left = params->src_rc.x;
 	srcrc.top = params->src_rc.y;
 	srcrc.right = params->src_rc.x + params->src_rc.w;
@@ -115,46 +115,42 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 	dstrc.right = params->dst_rc.x + params->dst_rc.w;
 	dstrc.bottom = params->dst_rc.y + params->dst_rc.h;
 
-	vpp_params.params.src_base = params->src.paddr;
-	vpp_params.params.src_hor_stride = params->src.width;
-	vpp_params.params.src_ver_stride = params->src.height;
-	vpp_params.params.src_rect = srcrc;
 	fmt = get_vpp_in_fmt(params->src.format);
 	if (fmt <= 0)
 		return -EINVAL;
 
-	vpp_params.params.src_fmt = fmt;
+	vpp_params.type = VPP_OP_BITBLT;
+	vpp_params.op.blt.src_surf.fmt = fmt;
+	vpp_params.op.blt.src_surf.width = params->src.width;
+	vpp_params.op.blt.src_surf.height = params->src.height;
+	vpp_params.op.blt.src_surf.base = params->src.paddr;
+	vpp_params.op.blt.src_rect = srcrc;
 
-	vpp_params.params.dst_base = params->dst.paddr;
-	vpp_params.params.dst_hor_stride = params->dst.width;
-	vpp_params.params.dst_ver_stride = params->dst.height;
-	vpp_params.params.dst_rect = dstrc;
 	fmt = get_vpp_out_fmt(params->dst.format);
 	if (fmt <= 0)
 		return -EINVAL;
+	vpp_params.op.blt.dst_surf.fmt = fmt;
+	vpp_params.op.blt.dst_surf.width = params->dst.width;
+	vpp_params.op.blt.dst_surf.height = params->dst.height;
+	vpp_params.op.blt.dst_surf.base = params->dst.paddr;
+	vpp_params.op.blt.dst_rect = dstrc;
 
-	vpp_params.params.dst_fmt = get_vpp_out_fmt(params->dst.format);
-
-	vpp_params.flags |= VDSS_VPP_BLT;
-	vpp_params.params.index = 1;
 #ifdef CONFIG_SIRF_G2D_DEBUG_LOG
-	g2d_inf("vpp building with :%d\n", vpp_params.params.index);
 	g2d_inf("src:baddr:%x, bw:%d, bh:%d, fmt:%d[%d,%d,%d,%d]\n",
-		vpp_params.params.src_base,
-		vpp_params.params.src_hor_stride,
-		vpp_params.params.src_ver_stride,
-		vpp_params.params.src_fmt,
+		vpp_params.op.blt.src_surf.base,
+		vpp_params.op.blt.src_surf.width,
+		vpp_params.op.blt.src_surf.height,
+		vpp_params.op.blt.src_surf.fmt,
 		srcrc.left, srcrc.top, srcrc.right, srcrc.bottom);
 	g2d_inf("dst:baddr:%x, bw:%d, bh:%d, fmt:%d[%d,%d,%d,%d]\n",
-		vpp_params.params.dst_base,
-		vpp_params.params.dst_hor_stride,
-		vpp_params.params.dst_ver_stride,
-		vpp_params.params.dst_fmt,
+		vpp_params.op.blt.dst_surf.base,
+		vpp_params.op.blt.dst_surf.width,
+		vpp_params.op.blt.dst_surf.height,
+		vpp_params.op.blt.dst_surf.fmt,
 		dstrc.left, dstrc.top, dstrc.right, dstrc.bottom);
 #endif
-	vpp_blt(&vpp_params);
-
-	return 0;
+	ret = sirfsoc_vpp_present(NULL, &vpp_params);
+	return ret;
 }
 
 static u32 g2d_read_reg(struct g2d_context *context, u32 offset)

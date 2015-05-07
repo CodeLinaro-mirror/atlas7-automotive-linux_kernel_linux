@@ -61,13 +61,15 @@ EXPORT_SYMBOL(sirfsoc_vdss_get_layer);
 
 
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
-	struct sirfsoc_vdss_screen *scn)
+	struct sirfsoc_vdss_screen *scn, bool rearview)
 {
 	int i = 0;
 	struct sirfsoc_vdss_layer *l;
 
 	for (i = 0; i < num_layers[scn->lcdc_id]; i++) {
 		l = &layers[scn->lcdc_id][i];
+		if (rearview && l->id != SIRFSOC_VDSS_REARVIEW_LAYER)
+			continue;
 		if ((l->screen->id == scn->id) && !l->is_enabled(l)) {
 			if (l->screen)
 				l->unset_screen(l);
@@ -455,29 +457,27 @@ static int vdss_layer_enable(struct sirfsoc_vdss_layer *layer)
 {
 	struct layer_priv_data *ldata = get_layer_data(layer);
 	unsigned long flags;
-	int r;
+	int r = 0;
 
-	mutex_lock(&apply_lock);
+	spin_lock_irqsave(&data_lock, flags);
 
 	if (ldata->enabled) {
 		r = 0;
-		goto err1;
+		goto err;
 	}
 
 	if (layer->screen == NULL || layer->screen->output == NULL) {
 		r = -EINVAL;
-		goto err1;
+		goto err;
 	}
-
-	spin_lock_irqsave(&data_lock, flags);
-
 	ldata->enabling = true;
 
 	r = vdss_check_settings(layer->screen);
 	if (r) {
 		VDSSERR("failed to enable layer %d: check_settings failed\n",
 			layer->id);
-		goto err2;
+		ldata->enabling = false;
+		goto err;
 	}
 
 	ldata->enabling = false;
@@ -485,16 +485,8 @@ static int vdss_layer_enable(struct sirfsoc_vdss_layer *layer)
 
 	vdss_update_regs(layer->lcdc_id);
 
+err:
 	spin_unlock_irqrestore(&data_lock, flags);
-
-	mutex_unlock(&apply_lock);
-
-	return 0;
-err2:
-	ldata->enabling = false;
-	spin_unlock_irqrestore(&data_lock, flags);
-err1:
-	mutex_unlock(&apply_lock);
 	return r;
 }
 
@@ -502,9 +494,9 @@ static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
 {
 	struct layer_priv_data *ldata = get_layer_data(layer);
 	unsigned long flags;
-	int r;
+	int r = 0;
 
-	mutex_lock(&apply_lock);
+	spin_lock_irqsave(&data_lock, flags);
 
 	if (!ldata->enabled) {
 		r = 0;
@@ -516,19 +508,11 @@ static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
 		goto err;
 	}
 
-	spin_lock_irqsave(&data_lock, flags);
-
 	vdss_apply_layer_enable(layer, false);
 	vdss_update_regs(layer->lcdc_id);
 
-	spin_unlock_irqrestore(&data_lock, flags);
-
-	mutex_unlock(&apply_lock);
-
-	return 0;
-
 err:
-	mutex_unlock(&apply_lock);
+	spin_unlock_irqrestore(&data_lock, flags);
 	return r;
 }
 

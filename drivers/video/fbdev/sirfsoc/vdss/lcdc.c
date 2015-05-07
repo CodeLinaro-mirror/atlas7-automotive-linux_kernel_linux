@@ -65,7 +65,6 @@ static void __lcdc_wait_idle(u32 lcdc_index, int layer, bool with_vpp)
 
 	timeout = 0;
 	while (lcdc_read_reg(lcdc_index, DMA_STATUS) & (1 << layer)) {
-		msleep(20);
 		timeout++;
 		if (timeout > 1000)
 			LCDC_DEBUG("wait DMA_STATUS timeout\n");
@@ -73,7 +72,6 @@ static void __lcdc_wait_idle(u32 lcdc_index, int layer, bool with_vpp)
 
 	timeout = 0;
 	while (lcdc_read_reg(lcdc_index, S0_LAYER_STATUS) & (1 << layer)) {
-		msleep(20);
 		timeout++;
 		if (timeout > 1000)
 			LCDC_DEBUG("wait S0_LAYER_STATUS timeout\n");
@@ -81,7 +79,7 @@ static void __lcdc_wait_idle(u32 lcdc_index, int layer, bool with_vpp)
 }
 
 static void __lcdc_disable_layer(u32 lcdc_index, enum vdss_layer layer,
-	bool wait, bool passthrough)
+				bool passthrough)
 {
 	u32 s0_layer_sel;
 	u32 lx_dma_ctrl;
@@ -100,8 +98,7 @@ static void __lcdc_disable_layer(u32 lcdc_index, enum vdss_layer layer,
 			__lcdc_confirm_layer_setting(lcdc_index, layer);
 		}
 
-		if (wait)
-			__lcdc_wait_idle(lcdc_index, layer, passthrough);
+		__lcdc_wait_idle(lcdc_index, layer, passthrough);
 	}
 }
 
@@ -302,31 +299,8 @@ void lcdc_layer_enable(u32 lcdc_index, enum vdss_layer layer,
 	if (enable)
 		__lcdc_enable_layer(lcdc_index, layer, passthrough);
 	else
-		__lcdc_disable_layer(lcdc_index, layer, false, passthrough);
+		__lcdc_disable_layer(lcdc_index, layer, passthrough);
 
-}
-
-bool lcdc_is_vpp_passthrough(enum vdss_pixelformat fmt)
-{
-	switch (fmt) {
-	case VDSS_PIXELFORMAT_YUYV:
-	case VDSS_PIXELFORMAT_UYVY:
-	case VDSS_PIXELFORMAT_YUY2:
-	case VDSS_PIXELFORMAT_YUNV:
-	case VDSS_PIXELFORMAT_YVYU:
-	case VDSS_PIXELFORMAT_UYNV:
-	case VDSS_PIXELFORMAT_VYUY:
-	case VDSS_PIXELFORMAT_IMC1:
-	case VDSS_PIXELFORMAT_IMC3:
-	case VDSS_PIXELFORMAT_YV12:
-	case VDSS_PIXELFORMAT_I420:
-	case VDSS_PIXELFORMAT_UYVI:
-	case VDSS_PIXELFORMAT_NV12:
-	case VDSS_PIXELFORMAT_NV21:
-		return true;
-	default:
-		return false;
-	}
 }
 
 void lcdc_layer_confirm_setting(u32 lcdc_index, enum vdss_layer layer)
@@ -564,8 +538,6 @@ void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info,
 	struct sirfsoc_video_timings *timings)
 {
-	info->passthrough = lcdc_is_vpp_passthrough(info->fmt);
-
 	lcdc_layer_set_fmt(lcdc_index, layer, info->fmt, info->passthrough);
 	lcdc_layer_set_size(lcdc_index, layer, info, timings->xres,
 		timings->yres);
@@ -577,53 +549,16 @@ void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 		info->source_alpha, info->global_alpha,
 		info->alpha);
 
-	if (info->passthrough) {
-		struct vdss_vpp_params params;
-
-		memset(&params, 0, sizeof(params));
-
-		params.src_base = info->base;
-		params.src_fmt = info->fmt;
-		params.src_hor_stride = info->surf_width;
-		params.src_ver_stride = info->surf_height;
-		params.src_rect = info->src_rect_on;
-		params.dst_rect = info->dst_rect_on;
-		params.index = lcdc_index;
-		params.dst_base = 0;
-		params.dst_fmt = VPP_TO_LCD_PIXELFORMAT;
-
-		vpp_passthrough_setup(&params);
-	}
-
 	lcdc_layer_confirm_setting(lcdc_index, layer);
 }
 
 void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info)
 {
-	if (info->passthrough) {
-		struct vdss_blt_params params;
-
-		memset(&params, 0, sizeof(params));
-
-		params.params.src_base = info->base;
-		params.params.index = lcdc_index;
-		params.flags |= VDSS_VPP_UPDATE_SRCBASE;
-
-		params.params.src_fmt = info->fmt;
-		params.params.src_hor_stride = info->surf_width;
-		params.params.src_ver_stride = info->surf_height;
-		params.params.src_rect = info->src_rect_on;
-		params.params.dst_rect = info->dst_rect_on;
-		params.params.dst_base = 0;
-		params.params.dst_fmt = VPP_TO_LCD_PIXELFORMAT;
-
-		vpp_blt(&params);
-	} else
+	if (info->passthrough == false)
 		lcdc_layer_set_base(lcdc_index, layer, &info->src_rect,
-			info->surf_width, info->surf_height, info->fmt,
-			info->base);
-
+				info->surf_width, info->surf_height, info->fmt,
+				info->base);
 	lcdc_layer_confirm_setting(lcdc_index, layer);
 }
 

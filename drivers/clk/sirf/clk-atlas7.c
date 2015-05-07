@@ -1329,7 +1329,6 @@ void __init atlas7_clk_init(struct device_node *np)
 	atlas7_rst_ctlr.of_node = np;
 	atlas7_rst_ctlr.nr_resets = ARRAY_SIZE(atlas7_reset_unit);
 	reset_controller_register(&atlas7_rst_ctlr);
-	arm_pm_restart = atlas7_restart;
 }
 
 CLK_OF_DECLARE(atlas7_clk, "sirf,atlas7-car", atlas7_clk_init);

@@ -83,8 +83,6 @@ struct lcdc_prop *lcdc_get_prop(u32 lcdc_index);
 
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);
-void vpp_passthrough_setup(struct vdss_vpp_params *params);
-int vpp_blt(struct vdss_blt_params *blt_params);
 
 int lvdsc_init_platform_driver(void) __init;
 void lvdsc_uninit_platform_driver(void) __init;

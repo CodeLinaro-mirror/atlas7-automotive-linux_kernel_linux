@@ -1,0 +1,11 @@
+CSR Kalimba PCM front end driver
+
+Required properties:
+
+  - compatible		: "csr,kas-pcm".
+
+Example:
+
+kas-pcm {
+	compatible = "csr,kas-pcm";
+};

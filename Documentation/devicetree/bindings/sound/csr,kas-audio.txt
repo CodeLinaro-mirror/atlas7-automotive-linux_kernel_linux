@@ -1,0 +1,11 @@
+CSR Kalimba Sound Card
+
+Required properties:
+
+  - compatible		: "csr,kas-audio".
+
+Example:
+
+kas-sound-card {
+	compatible = "csr,kas-audio";
+};

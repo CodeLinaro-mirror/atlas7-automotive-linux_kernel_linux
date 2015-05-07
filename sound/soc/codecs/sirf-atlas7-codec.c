@@ -22,6 +22,11 @@
 
 #include "sirf-atlas7-codec.h"
 
+/* Temporary debugging support, will be removed */
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
+#include "../sirf/kalimba/iacc.h"
+#endif
+
 struct sirf_atlas7_codec {
 	struct clk *clk;
 	struct regmap *regmap;
@@ -780,6 +785,9 @@ static int sirf_atlas7_codec_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Register Audio Codec dai failed.\n");
 		return ret;
 	}
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
+	debug_setup_codec_regmap(atlas7_codec->regmap);
+#endif
 	return 0;
 }
 

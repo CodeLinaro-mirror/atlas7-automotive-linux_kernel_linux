@@ -1980,7 +1980,9 @@ static int noc_macro_init(struct platform_device *pdev)
 	struct noc_macro *nocm;
 
 	nocm = platform_get_drvdata(pdev);
-	QosGenerator_init(nocm);
+	/* ignore qos on pxp for lack some modules*/
+	if (!of_machine_is_compatible("sirf,atlas7-pxp"))
+		QosGenerator_init(nocm);
 	if (!(nocm->log_enable || nocm->qos_probe_enable))
 		return 0;
 

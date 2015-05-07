@@ -52,6 +52,8 @@ enum vdss_layer {
 	SIRFSOC_VDSS_CURSOR	= 6,
 };
 
+#define SIRFSOC_VDSS_REARVIEW_LAYER		SIRFSOC_VDSS_LAYER3
+
 enum vdss_screen {
 	SIRFSOC_VDSS_SCREEN0,
 	SIRFSOC_VDSS_SCREEN1,
@@ -178,20 +180,71 @@ struct vdss_vpp_interlace {
 	enum vdss_deinterlace_mode di_mode;
 };
 
-struct vdss_vpp_params {
-	u32 index;
-	u32 src_base;	/* src surface physical address */
-	enum vdss_pixelformat src_fmt;	/* src surface format */
-	u32 src_hor_stride;	/* horizontal stride in pixel unit */
-	u32 src_ver_stride;	/* vertical stride in pixel unit */
-	struct vdss_rect src_rect;
-	u32 dst_base;		/* dst surface physical address */
-	enum vdss_pixelformat dst_fmt;
-	u32 dst_hor_stride;
-	u32 dst_ver_stride;
-	struct vdss_rect dst_rect;
+struct vdss_surface {
+	enum vdss_pixelformat fmt;
+	u32 width;
+	u32 height;
+	u32 base;
+};
 
+enum vdss_vpp {
+	SIRFSOC_VDSS_VPP0 = 0,
+	SIRFSOC_VDSS_VPP1,
+};
+
+enum vdss_vip_ext {
+	SIRFSOC_VDSS_VIP0_EXT = 0,
+	SIRFSOC_VDSS_VIP1_EXT,
+};
+
+enum vdss_vpp_op_type {
+	VPP_OP_IDEL = 0,
+	VPP_OP_BITBLT,
+	VPP_OP_PASS_THROUGH,
+	VPP_OP_IBV,
+};
+
+struct vdss_vpp_blt_params {
+	struct vdss_surface src_surf;
+	struct vdss_rect src_rect;
 	struct vdss_vpp_interlace interlace;
+	struct vdss_surface dst_surf;
+	struct vdss_rect dst_rect;
+};
+
+struct vdss_vpp_passthrough_params {
+	struct vdss_surface src_surf;
+	struct vdss_vpp_interlace interlace;
+	struct vdss_rect src_rect;
+	struct vdss_rect dst_rect;
+	bool flip;
+};
+
+struct vdss_vpp_ibv_params {
+	enum vdss_vip_ext src_id;
+	struct vdss_surface src_surf[3];
+	u32 src_size;
+	struct vdss_vpp_interlace interlace;
+	struct vdss_rect src_rect;
+	struct vdss_rect dst_rect;
+};
+
+struct vdss_vpp_op_params {
+	enum vdss_vpp_op_type type;
+	union {
+		struct vdss_vpp_blt_params blt;
+		struct vdss_vpp_passthrough_params passthrough;
+		struct vdss_vpp_ibv_params ibv;
+	} op;
+};
+
+typedef void (*sirfsoc_vpp_notify_t)(void *arg,
+				enum vdss_vpp id,
+				enum vdss_vpp_op_type type);
+
+struct vdss_vpp_create_device_params {
+	sirfsoc_vpp_notify_t func;
+	void *arg;
 };
 
 struct vdss_vpp_colorctrl {
@@ -199,12 +252,6 @@ struct vdss_vpp_colorctrl {
 	s16 bright;
 	s16 contrast;
 	s16 saturation;
-};
-
-struct vdss_blt_params {
-	struct vdss_vpp_params params;
-	struct vdss_vpp_colorctrl colorctrl;
-	int flags;
 };
 
 struct sirfsoc_vdss_screen;
@@ -526,13 +573,21 @@ struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(u32 lcdc_index, int num);
 int sirfsoc_vdss_get_num_layers(u32 lcdc_index);
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(u32 lcdc_index, int num);
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
-	struct sirfsoc_vdss_screen *scn);
+	struct sirfsoc_vdss_screen *scn, bool rearview);
 
 typedef void (*sirfsoc_lcdc_isr_t) (void *arg, u32 mask);
 int sirfsoc_lcdc_register_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
 	void *arg, u32 mask);
 int sirfsoc_lcdc_unregister_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
 	void *arg, u32 mask);
+
+
+/* vpp functions*/
+bool sirfsoc_vpp_is_passthrough_support(enum vdss_pixelformat fmt);
+void *sirfsoc_vpp_create_device(enum vdss_vpp id,
+				struct vdss_vpp_create_device_params *params);
+int sirfsoc_vpp_destroy_device(void *handle);
+int sirfsoc_vpp_present(void *handle, struct vdss_vpp_op_params *params);
 
 static inline bool sirfsoc_vdss_panel_is_connected(
 		struct sirfsoc_vdss_panel *panel)

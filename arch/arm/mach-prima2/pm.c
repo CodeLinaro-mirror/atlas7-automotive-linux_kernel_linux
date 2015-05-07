@@ -47,6 +47,13 @@ enum SIRFSOC_SYSCTL_IDX {
 	MAX_IDX
 };
 
+enum SIRFSOC_PM_STATE {
+	SIRFSOC_PM_DEFAULT,
+	SIRFSOC_PM_SLEEP,
+	SIRFSOC_PM_RESET,
+	SIRFSOC_PM_SHUTDOWN,
+};
+
 struct sirfsoc_pm_init_t {
 	char *name;
 	u32 idx;
@@ -140,9 +147,14 @@ void sirfsoc_pm_power_off(void)
 	/*for atlas7, M3 responsible for power off,
 	**set retain register as 0x3 for software shutdown
 	*/
-	if (sinfo->ver == PWRC_ATLAS7_VER)
-		writel_relaxed(3,
-			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
+	if (sinfo->ver == PWRC_ATLAS7_VER) {
+#define IPC_M3_OFS 0xc
+#define IPC_M3_TRIG 1
+		writel(SIRFSOC_PM_SHUTDOWN,	sinfo->retain_base +
+			SIRFSOC_PWRC_SCRATCH_PAD8);
+		writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
+	}
+
 	else if (sinfo->ver == PWRC_PRIMA2_VER) {
 		sirfsoc_set_sleep_mode(SIRFSOC_HIBERNATION_MODE);
 		regmap_read(sinfo->regmap, sinfo->base +
@@ -163,7 +175,7 @@ int sirfsoc_pre_suspend_power_off(void)
 	if (sinfo->ver == PWRC_ATLAS7_VER) {
 		writel_relaxed(wakeup_entry,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
-		writel_relaxed(1,
+		writel_relaxed(SIRFSOC_PM_SLEEP,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
 
 		/*for atlas7, M3 responsible for enter deep sleep,
@@ -324,7 +336,7 @@ static const struct of_device_id sirfsoc_pm_ids[] = {
 		.data = &sirfsoc_pm_init_table[5]},
 };
 
-static void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
+void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 {
 #define CPU_CLK_SEL 0xf8
 #define WDOG_CNT64_LATCH_LO 0x7c
@@ -337,7 +349,7 @@ static void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 	* set retain register as 0x2 for reset, so that uboot can
 	* disdinguish between real watchdog event and this workaroad
 	*/
-	writel_relaxed(2,
+	writel_relaxed(SIRFSOC_PM_RESET,
 		sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
 
 	/* workaround reset for atlas7 */
@@ -399,11 +411,6 @@ static int prima2_pm_memc_init(struct sirfsoc_pm_init_t *pinit)
 
 static int atlas7_pm_tick_init(struct sirfsoc_pm_init_t *pinit)
 {
-	struct sirfsoc_pm_init_t *pinit_clk = &sirfsoc_pm_init_table[CLK_IDX];
-
-	if (pinit_clk->base)
-		arm_pm_restart = sirfsoc_atlas7_restart;
-
 	sinfo->timer_base =  pinit->base;
 	return 0;
 }
