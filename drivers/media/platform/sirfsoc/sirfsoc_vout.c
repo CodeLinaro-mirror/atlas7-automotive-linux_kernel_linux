@@ -1214,7 +1214,7 @@ static int sirfsoc_vout_open(struct file *file)
 
 	v4l2_dev = &vout->vid_dev->v4l2_dev;
 
-	if (vout->opened) {
+	if (test_and_set_bit(1, &vout->device_is_open)) {
 		v4l2_err(v4l2_dev, "sirfsoc_vout_device is busy\n");
 		return -EBUSY;
 	}
@@ -1238,7 +1238,6 @@ static int sirfsoc_vout_open(struct file *file)
 
 	vout->layer = l;
 	vout->preempted = false;
-	vout->opened += 1;
 
 	if (__sirfsoc_setup_video_data(vout)) {
 		v4l2_err(v4l2_dev, "get default output information fail\n");
@@ -1268,15 +1267,25 @@ static int sirfsoc_vout_release(struct file *file)
 
 	mutex_lock(&vout->lock);
 
+	/*
+	When closing fd, we should check and continue freeing resource,
+	if it was not done before.
+	*/
+	if (vout->vb2_q.streaming) {
+		sirfsoc_lcdc_unregister_isr(vout->layer->lcdc_id,
+			sirfsoc_vout_isr, vout, LCDC_INT_VSYNC);
+	}
+
 	if (l->is_enabled(l)) {
 		/*disable the overlay*/
 		l->disable(l);
-		vb2_queue_release(&vout->vb2_q);
-		vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
-		vout->alloc_ctx = NULL;
 	}
 
-	vout->opened -= 1;
+	vb2_queue_release(&vout->vb2_q);
+	vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
+	vout->alloc_ctx = NULL;
+
+	clear_bit(1, &vout->device_is_open);
 
 	mutex_unlock(&vout->lock);
 
