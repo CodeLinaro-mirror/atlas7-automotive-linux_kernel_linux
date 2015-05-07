@@ -392,7 +392,7 @@
 			};
 
 			uart0: uart@18010000 {
-				status = "okay";	/* Kalimba debug */
+				status = "disabled";
 				pinctrl-0 = <&uart0_pmx>;
 				pinctrl-names = "default";
 				sirf,uart-has-rtscts;
