@@ -224,9 +224,10 @@ static void hard_cord_init_components_chain_playback(
 		components[i - 1].component_next = &components[i];
 		i++;
 	}
+
 	for (k = 0; k < 4; k++) {
 		components[i].component_id = START_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
 		components[i].params[0] = (u32 *)(&components[k].ret[0]);
 		components[i].params[1] = (u32 *)1;
 		components[i - 1].component_next = &components[i];
@@ -234,7 +235,13 @@ static void hard_cord_init_components_chain_playback(
 	}
 
 	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components[i].params[0] = (u32 *)(&components[5].ret[0]);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = DATA_PRODUCED;
+	components[i].execute_phase = EXEC_PHASE_ACK;
 	components[i].params[0] = (u32 *)(&components[5].ret[0]);
 	components[i - 1].component_next = &components[i];
 	i++;
@@ -422,7 +429,7 @@ u16 get_notify_ep_id(struct components_chain *components_chain)
 	return *(components_chain->notify_ep_id);
 }
 
-static int execute_component(struct component *component)
+int execute_component(struct component *component)
 {
 	int ret;
 
@@ -507,6 +514,24 @@ static int execute_component(struct component *component)
 	}
 
 	return ret;
+}
+
+struct component *get_data_produced_ack_component(
+	struct components_chain *components_chain)
+{
+	struct component *component;
+
+	if (components_chain->component_first == NULL)
+		return NULL;
+
+	for (component = components_chain->component_first;
+		component != NULL; component = component->component_next) {
+		if (component->execute_phase == EXEC_PHASE_ACK &&
+			component->component_id == DATA_PRODUCED)
+			return component;
+	}
+
+	return NULL;
 }
 
 int execute_components_chain(struct components_chain *components_chain,

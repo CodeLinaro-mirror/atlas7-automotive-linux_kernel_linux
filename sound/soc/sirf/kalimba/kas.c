@@ -13,6 +13,7 @@
 static const struct snd_soc_dapm_widget kas_audio_widgets[] = {
 	SND_SOC_DAPM_HP("Headphones", NULL),
 	SND_SOC_DAPM_LINE("LINEIN", NULL),
+	SND_SOC_DAPM_MIC("MICIN", NULL),
 };
 
 static const struct snd_soc_dapm_route kas_audio_map[] = {
@@ -22,6 +23,7 @@ static const struct snd_soc_dapm_route kas_audio_map[] = {
 	{"Headphones", NULL, "LOUT3"},
 	{"AIF Playback", NULL, "Codec OUT"},
 	{"LIN0", NULL, "LINEIN"},
+	{"MICIN0", NULL, "MICIN"},
 	{"Codec IN", NULL, "AIF Capture"},
 };
 

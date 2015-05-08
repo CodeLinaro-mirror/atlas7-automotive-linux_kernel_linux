@@ -45,34 +45,18 @@ static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 			TX_SYNC_EN | TX_START_SYNC_EN,
 			TX_SYNC_EN | TX_START_SYNC_EN);
 
-	for (i = 0; i < channels; i++) {
+	for (i = 0; i < channels; i++)
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			DAC_EN << i, DAC_EN << i);
-		regmap_update_bits(atlas7_iacc->regmap,
-			INTCODECCTL_TXFIFO0_OP + (i * 20),
-			FIFO_RESET, FIFO_RESET);
-		regmap_update_bits(atlas7_iacc->regmap,
-			INTCODECCTL_TXFIFO0_OP + (i * 20),
-			FIFO_RESET, ~FIFO_RESET);
-
-		regmap_write(atlas7_iacc->regmap,
-			INTCODECCTL_TXFIFO0_INT_MSK + (i * 20), 0);
-		regmap_update_bits(atlas7_iacc->regmap,
-			INTCODECCTL_TXFIFO0_OP + (i * 20),
-			FIFO_START, FIFO_START);
-	}
 }
 
 static void atlas7_iacc_tx_disable(struct atlas7_iacc *atlas7_iacc)
 {
 	int i;
 
-	for (i = 0; i < IACC_TX_CHANNELS; i++) {
-		regmap_write(atlas7_iacc->regmap,
-			INTCODECCTL_TXFIFO0_OP + (i * 20), 0);
+	for (i = 0; i < IACC_TX_CHANNELS; i++)
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			DAC_EN << i, 0);
-	}
 }
 
 static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
@@ -83,13 +67,6 @@ static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
 	for (i = 0; i < channels; i++)
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			ADC_EN << i, ADC_EN << i);
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
-		FIFO_RESET, FIFO_RESET);
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
-		FIFO_RESET, ~FIFO_RESET);
-	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_INT_MSK, 0);
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
-		FIFO_START, FIFO_START);
 }
 
 static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)
@@ -99,7 +76,6 @@ static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)
 	for (i = 0; i < IACC_RX_CHANNELS; i++)
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			ADC_EN << i, 0);
-	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP, 0);
 }
 
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG

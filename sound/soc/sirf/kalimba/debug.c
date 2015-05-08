@@ -189,10 +189,10 @@ static int setup_audio_unit(struct kalimba_debug_data *debug_data,
 	get_user(SampleRate, (u32 __user *)(arg + 16));
 	get_user(Volume, (u32 __user *)(arg + 20));
 
-	if ((Type == ENDPOINT_TYPE_I2S) && (TypeConf & 0x1))
+	if ((Type == CTRL_DEVICE_TYPE_I2S) && (TypeConf & 0x1))
 		pchannels = 6;
 
-	if (Type == ENDPOINT_TYPE_IACC) {
+	if (Type == CTRL_DEVICE_TYPE_IACC) {
 		if ((TypeConf & 0xf) == 0xf)
 			pchannels = 4;
 		else if ((TypeConf & 0xf) == 1)
@@ -244,12 +244,12 @@ static int setup_audio_unit(struct kalimba_debug_data *debug_data,
 
 
 	switch (Type) {
-	case ENDPOINT_TYPE_I2S:
+	case CTRL_DEVICE_TYPE_I2S:
 		if (TypeConf & (1 << 5))
 			i2s_slave_mode = 1;
 		sirf_i2s_params(pchannels, SampleRate, i2s_slave_mode);
 		break;
-	case ENDPOINT_TYPE_IACC:
+	case CTRL_DEVICE_TYPE_IACC:
 		ret = iacc_setup(pchannels, rchannels, path, SampleRate,
 				SampleFormat);
 		if (ret < 0)
@@ -292,13 +292,13 @@ static void start_audio_unit(struct kalimba_debug_data *debug_data,
 	list_for_each_entry(audio_unit, &debug_data->audio_unit_list, node) {
 		if (audio_unit->id == audio_unit_id) {
 			switch (audio_unit->type) {
-			case ENDPOINT_TYPE_I2S:
+			case CTRL_DEVICE_TYPE_I2S:
 				sirf_i2s_start(playback,
 					(u32)(audio_unit->buff_phy_addr),
 					audio_unit->buff_length);
 				ret = 0;
 				break;
-			case ENDPOINT_TYPE_IACC:
+			case CTRL_DEVICE_TYPE_IACC:
 				channels = playback ? audio_unit->pchannels
 					: audio_unit->rchannels;
 				debug_iacc_start(playback, channels,
@@ -328,11 +328,11 @@ static void stop_audio_unit(struct kalimba_debug_data *debug_data,
 	list_for_each_entry(audio_unit, &debug_data->audio_unit_list, node) {
 		if (audio_unit->id == audio_unit_id) {
 			switch (audio_unit->type) {
-			case ENDPOINT_TYPE_I2S:
+			case CTRL_DEVICE_TYPE_I2S:
 				sirf_i2s_stop(playback);
 				ret = 0;
 				break;
-			case ENDPOINT_TYPE_IACC:
+			case CTRL_DEVICE_TYPE_IACC:
 				iacc_stop(playback);
 				ret = 0;
 				break;
@@ -357,10 +357,10 @@ static void release_audio_unit(struct kalimba_debug_data *debug_data,
 	list_for_each_entry(audio_unit, &debug_data->audio_unit_list, node) {
 		if (audio_unit->id == audio_unit_id) {
 			switch (audio_unit->type) {
-			case ENDPOINT_TYPE_I2S:
+			case CTRL_DEVICE_TYPE_I2S:
 				ret = 0;
 				break;
-			case ENDPOINT_TYPE_IACC:
+			case CTRL_DEVICE_TYPE_IACC:
 				atlas7_codec_release();
 				ret = 0;
 				break;

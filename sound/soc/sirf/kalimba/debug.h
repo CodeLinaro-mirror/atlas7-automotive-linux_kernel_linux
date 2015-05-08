@@ -26,6 +26,13 @@
 #define IOCTL_KALIMBA_DRAM_FILL                 _IO(KALIMBA_IOC_MAGIC, 18)
 #define KALIMBA_IOC_MAXNR			19
 
+#define CTRL_DEVICE_TYPE_IACC			0
+#define CTRL_DEVICE_TYPE_I2S			1
+#define CTRL_DEVICE_TYPE_AC97			2
+#define CTRL_DEVICE_TYPE_USP			3
+#define CTRL_DEVICE_TYPE_SPDIF			4
+#define CTRL_DEVICE_TYPE_AUDIODATA		5
+
 int debug_init(struct platform_device *pdev);
 void debug_deinit(struct platform_device *pdev);
 #endif /* _DEBUG_H */

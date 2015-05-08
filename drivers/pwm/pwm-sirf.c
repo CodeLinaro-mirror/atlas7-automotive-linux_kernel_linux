@@ -133,11 +133,12 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	struct sirf_pwm *spwm = pwm_get_chip_data(pwm);
 
 	if (!test_bit(PWMF_ENABLED, &pwm->flags)) {
-		u32 src_clk_rate, src_clk_rate_min = ~0;
+		u32 src_clk_rate;
 		u32 i;
 		u64 cycle;
 		u32 cycle_diff;
-		u32 ns_diff, ns_diff_min = ~0;
+		u64 cycle_diff_enlarged;
+		u64 diff, diff_min = ~0;
 		int ret;
 		char src_clk_name[10];
 		struct clk *sigsrc_clk;
@@ -159,12 +160,13 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			cycle = (u64)src_clk_rate * period_ns;
 			div_u64_rem(cycle, NSEC_PER_SEC, &cycle_diff);
 
-			ns_diff = (u32)cycle_diff / src_clk_rate;
+			/* enlarge cycle_diff for division */
+			cycle_diff_enlarged = ((u64)cycle_diff) << 32;
 
-			if (ns_diff <= ns_diff_min &&
-					src_clk_rate < src_clk_rate_min) {
-				ns_diff_min = ns_diff;
-				src_clk_rate_min = src_clk_rate;
+			diff = div_u64(cycle_diff_enlarged, src_clk_rate);
+
+			if (diff < diff_min) {
+				diff_min = diff;
 				spwm->sigsrc_clk_idx = i;
 				spwm->sigsrc_clk = sigsrc_clk;
 			} else {
