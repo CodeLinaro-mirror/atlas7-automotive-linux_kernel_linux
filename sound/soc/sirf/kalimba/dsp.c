@@ -6,6 +6,7 @@
  * Licensed under GPLv2 or later.
  */
 #include <linux/clk.h>
+#include <linux/firmware.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -16,6 +17,7 @@
 #include "debug.h"
 #endif
 #include "dsp.h"
+#include "firmware.h"
 #include "ipc.h"
 #include "regs.h"
 
@@ -33,6 +35,14 @@ static int kalimba_probe(struct platform_device *pdev)
 	void __iomem *base;
 	struct resource *mem_res;
 	struct kalimba *kalimba;
+	const struct firmware *fw;
+
+	ret = request_firmware(&fw, "kalimba/kalimba.fw", &pdev->dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev,
+			"could not upgrade firmware: unable to load\n");
+		return ret;
+	}
 
 	kalimba = devm_kzalloc(&pdev->dev, sizeof(struct kalimba),
 			GFP_KERNEL);
@@ -91,6 +101,9 @@ static int kalimba_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Reset kalimba failed: %d\n", ret);
 		goto kalimba_reset_failed;
 	}
+
+	firmware_download(kalimba->regmap, (u32 *)(fw->data));
+	release_firmware(fw);
 
 	platform_set_drvdata(pdev, kalimba);
 	ret = ipc_init(pdev);

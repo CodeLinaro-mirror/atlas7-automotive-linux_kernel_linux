@@ -492,3 +492,18 @@ int firmware_ioctl(struct regmap *regmap, struct device *dev,
 	}
 	return 0;
 }
+
+void firmware_download(struct regmap *regmap, u32 *fw_data)
+{
+	struct firmware_code code;
+
+	code.head.code_size = be32_to_cpu(fw_data[0]);
+	code.head.pm_unpacker_offset = be32_to_cpu(fw_data[1]);
+	code.head.pm_offset = be32_to_cpu(fw_data[2]);
+	code.head.dm1_offset = be32_to_cpu(fw_data[3]);
+	code.head.dm2_offset = be32_to_cpu(fw_data[4]);
+	code.code = &fw_data[5];
+	code.code_dma_addr = virt_to_phys(code.code);
+	firmware_download_code(regmap, &code);
+	firmware_run_pm(regmap, 0);
+}
