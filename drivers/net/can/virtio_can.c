@@ -72,8 +72,8 @@ struct vcan_frame {
 	};
 };
 
-static int __virtio_can_add_buffer(struct virtqueue *vq, void *addr,
-				   u32 len, bool out)
+static int virtio_can_add_buffer(struct virtqueue *vq, void *addr,
+				 u32 len, bool out)
 {
 	struct scatterlist sg;
 	int err;
@@ -88,7 +88,7 @@ static int __virtio_can_add_buffer(struct virtqueue *vq, void *addr,
 	return err;
 }
 
-static int __virtio_can_fill_in_queue(struct virtio_device *vdev)
+static int virtio_can_fill_in_queue(struct virtio_device *vdev)
 {
 	struct virtio_can *vcan = vdev->priv;
 	struct virtqueue *vq = vcan->rvq;
@@ -110,8 +110,8 @@ static int __virtio_can_fill_in_queue(struct virtio_device *vdev)
 
 	/* set up the receive buffers */
 	for (idx = 0; idx < vcan->queue_sz; idx++) {
-		__virtio_can_add_buffer(vq, vcan->inbuf + bufsz * idx,
-					bufsz, false);
+		virtio_can_add_buffer(vq, vcan->inbuf + bufsz * idx,
+				      bufsz, false);
 	}
 
 	/* suppress "tx-complete" interrupts */
@@ -120,7 +120,7 @@ static int __virtio_can_fill_in_queue(struct virtio_device *vdev)
 	return 0;
 }
 
-static void __virtio_can_netdev_start(struct virtio_device *vdev)
+static void virtio_can_netdev_start(struct virtio_device *vdev)
 {
 	struct virtio_can *vcan = vdev->priv;
 
@@ -128,8 +128,8 @@ static void __virtio_can_netdev_start(struct virtio_device *vdev)
 	virtqueue_kick(vcan->rvq);
 }
 
-static void __virtio_can_read_frame(struct net_device *dev,
-				    void *raw, u32 type)
+static void virtio_can_read_frame(struct net_device *dev,
+				  void *raw, u32 type)
 {
 	struct net_device_stats *stats = &dev->stats;
 	struct can_frame *cf;
@@ -166,7 +166,7 @@ static void __virtio_can_read_frame(struct net_device *dev,
 	stats->rx_bytes += *dlc;
 }
 
-static int __virtio_can_xmit(struct virtio_can *vcan, void *data, u32 len)
+static int virtio_can_xmit(struct virtio_can *vcan, void *data, u32 len)
 {
 	int err;
 	unsigned long flags;
@@ -186,7 +186,7 @@ static int __virtio_can_xmit(struct virtio_can *vcan, void *data, u32 len)
 
 	spin_lock_irqsave(&vcan->svq_lock, flags);
 
-	err = __virtio_can_add_buffer(vcan->svq, buf, len, true);
+	err = virtio_can_add_buffer(vcan->svq, buf, len, true);
 	virtqueue_kick(vcan->svq);
 	if (err)
 		goto failed;
@@ -208,7 +208,7 @@ static netdev_tx_t virtio_can_start_xmit(struct sk_buff *skb,
 	if (can_dropped_invalid_skb(dev, skb))
 		return NETDEV_TX_OK;
 
-	cbxmit = __virtio_can_xmit(vcan, cf, skb->len);
+	cbxmit = virtio_can_xmit(vcan, cf, skb->len);
 	if (cbxmit <= 0) {
 		netif_stop_queue(dev);
 		netdev_err(dev, "BUG! TX buffer full when queue awake!\n");
@@ -234,9 +234,9 @@ static int virtio_can_poll_rx(struct virtqueue *vq, int quota)
 		if (!vf)
 			break;
 
-		__virtio_can_read_frame(vcan->dev, vf->raw, vf->header.type);
+		virtio_can_read_frame(vcan->dev, vf->raw, vf->header.type);
 		/* Push buffer back to in queue */
-		__virtio_can_add_buffer(vq, vf, len, false);
+		virtio_can_add_buffer(vq, vf, len, false);
 
 		msgs_received++;
 		quota--;
@@ -359,7 +359,7 @@ static const struct net_device_ops virtio_can_netdev_ops = {
 };
 
 static
-struct net_device *__virtio_can_netdev_init(struct virtio_device *vdev)
+struct net_device *virtio_can_netdev_init(struct virtio_device *vdev)
 {
 	struct net_device *dev;
 	struct virtio_can *vcan;
@@ -409,7 +409,7 @@ struct net_device *__virtio_can_netdev_init(struct virtio_device *vdev)
 	vcan->svq = vqs[1];
 	vdev->priv = vcan;
 
-	err = __virtio_can_fill_in_queue(vdev);
+	err = virtio_can_fill_in_queue(vdev);
 	if (err) {
 		dev_err(&vdev->dev,
 			"fill incoming queue failed! err=%d\n",
@@ -449,7 +449,7 @@ static int virtio_can_probe(struct virtio_device *vdev)
 	struct virtio_can *vcan;
 	int err = 0;
 
-	dev = __virtio_can_netdev_init(vdev);
+	dev = virtio_can_netdev_init(vdev);
 	if (!dev) {
 		dev_err(&vdev->dev, "Initialize CAN net failed\n");
 		return -ENODEV;
@@ -468,7 +468,7 @@ static int virtio_can_probe(struct virtio_device *vdev)
 		goto exit_free;
 	}
 
-	__virtio_can_netdev_start(vdev);
+	virtio_can_netdev_start(vdev);
 	dev_info(&vdev->dev, "virtio CAN device registered\n");
 
 	return 0;
