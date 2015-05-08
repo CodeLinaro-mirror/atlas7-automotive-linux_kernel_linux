@@ -249,7 +249,7 @@ static void vdss_screen_update_regs(struct sirfsoc_vdss_screen *scn)
 	}
 }
 
-static void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
+void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn)
 {
 	struct screen_priv_data *sdata = get_screen_data(scn);
 

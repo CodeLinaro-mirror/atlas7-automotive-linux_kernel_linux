@@ -187,15 +187,19 @@ int __lvdsc_set_mode(enum vdss_lvdsc_mode mode)
 	switch (mode) {
 	case SIRFSOC_VDSS_LVDSC_MODE_SLAVE:
 		lvds_phy_cfg2 = PLL_MODE(0x0);
-		lvds_phy_cfg2 |= LPF_C1_SEL(0x1);
-		lvds_phy_cfg2 |= LPF_C2_SEL(0x1);
-		lvds_phy_cfg2 |= LPF_R_SEL(0x4);
-		lvds_phy_cfg2 |= LPF_R3_SEL(0x2);
-		lvds_phy_cfg2 |= CP_I_SET(0x6);
-		lvds_phy_cfg2 |= M(0x3);
+		lvds_phy_cfg2 |= IPLLLOGIC_A_SEL(0x1);
+		lvds_phy_cfg2 |= IPLLLOGIC_B_SEL(0x1);
+		lvds_phy_cfg2 |= LOCKMON_EN(0x1);
+		lvds_phy_cfg2 |= LPF_C1_SEL(0x2);
+		lvds_phy_cfg2 |= LPF_C2_SEL(0x0);
+		lvds_phy_cfg2 |= LPF_R_SEL(0x3);
+		lvds_phy_cfg2 |= LPF_R3_SEL(0x3);
+		lvds_phy_cfg2 |= CP_I_SET(0x0);
+		lvds_phy_cfg2 |= LPF_INTV(0x3);
+		lvds_phy_cfg2 |= M(0x2);
 
-		lvds_phy_cfg3 = N(0x0e00000);
-		lvds_phy_cfg3 |= FRACTIONAL(0x1);
+		lvds_phy_cfg3 = N(0xa80);
+		lvds_phy_cfg3 |= FRACTIONAL(0x0);
 		break;
 
 	case SIRFSOC_VDSS_LVDSC_MODE_SYN:
