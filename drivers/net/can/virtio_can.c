@@ -114,9 +114,6 @@ static int virtio_can_fill_in_queue(struct virtio_device *vdev)
 				      bufsz, false);
 	}
 
-	/* suppress "tx-complete" interrupts */
-	virtqueue_disable_cb(vcan->svq);
-
 	return 0;
 }
 
