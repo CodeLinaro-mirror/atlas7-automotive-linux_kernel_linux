@@ -392,6 +392,30 @@ static int sirf_atlas7_codec_put_playback_volume(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sirf_atlas7_codec_get_capture_volume(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(codec->dev);
+
+	ucontrol->value.integer.value[0] = atlas7_codec->capture_volume;
+	return 0;
+}
+
+static int sirf_atlas7_codec_put_capture_volume(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(codec->dev);
+
+	atlas7_codec->capture_volume = ucontrol->value.integer.value[0];
+	snd_soc_update_bits(codec, KCODEC_ADC_A_GAIN, AUDIO_GAIN_MASK,
+		atlas7_codec->capture_volume);
+	snd_soc_update_bits(codec, KCODEC_ADC_B_GAIN, AUDIO_GAIN_MASK,
+		atlas7_codec->capture_volume);
+	return 0;
+}
+
 static int sirf_atlas7_codec_dapm_get_input_path_enum(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -414,11 +438,11 @@ static int sirf_atlas7_codec_dapm_put_input_path_enum(
 	if (atlas7_codec->input_path == 0)
 		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
 			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
-			AUDIO_ANA_ADC_MICAMP_GAIN);
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK);
 	else if (atlas7_codec->input_path == 1)
 		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
 			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
-			AUDIO_ANA_ADC_MICAMP_GAIN);
+			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK);
 	else {
 		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
 			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK, 0);
@@ -469,6 +493,9 @@ static const struct snd_kcontrol_new sirf_atlas7_volume_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("Playback Volume", KCODEC_DAC_A_GAIN, 0, 0x1FF, 0,
 		sirf_atlas7_codec_get_playback_volume,
 		sirf_atlas7_codec_put_playback_volume, sirf_atlas7_volume_tlv),
+	SOC_SINGLE_EXT_TLV("Capture Volume", KCODEC_DAC_A_GAIN, 0, 0x1FF, 0,
+		sirf_atlas7_codec_get_capture_volume,
+		sirf_atlas7_codec_put_capture_volume, sirf_atlas7_volume_tlv),
 };
 
 static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
@@ -549,8 +576,8 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_ADC_E("ADCB", NULL, KCODEC_CONFIG, 11, 0,
 		adc_en_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_PGA("ADC A PGA EN", KCODEC_ADC_A_GAIN, 15, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("ADC B PGA EN", KCODEC_ADC_B_GAIN, 15, 1, NULL, 0),
+	SND_SOC_DAPM_PGA("ADC A PGA EN", KCODEC_ADC_A_GAIN, 15, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("ADC B PGA EN", KCODEC_ADC_B_GAIN, 15, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("ADCA ANA EN", AUDIO_ANA_ADC_CTRL2, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("ADCB ANA EN", AUDIO_ANA_ADC_CTRL3, 0, 0, NULL, 0),
 
@@ -776,7 +803,7 @@ static int sirf_atlas7_codec_driver_probe(struct platform_device *pdev)
 
 	/* Init default volume */
 	atlas7_codec->playback_volume = 0x1F;
-	atlas7_codec->capture_volume = 0x0;
+	atlas7_codec->capture_volume = 0x1F;
 
 	ret = snd_soc_register_codec(&(pdev->dev),
 			&soc_codec_device_sirf_atlas7_codec,
