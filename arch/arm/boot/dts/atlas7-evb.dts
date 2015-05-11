@@ -154,6 +154,11 @@
 	};
 
 	noc {
+
+		kalimba@10C10000 {
+				status = "okay";
+		};
+
 		audiom {
 			timer@10dc0000 {
 				status = "okay";

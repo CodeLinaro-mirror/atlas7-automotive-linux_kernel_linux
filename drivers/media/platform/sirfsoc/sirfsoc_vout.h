@@ -34,7 +34,7 @@ struct sirfsoc_video_device {
 struct sirfsoc_vout_device {
 	struct video_device *vd;
 	struct sirfsoc_video_device *vid_dev;
-	int opened;
+	unsigned long device_is_open;
 	spinlock_t vbq_lock;
 	struct mutex lock;
 	struct sirfsoc_vout_buf *disp_buf;

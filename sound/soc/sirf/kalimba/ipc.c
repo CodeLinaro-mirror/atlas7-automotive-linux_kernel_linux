@@ -434,14 +434,14 @@ int ipc_start_operator(struct ipc_data *ipc_data,
 	 *   that the command failed.
 	 */
 	write_sram(ipc_data, DSP_START_OPERATOR_REPS_ADDR,
-		START_OPERATOR_REPS_STATUS_CLEAN);
+		START_OPERATOR_REPS_INIT_STATUS);
 	ipc_send_msg(ipc_data, msg, msg_size);
 	kfree(msg);
 
 	do {
 		cpu_relax();
 		resp = read_sram(ipc_data, DSP_START_OPERATOR_REPS_ADDR);
-	} while (resp == 0);
+	} while (resp == START_OPERATOR_REPS_INIT_STATUS);
 
 	if (resp == START_OPERATOR_REPS_FAILED) {
 		ipc_data->op_state = OPERATOR_STOPPED;
