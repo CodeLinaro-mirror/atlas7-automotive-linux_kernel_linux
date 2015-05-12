@@ -104,4 +104,5 @@
 
 #define AUDIO_GAIN_MASK					0x1FF
 #define AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK		(0xf << 3)
+#define AUDIO_ANA_ADC_MICAMP_GAIN                      (10 << 3)
 #endif /* _SIRF_ATLAS7_CODEC_H */
