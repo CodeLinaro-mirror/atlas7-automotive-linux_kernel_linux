@@ -32,6 +32,11 @@ bool sirfsoc_vdss_is_initialized(void)
 }
 EXPORT_SYMBOL(sirfsoc_vdss_is_initialized);
 
+struct platform_device *vdss_get_core_pdev(void)
+{
+	return core.pdev;
+}
+
 #if defined(CONFIG_DEBUG_FS)
 static int vdss_debug_show(struct seq_file *s, void *data)
 {

@@ -322,6 +322,7 @@ struct sirfsoc_vdss_layer {
 	enum vdss_layer id;
 	enum vdss_pixelformat supported_fmts;
 	int caps;
+	struct kobject kobj;
 
 	/* dynamic fields */
 	struct sirfsoc_vdss_screen *screen;

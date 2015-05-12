@@ -2031,6 +2031,8 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 	vdss_init_layers(id);
 	vdss_init_screens(id);
 
+	vdss_init_layers_sysfs(id);
+
 	lcdc_init_irq(id);
 	dev_set_drvdata(&pdev->dev, &lcdc[id]);
 
@@ -2058,6 +2060,8 @@ static int __exit sirfsoc_lcdc_remove(struct platform_device *pdev)
 		lvds_deinit_output(pdev);
 	} else
 		lvds_deinit_output(pdev);
+
+	vdss_uninit_layers_sysfs(plcdc->id);
 
 	vdss_uninit_screens(plcdc->id);
 	vdss_uninit_layers(plcdc->id);
