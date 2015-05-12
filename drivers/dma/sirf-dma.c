@@ -52,6 +52,9 @@
 #define SIRFSOC_DMA_MUL_ATLAS7                  0x38
 #define SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7         0x158
 #define SIRFSOC_DMA_CH_LOOP_CTRL_CLR_ATLAS7     0x15C
+#define SIRFSOC_DMA_IOBG_SCMD_EN		0x800
+#define SIRFSOC_DMA_EARLY_RESP_SET		0x818
+#define SIRFSOC_DMA_EARLY_RESP_CLR		0x81C
 
 #define SIRFSOC_DMA_MODE_CTRL_BIT               4
 #define SIRFSOC_DMA_DIR_CTRL_BIT                5
@@ -185,6 +188,8 @@ static void sirfsoc_dma_execute_hw_a7v2(struct sirfsoc_dma_desc *sdesc,
 static void sirfsoc_dma_execute_hw_a7v1(struct sirfsoc_dma_desc *sdesc,
 		int cid, int burst_mode, void __iomem *base)
 {
+	writel_relaxed(1, base + SIRFSOC_DMA_IOBG_SCMD_EN);
+	writel_relaxed((1 << cid), base + SIRFSOC_DMA_EARLY_RESP_SET);
 	writel_relaxed(sdesc->width, base + SIRFSOC_DMA_WIDTH_0 + cid * 4);
 	writel_relaxed(cid | (burst_mode << SIRFSOC_DMA_MODE_CTRL_BIT) |
 		       (sdesc->dir << SIRFSOC_DMA_DIR_CTRL_BIT),
