@@ -103,30 +103,6 @@ int vdss_debugfs_create_file(const char *name, void (*write)(struct seq_file *))
 }
 #endif
 
-
-static int sirfsoc_vdss_pm_notif(struct notifier_block *b,
-	unsigned long v, void *d)
-{
-	VDSSDBG("pm notif %lu\n", v);
-
-	switch (v) {
-	case PM_SUSPEND_PREPARE:
-		VDSSDBG("suspending displays\n");
-		return vdss_suspend_all_panels();
-
-	case PM_POST_SUSPEND:
-		VDSSDBG("resuming displays\n");
-		return vdss_resume_all_panels();
-
-	default:
-		return 0;
-	}
-}
-
-static struct notifier_block sirfsoc_vdss_pm_notif_block = {
-	.notifier_call = sirfsoc_vdss_pm_notif,
-};
-
 static int sirfsoc_vdss_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -136,8 +112,6 @@ static int sirfsoc_vdss_probe(struct platform_device *pdev)
 	ret = vdss_init_debugfs();
 	if (ret)
 		return ret;
-
-	register_pm_notifier(&sirfsoc_vdss_pm_notif_block);
 
 	return 0;
 }
@@ -150,12 +124,35 @@ static void sirfsoc_vdss_shutdown(struct platform_device *pdev)
 
 static int sirfsoc_vdss_remove(struct platform_device *pdev)
 {
-	unregister_pm_notifier(&sirfsoc_vdss_pm_notif_block);
-
 	vdss_deinit_debugfs();
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_vdss_suspend(struct device *dev)
+{
+	VDSSDBG("suspending displays\n");
+	return vdss_suspend_all_panels();
+}
+
+static int sirfsoc_vdss_resume(struct device *dev)
+{
+	VDSSDBG("resuming displays\n");
+	return vdss_resume_all_panels();
+}
+
+static SIMPLE_DEV_PM_OPS(sirf_vdss_core_pm_ops,
+			 sirfsoc_vdss_suspend,
+			 sirfsoc_vdss_resume);
+
+#define SIRFVDSS_CORE_PM_OPS (&sirf_vdss_core_pm_ops)
+
+#else
+
+#define SIRFVDSS_CORE_PM_OPS NULL
+
+#endif /* CONFIG_PM_SLEEP */
 
 static struct platform_driver sirfsoc_vdss_driver = {
 	.probe		= sirfsoc_vdss_probe,
@@ -164,6 +161,7 @@ static struct platform_driver sirfsoc_vdss_driver = {
 	.driver         = {
 		.name   = "sirfsoc_vdss",
 		.owner  = THIS_MODULE,
+		.pm	= SIRFVDSS_CORE_PM_OPS,
 	},
 };
 
