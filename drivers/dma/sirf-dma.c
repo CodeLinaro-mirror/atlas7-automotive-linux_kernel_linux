@@ -879,8 +879,9 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		first_sdesc->chain_table[i] =
 		    (SIRFSOC_DMA_CHAIN_END <<
 		     SIRFSOC_DMA_CHAIN_FLAG_SHIFT_ATLAS7);
-		__cpuc_flush_dcache_area((void *)first_sdesc->chain_table,
-			16 * sizeof(first_sdesc->chain_table));
+		__cpuc_flush_dcache_area(first_sdesc->chain_table,
+			SIRFSOC_DMA_TABLE_NUM *
+			sizeof(first_sdesc->chain_table));
 		first_sdesc->addr = virt_to_phys(first_sdesc->chain_table);
 		first_sdesc->dir = (direction == DMA_MEM_TO_DEV ? 1 : 0);
 		first_sdesc->cyclic = 0;
