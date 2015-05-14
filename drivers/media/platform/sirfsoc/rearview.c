@@ -67,11 +67,11 @@ struct rv_dev {
 	unsigned int	height;
 
 	bool		running;
-	spinlock_t	hw_lock;
+	struct mutex	hw_lock;
 
 	bool		mirror_en;
 
-	unsigned int	value;
+	atomic_t	value;
 	struct work_struct rv_work;
 
 	void		*rv_vip;
@@ -89,11 +89,6 @@ static bool rv_input_filter(struct input_handle *handle,
 	unsigned int type, unsigned int code, int value)
 {
 	struct rv_dev *rv = handle->private;
-	bool running;
-
-	spin_lock(&rv->hw_lock);
-	running = rv->running;
-	spin_unlock(&rv->hw_lock);
 
 	/*
 	* We use KEY_CAMERA to switch rearview on or off
@@ -103,18 +98,18 @@ static bool rv_input_filter(struct input_handle *handle,
 	*/
 	switch (type) {
 	case EV_ABS:
-		return running;
+		return rv->running;
 
 	case EV_KEY:
 		switch (code) {
 		case KEY_CAMERA:
-			rv->value = value;
+			atomic_set(&rv->value, value);
 			schedule_work(&rv->rv_work);
 		case KEY_POWER:
 			return false;
 
 		default:
-			return running;
+			return rv->running;
 		}
 
 	default:
@@ -445,15 +440,16 @@ static void rv_worker(struct work_struct *work)
 {
 	struct rv_dev *rv = container_of(work, struct rv_dev, rv_work);
 
-	spin_lock(&rv->hw_lock);
-	if (rv->value) {
+	mutex_lock(&rv->hw_lock);
+	if (atomic_read(&rv->value) && !rv->running) {
 		rv_start(rv);
 		rv->running = true;
-	} else {
+	}
+	if (!atomic_read(&rv->value) && rv->running) {
 		rv_stop(rv);
 		rv->running = false;
 	}
-	spin_unlock(&rv->hw_lock);
+	mutex_unlock(&rv->hw_lock);
 }
 
 static int rv_probe(struct platform_device *pdev)
@@ -500,7 +496,7 @@ static int rv_probe(struct platform_device *pdev)
 	rv->dev		= dev;
 	rv->mirror_en	= mirror ? true : false;
 	rv->running	= false;
-	rv->hw_lock	= __SPIN_LOCK_UNLOCKED(rv->hw_lock);
+	mutex_init(&rv->hw_lock);
 	strncpy(rv->d_info.display, display_name, sizeof(rv->d_info.display));
 
 	if (strcmp(std_name, "NTSC") == 0)
@@ -551,12 +547,12 @@ static int rv_remove(struct platform_device *pdev)
 
 	rv_input_unregister();
 
-	spin_lock(&rv->hw_lock);
+	mutex_lock(&rv->hw_lock);
 	if (rv->running) {
 		rv_stop(rv);
 		rv->running = false;
 	}
-	spin_unlock(&rv->hw_lock);
+	mutex_unlock(&rv->hw_lock);
 
 	dma_free_coherent(rv->dev, DATA_DMA_SIZE + TABLE_DMA_SIZE,
 				rv->data_virt_addr, rv->data_dma_addr);
