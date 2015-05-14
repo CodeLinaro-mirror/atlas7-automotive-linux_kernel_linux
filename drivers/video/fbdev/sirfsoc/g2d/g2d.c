@@ -20,6 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_platform.h>
+#include <linux/suspend.h>
 #include <video/sirfsoc_vdss.h>
 #include <vpp.h>
 #include <vdss.h>
@@ -900,6 +901,37 @@ static void g2d_context_init(struct g2d_device_data *g2d_dev)
 	init_waitqueue_head(&context->bldwq);
 }
 
+static void g2d_hw_init(struct g2d_device_data *g2d_dev)
+{
+	/*
+	 * FrameBuffer is treated as ordinary memroy block.
+	 * When blend something into FB, we just set the
+	 * physical address of framebuffer todestination.
+	 * this register is useless
+	 */
+	g2d_write_reg(g2d_dev->context, FB_BASE, 0);
+
+	/*
+	 * enable DMA command mode. in this mode, a command
+	 * buffer is used and the driver sends commands to this buffer,
+	 * hardware will fetch the command by DMA and transfer the
+	 * commands to registers value. Multiple blt operation can
+	 * be batched in the buffer, the later commands only need
+	 * update the registers which are different to previous.
+	 */
+	g2d_write_reg(g2d_dev->context, ENG_CTRL, 0x1);
+
+	/*
+	 * The DMA command mode needs a memory block uses and ring buffer.
+	 */
+	g2d_write_reg(g2d_dev->context, RB_OFFSET,
+		      g2d_dev->context->ringbuf.paddr);
+	g2d_write_reg(g2d_dev->context, RB_LENGTH,
+		      g2d_dev->context->ringbuf.size);
+	g2d_write_reg(g2d_dev->context, RB_RD_PTR, 0);
+	g2d_write_reg(g2d_dev->context, RB_WR_PTR, 0);
+}
+
 /* Misc device layer */
 static inline struct g2d_device_data *to_g2d_device_data_priv(struct file *file)
 {
@@ -1027,6 +1059,37 @@ static const struct file_operations g2d_fops = {
 	.unlocked_ioctl = g2d_ioctl,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_g2d_suspend(struct device *dev)
+{
+	struct g2d_device_data *g2d_dev = dev_get_drvdata(dev);
+
+	g2d_wait(g2d_dev);
+	g2d_clear_interrupt(g2d_dev->context, FENCE_INTERRUPT);
+	clk_disable_unprepare(g2d_dev->clk);
+	return 0;
+}
+
+static int sirfsoc_g2d_resume(struct device *dev)
+{
+	int ret;
+	struct g2d_device_data *g2d_dev = dev_get_drvdata(dev);
+
+	ret = clk_prepare_enable(g2d_dev->clk);
+	if (ret < 0)
+		dev_err(&dev, "resume error, failed to open clock\n");
+	else {
+		g2d_hw_init(g2d_dev);
+		g2d_enable_interrupt(g2d_dev->context, FENCE_INTERRUPT);
+	}
+	return ret;
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static SIMPLE_DEV_PM_OPS(sirf_g2d_pm_ops,
+			 sirfsoc_g2d_suspend,
+			 sirfsoc_g2d_resume);
+
 static int g2d_probe(struct platform_device *pdev)
 {
 	struct g2d_device_data *g2d_dev;
@@ -1082,37 +1145,8 @@ static int g2d_probe(struct platform_device *pdev)
 	}
 
 	g2d_dev->cur_mem_info = -1;
-
 	g2d_context_init(g2d_dev);
-
-	/*
-	 * FrameBuffer is treated as ordinary memroy block.
-	 * When blend something into FB, we just set the
-	 * physical address of framebuffer todestination.
-	 * this register is useless
-	 */
-	g2d_write_reg(g2d_dev->context, FB_BASE, 0);
-
-	/*
-	 * enable DMA command mode. in this mode, a command
-	 * buffer is used and the driver sends commands to this buffer,
-	 * hardware will fetch the command by DMA and transfer the
-	 * commands to registers value. Multiple blt operation can
-	 * be batched in the buffer, the later commands only need
-	 * update the registers which are different to previous.
-	 */
-	g2d_write_reg(g2d_dev->context, ENG_CTRL, 0x1);
-
-	/*
-	 * The DMA command mode needs a memory block uses and ring buffer.
-	 */
-	g2d_write_reg(g2d_dev->context, RB_OFFSET,
-		      g2d_dev->context->ringbuf.paddr);
-	g2d_write_reg(g2d_dev->context, RB_LENGTH,
-		      g2d_dev->context->ringbuf.size);
-	g2d_write_reg(g2d_dev->context, RB_RD_PTR, 0);
-	g2d_write_reg(g2d_dev->context, RB_WR_PTR, 0);
-
+	g2d_hw_init(g2d_dev);
 	g2d_enable_interrupt(g2d_dev->context, FENCE_INTERRUPT);
 
 #if defined(CONFIG_DEBUG_FS)
@@ -1183,6 +1217,7 @@ static struct platform_driver g2d_driver = {
 	.driver = {
 		.name = G2D_DRI_NAME,
 		.of_match_table = g2d_match_tbl,
+		.pm	= &sirf_g2d_pm_ops,
 	},
 };
 
