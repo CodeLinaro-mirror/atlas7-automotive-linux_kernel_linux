@@ -1371,7 +1371,6 @@
 				dmas = <&dmac0 12>, <&dmac0 13>;
 				dma-names = "rx", "tx";
 				status = "disabled";
-				fifosize = <256>;
 			};
 		};
 
@@ -1809,7 +1808,6 @@
 			usp2: usp@10d40000 {
 				cell-index = <2>;
 				reg = <0x10d40000 0x1000>;
-				fifosize = <512>;
 				interrupts = <0 22 0>;
 				clocks = <&car 59>;
 				dmas = <&dmac2 12>, <&dmac2 13>;
