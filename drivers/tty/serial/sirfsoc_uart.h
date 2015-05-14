@@ -428,8 +428,6 @@ struct sirfsoc_uart_port {
 	unsigned int			rts_gpio;
 
 	struct sirfsoc_rx_buffer	rx_dma_items;
-	bool				is_cts_reverted;
-	bool				is_rts_reverted;
 	struct hrtimer			hrt;
 	bool				is_hrt_enabled;
 	unsigned long			rx_period_time;
