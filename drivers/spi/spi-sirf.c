@@ -5,6 +5,7 @@
  *
  * Licensed under GPLv2 or later.
  */
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -156,7 +157,7 @@ enum sirf_spi_type {
 	ALIGNED(x->len) && (x->len < 2 * PAGE_SIZE))
 
 #define SIRFSOC_MAX_CMD_BYTES	4
-#define SIRFSOC_SPI_DEFAULT_FRQ (1000000)
+#define SIRFSOC_SPI_DEFAULT_FRQ 1000000
 
 struct sirf_spi_register {
 	/*SPI and USP-SPI common*/
@@ -872,6 +873,7 @@ static int spi_sirfsoc_config_mode(struct spi_device *spi)
 
 	return 0;
 }
+
 static int
 spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 {
@@ -881,10 +883,11 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	u32 regval, txfifo_ctrl, rxfifo_ctrl, tx_frm_ctl, rx_frm_ctl, usp_mode2;
 
 	sspi = spi_master_get_devdata(spi->master);
+
 	bits_per_word = (t) ? t->bits_per_word : spi->bits_per_word;
 	hz = t && t->speed_hz ? t->speed_hz : spi->max_speed_hz;
-	usp_mode2 = regval = (sspi->ctrl_freq / (2 * hz)) - 1;
 
+	usp_mode2 = regval = (sspi->ctrl_freq / (2 * hz)) - 1;
 	if (regval > 0xFFFF || regval < 0) {
 		dev_err(&spi->dev, "Speed %d not supported\n", hz);
 		return -EINVAL;
@@ -1008,7 +1011,6 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 		sspi->hw_cs = false;
 		if (!spi_get_ctldata(spi)) {
 			void *cs = kmalloc(sizeof(int), GFP_KERNEL);
-
 			if (!cs) {
 				ret = -ENOMEM;
 				goto exit;
@@ -1221,7 +1223,6 @@ static SIMPLE_DEV_PM_OPS(spi_sirfsoc_pm_ops, spi_sirfsoc_suspend,
 static struct platform_driver spi_sirfsoc_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
-		.owner = THIS_MODULE,
 		.pm     = &spi_sirfsoc_pm_ops,
 		.of_match_table = spi_sirfsoc_of_match,
 	},
