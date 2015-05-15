@@ -940,9 +940,6 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0, value = 0;
 
 	if (!enable) {
-		/* soft reset CVD logic, register values are not reseted */
-		cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x1, sd);
-
 		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd);	/* CVBSAFE disable */
 
 		return 0;
@@ -953,6 +950,9 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	/* line buffer initialization status busy(0x1) or idle(0x0) */
 	while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
 		cpu_relax();
+
+	/* soft reset CVD logic, register values are not reseted */
+	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x1, sd);
 
 	/* start CVD */
 	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
