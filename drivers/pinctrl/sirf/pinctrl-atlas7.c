@@ -63,9 +63,13 @@ enum altas7_pad_type {
 #define DSZ	0
 
 /* Drive-Strength Intermediate Values */
+#define DS_NULL		-1
 #define DS_1BIT_IM_VAL  DS0
+#define DS_1BIT_MASK	0x1
 #define DS_2BIT_IM_VAL  (DS1 | DS0)
+#define DS_2BIT_MASK	0x3
 #define DS_4BIT_IM_VAL	(DS3 | DS2 | DS1 | DS0)
+#define DS_4BIT_MASK	0xf
 
 /* The Drive-Strength of 4WE Pad		 DS1  0  CO */
 #define DS_4WE_3   (DS1 | DS0)			/* 1  1  3  */
@@ -108,6 +112,7 @@ enum altas7_pad_type {
 #define PULL_DOWN	3
 #define PULL_DISABLE	4
 #define PULL_ENABLE	5
+#define PULL_UNKNOWN	-1
 
 /* Pull Options for 4WE Pad			  PUN  PD  CO */
 #define P4WE_PULL_MASK		0x3
@@ -3677,64 +3682,55 @@ static int atlas7_pmx_set_mux(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-const struct dt_params pull_dt_map[] = {
-	{ "pull_up", PULL_UP, },
-	{ "high_hysteresis", HIGH_HYSTERESIS, },
-	{ "high_z", HIGH_Z, },
-	{ "pull_down", PULL_DOWN, },
-	{ "pull_disable", PULL_DISABLE, },
-	{ "pull_enable", PULL_ENABLE, },
+struct atlas7_ds_info {
+	u32 ma;
+	u32 ds_16st;
+	u32 ds_4we;
+	u32 ds_0204m31;
+	u32 ds_0610m31;
 };
 
-const struct dt_params drive_strength_dt_map[] = {
-	{ "ds_4we_3", DS_4WE_3, },
-	{ "ds_4we_2", DS_4WE_2, },
-	{ "ds_4we_1", DS_4WE_1, },
-	{ "ds_4we_0", DS_4WE_0, },
-	{ "ds_16st_15", DS_16ST_15, },
-	{ "ds_16st_14", DS_16ST_14, },
-	{ "ds_16st_13", DS_16ST_13, },
-	{ "ds_16st_12", DS_16ST_12, },
-	{ "ds_16st_11", DS_16ST_11, },
-	{ "ds_16st_10", DS_16ST_10, },
-	{ "ds_16st_9", DS_16ST_9, },
-	{ "ds_16st_8", DS_16ST_8, },
-	{ "ds_16st_7", DS_16ST_7, },
-	{ "ds_16st_6", DS_16ST_6, },
-	{ "ds_16st_5", DS_16ST_5, },
-	{ "ds_16st_4", DS_16ST_4, },
-	{ "ds_16st_3", DS_16ST_3, },
-	{ "ds_16st_2", DS_16ST_2, },
-	{ "ds_16st_1", DS_16ST_1, },
-	{ "ds_16st_0", DS_16ST_0, },
-	{ "ds_m31_0", DS_M31_0, },
-	{ "ds_m31_1", DS_M31_1, },
+const struct atlas7_ds_info atlas7_ds_map[] = {
+	{ 2, DS_16ST_0, DS_4WE_0, DS_M31_0, DS_NULL},
+	{ 4, DS_16ST_1, DS_NULL, DS_M31_1, DS_NULL},
+	{ 6, DS_16ST_2, DS_NULL, DS_NULL, DS_M31_0},
+	{ 8, DS_16ST_3, DS_4WE_1, DS_NULL, DS_NULL},
+	{ 10, DS_16ST_4, DS_NULL, DS_NULL, DS_M31_1},
+	{ 12, DS_16ST_5, DS_NULL, DS_NULL, DS_NULL},
+	{ 14, DS_16ST_6, DS_NULL, DS_NULL, DS_NULL},
+	{ 16, DS_16ST_7, DS_4WE_2, DS_NULL, DS_NULL},
+	{ 18, DS_16ST_8, DS_NULL, DS_NULL, DS_NULL},
+	{ 20, DS_16ST_9, DS_NULL, DS_NULL, DS_NULL},
+	{ 22, DS_16ST_10, DS_NULL, DS_NULL, DS_NULL},
+	{ 24, DS_16ST_11, DS_NULL, DS_NULL, DS_NULL},
+	{ 26, DS_16ST_12, DS_NULL, DS_NULL, DS_NULL},
+	{ 28, DS_16ST_13, DS_4WE_3, DS_NULL, DS_NULL},
+	{ 30, DS_16ST_14, DS_NULL, DS_NULL, DS_NULL},
+	{ 32, DS_16ST_15, DS_NULL, DS_NULL, DS_NULL},
 };
 
-static int get_valid_ds_state(const char *property)
+static u32 convert_current_to_drive_strength(u32 type, u32 ma)
 {
-	u32 idx;
+	int idx;
 
-	for (idx = 0; idx < ARRAY_SIZE(drive_strength_dt_map); idx++) {
-		if (!strcmp(property,
-				drive_strength_dt_map[idx].property))
-			return drive_strength_dt_map[idx].value;
+	for (idx = 0; idx < ARRAY_SIZE(atlas7_ds_map); idx++) {
+		if (atlas7_ds_map[idx].ma != ma)
+			continue;
+
+		if (type == PAD_T_4WE_PD || type == PAD_T_4WE_PU)
+			return atlas7_ds_map[idx].ds_4we;
+		else if (type == PAD_T_16ST)
+			return atlas7_ds_map[idx].ds_16st;
+		else if (type == PAD_T_M31_0204_PD || type == PAD_T_M31_0204_PU)
+			return atlas7_ds_map[idx].ds_0204m31;
+		else if (type == PAD_T_M31_0610_PD || type == PAD_T_M31_0610_PU)
+			return atlas7_ds_map[idx].ds_0610m31;
 	}
-	return -EINVAL;
+
+	return DS_NULL;
 }
 
-static int get_valid_pull_state(const char *property)
-{
-	u32 idx;
-
-	for (idx = 0; idx < ARRAY_SIZE(pull_dt_map); idx++) {
-		if (!strcmp(property, pull_dt_map[idx].property))
-			return pull_dt_map[idx].value;
-	}
-	return -EINVAL;
-}
-
-static int __altas7_pinctrl_pull_sel(struct pinctrl_dev *pctldev,
+static int altas7_pinctrl_set_pull_sel(struct pinctrl_dev *pctldev,
 					u32 pin, u32 sel)
 {
 	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
@@ -3812,10 +3808,12 @@ static int __altas7_pinctrl_pull_sel(struct pinctrl_dev *pctldev,
 			return -ENOTSUPP;
 	}
 
+	pr_debug("PIN_CFG ### SET PIN#%d PULL SELECTOR:%d == OK ####\n",
+		pin, sel);
 	return 0;
 }
 
-static int __altas7_pinctrl_drive_strength_sel(struct pinctrl_dev *pctldev,
+static int __altas7_pinctrl_set_drive_strength_sel(struct pinctrl_dev *pctldev,
 						u32 pin, u32 sel)
 {
 	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
@@ -3827,42 +3825,60 @@ static int __altas7_pinctrl_drive_strength_sel(struct pinctrl_dev *pctldev,
 
 	ds_sel_reg = pmx->regs[bank] + conf->drvstr_reg;
 	ds_clr_reg = CLR_REG(ds_sel_reg);
-
 	if (type == PAD_T_4WE_PD || type == PAD_T_4WE_PU) {
+		if (sel & (~DS_2BIT_MASK))
+			goto unsupport;
+
 		writel(DS_2BIT_IM_VAL << shift, ds_clr_reg);
-		if (sel & (~0x3)) {
-			pr_err("Unsupport drive strength for 16STPAD#%d\n",
-				pin);
-			return -ENOTSUPP;
-		}
-		writel(sel << shift, ds_sel_reg);
-	} else if (type == PAD_T_16ST) {
-		writel(DS_4BIT_IM_VAL << shift, ds_clr_reg);
-		if (sel & (~0xf)) {
-			pr_err("Unsupport drive strength for 16STPAD#%d\n",
-				pin);
-			return -ENOTSUPP;
-		}
-		writel(sel << shift, ds_sel_reg);
-	} else if (type == PAD_T_M31_0204_PD ||
-		type == PAD_T_M31_0204_PU ||
-		type == PAD_T_M31_0610_PD ||
-		type == PAD_T_M31_0610_PU) {
-		writel(DS_1BIT_IM_VAL << shift, ds_clr_reg);
-		if (sel & (~0x1)) {
-			pr_err("Unsupport drive strength for M31PAD#%d\n",
-				pin);
-			return -ENOTSUPP;
-		}
 		writel(sel << shift, ds_sel_reg);
 
-	} else {
-		pr_err("Pad#%d type[%d] doesn't support drive strength!\n",
-			pin, type);
+		return 0;
+	} else if (type == PAD_T_16ST) {
+		if (sel & (~DS_4BIT_MASK))
+			goto unsupport;
+
+		writel(DS_4BIT_IM_VAL << shift, ds_clr_reg);
+		writel(sel << shift, ds_sel_reg);
+
+		return 0;
+	} else if (type == PAD_T_M31_0204_PD ||	type == PAD_T_M31_0204_PU ||
+		type == PAD_T_M31_0610_PD || type == PAD_T_M31_0610_PU) {
+		if (sel & (~DS_1BIT_MASK))
+			goto unsupport;
+
+		writel(DS_1BIT_IM_VAL << shift, ds_clr_reg);
+		writel(sel << shift, ds_sel_reg);
+
+		return 0;
+	}
+
+unsupport:
+	pr_err("Pad#%d type[%d] doesn't support ds code[%d]!\n",
+		pin, type, sel);
+	return -ENOTSUPP;
+}
+
+static int altas7_pinctrl_set_drive_strength_sel(struct pinctrl_dev *pctldev,
+						u32 pin, u32 ma)
+{
+	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
+	struct atlas7_pad_config *conf = &pmx->pctl_data->confs[pin];
+	u32 type = conf->type;
+	u32 sel;
+	int ret;
+
+	sel = convert_current_to_drive_strength(conf->type, ma);
+	if (DS_NULL == sel) {
+		pr_err("Pad#%d type[%d] doesn't support ds current[%d]!\n",
+		pin, type, ma);
 		return -ENOTSUPP;
 	}
 
-	return 0;
+	ret =  __altas7_pinctrl_set_drive_strength_sel(pctldev,
+						pin, sel);
+	pr_debug("PIN_CFG ### SET PIN#%d DS:%d MA:%d == %s ####\n",
+		pin, sel, ma, ret?"FAILED":"OK");
+	return ret;
 }
 
 static int atlas7_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
@@ -3930,7 +3946,7 @@ static int atlas7_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 					u32 *num_maps)
 {
 	return pinconf_generic_dt_node_to_map(pctldev, np_config, map,
-				num_maps, PIN_MAP_TYPE_CONFIGS_GROUP);
+				num_maps, PIN_MAP_TYPE_INVALID);
 }
 
 static void atlas7_pinctrl_dt_free_map(struct pinctrl_dev *pctldev,
@@ -3939,135 +3955,94 @@ static void atlas7_pinctrl_dt_free_map(struct pinctrl_dev *pctldev,
 	kfree(map);
 }
 
-static int atlas7_pinmux_get_pin_by_name(const char *name)
-{
-	unsigned i, pin;
-
-	/* The pin number can be retrived from the pin controller descriptor */
-	for (i = 0; i < ARRAY_SIZE(atlas7_ioc_pads); i++) {
-		pin = atlas7_ioc_pads[i].number;
-
-		if (!strcmp(name, atlas7_ioc_pads[i].name))
-			return pin;
-	}
-
-	return -EINVAL;
-}
-
-static int atlas7_pinmux_set_drive_strength(struct pinctrl_dev *pctldev,
-					struct device_node *np)
-{
-	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
-	const char *pin_str, *sel_str;
-	static const char * const properties[] = { "sirf,drive-strength-pins",
-					"sirf,drive-strength-selectors" };
-	int idx, pin, sel, pin_sz, sel_sz, rc;
-
-	pin_sz = of_property_count_strings(np, properties[0]);
-	sel_sz = of_property_count_strings(np, properties[1]);
-	if (pin_sz <= 0 || sel_sz <= 0)
-		return 0;
-
-	if (pin_sz != sel_sz) {
-		dev_err(pmx->dev,
-			"%s and %s are not matched!\n",
-			properties[0], properties[1]);
-		return -EINVAL;
-	}
-
-	for (idx = 0; idx < pin_sz; idx++) {
-		/* Get the sirf,drive-strength-pins property */
-		rc = of_property_read_string_index(np,
-					properties[0], idx, &pin_str);
-		/* If pin has nodata, skip this pin */
-		if (rc || !strlen(pin_str))
-			continue;
-
-		/* Get the sirf,drive-strength-selectors property */
-		rc = of_property_read_string_index(np,
-					properties[1], idx, &sel_str);
-		/* If selector has nodata, skip this pin */
-		if (rc || !strlen(sel_str))
-			continue;
-
-		pin = atlas7_pinmux_get_pin_by_name(pin_str);
-		/* could not find pin from pinmux by name */
-		if (pin < 0)
-			continue;
-
-		sel = get_valid_ds_state(sel_str);
-		/* could not find valid drive strength state */
-		if (sel < 0)
-			continue;
-
-		pr_debug("ds pin=%d(%s) sel=%d(%s)\n",
-			pin, pin_str, sel, sel_str);
-		__altas7_pinctrl_drive_strength_sel(pctldev, pin, sel);
-	}
-
-	return 0;
-}
-
-static int atlas7_pinmux_set_pull_selector(struct pinctrl_dev *pctldev,
-					struct device_node *np)
-{
-	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
-	const char *pin_str, *sel_str;
-	static const char * const properties[] = { "sirf,pull-pins",
-					"sirf,pull-selectors" };
-	int idx, pin, sel, pin_sz, sel_sz, rc;
-
-	pin_sz = of_property_count_strings(np, properties[0]);
-	sel_sz = of_property_count_strings(np, properties[1]);
-	if (pin_sz <= 0 || sel_sz <= 0)
-		return 0;
-
-	if (pin_sz != sel_sz) {
-		dev_err(pmx->dev,
-			"%s and %s are not matched!\n",
-			properties[0], properties[1]);
-		return -EINVAL;
-	}
-
-	for (idx = 0; idx < pin_sz; idx++) {
-		/* Get the sirf,pull-pins property */
-		rc = of_property_read_string_index(np,
-					properties[0], idx, &pin_str);
-		/* If pin has nodata, skip this pin */
-		if (rc || !strlen(pin_str))
-			continue;
-
-		/* Get the sirf,pull-selectors property */
-		rc = of_property_read_string_index(np,
-					properties[1], idx, &sel_str);
-		/* If selector has nodata, skip this pin */
-		if (rc || !strlen(sel_str))
-			continue;
-
-		pin = atlas7_pinmux_get_pin_by_name(pin_str);
-		/* could not find pin from pinmux by name */
-		if (pin < 0)
-			continue;
-
-		sel = get_valid_pull_state(sel_str);
-		/* could not find valid pull state */
-		if (sel < 0)
-			continue;
-
-		pr_debug("pull pin=%d(%s) sel=%d(%s)\n",
-			pin, pin_str, sel, sel_str);
-		__altas7_pinctrl_pull_sel(pctldev, pin, sel);
-	}
-
-	return 0;
-}
-
 static const struct pinctrl_ops atlas7_pinctrl_ops = {
 	.get_groups_count = atlas7_pinctrl_get_groups_count,
 	.get_group_name = atlas7_pinctrl_get_group_name,
 	.get_group_pins = atlas7_pinctrl_get_group_pins,
 	.dt_node_to_map = atlas7_pinctrl_dt_node_to_map,
 	.dt_free_map = atlas7_pinctrl_dt_free_map,
+};
+
+static int atlas7_pin_config_set(struct pinctrl_dev *pctldev,
+				unsigned pin, unsigned long *configs,
+				unsigned num_configs)
+{
+	u16 param, arg;
+	int idx, err;
+
+	for (idx = 0; idx < num_configs; idx++) {
+		param = pinconf_to_config_param(configs[idx]);
+		arg = pinconf_to_config_argument(configs[idx]);
+
+		pr_debug("PMX CFG###### ATLAS7 PIN#%d [%s] CONFIG PARAM:%d ARG:%d >>>>>\n",
+			pin, atlas7_ioc_pads[pin].name, param, arg);
+		switch (param) {
+		case PIN_CONFIG_BIAS_PULL_UP:
+			err = altas7_pinctrl_set_pull_sel(pctldev,
+							pin, PULL_UP);
+			if (err)
+				return err;
+			break;
+
+		case PIN_CONFIG_BIAS_PULL_DOWN:
+			err = altas7_pinctrl_set_pull_sel(pctldev,
+							pin, PULL_DOWN);
+			if (err)
+				return err;
+			break;
+
+		case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
+			err = altas7_pinctrl_set_pull_sel(pctldev,
+							pin, HIGH_HYSTERESIS);
+			if (err)
+				return err;
+			break;
+		case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
+			err = altas7_pinctrl_set_pull_sel(pctldev,
+							pin, HIGH_Z);
+			if (err)
+				return err;
+			break;
+
+		case PIN_CONFIG_DRIVE_STRENGTH:
+			err = altas7_pinctrl_set_drive_strength_sel(pctldev,
+							pin, arg);
+			if (err)
+				return err;
+			break;
+		default:
+			return -ENOTSUPP;
+		}
+		pr_debug("PMX CFG###### ATLAS7 PIN#%d [%s] CONFIG PARAM:%d ARG:%d <<<<\n",
+			pin, atlas7_ioc_pads[pin].name, param, arg);
+	}
+
+	return 0;
+}
+
+static int atlas7_pin_config_group_set(struct pinctrl_dev *pctldev,
+				unsigned group, unsigned long *configs,
+				unsigned num_configs)
+{
+	const unsigned *pins;
+	unsigned npins;
+	int i, ret;
+
+	ret = atlas7_pinctrl_get_group_pins(pctldev, group, &pins, &npins);
+	if (ret)
+		return ret;
+	for (i = 0; i < npins; i++) {
+		if (atlas7_pin_config_set(pctldev, pins[i],
+					  configs, num_configs))
+			return -ENOTSUPP;
+	}
+	return 0;
+}
+
+static const struct pinconf_ops atlas7_pinconf_ops = {
+	.pin_config_set = atlas7_pin_config_set,
+	.pin_config_group_set = atlas7_pin_config_group_set,
+	.is_generic = true,
 };
 
 /* pinctrl-atlas7-dbg.c is used for Debug Purpose only. */
@@ -4093,6 +4068,7 @@ static int atlas7_pinmux_probe(struct platform_device *pdev)
 	pmx->pctl_desc.npins = pmx->pctl_data->pads_cnt;
 	pmx->pctl_desc.pctlops = &atlas7_pinctrl_ops;
 	pmx->pctl_desc.pmxops = &atlas7_pinmux_ops;
+	pmx->pctl_desc.confops = &atlas7_pinconf_ops;
 	pmx->pctl_desc.owner = THIS_MODULE;
 
 	for (idx = 0; idx < banks; idx++) {
@@ -4120,9 +4096,6 @@ static int atlas7_pinmux_probe(struct platform_device *pdev)
 #ifdef __PINCTRL_ATLAS7_DEBUG__
 	atlas7_pinctrl_init_sysfs(pmx);
 #endif
-
-	atlas7_pinmux_set_drive_strength(pmx->pctl, np);
-	atlas7_pinmux_set_pull_selector(pmx->pctl, np);
 
 	return 0;
 
