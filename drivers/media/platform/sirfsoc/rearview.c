@@ -13,6 +13,7 @@
 #include <linux/moduleparam.h>
 #include <linux/kthread.h>
 #include <linux/of_gpio.h>
+#include <linux/of_address.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_qos.h>
 #include <linux/dma-mapping.h>
@@ -49,6 +50,8 @@
 #define DMA_TABLE_3_HIGH	(rv->table_virt_addr + 20)
 #define DMA_TABLE_4_LOW		(rv->table_virt_addr + 24)
 
+#define IPC_MSG_RV_MASK		BIT(31)
+
 
 struct display_info {
 	char		display[16];
@@ -66,6 +69,8 @@ struct rv_dev {
 	unsigned int	width;
 	unsigned int	height;
 
+	int		ipc_irq;
+
 	bool		running;
 	struct mutex	hw_lock;
 
@@ -82,6 +87,8 @@ struct rv_dev {
 
 	dma_addr_t	data_dma_addr, table_dma_addr;
 	void		*data_virt_addr, *table_virt_addr;
+
+	void __iomem	*ipc_int_addr, *ipc_msg_addr;
 };
 
 
@@ -319,6 +326,20 @@ static int rv_get_display_info(struct rv_dev *rv)
 	return	0;
 }
 
+/* gpio and ipc(CAN) won't cross control rearview */
+static irqreturn_t rv_ipc_irq_handler(int irq, void *data)
+{
+	struct rv_dev *rv = data;
+
+	/* clear interrupt flag */
+	readl(rv->ipc_int_addr);
+
+	atomic_set(&rv->value, readl(rv->ipc_msg_addr) & IPC_MSG_RV_MASK);
+	schedule_work(&rv->rv_work);
+
+	return IRQ_HANDLED;
+}
+
 static void rv_start(struct rv_dev *rv)
 {
 	struct vip_rv_info rv_info = {0};
@@ -460,11 +481,47 @@ static int rv_probe(struct platform_device *pdev)
 	struct rv_dev *rv = NULL;
 	const char *std_name, *display_name;
 	unsigned char mirror = 0;
+	struct resource	*res;
 	int ret = 0;
 
 	rv = devm_kzalloc(dev, sizeof(*rv), GFP_KERNEL);
 	if (!rv) {
 		ret = -ENOMEM;
+		goto exit;
+	}
+
+	/*
+	* The CAN stack is running on M3, M3 will filter the CAN FRAMES
+	* and detect CAN messages of "Rearview start/stop".
+	* So the Rearview driver needn't  VIRTIO_CAN and parse CAN frame.
+	* M3 exports 2 addresses to Rearview driver, one for read-to-clear
+	* dedicated interrupt flag and one for decoded message value.
+	*/
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	rv->ipc_int_addr = devm_ioremap_resource(dev, res);
+	if (!rv->ipc_int_addr) {
+		dev_err(dev, "fail to ioremap ipc int regs\n");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	rv->ipc_msg_addr = devm_ioremap_resource(dev, res);
+	if (!rv->ipc_msg_addr) {
+		dev_err(dev, "fail to ioremap msg int regs\n");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	/*
+	* Because Rearview CAN can be triggered in uboot and Linux scenes,
+	* and for time delay sensitive reason, they don't use the RPMSG to send
+	* trigger message, adopt dedicated irq instead.
+	*/
+	rv->ipc_irq = platform_get_irq(pdev, 0);
+	if (!rv->ipc_irq) {
+		dev_err(dev, "fail to get ipc irq\n");
+		ret = -EINVAL;
 		goto exit;
 	}
 
@@ -528,6 +585,14 @@ static int rv_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&rv->rv_work, rv_worker);
+
+	ret = devm_request_irq(dev, rv->ipc_irq, rv_ipc_irq_handler,
+				IRQF_TRIGGER_NONE, "rearview_ipc_switch", rv);
+	if (ret) {
+		dev_err(dev, "cannot request ipc irq for rearview switch\n");
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	platform_set_drvdata(pdev, rv);
 
