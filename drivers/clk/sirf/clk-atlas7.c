@@ -1044,9 +1044,8 @@ atlas7_unit_clk_register(struct device *dev, const char *name,
 		return ERR_PTR(-ENOMEM);
 
 	init.name = name;
-	/* establish clock dependency by parenthesis*/
-	init.parent_names = (parent_name ? &parent_name : NULL);
-	init.num_parents = (parent_name ? 1 : 0);
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
 	init.ops = &unit_clk_ops;
 	init.flags = flags;
 
