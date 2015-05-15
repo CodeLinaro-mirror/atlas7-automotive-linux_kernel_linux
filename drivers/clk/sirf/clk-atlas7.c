@@ -214,9 +214,9 @@ static struct clk_pll clk_sys3pll = {
 };
 
 /*
-   DTO in clkc, default enable double resolution mode
-   double resolution mode:fout = fin * finc / 2^29
-   normal mode:fout = fin * finc / 2^28
+ *  DTO in clkc, default enable double resolution mode
+ *  double resolution mode:fout = fin * finc / 2^29
+ *  normal mode:fout = fin * finc / 2^28
  */
 #define DTO_RESL_DOUBLE	(1ULL << 29)
 #define DTO_RESL_NORMAL	(1ULL << 28)
@@ -305,8 +305,8 @@ static u8 dto_clk_get_parent(struct clk_hw *hw)
 }
 
 /*
-*   dto need CLK_SET_PARENT_GATE
-*/
+ *   dto need CLK_SET_PARENT_GATE
+ */
 static int dto_clk_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_dto *clk = to_dtoclk(hw);
@@ -980,6 +980,7 @@ static int unit_clk_enable(struct clk_hw *hw)
 	unsigned long flags;
 
 	reg = clk->regofs;
+
 	spin_lock_irqsave(clk->lock, flags);
 	clkc_writel(BIT(clk->bit), reg);
 	if (clk->type == CLK_UNIT_NOC_CLOCK)
@@ -1040,7 +1041,7 @@ atlas7_unit_clk_register(struct device *dev, const char *name,
 
 	unit = kzalloc(sizeof(*unit), GFP_KERNEL);
 	if (!unit)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	init.name = name;
 	/* establish clock dependency by parenthesis*/
@@ -1200,12 +1201,6 @@ static struct reset_controller_dev atlas7_rst_ctlr = {
 	.owner = THIS_MODULE,
 	.of_reset_n_cells = 1,
 };
-
-static void atlas7_restart(enum reboot_mode mode, const char *cmd)
-{
-	clkc_writel(0, SIRFSOC_CLKC_RSTC_A7_SW_RST);
-	clkc_writel(1, SIRFSOC_CLKC_RSTC_A7_SW_RST);
-}
 
 static void __init atlas7_clk_init(struct device_node *np)
 {
