@@ -294,6 +294,25 @@ retry:
 	return rc;
 }
 
+static void sdhci_sirf_card_event(struct sdhci_host *host)
+{
+	u32 clock_setting, present;
+
+	/*
+	 * The clock delay value is tuned and set in case SDR50 compatible
+	 * card is inserted.While the value is not fitful for HS card.So we need
+	 * to reset the clock delay in case the card is removed or else later
+	 * inseted HS card may encounter initialization issue
+	 */
+	present = sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT;
+	if (!present) {
+		clock_setting = sdhci_readl(host, SDHCI_CLK_DELAY_SETTING);
+		clock_setting &= ~0x3FFFF;
+		sdhci_writel(host, clock_setting, SDHCI_CLK_DELAY_SETTING);
+	}
+
+}
+
 static struct sdhci_ops sdhci_sirf_ops = {
 	.read_l = sdhci_sirf_readl_le,
 	.read_w = sdhci_sirf_readw_le,
@@ -304,6 +323,7 @@ static struct sdhci_ops sdhci_sirf_ops = {
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
 	.signal_voltage_switch = sirf_signal_voltage_switch,
+	.card_event = sdhci_sirf_card_event,
 };
 
 static struct sdhci_pltfm_data sdhci_sirf_pdata = {
