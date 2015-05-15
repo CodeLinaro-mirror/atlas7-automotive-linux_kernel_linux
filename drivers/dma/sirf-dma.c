@@ -277,7 +277,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	u32 is;
 	bool chain;
 	int ch;
-	u32 reg;
+	void __iomem *reg;
 
 	switch (sdma->ip_ver) {
 	case SIRFSOC_DMA_VER_A6:
@@ -314,9 +314,9 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 					 struct sirfsoc_dma_desc, node);
 		if (!sdesc->cyclic) {
 			chain = sdesc->chain;
-			if (chain && (is & SIRFSOC_DMA_INT_END_INT_ATLAS7) ||
-				!(chain) &&
-				(is & SIRFSOC_DMA_INT_FINI_INT_ATLAS7)) {
+			if ((chain && (is & SIRFSOC_DMA_INT_END_INT_ATLAS7)) ||
+				(!chain &&
+				(is & SIRFSOC_DMA_INT_FINI_INT_ATLAS7))) {
 				/* Execute queued descriptors */
 				list_splice_tail_init(&schan->active,
 						      &schan->completed);
@@ -579,7 +579,6 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
 	struct sirfsoc_dma_desc *sdesc;
-	struct sirfsoc_dma_desc *first_sdesc;
 	unsigned long flags;
 	LIST_HEAD(descs);
 	int i;
@@ -789,7 +788,7 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	unsigned long iflags;
 	struct scatterlist *sg;
 	int desc_cnt = 0, i = 0;
-	int ret;
+	int ret = 0;
 	int flag = 0;
 	dma_addr_t addr;
 	unsigned int len;
