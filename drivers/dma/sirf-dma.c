@@ -126,6 +126,9 @@ struct sirfsoc_dma {
 	struct clk			*clk;
 	int				ip_ver;
 	struct sirfsoc_dma_regs		regs_save;
+
+	void (*exec_desc)(struct sirfsoc_dma_desc *sdesc,
+		int cid, int burst_mode, void __iomem *base)
 };
 
 enum sirfsoc_dma_chain_flag {
@@ -249,20 +252,7 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 		cid = 0;
 
 	/* Start the DMA transfer */
-	switch (sdma->ip_ver) {
-	case SIRFSOC_DMA_VER_A6:
-		sirfsoc_dma_execute_hw_a6(sdesc, cid, schan->mode, base);
-		break;
-	case SIRFSOC_DMA_VER_A7V1:
-		sirfsoc_dma_execute_hw_a7v1(sdesc, cid, schan->mode, base);
-		break;
-	case SIRFSOC_DMA_VER_A7V2:
-		sirfsoc_dma_execute_hw_a7v2(sdesc, cid, schan->mode, base);
-		break;
-
-	default:
-		break;
-	}
+	sdma->exec_desc(sdesc, cid, schan->mode, base);
 
 	if (sdesc->cyclic)
 		schan->happened_cyclic = schan->completed_cyclic = 0;
@@ -1030,11 +1020,16 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 		return -ENOMEM;
 	}
 
-	if (of_device_is_compatible(dn, "sirf,atlas7-dmac"))
+	if (of_device_is_compatible(dn, "sirf,atlas7-dmac")) {
 		sdma->ip_ver = SIRFSOC_DMA_VER_A7V1;
-
-	if (of_device_is_compatible(dn, "sirf,atlas7-dmac-v2"))
+		sdma->exec_desc = sirfsoc_dma_execute_hw_a7v1;
+	} else if (of_device_is_compatible(dn, "sirf,atlas7-dmac-v2")) {
 		sdma->ip_ver = SIRFSOC_DMA_VER_A7V2;
+		sdma->exec_desc = sirfsoc_dma_execute_hw_a7v2;
+	} else {
+		sdma->ip_ver = SIRFSOC_DMA_VER_A6;
+		sdma->exec_desc = sirfsoc_dma_execute_hw_a6;
+	}
 
 	if (of_property_read_u32(dn, "cell-index", &id)) {
 		dev_err(dev, "Fail to get DMAC index\n");
