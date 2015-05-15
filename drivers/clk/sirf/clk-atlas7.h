@@ -263,7 +263,7 @@ struct atlas7_div_init_data {
 
 struct atlas7_mux_init_data {
 	const char *mux_name;
-	const char **parent_names;
+	const char * const *parent_names;
 	u8 parent_num;
 	unsigned long flags;
 	u8 mux_flags;
