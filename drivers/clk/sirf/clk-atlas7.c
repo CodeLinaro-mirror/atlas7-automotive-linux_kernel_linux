@@ -25,7 +25,7 @@
 #include "clk-atlas7.h"
 
 
-static void *sirfsoc_clk_vbase, *sirfsoc_clk_vbase;
+static void __iomem *sirfsoc_clk_vbase;
 static struct clk_onecell_data clk_data;
 
 static const struct clk_div_table pll_div_table[] = {
@@ -83,11 +83,11 @@ static inline void clkc_writel(u32 val, unsigned reg)
 }
 
 /*
-  ABPLL
-  interger_n mode: Fvco = Fin * 2 * NF / NR
-  Spread Spectrum mode: Fvco = Fin * SSN / NR
-  SSN = 2^24 / (256 * ((ssdiv >> ssdepth) << ssdepth) + (ssmod << ssdepth))
- */
+*  ABPLL
+*  integer mode: Fvco = Fin * 2 * NF / NR
+*  Spread Spectrum mode: Fvco = Fin * SSN / NR
+*  SSN = 2^24 / (256 * ((ssdiv >> ssdepth) << ssdepth) + (ssmod << ssdepth))
+*/
 static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
 {
@@ -125,7 +125,7 @@ static struct clk_ops ab_pll_ops = {
 	.recalc_rate = pll_clk_recalc_rate,
 };
 
-static const char *pll_clk_parents[] = {
+static const char * const pll_clk_parents[] = {
 	"xin",
 };
 
@@ -214,9 +214,9 @@ static struct clk_pll clk_sys3pll = {
 };
 
 /*
-   DTO in clkc, default enable double resolution mode
-   double resolution mode:fout = fin * finc / 2^29
-   normal mode:fout = fin * finc / 2^28
+ *  DTO in clkc, default enable double resolution mode
+ *  double resolution mode:fout = fin * finc / 2^29
+ *  normal mode:fout = fin * finc / 2^28
  */
 #define DTO_RESL_DOUBLE	(1ULL << 29)
 #define DTO_RESL_NORMAL	(1ULL << 28)
@@ -305,8 +305,8 @@ static u8 dto_clk_get_parent(struct clk_hw *hw)
 }
 
 /*
-   dto need CLK_SET_PARENT_GATE
-*/
+ *   dto need CLK_SET_PARENT_GATE
+ */
 static int dto_clk_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_dto *clk = to_dtoclk(hw);
@@ -327,7 +327,7 @@ static struct clk_ops dto_ops = {
 };
 
 /* dto parent clock as syspllvco/clk1 */
-static const char *audiodto_clk_parents[] = {
+static const char * const audiodto_clk_parents[] = {
 	"sys0pll_clk1",
 	"sys1pll_clk1",
 	"sys3pll_clk1",
@@ -348,7 +348,7 @@ static struct clk_dto clk_audio_dto = {
 	},
 };
 
-static const char *disp0dto_clk_parents[] = {
+static const char * const disp0dto_clk_parents[] = {
 	"sys0pll_clk1",
 	"sys1pll_clk1",
 	"sys3pll_clk1",
@@ -369,7 +369,7 @@ static struct clk_dto clk_disp0_dto = {
 	},
 };
 
-static const char *disp1dto_clk_parents[] = {
+static const char * const disp1dto_clk_parents[] = {
 	"sys0pll_clk1",
 	"sys1pll_clk1",
 	"sys3pll_clk1",
@@ -482,14 +482,14 @@ static __initdata struct atlas7_div_init_data divider_list[] = {
 	{"mempll_div3", "mempll_vco", "mempll_clk3", 1, 0, 0, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 14, &mempll_ctrl1_lock},
 };
 
-static const char *i2s_clk_parents[] = {
+static const char * const i2s_clk_parents[] = {
 	"xin",
 	"xinw",
 	"audio_dto",
 	/* "pwm_i2s01" */
 };
 
-static const char *usbphy_clk_parents[] = {
+static const char * const usbphy_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a1",
@@ -498,7 +498,7 @@ static const char *usbphy_clk_parents[] = {
 	"sys3pll_a1",
 };
 
-static const char *btss_clk_parents[] = {
+static const char * const btss_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a2",
@@ -507,7 +507,7 @@ static const char *btss_clk_parents[] = {
 	"sys3pll_a2",
 };
 
-static const char *rgmii_clk_parents[] = {
+static const char * const rgmii_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a3",
@@ -516,7 +516,7 @@ static const char *rgmii_clk_parents[] = {
 	"sys3pll_a3",
 };
 
-static const char *cpu_clk_parents[] = {
+static const char * const cpu_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a4",
@@ -524,7 +524,7 @@ static const char *cpu_clk_parents[] = {
 	"cpupll_clk1",
 };
 
-static const char *sdphy01_clk_parents[] = {
+static const char * const sdphy01_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a5",
@@ -533,7 +533,7 @@ static const char *sdphy01_clk_parents[] = {
 	"sys3pll_a5",
 };
 
-static const char *sdphy23_clk_parents[] = {
+static const char * const sdphy23_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a6",
@@ -542,7 +542,7 @@ static const char *sdphy23_clk_parents[] = {
 	"sys3pll_a6",
 };
 
-static const char *sdphy45_clk_parents[] = {
+static const char * const sdphy45_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a7",
@@ -551,7 +551,7 @@ static const char *sdphy45_clk_parents[] = {
 	"sys3pll_a7",
 };
 
-static const char *sdphy67_clk_parents[] = {
+static const char * const sdphy67_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a8",
@@ -560,7 +560,7 @@ static const char *sdphy67_clk_parents[] = {
 	"sys3pll_a8",
 };
 
-static const char *can_clk_parents[] = {
+static const char * const can_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a9",
@@ -569,7 +569,7 @@ static const char *can_clk_parents[] = {
 	"sys3pll_a9",
 };
 
-static const char *deint_clk_parents[] = {
+static const char * const deint_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a10",
@@ -578,7 +578,7 @@ static const char *deint_clk_parents[] = {
 	"sys3pll_a10",
 };
 
-static const char *nand_clk_parents[] = {
+static const char * const nand_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a11",
@@ -587,7 +587,7 @@ static const char *nand_clk_parents[] = {
 	"sys3pll_a11",
 };
 
-static const char *disp0_clk_parents[] = {
+static const char * const disp0_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a12",
@@ -597,7 +597,7 @@ static const char *disp0_clk_parents[] = {
 	"disp0_dto",
 };
 
-static const char *disp1_clk_parents[] = {
+static const char * const disp1_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a13",
@@ -607,7 +607,7 @@ static const char *disp1_clk_parents[] = {
 	"disp1_dto",
 };
 
-static const char *gpu_clk_parents[] = {
+static const char * const gpu_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a14",
@@ -616,7 +616,7 @@ static const char *gpu_clk_parents[] = {
 	"sys3pll_a14",
 };
 
-static const char *gnss_clk_parents[] = {
+static const char * const gnss_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys0pll_a15",
@@ -625,7 +625,7 @@ static const char *gnss_clk_parents[] = {
 	"sys3pll_a15",
 };
 
-static const char *sys_clk_parents[] = {
+static const char * const sys_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -636,7 +636,7 @@ static const char *sys_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *io_clk_parents[] = {
+static const char * const io_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -647,7 +647,7 @@ static const char *io_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *g2d_clk_parents[] = {
+static const char * const g2d_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -658,7 +658,7 @@ static const char *g2d_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *jpenc_clk_parents[] = {
+static const char * const jpenc_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -669,7 +669,7 @@ static const char *jpenc_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *vdec_clk_parents[] = {
+static const char * const vdec_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -680,7 +680,7 @@ static const char *vdec_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *gmac_clk_parents[] = {
+static const char * const gmac_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -691,7 +691,7 @@ static const char *gmac_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *usb_clk_parents[] = {
+static const char * const usb_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -702,7 +702,7 @@ static const char *usb_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *kas_clk_parents[] = {
+static const char * const kas_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -713,7 +713,7 @@ static const char *kas_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *sec_clk_parents[] = {
+static const char * const sec_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -724,7 +724,7 @@ static const char *sec_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *sdr_clk_parents[] = {
+static const char * const sdr_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -735,7 +735,7 @@ static const char *sdr_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *vip_clk_parents[] = {
+static const char * const vip_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -746,7 +746,7 @@ static const char *vip_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *nocd_clk_parents[] = {
+static const char * const nocd_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -757,7 +757,7 @@ static const char *nocd_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *nocr_clk_parents[] = {
+static const char * const nocr_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -768,7 +768,7 @@ static const char *nocr_clk_parents[] = {
 	"sys1pll_a17",
 };
 
-static const char *tpiu_clk_parents[] = {
+static const char * const tpiu_clk_parents[] = {
 	"xin",
 	"xinw",
 	"sys2pll_a20",
@@ -977,9 +977,10 @@ static int unit_clk_enable(struct clk_hw *hw)
 {
 	u32 reg;
 	struct clk_unit *clk = to_unitclk(hw);
-	unsigned long flags = 0;
+	unsigned long flags;
 
 	reg = clk->regofs;
+
 	spin_lock_irqsave(clk->lock, flags);
 	clkc_writel(BIT(clk->bit), reg);
 	if (clk->type == CLK_UNIT_NOC_CLOCK)
@@ -996,7 +997,7 @@ static void unit_clk_disable(struct clk_hw *hw)
 	u32 reg;
 	u32 i = 0;
 	struct clk_unit *clk = to_unitclk(hw);
-	unsigned long flags = 0;
+	unsigned long flags;
 
 	reg = clk->regofs + SIRFSOC_CLKC_ROOT_CLK_EN0_CLR - SIRFSOC_CLKC_ROOT_CLK_EN0_SET;
 	spin_lock_irqsave(clk->lock, flags);
@@ -1031,7 +1032,7 @@ static struct clk_ops unit_clk_ops = {
 
 static struct clk * __init
 atlas7_unit_clk_register(struct device *dev, const char *name,
-		 const char *parent_name, unsigned long flags,
+		 const char * const parent_name, unsigned long flags,
 		 u32 regofs, u8 bit, u32 type, u8 idle_bit, spinlock_t *lock)
 {
 	struct clk *clk;
@@ -1039,14 +1040,12 @@ atlas7_unit_clk_register(struct device *dev, const char *name,
 	struct clk_init_data init;
 
 	unit = kzalloc(sizeof(*unit), GFP_KERNEL);
-	if (!unit) {
-		pr_err("could not alloc unit clock %s\n",
-			name);
+	if (!unit)
 		return ERR_PTR(-ENOMEM);
-	}
+
 	init.name = name;
-	init.parent_names = (parent_name ? &parent_name : NULL);
-	init.num_parents = (parent_name ? 1 : 0);
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
 	init.ops = &unit_clk_ops;
 	init.flags = flags;
 
@@ -1066,83 +1065,83 @@ atlas7_unit_clk_register(struct device *dev, const char *name,
 }
 
 static struct atlas7_reset_desc atlas7_reset_unit[] = {
-	{"PWM", 0x0244, 0, 0x0320, 0, &leaf0_gate_lock}, /*0-5*/
+	{"PWM", 0x0244, 0, 0x0320, 0, &leaf0_gate_lock},		/*0-5*/
 	{"THCGUM", 0x0244, 3, 0x0320, 1, &leaf0_gate_lock},
 	{"CVD", 0x04A0, 0, 0x032C, 0, &leaf1_gate_lock},
 	{"TIMER", 0x04A0, 1, 0x032C, 1, &leaf1_gate_lock},
 	{"PULSEC", 0x04A0, 2, 0x032C, 2, &leaf1_gate_lock},
 	{"TSC", 0x04A0, 3, 0x032C, 3, &leaf1_gate_lock},
-	{"IOCTOP", 0x04A0, 4, 0x032C, 4, &leaf1_gate_lock}, /*6-10*/
+	{"IOCTOP", 0x04A0, 4, 0x032C, 4, &leaf1_gate_lock},	/*6-10*/
 	{"RSC", 0x04A0, 5, 0x032C, 5, &leaf1_gate_lock},
 	{"DVM", 0x04A0, 6, 0x032C, 6, &leaf1_gate_lock},
 	{"LVDS", 0x04A0, 7, 0x032C, 7, &leaf1_gate_lock},
 	{"KAS", 0x04A0, 8, 0x032C, 8, &leaf1_gate_lock},
-	{"AC97", 0x04A0, 9, 0x032C, 9, &leaf1_gate_lock}, /*11-15*/
+	{"AC97", 0x04A0, 9, 0x032C, 9, &leaf1_gate_lock},		/*11-15*/
 	{"USP0", 0x04A0, 10, 0x032C, 10, &leaf1_gate_lock},
 	{"USP1", 0x04A0, 11, 0x032C, 11, &leaf1_gate_lock},
 	{"USP2", 0x04A0, 12, 0x032C, 12, &leaf1_gate_lock},
 	{"DMAC2", 0x04A0, 13, 0x032C, 13, &leaf1_gate_lock},
-	{"DMAC3", 0x04A0, 14, 0x032C, 14, &leaf1_gate_lock}, /*16-20*/
+	{"DMAC3", 0x04A0, 14, 0x032C, 14, &leaf1_gate_lock},	/*16-20*/
 	{"AUDIO", 0x04A0, 15, 0x032C, 15, &leaf1_gate_lock},
 	{"I2S1", 0x04A0, 17, 0x032C, 16, &leaf1_gate_lock},
 	{"PMU_AUDIO", 0x04A0, 22, 0x032C, 17, &leaf1_gate_lock},
 	{"THAUDMSCM", 0x04A0, 23, 0x032C, 18, &leaf1_gate_lock},
-	{"SYS2PCI", 0x04B8, 0, 0x0338, 0, &leaf2_gate_lock}, /*21-25*/
+	{"SYS2PCI", 0x04B8, 0, 0x0338, 0, &leaf2_gate_lock},	/*21-25*/
 	{"PCIARB", 0x04B8, 1, 0x0338, 1, &leaf2_gate_lock},
 	{"PCICOPY", 0x04B8, 2, 0x0338, 2, &leaf2_gate_lock},
 	{"ROM", 0x04B8, 3, 0x0338, 3, &leaf2_gate_lock},
 	{"SDIO23", 0x04B8, 4, 0x0338, 4, &leaf2_gate_lock},
-	{"SDIO45", 0x04B8, 5, 0x0338, 5, &leaf2_gate_lock}, /*26-30*/
+	{"SDIO45", 0x04B8, 5, 0x0338, 5, &leaf2_gate_lock},	/*26-30*/
 	{"SDIO67", 0x04B8, 6, 0x0338, 6, &leaf2_gate_lock},
 	{"VIP1", 0x04B8, 7, 0x0338, 7, &leaf2_gate_lock},
 	{"VPP0", 0x04B8, 11, 0x0338, 8, &leaf2_gate_lock},
 	{"LCD0", 0x04B8, 12, 0x0338, 9, &leaf2_gate_lock},
-	{"VPP1", 0x04B8, 13, 0x0338, 10, &leaf2_gate_lock}, /*31-35*/
+	{"VPP1", 0x04B8, 13, 0x0338, 10, &leaf2_gate_lock},	/*31-35*/
 	{"LCD1", 0x04B8, 14, 0x0338, 11, &leaf2_gate_lock},
 	{"DCU", 0x04B8, 15, 0x0338, 12, &leaf2_gate_lock},
 	{"GPIO", 0x04B8, 18, 0x0338, 13, &leaf2_gate_lock},
 	{"DAPA_VDIFM", 0x04B8, 17, 0x0338, 15, &leaf2_gate_lock},
-	{"THVDIFM", 0x04B8, 19, 0x0338, 16, &leaf2_gate_lock}, /*36-40*/
+	{"THVDIFM", 0x04B8, 19, 0x0338, 16, &leaf2_gate_lock},	/*36-40*/
 	{"RGMII", 0x04D0, 0, 0x0344, 0, &leaf3_gate_lock},
 	{"GMAC", 0x04D0, 1, 0x0344, 1, &leaf3_gate_lock},
 	{"UART1", 0x04D0, 2, 0x0344, 2, &leaf3_gate_lock},
 	{"DMAC0", 0x04D0, 3, 0x0344, 3, &leaf3_gate_lock},
-	{"UART0", 0x04D0, 4, 0x0344, 4, &leaf3_gate_lock}, /*41-45*/
+	{"UART0", 0x04D0, 4, 0x0344, 4, &leaf3_gate_lock},		/*41-45*/
 	{"UART2", 0x04D0, 5, 0x0344, 5, &leaf3_gate_lock},
 	{"UART3", 0x04D0, 6, 0x0344, 6, &leaf3_gate_lock},
 	{"UART4", 0x04D0, 7, 0x0344, 7, &leaf3_gate_lock},
 	{"UART5", 0x04D0, 8, 0x0344, 8, &leaf3_gate_lock},
-	{"SPI1", 0x04D0, 9, 0x0344, 9, &leaf3_gate_lock}, /*46-50*/
+	{"SPI1", 0x04D0, 9, 0x0344, 9, &leaf3_gate_lock},		/*46-50*/
 	{"GNSS_SYS_M0", 0x04D0, 10, 0x0344, 10, &leaf3_gate_lock},
 	{"CANBUS1", 0x04D0, 12, 0x0344, 11, &leaf3_gate_lock},
 	{"CCSEC", 0x04D0, 15, 0x0344, 12, &leaf3_gate_lock},
 	{"CCPUB", 0x04D0, 16, 0x0344, 13, &leaf3_gate_lock},
-	{"DAPA_GNSSM", 0x04D0, 13, 0x0344, 14, &leaf3_gate_lock}, /*51-55*/
+	{"DAPA_GNSSM", 0x04D0, 13, 0x0344, 14, &leaf3_gate_lock},	/*51-55*/
 	{"THGNSSM", 0x04D0, 14, 0x0344, 15, &leaf3_gate_lock},
 	{"VDEC", 0x04E8, 0, 0x0350, 0, &leaf4_gate_lock},
 	{"JPENC", 0x04E8, 1, 0x0350, 1, &leaf4_gate_lock},
 	{"G2D", 0x04E8, 2, 0x0350, 2, &leaf4_gate_lock},
-	{"I2C0", 0x04E8, 3, 0x0350, 3, &leaf4_gate_lock}, /*56-60*/
+	{"I2C0", 0x04E8, 3, 0x0350, 3, &leaf4_gate_lock},			/*56-60*/
 	{"I2C1", 0x04E8, 4, 0x0350, 4, &leaf4_gate_lock},
 	{"GPIO0", 0x04E8, 5, 0x0350, 5, &leaf4_gate_lock},
 	{"NAND", 0x04E8, 6, 0x0350, 6, &leaf4_gate_lock},
 	{"SDIO01", 0x04E8, 7, 0x0350, 7, &leaf4_gate_lock},
-	{"SYS2PCI2", 0x04E8, 8, 0x0350, 8, &leaf4_gate_lock}, /*61-65*/
+	{"SYS2PCI2", 0x04E8, 8, 0x0350, 8, &leaf4_gate_lock},		/*61-65*/
 	{"USB0", 0x04E8, 11, 0x0350, 9, &leaf4_gate_lock},
 	{"USB1", 0x04E8, 12, 0x0350, 10, &leaf4_gate_lock},
 	{"THMEDIAM", 0x04E8, 15, 0x0350, 11, &leaf4_gate_lock},
 	{"MEMC_DDRPHY", 0x0500, 0, 0x035C, 0, &leaf5_gate_lock},
-	{"MEMC_UPCTL", 0x0500, 0, 0x035C, 1, &leaf5_gate_lock}, /*66-70*/
+	{"MEMC_UPCTL", 0x0500, 0, 0x035C, 1, &leaf5_gate_lock},	/*66-70*/
 	{"DAPA_MEM", 0x0500, 1, 0x035C, 2, &leaf5_gate_lock},
 	{"MEMC_MEMDIV", 0x0500, 0, 0x035C, 3, &leaf5_gate_lock},
 	{"THDDRM", 0x0500, 3, 0x035C, 4, &leaf5_gate_lock},
 	{"CORESIGHT", 0x0518, 3, 0x0368, 13, &leaf6_gate_lock},
-	{"THCPUM", 0x0518, 4, 0x0368, 17, &leaf6_gate_lock}, /*71-75*/
+	{"THCPUM", 0x0518, 4, 0x0368, 17, &leaf6_gate_lock},		/*71-75*/
 	{"GRAPHIC", 0x0530, 0, 0x0374, 0, &leaf7_gate_lock},
 	{"VSS_SDR", 0x0530, 1, 0x0374, 1, &leaf7_gate_lock},
 	{"THGPUM", 0x0530, 2, 0x0374, 2, &leaf7_gate_lock},
 	{"DMAC4", 0x0548, 2, 0x0380, 1, &leaf8_gate_lock},
-	{"UART6", 0x0548, 3, 0x0380, 2, &leaf8_gate_lock}, /*76-*/
+	{"UART6", 0x0548, 3, 0x0380, 2, &leaf8_gate_lock},			/*76-*/
 	{"USP3", 0x0548, 4, 0x0380, 3, &leaf8_gate_lock},
 	{"THBTM", 0x0548, 5, 0x0380, 5, &leaf8_gate_lock},
 	{"A7CA", 0x0548, 1, 0x0380, 0, &leaf8_gate_lock},
@@ -1159,10 +1158,8 @@ static int atlas7_reset_module(struct reset_controller_dev *rcdev,
 					unsigned long reset_idx)
 {
 	struct atlas7_reset_desc *reset = &atlas7_reset_unit[reset_idx];
-	unsigned long flags = 0;
+	unsigned long flags;
 
-	if (reset_idx >= rcdev->nr_resets)
-		return -EINVAL;
 	/*
 	 * HW suggest unit reset sequence:
 	 * assert sw reset (0)
@@ -1204,13 +1201,7 @@ static struct reset_controller_dev atlas7_rst_ctlr = {
 	.of_reset_n_cells = 1,
 };
 
-static void atlas7_restart(enum reboot_mode mode, const char *cmd)
-{
-	clkc_writel(0, SIRFSOC_CLKC_RSTC_A7_SW_RST);
-	clkc_writel(1, SIRFSOC_CLKC_RSTC_A7_SW_RST);
-}
-
-void __init atlas7_clk_init(struct device_node *np)
+static void __init atlas7_clk_init(struct device_node *np)
 {
 	struct clk *clk;
 	struct atlas7_div_init_data *div;
@@ -1224,11 +1215,6 @@ void __init atlas7_clk_init(struct device_node *np)
 		panic("unable to map clkc registers\n");
 
 	of_node_put(np);
-	/* These are always available (32k osc xinw and 26MHz osc xin) */
-	clk_register_fixed_rate(NULL, "xinw", NULL,
-		CLK_IS_ROOT, 32768);
-	clk_register_fixed_rate(NULL, "xin", NULL,
-		CLK_IS_ROOT, 26000000);
 
 	clk = clk_register(NULL, &clk_cpupll.hw);
 	BUG_ON(!clk);
@@ -1294,6 +1280,9 @@ void __init atlas7_clk_init(struct device_node *np)
 		* when subclocks disabled, it can still on
 		*/
 		if (!strcmp(div->gate_name, "sys1pll_a19"))
+			clk_prepare_enable(clk);
+
+		if (!strcmp(div->gate_name, "sys1pll_a17"))
 			clk_prepare_enable(clk);
 
 		atlas7_clks[ARRAY_SIZE(unit_list) + ARRAY_SIZE(mux_list) + i] = clk;

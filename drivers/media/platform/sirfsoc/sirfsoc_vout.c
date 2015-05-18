@@ -1281,9 +1281,11 @@ static int sirfsoc_vout_release(struct file *file)
 		l->disable(l);
 	}
 
-	vb2_queue_release(&vout->vb2_q);
-	vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
-	vout->alloc_ctx = NULL;
+	if (vout->alloc_ctx) {
+		vb2_queue_release(&vout->vb2_q);
+		vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
+		vout->alloc_ctx = NULL;
+	}
 
 	clear_bit(1, &vout->device_is_open);
 

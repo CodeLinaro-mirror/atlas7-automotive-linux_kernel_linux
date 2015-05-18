@@ -102,6 +102,64 @@ static struct d_input_desc pmx_d_input_desc_list[] = {
 	DINPUT(u4__cts_4_mux2, 0x0A08, 0x0A88, 1, 1),
 };
 
+const struct dt_params pull_dt_map[] = {
+	{ "pull_up", PULL_UP, },
+	{ "high_hysteresis", HIGH_HYSTERESIS, },
+	{ "high_z", HIGH_Z, },
+	{ "pull_down", PULL_DOWN, },
+	{ "pull_disable", PULL_DISABLE, },
+	{ "pull_enable", PULL_ENABLE, },
+};
+
+const struct dt_params drive_strength_dt_map[] = {
+	{ "ds_4we_3", DS_4WE_3, },
+	{ "ds_4we_2", DS_4WE_2, },
+	{ "ds_4we_1", DS_4WE_1, },
+	{ "ds_4we_0", DS_4WE_0, },
+	{ "ds_16st_15", DS_16ST_15, },
+	{ "ds_16st_14", DS_16ST_14, },
+	{ "ds_16st_13", DS_16ST_13, },
+	{ "ds_16st_12", DS_16ST_12, },
+	{ "ds_16st_11", DS_16ST_11, },
+	{ "ds_16st_10", DS_16ST_10, },
+	{ "ds_16st_9", DS_16ST_9, },
+	{ "ds_16st_8", DS_16ST_8, },
+	{ "ds_16st_7", DS_16ST_7, },
+	{ "ds_16st_6", DS_16ST_6, },
+	{ "ds_16st_5", DS_16ST_5, },
+	{ "ds_16st_4", DS_16ST_4, },
+	{ "ds_16st_3", DS_16ST_3, },
+	{ "ds_16st_2", DS_16ST_2, },
+	{ "ds_16st_1", DS_16ST_1, },
+	{ "ds_16st_0", DS_16ST_0, },
+	{ "ds_m31_0", DS_M31_0, },
+	{ "ds_m31_1", DS_M31_1, },
+};
+
+static int get_valid_ds_state(const char *property)
+{
+	u32 idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(drive_strength_dt_map); idx++) {
+		if (!strcmp(property,
+				drive_strength_dt_map[idx].property))
+			return drive_strength_dt_map[idx].value;
+	}
+	return -EINVAL;
+}
+
+static int get_valid_pull_state(const char *property)
+{
+	u32 idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(pull_dt_map); idx++) {
+		if (!strcmp(property, pull_dt_map[idx].property))
+			return pull_dt_map[idx].value;
+	}
+	return -EINVAL;
+}
+
+
 static void get_disable_input_status(struct atlas7_pmx *pmx,
 	struct d_input_desc *di_desc, ulong *di_status, ulong *di_val)
 {
@@ -586,7 +644,7 @@ static ssize_t config_store(struct device *dev,
 			goto unlock;
 		}
 
-		ret = __altas7_pinctrl_pull_sel(pmx->pctl, pin, sel);
+		ret = altas7_pinctrl_set_pull_sel(pmx->pctl, pin, sel);
 		break;
 
 	case 3:
@@ -601,7 +659,7 @@ static ssize_t config_store(struct device *dev,
 			ret = -EINVAL;
 			goto unlock;
 		}
-		ret = __altas7_pinctrl_drive_strength_sel(pmx->pctl,
+		ret = __altas7_pinctrl_set_drive_strength_sel(pmx->pctl,
 							pin, sel);
 		break;
 

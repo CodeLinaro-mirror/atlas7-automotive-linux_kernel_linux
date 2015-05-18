@@ -4,18 +4,6 @@ Required properties:
 - compatible	: "sirf,atlas7-ioc"
 - reg		: Address range of the pinctrl registers
 
-- sirf,pull-pins: An array of string that describe the pins that
-  have pull selector.
-
-- sirf,pull-selectors: An array of string that describe the pull
-  selector of sirf,pull-pins specified pins.
-
-- sirf,drive-strength-pins:An array of string that describe the pins that
-  have drive strength selector.
-
-- sirf,drive-strength-selectors: An array of string that describe the
-  drive strength selector of drive-strength-pins specified pins.
-
 For example, pinctrl might have properties like the following:
 	pinctrl: ioc@18880000 {
 			compatible = "sirf,atlas7-ioc";
@@ -39,17 +27,34 @@ For example, pinctrl might have properties like the following:
 
 			...
 
-			sirf,pull-pins = "spi1_dout", "ldd_2", "trg_acq_clk",
-					"ldd_15", "i2s_dout2";
 
-			sirf,pull-selectors = "pull_up", "pull_up", "pull_down",
-					"high_hysteresis", "high_z";
+			sample0_cfg: sample0@0 {
+				sample0 {
+					pins = "ldd_0", "ldd_1";
+					bias-pull-up;
+				};
+			};
 
-			sirf,drive-strength-pins = "spi1_en", "trg_spi_cs_b",
-						"ldd_3", "vip_7", "sdio3_clk";
+			sample1_cfg: sample1@0 {
+				sample1 {
+					pins = "ldd_2", "ldd_3";
+					input-schmitt-enable;
+				};
+			};
 
-			sirf,drive-strength-selectors = "ds_m31_1", "ds_m31_0",
-						"ds_4we_2", "ds_4we_3", "ds_16st_8";
+			sample2_cfg: sample2@0 {
+				sample2 {
+					groups = "uart4_nopause_grp";
+					bias-pull-down;
+				};
+			};
+
+			sample3_cfg: sample3@0 {
+				sample3 {
+					pins = "ldd_4", "ldd_5";
+					drive-strength = <2>;
+				};
+			};
 	};
 
 Please refer to pinctrl-bindings.txt in this directory for details of the common

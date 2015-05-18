@@ -52,15 +52,15 @@
 			compatible = "pwm-regulator";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
-			pwms = <&pwm 2 600>;
-			voltage-table = <1260000 0>,
-				<1188000 10>,
-				<1116000 20>,
-				<1044000 30>,
-				<972000 40>,
+			pwms = <&pwm 2 60>;
+			voltage-table = <1265000 0>,
+				<1196000 10>,
+				<1127000 20>,
+				<1058000 30>,
+				<990000 40>,
 				<900000 50>;
 			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <1260000>;
+			regulator-max-microvolt = <1265000>;
 			regulator-name = "vdd_cpu";
 		};
 
@@ -201,38 +201,38 @@
 					button-s2 {
 						label = "Home";
 						linux,code = <KEY_HOMEPAGE>;
-						voltage = <1272>;
+						voltage = <1285>;
 					};
 
 					button-s7 {
 						label = "Back";
 						linux,code = <KEY_BACK>;
-						voltage = <1211>;
+						voltage = <1215>;
 					};
 
 					button-s1 {
 						label = "Volume Up";
 						linux,code = <KEY_VOLUMEUP>;
-						voltage = <1085>;
+						voltage = <1090>;
 					};
 
 					button-s4 {
 						label = "Volume Down";
 						linux,code =
 							<KEY_VOLUMEDOWN>;
-						voltage = <953>;
+						voltage = <955>;
 					};
 
 					button-s5 {
 						label = "Recent APP";
 						linux,code = <KEY_DASHBOARD>;
-						voltage = <1368>;
+						voltage = <1355>;
 					};
 
 					button-s6 {
 						label = "RearView";
 						linux,code = <KEY_DIRECTION>;
-						voltage = <1416>;
+						voltage = <1425>;
 					};
 				};
 			};
@@ -580,6 +580,27 @@
 					pixelclk-active = <1>;
 				};
 			};
+		};
+
+		gpio_keys {
+			compatible = "gpio-keys";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rearview_key {
+				label = "rearview key";
+				linux,code = <KEY_CAMERA>;
+				gpios = <&gpio_1 1 0>;
+				debounce_interval = <100>;
+			};
+		};
+
+		sirf-rearview {
+			compatible = "sirf,rearview";
+			status = "okay";
+			mirror = <0>;
+			source-std = "NTSC";		/* NTSC or PAL */
+			display-panel = "display0";	/* display 0/1 */
 		};
 	};
 };

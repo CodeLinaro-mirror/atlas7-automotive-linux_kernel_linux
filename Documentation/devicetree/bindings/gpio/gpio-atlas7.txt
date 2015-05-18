@@ -45,3 +45,6 @@ Example:
 			...
 		};
 	};
+
+Please refer to gpio.txt in this directory for details of the common
+gpio properties used by devices.

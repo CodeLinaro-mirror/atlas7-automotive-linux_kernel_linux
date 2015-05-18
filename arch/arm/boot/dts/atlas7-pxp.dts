@@ -150,12 +150,6 @@
 				memory-region = <&jpeg_reserved>;
 			};
 
-			sdhci@16000000 {
-				pinctrl-names = "default";
-				pinctrl-0 = <&sd0_pmx>;
-				status = "okay";
-			};
-
 		};
 
 		vdifm {
@@ -163,12 +157,6 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&sd2_pmx0>;
-			};
-
-			sdhci@14500000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&sd5_pmx>;
 			};
 
 		};

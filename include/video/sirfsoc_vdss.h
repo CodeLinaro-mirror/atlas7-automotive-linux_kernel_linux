@@ -322,6 +322,7 @@ struct sirfsoc_vdss_layer {
 	enum vdss_layer id;
 	enum vdss_pixelformat supported_fmts;
 	int caps;
+	struct kobject kobj;
 
 	/* dynamic fields */
 	struct sirfsoc_vdss_screen *screen;
@@ -544,6 +545,8 @@ void sirfsoc_vdss_unregister_panel(struct sirfsoc_vdss_panel *panel);
 struct sirfsoc_vdss_panel *sirfsoc_vdss_get_panel(
 	struct sirfsoc_vdss_panel *panel);
 void sirfsoc_vdss_put_panel(struct sirfsoc_vdss_panel *panel);
+struct sirfsoc_vdss_panel *sirfsoc_vdss_find_panel(void *data,
+	int (*match)(struct sirfsoc_vdss_panel *panel, void *data));
 #define for_each_vdss_panel(p) \
 	for (p = sirfsoc_vdss_get_next_panel(p); p != NULL; \
 		p = sirfsoc_vdss_get_next_panel(p))

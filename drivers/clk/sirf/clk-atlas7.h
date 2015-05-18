@@ -219,14 +219,14 @@
 #define SIRFSOC_DIVIDOR_TYPE_TABLE	0x1
 struct clk_pll {
 	struct clk_hw hw;
-	unsigned short regofs;  /* register offset */
+	u16 regofs;  /* register offset */
 };
 #define to_pllclk(_hw) container_of(_hw, struct clk_pll, hw)
 
 struct clk_dto {
 	struct clk_hw hw;
-	unsigned short inc_offset;  /* dto increment offset */
-	unsigned short src_offset;  /* dto src offset */
+	u16 inc_offset;  /* dto increment offset */
+	u16 src_offset;  /* dto src offset */
 };
 #define to_dtoclk(_hw) container_of(_hw, struct clk_dto, hw)
 
@@ -238,8 +238,8 @@ enum clk_unit_type {
 
 struct clk_unit {
 	struct clk_hw hw;
-	unsigned short regofs;
-	unsigned short bit;
+	u16 regofs;
+	u16 bit;
 	u32 type;
 	u8 idle_bit;
 	spinlock_t *lock;
@@ -263,7 +263,7 @@ struct atlas7_div_init_data {
 
 struct atlas7_mux_init_data {
 	const char *mux_name;
-	const char **parent_names;
+	const char * const *parent_names;
 	u8 parent_num;
 	unsigned long flags;
 	u8 mux_flags;

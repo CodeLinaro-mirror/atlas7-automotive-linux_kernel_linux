@@ -260,7 +260,6 @@ static void jpeg_update_image_mb_geometry(struct jpeg_codec_param *param)
 	unsigned int v_inc_start, v_inc_middle, line_num_start, line_num_middle,
 	    line_num_last, stride;
 	unsigned char *pdata;
-	unsigned int i;
 
 	pdata = (unsigned char *)((param->path.in_frame.hw_buf_info)->vaddr);
 	pr_debug("vaddr = %p\n",
@@ -270,10 +269,7 @@ static void jpeg_update_image_mb_geometry(struct jpeg_codec_param *param)
 	pixels =
 	    param->path.in_frame.frameheight *
 	    param->path.in_frame.framewidthbytes;
-	for (i = 0; i < 1; i++) {
-		mdelay(10);
-		pr_debug("!! delay 10 ms\n");
-	}
+
 	pr_debug("pixels = %d\n", pixels);
 	pr_debug("JPG:Input data image:\r\n");
 

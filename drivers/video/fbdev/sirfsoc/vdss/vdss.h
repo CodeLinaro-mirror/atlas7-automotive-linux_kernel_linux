@@ -34,6 +34,8 @@ struct lcdc_prop {
 	bool error_diffusion;
 };
 
+/* functions export from core.c and used by other vdss core files*/
+struct platform_device *vdss_get_core_pdev(void);
 
 /* functions export from layer_screen.c and used by other vdss core files*/
 int vdss_init_screens(u32 lcdc_index);
@@ -50,6 +52,10 @@ void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 int vdss_screen_enable(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_disable(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn);
+
+/* functions export from layer-sysfs.c and used by other vdss core files*/
+int vdss_init_layers_sysfs(u32 lcdc_index);
+void vdss_uninit_layers_sysfs(u32 lcdc_index);
 
 /* functions export from display.c and used by other vdss core files*/
 int vdss_suspend_all_panels(void);

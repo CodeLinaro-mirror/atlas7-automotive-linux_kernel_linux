@@ -1697,6 +1697,12 @@ static int sirfsoc_camera_open(struct file *file)
 		goto exit_module_put;
 	}
 
+	/* if rearview is running, we forbid user to use vip attached camera */
+	if ((vip == vip->rv.rv_vip) && vip->rv.running) {
+		ret = -EBUSY;
+		goto exit_mutex;
+	}
+
 	vip->use_count++;
 
 	/* Now we really have to activate the camera */
@@ -1732,6 +1738,7 @@ exit_resume:
 	v4l2_subdev_call(sd, core, s_power, 0);
 	vip_deactivate(vip);
 	vip->use_count--;
+exit_mutex:
 	mutex_unlock(&vip->host_lock);
 exit_module_put:
 	module_put(vdev->fops->owner);
@@ -2161,6 +2168,8 @@ void vip_rv_start(void *data)
 	struct v4l2_subdev *sd = subdev->sd;
 	unsigned int dma_table_addr = vip->rv.dma_table_addr;
 
+	mutex_lock(&vip->host_lock);
+
 	vip->rv.running = true;
 
 	v4l2_subdev_call(sd, video, s_stream, 1);
@@ -2171,6 +2180,8 @@ void vip_rv_start(void *data)
 	vip_hw_start_fifo(vip);
 
 	dma_hw_wait_first_table_done(vip);
+
+	mutex_unlock(&vip->host_lock);
 }
 
 void vip_rv_stop(void *data)
@@ -2179,6 +2190,8 @@ void vip_rv_stop(void *data)
 	unsigned int index = vip->rv.subdev_index;
 	struct vip_subdev_info *subdev = &vip->subdev[index];
 	struct v4l2_subdev *sd = subdev->sd;
+
+	mutex_lock(&vip->host_lock);
 
 	vip_hw_wait_dma_idle(vip);
 
@@ -2190,6 +2203,8 @@ void vip_rv_stop(void *data)
 	v4l2_subdev_call(sd, video, s_stream, 0);
 
 	vip->rv.running = false;
+
+	mutex_unlock(&vip->host_lock);
 }
 
 /*
@@ -2214,6 +2229,7 @@ static int vip_probe(struct platform_device *pdev)
 	spin_lock_init(&vip->lock);
 	mutex_init(&vip->host_lock);
 	init_completion(&vip->rv.done);
+	vip->rv.running = false;
 
 	vip->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (vip->res == NULL) {
