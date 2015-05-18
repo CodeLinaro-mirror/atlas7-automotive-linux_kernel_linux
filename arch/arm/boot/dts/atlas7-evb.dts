@@ -488,6 +488,7 @@
 			};
 
 		};
+
 		graphics-iobg {
 			status = "okay";
 		};

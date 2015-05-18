@@ -54,17 +54,6 @@ enum sirf_rproc_idx {
 	NS2KAL1,
 };
 
-enum sirf_rproc_hwspinlock_idx {
-	NS2M30_WL,
-	NS2M30_RL,
-	NS2M31_WL,
-	NS2M31_RL,
-	NS2KAL0_WL,
-	NS2KAL0_RL,
-	NS2KAL1_WL,
-	NS2KAL1_RL,
-};
-
 struct fifo_buffer {
 	struct hwspinlock *lock;
 	unsigned char *buffer;
@@ -158,7 +147,7 @@ static int fifo_init(struct fifo_buffer *fifo, void *buffer,
 
 	fifo->lock = hwspin_lock_request_specific(hwlock_id);
 	if (!fifo->lock) {
-		pr_info("%s:Could not request specific hwspin lock!\n",
+		pr_err("%s:Could not request specific hwspin lock!\n",
 			__func__);
 		return -ENODEV;
 	}
@@ -181,8 +170,6 @@ struct hw_info {
 	u32 clrreg;
 	u32 w_fifo_chn;
 	u32 r_fifo_chn;
-	u32 w_fifo_lock;
-	u32 r_fifo_lock;
 	u32 fifo_sz;
 };
 
@@ -222,7 +209,8 @@ struct sirf_rproc {
 	struct fifo_buffer w_fifo;
 	struct fifo_buffer r_fifo;
 	u32 fifo_sz;
-	spinlock_t w_fifo_lock;
+	u32 w_fifo_hwlock;
+	u32 r_fifo_hwlock;
 	int irq;
 };
 
@@ -276,28 +264,24 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	  .setreg = TR_NS_M3_1, .clrreg = TR_M3_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2M30_WL, .r_fifo_lock = NS2M30_RL,
 	  .fifo_sz = 0x1000,
 	}, {
 	  .name = "ns2m31-rproc",
 	  .setreg = TR_NS_M3_2, .clrreg = TR_M3_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2M31_WL, .r_fifo_lock = NS2M31_RL,
 	  .fifo_sz = 0x1000,
 	}, {
 	  .name = "ns2kal0-rproc",
 	  .setreg = TR_NS_KAS_1, .clrreg = TR_KAS_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2KAL0_WL, .r_fifo_lock = NS2KAL0_RL,
 	  .fifo_sz = 0x1000,
 	}, {
 	  .name = "ns2kal1-rproc",
 	  .setreg = TR_NS_KAS_2, .clrreg = TR_KAS_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
-	  .w_fifo_lock = NS2KAL1_WL, .r_fifo_lock = NS2KAL1_RL,
 	  .fifo_sz = 0x1000,
 	}
 };
@@ -388,6 +372,22 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	}
 	srproc->irq = ret;
 
+	srproc->w_fifo_hwlock = of_hwspin_lock_get_id(pdev->dev.of_node, 0);
+	if (srproc->w_fifo_hwlock < 0) {
+		ret = srproc->w_fifo_hwlock;
+		dev_err(&pdev->dev,
+			"Unable to get hwlock for write fifo. ret=%d\n", ret);
+		goto failed;
+	}
+
+	srproc->r_fifo_hwlock = of_hwspin_lock_get_id(pdev->dev.of_node, 1);
+	if (srproc->r_fifo_hwlock < 0) {
+		ret = srproc->r_fifo_hwlock;
+		dev_err(&pdev->dev,
+			"Unable to get hwlock for read fifo. ret=%d\n", ret);
+		goto failed;
+	}
+
 	/* retrieve io base */
 	srproc->io_base = of_iomap(pdev->dev.of_node, 0);
 	if (!srproc->io_base) {
@@ -430,12 +430,12 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 		srproc->fifo_sz * srproc->hwinfo->r_fifo_chn;
 
 	ret = fifo_init(&srproc->w_fifo, tx_buffer,
-			srproc->fifo_sz, srproc->hwinfo->w_fifo_lock);
+			srproc->fifo_sz, srproc->w_fifo_hwlock);
 	if (ret)
 		goto free_rsc;
 
 	ret = fifo_init(&srproc->r_fifo, rx_buffer,
-			srproc->fifo_sz, srproc->hwinfo->r_fifo_lock);
+			srproc->fifo_sz, srproc->r_fifo_hwlock);
 	if (ret)
 		goto free_rsc;
 
@@ -509,8 +509,6 @@ static int sirf_rproc_probe(struct platform_device *pdev)
 	rproc->fw_ops = &sirf_rproc_fw_ops;
 	/* This rproc is always on */
 	rproc->state = RPROC_ALWAYS_ON;
-
-	spin_lock_init(&srproc->w_fifo_lock);
 
 	ret = __sirf_rproc_parse_args(pdev, srproc);
 	if (ret)

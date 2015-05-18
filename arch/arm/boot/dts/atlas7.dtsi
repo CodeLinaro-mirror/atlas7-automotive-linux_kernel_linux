@@ -115,6 +115,7 @@
 				compatible = "sirf,ns2m30-rproc";
 				reg = <0x13240000 0x00010000>;
 				interrupts = <0 123 0>;
+				hwlocks = <&hwlock 0>, <&hwlock 1>;
 			};
 
 			ns_m3_rproc@1 {
