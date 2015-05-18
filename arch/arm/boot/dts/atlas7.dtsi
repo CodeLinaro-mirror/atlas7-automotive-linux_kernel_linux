@@ -90,11 +90,10 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			hwspinlock {
+			hwlock: hwlock@0 {
 				compatible = "sirf,hwspinlock";
 				reg = <0x13240000 0x00010000>;
-
-				num-spinlocks = <30>;
+				#hwlock-cells = <1>;
 			};
 
 			ns_m3_rproc@0 {
