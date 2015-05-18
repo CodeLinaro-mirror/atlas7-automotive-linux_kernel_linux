@@ -69,6 +69,7 @@ static int vip_start_dma(struct vip_dev *vip);
 static void vip_hw_stop(struct vip_dev *vip);
 static void vip_hw_wait_dma_idle(struct vip_dev *vip);
 static void vip_hw_stop_fifo(struct vip_dev *vip);
+static const struct vip_format *vip_find_format(u32 pixelformat);
 
 
 /* VIP supported formats */
@@ -168,17 +169,32 @@ static int vip_buffer_prepare(struct vb2_buffer *vb)
 {
 	struct vip_dev *vip = vb2_get_drv_priv(vb->vb2_queue);
 	struct vip_buffer *buf = container_of(vb, struct vip_buffer, vb);
-	unsigned long addr, size;
+	unsigned long addr, size, plane_size;
+	unsigned int bytesperline;
 
 	if (vb->state != VB2_BUF_STATE_ACTIVE &&
 		vb->state != VB2_BUF_STATE_PREPARED) {
 		size = vip->user_format.sizeimage;
-		if (vb2_plane_size(vb, 0) < size) {
+		plane_size = vb2_plane_size(vb, 0);
+		if (plane_size < size) {
 			dev_err(vip->dev, "%s: plane size small(%ld<%ld)\n",
-				__func__, vb2_plane_size(vb, 0), size);
+				__func__, plane_size, size);
 			return -EINVAL;
 		}
 
+		/* Update sizeimage according to user setting by qbuf.
+		 * For dma buffer case, sometimes we can not get accurate
+		 * buffer demension while calling s_fmt until buffer is
+		 * allocated. However, some buffers may has width padding
+		 * which means the whole image size is larger than before.
+		 */
+		bytesperline = plane_size / vip->user_format.height;
+		if (!vip->user_format.bytesperline ||
+			vip->user_format.bytesperline != bytesperline) {
+			size = bytesperline * vip->user_format.height;
+			vip->user_format.bytesperline = bytesperline;
+			vip->user_format.sizeimage = size;
+		}
 		vb2_set_plane_payload(vb, 0, size);
 
 		addr = vb2_dma_contig_plane_dma_addr(vb, 0);
@@ -335,7 +351,7 @@ static int vip_init_videobuf2(struct vip_dev *vip)
 	}
 
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	q->io_modes = VB2_MMAP;
+	q->io_modes = VB2_MMAP | VB2_DMABUF;
 	q->drv_priv = vip;
 	q->ops = &vip_video_qops;
 	q->mem_ops = &vb2_dma_contig_memops;
@@ -429,15 +445,18 @@ static void dma_hw_set_chain_mode(struct vip_dev *vip)
 /* single dma mode */
 static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 {
-	unsigned int size, height, addr;
+	unsigned int size, width, height, bytesperline, addr;
+	const struct vip_format *f = vip_find_format(buf->fmt->pixelformat);
 
-	size = buf->fmt->sizeimage;
+	width = buf->fmt->width;
 	height = buf->fmt->height;
+	size = width * height * f->bpp;
+	bytesperline = buf->fmt->bytesperline;
 	addr = buf->dma;
 
 	vip_write(DMAN_XLEN, size/height/4);	/* 32bit unit */
 	vip_write(DMAN_YLEN, height - 1);	/* Actual line: DMAN_YLEN +1 */
-	vip_write(DMAN_WIDTH, size/height/4);	/* 32bit unit, 1-D DMA mode */
+	vip_write(DMAN_WIDTH, bytesperline/4);  /* 32bit unit, 2-D DMA mode */
 
 	vip_write(DMAN_MUL, size/4/2);		/* WIDTH * ((YLEN + 1)>>1) */
 
@@ -1144,7 +1163,8 @@ static int vip_do_try_fmt(struct vip_subdev_info *subdev,
 	upix->field = V4L2_FIELD_NONE;
 	upix->colorspace = V4L2_COLORSPACE_JPEG;
 
-	upix->bytesperline = f->bpp * upix->width;
+	if (!upix->bytesperline)
+		upix->bytesperline = f->bpp * upix->width;
 	upix->sizeimage = upix->bytesperline * upix->height;
 
 	vip->user_format = *upix;
@@ -1170,16 +1190,15 @@ static int vip_config_subdev(struct vip_subdev_info *subdev)
 		return ret;
 	v4l2_fill_pix_format(spix, &mbus_fmt);
 
-	width = spix->bytesperline;
-
+	width = spix->width;
 	height = spix->height;
 	x_start = 0;
 	y_start = 0;
 
 	if (vip->is_atlas7_vip0)
-		x_end = spix->width + x_start - 1;
-	else
 		x_end = width + x_start - 1;
+	else
+		x_end = spix->bytesperline + x_start - 1;
 
 	if (subdev->interlaced)
 		y_end = height / 2 + y_start - 1;
