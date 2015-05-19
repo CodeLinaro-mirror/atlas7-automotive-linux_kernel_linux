@@ -124,11 +124,17 @@ struct sirfsoc_dma {
 	void __iomem			*base;
 	int				irq;
 	struct clk			*clk;
-	int				ip_ver;
+	int				type;
 	struct sirfsoc_dma_regs		regs_save;
 
 	void (*exec_desc)(struct sirfsoc_dma_desc *sdesc,
-		int cid, int burst_mode, void __iomem *base)
+		int cid, int burst_mode, void __iomem *base);
+};
+
+struct sirfsoc_dmadata {
+	void (*exec)(struct sirfsoc_dma_desc *sdesc,
+		int cid, int burst_mode, void __iomem *base);
+	int type;
 };
 
 enum sirfsoc_dma_chain_flag {
@@ -248,7 +254,7 @@ static void sirfsoc_dma_execute(struct sirfsoc_dma_chan *schan)
 	/* Move the first queued descriptor to active list */
 	list_move_tail(&sdesc->node, &schan->active);
 
-	if (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2)
+	if (sdma->type == SIRFSOC_DMA_VER_A7V2)
 		cid = 0;
 
 	/* Start the DMA transfer */
@@ -269,7 +275,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	int ch;
 	void __iomem *reg;
 
-	switch (sdma->ip_ver) {
+	switch (sdma->type) {
 	case SIRFSOC_DMA_VER_A6:
 	case SIRFSOC_DMA_VER_A7V1:
 		is = readl(sdma->base + SIRFSOC_DMA_CH_INT);
@@ -441,7 +447,7 @@ static int sirfsoc_dma_terminate_all(struct sirfsoc_dma_chan *schan)
 
 	spin_lock_irqsave(&schan->lock, flags);
 
-	switch (sdma->ip_ver) {
+	switch (sdma->type) {
 	case SIRFSOC_DMA_VER_A7V1:
 		writel_relaxed(1 << cid, sdma->base + SIRFSOC_DMA_INT_EN_CLR);
 		writel_relaxed((1 << cid) | 1 << (cid + 16),
@@ -484,7 +490,7 @@ static int sirfsoc_dma_pause_chan(struct sirfsoc_dma_chan *schan)
 
 	spin_lock_irqsave(&schan->lock, flags);
 
-	switch (sdma->ip_ver) {
+	switch (sdma->type) {
 	case SIRFSOC_DMA_VER_A7V1:
 		writel_relaxed((1 << cid) | 1 << (cid + 16),
 			       sdma->base +
@@ -515,7 +521,7 @@ static int sirfsoc_dma_resume_chan(struct sirfsoc_dma_chan *schan)
 	unsigned long flags;
 
 	spin_lock_irqsave(&schan->lock, flags);
-	switch (sdma->ip_ver) {
+	switch (sdma->type) {
 	case SIRFSOC_DMA_VER_A7V1:
 		writel_relaxed((1 << cid) | 1 << (cid + 16),
 			       sdma->base + SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7);
@@ -679,10 +685,10 @@ sirfsoc_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
 
 	ret = dma_cookie_status(chan, cookie, txstate);
 
-	if (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2)
+	if (sdma->type == SIRFSOC_DMA_VER_A7V2)
 		cid = 0;
 
-	if (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2) {
+	if (sdma->type == SIRFSOC_DMA_VER_A7V2) {
 		dma_pos = readl_relaxed(sdma->base + SIRFSOC_DMA_CUR_DATA_ADDR);
 	} else {
 		dma_pos = readl_relaxed(
@@ -788,7 +794,7 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	spin_lock_irqsave(&schan->lock, iflags);
 	list_for_each(l, &schan->free)
 		desc_cnt++;
-	desc_req_cnt = (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2) ? 1 : sg_len;
+	desc_req_cnt = (sdma->type == SIRFSOC_DMA_VER_A7V2) ? 1 : sg_len;
 
 	if (desc_cnt < desc_req_cnt) {
 		spin_unlock_irqrestore(&schan->lock, iflags);
@@ -797,12 +803,12 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		goto err;
 	}
 
-	xlen_max = (sdma->ip_ver == SIRFSOC_DMA_VER_A7V1) ?
+	xlen_max = (sdma->type == SIRFSOC_DMA_VER_A7V1) ?
 			SIRFSOC_DMA_XLEN_MAX_V1 : SIRFSOC_DMA_XLEN_MAX_V2;
 	first_sdesc = list_first_entry(&schan->free, struct sirfsoc_dma_desc,
 			node);
 
-	switch (sdma->ip_ver) {
+	switch (sdma->type) {
 	case SIRFSOC_DMA_VER_A6:
 	case SIRFSOC_DMA_VER_A7V1:
 		/*
@@ -1013,23 +1019,18 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	u32 id;
 	int ret, i;
 	int dma_channels = 0;
+	struct sirfsoc_dmadata *data;
 
 	sdma = devm_kzalloc(dev, sizeof(*sdma), GFP_KERNEL);
 	if (!sdma) {
 		dev_err(dev, "Memory exhausted!\n");
 		return -ENOMEM;
 	}
-
-	if (of_device_is_compatible(dn, "sirf,atlas7-dmac")) {
-		sdma->ip_ver = SIRFSOC_DMA_VER_A7V1;
-		sdma->exec_desc = sirfsoc_dma_execute_hw_a7v1;
-	} else if (of_device_is_compatible(dn, "sirf,atlas7-dmac-v2")) {
-		sdma->ip_ver = SIRFSOC_DMA_VER_A7V2;
-		sdma->exec_desc = sirfsoc_dma_execute_hw_a7v2;
-	} else {
-		sdma->ip_ver = SIRFSOC_DMA_VER_A6;
-		sdma->exec_desc = sirfsoc_dma_execute_hw_a6;
-	}
+	data = (struct sirfsoc_dmadata *)
+		(of_match_device(op->dev.driver->of_match_table,
+				 &op->dev)->data);
+	sdma->exec_desc = data->exec;
+	sdma->type = data->type;
 
 	if (of_property_read_u32(dn, "cell-index", &id)) {
 		dev_err(dev, "Fail to get DMAC index\n");
@@ -1202,7 +1203,7 @@ static int sirfsoc_dma_pm_suspend_noirq(struct device *dev)
 			return ret;
 	}
 
-	if (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2) {
+	if (sdma->type == SIRFSOC_DMA_VER_A7V2) {
 		count = 1;
 		int_offset = SIRFSOC_DMA_INT_EN_ATLAS7;
 	} else {
@@ -1249,7 +1250,7 @@ static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 	if (ret < 0)
 		return ret;
 
-	if (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2) {
+	if (sdma->type == SIRFSOC_DMA_VER_A7V2) {
 		count = 1;
 		int_offset = SIRFSOC_DMA_INT_EN_ATLAS7;
 		width_offset = SIRFSOC_DMA_WIDTH_ATLAS7;
@@ -1275,7 +1276,7 @@ static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_YLEN);
 		writel_relaxed(save->ctrl[ch],
 			sdma->base + ch * 0x10 + SIRFSOC_DMA_CH_CTRL);
-		if (sdma->ip_ver == SIRFSOC_DMA_VER_A7V2) {
+		if (sdma->type == SIRFSOC_DMA_VER_A7V2) {
 			writel_relaxed(sdesc->addr,
 				sdma->base + SIRFSOC_DMA_CH_ADDR);
 		} else {
@@ -1303,10 +1304,25 @@ static const struct dev_pm_ops sirfsoc_dma_pm_ops = {
 	.restore_noirq = sirfsoc_dma_pm_resume_noirq,
 };
 
+struct sirfsoc_dmadata sirfsoc_dmadata_a6 = {
+	.exec = sirfsoc_dma_execute_hw_a6,
+	.type = SIRFSOC_DMA_VER_A6,
+};
+
+struct sirfsoc_dmadata sirfsoc_dmadata_a7v1 = {
+	.exec = sirfsoc_dma_execute_hw_a7v1,
+	.type = SIRFSOC_DMA_VER_A7V1,
+};
+
+struct sirfsoc_dmadata sirfsoc_dmadata_a7v2 = {
+	.exec = sirfsoc_dma_execute_hw_a7v2,
+	.type = SIRFSOC_DMA_VER_A7V2,
+};
+
 static struct of_device_id sirfsoc_dma_match[] = {
-	{ .compatible = "sirf,prima2-dmac", },
-	{ .compatible = "sirf,atlas7-dmac", },
-	{ .compatible = "sirf,atlas7-dmac-v2", },
+	{ .compatible = "sirf,prima2-dmac", .data = &sirfsoc_dmadata_a6,},
+	{ .compatible = "sirf,atlas7-dmac", .data = &sirfsoc_dmadata_a7v1,},
+	{ .compatible = "sirf,atlas7-dmac-v2", .data = &sirfsoc_dmadata_a7v2,},
 	{},
 };
 
