@@ -94,8 +94,8 @@ static void a7ca_bt_reset(struct a7ca_bt_dev *dev)
 	a7ca_bt_hw_init(dev);
 }
 
-static int a7ca_bt_ioctl(struct inode *inodep, struct file *filp,
-			 unsigned int cmd, unsigned long arg)
+static long a7ca_bt_ioctl(struct file *filp, unsigned int cmd,
+			unsigned long arg)
 {
 	struct a7ca_bt_trim bt_trim = { 0 };
 	int ret = 0;
