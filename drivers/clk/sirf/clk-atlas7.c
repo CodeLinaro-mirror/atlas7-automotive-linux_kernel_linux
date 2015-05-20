@@ -121,7 +121,7 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	return rate;
 }
 
-static struct clk_ops ab_pll_ops = {
+static const struct clk_ops ab_pll_ops = {
 	.recalc_rate = pll_clk_recalc_rate,
 };
 
@@ -315,7 +315,7 @@ static int dto_clk_set_parent(struct clk_hw *hw, u8 index)
 	return 0;
 }
 
-static struct clk_ops dto_ops = {
+static const struct clk_ops dto_ops = {
 	.is_enabled = dto_clk_is_enabled,
 	.enable = dto_clk_enable,
 	.disable = dto_clk_disable,
@@ -781,36 +781,36 @@ static const char * const tpiu_clk_parents[] = {
 
 static struct atlas7_mux_init_data mux_list[] __initdata = {
 	/* mux_name, parent_names, parent_num, flags, mux_flags, mux_offset, shift, width */
-	{ "i2s_mux", i2s_clk_parents, ARRAY_SIZE(i2s_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 2},
-	{ "usbphy_mux", usbphy_clk_parents, ARRAY_SIZE(usbphy_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 3},
-	{ "btss_mux", btss_clk_parents, ARRAY_SIZE(btss_clk_parents), 0, 0, SIRFSOC_CLKC_BTSS_CLK_SEL, 0, 3},
-	{ "rgmii_mux", rgmii_clk_parents, ARRAY_SIZE(rgmii_clk_parents), 0, 0, SIRFSOC_CLKC_RGMII_CLK_SEL, 0, 3},
-	{ "cpu_mux", cpu_clk_parents, ARRAY_SIZE(cpu_clk_parents), 0, 0, SIRFSOC_CLKC_CPU_CLK_SEL, 0, 3},
-	{ "sdphy01_mux", sdphy01_clk_parents, ARRAY_SIZE(sdphy01_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY01_CLK_SEL, 0, 3},
-	{ "sdphy23_mux", sdphy23_clk_parents, ARRAY_SIZE(sdphy23_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY23_CLK_SEL, 0, 3},
-	{ "sdphy45_mux", sdphy45_clk_parents, ARRAY_SIZE(sdphy45_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY45_CLK_SEL, 0, 3},
-	{ "sdphy67_mux", sdphy67_clk_parents, ARRAY_SIZE(sdphy67_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY67_CLK_SEL, 0, 3},
-	{ "can_mux", can_clk_parents, ARRAY_SIZE(can_clk_parents), 0, 0, SIRFSOC_CLKC_CAN_CLK_SEL, 0, 3},
-	{ "deint_mux", deint_clk_parents, ARRAY_SIZE(deint_clk_parents), 0, 0, SIRFSOC_CLKC_DEINT_CLK_SEL, 0, 3},
-	{ "nand_mux", nand_clk_parents, ARRAY_SIZE(nand_clk_parents), 0, 0, SIRFSOC_CLKC_NAND_CLK_SEL, 0, 3},
-	{ "disp0_mux", disp0_clk_parents, ARRAY_SIZE(disp0_clk_parents), 0, 0, SIRFSOC_CLKC_DISP0_CLK_SEL, 0, 3},
-	{ "disp1_mux", disp1_clk_parents, ARRAY_SIZE(disp1_clk_parents), 0, 0, SIRFSOC_CLKC_DISP1_CLK_SEL, 0, 3},
-	{ "gpu_mux", gpu_clk_parents, ARRAY_SIZE(gpu_clk_parents), 0, 0, SIRFSOC_CLKC_GPU_CLK_SEL, 0, 3},
-	{ "gnss_mux", gnss_clk_parents, ARRAY_SIZE(gnss_clk_parents), 0, 0, SIRFSOC_CLKC_GNSS_CLK_SEL, 0, 3},
-	{ "sys_mux", sys_clk_parents, ARRAY_SIZE(sys_clk_parents), 0, 0, SIRFSOC_CLKC_SYS_CLK_SEL, 0, 3},
-	{ "io_mux", io_clk_parents, ARRAY_SIZE(io_clk_parents), 0, 0, SIRFSOC_CLKC_IO_CLK_SEL, 0, 3},
-	{ "g2d_mux", g2d_clk_parents, ARRAY_SIZE(g2d_clk_parents), 0, 0, SIRFSOC_CLKC_G2D_CLK_SEL, 0, 3},
-	{ "jpenc_mux", jpenc_clk_parents, ARRAY_SIZE(jpenc_clk_parents), 0, 0, SIRFSOC_CLKC_JPENC_CLK_SEL, 0, 3},
-	{ "vdec_mux", vdec_clk_parents, ARRAY_SIZE(vdec_clk_parents), 0, 0, SIRFSOC_CLKC_VDEC_CLK_SEL, 0, 3},
-	{ "gmac_mux", gmac_clk_parents, ARRAY_SIZE(gmac_clk_parents), 0, 0, SIRFSOC_CLKC_GMAC_CLK_SEL, 0, 3},
-	{ "usb_mux", usb_clk_parents, ARRAY_SIZE(usb_clk_parents), 0, 0, SIRFSOC_CLKC_USB_CLK_SEL, 0, 3},
-	{ "kas_mux", kas_clk_parents, ARRAY_SIZE(kas_clk_parents), 0, 0, SIRFSOC_CLKC_KAS_CLK_SEL, 0, 3},
-	{ "sec_mux", sec_clk_parents, ARRAY_SIZE(sec_clk_parents), 0, 0, SIRFSOC_CLKC_SEC_CLK_SEL, 0, 3},
-	{ "sdr_mux", sdr_clk_parents, ARRAY_SIZE(sdr_clk_parents), 0, 0, SIRFSOC_CLKC_SDR_CLK_SEL, 0, 3},
-	{ "vip_mux", vip_clk_parents, ARRAY_SIZE(vip_clk_parents), 0, 0, SIRFSOC_CLKC_VIP_CLK_SEL, 0, 3},
-	{ "nocd_mux", nocd_clk_parents, ARRAY_SIZE(nocd_clk_parents), 0, 0, SIRFSOC_CLKC_NOCD_CLK_SEL, 0, 3},
-	{ "nocr_mux", nocr_clk_parents, ARRAY_SIZE(nocr_clk_parents), 0, 0, SIRFSOC_CLKC_NOCR_CLK_SEL, 0, 3},
-	{ "tpiu_mux", tpiu_clk_parents, ARRAY_SIZE(tpiu_clk_parents), 0, 0, SIRFSOC_CLKC_TPIU_CLK_SEL, 0, 3},
+	{ "i2s_mux", i2s_clk_parents, ARRAY_SIZE(i2s_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 2 },
+	{ "usbphy_mux", usbphy_clk_parents, ARRAY_SIZE(usbphy_clk_parents), 0, 0, SIRFSOC_CLKC_I2S_CLK_SEL, 0, 3 },
+	{ "btss_mux", btss_clk_parents, ARRAY_SIZE(btss_clk_parents), 0, 0, SIRFSOC_CLKC_BTSS_CLK_SEL, 0, 3 },
+	{ "rgmii_mux", rgmii_clk_parents, ARRAY_SIZE(rgmii_clk_parents), 0, 0, SIRFSOC_CLKC_RGMII_CLK_SEL, 0, 3 },
+	{ "cpu_mux", cpu_clk_parents, ARRAY_SIZE(cpu_clk_parents), 0, 0, SIRFSOC_CLKC_CPU_CLK_SEL, 0, 3 },
+	{ "sdphy01_mux", sdphy01_clk_parents, ARRAY_SIZE(sdphy01_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY01_CLK_SEL, 0, 3 },
+	{ "sdphy23_mux", sdphy23_clk_parents, ARRAY_SIZE(sdphy23_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY23_CLK_SEL, 0, 3 },
+	{ "sdphy45_mux", sdphy45_clk_parents, ARRAY_SIZE(sdphy45_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY45_CLK_SEL, 0, 3 },
+	{ "sdphy67_mux", sdphy67_clk_parents, ARRAY_SIZE(sdphy67_clk_parents), 0, 0, SIRFSOC_CLKC_SDPHY67_CLK_SEL, 0, 3 },
+	{ "can_mux", can_clk_parents, ARRAY_SIZE(can_clk_parents), 0, 0, SIRFSOC_CLKC_CAN_CLK_SEL, 0, 3 },
+	{ "deint_mux", deint_clk_parents, ARRAY_SIZE(deint_clk_parents), 0, 0, SIRFSOC_CLKC_DEINT_CLK_SEL, 0, 3 },
+	{ "nand_mux", nand_clk_parents, ARRAY_SIZE(nand_clk_parents), 0, 0, SIRFSOC_CLKC_NAND_CLK_SEL, 0, 3 },
+	{ "disp0_mux", disp0_clk_parents, ARRAY_SIZE(disp0_clk_parents), 0, 0, SIRFSOC_CLKC_DISP0_CLK_SEL, 0, 3 },
+	{ "disp1_mux", disp1_clk_parents, ARRAY_SIZE(disp1_clk_parents), 0, 0, SIRFSOC_CLKC_DISP1_CLK_SEL, 0, 3 },
+	{ "gpu_mux", gpu_clk_parents, ARRAY_SIZE(gpu_clk_parents), 0, 0, SIRFSOC_CLKC_GPU_CLK_SEL, 0, 3 },
+	{ "gnss_mux", gnss_clk_parents, ARRAY_SIZE(gnss_clk_parents), 0, 0, SIRFSOC_CLKC_GNSS_CLK_SEL, 0, 3 },
+	{ "sys_mux", sys_clk_parents, ARRAY_SIZE(sys_clk_parents), 0, 0, SIRFSOC_CLKC_SYS_CLK_SEL, 0, 3 },
+	{ "io_mux", io_clk_parents, ARRAY_SIZE(io_clk_parents), 0, 0, SIRFSOC_CLKC_IO_CLK_SEL, 0, 3 },
+	{ "g2d_mux", g2d_clk_parents, ARRAY_SIZE(g2d_clk_parents), 0, 0, SIRFSOC_CLKC_G2D_CLK_SEL, 0, 3 },
+	{ "jpenc_mux", jpenc_clk_parents, ARRAY_SIZE(jpenc_clk_parents), 0, 0, SIRFSOC_CLKC_JPENC_CLK_SEL, 0, 3 },
+	{ "vdec_mux", vdec_clk_parents, ARRAY_SIZE(vdec_clk_parents), 0, 0, SIRFSOC_CLKC_VDEC_CLK_SEL, 0, 3 },
+	{ "gmac_mux", gmac_clk_parents, ARRAY_SIZE(gmac_clk_parents), 0, 0, SIRFSOC_CLKC_GMAC_CLK_SEL, 0, 3 },
+	{ "usb_mux", usb_clk_parents, ARRAY_SIZE(usb_clk_parents), 0, 0, SIRFSOC_CLKC_USB_CLK_SEL, 0, 3 },
+	{ "kas_mux", kas_clk_parents, ARRAY_SIZE(kas_clk_parents), 0, 0, SIRFSOC_CLKC_KAS_CLK_SEL, 0, 3 },
+	{ "sec_mux", sec_clk_parents, ARRAY_SIZE(sec_clk_parents), 0, 0, SIRFSOC_CLKC_SEC_CLK_SEL, 0, 3 },
+	{ "sdr_mux", sdr_clk_parents, ARRAY_SIZE(sdr_clk_parents), 0, 0, SIRFSOC_CLKC_SDR_CLK_SEL, 0, 3 },
+	{ "vip_mux", vip_clk_parents, ARRAY_SIZE(vip_clk_parents), 0, 0, SIRFSOC_CLKC_VIP_CLK_SEL, 0, 3 },
+	{ "nocd_mux", nocd_clk_parents, ARRAY_SIZE(nocd_clk_parents), 0, 0, SIRFSOC_CLKC_NOCD_CLK_SEL, 0, 3 },
+	{ "nocr_mux", nocr_clk_parents, ARRAY_SIZE(nocr_clk_parents), 0, 0, SIRFSOC_CLKC_NOCR_CLK_SEL, 0, 3 },
+	{ "tpiu_mux", tpiu_clk_parents, ARRAY_SIZE(tpiu_clk_parents), 0, 0, SIRFSOC_CLKC_TPIU_CLK_SEL, 0, 3 },
 };
 
 	/* new unit should add start from the tail of list */
@@ -1024,7 +1024,7 @@ err:
 	spin_unlock_irqrestore(clk->lock, flags);
 }
 
-static struct clk_ops unit_clk_ops = {
+static const struct clk_ops unit_clk_ops = {
 	.is_enabled = unit_clk_is_enabled,
 	.enable = unit_clk_enable,
 	.disable = unit_clk_disable,
