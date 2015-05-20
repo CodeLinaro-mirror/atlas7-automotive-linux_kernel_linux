@@ -52,6 +52,24 @@
 		};
 	};
 
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		xinw {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+			clock-output-names = "xinw";
+		};
+		xin {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <26000000>;
+			clock-output-names = "xin";
+		};
+	};
+
 	arm-pmu {
 		compatible = "arm,cortex-a7-pmu";
 		interrupts = <0 29 4>, <0 82 4>;
@@ -1218,18 +1236,6 @@
 				reg = <0x18620000 0x1000>;
 				#clock-cells = <1>;
 				#reset-cells = <1>;
-				xinw {
-					compatible = "fixed-clock";
-					#clock-cells = <0>;
-					clock-frequency = <32768>;
-					clock-output-names = "xinw";
-				};
-				xin {
-					compatible = "fixed-clock";
-					#clock-cells = <0>;
-					clock-frequency = <26000000>;
-					clock-output-names = "xin";
-				};
 			};
 			pwm: pwm@18630000 {
 				compatible = "sirf,prima2-pwm";
