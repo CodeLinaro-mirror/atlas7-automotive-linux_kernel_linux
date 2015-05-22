@@ -363,6 +363,32 @@ static void rv_start(struct rv_dev *rv)
 	/* start vip */
 	vip_rv_start(rv->rv_vip);
 
+	/* lcd layer setting */
+	rv->d_info.l->get_info(rv->d_info.l, &info);
+
+	info.base = 0;
+	info.passthrough = true;
+
+	info.src_rect.left = rv->d_info.sca_rect.left;
+	info.src_rect.top = rv->d_info.sca_rect.top;
+	info.src_rect.right = rv->d_info.sca_rect.right - 1;
+	info.src_rect.bottom = rv->d_info.sca_rect.bottom - 1;
+
+	info.dst_rect.left = rv->d_info.dst_rect.left;
+	info.dst_rect.top = rv->d_info.dst_rect.top;
+	info.dst_rect.right = rv->d_info.dst_rect.right - 1;
+	info.dst_rect.bottom = rv->d_info.dst_rect.bottom - 1;
+
+	info.fmt = VPP_TO_LCD_PIXELFORMAT;
+	info.surf_width = info.src_rect.right - info.src_rect.left;
+	info.surf_height = info.src_rect.bottom - info.src_rect.top;
+
+	rv->d_info.l->set_info(rv->d_info.l, &info);
+	rv->d_info.l->screen->apply(rv->d_info.l->screen);
+
+	/* disable all other layers */
+	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, true);
+
 	/* vpp setting */
 	vpp_dev_params.func = NULL;
 	vpp_dev_params.arg = NULL;
@@ -413,29 +439,6 @@ static void rv_start(struct rv_dev *rv)
 	/* start vpp */
 	sirfsoc_vpp_present(rv->rv_vpp, &vpp_op_params);
 
-	/* lcd layer setting */
-	rv->d_info.l->get_info(rv->d_info.l, &info);
-
-	info.base = 0;
-	info.passthrough = true;
-
-	info.src_rect.left = rv->d_info.sca_rect.left;
-	info.src_rect.top = rv->d_info.sca_rect.top;
-	info.src_rect.right = rv->d_info.sca_rect.right - 1;
-	info.src_rect.bottom = rv->d_info.sca_rect.bottom - 1;
-
-	info.dst_rect.left = rv->d_info.dst_rect.left;
-	info.dst_rect.top = rv->d_info.dst_rect.top;
-	info.dst_rect.right = rv->d_info.dst_rect.right - 1;
-	info.dst_rect.bottom = rv->d_info.dst_rect.bottom - 1;
-
-	info.fmt = VPP_TO_LCD_PIXELFORMAT;
-	info.surf_width = info.src_rect.right - info.src_rect.left;
-	info.surf_height = info.src_rect.bottom - info.src_rect.top;
-
-	rv->d_info.l->set_info(rv->d_info.l, &info);
-	rv->d_info.l->screen->apply(rv->d_info.l->screen);
-
 	/* start lcd layer */
 	if (!rv->d_info.l->is_enabled(rv->d_info.l))
 		rv->d_info.l->enable(rv->d_info.l);
@@ -449,6 +452,9 @@ static void rv_stop(struct rv_dev *rv)
 
 	/* stop vpp */
 	sirfsoc_vpp_destroy_device(rv->rv_vpp);
+
+	/* enable all other layers */
+	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, false);
 
 	/* stop vip dma */
 	rv_set_dma_table_stop(rv);
