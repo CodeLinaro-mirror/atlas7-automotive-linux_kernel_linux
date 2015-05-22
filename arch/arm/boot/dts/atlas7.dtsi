@@ -39,7 +39,8 @@
 			voltage-tolerance = <1>;
 			operating-points = <
 			/* kHz    uV */
-			793000	1127000
+			1040000	1127000
+			793000	1058000
 			26000	990000
 			>;
 			clock-latency = <150000>;
