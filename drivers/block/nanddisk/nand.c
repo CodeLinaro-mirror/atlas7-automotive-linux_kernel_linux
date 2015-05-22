@@ -847,12 +847,11 @@ static int sirfsoc_nand_resume(struct device *dev)
 	return 0;
 }
 
-static int sirfsoc_nand_suspend(struct device *dev)
+static int _sirfsoc_nand_suspend(struct device *dev)
 {
 	unsigned enable = 0;
 	unsigned long  flags;
 
-	dev_info(dev, "%s ++\n", __func__);
 	if (nand_dev.power) {
 		mutex_lock(&nand_dev.mutex);
 		spin_lock_irqsave(nand_dev.queue->queue_lock, flags);
@@ -867,9 +866,16 @@ static int sirfsoc_nand_suspend(struct device *dev)
 			return -1;
 		}
 		nand_dev.power = 0;
-
-		clk_disable(nand_dev.nand_clk);
 	}
+
+	return 0;
+}
+
+static int sirfsoc_nand_suspend(struct device *dev)
+{
+	_sirfsoc_nand_suspend(dev);
+	clk_disable(nand_dev.nand_clk);
+
 	return 0;
 }
 
@@ -1249,8 +1255,7 @@ static void sirfsoc_nand_shutdown(struct platform_device *pdev)
 	pm_message_t pm_message;
 
 	pm_message.event = 0;
-	dev_info(dev, "%s ++", __func__);
-	sirfsoc_nand_suspend(dev);
+	_sirfsoc_nand_suspend(dev);
 }
 
 static const struct dev_pm_ops sirfsoc_nand_pm_ops = {
