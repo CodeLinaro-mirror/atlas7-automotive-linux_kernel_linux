@@ -135,9 +135,9 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	if (!test_bit(PWMF_ENABLED, &pwm->flags)) {
 		u32 src_clk_rate;
 		u32 i;
-		u64 cycle;
-		u32 cycle_diff;
-		u64 cycle_diff_enlarged;
+		u64 cycles, high_cycles, low_cycles;
+		u32 cycles_diff;
+		u64 cycles_diff_enlarged;
 		u64 diff, diff_min = ~0;
 		int ret;
 		char src_clk_name[10];
@@ -157,13 +157,24 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 			src_clk_rate = clk_get_rate(sigsrc_clk);
 
-			cycle = (u64)src_clk_rate * period_ns;
-			div_u64_rem(cycle, NSEC_PER_SEC, &cycle_diff);
+			high_cycles = (u64)src_clk_rate * duty_ns;
+			high_cycles = div_u64(high_cycles, NSEC_PER_SEC);
+
+			low_cycles = (u64)src_clk_rate * (period_ns - duty_ns);
+			low_cycles = div_u64(low_cycles, NSEC_PER_SEC);
+
+			/* only smaller than 0xffff is valid */
+			if (high_cycles > 0xffff || low_cycles > 0xffff)
+				continue;
+
+			cycles = (u64)src_clk_rate * period_ns;
+			cycles = div_u64_rem(cycles, NSEC_PER_SEC,
+					&cycles_diff);
 
 			/* enlarge cycle_diff for division */
-			cycle_diff_enlarged = ((u64)cycle_diff) << 32;
+			cycles_diff_enlarged = ((u64)cycles_diff) << 32;
 
-			diff = div_u64(cycle_diff_enlarged, src_clk_rate);
+			diff = div_u64(cycles_diff_enlarged, src_clk_rate);
 
 			if (diff < diff_min) {
 				diff_min = diff;

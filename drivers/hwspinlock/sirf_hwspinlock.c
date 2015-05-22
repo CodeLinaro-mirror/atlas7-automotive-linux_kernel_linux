@@ -27,21 +27,19 @@ struct sirf_hwspinlock {
 	struct hwspinlock_device bank;
 };
 
+/* Number of Hardware Spinlocks*/
+#define	HW_SPINLOCK_NUMBER	30
+
 /* Hardware spinlock register offsets */
-#define HW_SPINLOCK_RD_DEBUG	0x400
 #define HW_SPINLOCK_BASE	0x404
 #define HW_SPINLOCK_OFFSET(x)	(HW_SPINLOCK_BASE + 0x4 * (x))
-
-/* Possible values of HW_SPINLOCK_REG */
-#define HW_SPINLOCK_LOCKED	0
-#define HW_SPINLOCK_FREE	1
 
 static int sirf_hwspinlock_trylock(struct hwspinlock *lock)
 {
 	void __iomem *lock_addr = lock->priv;
 
-	/* attempt to acquire the lock by reading its value */
-	return (HW_SPINLOCK_FREE == readl(lock_addr));
+	/* attempt to acquire the lock by reading value == 1 from it */
+	return !!readl(lock_addr);
 }
 
 static void sirf_hwspinlock_unlock(struct hwspinlock *lock)
@@ -49,37 +47,25 @@ static void sirf_hwspinlock_unlock(struct hwspinlock *lock)
 	void __iomem *lock_addr = lock->priv;
 
 	/* release the lock by writing 0 to it */
-	writel(HW_SPINLOCK_LOCKED, lock_addr);
-}
-
-static void sirf_hwspinlock_relax(struct hwspinlock *lock)
-{
-	ndelay(50);
+	writel(0, lock_addr);
 }
 
 static const struct hwspinlock_ops sirf_hwspinlock_ops = {
 	.trylock = sirf_hwspinlock_trylock,
 	.unlock = sirf_hwspinlock_unlock,
-	.relax = sirf_hwspinlock_relax,
 };
 
 static int sirf_hwspinlock_probe(struct platform_device *pdev)
 {
 	struct sirf_hwspinlock *hwspin;
 	struct hwspinlock *hwlock;
-	u32 num_of_locks;
 	int idx, ret;
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"num-spinlocks", &num_of_locks);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Unable to find hwspinlock number. ret=%d\n", ret);
+	if (!pdev->dev.of_node)
 		return -ENODEV;
-	}
 
 	hwspin = devm_kzalloc(&pdev->dev, sizeof(*hwspin) +
-			sizeof(*hwlock) * num_of_locks, GFP_KERNEL);
+			sizeof(*hwlock) * HW_SPINLOCK_NUMBER, GFP_KERNEL);
 	if (!hwspin)
 		return -ENOMEM;
 
@@ -88,7 +74,7 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 	if (!hwspin->io_base)
 		ret = -ENOMEM;
 
-	for (idx = 0; idx < num_of_locks; idx++) {
+	for (idx = 0; idx < HW_SPINLOCK_NUMBER; idx++) {
 		hwlock = &hwspin->bank.lock[idx];
 		hwlock->priv = hwspin->io_base + HW_SPINLOCK_OFFSET(idx);
 	}
@@ -98,7 +84,7 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	ret = hwspin_lock_register(&hwspin->bank, &pdev->dev,
-				&sirf_hwspinlock_ops, 0, num_of_locks);
+				&sirf_hwspinlock_ops, 0, HW_SPINLOCK_NUMBER);
 	if (ret)
 		goto reg_failed;
 

@@ -327,7 +327,7 @@ static int __sirfsoc_vout_start_streaming(struct sirfsoc_vout_device *vout)
 		vout->pix_fmt.pixelformat);
 	vout->passthrough = sirfsoc_vpp_is_passthrough_support(pixfmt);
 
-	if (vout->passthrough) {
+	if (vout->passthrough && !vout->vpp_handle) {
 		struct vdss_vpp_create_device_params params = {0};
 
 		params.func = __vpp_callback;
@@ -633,15 +633,6 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 
 	vout->active_frm = NULL;
 	vout->next_frm = NULL;
-
-	if (vout->layer->is_enabled(vout->layer))
-		vout->layer->disable(vout->layer);
-
-	if (vout->vpp_handle) {
-		sirfsoc_vpp_destroy_device(vout->vpp_handle);
-		vout->vpp_handle = NULL;
-		vout->passthrough = false;
-	}
 
 	spin_unlock_irqrestore(&vout->vbq_lock, flags);
 }
@@ -1279,6 +1270,12 @@ static int sirfsoc_vout_release(struct file *file)
 	if (l->is_enabled(l)) {
 		/*disable the overlay*/
 		l->disable(l);
+	}
+
+	if (vout->vpp_handle) {
+		sirfsoc_vpp_destroy_device(vout->vpp_handle);
+		vout->vpp_handle = NULL;
+		vout->passthrough = false;
 	}
 
 	if (vout->alloc_ctx) {

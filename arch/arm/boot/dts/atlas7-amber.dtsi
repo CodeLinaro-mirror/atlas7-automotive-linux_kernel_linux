@@ -22,7 +22,7 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "dsp_a";
 		simple-audio-card,cpu {
-		sound-dai = <&usp1>;
+			sound-dai = <&usp3>;
 		};
 		simple-audio-card,codec {
 			sound-dai = <&bt_sco_a2dp>;

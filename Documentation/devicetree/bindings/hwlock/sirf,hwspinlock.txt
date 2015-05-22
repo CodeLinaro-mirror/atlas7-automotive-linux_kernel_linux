@@ -7,12 +7,19 @@ Required properties :
 
 - reg : the register address of hwspinlock
 
-- num-spinlocks : how many spinlocks this device provides
+Please look at the generic hwlock binding for usage information for consumers,
+"Documentation/devicetree/bindings/hwlock/hwlock.txt"
 
-Example:
-	hwspinlock {
+Example of hwlock provider:
+	hwlock {
 		compatible = "sirf,hwspinlock";
 		reg = <0x13240000 0x00010000>;
+		#hwlock-cells = <1>;
+	};
 
-		num-spinlocks = <30>;
+Example of hwlock users:
+	node {
+		...
+		hwlocks = <&hwlock 2>;
+		...
 	};

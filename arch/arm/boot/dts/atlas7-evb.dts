@@ -488,6 +488,7 @@
 			};
 
 		};
+
 		graphics-iobg {
 			status = "okay";
 		};
@@ -584,6 +585,7 @@
 
 		gpio_keys {
 			compatible = "gpio-keys";
+			status = "okay";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -598,6 +600,9 @@
 		sirf-rearview {
 			compatible = "sirf,rearview";
 			status = "okay";
+			interrupts = <0 126 0>; /* IPC */
+			reg = <0x1324020C 0x4>, /* IPC INT */
+			     <0x188D001C 0x4>;  /* IPC MSG */
 			mirror = <0>;
 			source-std = "NTSC";		/* NTSC or PAL */
 			display-panel = "display0";	/* display 0/1 */

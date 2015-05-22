@@ -252,24 +252,28 @@ struct sirf_spi_comp_data {
 	const struct sirf_spi_register *regs;
 	enum sirf_spi_type type;
 	unsigned int dat_max_frm_len;
+	unsigned int fifo_size;
 };
 
 static const struct sirf_spi_comp_data sirf_real_spi = {
 	.regs = &real_spi_register,
 	.type = SIRF_REAL_SPI,
 	.dat_max_frm_len = 64 * 1024,
+	.fifo_size = 256,
 };
 
 static const struct sirf_spi_comp_data sirf_usp_spi_p2 = {
 	.regs = &usp_spi_register,
 	.type = SIRF_USP_SPI_P2,
 	.dat_max_frm_len = 1024 * 1024,
+	.fifo_size = 128,
 };
 
 static const struct sirf_spi_comp_data sirf_usp_spi_a7 = {
 	.regs = &usp_spi_register,
 	.type = SIRF_USP_SPI_A7,
 	.dat_max_frm_len = 1024 * 1024,
+	.fifo_size = 512,
 };
 
 struct sirfsoc_spi {
@@ -1069,18 +1073,13 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	match = of_match_node(spi_sirfsoc_of_match, pdev->dev.of_node);
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
-	if (of_property_read_u32(pdev->dev.of_node,
-		"fifo-size", &sspi->fifo_size)) {
-		dev_err(&pdev->dev, "Unable to find fifosize in uart node.\n");
-		ret = -EFAULT;
-		goto free_master;
-	}
 	sspi->fifo_full_offset = ilog2(sspi->fifo_size);
 	spi_comp_data = (struct sirf_spi_comp_data *)match->data;
 	sspi->regs = spi_comp_data->regs;
 	sspi->type = spi_comp_data->type;
 	sspi->fifo_level_chk_mask = (sspi->fifo_size / 4) - 1;
 	sspi->dat_max_frm_len = spi_comp_data->dat_max_frm_len;
+	sspi->fifo_size = spi_comp_data->fifo_size;
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	sspi->base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (IS_ERR(sspi->base)) {
