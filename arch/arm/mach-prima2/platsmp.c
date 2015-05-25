@@ -89,10 +89,10 @@ static int sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	sync_cache_w(&pen_release);
 
 	/*
-	 * Send the secondary CPU SEV, thereby causing the boot monitor to read
+	 * Send the secondary CPU a soft interrupt, thereby causing read
 	 * the JUMPADDR and WAKEMAGIC, and branch to the address found there.
 	 */
-	dsb_sev();
+	arch_send_wakeup_ipi_mask(cpumask_of(cpu));
 
 	timeout = jiffies + (1 * HZ);
 	while (time_before(jiffies, timeout)) {
