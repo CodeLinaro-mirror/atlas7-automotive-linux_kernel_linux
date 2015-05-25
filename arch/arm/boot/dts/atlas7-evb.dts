@@ -277,7 +277,7 @@
 				};
 			};
 
-			pmu_regulator: pmu_regulator@10E30020 {
+			analog_regulator: analog_regulator@10E30000 {
 				status = "okay";
 			};
 
