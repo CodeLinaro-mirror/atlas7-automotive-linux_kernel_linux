@@ -1,7 +1,7 @@
 /*
  * SIRF hardware spinlock driver
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015 Cambridge Silicon Radio Limited, a CSR plc group company.
  *
  * Licensed under GPLv2.
  */
@@ -72,7 +72,7 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 	/* retrieve io base */
 	hwspin->io_base = of_iomap(pdev->dev.of_node, 0);
 	if (!hwspin->io_base)
-		ret = -ENOMEM;
+		return -ENOMEM;
 
 	for (idx = 0; idx < HW_SPINLOCK_NUMBER; idx++) {
 		hwlock = &hwspin->bank.lock[idx];
@@ -84,7 +84,8 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	ret = hwspin_lock_register(&hwspin->bank, &pdev->dev,
-				&sirf_hwspinlock_ops, 0, HW_SPINLOCK_NUMBER);
+				   &sirf_hwspinlock_ops, 0,
+				   HW_SPINLOCK_NUMBER);
 	if (ret)
 		goto reg_failed;
 
