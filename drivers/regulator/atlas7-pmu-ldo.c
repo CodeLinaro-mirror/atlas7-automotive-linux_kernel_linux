@@ -76,7 +76,6 @@ static const struct regmap_config atlas7_ldo_regmap_config = {
 
 static int atlas7_analog_ldo_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct regmap *regmap;
 	struct resource *mem_res;
 	void __iomem *base;
@@ -114,7 +113,7 @@ static int atlas7_analog_ldo_probe(struct platform_device *pdev)
 			rdesc, &config);
 
 		if (IS_ERR(rdev)) {
-			pr_err("Failed to register ldo%d supply: %d\n",
+			pr_err("Failed to register ldo%d supply: %ld\n",
 				i, PTR_ERR(rdev));
 		}
 	}
