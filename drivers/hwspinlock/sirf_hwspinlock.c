@@ -6,15 +6,9 @@
  * Licensed under GPLv2.
  */
 
-#include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/device.h>
-#include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/bitops.h>
 #include <linux/pm_runtime.h>
-#include <linux/slab.h>
-#include <linux/spinlock.h>
 #include <linux/hwspinlock.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
