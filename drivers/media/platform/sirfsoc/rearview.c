@@ -642,7 +642,19 @@ static struct platform_driver rv_driver = {
 	.remove = rv_remove,
 };
 
-module_platform_driver(rv_driver);
+static int __init sirfsoc_rv_init(void)
+{
+	platform_driver_register(&rv_driver);
+}
+
+static void __exit sirfsoc_rv_exit(void)
+{
+	platform_driver_unregister(&rv_driver);
+}
+
+subsys_initcall_sync(sirfsoc_rv_init);
+module_exit(sirfsoc_rv_exit);
+
 
 MODULE_DESCRIPTION("SIRFSoC Atlas7 Rearview driver");
 MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");

@@ -1284,7 +1284,19 @@ static struct platform_driver cvd_driver = {
 	.remove = cvd_remove,
 };
 
-module_platform_driver(cvd_driver);
+static int __init sirfsoc_cvd_init(void)
+{
+	platform_driver_register(&cvd_driver);
+}
+
+static void __exit sirfsoc_cvd_exit(void)
+{
+	platform_driver_unregister(&cvd_driver);
+}
+
+subsys_initcall(sirfsoc_cvd_init);
+module_exit(sirfsoc_cvd_exit);
+
 
 MODULE_DESCRIPTION("sirfsoc CVD(CVBS Decoder) driver");
 MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");

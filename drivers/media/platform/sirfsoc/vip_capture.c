@@ -2476,7 +2476,19 @@ static struct platform_driver vip_driver = {
 	.remove = vip_remove,
 };
 
-module_platform_driver(vip_driver);
+static int __init sirfsoc_vip_init(void)
+{
+	platform_driver_register(&vip_driver);
+}
+
+static void __exit sirfsoc_vip_exit(void)
+{
+	platform_driver_unregister(&vip_driver);
+}
+
+subsys_initcall(sirfsoc_vip_init);
+module_exit(sirfsoc_vip_exit);
+
 
 MODULE_DESCRIPTION("sirfsoc VIP V4l2 capture driver");
 MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");
