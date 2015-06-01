@@ -410,9 +410,9 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	input_set_abs_params(input_dev,
-			ABS_MT_POSITION_X, 0, SCREEN_MAX_X, 0, 0);
+			ABS_MT_POSITION_X, 0, SCREEN_MAX_X, 5, 0);
 	input_set_abs_params(input_dev,
-			ABS_MT_POSITION_Y, 0, SCREEN_MAX_Y, 0, 0);
+			ABS_MT_POSITION_Y, 0, SCREEN_MAX_Y, 5, 0);
 	input_set_abs_params(input_dev,
 			ABS_MT_TOUCH_MAJOR, 0, PRESS_MAX, 0, 0);
 	input_set_abs_params(input_dev,
