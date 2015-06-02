@@ -19,15 +19,19 @@
 #define G2D_MAX_BLIT_CMD_SIZE		0x40
 #define RING_BUF_SIZE			(64*1024UL)
 #define RING_BUF_ALIGNMENT		0x8
-#define RINGBUFFULLGAP			0x4
+#define RINGBUFFULLGAP			0x10
+
 #define G2D_PATTERN_WIDTH		0x08
 #define G2D_PATTERN_HEIGHT		0x08
 #define G2D_PATTERN_STEP		0x04
 #define G2D_PATTERN_STRIDE	(G2D_PATTERN_STEP   * G2D_PATTERN_WIDTH)
 #define G2D_PATTERN_SIZE	(G2D_PATTERN_STRIDE * G2D_PATTERN_HEIGHT)
 #define MAX_PATTERN_BUF_RESERVED	0x400
-#define FENCE_BUF_SIZE			0x1000
-#define FENCE_BUF_ALIGNMENT		0x10
+#define G2D_FENCE_BUF_SIZE		0x1000
+#define G2D_FENCE_BUF_ALIGNMENT		0x10
+#define G2D_FENCE_ANY			0x0
+#define G2D_FENCE_YUV			0x1
+#define G2D_FENCE_G2D_START		0x2
 #define SYNCOBJECTGAP			0x1000L
 #define G2D_MEMINFO_MAX 5
 
@@ -57,7 +61,7 @@
  * ------------------------------------
  */
 #define G2D_CMD_SKIP_COMMAND				(0x0)
-#define CMD_SKIP_MASK				(0x7FFF << 0)
+#define CMD_SKIP_MASK				(0x3FFF << 0)
 
 /*
  * Normal fence and normal fence wait:
@@ -107,6 +111,8 @@
  * 31      29|28                      0|
  * -------------------------------------
  * |   0x4   |    Reserved             |
+ * -------------------------------------
+ * |  FenceID                          |
  * -------------------------------------
  */
 #define G2DCMD_WRITE_FENCE_INTERRUPT		(0x4)
@@ -365,7 +371,8 @@ struct fence_bufinfo {
 struct sync_object {
 	unsigned long	paddr;
 	void		*vaddr;
-	unsigned long	cur_id;
+	u32		cur_id;
+	u32		work_id;
 };
 
 /* surface info structure */
