@@ -946,8 +946,8 @@ static irqreturn_t vip_irq(int irq, void *data)
 	bool hd;
 	u32 status, dma_status;
 
-	if (sd && sd->dev_priv) {
-		irq_base = sd->dev_priv;	/* I am CVD_VIP */
+	if (vip->is_atlas7_vip0) {
+		irq_base = v4l2_get_subdevdata(sd); /* I am CVD_VIP */
 	} else {
 		vip_vip_isr(vip);		/* I am VIP1 or ancient VIP */
 		return IRQ_HANDLED;
@@ -2478,7 +2478,7 @@ static struct platform_driver vip_driver = {
 
 static int __init sirfsoc_vip_init(void)
 {
-	platform_driver_register(&vip_driver);
+	return platform_driver_register(&vip_driver);
 }
 
 static void __exit sirfsoc_vip_exit(void)

@@ -650,7 +650,7 @@ static struct platform_driver rv_driver = {
 
 static int __init sirfsoc_rv_init(void)
 {
-	platform_driver_register(&rv_driver);
+	return platform_driver_register(&rv_driver);
 }
 
 static void __exit sirfsoc_rv_exit(void)

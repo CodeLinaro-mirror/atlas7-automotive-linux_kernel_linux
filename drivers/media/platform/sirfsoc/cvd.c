@@ -1188,7 +1188,8 @@ static int cvd_probe(struct platform_device *pdev)
 	v4l2_subdev_init(sd, &cvd_ops);
 
 	/* we pass INT central status reg addr to VIP for further handling */
-	sd->dev_priv = dec->io_base + CVBSD_INTERRUPT_STATUS;
+	v4l2_set_subdevdata(sd, dec->io_base + CVBSD_INTERRUPT_STATUS);
+
 	dev->platform_data = sd;
 
 	if (!sd->name[0])
@@ -1286,7 +1287,7 @@ static struct platform_driver cvd_driver = {
 
 static int __init sirfsoc_cvd_init(void)
 {
-	platform_driver_register(&cvd_driver);
+	return platform_driver_register(&cvd_driver);
 }
 
 static void __exit sirfsoc_cvd_exit(void)
