@@ -103,6 +103,8 @@ struct layer_priv_data {
 	 * for the overlay before it is enabled in the HW.
 	 */
 	bool enabling;
+
+	bool skipped;
 };
 
 struct screen_priv_data {
@@ -206,7 +208,7 @@ static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)
 
 	VDSSDBG("writing layer %d regs extra", l->id);
 
-	if (!ldata->extra_info_dirty)
+	if (!ldata->extra_info_dirty || ldata->skipped)
 		return;
 
 	/* note: write also when op->enabled == false, so that the ovl gets
@@ -515,6 +517,44 @@ err:
 	spin_unlock_irqrestore(&data_lock, flags);
 	return r;
 }
+
+void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **pLayers,
+				u32 size, bool enable)
+{
+	int i = 0, j = 0;
+	struct sirfsoc_vdss_layer *l;
+	unsigned long flags;
+	struct layer_priv_data *ldata;
+	bool skip;
+	enum vdss_lcdc lcdc_id;
+
+	if (pLayers == NULL || size == 0)
+		return;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	lcdc_id = pLayers[0]->lcdc_id;
+	for (i = 0; i < num_layers[lcdc_id]; i++) {
+		l = &layers[lcdc_id][i];
+
+		skip = true;
+		for (j = 0; j < size; j++) {
+			if (pLayers[j] == l)
+				skip = false;
+		}
+		if (!skip)
+			continue;
+
+		ldata = get_layer_data(l);
+		ldata->skipped = enable;
+		if (ldata->enabled)
+			lcdc_layer_enable(l->lcdc_id, l->id, !enable,
+				ldata->info.passthrough);
+	}
+
+	spin_unlock_irqrestore(&data_lock, flags);
+}
+EXPORT_SYMBOL(sirfsoc_vdss_set_exclusive_layers);
 
 static void vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
 {

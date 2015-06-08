@@ -45,7 +45,6 @@ struct g2d_device_data {
 	struct g2d_meminfo	mem_dst_info[G2D_MEMINFO_MAX];
 	int			cur_mem_info;
 
-	bool			first_cmd;
 	struct platform_device	*dev;
 	struct dentry		*debugfs_dir;
 	struct mutex		rb_lock;
@@ -184,8 +183,9 @@ static void g2d_log_ringbuf(struct g2d_context *context)
 		g2d_inf("R%.8x  = %.8x\n", i, g2d_read_reg(context, i));
 }
 
-static int g2d_commit_cmdlist(struct g2d_context *context, u32 *cmdlist,
-			      u32 cmdlist_size)
+static int g2d_commit_cmdlist(struct g2d_context *context, u32 *bltcmd,
+			      u32 cmdlist_size,
+			      u32 fence_write_idx)
 {
 	/*
 	 * The value in RB_RD/WR_PTR register.
@@ -195,51 +195,42 @@ static int g2d_commit_cmdlist(struct g2d_context *context, u32 *cmdlist,
 	u32 wptr;
 	u32 free;
 	struct ring_bufinfo *ring = &context->ringbuf;
+	void *dst;
 
 	if (cmdlist_size > (ring->size - RINGBUFFULLGAP))
 		return -EINVAL;
 
 	rptr = g2d_read_reg(context, RB_RD_PTR);
 	wptr = g2d_read_reg(context, RB_WR_PTR);
-
-	if (rptr == wptr)
-		free = ring->size;
-	else if (rptr > wptr)
+	if (rptr > wptr)
 		free = rptr - wptr;
-	else /* rptr < wptr */
-		free = ring->size - wptr + rptr;
+	else {
+		if ((wptr + cmdlist_size) >= ring->size)
+			free = rptr;
+		else
+			free = ring->size - wptr + rptr - 1;
+	}
+
 	if ((cmdlist_size + RINGBUFFULLGAP) > free)
 		return -EAGAIN;
 
-	/*
-	 * Split the command chunk if the free space is
-	 * not continuous,
-	 */
-	if ((wptr + cmdlist_size) > ring->size) {
-		void *dst = NULL;
-		u32 len_in_u32;
-		u32 len_in_u8;
-		void *src;
-
-		src = cmdlist;
-		dst = ring->vaddr + (wptr << 2);
-		len_in_u32 = ring->size - wptr;
-		len_in_u8 = cmdlist_size << 2;
-		memcpy(dst, src, len_in_u8);
-
-		src = cmdlist + len_in_u32;
-		dst = ring->vaddr;
-		len_in_u32 = cmdlist_size - len_in_u32;
-		len_in_u8 = len_in_u32 << 2;
-		memcpy(dst, src, len_in_u8);
-		wptr = len_in_u32;
-	} else {
-		void *dst;
+	if ((wptr + cmdlist_size) >= ring->size) {
+		u32 len;
 
 		dst = ring->vaddr + (wptr << 2);
-		memcpy(dst, cmdlist, (cmdlist_size << 2));
-		wptr += cmdlist_size;
+		len = (ring->size - wptr - 1) << 2;
+		memset(dst, 0x0, len);
+		wptr = 0;
 	}
+
+	bltcmd[fence_write_idx] = context->sync_object.cur_id;
+	context->sync_object.work_id = context->sync_object.cur_id;
+	context->sync_object.cur_id++;
+	if (context->sync_object.cur_id == 0)
+		context->sync_object.cur_id = G2D_FENCE_G2D_START;
+	dst = ring->vaddr + (wptr << 2);
+	memcpy(dst, bltcmd, (cmdlist_size << 2));
+	wptr += cmdlist_size;
 
 	g2d_write_reg(context, RB_WR_PTR, wptr);
 	return 0;
@@ -556,6 +547,7 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 	u32 bltcmd[G2D_MAX_BLIT_CMD_SIZE] = { 0, };
 	u32 cur_cmdindex = 0;
 	struct g2d_context *context = g2d_dev->context;
+	u32 fence_write_idx;
 	int ret = 0;
 	u32 delay_count;
 
@@ -563,17 +555,15 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 	g2dregs.draw_ctrl = 0;
 	g2dregs.draw_ctrl |= (bltinfo->rop3 & DRAW_CTL_ROP3_MASK);
 
+	if (context->sync_object.work_id) {
+		bltcmd[cur_cmdindex++] = G2D_CMD_OP(G2D_CMD_FENCE_WAIT) |
+		    CMD_FENCE_ADDR(context->sync_object.paddr);
+		bltcmd[cur_cmdindex++] = context->sync_object.work_id;
+	}
+
 	/* probe the shape and material. */
 	if (bltinfo->flags & (G2D_BLIT_ROT_MASK | G2D_BLIT_FLIP_MASK))
 		g2d_swizzle_check(bltinfo, &g2dregs);
-
-	if (bltinfo->need_synclast && !g2d_dev->first_cmd) {
-		bltcmd[cur_cmdindex++] = G2D_CMD_OP(G2D_CMD_FENCE_WAIT) |
-		    CMD_FENCE_ADDR(context->sync_object.paddr);
-		bltcmd[cur_cmdindex++] = context->sync_object.cur_id - 1;
-	}
-	if (g2d_dev->first_cmd)
-		g2d_dev->first_cmd = false;
 
 	if (bltinfo->flags & G2D_BLIT_CLIP_ENABLE) {
 		cur_cmdindex += g2d_clip_check(&g2dregs, rclclip,
@@ -599,9 +589,8 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 
 	bltcmd[cur_cmdindex++] = G2D_CMD_OP(G2DCMD_WRITE_FENCE_INTERRUPT) |
 				CMD_FENCE_ADDR(context->sync_object.paddr);
-	bltcmd[cur_cmdindex++] = context->sync_object.cur_id++;
-	if (context->sync_object.cur_id == 0)
-		context->sync_object.cur_id = 1;
+	fence_write_idx = cur_cmdindex;
+	cur_cmdindex++;
 
 	submit_size = cur_cmdindex;
 	submit_size = ((submit_size + 3) & ~3);
@@ -610,7 +599,8 @@ static u32 g2d_build_area(struct g2d_device_data *g2d_dev,
 	delay_count = 0;
 	do {
 		mutex_lock(&g2d_dev->rb_lock);
-		ret = g2d_commit_cmdlist(context, bltcmd, submit_size);
+		ret = g2d_commit_cmdlist(context, bltcmd, submit_size,
+					 fence_write_idx);
 		mutex_unlock(&g2d_dev->rb_lock);
 
 		if (ret == 0) {
@@ -899,13 +889,14 @@ static void g2d_context_init(struct g2d_device_data *g2d_dev)
 
 	context->sync_object.paddr =
 				(context->ringbuf.paddr + RING_BUF_SIZE +
-				 FENCE_BUF_ALIGNMENT - 1) &
-				(~(FENCE_BUF_ALIGNMENT - 1));
+				 G2D_FENCE_BUF_ALIGNMENT - 1) &
+				(~(G2D_FENCE_BUF_ALIGNMENT - 1));
 
 	context->sync_object.vaddr = g2d_dev->rb_vaddr +
 	    (context->sync_object.paddr - g2d_dev->rb_paddr);
 
-	context->sync_object.cur_id = 1;
+	context->sync_object.cur_id = G2D_FENCE_G2D_START;
+	context->sync_object.work_id = 0;
 	init_waitqueue_head(&context->bldwq);
 }
 
@@ -1005,6 +996,10 @@ static int g2d_debug_rbbuf_show(struct seq_file *s, void *data)
 	seq_printf(s, "## read pointer:%.8x write pointer:%.8x\n",
 		   rptr, wptr);
 
+	seq_printf(s, "## fenceid return:0x%.8x, submit:0x%.8x\n\n",
+		   context->sync_object.work_id,
+		   context->sync_object.cur_id);
+	seq_puts(s, "command buffer:\n");
 	pcmd = context->ringbuf.vaddr;
 	for (i = 0; i < context->ringbuf.size; i++)
 		seq_printf(s, "[%.8x]\t%.8x\n", i, pcmd[i]);
@@ -1086,7 +1081,6 @@ static int g2d_probe(struct platform_device *pdev)
 		goto free_dma;
 	}
 
-	g2d_dev->first_cmd = true;
 	g2d_dev->cur_mem_info = -1;
 
 	g2d_context_init(g2d_dev);

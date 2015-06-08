@@ -1008,8 +1008,10 @@ static int __vpp_schedule(struct vpp_adapter *adapter,
 		 * when switch back to passthrough, should program
 		 * VPP again, skip flip in the next frame
 		 * */
-		if (new_dev->op == VPP_OP_PASS_THROUGH)
+		if (new_dev->op == VPP_OP_PASS_THROUGH) {
 			new_dev->info.params.op.passthrough.flip = false;
+			new_dev->info.is_dirty = true;
+		}
 
 		adapter->cur_dev = new_dev;
 		changed = true;

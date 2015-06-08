@@ -5,6 +5,7 @@
 #include <linux/cdev.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
 
 #define A7CA_BT_RESET           _IO('B', 0x1)
 #define A7CA_BT_TRIM_READ       _IO('B', 0x2)
@@ -17,16 +18,6 @@ struct a7ca_bt_trim {
 	u32 val;
 };
 
-/*
-* FIXME: bt driver need access atlas7 pmu for enabling BT ldo
-* which will be removed later when regulator driver is ready.
-*/
-#define SIRFSOC_PMU_BASE		0x10E30000
-
-#define SIRFSOC_INTC_BASE		0x10220000
-#define INTC_DEV_ID_OFFSET		0x48
-#define ATLAS7_CHIP_VER_A0		0x60A0
-
 #define reg_read_write(reg, val) writel(readl(reg)|val, reg)
 struct a7ca_bt_dev {
 	struct cdev cdev;
@@ -34,6 +25,7 @@ struct a7ca_bt_dev {
 	struct clk *a7ca_btss_clk;
 	struct clk *a7ca_btslow_clk;
 	struct clk *a7ca_io_clk;
+	struct regulator *regulator;
 	struct platform_device *pdev;
 	struct miscdevice miscdev;
 };
@@ -51,39 +43,22 @@ static int a7ca_bt_release(struct inode *inode, struct file *filp)
 static int a7ca_bt_hw_init(struct a7ca_bt_dev *dev)
 {
 	int err = 0;
-	void __iomem *pmu_base, *intc_base;
-
-	pmu_base = ioremap(SIRFSOC_PMU_BASE, SZ_64K);
-	intc_base = ioremap(SIRFSOC_INTC_BASE, SZ_64K);
 
 	err = clk_prepare_enable(dev->a7ca_btss_clk);
-	if (err) {
-		pr_debug("a7ca_btss_clk enable failed\n");
+	if (err)
 		goto out;
-	}
-	err = clk_prepare_enable(dev->a7ca_btslow_clk);
-	if (err) {
-		pr_debug("a7ca_btslow_clk enable failed\n");
-		goto out;
-	}
-	err = clk_prepare_enable(dev->a7ca_io_clk);
-	if (err) {
-		pr_debug("a7ca_io_clk enable failed\n");
-		goto out;
-	}
 
-	/*
-	* BT LDO control bit polarity was reversed in atlas7 A1
-	* comparing with A0. Check chip ID here.
-	*
-	* FIXME: this is a temp resolution for making BT work on
-	* both A1 & A0 chips. When A0 is abandonded, the check
-	* can be removed.
-	*/
-	if (readl(intc_base + INTC_DEV_ID_OFFSET) == ATLAS7_CHIP_VER_A0)
-		reg_read_write(pmu_base + 0x58, 0xa);
-	else
-		reg_read_write(pmu_base + 0x58, 0x2);
+	err = clk_prepare_enable(dev->a7ca_btslow_clk);
+	if (err)
+		goto out;
+
+	err = clk_prepare_enable(dev->a7ca_io_clk);
+	if (err)
+		goto out;
+
+	err = regulator_enable(dev->regulator);
+	if (err)
+		goto out;
 
 out:
 	return err;
@@ -186,6 +161,14 @@ static int a7ca_bt_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Clock a7ca_io get failed\n");
 		goto out;
 	}
+
+	dev->regulator = devm_regulator_get(&pdev->dev, "ldo2");
+	if (IS_ERR(dev->regulator)) {
+		err = PTR_ERR(dev->regulator);
+		dev_err(&pdev->dev, "Regulator ldo2 (BT ldo) get failed\n");
+		goto out;
+	}
+
 	platform_set_drvdata(pdev, dev);
 
 	a7ca_bt_hw_init(dev);
@@ -204,6 +187,8 @@ static int a7ca_bt_remove(struct platform_device *pdev)
 	clk_disable_unprepare(dev->a7ca_btss_clk);
 	clk_disable_unprepare(dev->a7ca_btslow_clk);
 	clk_disable_unprepare(dev->a7ca_io_clk);
+
+	regulator_disable(dev->regulator);
 
 	return 0;
 }

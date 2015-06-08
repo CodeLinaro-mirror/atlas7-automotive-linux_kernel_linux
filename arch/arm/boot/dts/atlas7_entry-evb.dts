@@ -15,7 +15,7 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "CSR SiRFatlas7 Evaluation Board";
+	model = "CSR SiRFatlas7 Entry Evaluation Board";
 	compatible = "sirf,atlas7-cb", "sirf,atlas7";
 
 	chosen {
@@ -26,11 +26,11 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x40000000 0x20000000>; /* 512M for PXP */
+		reg = <0x40000000 0x20000000>; /* 512M for entry */
 	};
 
 	aliases {
-		display0 = &lvds;
+		display0 = &rgb;
 	};
 
 	regulators {
@@ -46,28 +46,28 @@
 			regulator-max-microvolt = <5000000>;
 			enable-active-high;
 			gpio = <&gpio_0 46 0>;
+			status = "disabled";
 		};
 
 		vdd_cpu: pwm_regulator  {
 			compatible = "pwm-regulator";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
-			pwms = <&pwm 2 60>;
-			voltage-table = <1265000 0>,
-				<1196000 10>,
-				<1127000 20>,
-				<1058000 30>,
-				<990000 40>,
+			pwms = <&pwm 2 600>;
+			voltage-table = <1260000 0>,
+				<1188000 10>,
+				<1116000 20>,
+				<1044000 30>,
+				<972000 40>,
 				<900000 50>;
 			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <1265000>;
+			regulator-max-microvolt = <1260000>;
 			regulator-name = "vdd_cpu";
 		};
 
 	};
 
 	sound-internal-audio {
-		status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,routing =
 			"Headphone Jack", "LOUT0",
@@ -87,14 +87,6 @@
 		simple-audio-card,cpu {
 			sound-dai = <&atlas7_iacc>;
 		};
-	};
-
-	kas-pcm-audio {
-		compatible = "csr,kas-pcm";
-	};
-
-	sound-kas-audio-card {
-		compatible = "csr,kas-audio";
 	};
 
 	reserved-memory {
@@ -154,11 +146,6 @@
 	};
 
 	noc {
-
-		kalimba@10C10000 {
-				status = "okay";
-		};
-
 		audiom {
 			timer@10dc0000 {
 				status = "okay";
@@ -191,7 +178,6 @@
 			};
 
 			adc@10d80000 {
-				status = "okay";
 				adc-keys {
 					compatible = "sirf,atlas7-adc-keys";
 					interrupts = <0 32 0>;
@@ -201,38 +187,38 @@
 					button-s2 {
 						label = "Home";
 						linux,code = <KEY_HOMEPAGE>;
-						voltage = <1285>;
+						voltage = <1272>;
 					};
 
 					button-s7 {
 						label = "Back";
 						linux,code = <KEY_BACK>;
-						voltage = <1215>;
+						voltage = <1211>;
 					};
 
 					button-s1 {
 						label = "Volume Up";
 						linux,code = <KEY_VOLUMEUP>;
-						voltage = <1090>;
+						voltage = <1085>;
 					};
 
 					button-s4 {
 						label = "Volume Down";
 						linux,code =
 							<KEY_VOLUMEDOWN>;
-						voltage = <955>;
+						voltage = <953>;
 					};
 
 					button-s5 {
 						label = "Recent APP";
 						linux,code = <KEY_DASHBOARD>;
-						voltage = <1355>;
+						voltage = <1368>;
 					};
 
 					button-s6 {
 						label = "RearView";
 						linux,code = <KEY_DIRECTION>;
-						voltage = <1425>;
+						voltage = <1416>;
 					};
 				};
 			};
@@ -276,19 +262,6 @@
 					};
 				};
 			};
-
-			analog_regulator: analog_regulator@10E30000 {
-				status = "okay";
-			};
-
-			atlas7_codec: atlas7_codec@10E30000 {
-				status = "okay";
-			};
-
-			atlas7_iacc: atlas7_iacc@10D01000 {
-				status = "okay";
-			};
-
 		};
 
 		mediam {
@@ -333,7 +306,7 @@
 				ft5x06@38{
 					compatible = "focaltech,ft5x06";
 					interrupt-parent = <&gpio_3>;
-					interrupts = <3 0x02>;
+					interrupts = <3 0x03>;
 					reg = <0x38>;
 				};
 
@@ -350,19 +323,10 @@
 			};
 			usb0: usb@17060000 {
 				vbus-supply = <&reg_usb0_otg_vbus>;
-				status = "okay";
+				status = "disabled";
 			};
-
-			usb1: usb@17070000 {
-				status = "okay";
-			};
-
 			usbphy0: usbphy@0 {
-				status = "okay";
-			};
-
-			usbphy1: usbphy@1 {
-				status = "okay";
+				status = "disabled";
 			};
 		};
 
@@ -401,7 +365,7 @@
 				pinctrl-0 = <&uart0_pmx>;
 				pinctrl-names = "default";
 				sirf,uart-has-rtscts;
-                        };
+						};
 
 			uart2: uart@18030000 {
 				status = "disabled";
@@ -415,12 +379,16 @@
 				pinctrl-names = "default";
 			};
 
+			uart4: uart@18050000 {
+				status = "disabled";
+			};
+
 			uart5: uart@18060000 {
 				status = "okay";
 			};
 
 			gmac: eth@180b0000 {
-				status = "okay";
+				status = "disabled";
 				pinctrl-names = "default";
 				pinctrl-0 = <&rg_eth_mac_pmx
 					&rg_gmac_phy_intr_n_pmx
@@ -428,7 +396,7 @@
 			};
 
 			spi1: spi@18200000 {
-				status = "okay";
+				status = "disabled";
 				compatible = "sirf,prima2-spi-slave";
 				pinctrl-0 = <&sp1_spi_pmx>;
 				pinctrl-names = "default";
@@ -458,39 +426,12 @@
 			rtc-iobg@18840000 {
 				pwrc@3000 {
 					gps-power {
-					   status = "okay";
+					   status = "disabled";
 					   pinctrl-names = "default";
 					   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0>;
 					};
 				};
 			};
-		};
-
-		disp-iobg {
-
-			lcd0@13100000 {
-				status = "okay";
-			};
-			vpp0@13110000 {
-				status = "okay";
-			};
-			lcd1@13120000 {
-				status = "okay";
-			};
-			vpp1@13130000 {
-				status = "okay";
-			};
-			lvds@10e10000 {
-				status = "okay";
-			};
-			g2d@17010000 {
-				status = "okay";
-			};
-
-		};
-
-		graphics-iobg {
-			status = "okay";
 		};
 
 		ipc@13240000 {
@@ -521,18 +462,18 @@
 					&ld_ldd_lck_pmx>;
 			};
 			lvds@10e10000 {
-				status = "okay";
+				status = "disabled";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lvds_analog_pmx>;
 				/* set to SYN or SLAVE for lvds panel */
-				lvds-mode = "SLAVE";
+				lvds-mode = "SYN";
 			};
 		};
 
 		rgb: display@0 {
 			compatible = "rgb-panel";
 			source = "rgb.0";
-			status = "disabled";
+			status = "okay";
 
 			data-lines  = <16>;
 
@@ -559,14 +500,14 @@
 		lvds: display@1 {
 			compatible = "lvds-panel";
 			source = "lvds.0";
-			status = "okay";
+			status = "disabled";
 
 			data-lines  = <24>;
 
 			display-timings {
 				native-mode = <&timing1>;
 				timing1: timing1 {
-					clock-frequency = <50000000>;
+					clock-frequency = <60000000>;
 					hactive = <1024>;
 					vactive = <600>;
 					hfront-porch = <220>;
@@ -582,31 +523,5 @@
 				};
 			};
 		};
-
-		gpio_keys {
-			compatible = "gpio-keys";
-			status = "okay";
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			rearview_key {
-				label = "rearview key";
-				linux,code = <KEY_CAMERA>;
-				gpios = <&gpio_1 1 0>;
-				debounce_interval = <100>;
-			};
-		};
-
-		sirf-rearview {
-			compatible = "sirf,rearview";
-			status = "okay";
-			interrupts = <0 126 0>; /* IPC */
-			reg = <0x1324020C 0x4>, /* IPC INT */
-			     <0x188D001C 0x4>;  /* IPC MSG */
-			mirror = <0>;
-			source-std = "NTSC";		/* NTSC or PAL */
-			display-panel = "display0";	/* display 0/1 */
-		};
 	};
 };
-

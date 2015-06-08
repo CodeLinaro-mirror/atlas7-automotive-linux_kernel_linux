@@ -30,7 +30,6 @@ struct ipc_data {
 	void __iomem *base;
 	struct regmap *regmap;
 	struct device *dev;
-	struct mutex msg_recv_mutex;
 	struct mutex msg_send_mutex;
 	struct completion msg_send_ack;
 	struct completion msg_rsp_completion;
@@ -39,8 +38,6 @@ struct ipc_data {
 	u32 resp_from_kas[64];
 	u32 msg_from_kas[64];
 	struct list_head actions;	/* ipc_action list */
-
-	struct work_struct ipc_recv_work;
 };
 
 void *request_ipc(struct ipc_data *ipc_data, u32 message,
@@ -211,5 +208,10 @@ int ipc_get_endpoint_info(struct ipc_data *ipc_data,
 #define START_OPERATOR_REPS_INIT_STATUS		0
 #define START_OPERATOR_REPS_SUCCESS		1
 #define START_OPERATOR_REPS_FAILED		0xff
+
+#define ARM_IPC_INTR_TO_KALIMBA			1
+
+#define IPC_TRGT3_INIT0_1			0x10
+#define IPC_TRGT0_INIT3_1			0x300
 
 #endif /* _KAS_IPC_H */

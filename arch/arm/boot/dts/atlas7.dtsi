@@ -40,7 +40,7 @@
 			operating-points = <
 			/* kHz    uV */
 			1040000	1127000
-			793000	1058000
+			806000	1058000
 			26000	990000
 			>;
 			clock-latency = <150000>;
@@ -1771,6 +1771,7 @@
 				clocks = <&car 50>, <&car 49>, <&audioclk 0>;
 				clock-names = "xin", "io", "analog";
 				#io-channel-cells = <1>;
+				ldo-supply = <&ldo0>;
 				status = "disabled";
 
 				tsc {
@@ -1819,12 +1820,24 @@
 				status = "disabled";
 			};
 
-			pmu_regulator: pmu_regulator@10E30020 {
-				compatible = "sirf,atlas7-pmu-ldo";
+			analog_regulator: analog_regulator@10E30000 {
+				compatible = "sirf,atlas7-analog-ldo";
 				status = "disabled";
-				reg = <0x10E30020 0x4>;
-				ldo: ldo {
-					regulator-name = "ldo";
+				reg = <0x10E30000 0x100>;
+				ldo0: ldo0 {
+					regulator-name = "ldo0";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+				};
+				ldo1: ldo1 {
+					regulator-name = "ldo1";
+					regulator-min-microvolt = <2500000>;
+					regulator-max-microvolt = <2500000>;
+				};
+				ldo2: ldo2 {
+					regulator-name = "ldo2";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
 				};
 			};
 
@@ -1833,7 +1846,7 @@
 				compatible = "sirf,atlas7-codec";
 				reg = <0x10E30000 0x400>;
 				clocks = <&audioclk 0>;
-				ldo-supply = <&ldo>;
+				ldo-supply = <&ldo0>, <&ldo1>;
 				status = "disabled";
 			};
 

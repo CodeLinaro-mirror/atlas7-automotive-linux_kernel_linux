@@ -911,7 +911,7 @@ atlas7_qspi_setup_controller(struct atlas7_qspi_nor *a7nor)
 	u32 clk_delay;
 
 	source_clk = clk_get_rate(a7nor->clk);
-	clk_div = (source_clk / (2 * a7nor->speed_hz)) - 1;
+	clk_div = (source_clk + a7nor->speed_hz) / (2 * a7nor->speed_hz) - 1;
 	if (clk_div > ATLAS7_QSPI_CLK_DIV_MASK || regval < 0)
 		return -EINVAL;
 	regval = ATLAS7_QSPI_CLK_DIV(clk_div);

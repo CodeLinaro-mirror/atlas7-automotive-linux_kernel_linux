@@ -59,6 +59,9 @@
  * +---------------------+---------------------+
  */
 
+/* Lock for sram access */
+static DEFINE_SPINLOCK(lock);
+
 static struct ipc_data *ipc_data;
 
 static struct {
@@ -112,18 +115,17 @@ static void print_req_or_rsp(u16 id)
 
 static u32 read_sram(struct ipc_data *ipc_data, u32 address)
 {
-	u32 counter;
+	u32 value;
 
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
 			(address << 2) | (0x2 << 30));
-	regmap_read(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, &counter);
+	regmap_read(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, &value);
 
-	return counter;
+	return value;
 }
 
 static void write_sram(struct ipc_data *ipc_data, u32 address, u32 value)
 {
-	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_MODE, 4);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
 			(address << 2) | (0x2 << 30));
 
@@ -139,21 +141,27 @@ static void increment_counter(struct ipc_data *ipc_data, u32 address)
 	write_sram(ipc_data, address, counter);
 }
 
-void ipc_raise_intr_for_ack(struct ipc_data *ipc_data)
+/* Clear the flag of DSP interrupt raised, then send a ACK to kalimba */
+static void ipc_clear_raised_and_send_ack(struct ipc_data *ipc_data)
 {
 	u32 val;
+	unsigned long flags;
 
-	increment_counter(ipc_data, ARM_ACK_COUNT_ADDR);
-	writel(1, ipc_data->base + 0x10);
+	spin_lock_irqsave(&lock, flags);
 	if (ipc_data->debug)
 		pr_info("arm send ack: dsp send: %d, arm ack: %d\n",
 			read_sram(ipc_data, DSP_SEND_COUNT_ADDR),
 			read_sram(ipc_data, ARM_ACK_COUNT_ADDR));
-	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_MODE, 0);
-	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
-			(DSP_INTR_RAISED_ADDR << 2) | (0x2 << 30));
-	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, 0);
-	regmap_read(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, &val);
+	/*
+	 * Clear the interrupt raised flag of kalimba,
+	 * let the kalimba know next IPC interrupt can be sent.
+	 */
+	write_sram(ipc_data, DSP_INTR_RAISED_ADDR, 0);
+	/* Increnment the ACK counter, then send a ACK single to kalimba */
+	increment_counter(ipc_data, ARM_ACK_COUNT_ADDR);
+	/* Send IPC intr to kalimba */
+	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->base + IPC_TRGT3_INIT0_1);
+	spin_unlock_irqrestore(&lock, flags);
 }
 
 static void do_actions(struct ipc_data *ipc_data, u32 message, u32 *data)
@@ -166,17 +174,15 @@ static void do_actions(struct ipc_data *ipc_data, u32 message, u32 *data)
 	}
 }
 
-static void ipc_recv_work(struct work_struct *work)
+static irqreturn_t ipc_recv_msg_payload_handler(int irq, void *pdata)
 {
-	struct ipc_data *ipc_data = container_of(work,
-			struct ipc_data, ipc_recv_work);
+	struct ipc_data *ipc_data = (struct ipc_data *)pdata;
 	u32 msg_type;
 	u32 i;
 	u32 len;
 	u32 msg_rsp[64];
 	u32 *pmsg = 0;
 
-	mutex_lock(&ipc_data->msg_recv_mutex);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_MODE, 4);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
 			(DSP_MESSAGE_SEND_ADDR << 2) | (0x2 << 30));
@@ -205,24 +211,30 @@ static void ipc_recv_work(struct work_struct *work)
 		} else {
 			memcpy(ipc_data->msg_from_kas, msg_rsp,
 					len * sizeof(u32));
-			/* Release mutex before calling callbacks */
-			mutex_unlock(&ipc_data->msg_recv_mutex);
 			do_actions(ipc_data,
 				ipc_data->msg_from_kas[0],
 				&ipc_data->msg_from_kas[2]);
-			ipc_raise_intr_for_ack(ipc_data);
-			return;
+			ipc_clear_raised_and_send_ack(ipc_data);
+			return IRQ_HANDLED;
 		}
 	} else
-		ipc_raise_intr_for_ack(ipc_data);
-	mutex_unlock(&ipc_data->msg_recv_mutex);
+		ipc_clear_raised_and_send_ack(ipc_data);
+	return IRQ_HANDLED;
 }
 
-static irqreturn_t ipc_irq_handler(int irq, void *pdata)
+static irqreturn_t ipc_irq(int irq, void *pdata)
 {
 	struct ipc_data *ipc_data = (struct ipc_data *)pdata;
 
-	readl(ipc_data->base + 0x300);
+	spin_lock(&lock);
+	/* Read from IPC interrupt register will clear the interrupt */
+	readl(ipc_data->base + IPC_TRGT0_INIT3_1);
+
+	/*
+	 * If the counter of ARM ack equal the counter of the DSP send,
+	 * that means the kalimba sends ACKs signal for the messages by
+	 * the ARM.
+	 */
 	if (read_sram(ipc_data, ARM_ACK_COUNT_ADDR) ==
 			read_sram(ipc_data, DSP_SEND_COUNT_ADDR)) {
 		if (ipc_data->debug) {
@@ -233,22 +245,26 @@ static irqreturn_t ipc_irq_handler(int irq, void *pdata)
 				read_sram(ipc_data, DSP_SEND_COUNT_ADDR),
 				read_sram(ipc_data, ARM_ACK_COUNT_ADDR));
 		}
+		/*
+		 * Clear the interrupt raised flag of kalimba,
+		 * let the kalimba know next IPC interrupt can be sent.
+		 */
+		write_sram(ipc_data, DSP_INTR_RAISED_ADDR, 0);
 		complete(&ipc_data->msg_send_ack);
-		regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
-				(DSP_INTR_RAISED_ADDR << 2) | (0x2 << 30));
-		regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA, 0);
-	} else {
-		if (ipc_data->debug) {
-			pr_info("rsp: dsp send:%d, arm ack:%d ",
+		spin_unlock(&lock);
+		return IRQ_HANDLED;
+	}
+	/* Otherwise the kalimb sends messages or responds. */
+	if (ipc_data->debug) {
+		pr_info("rsp: dsp send:%d, arm ack:%d ",
 				read_sram(ipc_data, DSP_SEND_COUNT_ADDR),
 				read_sram(ipc_data, ARM_ACK_COUNT_ADDR));
-			pr_info("arm send:%d, dsp ack:%d\n",
+		pr_info("arm send:%d, dsp ack:%d\n",
 				read_sram(ipc_data, ARM_SEND_COUNT_ADDR),
 				read_sram(ipc_data, DSP_ACK_COUNT_ADDR));
-		}
-		schedule_work(&ipc_data->ipc_recv_work);
 	}
-	return IRQ_HANDLED;
+	spin_unlock(&lock);
+	return IRQ_WAKE_THREAD;
 }
 
 struct ipc_data *ipc_get_data(void)
@@ -292,8 +308,9 @@ int ipc_init(struct platform_device *pdev)
 	if (ipc_data->base == NULL)
 		return -ENOMEM;
 
-	ret = devm_request_irq(&pdev->dev, ipc_data->irq, ipc_irq_handler,
-			IRQF_SHARED, pdev->name, ipc_data);
+	ret = devm_request_threaded_irq(&pdev->dev, ipc_data->irq, ipc_irq,
+			ipc_recv_msg_payload_handler,
+			IRQF_ONESHOT, pdev->name, ipc_data);
 	if (ret) {
 		dev_err(&pdev->dev, "Request the IPC IRQ failed.\n");
 		return ret;
@@ -303,11 +320,9 @@ int ipc_init(struct platform_device *pdev)
 	kalimba->ipc_data = ipc_data;
 
 	mutex_init(&ipc_data->msg_send_mutex);
-	mutex_init(&ipc_data->msg_recv_mutex);
 	mutex_init(&ipc_data->counter_mutex);
 	init_completion(&ipc_data->msg_send_ack);
 	init_completion(&ipc_data->msg_rsp_completion);
-	INIT_WORK(&ipc_data->ipc_recv_work, ipc_recv_work);
 	INIT_LIST_HEAD(&ipc_data->actions);
 
 	device_create_file(&pdev->dev, &dev_attr_enable_debug_info);
@@ -318,7 +333,9 @@ static void ipc_send_msg_package(struct ipc_data *ipc_data,
 		u16 *msg, int size, u16 msg_short_type, int total_len)
 {
 	int i;
+	unsigned long flags;
 
+	spin_lock_irqsave(&lock, flags);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_MODE, 4);
 	regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_ADDR,
 			(ARM_MESSAGE_SEND_ADDR << 2) | (0x2 << 30));
@@ -335,7 +352,8 @@ static void ipc_send_msg_package(struct ipc_data *ipc_data,
 		regmap_write(ipc_data->regmap, KAS_CPU_KEYHOLE_DATA,
 				msg[i]);
 	increment_counter(ipc_data, ARM_SEND_COUNT_ADDR);
-	writel(1, ipc_data->base + 0x10);
+	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->base + IPC_TRGT3_INIT0_1);
+	spin_unlock_irqrestore(&lock, flags);
 	if ((msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
 		&& msg[0] != START_OPERATOR_REQ))
 		wait_for_completion(&ipc_data->msg_send_ack);
@@ -352,10 +370,6 @@ static void ipc_send_msg(struct ipc_data *ipc_data, u16 *msg, int size)
 			pr_info("%04x ", msg[i]);
 		pr_info("\n");
 	}
-
-	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
-		&& msg[0] != START_OPERATOR_REQ)
-		mutex_lock(&ipc_data->msg_recv_mutex);
 
 	DEBUG_MSG_OUTPUT(msg[0]);
 	if (size <= FRAME_MAX_START_COMPLETE_DATA_SIZE)
@@ -379,7 +393,6 @@ static void ipc_send_msg(struct ipc_data *ipc_data, u16 *msg, int size)
 	}
 	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
 		&& msg[0] != START_OPERATOR_REQ) {
-		mutex_unlock(&ipc_data->msg_recv_mutex);
 		wait_for_completion(&ipc_data->msg_rsp_completion);
 		DEBUG_MSG_OUTPUT(ipc_data->resp_from_kas[0]);
 	}
@@ -400,7 +413,7 @@ int ipc_create_operator(struct ipc_data *ipc_data,
 	}
 	*operator_id = ipc_data->resp_from_kas[3];
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	ipc_data->op_state = OPERATOR_STOPPED;
 	return ret;
 }
@@ -412,6 +425,7 @@ int ipc_start_operator(struct ipc_data *ipc_data,
 	u16 *msg;
 	int i;
 	u32 resp;
+	unsigned long flags;
 
 	if (operator_count < 1)
 		return -EINVAL;
@@ -433,14 +447,19 @@ int ipc_start_operator(struct ipc_data *ipc_data,
 	 * - Value START_OPERATOR_REPS_FAILED is used to indicate
 	 *   that the command failed.
 	 */
+	spin_lock_irqsave(&lock, flags);
 	write_sram(ipc_data, DSP_START_OPERATOR_REPS_ADDR,
 		START_OPERATOR_REPS_INIT_STATUS);
+	spin_unlock_irqrestore(&lock, flags);
 	ipc_send_msg(ipc_data, msg, msg_size);
 	kfree(msg);
 
+	/* Wait the result of start operatore command */
 	do {
 		cpu_relax();
+		spin_lock_irqsave(&lock, flags);
 		resp = read_sram(ipc_data, DSP_START_OPERATOR_REPS_ADDR);
+		spin_unlock_irqrestore(&lock, flags);
 	} while (resp == START_OPERATOR_REPS_INIT_STATUS);
 
 	if (resp == START_OPERATOR_REPS_FAILED) {
@@ -489,7 +508,7 @@ int ipc_stop_operator(struct ipc_data *ipc_data,
 		ret = -EINVAL;
 	}
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	if (ret < 0)
 		ipc_data->op_state = OPERATOR_STARTED;
 	else
@@ -533,7 +552,7 @@ int ipc_reset_operator(struct ipc_data *ipc_data,
 		ret = -EINVAL;
 	}
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -573,7 +592,7 @@ int ipc_destroy_operator(struct ipc_data *ipc_data,
 		ret = -EINVAL;
 	}
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -616,7 +635,7 @@ int ipc_operator_message(struct ipc_data *ipc_data,
 			*res_msg_data[i] = ipc_data->resp_from_kas[5 + i];
 	}
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -644,7 +663,7 @@ int ipc_get_source(struct ipc_data *ipc_data,
 			endpoint_id[i] = ipc_data->resp_from_kas[3 + i];
 	}
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -672,7 +691,7 @@ int ipc_get_sink(struct ipc_data *ipc_data,
 			endpoint_id[i] = ipc_data->resp_from_kas[3 + i];
 	}
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -688,7 +707,7 @@ int ipc_config_endpoint(struct ipc_data *ipc_data,
 			|| ipc_data->resp_from_kas[2] != 0)
 		ret = -EINVAL;
 
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -712,7 +731,7 @@ int ipc_close_source(struct ipc_data *ipc_data,
 			|| ipc_data->resp_from_kas[2] != 0)
 		ret = -EINVAL;
 
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -736,7 +755,7 @@ int ipc_close_sink(struct ipc_data *ipc_data,
 			|| ipc_data->resp_from_kas[2] != 0)
 		ret = -EINVAL;
 
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -757,7 +776,7 @@ int ipc_connect_endpoints(struct ipc_data *ipc_data,
 	if (connect_id)
 		*connect_id = ipc_data->resp_from_kas[3];
 out:
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -781,7 +800,7 @@ int ipc_disconnect_endpoints(struct ipc_data *ipc_data,
 			|| ipc_data->resp_from_kas[2] != 0)
 		ret = -EINVAL;
 
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -815,7 +834,7 @@ int ipc_get_version_id(struct ipc_data *ipc_data,
 	if (version_id)
 		*version_id = ipc_data->resp_from_kas[3] |
 			(ipc_data->resp_from_kas[4] << 16);
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -837,7 +856,7 @@ int ipc_get_capid_list(struct ipc_data *ipc_data,
 		for (i = 0; i < capid_num; i++)
 			capids[i] = ipc_data->resp_from_kas[3 + i];
 	}
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -861,7 +880,7 @@ int ipc_get_opid_list(struct ipc_data *ipc_data,
 			capids[i] = ipc_data->resp_from_kas[3 + i * 2 + 1];
 		}
 	}
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -889,7 +908,7 @@ int ipc_get_connection_list(struct ipc_data *ipc_data,
 			sink_ids[i] = ipc_data->resp_from_kas[3 + i * 3 + 2];
 		}
 	}
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -904,7 +923,7 @@ int ipc_sync_endpoint(struct ipc_data *ipc_data,
 			|| ipc_data->resp_from_kas[2] != 0)
 		ret = -EINVAL;
 
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 
@@ -919,7 +938,7 @@ int ipc_get_endpoint_info(struct ipc_data *ipc_data,
 			|| ipc_data->resp_from_kas[2] != 0)
 		ret = -EINVAL;
 
-	ipc_raise_intr_for_ack(ipc_data);
+	ipc_clear_raised_and_send_ack(ipc_data);
 	return ret;
 }
 

@@ -30,7 +30,9 @@
 struct sirf_atlas7_codec {
 	struct clk *clk;
 	struct regmap *regmap;
-	struct regulator *regulator;
+	/* The audio adc and dac use the 2.5V LDO and the 1.8V LDO */
+	struct regulator *da_reg;
+	struct regulator *ad_reg;
 	unsigned int playback_volume;
 	unsigned int capture_volume;
 	unsigned int input_path;
@@ -717,7 +719,8 @@ static int sirf_atlas7_codec_runtime_suspend(struct device *dev)
 	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(dev);
 
 	clk_disable_unprepare(atlas7_codec->clk);
-	regulator_disable(atlas7_codec->regulator);
+	regulator_disable(atlas7_codec->da_reg);
+	regulator_disable(atlas7_codec->ad_reg);
 	return 0;
 }
 
@@ -726,7 +729,13 @@ static int sirf_atlas7_codec_runtime_resume(struct device *dev)
 	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(dev);
 	int ret;
 
-	ret = regulator_enable(atlas7_codec->regulator);
+	ret = regulator_enable(atlas7_codec->da_reg);
+	if (ret) {
+		dev_err(dev, "Enable LDO failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = regulator_enable(atlas7_codec->ad_reg);
 	if (ret) {
 		dev_err(dev, "Enable LDO failed: %d\n", ret);
 		return ret;
@@ -794,9 +803,16 @@ static int sirf_atlas7_codec_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(atlas7_codec->regmap))
 		return PTR_ERR(atlas7_codec->regmap);
 
-	atlas7_codec->regulator = devm_regulator_get(&pdev->dev, "ldo");
-	if (IS_ERR(atlas7_codec->regulator)) {
-		ret = PTR_ERR(atlas7_codec->regulator);
+	atlas7_codec->da_reg = devm_regulator_get(&pdev->dev, "ldo0");
+	if (IS_ERR(atlas7_codec->da_reg)) {
+		ret = PTR_ERR(atlas7_codec->da_reg);
+		dev_err(&pdev->dev, "Failed to obtain ldo: %d\n", ret);
+		return ret;
+	}
+
+	atlas7_codec->ad_reg = devm_regulator_get(&pdev->dev, "ldo1");
+	if (IS_ERR(atlas7_codec->ad_reg)) {
+		ret = PTR_ERR(atlas7_codec->ad_reg);
 		dev_err(&pdev->dev, "Failed to obtain ldo: %d\n", ret);
 		return ret;
 	}

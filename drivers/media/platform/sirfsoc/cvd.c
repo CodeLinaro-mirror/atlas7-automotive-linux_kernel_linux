@@ -1188,7 +1188,8 @@ static int cvd_probe(struct platform_device *pdev)
 	v4l2_subdev_init(sd, &cvd_ops);
 
 	/* we pass INT central status reg addr to VIP for further handling */
-	sd->dev_priv = dec->io_base + CVBSD_INTERRUPT_STATUS;
+	v4l2_set_subdevdata(sd, dec->io_base + CVBSD_INTERRUPT_STATUS);
+
 	dev->platform_data = sd;
 
 	if (!sd->name[0])
@@ -1284,7 +1285,19 @@ static struct platform_driver cvd_driver = {
 	.remove = cvd_remove,
 };
 
-module_platform_driver(cvd_driver);
+static int __init sirfsoc_cvd_init(void)
+{
+	return platform_driver_register(&cvd_driver);
+}
+
+static void __exit sirfsoc_cvd_exit(void)
+{
+	platform_driver_unregister(&cvd_driver);
+}
+
+subsys_initcall(sirfsoc_cvd_init);
+module_exit(sirfsoc_cvd_exit);
+
 
 MODULE_DESCRIPTION("sirfsoc CVD(CVBS Decoder) driver");
 MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");

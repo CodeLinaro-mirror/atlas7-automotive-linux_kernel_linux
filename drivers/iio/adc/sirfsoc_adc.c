@@ -1027,7 +1027,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 
-		regulator = devm_regulator_get(&pdev->dev, "ldo");
+		regulator = devm_regulator_get(&pdev->dev, "ldo0");
 		if (IS_ERR(regulator)) {
 			dev_err(&pdev->dev, "Failed to obtain ldo\n");
 			return PTR_ERR(regulator);

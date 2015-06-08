@@ -577,6 +577,8 @@ int sirfsoc_vdss_get_num_layers(u32 lcdc_index);
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer(u32 lcdc_index, int num);
 struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
 	struct sirfsoc_vdss_screen *scn, bool rearview);
+void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **layers,
+				u32 size, bool enable);
 
 typedef void (*sirfsoc_lcdc_isr_t) (void *arg, u32 mask);
 int sirfsoc_lcdc_register_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
