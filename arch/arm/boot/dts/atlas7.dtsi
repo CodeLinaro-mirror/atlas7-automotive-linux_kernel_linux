@@ -2069,7 +2069,6 @@
 				clocks = <&car 79>;
 				resets = <&car 29>;
 				error-diffusion = <1>;
-				status = "disabled";
 			};
 			vpp0@13110000 {
 				cell-index = <0>;
@@ -2078,7 +2077,6 @@
 				interrupts = <0 31 0>;
 				clocks = <&car 78>;
 				resets = <&car 29>;
-				status = "disabled";
 			};
 			lcd1@13120000 {
 				cell-index = <1>;
@@ -2088,7 +2086,6 @@
 				clocks = <&car 81>;
 				reset = <&car 29>;
 				error-diffusion = <1>;
-				status = "disabled";
 			};
 			vpp1@13130000 {
 				cell-index = <1>;
@@ -2097,7 +2094,6 @@
 				interrupts = <0 65 0>;
 				clocks = <&car 80>;
 				resets = <&car 29>;
-				status = "disabled";
 			};
 			lvds@10e10000 {
 				compatible = "sirf,atlas7-lvdsc";
@@ -2106,21 +2102,18 @@
 				interrupts = <0 64 0>;
 				clocks = <&car 54>;
 				resets = <&car 29>;
-				status = "disabled";
 			};
 			g2d@17010000 {
 				compatible = "sirf, atlas7-g2d";
 				reg = <0x17010000 0x10000>;
 				interrupts = <0 61 0>;
 				clocks = <&car 104>;
-				status = "disabled";
 			};
 
 		};
 
 		graphics-iobg {
 			compatible = "simple-bus";
-			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x12000000 0x12000000 0x1000000>;

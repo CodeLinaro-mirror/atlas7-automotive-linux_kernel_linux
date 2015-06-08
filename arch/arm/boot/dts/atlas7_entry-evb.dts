@@ -53,21 +53,22 @@
 			compatible = "pwm-regulator";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
-			pwms = <&pwm 2 600>;
-			voltage-table = <1260000 0>,
-				<1188000 10>,
-				<1116000 20>,
-				<1044000 30>,
-				<972000 40>,
+			pwms = <&pwm 2 60>;
+			voltage-table = <1265000 0>,
+				<1196000 10>,
+				<1127000 20>,
+				<1058000 30>,
+				<990000 40>,
 				<900000 50>;
 			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <1260000>;
+			regulator-max-microvolt = <1265000>;
 			regulator-name = "vdd_cpu";
 		};
 
 	};
 
 	sound-internal-audio {
+		status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,routing =
 			"Headphone Jack", "LOUT0",
@@ -87,6 +88,14 @@
 		simple-audio-card,cpu {
 			sound-dai = <&atlas7_iacc>;
 		};
+	};
+
+	kas-pcm-audio {
+		compatible = "csr,kas-pcm";
+	};
+
+	sound-kas-audio-card {
+		compatible = "csr,kas-audio";
 	};
 
 	reserved-memory {
@@ -146,6 +155,11 @@
 	};
 
 	noc {
+
+		kalimba@10C10000 {
+				status = "okay";
+		};
+
 		audiom {
 			timer@10dc0000 {
 				status = "okay";
@@ -178,6 +192,7 @@
 			};
 
 			adc@10d80000 {
+				status = "okay";
 				adc-keys {
 					compatible = "sirf,atlas7-adc-keys";
 					interrupts = <0 32 0>;
@@ -187,38 +202,38 @@
 					button-s2 {
 						label = "Home";
 						linux,code = <KEY_HOMEPAGE>;
-						voltage = <1272>;
+						voltage = <1285>;
 					};
 
 					button-s7 {
 						label = "Back";
 						linux,code = <KEY_BACK>;
-						voltage = <1211>;
+						voltage = <1215>;
 					};
 
 					button-s1 {
 						label = "Volume Up";
 						linux,code = <KEY_VOLUMEUP>;
-						voltage = <1085>;
+						voltage = <1090>;
 					};
 
 					button-s4 {
 						label = "Volume Down";
 						linux,code =
 							<KEY_VOLUMEDOWN>;
-						voltage = <953>;
+						voltage = <955>;
 					};
 
 					button-s5 {
 						label = "Recent APP";
 						linux,code = <KEY_DASHBOARD>;
-						voltage = <1368>;
+						voltage = <1355>;
 					};
 
 					button-s6 {
 						label = "RearView";
 						linux,code = <KEY_DIRECTION>;
-						voltage = <1416>;
+						voltage = <1425>;
 					};
 				};
 			};
@@ -262,6 +277,19 @@
 					};
 				};
 			};
+
+			analog_regulator: analog_regulator@10E30000 {
+				status = "okay";
+			};
+
+			atlas7_codec: atlas7_codec@10E30000 {
+				status = "okay";
+			};
+
+			atlas7_iacc: atlas7_iacc@10D01000 {
+				status = "disabled";
+			};
+
 		};
 
 		mediam {
@@ -306,7 +334,7 @@
 				ft5x06@38{
 					compatible = "focaltech,ft5x06";
 					interrupt-parent = <&gpio_3>;
-					interrupts = <3 0x03>;
+					interrupts = <3 0x02>;
 					reg = <0x38>;
 				};
 
@@ -462,11 +490,11 @@
 					&ld_ldd_lck_pmx>;
 			};
 			lvds@10e10000 {
-				status = "disabled";
+				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lvds_analog_pmx>;
 				/* set to SYN or SLAVE for lvds panel */
-				lvds-mode = "SYN";
+				lvds-mode = "SLAVE";
 			};
 		};
 
@@ -507,7 +535,7 @@
 			display-timings {
 				native-mode = <&timing1>;
 				timing1: timing1 {
-					clock-frequency = <60000000>;
+					clock-frequency = <50000000>;
 					hactive = <1024>;
 					vactive = <600>;
 					hfront-porch = <220>;
@@ -523,5 +551,30 @@
 				};
 			};
 		};
+
+		gpio_keys {
+			compatible = "gpio-keys";
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rearview_key {
+				label = "rearview key";
+				linux,code = <KEY_CAMERA>;
+				gpios = <&gpio_1 1 0>;
+				debounce_interval = <100>;
+			};
+		};
+
+		sirf-rearview {
+			compatible = "sirf,rearview";
+			status = "okay";
+			interrupts = <0 126 0>; /* IPC */
+			reg = <0x1324020C 0x4>, /* IPC INT */
+			     <0x188D001C 0x4>;  /* IPC MSG */
+			mirror = <0>;
+			source-std = "NTSC";		/* NTSC or PAL */
+			display-panel = "display0";	/* display 0/1 */
 	};
+};
 };

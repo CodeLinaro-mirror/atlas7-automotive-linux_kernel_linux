@@ -466,33 +466,6 @@
 			};
 		};
 
-		disp-iobg {
-
-			lcd0@13100000 {
-				status = "okay";
-			};
-			vpp0@13110000 {
-				status = "okay";
-			};
-			lcd1@13120000 {
-				status = "okay";
-			};
-			vpp1@13130000 {
-				status = "okay";
-			};
-			lvds@10e10000 {
-				status = "okay";
-			};
-			g2d@17010000 {
-				status = "okay";
-			};
-
-		};
-
-		graphics-iobg {
-			status = "okay";
-		};
-
 		ipc@13240000 {
 			ns_m3_rproc@0 {
 				memory-region = <&ipc_mem0>;
