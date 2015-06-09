@@ -15,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/reset.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
@@ -22,7 +23,7 @@
 #include "sirfsoc_sdr.h"
 
 #define DRV_NAME "sirf_sdr"
-#define MAX_SG_COUNT 200
+#define MAX_SG_COUNT 256
 
 struct dma_info {
 	dma_addr_t dma_addr;
@@ -151,7 +152,6 @@ static int sdr_prepare_wt_chain_sg(struct sirf_sdr *sdr,
 	struct dma_info *pos, *n;
 
 	count = info->wt_dma_entry_cnt;
-	dev_err(&sdr->pdev->dev, "dma chain wt cnt %d\n", count);
 	if (count > MAX_SG_COUNT)
 		return -ENOMEM;
 
@@ -187,7 +187,6 @@ static int sdr_dmaengine_start_dma(struct sirf_sdr *sdr,
 		if (ret)
 			return ret;
 		count = info->rd_dma_entry_cnt;
-		dev_info(&sdr->pdev->dev, "chain dma\n");
 		desc = dmaengine_prep_slave_sg(sdr->tx_dma_chan, sdr->rd_sg,
 				count,
 				DMA_MEM_TO_DEV,
@@ -353,6 +352,57 @@ alloc_dma_fail:
 	return ret;
 }
 
+static long sdr_free_in_dma_buf(struct sirf_sdr *sdr, unsigned int dma_addr)
+{
+	struct platform_device *pdev;
+	struct dma_info *pos, *n;
+	long ret = -EINVAL;
+
+	pdev = sdr->pdev;
+
+	list_for_each_entry_safe(pos, n, &sdr->rd_dma_info.list, list) {
+		if (pos->dma_addr == dma_addr) {
+			dma_free_coherent(&pdev->dev,
+					pos->len,
+					pos->dma_virt_addr,
+					pos->dma_addr);
+			list_del(&pos->list);
+			ret = 0;
+			break;
+		}
+	}
+	return ret;
+
+}
+
+static long sdr_free_out_dma_buf(struct sirf_sdr *sdr, unsigned int dma_addr)
+{
+	struct platform_device *pdev;
+	struct dma_info *pos, *n;
+	long ret = -EINVAL;
+
+	pdev = sdr->pdev;
+
+	list_for_each_entry_safe(pos, n, &sdr->wt_dma_info.list, list) {
+		if (pos->dma_addr == dma_addr) {
+			dma_free_coherent(&pdev->dev,
+					pos->len,
+					pos->dma_virt_addr,
+					pos->dma_addr);
+			list_del(&pos->list);
+			ret = 0;
+			break;
+		}
+	}
+	return ret;
+
+}
+
+static long sdr_reset(struct sirf_sdr *sdr)
+{
+	return device_reset(&sdr->pdev->dev);
+}
+
 static long
 sirf_sdr_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -369,6 +419,15 @@ sirf_sdr_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	case IOCTL_DECODER:
 		ret = sdr_ioctl_decoder(sdr, (struct config_info *)arg);
+		break;
+	case IOCTL_FREE_INPUT_BUFFER:
+		ret = sdr_free_in_dma_buf(sdr, arg);
+		break;
+	case IOCTL_FREE_OUTPUT_BUFFER:
+		ret = sdr_free_out_dma_buf(sdr, arg);
+		break;
+	case IOCTL_SDR_RESET:
+		ret = sdr_reset(sdr);
 		break;
 	default:
 		return -EINVAL;
@@ -417,6 +476,7 @@ static int sdr_sirf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	device_reset(&pdev->dev);
 	dp = of_find_node_by_name(NULL, "sdrsram");
 	if (!dp)
 		return -EINVAL;

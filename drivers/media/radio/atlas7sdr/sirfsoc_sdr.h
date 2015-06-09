@@ -58,6 +58,9 @@ struct config_info {
 #define IOCTL_DECODER		_IOR(SDR_IOC_MAGIC,  3,\
 		struct config_info)
 
+#define IOCTL_FREE_INPUT_BUFFER		_IOR(SDR_IOC_MAGIC,  4, int)
+#define IOCTL_FREE_OUTPUT_BUFFER	_IOR(SDR_IOC_MAGIC,  5, int)
+#define IOCTL_SDR_RESET			_IOR(SDR_IOC_MAGIC,  6, int)
 
 #endif
 
