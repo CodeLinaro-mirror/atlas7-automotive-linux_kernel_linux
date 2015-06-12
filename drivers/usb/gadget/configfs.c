@@ -1609,11 +1609,36 @@ static const struct usb_gadget_driver configfs_driver_template = {
 	},
 };
 
+#ifdef CONFIG_USB_CONFIGFS_UEVENT
+static ssize_t state_show(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct gadget_info *gi = dev_get_drvdata(dev);
+	struct usb_composite_dev *cdev = &gi->cdev;
+	char *state = "DISCONNECTED";
+	unsigned long flags;
+
+	if (!cdev)
+		goto out;
+
+	spin_lock_irqsave(&cdev->lock, flags);
+	if (cdev->config)
+		state = "CONFIGURED";
+	else if (gi->connected)
+		state = "CONNECTED";
+	spin_unlock_irqrestore(&cdev->lock, flags);
+out:
+	return sprintf(buf, "%s\n", state);
+}
+static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
+#endif
+
 static struct config_group *gadgets_make(
 		struct config_group *group,
 		const char *name)
 {
 	struct gadget_info *gi;
+	int ret;
 
 	gi = kzalloc(sizeof(*gi), GFP_KERNEL);
 	if (!gi)
@@ -1659,6 +1684,12 @@ static struct config_group *gadgets_make(
 				MKDEV(0, 0), NULL, "android0");
 	if (IS_ERR(android_device))
 		goto err;
+	dev_set_drvdata(android_device, gi);
+	ret = device_create_file(android_device, &dev_attr_state);
+	if (ret) {
+		device_destroy(android_class, android_device->devt);
+		goto err;
+	}
 #endif
 
 	if (!gi->composite.gadget_driver.function)
