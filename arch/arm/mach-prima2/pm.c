@@ -205,7 +205,7 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
 		boot_stat = readl_relaxed(sinfo->retain_base
-				+ SIRFSOC_BOOT_STATUS);
+				+ SIRFSOC_PWRC_SCRATCH_PAD11);
 	else
 		boot_stat = sirfsoc_rtc_iobrg_readl(sinfo->base +
 			pwrc_reg->pwrc_scratch_pad3);
@@ -244,7 +244,7 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
 		writel_relaxed(boot_stat,
-			sinfo->retain_base + SIRFSOC_BOOT_STATUS);
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
 	else
 		regmap_write(sinfo->regmap,
 			sinfo->base + pwrc_reg->pwrc_scratch_pad3,
@@ -344,6 +344,13 @@ void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 #define WDOG_EN 0x64
 #define WDOG_CNT_CTRL 0x0
 #define WDOG_CNT	0x48
+
+	/* support standand android recovery mode */
+	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
+		writel(readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
+			| RECOVERY_MODE,
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
+
 	/*
 	* set retain register as 0x2 for reset, so that uboot can
 	* disdinguish between real watchdog event and this workaroad
