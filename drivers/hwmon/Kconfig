@@ -1680,6 +1680,13 @@ config SENSORS_ULTRA45
 	  This driver provides support for the Ultra45 workstation environmental
 	  sensors.
 
+config SENSORS_SIRFSOC
+        tristate "sirfsoc sensor temp2"
+        depends on ARCH_SIRF
+        help
+          This driver provides support for the sirfsoc temp2 environmental
+          sensors
+
 if ACPI
 
 comment "ACPI drivers"

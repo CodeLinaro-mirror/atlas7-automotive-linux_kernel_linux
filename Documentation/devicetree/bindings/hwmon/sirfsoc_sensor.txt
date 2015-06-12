@@ -1,0 +1,18 @@
+Sirfsoc hwmon sensors
+-------------------------------
+
+Requires node properties:
+- "compatible" value : one of
+	"sirf,atlas7-sensor"
+- "io-channels" value : adc channel index
+
+Optional node properties:
+- label : string describing the monitored value
+
+Example:
+	sirfsoc_sensor:sirfsoc_sensor {
+		compatible = "sirf,atlas7-sensor";
+		io-channels = <&adc 11>;
+		io-channel-names = "temp";
+		#thermal-sensor-cells = <1>;
+	};
