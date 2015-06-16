@@ -952,7 +952,8 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	 * (e.g. JMicron) can't do PIO properly when the selection
 	 * is ADMA.
 	 */
-	if (host->version >= SDHCI_SPEC_200) {
+	if ((host->version >= SDHCI_SPEC_200) &&
+		(!SDHCI_QUIRK2_NO_DMA_RESELECT)) {
 		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
 		ctrl &= ~SDHCI_CTRL_DMA_MASK;
 		if ((host->flags & SDHCI_REQ_USE_DMA) &&

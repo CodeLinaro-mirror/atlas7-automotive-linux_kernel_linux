@@ -102,7 +102,8 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_STOP_WITH_TC			(1<<8)
 /* For better performance for SDMA controller, alloc a buffer for combined */
 #define SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER	(1<<9)
-
+/* Some host controller does not want to reselect  ADMA32 and SDMA every CMD */
+#define SDHCI_QUIRK2_NO_DMA_RESELECT			(1<<10)
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
