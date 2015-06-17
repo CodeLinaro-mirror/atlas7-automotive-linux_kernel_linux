@@ -22,6 +22,7 @@
 
 #define SDHCI_CLK_DELAY_SETTING	0x4C
 #define SDHCI_SIRF_8BITBUS BIT(3)
+#define SDHCI_CONTROL_DDR_EN (0x1 << 4)
 #define SDHCI_SIRF_LDO_CNTL 0x6c
 #define SIRF_TUNING_COUNT 16384
 
@@ -141,6 +142,14 @@ static void sdhci_sirf_set_bus_width(struct sdhci_host *host, int width)
 		ctrl |= SDHCI_SIRF_8BITBUS;
 	else if (width == MMC_BUS_WIDTH_4)
 		ctrl |= SDHCI_CTRL_4BITBUS;
+
+
+	if (host->mmc &&
+		((host->mmc->ios.timing == MMC_TIMING_UHS_DDR50)
+		 || (host->mmc->ios.timing == MMC_TIMING_MMC_DDR52)))
+		ctrl |= SDHCI_CONTROL_DDR_EN;
+	else
+		ctrl &= ~SDHCI_CONTROL_DDR_EN;
 
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 }
@@ -304,7 +313,8 @@ static struct sdhci_pltfm_data sdhci_sirf_pdata = {
 		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
 		SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS |
 		SDHCI_QUIRK_DELAY_AFTER_POWER,
-	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+		SDHCI_QUIRK2_NO_DMA_RESELECT,
 };
 
 static int sdhci_sirf_probe(struct platform_device *pdev)

@@ -134,6 +134,9 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&ps_pmx>;
 			};
+			adc: adc@10d80000 {
+				status = "disabled";
+			};
 
 		};
 

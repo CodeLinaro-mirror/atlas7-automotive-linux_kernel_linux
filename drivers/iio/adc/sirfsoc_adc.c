@@ -1007,7 +1007,8 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	/* some register need set on atlas7 */
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
-		struct regulator *regulator;
+		struct regulator *da_regulator;
+		struct regulator *ad_regulator;
 
 		adc->clk = devm_clk_get(&pdev->dev, "xin");
 		if (IS_ERR(adc->clk)) {
@@ -1027,19 +1028,35 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 
-		regulator = devm_regulator_get(&pdev->dev, "ldo0");
-		if (IS_ERR(regulator)) {
-			dev_err(&pdev->dev, "Failed to obtain ldo\n");
-			return PTR_ERR(regulator);
+		da_regulator = devm_regulator_get(&pdev->dev, "ldo0");
+		if (IS_ERR(da_regulator)) {
+			dev_err(&pdev->dev, "Failed to obtain da_regulator\n");
+			return PTR_ERR(da_regulator);
 		}
+
+		ad_regulator = devm_regulator_get(&pdev->dev, "ldo1");
+		if (IS_ERR(ad_regulator)) {
+			dev_err(&pdev->dev, "Failed to obtain ad_regulator\n");
+			return PTR_ERR(ad_regulator);
+		}
+
 
 		clk_prepare_enable(adc->clk);
 		clk_prepare_enable(adc->clk_io);
 
-		ret = regulator_enable(regulator);
+		ret = regulator_enable(da_regulator);
 		if (ret) {
 			dev_err(&pdev->dev,
-				"regulator enable failed: %d\n", ret);
+				"da_regulator enable failed: %d\n", ret);
+			clk_disable_unprepare(adc->clk_io);
+			clk_disable_unprepare(adc->clk);
+			return ret;
+		}
+
+		ret = regulator_enable(ad_regulator);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"ad_regulator enable failed: %d\n", ret);
 			clk_disable_unprepare(adc->clk_io);
 			clk_disable_unprepare(adc->clk);
 			return ret;

@@ -205,7 +205,7 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
 		boot_stat = readl_relaxed(sinfo->retain_base
-				+ SIRFSOC_BOOT_STATUS);
+				+ SIRFSOC_PWRC_SCRATCH_PAD11);
 	else
 		boot_stat = sirfsoc_rtc_iobrg_readl(sinfo->base +
 			pwrc_reg->pwrc_scratch_pad3);
@@ -244,7 +244,7 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
 		writel_relaxed(boot_stat,
-			sinfo->retain_base + SIRFSOC_BOOT_STATUS);
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
 	else
 		regmap_write(sinfo->regmap,
 			sinfo->base + pwrc_reg->pwrc_scratch_pad3,
@@ -339,11 +339,17 @@ static const struct of_device_id sirfsoc_pm_ids[] = {
 void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 {
 #define CPU_CLK_SEL 0xf8
-#define WDOG_CNT64_LATCH_LO 0x7c
 #define WDOG_MATCH 0x18
 #define WDOG_TIMER_WDT_INDEX		5
 #define WDOG_EN 0x64
 #define WDOG_CNT_CTRL 0x0
+#define WDOG_CNT	0x48
+
+	/* support standand android recovery mode */
+	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
+		writel(readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
+			| RECOVERY_MODE,
+			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
 
 	/*
 	* set retain register as 0x2 for reset, so that uboot can
@@ -355,19 +361,17 @@ void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 	/* workaround reset for atlas7 */
 	writel(0, sinfo->clkc_base + CPU_CLK_SEL);
 
+	/* update timeout for match */
+	writel(0, sinfo->timer_base + WDOG_CNT +
+		4 * WDOG_TIMER_WDT_INDEX);
+	writel(0x10000000,	sinfo->timer_base + WDOG_MATCH +
+			4 * WDOG_TIMER_WDT_INDEX);
 	/* enable watchdog */
-	writel(readl(sinfo->timer_base + WDOG_CNT_CTRL +
-			4 * WDOG_TIMER_WDT_INDEX) | 0x3,
-		sinfo->timer_base + WDOG_CNT_CTRL +
+	writel(0x3, sinfo->timer_base + WDOG_CNT_CTRL +
 			4 * WDOG_TIMER_WDT_INDEX);
 	writel(1, sinfo->timer_base + WDOG_EN);
-
-	/* update timeout for match */
-	writel(readl(sinfo->timer_base + WDOG_CNT64_LATCH_LO) +
-			0x3,
-		sinfo->timer_base + WDOG_MATCH +
-			4 * WDOG_TIMER_WDT_INDEX);
-
+	while (1)
+		;
 }
 
 static int atlas7_pm_retain_init(struct sirfsoc_pm_init_t *pinit)
