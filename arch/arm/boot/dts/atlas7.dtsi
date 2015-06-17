@@ -127,39 +127,43 @@
 		};
 
 		ipc@13240000 {
-			compatible = "sirf,atlas7-ipc";
+			compatible = "sirf,atlas7-ipc", "simple-bus";
 			ranges = <0x13240000 0x13240000 0x00010000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 
 			hwlock: hwlock@0 {
 				compatible = "sirf,hwspinlock";
-				reg = <0x13240000 0x00010000>;
+				reg = <0x13240400 0x0100>;
 				#hwlock-cells = <1>;
 			};
 
 			ns_m3_rproc@0 {
 				compatible = "sirf,ns2m30-rproc";
-				reg = <0x13240000 0x00010000>;
+				reg = <0x13240108 0x4>,
+					<0x13240208 0x4>;
 				interrupts = <0 123 0>;
 				hwlocks = <&hwlock 0>, <&hwlock 1>;
 			};
 
 			ns_m3_rproc@1 {
 				compatible = "sirf,ns2m31-rproc";
-				reg = <0x13240000 0x00010000>;
+				reg = <0x1324010C 0x4>,
+					<0x1324020C 0x4>;
 				interrupts = <0 126 0>;
 			};
 
 			ns_kal_rproc@0 {
 				compatible = "sirf,ns2kal0-rproc";
-				reg = <0x13240000 0x00010000>;
+				reg = <0x13240110 0x4>,
+					<0x13240308 0x4>;
 				interrupts = <0 124 0>;
 			};
 
 			ns_kal_rproc@1 {
 				compatible = "sirf,ns2kal1-rproc";
-				reg = <0x13240000 0x00010000>;
+				reg = <0x13240114 0x4>,
+					<0x1324030C 0x4>;
 				interrupts = <0 127 0>;
 			};
 		};

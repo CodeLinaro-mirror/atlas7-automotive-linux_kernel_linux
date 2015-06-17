@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/kthread.h>
 #include <linux/hwspinlock.h>
+#include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
@@ -20,32 +21,6 @@
 #include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
-
-/* Definition of IPC interrupts' Trigger Registers offset */
-#define TR_S_NS_1	0x0000
-#define TR_S_NS_2	0x0004
-#define TR_S_M3_1	0x0008
-#define TR_S_M3_2	0x000C
-#define TR_S_KAS_1	0x0010
-#define TR_S_KAS_2	0x0014
-#define TR_NS_S_1	0x0100
-#define TR_NS_S_2	0x0104
-#define TR_NS_M3_1	0x0108
-#define TR_NS_M3_2	0x010C
-#define TR_NS_KAS_1	0x0110
-#define TR_NS_KAS_2	0x0114
-#define TR_M3_S_1	0x0200
-#define TR_M3_S_2	0x0204
-#define TR_M3_NS_1	0x0208
-#define TR_M3_NS_2	0x020C
-#define TR_M3_KAS_1	0x0210
-#define TR_M3_KAS_2	0x0214
-#define TR_KAS_S_1	0x0300
-#define TR_KAS_S_2	0x0304
-#define TR_KAS_NS_1	0x0308
-#define TR_KAS_NS_2	0x030C
-#define TR_KAS_M3_1	0x0310
-#define TR_KAS_M3_2	0x0314
 
 enum sirf_rproc_idx {
 	NS2M30,
@@ -166,8 +141,6 @@ static int fifo_init(struct fifo_buffer *fifo, void *buffer,
 struct hw_info {
 	const char *name;
 	const char *fw;
-	u32 setreg;
-	u32 clrreg;
 	u32 w_fifo_chn;
 	u32 r_fifo_chn;
 	u32 fifo_sz;
@@ -203,7 +176,6 @@ struct sirf_rproc {
 	size_t rsc_size;
 	struct resource_table *table_ptr;
 	u32 table_len;
-	void __iomem *io_base;
 	void __iomem *set_reg;
 	void __iomem *clr_reg;
 	struct fifo_buffer w_fifo;
@@ -261,25 +233,21 @@ static const struct hw_info sirf_rproc_hwinfo[] = {
 	{
 	  .name = "ns2m30-rproc",
 	  .fw = "RTOSDemo.bin",
-	  .setreg = TR_NS_M3_1, .clrreg = TR_M3_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .fifo_sz = 0x1000,
 	}, {
 	  .name = "ns2m31-rproc",
-	  .setreg = TR_NS_M3_2, .clrreg = TR_M3_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .fifo_sz = 0x1000,
 	}, {
 	  .name = "ns2kal0-rproc",
-	  .setreg = TR_NS_KAS_1, .clrreg = TR_KAS_NS_1,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .fifo_sz = 0x1000,
 	}, {
 	  .name = "ns2kal1-rproc",
-	  .setreg = TR_NS_KAS_2, .clrreg = TR_KAS_NS_2,
 	  .w_fifo_chn = FIFO_LOGIC_CHN_0,
 	  .r_fifo_chn = FIFO_LOGIC_CHN_1,
 	  .fifo_sz = 0x1000,
@@ -362,16 +330,36 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 				struct sirf_rproc *srproc)
 {
 	void *tx_buffer, *rx_buffer;
+	struct resource *res;
 	int ret;
+
+	/* retrieve trigger interrupt io base */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	srproc->set_reg = devm_ioremap_resource(&pdev->dev, res);
+	if (!srproc->set_reg) {
+		dev_err(&pdev->dev,
+			"Unable to map rproc trigger interrupt registers!\n");
+		return -ENOMEM;
+	}
+
+	/* retrieve clear interrupt io base */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	srproc->clr_reg = devm_ioremap_resource(&pdev->dev, res);
+	if (!srproc->clr_reg) {
+		dev_err(&pdev->dev,
+			"Unable to map rproc clear interrupt registers!\n");
+		return -ENOMEM;
+	}
 
 	ret = of_irq_get(pdev->dev.of_node, 0);
 	if (ret == -EPROBE_DEFER) {
 		dev_err(&pdev->dev,
 			"Unable to find IRQ number. ret=%d\n", ret);
-		goto failed;
+		return ret;
 	}
 	srproc->irq = ret;
 
+	/* Request hwlocks for rproc */
 	srproc->w_fifo_hwlock = of_hwspin_lock_get_id(pdev->dev.of_node, 0);
 	if (srproc->w_fifo_hwlock < 0) {
 		ret = srproc->w_fifo_hwlock;
@@ -388,21 +376,13 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 		goto failed;
 	}
 
-	/* retrieve io base */
-	srproc->io_base = of_iomap(pdev->dev.of_node, 0);
-	if (!srproc->io_base) {
-		dev_err(&pdev->dev, "Unable to map rproc registers!\n");
-		ret = -ENOMEM;
-		goto failed;
-	}
-
 	/* Parse share memory information */
 	ret = __sirf_rproc_parse_memory(pdev, srproc);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Unable to setup ipc share memory info. ret=%d\n",
 			ret);
-		goto free_io;
+		goto failed;
 	}
 	srproc->table_ptr = srproc->rsc_dma;
 
@@ -439,9 +419,6 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	if (ret)
 		goto free_rsc;
 
-	srproc->set_reg = srproc->io_base + srproc->hwinfo->setreg;
-	srproc->clr_reg = srproc->io_base + srproc->hwinfo->clrreg;
-
 	return 0;
 
 free_rsc:
@@ -449,10 +426,6 @@ free_rsc:
 			srproc->rsc_size, VM_IO);
 	srproc->table_ptr = NULL;
 	srproc->rsc_dma = NULL;
-
-free_io:
-	iounmap(srproc->io_base);
-	srproc->io_base = NULL;
 
 failed:
 	return ret;
@@ -466,7 +439,6 @@ static int sirf_rproc_remove(struct platform_device *pdev)
 	dma_common_free_remap(srproc->rsc_dma,
 				srproc->rsc_size, VM_IO);
 
-	iounmap(srproc->io_base);
 	rproc->table_ptr = 0;
 
 	rproc_del(rproc);
