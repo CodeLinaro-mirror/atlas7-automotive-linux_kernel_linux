@@ -21,6 +21,7 @@
 #include "vdss.h"
 #include "lcdc.h"
 
+#define LCDC_LDD_NUM 27
 #define LCDC_MAX_NR_ISRS		8
 #define LCDC_INT_MASK_ERRS	(LCDC_INT_L0_OFLOW | \
 	LCDC_INT_L0_UFLOW | LCDC_INT_L1_OFLOW | \
@@ -42,6 +43,11 @@ struct sirfsoc_lcdc_irq {
 	struct work_struct err_work;
 };
 
+struct sirfsoc_lcdc_padinfo {
+	u32 *padlist;
+	u32 pad_set_num;
+};
+
 static struct sirfsoc_lcdc {
 	struct platform_device *pdev;
 	void __iomem    *base;
@@ -56,8 +62,38 @@ static struct sirfsoc_lcdc {
 	struct clk	*clk;
 	struct sirfsoc_lcdc_irq lcdc_irq;
 	struct lcdc_prop property;
+
+	/*
+	 * For padmuxs whose mapping relationship
+	 * are changed.
+	 */
+	struct sirfsoc_lcdc_padinfo pad_hdmi;
+	struct sirfsoc_lcdc_padinfo pad_panel;
 } lcdc[NUM_LCDC];
 static u32 num_lcdc;
+
+static u32 lcdc_padlist_hdmi[LCDC_LDD_NUM] = {
+	 8,  9, 10, 11, 12, 13, 14, 15,
+	16, 17, 18, 19, 20, 21, 22, 23,
+	 0,  1,  2,  3,  4,  5,  6,  7,
+	24, 25, 26
+};
+
+static u32 lcdc_padlist_panel[][LCDC_LDD_NUM] = {
+	{
+		11, 12, 14,  6,  5,  8, 15, 10,
+		13,  9,  1,  7,  3,  4,  0,  2,
+		16, 17, 18, 19, 20, 21, 22, 23,
+		24, 25, 26
+	},
+	/* padmux for entry board. */
+	{
+		11, 24,  7, 26, 15,  6, 13,  0,
+		 3, 14,  9, 10,  2,  8,  1,  4,
+		16, 17, 18, 19, 20, 21, 22, 23,
+		 5, 12, 25
+	},
+};
 
 static void __lcdc_wait_idle(u32 lcdc_index, int layer, bool with_vpp)
 {
@@ -816,54 +852,27 @@ void lcdc_screen_setup(u32 lcdc_index, enum vdss_screen scn_id,
 static void lcdc_output_configure_pins(u32 lcdc_index,
 	bool hdmi, int data_lines)
 {
+	u32 *plist = NULL;
+	u32 pad_num = 0;
+	u32 i;
+
 	/* atlas7: can't use default value any more */
 	if (!lcdc[lcdc_index].is_atlas7)
 		return;
 
 	if (hdmi) {
 		/* HDMI setting */
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x100);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x200);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x400);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x800);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x1000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x2000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x4000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x8000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x10000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x20000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x40000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x80000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x100000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x200000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x400000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x800000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_16, 0x1);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_17, 0x2);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_18, 0x4);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_19, 0x8);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_20, 0x10);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_21, 0x20);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_22, 0x40);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_23, 0x80);
+		plist = lcdc[lcdc_index].pad_hdmi.padlist;
+		pad_num = lcdc[lcdc_index].pad_hdmi.pad_set_num;
+
 	} else if (data_lines == 16) {
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_0, 0x800);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_1, 0x1000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_2, 0x4000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_3, 0x40);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_4, 0x20);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_5, 0x100);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_6, 0x8000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_7, 0x400);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_8, 0x2000);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_9, 0x200);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_10, 0x2);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_11, 0x80);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_12, 0x8);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_13, 0x10);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_14, 0x1);
-		lcdc_write_reg(lcdc_index, PADMUX_LDD_15, 0x4);
+		plist = lcdc[lcdc_index].pad_panel.padlist;
+		pad_num = lcdc[lcdc_index].pad_panel.pad_set_num;
 	}
+
+	for (i = 0; i < pad_num; i++)
+		lcdc_write_reg(lcdc_index, PADMUX_LDD_0 + i * 4,
+			       1 << plist[i]);
 }
 
 static void lcdc_dump_regs(struct seq_file *s, u32 lcdc_index)
@@ -1971,6 +1980,7 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 	struct pinctrl *p;
 	u32 id;
 	u32 ed = 1;
+	u32 plist_idx = 0;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -2002,6 +2012,13 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 		lcdc[id].is_atlas7 = true;
 	else
 		lcdc[id].is_atlas7 = false;
+
+	of_property_read_u32(dn, "ldd-panel", &plist_idx);
+	lcdc[id].pad_panel.padlist = lcdc_padlist_panel[plist_idx];
+	lcdc[id].pad_panel.pad_set_num = LCDC_LDD_NUM;
+
+	lcdc[id].pad_hdmi.padlist = lcdc_padlist_hdmi;
+	lcdc[id].pad_hdmi.pad_set_num = LCDC_LDD_NUM;
 
 	lcdc[id].irq = platform_get_irq(pdev, 0);
 	if (lcdc[id].irq < 0) {
