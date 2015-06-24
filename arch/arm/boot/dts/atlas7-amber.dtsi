@@ -49,9 +49,9 @@
 				sirf,uart-has-rtscts;
 			};
 			bt {
-				compatible = "sirf,bt-9300";
-				bt_gpio_power = <&gpio_3 15 0>;
-				bt_gpio_reset = <&gpio_1 76 0>;
+				compatible = "sirf,amber-9300";
+				amber9300_gpio_power = <&gpio_3 15 0>;
+				amber9300_gpio_reset = <&gpio_1 76 0>;
 			};
 		};
 #ifdef CONFIG_ANDROID
