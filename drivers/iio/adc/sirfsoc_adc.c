@@ -38,6 +38,9 @@
 #define SIRFSOC_ANA_BASE		0x10E30000
 #define REF_CTRL0			0x64
 #define REF_CTRL2			0x3c
+#define TEMPSENSOR_CTRL			0x2c
+
+
 
 #define AUDIO_ANA_REF_AUDBIAS_IREF_EN			BIT(0)
 #define AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN			BIT(4)
@@ -98,6 +101,8 @@ struct sirfsoc_adc_mode_sel {
 	/* Atlas7 add AUX7 and AUX8 */
 	u32		aux7_sel;
 	u32		aux8_sel;
+	u32		temp1_sel;
+	u32		temp2_sel;
 	u32		single_ts_sel;
 	u32		dual_ts_sel;
 	u32		offset_cali_sel;
@@ -286,6 +291,8 @@ static struct sirfsoc_adc_register atlas7_adc_reg = {
 		.aux6_sel	= 0x09,
 		.aux7_sel	= 0x0A,
 		.aux8_sel	= 0x0B,
+		.temp1_sel	= 0x12,
+		.temp2_sel	= 0x13,
 		.single_ts_sel	= 0x0C,
 		.dual_ts_sel	= 0x11,
 		.offset_cali_sel	= 0x0D,
@@ -447,6 +454,12 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 			reg_offset = 0x1C + (sel_bits - 0x04) * 4;
 		else
 			reg_offset = 0x14 + (sel_bits - 0x04) * 4;
+		data = readl(adc->base + reg_offset);
+		if (data & SIRFSOC_ADC_DATA_VALID)
+			req->read_back_data = data & SIRFSOC_ADC_DATA_MASK;
+	} else if (sel_bits == mode_sel->temp1_sel ||
+			sel_bits == mode_sel->temp2_sel) {
+		reg_offset = 0x14 + (sel_bits - 0x04) * 4;
 		data = readl(adc->base + reg_offset);
 		if (data & SIRFSOC_ADC_DATA_VALID)
 			req->read_back_data = data & SIRFSOC_ADC_DATA_MASK;
@@ -720,6 +733,15 @@ static void sirfsoc_adc_enable_analog(struct sirfsoc_adc *adc)
 
 	read_data =  readl(adc->ana_base + REF_CTRL0);
 	writel(0x84, adc->ana_base + REF_CTRL2);
+
+#define TMPS1_OUT_EN	BIT(0)
+#define TMPS1_EN		BIT(1)
+#define TMPS2_OUT_EN	BIT(4)
+#define TMPS2_EN		BIT(5)
+
+	writel(TMPS1_OUT_EN | TMPS1_EN | TMPS2_OUT_EN |
+			TMPS2_OUT_EN,
+		adc->ana_base + TEMPSENSOR_CTRL);
 }
 
 static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
@@ -849,6 +871,10 @@ static const struct dev_pm_ops sirfsoc_adc_pm_ops = {
 	SIRFSOC_ADC_CHANNEL(_channel, IIO_VOLTAGE,	\
 	_name, IIO_CHAN_INFO_PROCESSED)
 
+#define SIRFSOC_ADC_TEMP_CHANNEL(_channel, _name)	\
+	SIRFSOC_ADC_CHANNEL(_channel, IIO_TEMP,	\
+	_name, IIO_CHAN_INFO_PROCESSED)
+
 static const struct iio_chan_spec prima2_adc_iio_channels[] = {
 	/* Channels to get the touch data */
 	SIRFSOC_ADC_TS_CHANNEL(0, "touch_coord"),
@@ -904,6 +930,8 @@ static const struct iio_chan_spec atlas7_adc_iio_channels[] = {
 	SIRFSOC_ADC_AUX_CHANNEL(7, "auxiliary6"),
 	SIRFSOC_ADC_AUX_CHANNEL(8, "auxiliary7"),
 	SIRFSOC_ADC_AUX_CHANNEL(9, "auxiliary8"),
+	SIRFSOC_ADC_TEMP_CHANNEL(10, "temp1"),
+	SIRFSOC_ADC_TEMP_CHANNEL(11, "temp2"),
 };
 
 static u32 atlas7_adc_channel_sel[] = {
@@ -915,7 +943,9 @@ static u32 atlas7_adc_channel_sel[] = {
 	0x08, /* aux5 */
 	0x09, /* aux6 */
 	0x0A, /* aux7 */
-	0x0B /* aux8 */
+	0x0B, /* aux8 */
+	0x12, /* temp1 */
+	0x13  /* temp2 */
 };
 
 static const struct iio_info sirfsoc_adc_info = {
