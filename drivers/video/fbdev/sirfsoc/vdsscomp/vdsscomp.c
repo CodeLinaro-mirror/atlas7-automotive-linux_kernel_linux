@@ -41,6 +41,9 @@ static bool vdsscomp_layer_enable(
 	struct sirfsoc_vdss_layer *layer = l->layer;
 	struct sirfsoc_vdss_layer_info layer_info;
 
+	if (layer->is_enabled(layer))
+		layer->disable(layer);
+
 	l->passthrough = sirfsoc_vpp_is_passthrough_support(info->fmt);
 	if (l->passthrough) {
 		struct vdss_vpp_op_params params;
