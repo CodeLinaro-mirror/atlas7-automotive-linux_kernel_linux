@@ -33,6 +33,120 @@ static void vdsscomp_sync_cb(struct work_struct *work)
 	kfree(sync);
 }
 
+static bool vdsscomp_layer_enable(
+		struct vdsscomp_layer_data *l,
+		struct vdsscomp_layer_info *info,
+		u32 phys_addr)
+{
+	struct sirfsoc_vdss_layer *layer = l->layer;
+	struct sirfsoc_vdss_layer_info layer_info;
+
+	l->passthrough = sirfsoc_vpp_is_passthrough_support(info->fmt);
+	if (l->passthrough) {
+		struct vdss_vpp_op_params params;
+
+		/* Create VPP device */
+		if (l->vpp == NULL) {
+			struct vdss_vpp_create_device_params dev_params;
+
+			memset(&dev_params, 0, sizeof(dev_params));
+			l->vpp = sirfsoc_vpp_create_device(
+					layer->lcdc_id, &dev_params);
+			if (l->vpp == NULL)
+				return false;
+		}
+
+		/* Set VPP info */
+		memset(&params, 0, sizeof(params));
+		params.type = VPP_OP_PASS_THROUGH;
+
+		params.op.passthrough.interlace.interlaced =
+						info->interlace.interlaced;
+		params.op.passthrough.interlace.field_offset =
+						info->interlace.field_offset;
+		params.op.passthrough.interlace.di_top = false;
+		params.op.passthrough.interlace.out_mode = VDSS_P_SINGLE;
+		params.op.passthrough.interlace.di_mode = info->interlace.mode;
+		params.op.passthrough.interlace.input_top_first = true;
+		params.op.passthrough.interlace.output_top_first = false;
+		params.op.passthrough.src_surf.fmt = info->fmt;
+		params.op.passthrough.src_surf.width = info->width;
+		params.op.passthrough.src_surf.height = info->height;
+		params.op.passthrough.src_surf.base = phys_addr;
+		params.op.passthrough.src_rect.left = info->src_rect.left;
+		params.op.passthrough.src_rect.top = info->src_rect.top;
+		params.op.passthrough.src_rect.right = info->src_rect.right;
+		params.op.passthrough.src_rect.bottom = info->src_rect.bottom;
+
+		params.op.passthrough.dst_rect.left = info->dst_rect.left;
+		params.op.passthrough.dst_rect.top = info->dst_rect.top;
+		params.op.passthrough.dst_rect.right = info->dst_rect.right;
+		params.op.passthrough.dst_rect.bottom = info->dst_rect.bottom;
+
+		sirfsoc_vpp_present(l->vpp, &params);
+	}
+
+	memset(&layer_info, 0, sizeof(layer_info));
+	layer->get_info(layer, &layer_info);
+	layer_info.base = phys_addr;
+	layer_info.fmt = info->fmt;
+	layer_info.surf_width = info->width;
+	layer_info.surf_height = info->height;
+	layer_info.src_rect.left = info->src_rect.left;
+	layer_info.src_rect.top = info->src_rect.top;
+	layer_info.src_rect.right = info->src_rect.right;
+	layer_info.src_rect.bottom = info->src_rect.bottom;
+	layer_info.dst_rect.left = info->dst_rect.left;
+	layer_info.dst_rect.top = info->dst_rect.top;
+	layer_info.dst_rect.right = info->dst_rect.right;
+	layer_info.dst_rect.bottom = info->dst_rect.bottom;
+	layer_info.pre_mult_alpha = info->pre_mult_alpha;
+	layer_info.passthrough = l->passthrough;
+
+	if (layer_info.fmt == VDSS_PIXELFORMAT_8888)
+		layer_info.source_alpha = 1;
+
+	print_vdss_layer_info(&layer_info);
+
+	layer->set_info(layer, &layer_info);
+	layer->screen->apply(layer->screen);
+	layer->enable(layer);
+	return true;
+}
+
+static void vdsscomp_layer_disable(struct vdsscomp_layer_data *l)
+{
+	l->layer->disable(l->layer);
+	if (l->vpp) {
+		sirfsoc_vpp_destroy_device(l->vpp);
+		l->vpp = NULL;
+		l->passthrough = false;
+	}
+}
+
+static void vdsscomp_layer_flip(struct vdsscomp_layer_data *l, u32 base)
+{
+	struct sirfsoc_vdss_layer *layer = l->layer;
+
+	if (l->passthrough) {
+		struct vdss_vpp_op_params vpp_op = {0};
+
+		vpp_op.type = VPP_OP_PASS_THROUGH;
+		vpp_op.op.passthrough.src_surf.base = base;
+		vpp_op.op.passthrough.flip = true;
+
+		sirfsoc_vpp_present(l->vpp, &vpp_op);
+	}
+
+	/*
+	 * In passthrough mode, we found that if only
+	 * VPP registers are changed, we should also
+	 * set LX_CTRL_CONFIRM, otherwise VPP shadow
+	 * registers won't take effect in next vsync
+	 * */
+	layer->flip(layer, base);
+}
+
 int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 	void (*cb_fn)(void *, int), void *cb_arg)
 {
@@ -55,8 +169,7 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 		struct vdsscomp_setup_disp_data *disp;
 		struct sirfsoc_vdss_panel *panel;
 		struct sirfsoc_vdss_screen *scn;
-		struct sirfsoc_vdss_layer *l;
-		struct sirfsoc_vdss_layer_info layer_info;
+		struct vdsscomp_layer_data *l;
 		struct sirfsoc_vdss_screen_info screen_info;
 
 		disp = &d->disps[i];
@@ -73,53 +186,24 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 		}
 
 		for (layer = 0; layer < gdev->displays[i].num_layers; layer++) {
-			l = gdev->displays[i].layers[layer];
+			l = &gdev->displays[i].layers[layer];
 			if (!(disp->dirty_mask & (1 << layer))) {
 				if (disp->phys_addr[layer] != 0)
-					l->flip(l, disp->phys_addr[layer]);
-
+					vdsscomp_layer_flip(
+						l,
+						disp->phys_addr[layer]
+						);
 				continue;
 			}
-			memset(&layer_info, 0, sizeof(layer_info));
 
-			if (disp->layers[layer].enabled) {
-				l->get_info(l, &layer_info);
-				layer_info.base = disp->phys_addr[layer];
-				layer_info.fmt = disp->layers[layer].fmt;
-				layer_info.surf_width =
-					disp->layers[layer].width;
-				layer_info.surf_height =
-					disp->layers[layer].height;
-				layer_info.src_rect.left =
-					disp->layers[layer].src_rect.left;
-				layer_info.src_rect.top =
-					disp->layers[layer].src_rect.top;
-				layer_info.src_rect.right =
-					disp->layers[layer].src_rect.right;
-				layer_info.src_rect.bottom =
-					disp->layers[layer].src_rect.bottom;
-				layer_info.dst_rect.left =
-					disp->layers[layer].dst_rect.left;
-				layer_info.dst_rect.top =
-					disp->layers[layer].dst_rect.top;
-				layer_info.dst_rect.right =
-					disp->layers[layer].dst_rect.right;
-				layer_info.dst_rect.bottom =
-					disp->layers[layer].dst_rect.bottom;
-				layer_info.pre_mult_alpha =
-					disp->layers[layer].pre_mult_alpha;
-
-				if (layer_info.fmt == VDSS_PIXELFORMAT_8888)
-					layer_info.source_alpha = 1;
-
-				print_vdss_layer_info(&layer_info);
-
-				l->set_info(l, &layer_info);
-				l->screen->apply(l->screen);
-				l->enable(l);
-			} else {
-				l->disable(l);
-			}
+			if (disp->layers[layer].enabled)
+				vdsscomp_layer_enable(
+					l,
+					&disp->layers[layer],
+					disp->phys_addr[layer]
+					);
+			else
+				vdsscomp_layer_disable(l);
 		}
 	}
 
@@ -181,9 +265,9 @@ static long vdsscomp_query_display(struct vdsscomp_dev *cdev,
 
 	/* find all overlays available for/owned by this display */
 	for (i = 0; i < d->num_layers && dis->enabled; i++) {
-		if (d->layers[i]->screen == scn)
+		if (d->layers[i].layer->screen == scn)
 			dis->layers_owned |= 1 << i;
-		else if (!d->layers[i]->is_enabled(d->layers[i]))
+		else if (!d->layers[i].layer->is_enabled(d->layers[i].layer))
 			dis->layers_avail |= 1 << i;
 	}
 
@@ -324,8 +408,10 @@ static int vdsscomp_init_displays(struct vdsscomp_dev *cdev)
 	d->lcdc_index = SIRFSOC_VDSS_LCDC0;
 
 	d->num_layers = sirfsoc_vdss_get_num_layers(d->lcdc_index);
-	for (i = 0; i < d->num_layers; i++)
-		d->layers[i] = sirfsoc_vdss_get_layer(d->lcdc_index, i);
+	for (i = 0; i < d->num_layers; i++) {
+		d->layers[i].layer = sirfsoc_vdss_get_layer(d->lcdc_index, i);
+		d->layers[i].vpp = NULL;
+	}
 
 	d->num_screens = sirfsoc_vdss_get_num_screens(d->lcdc_index);
 	for (i = 0; i < d->num_screens; i++)
@@ -345,8 +431,12 @@ static int vdsscomp_init_displays(struct vdsscomp_dev *cdev)
 		d = &cdev->displays[cdev->num_displays++];
 		d->lcdc_index = SIRFSOC_VDSS_LCDC1;
 		d->num_layers = sirfsoc_vdss_get_num_layers(d->lcdc_index);
-		for (i = 0; i < d->num_layers; i++)
-			d->layers[i] = sirfsoc_vdss_get_layer(d->lcdc_index, i);
+		for (i = 0; i < d->num_layers; i++) {
+			d->layers[i].layer = sirfsoc_vdss_get_layer(
+						d->lcdc_index,
+						i);
+			d->layers[i].vpp = NULL;
+		}
 		d->num_screens = sirfsoc_vdss_get_num_screens(d->lcdc_index);
 		for (i = 0; i < d->num_screens; i++)
 			d->screens[i] =

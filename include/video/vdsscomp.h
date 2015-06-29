@@ -104,9 +104,23 @@ struct vdsscomp_rect {
 	__u32 bottom;
 };
 
+enum vdsscomp_deinterlace_mode {
+	VDSSCOMP_DI_RESERVED = 0,
+	VDSSCOMP_DI_WEAVE,
+	VDSSCOMP_3MEDIAN,
+	VDSSCOMP_DI_VMRI,
+};
+
+struct vdsscomp_interlace {
+	__u32 field_offset;
+	__u32 interlaced;
+	enum vdsscomp_deinterlace_mode mode;
+};
+
 struct vdsscomp_layer_info {
 	__u32 enabled;
 	enum vdsscomp_pixelformat fmt;
+	struct vdsscomp_interlace interlace;
 	struct vdsscomp_rect src_rect;
 	struct vdsscomp_rect dst_rect;
 

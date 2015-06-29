@@ -25,12 +25,19 @@ struct vdsscomp_sync {
 	struct list_head list;
 };
 
+struct vdsscomp_layer_data {
+	struct sirfsoc_vdss_layer *layer;
+	void *vpp;
+	bool passthrough;
+	bool preempted;
+};
+
 /* display data per lcdc */
 struct vdsscomp_display_data {
 	unsigned lcdc_index;
 
 	unsigned num_layers;
-	struct sirfsoc_vdss_layer *layers[MAX_LAYERS];
+	struct vdsscomp_layer_data layers[MAX_LAYERS];
 	unsigned num_screens;
 	struct sirfsoc_vdss_screen *screens[MAX_SCREENS];
 
