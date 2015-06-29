@@ -41,9 +41,6 @@ static bool vdsscomp_layer_enable(
 	struct sirfsoc_vdss_layer *layer = l->layer;
 	struct sirfsoc_vdss_layer_info layer_info;
 
-	if (layer->is_enabled(layer))
-		layer->disable(layer);
-
 	l->passthrough = sirfsoc_vpp_is_passthrough_support(info->fmt);
 	if (l->passthrough) {
 		struct vdss_vpp_op_params params;
@@ -174,6 +171,7 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 		struct sirfsoc_vdss_screen *scn;
 		struct vdsscomp_layer_data *l;
 		struct sirfsoc_vdss_screen_info screen_info;
+		struct sirfsoc_vdss_layer_info layer_info;
 
 		disp = &d->disps[i];
 		panel = gdev->displays[i].panel;
@@ -186,6 +184,20 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 			screen_info.back_color = disp->scn.back_color;
 			scn->set_info(scn, &screen_info);
 			scn->apply(scn);
+		}
+
+		for (layer = 0; layer < gdev->displays[i].num_layers; layer++) {
+			l = &gdev->displays[i].layers[layer];
+			if (!(disp->dirty_mask & (1 << layer)))
+				continue;
+
+			/* If the fmt is changed, disable the layer */
+			if (disp->layers[layer].enabled) {
+				l->layer->get_info(l->layer, &layer_info);
+				if (layer_info.fmt != disp->layers[layer].fmt)
+					vdsscomp_layer_disable(l);
+			} else
+				vdsscomp_layer_disable(l);
 		}
 
 		for (layer = 0; layer < gdev->displays[i].num_layers; layer++) {
@@ -205,8 +217,6 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 					&disp->layers[layer],
 					disp->phys_addr[layer]
 					);
-			else
-				vdsscomp_layer_disable(l);
 		}
 	}
 
