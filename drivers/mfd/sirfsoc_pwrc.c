@@ -102,7 +102,7 @@ static struct regmap_irq_chip pwrc_irq_chip = {
 	.irqs = pwrc_irqs,
 	.num_irqs = ARRAY_SIZE(pwrc_irqs),
 	.num_regs = 1,
-	.mask_invert = 1,
+	.unmask_separate = 1,
 	.ack_invert = 1,
 	.init_ack_masked = true,
 };
@@ -214,6 +214,8 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	pwrc_reg = pwrcinfo->pwrc_reg;
 	regmap_irq_chip->mask_base = pwrcinfo->base +
 						pwrc_reg->pwrc_int_mask_set;
+	regmap_irq_chip->unmask_base = pwrcinfo->base +
+				pwrc_reg->pwrc_int_mask_clr;
 	regmap_irq_chip->status_base = pwrcinfo->base +
 						pwrc_reg->pwrc_int_status;
 	regmap_irq_chip->ack_base = pwrcinfo->base +
@@ -223,8 +225,8 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	ret = regmap_update_bits(map,
 			pwrcinfo->base +
 			pwrc_reg->pwrc_trigger_en_set,
-			BIT(PWRC_IRQ_ONKEY),
-			BIT(PWRC_IRQ_ONKEY));
+			BIT(PWRC_IRQ_ONKEY) | BIT(PWRC_IRQ_EXT_ONKEY),
+			BIT(PWRC_IRQ_ONKEY) | BIT(PWRC_IRQ_EXT_ONKEY));
 	if (ret < 0)
 		goto err;
 
