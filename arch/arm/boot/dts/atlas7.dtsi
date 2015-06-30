@@ -39,7 +39,6 @@
 			voltage-tolerance = <1>;
 			operating-points = <
 			/* kHz    uV */
-			1040000	1127000
 			806000	1058000
 			26000	990000
 			>;
