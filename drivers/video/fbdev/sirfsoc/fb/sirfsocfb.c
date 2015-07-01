@@ -342,7 +342,7 @@ int check_fb_var(struct fb_info *fbi, struct fb_var_screeninfo *var)
 
 		/* pixclock in ps, the rest in pixclock */
 		var->pixclock = timings.pixel_clock != 0 ?
-			KHZ2PICOS(timings.pixel_clock) :
+			KHZ2PICOS(timings.pixel_clock / 1000) :
 			0;
 		var->left_margin = timings.hbp;
 		var->right_margin = timings.hfp;
