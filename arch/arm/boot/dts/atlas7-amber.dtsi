@@ -20,7 +20,7 @@
 #ifdef CONFIG_ANDROID
 	sirf-bt-sco-a2dp {
 		compatible = "simple-audio-card";
-		simple-audio-card,format = "dsp_a";
+		simple-audio-card,format = "i2s";
 		simple-audio-card,cpu {
 			sound-dai = <&usp3>;
 		};

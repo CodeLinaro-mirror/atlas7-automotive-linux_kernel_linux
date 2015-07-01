@@ -126,6 +126,7 @@ struct screen_priv_data {
 	/* If true, a display is enabled using this manager */
 	bool enabled;
 
+	bool have_gamma;
 	int extra_info_dirty;
 	bool shadow_extra_info_dirty;
 
@@ -311,6 +312,52 @@ static void vdss_update_regs(u32 lcdc_index)
 
 		vdss_screen_update_regs_extra(scn);
 		vdss_screen_update_regs(scn);
+	}
+}
+
+/* Restore lcdc register in PM resume. */
+void vdss_restore_screen_layer(u32 lcdc_index)
+{
+	const int num_scns = sirfsoc_vdss_get_num_screens(lcdc_index);
+	int i;
+
+	for (i = 0; i < num_scns; ++i) {
+		struct sirfsoc_vdss_screen *scn;
+		struct screen_priv_data *sdata;
+		struct sirfsoc_vdss_layer *l;
+
+		scn = sirfsoc_vdss_get_screen(lcdc_index, i);
+		sdata = get_screen_data(scn);
+
+		if (!sdata->enabled)
+			continue;
+
+		WARN_ON(sdata->busy);
+
+		sdata->extra_info_dirty = SCREEN_TIMING |
+				SCREEN_DATA_LINES |
+				SCREEN_ERROR_DIFFUSION;
+
+		if (sdata->have_gamma)
+			sdata->extra_info_dirty |= SCREEN_GAMMA;
+
+		vdss_screen_update_regs_extra(scn);
+
+		lcdc_screen_setup(scn->lcdc_id, scn->id, &sdata->info);
+
+		list_for_each_entry(l, &scn->layers, list) {
+			struct layer_priv_data *ldata = get_layer_data(l);
+			struct sirfsoc_vdss_layer_info *linfo;
+
+			if (ldata->enabled) {
+				linfo = &ldata->info;
+				lcdc_layer_setup(l->lcdc_id, l->id,
+						 linfo,
+						 &sdata->timings);
+			}
+			lcdc_layer_enable(l->lcdc_id, l->id, ldata->enabled,
+				ldata->info.passthrough);
+		}
 	}
 }
 
@@ -747,6 +794,7 @@ static int vdss_screen_set_gamma(struct sirfsoc_vdss_screen *scn,
 	if (gamma == NULL)
 		return -EFAULT;
 
+	sdata->have_gamma = true;
 	spin_lock_irqsave(&data_lock, flags);
 
 	for (i = 0; i < 256 * 3; i++)

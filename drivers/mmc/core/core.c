@@ -76,6 +76,17 @@ static int mmc_schedule_delayed_work(struct delayed_work *work,
 				     unsigned long delay)
 {
 	wake_lock(&mmc_delayed_work_wake_lock);
+
+	/*
+	* for atlas7, we have some interrupt latency requirement from
+	* VIP, the "broken-cd" of SD makes us miss the deadline of
+	* VIP interrupt, which will cause VIP FIFO overflow
+	* here, we make sure "broken-cd" interrupt-off context is in
+	* different CPU with VIP
+	*/
+	if (cpu_online(1) && of_machine_is_compatible("sirf,atlas7"))
+		return queue_delayed_work_on(1, workqueue, work, delay);
+
 	return queue_delayed_work(workqueue, work, delay);
 }
 
@@ -2716,11 +2727,21 @@ void mmc_set_embedded_sdio_data(struct mmc_host *host,
 EXPORT_SYMBOL(mmc_set_embedded_sdio_data);
 #endif
 
+/*
+ * for atlas7, we want to bind mmc detect thread to CPU1 to avoid
+ * the interrupt-off context in this thread from blocking VIP
+ * interrupt too long
+ */
+#define alloc_mmc_workqueue(fmt, flags, args...) \
+	(of_machine_is_compatible("sirf,atlas7") ? \
+		alloc_workqueue(fmt, __WQ_ORDERED | (flags), 1, ##args) : \
+		alloc_ordered_workqueue(fmt, flags, ##args))
+
 static int __init mmc_init(void)
 {
 	int ret;
 
-	workqueue = alloc_ordered_workqueue("kmmcd", 0);
+	workqueue = alloc_mmc_workqueue("kmmcd", 0);
 	if (!workqueue)
 		return -ENOMEM;
 

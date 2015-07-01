@@ -330,10 +330,33 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	clk_prepare_enable(lvdsc.clk);
+	ret = clk_prepare_enable(lvdsc.clk);
+	return ret;
+}
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_lvdsc_resume_early(struct device *dev)
+{
+	return clk_prepare_enable(lvdsc.clk);
+}
+
+static int sirfsoc_lvdsc_suspend(struct device *dev)
+{
+	clk_disable_unprepare(lvdsc.clk);
 	return 0;
 }
+
+static const struct dev_pm_ops sirfsoc_lvdsc_pm_ops = {
+	.resume_early	= sirfsoc_lvdsc_resume_early,
+	.suspend	= sirfsoc_lvdsc_suspend,
+};
+#define SIRFVDSS_LVDS_PM_OPS (&sirfsoc_lvdsc_pm_ops)
+
+#else
+
+#define SIRFVDSS_LVDS_PM_OPS NULL
+
+#endif /* CONFIG_PM_SLEEP */
 
 static const struct of_device_id lvdsc_of_match[] = {
 	{ .compatible = "sirf,atlas7-lvdsc", },
@@ -345,6 +368,7 @@ static struct platform_driver sirfsoc_lvdsc_driver = {
 		.name   = "sirfsoc_lvdsc",
 		.owner  = THIS_MODULE,
 		.of_match_table = lvdsc_of_match,
+		.pm	= SIRFVDSS_LVDS_PM_OPS,
 	},
 };
 

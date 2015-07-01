@@ -163,7 +163,6 @@ struct vip_subdev_info {
 	bool			interlaced;
 	struct video_device	*vdev;
 	struct v4l2_subdev	*sd;
-	struct v4l2_ctrl_handler ctrl_handler;
 	unsigned int		num_inputs;
 	unsigned int		cur_input;
 	struct v4l2_input	inputs[SUBDEV_MAX_INPUTS];

@@ -2096,7 +2096,7 @@ static int vip_video_devs_create(struct vip_dev *vip)
 		vdev->ioctl_ops		= &sirfsoc_camera_ioctl_ops;
 		vdev->release		= video_device_release;
 		vdev->tvnorms		= V4L2_STD_NTSC | V4L2_STD_PAL;
-		vdev->ctrl_handler	= &subdev->ctrl_handler;
+		vdev->ctrl_handler	= subdev->sd->ctrl_handler;
 		vdev->lock		= &vip->host_lock;
 		vdev->v4l2_dev		= &vip->v4l2_dev;
 

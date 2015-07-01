@@ -92,6 +92,41 @@ struct rv_dev {
 };
 
 
+static ssize_t rv_enabled_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rv->running);
+}
+
+static ssize_t rv_enabled_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int r;
+	bool e;
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	r = strtobool(buf, &e);
+	if (r)
+		return r;
+
+	atomic_set(&rv->value, e);
+	schedule_work(&rv->rv_work);
+
+	return size;
+}
+
+static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
+				rv_enabled_show, rv_enabled_store);
+
+static const struct attribute *rv_sysfs_attrs[] = {
+	&dev_attr_enabled.attr,
+	NULL
+};
+
+
 static bool rv_input_filter(struct input_handle *handle,
 	unsigned int type, unsigned int code, int value)
 {
@@ -604,6 +639,12 @@ static int rv_probe(struct platform_device *pdev)
 
 	rv_input_register(rv);
 
+	ret = sysfs_create_files(&dev->kobj, rv_sysfs_attrs);
+	if (ret) {
+		dev_err(dev, "failed to create sysfs files\n");
+		goto exit;
+	}
+
 	pr_info("rearview start on %s\n", display_name);
 
 	return 0;
@@ -627,6 +668,8 @@ static int rv_remove(struct platform_device *pdev)
 
 	dma_free_coherent(rv->dev, DATA_DMA_SIZE + TABLE_DMA_SIZE,
 				rv->data_virt_addr, rv->data_dma_addr);
+
+	sysfs_remove_files(&rv->dev->kobj, rv_sysfs_attrs);
 
 	pr_info("rv_remove done\n");
 

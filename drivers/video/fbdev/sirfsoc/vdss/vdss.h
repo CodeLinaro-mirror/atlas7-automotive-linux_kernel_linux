@@ -52,6 +52,7 @@ void vdss_screen_set_data_lines(struct sirfsoc_vdss_screen *scn,
 int vdss_screen_enable(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_disable(struct sirfsoc_vdss_screen *scn);
 void vdss_screen_update_regs_extra(struct sirfsoc_vdss_screen *scn);
+void vdss_restore_screen_layer(u32 lcdc_index);
 
 /* functions export from layer-sysfs.c and used by other vdss core files*/
 int vdss_init_layers_sysfs(u32 lcdc_index);
@@ -86,7 +87,6 @@ void lcdc_layer_enable(u32 lcdc_index, enum vdss_layer layer,
 void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info);
 struct lcdc_prop *lcdc_get_prop(u32 lcdc_index);
-
 
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);

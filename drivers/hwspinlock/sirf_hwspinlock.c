@@ -25,7 +25,7 @@ struct sirf_hwspinlock {
 #define	HW_SPINLOCK_NUMBER	30
 
 /* Hardware spinlock register offsets */
-#define HW_SPINLOCK_BASE	0x404
+#define HW_SPINLOCK_BASE	0x04
 #define HW_SPINLOCK_OFFSET(x)	(HW_SPINLOCK_BASE + 0x4 * (x))
 
 static int sirf_hwspinlock_trylock(struct hwspinlock *lock)
@@ -53,6 +53,7 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 {
 	struct sirf_hwspinlock *hwspin;
 	struct hwspinlock *hwlock;
+	struct resource *res;
 	int idx, ret;
 
 	if (!pdev->dev.of_node)
@@ -64,7 +65,8 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* retrieve io base */
-	hwspin->io_base = of_iomap(pdev->dev.of_node, 0);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	hwspin->io_base = devm_ioremap_resource(&pdev->dev, res);
 	if (!hwspin->io_base)
 		return -ENOMEM;
 
@@ -87,7 +89,6 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 
 reg_failed:
 	pm_runtime_disable(&pdev->dev);
-	iounmap(hwspin->io_base);
 
 	return ret;
 }
@@ -104,8 +105,6 @@ static int sirf_hwspinlock_remove(struct platform_device *pdev)
 	}
 
 	pm_runtime_disable(&pdev->dev);
-
-	iounmap(hwspin->io_base);
 
 	return 0;
 }

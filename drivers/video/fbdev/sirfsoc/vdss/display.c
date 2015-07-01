@@ -68,13 +68,13 @@ int vdss_suspend_all_panels(void)
 			panel->activate_after_resume = false;
 		}
 	}
-
 	return 0;
 }
 
 int vdss_resume_all_panels(void)
 {
 	struct sirfsoc_vdss_panel *panel = NULL;
+	int i;
 
 	for_each_vdss_panel(panel) {
 		if (!panel->driver)
@@ -86,6 +86,8 @@ int vdss_resume_all_panels(void)
 		}
 	}
 
+	for (i = 0; i < sirfsoc_vdss_get_num_lcdc(); i++)
+		vdss_restore_screen_layer(i);
 	return 0;
 }
 

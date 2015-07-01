@@ -537,6 +537,18 @@ config SIRF_MINIGPSRTC
 	  Support for SiRFSoC rtc alarm1 module, which is specially used for
 	  minigps running
 
+config SIRFSOC_PULSEC
+	tristate "SiRFSoC Pulse Counter controller driver"
+	depends on ARCH_SIRF
+	default n
+	help
+	  Support for SIRFSOC pulse counter controller monitor
+	  The pulse counter use for count the left and right wheel
+	  rotation number
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called sirfsoc_pulsec.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
