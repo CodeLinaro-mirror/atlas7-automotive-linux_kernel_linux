@@ -13,5 +13,7 @@
 /* sirfsocfb specific ioctls*/
 #define SIRFSOCFB_SET_GAMMA	_IOW('S', 0x0, __u8[256 * 3])
 #define SIRFSOCFB_GET_GAMMA	_IOR('S', 0x0, __u8[256 * 3])
+#define SIRFSOCFB_SET_TOPLAYER _IOW('S', 0x1, __u8)
+#define SIRFSOCFB_GET_TOPLAYER _IOR('S', 0x1, __u8)
 
 #endif
