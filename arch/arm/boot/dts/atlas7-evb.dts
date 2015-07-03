@@ -137,6 +137,11 @@
 			no-map;
 		};
 
+		uboot_reserved: uboot@5b800000 {
+			reg = <0x5b800000 0x200000>;
+			no-map;
+		};
+
 		cm3_reserved: cm3@4fe00000 {
 			reg = <0x4fe00000 0x100000>;
 			no-map;
