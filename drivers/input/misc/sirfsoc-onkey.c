@@ -184,21 +184,31 @@ static int sirfsoc_onkey_resume(struct device *dev)
 	struct sirfsoc_onkey_info *info = dev_get_drvdata(dev);
 	struct input_dev *input = info->input;
 
-	/*
-	 * Do not mask pwrc interrupt as we want pwrc work as a wakeup source
-	 * if users touch X_ONKEY_B, see arch/arm/mach-prima2/pm.c
-	 */
 	mutex_lock(&input->mutex);
 	if (input->users)
 		enable_irq(info->virq);
 
 	mutex_unlock(&input->mutex);
-
 	return 0;
 }
-#endif
 
-static SIMPLE_DEV_PM_OPS(sirfsoc_onkey_pm_ops, NULL, sirfsoc_onkey_resume);
+
+static int sirfsoc_onkey_supend(struct device *dev)
+{
+	struct sirfsoc_onkey_info *info = dev_get_drvdata(dev);
+	struct input_dev *input = info->input;
+
+	mutex_lock(&input->mutex);
+	if (input->users)
+		disable_irq(info->virq);
+
+	mutex_unlock(&input->mutex);
+	return 0;
+}
+
+#endif
+static SIMPLE_DEV_PM_OPS(sirfsoc_onkey_pm_ops, sirfsoc_onkey_supend,
+				sirfsoc_onkey_resume);
 
 static struct platform_driver sirfsoc_onkey_driver = {
 	.probe		= sirfsoc_onkey_probe,
