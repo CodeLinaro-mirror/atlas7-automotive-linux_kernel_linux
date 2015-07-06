@@ -234,6 +234,21 @@ static void vip_buffer_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&vip->lock, flags);
 }
 
+/*
+ * vip_buffer_finish : Callback function before DQ buffer return
+ * @vb: ptr to vb2_buffer
+ */
+static void vip_buffer_finish(struct vb2_buffer *vb)
+{
+	struct vip_dev *vip = vb2_get_drv_priv(vb->vb2_queue);
+	struct vip_subdev_info *subdev = &vip->subdev[0];
+	struct v4l2_subdev *sd = subdev->sd;
+	struct v4l2_mbus_framefmt mf;
+
+	v4l2_subdev_call(sd, video, g_mbus_fmt, &mf);
+
+	vb->v4l2_buf.field = mf.field;
+}
 
 /*
  * vip_start_streaming : Callback function to start streaming
@@ -327,6 +342,7 @@ static struct vb2_ops vip_video_qops = {
 	.buf_init		= vip_buffer_init,
 	.buf_prepare		= vip_buffer_prepare,
 	.buf_queue		= vip_buffer_queue,
+	.buf_finish		= vip_buffer_finish,
 	/*.buf_cleanup		= vip_buffer_cleanup,*/
 	.start_streaming	= vip_start_streaming,
 	.stop_streaming		= vip_stop_streaming,
@@ -2156,7 +2172,7 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 	control.vsync_invert	= 0;
 	control.single_cap	= 0;
 	control.hor_mirror_en	= 0;
-	control.cap_from_odd_en	= 1;
+	control.cap_from_odd_en	= 0;
 	control.cap_from_even_en = 0;
 	control.ccir565_en	= 0;
 	vip_hw_set_control(vip, control);
