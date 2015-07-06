@@ -51,14 +51,6 @@
 #define CVD_DRV_NAME "sirfsoc-cvd"
 #define CVD_DUMP(fmt, ...)	pr_info(fmt, ## __VA_ARGS__)
 
-#ifndef TRUE
-#define TRUE (1)
-#endif
-
-#ifndef FALSE
-#define FALSE (0)
-#endif
-
 
 struct cvd_dev {
 	struct device		*dev;
@@ -205,10 +197,10 @@ static int cvd_detect_video_signal(struct v4l2_subdev *sd)
 	fc_less_threshold = 128 - 80;
 	freq_status = (cvd_read(CVBSD_CORDIC_FREQ_STATUS, sd) + 0x80) & 0xFF;
 
-	fc_more_flag = (freq_status > fc_more_threshold) ? TRUE : FALSE;
-	fc_less_flag = (freq_status < fc_less_threshold) ? TRUE : FALSE;
+	fc_more_flag = (freq_status > fc_more_threshold) ? true : false;
+	fc_less_flag = (freq_status < fc_less_threshold) ? true : false;
 	fc_same_flag = ((freq_status >= fc_less_threshold)
-			&& (freq_status <= fc_more_threshold)) ? TRUE : FALSE;
+			&& (freq_status <= fc_more_threshold)) ? true : false;
 
 	if (cvd1_status_1 & 0xE) {
 		if (!(cvd1_status_3 & 0x4) /* !(625 scan lines detected) */
@@ -278,7 +270,9 @@ static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 		complete(&dec->done);
 	}
 
-	*handled = TRUE;
+out:
+	*handled = true;
+
 	return 0;
 }
 
