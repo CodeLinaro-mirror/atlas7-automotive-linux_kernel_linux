@@ -570,7 +570,7 @@
 			rearview_key {
 				label = "rearview key";
 				linux,code = <KEY_CAMERA>;
-				gpios = <&gpio_1 1 0>;
+				gpios = <&gpio_1 3 0>;
 				debounce_interval = <100>;
 			};
 		};
