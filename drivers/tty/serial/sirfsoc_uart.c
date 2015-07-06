@@ -1166,14 +1166,6 @@ static struct uart_driver sirfsoc_uart_drv = {
 #endif
 };
 
-static struct of_device_id sirfsoc_uart_ids[] = {
-	{ .compatible = "sirf,prima2-uart", .data = &sirfsoc_uart,},
-	{ .compatible = "sirf,atlas7-uart", .data = &sirfsoc_uart},
-	{ .compatible = "sirf,prima2-usp-uart", .data = &sirfsoc_usp},
-	{ .compatible = "sirf,atlas7-usp-uart", .data = &sirfsoc_usp},
-	{}
-};
-MODULE_DEVICE_TABLE(of, sirfsoc_uart_ids);
 static enum hrtimer_restart
 	sirfsoc_uart_rx_dma_hrtimer_callback(struct hrtimer *hrt)
 {
@@ -1259,6 +1251,16 @@ next_hrt:
 	hrtimer_forward_now(hrt, ns_to_ktime(sirfport->rx_period_time));
 	return HRTIMER_RESTART;
 }
+
+static struct of_device_id sirfsoc_uart_ids[] = {
+	{ .compatible = "sirf,prima2-uart", .data = &sirfsoc_uart,},
+	{ .compatible = "sirf,atlas7-uart", .data = &sirfsoc_uart},
+	{ .compatible = "sirf,prima2-usp-uart", .data = &sirfsoc_usp},
+	{ .compatible = "sirf,atlas7-usp-uart", .data = &sirfsoc_usp},
+	{}
+};
+MODULE_DEVICE_TABLE(of, sirfsoc_uart_ids);
+
 static int sirfsoc_uart_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport;
@@ -1367,12 +1369,14 @@ usp_no_flow_control:
 		goto err;
 	}
 	port->irq = res->start;
+
 	sirfport->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(sirfport->clk)) {
 		ret = PTR_ERR(sirfport->clk);
 		goto err;
 	}
 	port->uartclk = clk_get_rate(sirfport->clk);
+
 	port->ops = &sirfsoc_uart_ops;
 	spin_lock_init(&port->lock);
 
@@ -1462,7 +1466,6 @@ static struct platform_driver sirfsoc_uart_driver = {
 	.remove		= sirfsoc_uart_remove,
 	.driver		= {
 		.name	= SIRFUART_PORT_NAME,
-		.owner	= THIS_MODULE,
 		.of_match_table = sirfsoc_uart_ids,
 		.pm	= &sirfsoc_uart_pm_ops,
 	},
