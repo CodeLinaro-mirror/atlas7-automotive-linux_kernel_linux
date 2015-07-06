@@ -36,6 +36,7 @@
 #define SIRFSOC_DMA_CH_XLEN                     0x04
 #define SIRFSOC_DMA_CH_YLEN                     0x08
 #define SIRFSOC_DMA_CH_CTRL                     0x0C
+
 #define SIRFSOC_DMA_WIDTH_0                     0x100
 #define SIRFSOC_DMA_CH_VALID                    0x140
 #define SIRFSOC_DMA_CH_INT                      0x144
@@ -75,7 +76,7 @@
 #define SIRFSOC_DMA_INT_ALL_ATLAS7              0x3F
 
 /* xlen and dma_width register is in 4 bytes boundary */
-#define SIRFSOC_DMA_WORD_LEN		4
+#define SIRFSOC_DMA_WORD_LEN			4
 #define SIRFSOC_DMA_XLEN_MAX_V1         0x800
 #define SIRFSOC_DMA_XLEN_MAX_V2         0x1000
 
@@ -125,10 +126,9 @@ struct sirfsoc_dma {
 	int				irq;
 	struct clk			*clk;
 	int				type;
-	struct sirfsoc_dma_regs		regs_save;
-
 	void (*exec_desc)(struct sirfsoc_dma_desc *sdesc,
 		int cid, int burst_mode, void __iomem *base);
+	struct sirfsoc_dma_regs		regs_save;
 };
 
 struct sirfsoc_dmadata {
@@ -159,7 +159,6 @@ struct sirfsoc_dma_chan *dma_chan_to_sirfsoc_dma_chan(struct dma_chan *c)
 static inline struct sirfsoc_dma *dma_chan_to_sirfsoc_dma(struct dma_chan *c)
 {
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(c);
-
 	return container_of(schan, struct sirfsoc_dma, channels[c->chan_id]);
 }
 
@@ -302,6 +301,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 
 	case SIRFSOC_DMA_VER_A7V2:
 		is = readl(sdma->base + SIRFSOC_DMA_INT_ATLAS7);
+
 		reg = sdma->base + SIRFSOC_DMA_INT_ATLAS7;
 		writel_relaxed(SIRFSOC_DMA_INT_ALL_ATLAS7, reg);
 		schan = &sdma->channels[0];
@@ -323,12 +323,12 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 		} else if (sdesc->cyclic && (is &
 					SIRFSOC_DMA_INT_LOOP_INT_ATLAS7))
 			schan->happened_cyclic++;
+
 		spin_unlock(&schan->lock);
 		break;
 
 	default:
 		break;
-
 	}
 
 	/* Schedule tasklet */
@@ -512,6 +512,7 @@ static int sirfsoc_dma_pause_chan(struct sirfsoc_dma_chan *schan)
 	default:
 		break;
 	}
+
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	return 0;
@@ -543,6 +544,7 @@ static int sirfsoc_dma_resume_chan(struct sirfsoc_dma_chan *schan)
 	default:
 		break;
 	}
+
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	return 0;
@@ -588,8 +590,7 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 	for (i = 0; i < SIRFSOC_DMA_DESCRIPTORS; i++) {
 		sdesc = kzalloc(sizeof(*sdesc), GFP_KERNEL);
 		if (!sdesc) {
-			dev_notice(sdma->dma.dev, "Memory allocation error. ");
-			dev_notice(sdma->dma.dev,
+			dev_notice(sdma->dma.dev, "Memory allocation error. "
 				"Allocated only %u descriptors\n", i);
 			break;
 		}
@@ -1017,12 +1018,12 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	struct dma_device *dma;
 	struct sirfsoc_dma *sdma;
 	struct sirfsoc_dma_chan *schan;
+	struct sirfsoc_dmadata *data;
 	struct resource res;
 	ulong regs_start, regs_size;
 	u32 id;
 	int ret, i;
 	int dma_channels = 0;
-	struct sirfsoc_dmadata *data;
 
 	sdma = devm_kzalloc(dev, sizeof(*sdma), GFP_KERNEL);
 	if (!sdma) {
@@ -1167,7 +1168,6 @@ static int sirfsoc_dma_runtime_suspend(struct device *dev)
 	struct sirfsoc_dma *sdma = dev_get_drvdata(dev);
 
 	clk_disable_unprepare(sdma->clk);
-
 	return 0;
 }
 
@@ -1181,7 +1181,6 @@ static int sirfsoc_dma_runtime_resume(struct device *dev)
 		dev_err(dev, "clk_enable failed: %d\n", ret);
 		return ret;
 	}
-
 	return 0;
 }
 
@@ -1322,7 +1321,7 @@ struct sirfsoc_dmadata sirfsoc_dmadata_a7v2 = {
 	.type = SIRFSOC_DMA_VER_A7V2,
 };
 
-static struct of_device_id sirfsoc_dma_match[] = {
+static const struct of_device_id sirfsoc_dma_match[] = {
 	{ .compatible = "sirf,prima2-dmac", .data = &sirfsoc_dmadata_a6,},
 	{ .compatible = "sirf,atlas7-dmac", .data = &sirfsoc_dmadata_a7v1,},
 	{ .compatible = "sirf,atlas7-dmac-v2", .data = &sirfsoc_dmadata_a7v2,},
@@ -1334,7 +1333,6 @@ static struct platform_driver sirfsoc_dma_driver = {
 	.remove		= sirfsoc_dma_remove,
 	.driver = {
 		.name = DRV_NAME,
-		.owner = THIS_MODULE,
 		.pm = &sirfsoc_dma_pm_ops,
 		.of_match_table	= sirfsoc_dma_match,
 	},
