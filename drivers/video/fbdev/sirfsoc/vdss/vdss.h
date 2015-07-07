@@ -58,6 +58,10 @@ void vdss_restore_screen_layer(u32 lcdc_index);
 int vdss_init_layers_sysfs(u32 lcdc_index);
 void vdss_uninit_layers_sysfs(u32 lcdc_index);
 
+/* functions export from screen-sysfs.c and used by other vdss core files*/
+int vdss_init_screens_sysfs(u32 lcdc_index);
+void vdss_uninit_screens_sysfs(u32 lcdc_index);
+
 /* functions export from display.c and used by other vdss core files*/
 int vdss_suspend_all_panels(void);
 int vdss_resume_all_panels(void);

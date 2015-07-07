@@ -13,6 +13,8 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/regmap.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 
@@ -21,7 +23,6 @@
 #define RTC_ALARM0		0x04
 #define RTC_ALARM1		0x18
 #define RTC_STATUS		0x08
-#define RTC_SW_VALUE            0x40
 #define SIRFSOC_RTC_AL1E	(1<<6)
 #define SIRFSOC_RTC_AL1		(1<<4)
 #define SIRFSOC_RTC_HZE		(1<<3)
@@ -50,6 +51,7 @@ struct sirfsoc_rtc_drv {
 	u32			overflow_rtc;
 	spinlock_t		lock;
 	struct regmap *regmap;
+	void __iomem *retain_base;
 #ifdef CONFIG_PM
 	u32		saved_counter;
 	u32		saved_overflow_rtc;
@@ -187,6 +189,30 @@ static int sirfsoc_rtc_read_time(struct device *dev,
 	return 0;
 }
 
+#define RTC_SCRATCHPAD_PRIMA2_OFS            0x40
+#define RTC_SCRATCHPAD_ATLAS7_OFS            0x2c
+
+static void sirfsoc_rtc_set_overflow(struct sirfsoc_rtc_drv *rtcdrv)
+{
+
+	if (of_machine_is_compatible("sirf,atlas7"))
+		writel(rtcdrv->overflow_rtc, rtcdrv->retain_base +
+			RTC_SCRATCHPAD_ATLAS7_OFS);
+	else
+		sirfsoc_rtc_writereg(rtcdrv, RTC_SCRATCHPAD_PRIMA2_OFS,
+			rtcdrv->overflow_rtc);
+}
+
+static u32 sirfsoc_rtc_get_overflow(struct sirfsoc_rtc_drv *rtcdrv)
+{
+	if (of_machine_is_compatible("sirf,atlas7"))
+		return readl(rtcdrv->retain_base +
+			RTC_SCRATCHPAD_ATLAS7_OFS);
+	else
+		return sirfsoc_rtc_readreg(rtcdrv,
+			RTC_SCRATCHPAD_PRIMA2_OFS);
+}
+
 static int sirfsoc_rtc_set_time(struct device *dev,
 		struct rtc_time *tm)
 {
@@ -197,9 +223,7 @@ static int sirfsoc_rtc_set_time(struct device *dev,
 	rtc_tm_to_time(tm, &rtc_time);
 
 	rtcdrv->overflow_rtc = rtc_time >> (BITS_PER_LONG - RTC_SHIFT);
-
-	sirfsoc_rtc_writereg(rtcdrv, RTC_SW_VALUE,
-		rtcdrv->overflow_rtc);
+	sirfsoc_rtc_set_overflow(rtcdrv);
 	sirfsoc_rtc_writereg(rtcdrv, RTC_CN,
 			rtc_time << RTC_SHIFT);
 
@@ -347,6 +371,8 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	unsigned long rtc_div;
 	struct sirfsoc_rtc_drv *rtcdrv;
 	struct device_node *np = pdev->dev.of_node;
+	struct platform_device *retain_pdev;
+	struct resource *retain_res;
 
 	rtcdrv = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirfsoc_rtc_drv), GFP_KERNEL);
@@ -399,9 +425,19 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	sirfsoc_rtc_writereg(rtcdrv, RTC_ALARM1, 0x0);
 
 	/* Restore RTC Overflow From Register After Command Reboot */
-	rtcdrv->overflow_rtc =
-		sirfsoc_rtc_readreg(rtcdrv, RTC_SW_VALUE);
-
+	np = of_find_compatible_node(NULL, NULL, "sirf,atlas7-retain");
+	if (np) {
+		retain_pdev = of_find_device_by_node(np);
+		retain_res = platform_get_resource(retain_pdev,
+							IORESOURCE_MEM, 0);
+		rtcdrv->retain_base = devm_ioremap_resource(&retain_pdev->dev,
+								retain_res);
+		if (IS_ERR(rtcdrv->retain_base)) {
+			pr_err("err: of_iomap retain reg error\n");
+			return PTR_ERR(rtcdrv->retain_base);
+		}
+	}
+	rtcdrv->overflow_rtc = sirfsoc_rtc_get_overflow(rtcdrv);
 	/*register rtc device after hardware divider etc been initialized,
 	**since below register process call to read_time could cause
 	**infinite loop
@@ -441,9 +477,8 @@ static int sirfsoc_rtc_remove(struct platform_device *pdev)
 static int sirfsoc_rtc_suspend(struct device *dev)
 {
 	struct sirfsoc_rtc_drv *rtcdrv = dev_get_drvdata(dev);
-	rtcdrv->overflow_rtc =
-		sirfsoc_rtc_readreg(rtcdrv, RTC_SW_VALUE);
 
+	rtcdrv->overflow_rtc = sirfsoc_rtc_get_overflow(rtcdrv);
 	rtcdrv->saved_counter =
 		sirfsoc_rtc_readreg(rtcdrv, RTC_CN);
 	rtcdrv->saved_overflow_rtc = rtcdrv->overflow_rtc;
@@ -494,8 +529,7 @@ static int sirfsoc_rtc_resume(struct device *dev)
 	 *PWRC Value Be Changed When Suspend, Restore Overflow
 	 * In Memory To Register
 	 */
-	sirfsoc_rtc_writereg(rtcdrv, RTC_SW_VALUE, rtcdrv->overflow_rtc);
-
+	sirfsoc_rtc_set_overflow(rtcdrv);
 	if (device_may_wakeup(dev) && rtcdrv->irq_wake) {
 		disable_irq_wake(rtcdrv->irq);
 		rtcdrv->irq_wake = 0;

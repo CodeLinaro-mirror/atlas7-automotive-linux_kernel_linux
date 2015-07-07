@@ -17,6 +17,7 @@
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 #include <linux/reset.h>
+#include <linux/mutex.h>
 
 #include "mjpegdev.h"
 
@@ -665,6 +666,14 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		jpeg_setalign(&codec_param);
 		break;
 	}
+	case IOCTL_JPEG_START:
+		wait_event_interruptible(jpeg.query_wait,
+		!test_and_set_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy));
+		break;
+	case IOCTL_JPEG_FINISH:
+		clear_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy);
+		wake_up_interruptible(&jpeg.query_wait);
+		break;
 	default:
 		pr_err("[ERR]: default\r\n");
 		ret = -EINVAL;
@@ -768,6 +777,8 @@ static int jpeg_probe(struct platform_device *pdev)
 	if (ret)
 		goto ERROR;
 
+	jpeg.jpeg_busy = 0;
+	init_waitqueue_head(&jpeg.query_wait);
 	jpeg_info = &jpeg.jpeg_info;
 	irq = platform_get_irq(pdev, 0);
 	jpeg_info->irq_id = irq;

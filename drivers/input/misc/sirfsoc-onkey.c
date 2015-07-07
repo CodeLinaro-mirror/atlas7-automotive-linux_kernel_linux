@@ -27,13 +27,12 @@ struct sirfsoc_onkey_info {
 	struct regmap *regmap;
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	struct input_dev	*input;
-	struct delayed_work	work;
 	u32 base;
 	int virq;
 	int exton_virq;
 };
 
-#define PWRC_KEY_DETECT_UP_TIME		320	/* ms*/
+#define PWRC_KEY_DETECT_UP_TIME		20	/* ms*/
 
 static int sirfsoc_onkey_down(struct sirfsoc_onkey_info *info)
 {
@@ -44,38 +43,28 @@ static int sirfsoc_onkey_down(struct sirfsoc_onkey_info *info)
 					info->base +
 					pwrc->pwrc_pin_status,
 					&state);
-	/* active low */
+	/* active low for onkey, but active high for ext_onkey*/
 	return !(state & BIT(PWRC_IRQ_ONKEY)) ||
-		!(state & BIT(PWRC_IRQ_EXT_ONKEY));
-}
-
-static void sirfsoc_onkey_event(struct work_struct *work)
-{
-	struct sirfsoc_onkey_info *info =
-		container_of(work, struct sirfsoc_onkey_info, work.work);
-
-	/*
-	* FIXME: we need to define event for EXT_ONKEY,
-	* but since requirement is not clear
-	* for now just report same event as ONKEY
-	*/
-	if (sirfsoc_onkey_down(info)) {
-		schedule_delayed_work(&info->work,
-			msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
-	} else {
-		input_event(info->input, EV_KEY, KEY_POWER, 0);
-		input_sync(info->input);
-	}
+		(state & BIT(PWRC_IRQ_EXT_ONKEY));
 }
 
 static irqreturn_t sirfsoc_onkey_handler(int irq, void *dev_id)
 {
 	struct sirfsoc_onkey_info *info = dev_id;
 
+	if (!sirfsoc_onkey_down(info))
+		return IRQ_NONE;
+
 	input_event(info->input, EV_KEY, KEY_POWER, 1);
 	input_sync(info->input);
-	schedule_delayed_work(&info->work,
-			      msecs_to_jiffies(PWRC_KEY_DETECT_UP_TIME));
+
+	/* poll key-up since key-up has no interrupt */
+	do {
+		msleep(PWRC_KEY_DETECT_UP_TIME);
+	} while (sirfsoc_onkey_down(info));
+
+	input_event(info->input, EV_KEY, KEY_POWER, 0);
+	input_sync(info->input);
 
 	return IRQ_HANDLED;
 }
@@ -93,7 +82,6 @@ static void sirfsoc_onkey_close(struct input_dev *input)
 	struct sirfsoc_onkey_info *info = input_get_drvdata(input);
 
 	disable_irq(info->virq);
-	cancel_delayed_work_sync(&info->work);
 }
 
 static const struct of_device_id sirfsoc_onkey_of_match[] = {
@@ -134,8 +122,6 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 	info->input->evbit[0] = BIT_MASK(EV_KEY);
 	input_set_capability(info->input, EV_KEY, KEY_POWER);
 
-	INIT_DELAYED_WORK(&info->work, sirfsoc_onkey_event);
-
 	info->input->open = sirfsoc_onkey_open;
 	info->input->close = sirfsoc_onkey_close;
 
@@ -145,7 +131,7 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 
 	irq_set_status_flags(info->virq, IRQ_NOAUTOEN);
 	ret = request_threaded_irq(info->virq, NULL, sirfsoc_onkey_handler,
-					    0, "onkey", info);
+					    IRQF_ONESHOT, "onkey", info);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to request IRQ: #%d: %d\n",
 			info->virq, ret);
@@ -159,7 +145,7 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(info->exton_virq, NULL,
 			sirfsoc_onkey_handler,
-			0, "ext_onkey", info);
+			IRQF_ONESHOT, "ext_onkey", info);
 
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to request IRQ: #%d: %d\n",
@@ -198,21 +184,31 @@ static int sirfsoc_onkey_resume(struct device *dev)
 	struct sirfsoc_onkey_info *info = dev_get_drvdata(dev);
 	struct input_dev *input = info->input;
 
-	/*
-	 * Do not mask pwrc interrupt as we want pwrc work as a wakeup source
-	 * if users touch X_ONKEY_B, see arch/arm/mach-prima2/pm.c
-	 */
 	mutex_lock(&input->mutex);
 	if (input->users)
 		enable_irq(info->virq);
 
 	mutex_unlock(&input->mutex);
-
 	return 0;
 }
-#endif
 
-static SIMPLE_DEV_PM_OPS(sirfsoc_onkey_pm_ops, NULL, sirfsoc_onkey_resume);
+
+static int sirfsoc_onkey_supend(struct device *dev)
+{
+	struct sirfsoc_onkey_info *info = dev_get_drvdata(dev);
+	struct input_dev *input = info->input;
+
+	mutex_lock(&input->mutex);
+	if (input->users)
+		disable_irq(info->virq);
+
+	mutex_unlock(&input->mutex);
+	return 0;
+}
+
+#endif
+static SIMPLE_DEV_PM_OPS(sirfsoc_onkey_pm_ops, sirfsoc_onkey_supend,
+				sirfsoc_onkey_resume);
 
 static struct platform_driver sirfsoc_onkey_driver = {
 	.probe		= sirfsoc_onkey_probe,

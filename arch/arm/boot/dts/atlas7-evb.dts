@@ -133,7 +133,12 @@
 		};
 
 		multimedia_reserved: multimedia@58800000 {
-			reg = <0x58800000 0x6000000>;
+			reg = <0x58800000 0x2400000>;
+			no-map;
+		};
+
+		uboot_reserved: uboot@5b800000 {
+			reg = <0x5b800000 0x200000>;
 			no-map;
 		};
 
@@ -565,7 +570,7 @@
 			rearview_key {
 				label = "rearview key";
 				linux,code = <KEY_CAMERA>;
-				gpios = <&gpio_1 1 0>;
+				gpios = <&gpio_1 3 0>;
 				debounce_interval = <100>;
 			};
 		};

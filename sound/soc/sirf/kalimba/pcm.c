@@ -231,7 +231,6 @@ static int kas_pcm_ack(struct snd_pcm_substream *substream)
 	struct kas_priv_data *pdata =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kas_pcm_data *pcm_data = &pdata->pcm[substream->stream];
-	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 
 	if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
 		return 0;
@@ -278,6 +277,8 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	ret = dma_coerce_mask_and_coherent(card->dev, DMA_BIT_MASK(32));
 	if (ret)
 		return ret;
+	/* Enable PCM operations are in non-atomic context */
+	pcm->nonatomic = true;
 
 	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream ||
 			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {

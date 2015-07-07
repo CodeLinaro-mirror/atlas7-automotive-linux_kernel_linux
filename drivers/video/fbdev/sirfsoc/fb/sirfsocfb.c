@@ -342,7 +342,7 @@ int check_fb_var(struct fb_info *fbi, struct fb_var_screeninfo *var)
 
 		/* pixclock in ps, the rest in pixclock */
 		var->pixclock = timings.pixel_clock != 0 ?
-			KHZ2PICOS(timings.pixel_clock) :
+			KHZ2PICOS(timings.pixel_clock / 1000) :
 			0;
 		var->left_margin = timings.hbp;
 		var->right_margin = timings.hfp;
@@ -666,11 +666,47 @@ static int sirfsocfb_get_gamma(struct fb_info *info, u8 *gamma)
 {
 	struct sirfsocfb_info *sfbi = FB2SFB(info);
 	struct sirfsoc_vdss_layer *l = sfbi->layers[0];
-	int r;
+	int r = 0;
 
 	r = l->screen->get_gamma(l->screen, gamma);
 
 	return r;
+}
+
+static int sirfsocfb_set_toplayer(struct fb_info *info, u8 toplayer)
+{
+	struct sirfsocfb_info *sfbi = FB2SFB(info);
+	struct sirfsoc_vdss_layer *l = sfbi->layers[0];
+	struct sirfsoc_vdss_screen_info sinfo;
+	int r = 0;
+
+	if (toplayer < SIRFSOC_VDSS_LAYER0 || toplayer > SIRFSOC_VDSS_LAYER3)
+		return -EINVAL;
+
+	l->screen->get_info(l->screen, &sinfo);
+
+	if (sinfo.top_layer != toplayer) {
+		sinfo.top_layer = toplayer;
+		r = l->screen->set_info(l->screen, &sinfo);
+		if (r)
+			return r;
+		r = l->screen->apply(l->screen);
+	}
+
+	return r;
+}
+
+static int sirfsocfb_get_toplayer(struct fb_info *info, u8 *toplayer)
+{
+	struct sirfsocfb_info *sfbi = FB2SFB(info);
+	struct sirfsoc_vdss_layer *l = sfbi->layers[0];
+	struct sirfsoc_vdss_screen_info sinfo;
+
+	l->screen->get_info(l->screen, &sinfo);
+
+	*toplayer = sinfo.top_layer;
+
+	return 0;
 }
 
 static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
@@ -678,6 +714,7 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	union {
 		u8 *gamma;
+		u8 toplayer;
 	} data;
 	int r = 0;
 
@@ -701,6 +738,21 @@ static int sirfsocfb_ioctl(struct fb_info *info, unsigned int cmd,
 			return -EFAULT;
 		}
 		kfree(data.gamma);
+		break;
+	case SIRFSOCFB_SET_TOPLAYER:
+		if (copy_from_user(&data.toplayer, (void __user *)arg,
+				   sizeof(data.toplayer)))
+			r = -EFAULT;
+		else
+			r = sirfsocfb_set_toplayer(info, data.toplayer);
+		break;
+	case SIRFSOCFB_GET_TOPLAYER:
+		r = sirfsocfb_get_toplayer(info, &data.toplayer);
+		if (r < 0)
+			break;
+		if (copy_to_user((void __user *)arg, &data.toplayer,
+				   sizeof(data.toplayer)))
+			r = -EFAULT;
 		break;
 	default:
 		return -EINVAL;

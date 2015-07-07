@@ -433,6 +433,7 @@ int execute_component(struct component *component)
 {
 	int ret;
 
+	mutex_lock(&ipc_data->msg_send_mutex);
 	switch (component->component_id) {
 	case CREATE_OPERATOR_REQ:
 		ret = ipc_create_operator(ipc_data,
@@ -513,6 +514,7 @@ int execute_component(struct component *component)
 		break;
 	}
 
+	mutex_unlock(&ipc_data->msg_send_mutex);
 	return ret;
 }
 

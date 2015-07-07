@@ -381,7 +381,7 @@ static void create_operator(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_create_operator(ipc_data, cmd[2], &operator_id);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 		put_user(resp, &cmd[i]);
 	}
@@ -395,7 +395,7 @@ static void start_operator(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_start_operator(ipc_data, &cmd[2], api_length);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -408,7 +408,7 @@ static void stop_operator(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_stop_operator(ipc_data, &cmd[2], api_length);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -421,7 +421,7 @@ static void reset_operator(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_reset_operator(ipc_data, &cmd[2], api_length);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -434,7 +434,7 @@ static void destroy_operator(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_destroy_operator(ipc_data, &cmd[2], api_length);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -448,7 +448,7 @@ static void operator_message(struct ipc_data *ipc_data, u16 *cmd)
 	ipc_operator_message(ipc_data, cmd[2], cmd[3],
 			api_length - 2, &cmd[4], NULL, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -460,7 +460,7 @@ static void get_version_id(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_get_version_id(ipc_data, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -472,7 +472,7 @@ static void get_capid_list(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_get_capid_list(ipc_data, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -485,7 +485,7 @@ static void get_opid_list(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_get_opid_list(ipc_data, filter, NULL, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -500,7 +500,7 @@ static void get_connection_list(struct ipc_data *ipc_data, u16 *cmd)
 	ipc_get_connection_list(ipc_data, source_filter,
 			sink_filter, NULL, NULL, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -514,7 +514,7 @@ static void endpoint_get_info(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_get_endpoint_info(ipc_data, endpoint_id, configure_key);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -534,7 +534,7 @@ static void get_source(struct ipc_data *ipc_data, u16 *cmd)
 	ipc_get_source(ipc_data, endpoint_type, instance_id,
 			channels, handle_addr, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -554,7 +554,7 @@ static void get_sink(struct ipc_data *ipc_data, u16 *cmd)
 	ipc_get_sink(ipc_data, endpoint_type, instance_id,
 			channels, handle_addr, NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -566,7 +566,7 @@ static void close_source(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_close_source(ipc_data, cmd[1], &cmd[2]);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -578,7 +578,7 @@ static void close_sink(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_close_sink(ipc_data, cmd[1], &cmd[2]);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -590,7 +590,7 @@ static void sync_endpoints(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_sync_endpoint(ipc_data, cmd[2], cmd[3]);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -603,7 +603,7 @@ static void endpoint_configure(struct ipc_data *ipc_data, u16 *cmd)
 	ipc_config_endpoint(ipc_data, cmd[2], cmd[3],
 			(u32)cmd[4] | cmd[5] << 16);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -615,7 +615,7 @@ static void connnect_endpoint(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_connect_endpoints(ipc_data, cmd[2], cmd[3], NULL);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }
@@ -627,7 +627,7 @@ static void disconnect_endpoint(struct ipc_data *ipc_data, u16 *cmd)
 
 	ipc_disconnect_endpoints(ipc_data, cmd[1], &cmd[2]);
 	for (i = 0; i < 64; i++) {
-		resp = ipc_data->resp_from_kas[i];
+		resp = ipc_data->payload[i];
 		cmd[i] = resp;
 	}
 }

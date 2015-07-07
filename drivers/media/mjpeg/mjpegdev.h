@@ -30,6 +30,7 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 
+#define MJPEG_DEV_BUSY    0
 #define VLC_PUSH_POP_NUMBIT__FIELD_0__WIDTH       4
 #define MAX_VAL_OF_VLC_PUSH_POP_NUMBIT  \
 	((1 << VLC_PUSH_POP_NUMBIT__FIELD_0__WIDTH) - 1)
@@ -263,6 +264,8 @@ struct jpeg_data {
 	struct clk *ck;
 	dev_t devno;
 	struct device *dev;
+	unsigned int jpeg_busy;
+	wait_queue_head_t query_wait;
 };
 
 #define REGISTER_CODEC_MODE                      0x1400
@@ -423,7 +426,9 @@ struct jpeg_data {
 #define CLKC_LEAF_CLK_EN4_CLR			0x4EC
 
 #define IOCTL_JPEG_FREEBUFFER	_IOW('J', 1000, struct jpg_hw_buf*)
+#define IOCTL_JPEG_START	_IOW('J', 1001, void*)
 #define IOCTL_JPEG_UPDATE_VLC_TABLE _IOW('J', 1002, struct jpeg_codec_param*)
+#define IOCTL_JPEG_FINISH _IOW('J', 1003, void*)
 #define IOCTL_JPEG_SET_DEFAULT	_IOW('J', 1004, struct jpeg_codec_param*)
 #define IOCTL_JPEG_UPDATEQT	_IOW('J', 1005, struct jpeg_codec_param*)
 #define IOCTL_JPEG_GETBUFFER	_IOWR('J', 1006, struct jpg_hw_buf*)

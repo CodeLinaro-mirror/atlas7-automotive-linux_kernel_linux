@@ -369,6 +369,7 @@ struct sirfsoc_vdss_screen {
 	enum vdss_screen id;
 	struct list_head layers;
 	int caps;
+	struct kobject kobj;
 	enum sirfsoc_panel_type supported_panels;
 	enum vdss_output supported_outputs;
 

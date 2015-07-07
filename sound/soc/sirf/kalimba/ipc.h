@@ -30,13 +30,15 @@ struct ipc_data {
 	void __iomem *base;
 	struct regmap *regmap;
 	struct device *dev;
+	struct mutex ipc_comm_mutex;
 	struct mutex msg_send_mutex;
-	struct completion msg_send_ack;
-	struct completion msg_rsp_completion;
-	struct mutex counter_mutex;
+	wait_queue_head_t waitq_dsp_ack;
+	bool msg_send_ack;
+	wait_queue_head_t waitq_dsp_rsp;
+	bool msg_dsp_rsp;
 	enum ipc_operator_state op_state;
-	u32 resp_from_kas[64];
-	u32 msg_from_kas[64];
+	u32 payload[64];
+	u32 *cur_offs;	/*Current the payload fill offset */
 	struct list_head actions;	/* ipc_action list */
 };
 
