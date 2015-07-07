@@ -1086,9 +1086,9 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 	match = of_match_node(spi_sirfsoc_of_match, pdev->dev.of_node);
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
+	spi_comp_data = (struct sirf_spi_comp_data *)match->data;
 	sspi->fifo_size = spi_comp_data->fifo_size;
 	sspi->fifo_full_offset = ilog2(sspi->fifo_size);
-	spi_comp_data = (struct sirf_spi_comp_data *)match->data;
 	sspi->regs = spi_comp_data->regs;
 	sspi->type = spi_comp_data->type;
 	sspi->fifo_level_chk_mask = (sspi->fifo_size / 4) - 1;
