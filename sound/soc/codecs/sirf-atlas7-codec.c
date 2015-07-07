@@ -359,6 +359,9 @@ static int adc_en_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+
+
+
 static int dither_en_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -484,8 +487,9 @@ static const struct snd_kcontrol_new sirf_atlas7_codec_output_mode_control =
 
 static const char * const input_path_text[] = {"MIC0", "MIC1", "LINE0",
 		"LINE1", "LINE2", "LINE3"};
-static const int input_path_val[] = {0x1080, 0x0041, 0x1850, 0x1448,
-		0x1244, 0x1142};
+static const int input_path_val[] = {0x1080, 0x0041, 0x1850,
+		0x1448, 0x1244, 0x1142};
+
 static const struct soc_enum input_path_enum =
 	SOC_VALUE_ENUM_SINGLE(AUDIO_ANA_ADC_CTRL0, 0, 0xFFFF, 6,
 		input_path_text, input_path_val);
@@ -515,20 +519,16 @@ static const struct snd_kcontrol_new sirf_atlas7_volume_mixer_controls[] = {
 		sirf_atlas7_codec_put_capture_volume, sirf_atlas7_volume_tlv),
 };
 
+
 static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
+	/*output widgets*/
 	SND_SOC_DAPM_SUPPLY("VBG TRIM", SND_SOC_NOPM, 0, 0, vbg_trim_event,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY_S("IREF EN", 1, AUDIO_ANA_REF_CTRL0, 0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("LOUTBIAS", 2, SND_SOC_NOPM, 0, 0,
 		loutbias_event, SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_SUPPLY_S("LINBIAS", 2, SND_SOC_NOPM, 0, 0,
-		linbias_event, SND_SOC_DAPM_POST_PMU),
-
 	SND_SOC_DAPM_MUX("Output mode", SND_SOC_NOPM, 0, 0,
 			&sirf_atlas7_codec_output_mode_control),
-	SND_SOC_DAPM_MUX("Input path", SND_SOC_NOPM, 0, 0,
-			&sirf_atlas7_codec_input_path_control),
-
 	SND_SOC_DAPM_SUPPLY_S("DACACLK", 3, AUDIO_REGS_CLK_CTRL, 6, 0,
 		NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("DACBCLK", 3, AUDIO_REGS_CLK_CTRL, 7, 0,
@@ -537,12 +537,6 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 		NULL, 0),
 	SND_SOC_DAPM_SUPPLY_S("DACDCLK", 3, AUDIO_REGS_CLK_CTRL, 9, 0,
 		NULL, 0),
-
-	SND_SOC_DAPM_SUPPLY_S("ADCACLK", 3, AUDIO_REGS_CLK_CTRL, 4, 0,
-		NULL, 0),
-	SND_SOC_DAPM_SUPPLY_S("ADCBCLK", 3, AUDIO_REGS_CLK_CTRL, 5, 0,
-		NULL, 0),
-
 	SND_SOC_DAPM_DAC_E("DACA", NULL, KCODEC_CONFIG, 12, 0,
 		dac_en_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_DAC_E("DACB", NULL, KCODEC_CONFIG, 13, 0,
@@ -553,8 +547,6 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 		dac_en_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_IN("AIFRX", "AIF Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_OUT("AIFTX", "AIF Capture", 0, SND_SOC_NOPM, 0, 0),
-
 	SND_SOC_DAPM_PGA("VGEN EN", AUDIO_ANA_DAC_CTRL0, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("DAC A PGA EN", KCODEC_DAC_A_GAIN, 15, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("DAC B PGA EN", KCODEC_DAC_B_GAIN, 15, 0, NULL, 0),
@@ -588,6 +580,16 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("LOUT2"),
 	SND_SOC_DAPM_OUTPUT("LOUT3"),
 
+
+	/*
+	 * input widgets, enable LINE_IN here,
+	 *adc codec has been powered in power_on_adc()
+	 */
+	SND_SOC_DAPM_SUPPLY_S("LINBIAS", 2, SND_SOC_NOPM, 0, 0,
+		linbias_event, SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_MUX("Input path", SND_SOC_NOPM, 0, 0,
+			&sirf_atlas7_codec_input_path_control),
+	SND_SOC_DAPM_AIF_OUT("AIFTX", "AIF Capture", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_ADC_E("ADCA", NULL, KCODEC_CONFIG, 10, 0,
 		adc_en_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADCB", NULL, KCODEC_CONFIG, 11, 0,
@@ -595,18 +597,6 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 
 	SND_SOC_DAPM_PGA("ADC A PGA EN", KCODEC_ADC_A_GAIN, 15, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("ADC B PGA EN", KCODEC_ADC_B_GAIN, 15, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ADCA ANA EN", AUDIO_ANA_ADC_CTRL2, 0, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("ADCB ANA EN", AUDIO_ANA_ADC_CTRL3, 0, 0, NULL, 0),
-
-	SND_SOC_DAPM_PGA_S("ADCA ANA Dither EN", 1, AUDIO_ANA_ADC_CTRL2, 1, 0,
-		NULL, 0),
-	SND_SOC_DAPM_PGA_S("ADCB ANA Dither EN", 1, AUDIO_ANA_ADC_CTRL3, 1, 0,
-		NULL, 0),
-
-	SND_SOC_DAPM_PGA_S("ADCA ANA DWA EN", 2, AUDIO_ANA_ADC_CTRL2, 2, 0,
-		NULL, 0),
-	SND_SOC_DAPM_PGA_S("ADCB ANA DWA EN", 2, AUDIO_ANA_ADC_CTRL3, 2, 0,
-		NULL, 0),
 
 	SND_SOC_DAPM_OUT_DRV_E("ADC RESET", AUDIO_ANA_CAL_CTRL0, 0, 0, NULL, 0,
 		adc_reset_event, SND_SOC_DAPM_PRE_PMU),
@@ -617,19 +607,19 @@ static const struct snd_soc_dapm_widget sirf_atlas7_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("LIN3"),
 	SND_SOC_DAPM_INPUT("MICIN0"),
 	SND_SOC_DAPM_INPUT("MICIN1"),
+
 };
 
 static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
+	/*output map*/
 	{"DACA", NULL, "DACACLK"},
 	{"DACB", NULL, "DACBCLK"},
 	{"DACC", NULL, "DACCCLK"},
 	{"DACD", NULL, "DACDCLK"},
-
 	{"DACACLK", NULL, "LOUTBIAS"},
 	{"DACBCLK", NULL, "LOUTBIAS"},
 	{"DACCCLK", NULL, "LOUTBIAS"},
 	{"DACDCLK", NULL, "LOUTBIAS"},
-
 	{"LOUTBIAS", NULL, "IREF EN"},
 	{"IREF EN", NULL, "VBG TRIM"},
 
@@ -637,63 +627,51 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"DACB", NULL, "AIFRX"},
 	{"DACC", NULL, "AIFRX"},
 	{"DACD", NULL, "AIFRX"},
-
 	{"VGEN EN", NULL, "DACA"},
 	{"VGEN EN", NULL, "DACB"},
 	{"VGEN EN", NULL, "DACC"},
 	{"VGEN EN", NULL, "DACD"},
-
 	{"Output mode", "Single-ended", "VGEN EN"},
 	{"Output mode", "Differential", "VGEN EN"},
-
 	{"LOUT0 PGA", NULL, "Output mode"},
 	{"LOUT1 PGA", NULL, "Output mode"},
 	{"LOUT2 PGA", NULL, "Output mode"},
 	{"LOUT3 PGA", NULL, "Output mode"},
-
 	{"DAC A PGA EN", NULL, "LOUT0 PGA"},
 	{"DAC B PGA EN", NULL, "LOUT1 PGA"},
 	{"DAC C PGA EN", NULL, "LOUT2 PGA"},
 	{"DAC D PGA EN", NULL, "LOUT3 PGA"},
-
 	{"LOUT0 BUF PGA", NULL, "DAC A PGA EN"},
 	{"LOUT1 BUF PGA", NULL, "DAC B PGA EN"},
 	{"LOUT2 BUF PGA", NULL, "DAC C PGA EN"},
 	{"LOUT3 BUF PGA", NULL, "DAC D PGA EN"},
-
 	{"DACA RESET", NULL, "LOUT0 BUF PGA"},
 	{"DACB RESET", NULL, "LOUT1 BUF PGA"},
 	{"DACC RESET", NULL, "LOUT2 BUF PGA"},
 	{"DACD RESET", NULL, "LOUT3 BUF PGA"},
-
 	{"Dither EN CH01", NULL, "DACA RESET"},
 	{"Dither EN CH01", NULL, "DACB RESET"},
 	{"Dither EN CH23", NULL, "DACC RESET"},
 	{"Dither EN CH23", NULL, "DACD RESET"},
-
 	{"LOUT0", NULL, "Dither EN CH01"},
 	{"LOUT1", NULL, "Dither EN CH01"},
 	{"LOUT2", NULL, "Dither EN CH23"},
 	{"LOUT3", NULL, "Dither EN CH23"},
 
+	/*input map*/
 	{"IREF EN", NULL, "VBG TRIM"},
 	{"LINBIAS", NULL, "IREF EN"},
 	{"ADCACLK", NULL, "LINBIAS"},
 	{"ADCBCLK", NULL, "LINBIAS"},
 	{"ADCA", NULL, "ADCACLK"},
 	{"ADCB", NULL, "ADCBCLK"},
+
 	{"AIFTX", NULL, "ADCA"},
 	{"AIFTX", NULL, "ADCB"},
 	{"ADCA", NULL, "ADC A PGA EN"},
 	{"ADCB", NULL, "ADC B PGA EN"},
-	{"ADC A PGA EN", NULL, "ADCA ANA EN"},
-	{"ADC B PGA EN", NULL, "ADCB ANA EN"},
-	{"ADCA ANA EN", NULL, "ADCA ANA DWA EN"},
-	{"ADCB ANA EN", NULL, "ADCB ANA DWA EN"},
-	{"ADCA ANA DWA EN", NULL, "ADCA ANA Dither EN"},
-	{"ADCB ANA DWA EN", NULL, "ADCB ANA Dither EN"},
-	{"ADCA ANA Dither EN", NULL, "ADC RESET"},
-	{"ADCB ANA Dither EN", NULL, "ADC RESET"},
+	{"ADC A PGA EN", NULL, "ADC RESET"},
+	{"ADC B PGA EN", NULL, "ADC RESET"},
 
 	{"ADC RESET", NULL, "Input path"},
 	{"Input path", "MIC0", "MICIN0"},
@@ -702,6 +680,7 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"Input path", "LINE1", "LIN1"},
 	{"Input path", "LINE2", "LIN2"},
 	{"Input path", "LINE3", "LIN3"},
+
 };
 
 static struct snd_soc_codec_driver soc_codec_device_sirf_atlas7_codec = {
@@ -779,6 +758,69 @@ static const struct regmap_config sirf_atlas7_codec_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+static int sirf_atlas7_codec_pre_init_adc(struct regmap *regmap)
+{
+	/*
+	 * enable adc after chip power on,
+	 * to avoid charge time when record start
+	 */
+
+	/* enable reference current and RX/TX mode generator*/
+	regmap_update_bits(regmap, AUDIO_ANA_REF_CTRL0,
+		AUDIO_ANA_REF_AUDBIAS_IREF_EN
+		|AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN
+		|AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN,
+		AUDIO_ANA_REF_AUDBIAS_IREF_EN
+		|AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN
+		|AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN);
+	regmap_update_bits(regmap, AUDIO_CTRL_SPARE_0,
+		TXADC_IREF_EN, TXADC_IREF_EN);
+	regmap_update_bits(regmap, AUDIO_ANA_REF_CTRL0,
+		AUDIO_ANA_REF_AUDBIAS_VAG_TSADC_EN
+		|AUDIO_ANA_REF_MICBIAS_EN,
+		AUDIO_ANA_REF_AUDBIAS_VAG_TSADC_EN
+		|AUDIO_ANA_REF_MICBIAS_EN);
+
+	/*enable adc clock & adc control*/
+	regmap_update_bits(regmap, AUDIO_REGS_CLK_CTRL, ADC_CLK_EN, ADC_CLK_EN);
+	regmap_write(regmap, AUDIO_ANA_ADC_CTRL0, 0x1850);
+
+	/*enable adc channel 1 & init it */
+	regmap_update_bits(regmap, AUDIO_ANA_ADC_CTRL2,
+		AUDIO_ANA_ADC_CH1_EN|AUDIO_ANA_ADC_CH1_DITHER_EN
+		|AUDIO_ANA_ADC_CH1_GAIN_SEL,
+		AUDIO_ANA_ADC_CH1_EN|AUDIO_ANA_ADC_CH1_DITHER_EN);
+	regmap_update_bits(regmap, AUDIO_ANA_ADC_CTRL2,
+		AUDIO_ANA_ADC_CH1_GAIN_SEL|AUDIO_ANA_ADC_CH1_DWA_EN,
+		(10 << 3)|AUDIO_ANA_ADC_CH1_DWA_EN);/*0b1010*/
+
+	/*enable adc channel 2 & init it */
+	regmap_update_bits(regmap, AUDIO_ANA_ADC_CTRL3,
+		AUDIO_ANA_ADC_CH2_EN|AUDIO_ANA_ADC_CH2_DITHER_EN
+		|AUDIO_ANA_ADC_CH2_GAIN_SEL,
+		AUDIO_ANA_ADC_CH2_EN|AUDIO_ANA_ADC_CH2_DITHER_EN
+		|AUDIO_ANA_ADC_CH2_GAIN_SEL);
+	regmap_update_bits(regmap, AUDIO_ANA_ADC_CTRL3,
+		AUDIO_ANA_ADC_CH2_GAIN_SEL|AUDIO_ANA_ADC_CH2_DWA_EN,
+		(10 << 3)|AUDIO_ANA_ADC_CH2_DWA_EN);/*0b1010*/
+
+	/*enable audio calibaration control & its clock*/
+	regmap_update_bits(regmap, AUDIO_ANA_CAL_CTRL0,
+		AUDIO_ANA_CAL_ADC_EN, 0);
+	regmap_update_bits(regmap, AUDIO_REGS_CLK_CTRL,
+		AUDIO_ANA_CAL_CLK_EN, AUDIO_ANA_CAL_CLK_EN);
+	regmap_update_bits(regmap, AUDIO_ANA_CAL_CTRL0,
+		AUDIO_ANA_CAL_ADC_EN, AUDIO_ANA_CAL_ADC_EN);
+	regmap_update_bits(regmap, AUDIO_ANA_ADC_CTRL1,
+		AUDIO_ANA_ADC_CH12_CCAL_SEL, (6 << 8));/*0b110*/
+
+	/*init sample rate*/
+	regmap_write(regmap, KCODEC_ADC_A_SAMP_RATE, 0x1001);
+	regmap_write(regmap, KCODEC_ADC_B_SAMP_RATE, 0x1001);
+
+	return 0;
+}
+
 static int sirf_atlas7_codec_driver_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -825,13 +867,21 @@ static int sirf_atlas7_codec_driver_probe(struct platform_device *pdev)
 	}
 
 	atlas7_codec->clk = clk;
-	pm_runtime_enable(&pdev->dev);
+	/*
+	 * don't call runtime enable but to call runtime_resume here,
+	 * so register can be set
+	 */
 	if (!pm_runtime_enabled(&pdev->dev)) {
 		ret = sirf_atlas7_codec_runtime_resume(&pdev->dev);
 		if (ret)
 			return ret;
 	}
 
+	/*
+	 * to get rid of pop noise at start of record,
+	 * below api need to be called when chip first poered on
+	 */
+	sirf_atlas7_codec_pre_init_adc(atlas7_codec->regmap);
 	ret = snd_soc_register_codec(&(pdev->dev),
 			&soc_codec_device_sirf_atlas7_codec,
 			&sirf_atlas7_codec_dai, 1);
