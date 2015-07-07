@@ -268,6 +268,21 @@ struct jpeg_data {
 	wait_queue_head_t query_wait;
 };
 
+enum jpeg_status {
+	JPEG_IDLE,
+	JPEG_START,
+	JPEG_GETBUFFER,
+	JPEG_SET_DEFAULT,
+	JPEG_UPDATEQT,
+	JPEG_UPDATE_VLC_TABLE,
+	JPEG_SETCLIENTS,
+	JPEG_ALIGN,
+	JPEG_GO,
+	JPEG_WAIT,
+	JPEG_FREEBUFFER,
+	JPEG_FINISH
+};
+
 #define REGISTER_CODEC_MODE                      0x1400
 #define REGISTER_QT_FIRST_Q_MATRIX               0x1404
 #define REGISTER_QT_SECOND_Q_MATRIX              0x1408
