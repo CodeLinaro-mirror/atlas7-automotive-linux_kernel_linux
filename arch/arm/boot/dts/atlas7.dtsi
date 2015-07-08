@@ -1763,6 +1763,7 @@
 				compatible = "sirf,atlas7-vip0";
 				reg = <0x10db0000 0x2000>;
 				interrupts = <0 85 0>;
+				clocks = <&car 46>;
 				sirf,vip_cma_size = <0xC00000>;
 			};
 

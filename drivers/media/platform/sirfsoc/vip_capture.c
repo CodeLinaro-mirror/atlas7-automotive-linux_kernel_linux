@@ -1133,21 +1133,6 @@ out:
 	spin_unlock_irqrestore(&vip->lock, flags);
 }
 
-
-static void vip_activate(struct vip_dev *vip)
-{
-	if (!vip->is_atlas7_vip0)
-		clk_prepare_enable(vip->clk);
-}
-
-static void vip_deactivate(struct vip_dev *vip)
-{
-	vip_hw_stop(vip);
-
-	if (!vip->is_atlas7_vip0)
-		clk_disable_unprepare(vip->clk);
-}
-
 static int vip_pix_fmt_xlate(u32 pix_fmt)
 {
 	switch (pix_fmt) {
@@ -1741,8 +1726,6 @@ static int sirfsoc_camera_open(struct file *file)
 
 	/* Now we really have to activate the camera */
 	if (vip->use_count == 1) {
-		vip_activate(vip);
-
 		v4l2_subdev_call(sd, core, s_power, 1);
 
 		pm_runtime_enable(vip->dev);
@@ -1770,7 +1753,7 @@ exit_runtime_disa:
 	pm_runtime_disable(vip->dev);
 exit_resume:
 	v4l2_subdev_call(sd, core, s_power, 0);
-	vip_deactivate(vip);
+	vip_hw_stop(vip);
 	vip->use_count--;
 exit_mutex:
 	mutex_unlock(&vip->host_lock);
@@ -1801,7 +1784,7 @@ static int sirfsoc_camera_close(struct file *file)
 		if (ret < 0 && ret != -ENOIOCTLCMD && ret != -ENODEV)
 			return ret;
 
-		vip_deactivate(vip);
+		vip_hw_stop(vip);
 	}
 
 	mutex_unlock(&vip->host_lock);
@@ -2293,19 +2276,23 @@ static int vip_probe(struct platform_device *pdev)
 	else
 		vip->is_atlas7_vip0 = false;
 
-	if (!vip->is_atlas7_vip0) {
-		vip->clk = clk_get(dev, NULL);
-		if (IS_ERR(vip->clk)) {
-			dev_err(dev, "%s: fail to get vip clock\n", __func__);
-			return -EINVAL;
-		}
+	vip->clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(vip->clk)) {
+		dev_err(dev, "%s: fail to get vip clock\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = clk_prepare_enable(vip->clk);
+	if (ret) {
+		dev_err(dev, "%s: fail to open vip clock\n", __func__);
+		goto exit;
 	}
 
 	ret = of_property_read_u32(dev->of_node,
 				"sirf,vip_cma_size", &vip->video_limit);
 	if (ret) {
 		dev_err(dev, "%s: Unable to get vip mem size\n", __func__);
-		goto exit_clk;
+		goto exit;
 	}
 
 	if (!vip->is_atlas7_vip0) {
@@ -2314,7 +2301,7 @@ static int vip_probe(struct platform_device *pdev)
 			dev_err(dev, "%s: vip dma channel req fail\n",
 								__func__);
 			ret = -ENODEV;
-			goto exit_clk;
+			goto exit;
 		}
 	}
 
@@ -2346,10 +2333,7 @@ exit_release_declared_memory:
 exit_uninit_dma:
 	if (!vip->is_atlas7_vip0)
 		dma_release_channel(vip->dma_chan);
-exit_clk:
-	if (!vip->is_atlas7_vip0)
-		clk_put(vip->clk);
-
+exit:
 	return ret;
 }
 
@@ -2374,9 +2358,6 @@ static int vip_remove(struct platform_device *pdev)
 
 	dma_release_declared_memory(&pdev->dev);
 
-	if (!vip->is_atlas7_vip0)
-		clk_put(vip->clk);
-
 	return 0;
 }
 
@@ -2387,11 +2368,7 @@ static int vip_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int vip_pm_suspend(struct device *dev)
 {
-#if 0	/*FIXME: system suspend hung here*/
-
 	struct vip_dev *vip = dev_get_drvdata(dev);
-
-	dev_info(dev, "%s\n", __func__);
 
 	disable_irq(vip->irq);
 
@@ -2400,21 +2377,21 @@ static int vip_pm_suspend(struct device *dev)
 	else
 		dmaengine_terminate_all(vip->dma_chan);
 
-	vip_deactivate(vip);
-#endif
+	vip_hw_stop(vip);
+	clk_disable_unprepare(vip->clk);
 	return 0;
 }
 
 static int vip_pm_resume(struct device *dev)
 {
 	struct vip_dev *vip = dev_get_drvdata(dev);
+	int ret;
 
-	dev_info(dev, "%s\n", __func__);
-
-	vip_activate(vip);
+	ret = clk_prepare_enable(vip->clk);
+	if (ret)
+		goto exit;
 
 	/* TODO: set HW parameters here ? */
-
 	enable_irq(vip->irq);
 
 	/* Restart frame capture if active buffer exists */
@@ -2423,58 +2400,12 @@ static int vip_pm_resume(struct device *dev)
 		vip_start_dma(vip);
 	}
 
-	return 0;
+exit:
+	return ret;
 }
-static int vip_pm_freeze(struct device *dev)
-{
-	struct vip_dev *vip = dev_get_drvdata(dev);
-
-	dev_info(dev, "%s\n", __func__);
-
-	disable_irq(vip->irq);
-
-	if (vip->is_atlas7_vip0)
-		vip_hw_wait_dma_idle(vip);
-	else
-		dmaengine_terminate_all(vip->dma_chan);
-
-	vip_deactivate(vip);
-
-	return 0;
-}
-static int vip_pm_restore(struct device *dev)
-{
-	struct vip_dev *vip = dev_get_drvdata(dev);
-
-	dev_info(dev, "%s\n", __func__);
-
-	vip_activate(vip);
-
-	/* TODO: set HW parameters here ? */
-
-	enable_irq(vip->irq);
-
-	/* Restart frame capture if active buffer exists */
-	if (vip->vb2_active) {
-		vip_hw_stop(vip);
-		vip_start_dma(vip);
-	}
-
-	return 0;
-}
-#else
-#define vip_pm_suspend   NULL
-#define vip_pm_resume    NULL
-#define vip_pm_freeze    NULL
-#define vip_pm_restore   NULL
 #endif
 
-static const struct dev_pm_ops vip_pm_ops = {
-	.freeze	= vip_pm_freeze,
-	.restore	= vip_pm_restore,
-	.suspend	= vip_pm_suspend,
-	.resume		= vip_pm_resume,
-};
+static SIMPLE_DEV_PM_OPS(vip_pm_ops, vip_pm_suspend, vip_pm_resume);
 
 static struct of_device_id vip_match_tbl[] = {
 	{ .compatible = "sirf,prima2-vip", },
