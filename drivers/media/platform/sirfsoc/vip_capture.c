@@ -64,7 +64,7 @@
 static int brestart;
 
 
-static void vip_callback(void *pdata);
+static void vip_dma_count_done(void *pdata);
 static int vip_start_dma(struct vip_dev *vip);
 static void vip_hw_stop(struct vip_dev *vip);
 static void vip_hw_wait_dma_idle(struct vip_dev *vip);
@@ -969,7 +969,7 @@ static irqreturn_t vip_irq(int irq, void *data)
 
 		/* DMA CNT_INT happens */
 		if (dma_status & DMAN_INTMASK_CNT)
-				vip_callback(vip);
+				vip_dma_count_done(vip);
 
 		/* DMA FINI_INT happens */
 		if (dma_status & DMAN_INTMASK_FINI)
@@ -1035,7 +1035,7 @@ static int vip_start_dma(struct vip_dev *vip)
 				vip->dst_start, size, DMA_DEV_TO_MEM,
 				DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
-		rx_desc->callback = vip_callback;
+		rx_desc->callback = vip_dma_count_done;
 		rx_desc->callback_param = vip;
 
 		dmaengine_submit(rx_desc);
@@ -1047,7 +1047,20 @@ static int vip_start_dma(struct vip_dev *vip)
 	return 0;
 }
 
-static void vip_callback(void *pdata)
+/* Before vip_restart_worker() return, vip_dma_count_done() won't be called */
+static void vip_restart_worker(struct work_struct *work)
+{
+	struct vip_dev *vip = container_of(work, struct vip_dev, restart_work);
+	struct vip_subdev_info *subdev = &vip->subdev[0];
+	struct v4l2_subdev *sd = subdev->sd;
+
+	if (vip->is_atlas7_vip0)
+		v4l2_subdev_call(sd, video, s_stream, 1);
+
+	vip_start_dma(vip);
+}
+
+static void vip_dma_count_done(void *pdata)
 {
 	struct vip_dev *vip = (struct vip_dev *)pdata;
 	struct vb2_buffer *vb;
@@ -1065,11 +1078,13 @@ static void vip_callback(void *pdata)
 	buf = container_of(vb, struct vip_buffer, vb);
 
 	if (brestart) {
-		dev_info(vip->dev, "%s: oflow\n", __func__);
-		vip_hw_stop(vip);
-		vip_start_dma(vip);
 		brestart = 0;
-		goto out;
+		vip_hw_stop(vip);
+		spin_unlock_irqrestore(&vip->lock, flags);
+
+		schedule_work(&vip->restart_work);
+
+		return;
 	}
 
 
@@ -1105,7 +1120,7 @@ static void vip_callback(void *pdata)
 					DMA_DEV_TO_MEM,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
-			rx_desc->callback = vip_callback;
+			rx_desc->callback = vip_dma_count_done;
 			rx_desc->callback_param = vip;
 
 			dmaengine_submit(rx_desc);
@@ -2248,6 +2263,7 @@ static int vip_probe(struct platform_device *pdev)
 	spin_lock_init(&vip->lock);
 	mutex_init(&vip->host_lock);
 	init_completion(&vip->rv.done);
+	INIT_WORK(&vip->restart_work, vip_restart_worker);
 	vip->rv.running = false;
 
 	vip->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

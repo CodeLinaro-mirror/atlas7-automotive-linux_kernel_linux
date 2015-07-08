@@ -206,6 +206,8 @@ struct vip_dev {
 	dma_addr_t		dst_start;
 	struct dma_chan		*dma_chan;
 
+	struct work_struct	restart_work;
+
 	struct list_head	capture;
 
 	spinlock_t		lock;
