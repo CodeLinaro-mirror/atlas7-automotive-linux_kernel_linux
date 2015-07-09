@@ -9,6 +9,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 
 #include <video/sirfsoc_vdss.h>
 #include "vdss.h"
@@ -1244,6 +1245,34 @@ int sirfsoc_vpp_present(void *handle, struct vdss_vpp_op_params *params)
 }
 EXPORT_SYMBOL(sirfsoc_vpp_present);
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_vpp_suspend(struct device *dev)
+{
+	struct vpp_adapter *adapter;
+
+	adapter = dev_get_drvdata(dev);
+	clk_disable_unprepare(adapter->clk);
+	return 0;
+}
+
+static int sirfsoc_vpp_pm_resume(struct device *dev)
+{
+	struct vpp_adapter *adapter;
+	int ret = 0;
+
+	adapter = dev_get_drvdata(dev);
+	ret = clk_prepare_enable(adapter->clk);
+	if (!ret)
+		ret = vpp_init(adapter);
+	return ret;
+}
+#endif
+
+static const struct dev_pm_ops sirfsoc_vpp_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(sirfsoc_vpp_suspend,
+				     sirfsoc_vpp_pm_resume)
+};
+
 static int sirfsoc_vpp_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
@@ -1305,6 +1334,8 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 	adapter->cur_dev = NULL;
 	vpp_init(adapter);
 
+	platform_set_drvdata(pdev, adapter);
+
 	return 0;
 }
 
@@ -1317,6 +1348,7 @@ static const struct of_device_id vpp_of_match[] = {
 static struct platform_driver sirfsoc_vpp_driver = {
 	.driver         = {
 		.name   = "sirfsoc_vpp",
+		.pm	= &sirfsoc_vpp_pm_ops,
 		.owner  = THIS_MODULE,
 		.of_match_table = vpp_of_match,
 	},

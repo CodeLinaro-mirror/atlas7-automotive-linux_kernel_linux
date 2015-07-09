@@ -556,10 +556,13 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
 	struct jpeg_codec_param codec_param;
-
+	enum jpeg_status *status = (enum jpeg_status *)filp->private_data;
 	switch (cmd) {
 	case IOCTL_JPEG_UPDATE_VLC_TABLE: {
 		pr_debug("IOCTL_JPEG_UPDATE_VLC_TABLE\r\n");
+		if (*status != JPEG_UPDATEQT)
+			return -EPERM;
+		*status = JPEG_UPDATE_VLC_TABLE;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -569,6 +572,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_SET_DEFAULT: {
 		pr_debug("IOCTL_JPEG_SET_DEFAULT\r\n");
+		if (*status != JPEG_GETBUFFER)
+			return -EPERM;
+		*status = JPEG_SET_DEFAULT;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -578,6 +584,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_UPDATEQT: {
 		pr_debug("IOCTL_JPEG_UPDATEQT\r\n");
+		if (*status != JPEG_SET_DEFAULT)
+			return -EPERM;
+		*status = JPEG_UPDATEQT;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -588,7 +597,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_JPEG_GETBUFFER: {
 		struct jpg_hw_buf buf_info = {0};
 		struct jpg_hw_buf *phwbuf;
-
+		if (*status != JPEG_START && *status != JPEG_GETBUFFER)
+			return -EPERM;
+		*status = JPEG_GETBUFFER;
 		pr_debug("IOCTL_JPEG_GETBUFFER\r\n");
 		phwbuf = kzalloc(sizeof(*phwbuf), GFP_KERNEL);
 		if (NULL == phwbuf)
@@ -615,6 +626,10 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct jpg_hw_buf *phwbuf;
 
 		pr_debug("IOCTL_JPEG_FREEBUFFER\r\n");
+		if (*status == JPEG_IDLE || *status == JPEG_START
+			|| *status == JPEG_FINISH)
+			return -EPERM;
+		*status = JPEG_FREEBUFFER;
 		phwbuf = kzalloc(sizeof(*phwbuf), GFP_KERNEL);
 		if (NULL == phwbuf)
 			return -ENOMEM;
@@ -627,6 +642,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_GO: {
 		pr_debug("IOCTL_JPEG_GO\r\n");
+		if (*status != JPEG_ALIGN)
+			return -EPERM;
+		*status = JPEG_GO;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -636,6 +654,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_WAIT: {
 		pr_debug("IOCTL_JPEG_WAIT\r\n");
+		if (*status != JPEG_GO)
+			return -EPERM;
+		*status = JPEG_WAIT;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -646,6 +667,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_SETCLIENTS: {
 		pr_debug("IOCTL_JPEG_SETCLIENTS\r\n");
+		if (*status != JPEG_UPDATE_VLC_TABLE)
+			return -EPERM;
+		*status = JPEG_SETCLIENTS;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -658,6 +682,9 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_ALIGN: {
 		pr_debug("IOCTL_JPEG_ALIGN\r\n");
+		if (*status != JPEG_SETCLIENTS)
+			return -EPERM;
+		*status = JPEG_ALIGN;
 		ret = copy_from_user(&codec_param, (void __user *)arg,
 			sizeof(codec_param));
 		if (ret)
@@ -669,8 +696,12 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_JPEG_START:
 		wait_event_interruptible(jpeg.query_wait,
 		!test_and_set_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy));
+		if (*status != JPEG_IDLE)
+			return -EPERM;
+		*status = JPEG_START;
 		break;
 	case IOCTL_JPEG_FINISH:
+		*status = JPEG_FINISH;
 		clear_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy);
 		wake_up_interruptible(&jpeg.query_wait);
 		break;
@@ -697,10 +728,39 @@ static int jpeg_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
+static int jpeg_open(struct inode *inode, struct file *filp)
+{
+	enum jpeg_status *status;
+
+	status = kzalloc(sizeof(*status), GFP_KERNEL);
+	if (!status)
+		return -ENOMEM;
+	*status = JPEG_IDLE;
+	filp->private_data = status;
+	return 0;
+}
+
+static int jpeg_close(struct inode *inode, struct file *filp)
+{
+	enum jpeg_status *status = filp->private_data;
+
+	if (*status > JPEG_START && *status < JPEG_FINISH) {
+		mutex_lock(&jpeg.pool_lock);
+		jpeg.hw_pool.used_size = 0;
+		mutex_unlock(&jpeg.pool_lock);
+		kfree(filp->private_data);
+		clear_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy);
+		wake_up_interruptible(&jpeg.query_wait);
+	}
+	return 0;
+}
+
 static const struct file_operations jpeg_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = jpeg_ioctl,
 	.mmap = jpeg_mmap,
+	.open = jpeg_open,
+	.release = jpeg_close,
 };
 
 static struct of_device_id jpeg_match_tbl[] = {
