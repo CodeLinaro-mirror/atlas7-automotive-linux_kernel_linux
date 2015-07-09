@@ -1997,6 +1997,7 @@
 				interrupts = <0 47 0>;
 				gpio-controller;
 				interrupt-controller;
+				status = "disabled";
 
 				gpio-banks = <1>;
 				gpio-ranges = <&pinctrl 0 0 0>;
