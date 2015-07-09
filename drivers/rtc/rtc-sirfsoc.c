@@ -371,8 +371,6 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	unsigned long rtc_div;
 	struct sirfsoc_rtc_drv *rtcdrv;
 	struct device_node *np = pdev->dev.of_node;
-	struct platform_device *retain_pdev;
-	struct resource *retain_res;
 
 	rtcdrv = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirfsoc_rtc_drv), GFP_KERNEL);
@@ -427,14 +425,11 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	/* Restore RTC Overflow From Register After Command Reboot */
 	np = of_find_compatible_node(NULL, NULL, "sirf,atlas7-retain");
 	if (np) {
-		retain_pdev = of_find_device_by_node(np);
-		retain_res = platform_get_resource(retain_pdev,
-							IORESOURCE_MEM, 0);
-		rtcdrv->retain_base = devm_ioremap_resource(&retain_pdev->dev,
-								retain_res);
-		if (IS_ERR(rtcdrv->retain_base)) {
-			pr_err("err: of_iomap retain reg error\n");
-			return PTR_ERR(rtcdrv->retain_base);
+		rtcdrv->retain_base = of_iomap(np, 0);
+		if (!rtcdrv->retain_base) {
+			pr_err("err: %s: of_iomap error\n",
+					rtcdrv->retain_base);
+			return -ENOMEM;
 		}
 	}
 	rtcdrv->overflow_rtc = sirfsoc_rtc_get_overflow(rtcdrv);
@@ -468,10 +463,17 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 
 static int sirfsoc_rtc_remove(struct platform_device *pdev)
 {
+	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
+	struct device_node *np;
+
 	device_init_wakeup(&pdev->dev, 0);
+	np = of_find_compatible_node(NULL, NULL, "sirf,atlas7-retain");
+	if (np)
+		iounmap(rtcdrv->retain_base);
 
 	return 0;
 }
+
 
 #ifdef CONFIG_PM_SLEEP
 static int sirfsoc_rtc_suspend(struct device *dev)
