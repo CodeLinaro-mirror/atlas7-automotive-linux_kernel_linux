@@ -760,13 +760,11 @@ static void vip_hw_start(struct vip_dev *vip)
 
 	/* Enable overflow, underflow, sensor interrupt and bad field */
 	if (vip->is_atlas7_vip0)
-		vip_write(CAM_INT_EN, CAM_INT_EN_SENSOR_INT |
-					CAM_INT_EN_FIFO_OFLOW |
+		vip_write(CAM_INT_EN, CAM_INT_EN_FIFO_OFLOW |
 					CAM_INT_EN_FIFO_UFLOW |
 					CAM_INT_EN_BAD_FIELD);
 	else
-		vip_write(CAM_INT_EN, CAM_INT_EN_SENSOR_INT |
-					CAM_INT_EN_FIFO_OFLOW |
+		vip_write(CAM_INT_EN, CAM_INT_EN_FIFO_OFLOW |
 					CAM_INT_EN_FIFO_UFLOW);
 
 	/* Start FIFO transfer to DMA */
