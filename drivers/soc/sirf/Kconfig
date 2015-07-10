@@ -1,0 +1,10 @@
+#
+# CSR Soc drivers
+#
+
+config CSRVISOR_WRAPPER
+	tristate "CSRVisor fastcall wrapper"
+	depends on ARCH_ATLAS7
+	default y
+	help
+	  SiRFSoc CSRVisor call agent based on fastcall method

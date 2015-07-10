@@ -560,13 +560,6 @@ config A7CA_BT
 	---help---
 	  This device provides character-level read-write and ioctrl access to CSR A7CA BT in /dev/a7ca_bt/
 
-config CSRVISOR_WRAPPER
-	tristate "CSRVisor fastcall wrapper"
-	depends on ARCH_SIRF
-	default y
-	help
-	  SiRFSoc CSRVisor call agent based on fastcall method
-
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

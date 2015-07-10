@@ -64,4 +64,3 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-y				+= sirf_gps_power.o
 obj-$(CONFIG_A7CA_BT)		+= a7ca_bt.o
-obj-$(CONFIG_CSRVISOR_WRAPPER)	+= csrvisor_wrapper.o
