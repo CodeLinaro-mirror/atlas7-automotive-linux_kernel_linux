@@ -803,11 +803,6 @@ static void vip_hw_clear_interrupts(struct vip_dev *vip, u32 status)
 		vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK);
 }
 
-static u32 vip_get_fid(struct vip_dev *vip)
-{
-	return (vip_read(CAM_CTRL) & CAM_CTRL_FID) ? 1 : 0;
-}
-
 static void vip_print_registers(struct vip_dev *vip)
 {
 	pr_info("VIP registers\n");
