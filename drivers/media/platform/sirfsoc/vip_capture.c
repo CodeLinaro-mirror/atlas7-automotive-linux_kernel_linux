@@ -2189,11 +2189,12 @@ void vip_rv_start(void *data)
 
 	vip->rv.running = true;
 
-	v4l2_subdev_call(sd, video, s_stream, 1);
-
 	dma_hw_set_start_addr(vip, dma_table_addr);
 
 	vip_hw_reset_fifo(vip);
+
+	v4l2_subdev_call(sd, video, s_stream, 1);
+
 	vip_hw_start_fifo(vip);
 
 	dma_hw_wait_first_table_done(vip);
