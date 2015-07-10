@@ -32,6 +32,10 @@
 #define TX_MPID_DATA_CMD53_ADDR		6
 #define TX_MPTY_DATA_CMD53_ADDR		TX_MPTYPE_U32
 
+/* set the timer callback interval in ns */
+#define TX_MPID_DATA_TIMER_INTVL        7
+#define TX_MPTY_DATA_TIMER_INTVL        TX_MPTYPE_U32
+
 /** server signal frame data buffer*/
 #define TX_MOID_DATA_SIG_BUFFER		1
 
