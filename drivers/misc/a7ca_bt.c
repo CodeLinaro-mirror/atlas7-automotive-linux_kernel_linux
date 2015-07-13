@@ -40,7 +40,7 @@ static int a7ca_bt_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int a7ca_bt_hw_init(struct a7ca_bt_dev *dev)
+static int a7ca_bt_hw_enable(struct a7ca_bt_dev *dev)
 {
 	int err = 0;
 
@@ -64,9 +64,21 @@ out:
 	return err;
 }
 
+static int a7ca_bt_hw_disable(struct a7ca_bt_dev *dev)
+{
+	clk_disable_unprepare(dev->a7ca_btss_clk);
+	clk_disable_unprepare(dev->a7ca_btslow_clk);
+	clk_disable_unprepare(dev->a7ca_io_clk);
+
+	regulator_disable(dev->regulator);
+
+	return 0;
+}
+
+
 static void a7ca_bt_reset(struct a7ca_bt_dev *dev)
 {
-	a7ca_bt_hw_init(dev);
+	a7ca_bt_hw_enable(dev);
 }
 
 static long a7ca_bt_ioctl(struct file *filp, unsigned int cmd,
@@ -171,7 +183,7 @@ static int a7ca_bt_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
-	a7ca_bt_hw_init(dev);
+	a7ca_bt_hw_enable(dev);
 	err = misc_register(&dev->miscdev);
 	pr_debug("a7ca_bt initilized\n");
 
@@ -184,11 +196,7 @@ static int a7ca_bt_remove(struct platform_device *pdev)
 	struct a7ca_bt_dev *dev = platform_get_drvdata(pdev);
 
 	misc_deregister(&dev->miscdev);
-	clk_disable_unprepare(dev->a7ca_btss_clk);
-	clk_disable_unprepare(dev->a7ca_btslow_clk);
-	clk_disable_unprepare(dev->a7ca_io_clk);
-
-	regulator_disable(dev->regulator);
+	a7ca_bt_hw_disable(dev);
 
 	return 0;
 }
@@ -198,6 +206,29 @@ static const struct of_device_id a7ca_bt_of_match[] = {
 	{},
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int a7ca_bt_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct a7ca_bt_dev *cdev = platform_get_drvdata(pdev);
+
+	a7ca_bt_hw_disable(cdev);
+	return 0;
+}
+
+static int a7ca_bt_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct a7ca_bt_dev *cdev = platform_get_drvdata(pdev);
+
+	a7ca_bt_hw_enable(cdev);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(a7ca_bt_pm_ops, a7ca_bt_suspend, a7ca_bt_resume);
+
 MODULE_DEVICE_TABLE(of, a7ca_bt_of_match);
 static struct platform_driver a7ca_bt_driver = {
 	.probe = a7ca_bt_probe,
@@ -206,6 +237,7 @@ static struct platform_driver a7ca_bt_driver = {
 		   .name = "sirf-a7ca_bt",
 		   .owner = THIS_MODULE,
 		   .of_match_table = a7ca_bt_of_match,
+		   .pm = &a7ca_bt_pm_ops,
 		   },
 };
 

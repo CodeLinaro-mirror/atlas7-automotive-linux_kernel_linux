@@ -434,6 +434,7 @@ struct sirfsoc_uart_port {
 	unsigned long			rx_period_time;
 	unsigned long			rx_last_pos;
 	unsigned long			pio_fetch_cnt;
+	unsigned long			saved_int_en;
 };
 
 /* Register Access Control */

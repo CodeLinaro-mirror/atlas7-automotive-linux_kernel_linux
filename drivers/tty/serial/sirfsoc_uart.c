@@ -1444,6 +1444,11 @@ sirfsoc_uart_suspend(struct device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport = dev_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
+	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
+
+	if (uart_console(port))
+		sirfport->saved_int_en =
+			rd_regl(port, ureg->sirfsoc_int_en_reg);
 	uart_suspend_port(&sirfsoc_uart_drv, port);
 	return 0;
 }
@@ -1452,7 +1457,11 @@ static int sirfsoc_uart_resume(struct device *pdev)
 {
 	struct sirfsoc_uart_port *sirfport = dev_get_drvdata(pdev);
 	struct uart_port *port = &sirfport->port;
+	struct sirfsoc_register *ureg = &sirfport->uart_reg->uart_reg;
+
 	uart_resume_port(&sirfsoc_uart_drv, port);
+	if (uart_console(port))
+		wr_regl(port, ureg->sirfsoc_int_en_reg, sirfport->saved_int_en);
 	return 0;
 }
 #endif
