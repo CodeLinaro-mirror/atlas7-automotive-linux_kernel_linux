@@ -211,7 +211,7 @@ static void process_ipc_payload(struct ipc_data *ipc_data, u32 msg_type)
 	case MESSAGING_SHORT_END:
 		if (ipc_data->payload[0] & 0x1000) {
 			ipc_data->msg_dsp_rsp = true;
-			wake_up_interruptible(&ipc_data->waitq_dsp_rsp);
+			wake_up(&ipc_data->waitq_dsp_rsp);
 		} else {
 			do_actions(ipc_data,
 				ipc_data->payload[0],
@@ -249,7 +249,7 @@ static irqreturn_t ipc_recv_msg_payload_handler(int irq, void *pdata)
 	if (arm_ack_count == dsp_send_count) {
 		write_sram(ipc_data, DSP_INTR_RAISED_ADDR, 0);
 		ipc_data->msg_send_ack = true;
-		wake_up_interruptible(&ipc_data->waitq_dsp_ack);
+		wake_up(&ipc_data->waitq_dsp_ack);
 		mutex_unlock(&ipc_data->ipc_comm_mutex);
 		return IRQ_HANDLED;
 	}
@@ -348,7 +348,7 @@ static void ipc_send_msg_package(struct ipc_data *ipc_data,
 	if ((msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
 		&& msg[0] != START_OPERATOR_REQ)) {
 		mutex_unlock(&ipc_data->ipc_comm_mutex);
-		if (!wait_event_interruptible_timeout(ipc_data->waitq_dsp_ack,
+		if (!wait_event_timeout(ipc_data->waitq_dsp_ack,
 			ipc_data->msg_send_ack,
 			msecs_to_jiffies(IPC_COMM_TIMEOUT)))
 			dev_err(ipc_data->dev, "Ack from DSP timeout - Maybe Kalimba is down\n");
@@ -391,7 +391,7 @@ static void ipc_send_msg(struct ipc_data *ipc_data, u16 *msg, int size)
 	if (msg[0] != DATA_PRODUCED && msg[0] != DATA_CONSUMED
 		&& msg[0] != START_OPERATOR_REQ) {
 		mutex_unlock(&ipc_data->ipc_comm_mutex);
-		if (!wait_event_interruptible_timeout(ipc_data->waitq_dsp_rsp,
+		if (!wait_event_timeout(ipc_data->waitq_dsp_rsp,
 			ipc_data->msg_dsp_rsp,
 			msecs_to_jiffies(IPC_COMM_TIMEOUT)))
 			dev_err(ipc_data->dev, "RSP from DSP timeout - Maybe Kalimba is down\n");
