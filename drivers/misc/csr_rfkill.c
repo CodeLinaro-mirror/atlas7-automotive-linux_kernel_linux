@@ -35,7 +35,6 @@
 
 struct rfkill_gpio_data {
 	struct rfkill *rfkill_bt_dev;
-	struct rfkill *rfkill_wlan_dev;
 	struct pwm_device *pwm;
 	int power_gpio;
 	int reset_gpio;
@@ -321,20 +320,6 @@ static int csr_rfkill_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto fail_bt_rfkill;
 
-	/* register RFKILL_TYPE_WLAN for rfkill_wlan_dev */
-	rfkill->rfkill_wlan_dev = rfkill_alloc("csr-wlan-chip", &pdev->dev,
-					  RFKILL_TYPE_WLAN,
-					  &rfkill_gpio_ops, rfkill);
-
-	if (!rfkill->rfkill_wlan_dev) {
-		ret = -ENOMEM;
-		goto fail_reset;
-	}
-
-	ret = rfkill_register(rfkill->rfkill_wlan_dev);
-	if (ret < 0)
-		goto fail_wlan_rfkill;
-
 	rfkill->power_on = reg_ops->power_on;
 	rfkill->power_off = reg_ops->power_off;
 
@@ -344,10 +329,6 @@ static int csr_rfkill_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rfkill);
 
 	return 0;
-
-fail_wlan_rfkill:
-	if (rfkill->rfkill_wlan_dev != NULL)
-		rfkill_destroy(rfkill->rfkill_wlan_dev);
 
 fail_bt_rfkill:
 	if (rfkill->rfkill_bt_dev != NULL)
@@ -385,9 +366,6 @@ static int csr_rfkill_remove(struct platform_device *pdev)
 	/* remove rfkill bt device */
 	rfkill_unregister(rfkill->rfkill_bt_dev);
 	rfkill_destroy(rfkill->rfkill_bt_dev);
-	/* remove rfkill wlan device */
-	rfkill_unregister(rfkill->rfkill_wlan_dev);
-	rfkill_destroy(rfkill->rfkill_wlan_dev);
 
 	if (reg_ops->remove)
 		reg_ops->remove(rfkill, pdev);
