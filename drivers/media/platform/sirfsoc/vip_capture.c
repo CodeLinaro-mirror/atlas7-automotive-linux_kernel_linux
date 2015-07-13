@@ -744,9 +744,6 @@ static void vip_hw_start(struct vip_dev *vip)
 {
 	u32 val;
 
-	/* Reset fifo */
-	vip_hw_reset_fifo(vip);
-
 	/* Reset camera */
 	val = vip_read(CAM_CTRL);
 	vip_write(CAM_CTRL, val | CAM_CTRL_INIT);
@@ -1015,6 +1012,7 @@ static int vip_start_dma(struct vip_dev *vip)
 	if (vip->is_atlas7_vip0) {
 		buf->dma = vb2_dma_contig_plane_dma_addr(vb, 0);
 
+		vip_hw_reset_fifo(vip);
 		vip_hw_start_dma(vip, buf);
 	} else {
 		memset(&config, 0, sizeof(config));
@@ -2182,9 +2180,8 @@ void vip_rv_start(void *data)
 
 	vip->rv.running = true;
 
-	dma_hw_set_start_addr(vip, dma_table_addr);
-
 	vip_hw_reset_fifo(vip);
+	dma_hw_set_start_addr(vip, dma_table_addr);
 
 	v4l2_subdev_call(sd, video, s_stream, 1);
 
