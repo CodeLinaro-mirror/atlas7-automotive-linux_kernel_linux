@@ -388,6 +388,16 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 		priv->clk = clk;
 	}
 
+	ret = clk_prepare_enable(priv->clk);
+	if (ret)
+		goto err_clk_prepare;
+
+	if (priv->has_pclk) {
+		ret = clk_prepare_enable(priv->pclk);
+		if (ret)
+			goto err_pclk_prepare;
+	}
+
 	child = of_get_child_by_name(np, "vqmmc");
 	if (child) {
 		ret = sirf_vqmmc_regulator_init(pdev, host, child);
@@ -407,16 +417,6 @@ static int sdhci_sirf_probe(struct platform_device *pdev)
 
 	sdhci_get_of_property(pdev);
 	mmc_of_parse(host->mmc);
-
-	ret = clk_prepare_enable(priv->clk);
-	if (ret)
-		goto err_clk_prepare;
-
-	if (priv->has_pclk) {
-		ret = clk_prepare_enable(priv->pclk);
-		if (ret)
-			goto err_pclk_prepare;
-	}
 
 	host->quirks2 |= SDHCI_QUIRK2_SG_LIST_COMBINED_DMA_BUFFER;
 	host->mmc->caps2 |= MMC_CAP2_NO_PRESCAN_POWERUP;
