@@ -10,11 +10,13 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-direction.h>
 #include <linux/fs.h>
+#include <linux/io.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
@@ -39,7 +41,7 @@ struct dma_chain_entry {
 };
 
 struct sirf_sdr {
-	resource_size_t		sram_base;
+	unsigned long		sram_phy;
 	resource_size_t		sram_size;
 	struct clk		*clk;
 	struct platform_device	*pdev;
@@ -51,6 +53,7 @@ struct sirf_sdr {
 	struct scatterlist	*wt_sg;
 	struct completion	data_ready;
 	struct miscdevice	misc_sdr;
+	void __iomem		*regbase;
 };
 
 static int sirf_sdr_open(struct inode *inode, struct file *filp)
@@ -69,7 +72,7 @@ static int sirf_sdr_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct dma_info *pos, *n;
 	struct sirf_sdr *sdr = container_of(filp->private_data,
 			struct sirf_sdr, misc_sdr);
-	off = sdr->sram_base >> PAGE_SHIFT;
+	off = sdr->sram_phy >> PAGE_SHIFT;
 
 	/* There are 3 types buffers to map:
 	   1. SDRAM
@@ -400,7 +403,8 @@ static long sdr_free_out_dma_buf(struct sirf_sdr *sdr, unsigned int dma_addr)
 
 static long sdr_reset(struct sirf_sdr *sdr)
 {
-	return device_reset(&sdr->pdev->dev);
+	writel(1, sdr->regbase + SDR_VSS_DEBUG_RESET);
+	return 0;
 }
 
 static long
@@ -449,6 +453,7 @@ static int sdr_sirf_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *dp;
 	struct resource res;
+	struct resource *res_io;
 	struct dma_slave_config tx_slv_cfg = {
 		.dst_maxburst = 2,
 	};
@@ -483,8 +488,16 @@ static int sdr_sirf_probe(struct platform_device *pdev)
 	ret = of_address_to_resource(dp, 0, &res);
 	if (ret)
 		return ret;
-	sdr->sram_base = res.start;
+	sdr->sram_phy = res.start;
 	sdr->sram_size = resource_size(&res);
+	res_io = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	sdr->regbase = devm_ioremap(&pdev->dev, res_io->start,
+			resource_size(res_io));
+	if (!sdr->regbase) {
+		ret = -ENOMEM;
+		goto tx_dma_fail;
+	}
+
 	sdr->tx_dma_chan = dma_request_slave_channel(&pdev->dev, "tx");
 	if (!sdr->tx_dma_chan) {
 		dev_err(&pdev->dev, "sdr: request write dma failed\n");
