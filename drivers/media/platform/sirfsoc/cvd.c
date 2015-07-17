@@ -993,9 +993,10 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 		return 0;
 	}
 
-	if (cvd_read(CVBSD_AFEPWR_EN, sd) & 0x2) {
+	if ((cvd_read(CVBSD_AFEPWR_EN, sd) & 0x2) &&
+		((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe) == 0xe)) {
 
-		/* cvd has been working, no need wait locked and skip fields */
+		/* cvd has been working and locked, needn't skip fields */
 		dec->skip_count = 0;
 
 	} else {
