@@ -430,6 +430,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&rg_eth_mac_pmx
 					&rg_gmac_phy_intr_n_pmx
+					&rg_rgmii_phy_ref_clk_pmx0
 					&rg_rgmii_mac_pmx>;
 			};
 
