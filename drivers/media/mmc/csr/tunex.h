@@ -59,6 +59,7 @@ struct dma_config {
 	u32 clock_rate;
 	u32 dma_timeout;
 	u32 cmd53addr;
+	u32 timer_interval;
 };
 
 struct dma_buf_info {

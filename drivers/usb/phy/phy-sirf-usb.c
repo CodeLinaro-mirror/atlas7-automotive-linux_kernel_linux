@@ -143,6 +143,31 @@ static int sirf_phy_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int usbphy_pm_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirf_phy *sirf_phy = platform_get_drvdata(pdev);
+
+	sirf_phy_shutdown(sirf_phy);
+
+	return 0;
+}
+
+static int usbphy_pm_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirf_phy *sirf_phy = platform_get_drvdata(pdev);
+
+	sirf_phy_init(sirf_phy);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(usbphy_pm_ops, usbphy_pm_suspend, usbphy_pm_resume);
+#endif
+
+
 static const struct of_device_id sirf_phy_dt_ids[] = {
 	{ .compatible = "sirf,atlas7-usbphy", },
 	{ /* sentinel */ }
@@ -156,6 +181,9 @@ static struct platform_driver sirf_phy_driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = sirf_phy_dt_ids,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &usbphy_pm_ops,
+#endif
 	 },
 };
 

@@ -573,7 +573,8 @@ static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 		radio->buffer_ready = 0;
 	}
 
-	hrtimer_forward_now(hrt, ns_to_ktime(20000000));
+	hrtimer_forward_now(hrt,
+			ns_to_ktime(radio->data_control.timer_interval));
 
 	return HRTIMER_RESTART;
 }
@@ -608,7 +609,8 @@ static void tunex_config_dma_on(struct csr_radio *radio)
 	radio->out = 0;
 	radio->buf_full = 0;
 
-	hrtimer_start(&radio->hrt, ns_to_ktime(20000000),
+	hrtimer_start(&radio->hrt,
+			ns_to_ktime(radio->data_control.timer_interval),
 			HRTIMER_MODE_REL);
 	sdhci_writel(radio->radio_sdio.host,
 			radio->ss_sirfsoc->loopdma_buf[0],
@@ -751,6 +753,16 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 					radio->data_control.cmd53addr;
 			}
 			break;
+		case TX_MPID_DATA_TIMER_INTVL:
+			if (id & TX_MFLAG_WRITE) {
+				radio->data_control.timer_interval =
+					msg->elements[i].val.u32val;
+			}
+			if (id & TX_MFLAG_READ) {
+				msg->elements[i].val.u32val =
+					radio->data_control.timer_interval;
+			}
+			break;
 		default:
 			msg->elements[i].id |= TX_MFLAG_ERROR;
 			break;
@@ -795,7 +807,7 @@ tunex_ioctl_get_buf_pointer(struct csr_radio *radio, unsigned long arg)
 
 static long
 tunex_ioctl_release_buf(struct csr_radio *radio,
-		unsigned long data_msg)
+		unsigned long size)
 {
 	struct sdhci_host *host = radio->radio_sdio.host;
 
@@ -943,6 +955,7 @@ static int tunex_sdio_probe(struct sdio_func *func,
 		radio->dma_buf_size = LOOPDMA_BUF_SIZE;
 		radio->data_control.dma_status = STOP;
 		priv->lpdma_buf_sft = 10;
+		radio->data_control.timer_interval = 20000000;
 
 		hrtimer_init(&radio->hrt,
 				CLOCK_MONOTONIC,

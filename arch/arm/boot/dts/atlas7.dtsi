@@ -1377,8 +1377,8 @@
 			gmac: eth@180b0000 {
 				compatible = "snps, dwc-eth-qos";
 				reg = <0x180b0000 0x4000>;
-				interrupts = <0 59 0>;
-				interrupt-names = "macirq";
+				interrupts = <0 59 0>, <0 70 0>;
+				interrupt-names = "macirq", "macpmt";
 				clocks = <&car 39>, <&car 45>,
 				       <&car 86>, <&car 87>;
 				clock-names = "gnssm_rgmii", "gnssm_gmac",
