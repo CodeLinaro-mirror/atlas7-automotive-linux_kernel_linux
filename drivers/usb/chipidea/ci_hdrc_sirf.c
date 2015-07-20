@@ -113,6 +113,29 @@ static int ci_hdrc_sirf_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int ci_hdrc_sirf_pm_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ci_hdrc_sirf_data *data = platform_get_drvdata(pdev);
+
+	clk_disable_unprepare(data->clk);
+
+	return 0;
+}
+
+static int ci_hdrc_sirf_pm_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ci_hdrc_sirf_data *data = platform_get_drvdata(pdev);
+
+	return clk_prepare_enable(data->clk);
+}
+
+static SIMPLE_DEV_PM_OPS(ci_hdrc_sirf_pm_ops, ci_hdrc_sirf_pm_suspend,
+		ci_hdrc_sirf_pm_resume);
+#endif
+
 static const struct of_device_id ci_hdrc_sirf_dt_ids[] = {
 	{ .compatible = "sirf,atlas7-usb", },
 	{ /* sentinel */ }
@@ -126,6 +149,9 @@ static struct platform_driver ci_hdrc_sirf_driver = {
 		.name = "sirf-usb",
 		.owner = THIS_MODULE,
 		.of_match_table = ci_hdrc_sirf_dt_ids,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &ci_hdrc_sirf_pm_ops,
+#endif
 	 },
 };
 module_platform_driver(ci_hdrc_sirf_driver);
