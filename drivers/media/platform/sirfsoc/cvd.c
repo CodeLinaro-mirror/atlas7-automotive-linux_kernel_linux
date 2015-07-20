@@ -51,6 +51,9 @@
 #define CVD_DRV_NAME "sirfsoc-cvd"
 #define CVD_DUMP(fmt, ...)	pr_info(fmt, ## __VA_ARGS__)
 
+#define FIELD_SKIP_NUM		4
+#define VSYNC_DELAY_LINE	30
+
 
 struct cvd_dev {
 	struct device		*dev;
@@ -60,9 +63,11 @@ struct cvd_dev {
 	void __iomem		*io_base;
 
 	v4l2_std_id		norm;
+	enum v4l2_field		field;
 	struct v4l2_subdev	sd;
 	struct v4l2_ctrl_handler hdl;
 
+	int			skip_count;
 	struct completion	done;	/* used to get a stable state */
 };
 
@@ -70,6 +75,12 @@ struct cvd_reg {
 	u16		reg_addr;
 	u32		reg_value;
 };
+
+
+#define cvd_write(addr, value, sd)	\
+		writel((value), (to_state(sd)->io_base) + (addr))
+#define cvd_read(addr, sd)	\
+		readl((to_state(sd)->io_base) + (addr))
 
 
 static const struct cvd_reg config_ntsc[] = {
@@ -128,6 +139,12 @@ static inline struct cvd_dev *to_state(struct v4l2_subdev *sd)
 	return container_of(sd, struct cvd_dev, sd);
 }
 
+static inline int get_fid(struct v4l2_subdev *sd)
+{
+	return (cvd_read(CVBSD_CVD1_STATUS_REGISTER_2, sd) >> 6) & 0x1;
+}
+
+
 static const struct cvd_reg initial_registers[] = {
 	/* Initialize AFE */
 	/* reset CVBSAFE active*/
@@ -173,13 +190,11 @@ static const struct cvd_reg initial_registers[] = {
 	{CVBSD_LUMA_CONTRAST,		0x80},	/* brightness: default */
 	{CVBSD_LUMA_BRIGHTNESS,		0x20},	/* contrast: default */
 	{CVBSD_CHROMA_SATURATION,	0x80},	/* saturation: default */
-	{CVBSD_CHROMA_HUE,		0x0}	/* hue: default */
-};
+	{CVBSD_CHROMA_HUE,		0x0},	/* hue: default */
 
-#define cvd_write(addr, value, sd)	\
-		writel((value), (to_state(sd)->io_base) + (addr))
-#define cvd_read(addr, sd)	\
-		readl((to_state(sd)->io_base) + (addr))
+	{CVBSD_VDETCET_IMPROVEMENT,	0x303},	/* vfield hoffset fixed mode */
+	{CVBSD_VFIELD_HOFFSET_LSB,	0x50}
+};
 
 
 static int cvd_detect_video_signal(struct v4l2_subdev *sd)
@@ -263,11 +278,47 @@ static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 	struct cvd_dev *dec = to_state(sd);
 
 	if (cvd_read(CVBSD_INTERRUPT_CONFIG, sd) & 0x1) {
-		/* cleared by writing 0 to INTERRUPT_CONFIG.enable register */
+		/*
+		* Cleared by writing 0 to INTERRUPT_CONFIG.enable register,
+		* also disable the vsync interrupt.
+		*/
 		cvd_write(CVBSD_INTERRUPT_CONFIG, 0x0, sd);
 
-		/* now we can get stable state and keep interrupt disabled */
-		complete(&dec->done);
+		/*
+		* Field ID value is not reliable in the beginning time
+		* even all the signals are locked, so we have to skip
+		* the first several fields.
+		*/
+		if (dec->skip_count) {
+			/*
+			* Nothing to do, only re-enable vsync interrupt
+			* and waiting for the next field coming.
+			*
+			* To make sure interrupt won't come in the blanking
+			* time that it's too short(~1ms) for SW to complete
+			* the subsequent works, so we have to set the interrupt
+			* to several lines delayed to out of blanking area.
+			*/
+			cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1 |
+						(VSYNC_DELAY_LINE << 4), sd);
+			dec->skip_count--;
+			goto out;
+		}
+
+		dec->field = (get_fid(sd) == 0) ?
+					V4L2_FIELD_SEQ_TB : V4L2_FIELD_SEQ_BT;
+
+		/* we need to make sure field order into vip is top->bottom */
+		if (dec->field == V4L2_FIELD_SEQ_TB)
+			/* we get it, leave with the disabled interrupt */
+			complete(&dec->done);
+		else
+			/*
+			* The coming captured field is bottom field,
+			* we have to wait for the next.
+			*/
+			cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1 |
+						(VSYNC_DELAY_LINE << 4), sd);
 	}
 
 out:
@@ -934,33 +985,48 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0, value = 0;
 
 	if (!enable) {
+		/* disable field sync interrupt */
+		cvd_write(CVBSD_INTERRUPT_CONFIG, 0x0, sd);
+
 		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd);	/* CVBSAFE disable */
 
 		return 0;
 	}
 
-	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd);	/* CVBSAFE enable */
+	if ((cvd_read(CVBSD_AFEPWR_EN, sd) & 0x2) &&
+		((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe) == 0xe)) {
 
-	/* line buffer initialization status busy(0x1) or idle(0x0) */
-	while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
-		cpu_relax();
+		/* cvd has been working and locked, needn't skip fields */
+		dec->skip_count = 0;
 
-	/* soft reset CVD logic, register values are not reseted */
-	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x1, sd);
+	} else {
+		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd);	/* CVBSAFE enable */
 
-	/* start CVD */
-	cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
+		/* line buffer initialization status busy(0x1) or idle(0x0) */
+		while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
+			cpu_relax();
 
-	/* wait until Horizontal/Vertical /Chroma PLL locaked */
-	while ((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe) != 0xe)
-		usleep_range(5000, 5500);
+		/* soft reset CVD logic, register values are not reseted */
+		cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x1, sd);
 
-	/* enables fi_sync indication */
-	cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1, sd);
+		/* start CVD */
+		cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
 
-	/* wait for a stable state, 100ms is enough for one frame */
+		/* wait until Horizontal/Vertical /Chroma PLL locaked */
+		while ((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe)
+									!= 0xe)
+			usleep_range(5000, 5500);
+
+		/* we have to skip several fields to get correct FID */
+		dec->skip_count = FIELD_SKIP_NUM;
+	}
+
+	/* enable delayed field sync interrupt */
+	cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1 | (VSYNC_DELAY_LINE << 4), sd);
+
+	/* wait for a top -> bottom order frame */
 	ret = wait_for_completion_interruptible_timeout(&dec->done,
-							msecs_to_jiffies(100));
+							msecs_to_jiffies(200));
 
 	if (ret == 0) {
 		dev_err(to_state(sd)->dev, "Wait fi_sync INT timeout\n");
@@ -1004,7 +1070,7 @@ static int cvd_g_fmt(struct v4l2_subdev *sd,
 
 	mf->code	= V4L2_MBUS_FMT_UYVY8_2X8;
 	mf->colorspace	= V4L2_COLORSPACE_JPEG;
-	mf->field	= V4L2_FIELD_NONE;
+	mf->field	= dec->field;
 
 	return 0;
 }

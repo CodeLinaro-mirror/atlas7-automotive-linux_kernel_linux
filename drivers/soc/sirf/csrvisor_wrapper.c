@@ -28,6 +28,11 @@
 /* command for csrvisor io */
 #define IOCTL_CMD_CSRVISOR_IO	0x70000001
 
+/* function commands -- get chip uid for user */
+#define CVIO_CMD_GET_CHIPUID	0x70000004
+/* Chip ID length fixed at 16 bytes */
+#define DEVICE_CHIPUID_LENGTH	16
+
 #define CMD_PACKET_MAGIC	0x6376696F
 struct cmd_packet {
 	int magic;		/* in - magic number */
@@ -238,6 +243,52 @@ static struct csrvisor_wrapper cw_private_glob = {
 	.wrapper_dev.name	=	"cvwrapper",
 	.wrapper_dev.fops	=	&csrviosr_wrapper_fops,
 };
+
+/* provided an interface to get chip id for user via sysfs */
+static ssize_t chip_uid_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct cmd_packet *local_pkt;
+	unsigned int *chip_uid;
+	size_t pkt_size, str_size;
+	dma_addr_t dma_addr;
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	/* allocate local packet directly */
+	pkt_size = sizeof(struct cmd_packet)
+				+ DEVICE_CHIPUID_LENGTH;
+
+	local_pkt = dma_zalloc_coherent(dev, pkt_size, &dma_addr, GFP_KERNEL);
+	if (!local_pkt)
+		return 0;
+
+	/* build internal packet */
+	local_pkt->magic = CMD_PACKET_MAGIC;
+	local_pkt->cmd = CVIO_CMD_GET_CHIPUID;
+	local_pkt->status = 0;
+	local_pkt->in_buf = NULL; /* input unnecessary */
+	local_pkt->in_len = 0;
+	local_pkt->out_buf = (void *)(dma_addr + sizeof(struct cmd_packet));
+	local_pkt->out_len = DEVICE_CHIPUID_LENGTH;
+
+	/* lock & go */
+	mutex_lock(&cw_data->call_mutex);
+	cw_data->xfer_pkt = (struct cmd_packet *)dma_addr;
+	do_csrvisor_fastcall(cw_data);
+	cw_data->xfer_pkt = NULL;
+	mutex_unlock(&cw_data->call_mutex);
+
+	/* return */
+	chip_uid = (unsigned int *)(local_pkt + 1);
+	str_size = sprintf(buf, "%08x%08x%08x%08x\n",
+			chip_uid[0], chip_uid[1], chip_uid[2], chip_uid[3]);
+	dma_free_coherent(dev, pkt_size, local_pkt, dma_addr);
+
+	return str_size;
+}
+
+static DEVICE_ATTR_RO(chip_uid);
+
 static __init int csrvisor_wrapper_init(void)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
@@ -281,6 +332,9 @@ static __init int csrvisor_wrapper_init(void)
 	kthread_bind(cw_data->wrapper_thread, CSRVISOR_CPU);
 	wake_up_process(cw_data->wrapper_thread);
 #endif
+	device_create_file(cw_data->wrapper_dev.this_device,
+		&dev_attr_chip_uid);
+
 	return 0;
 
 __fail:

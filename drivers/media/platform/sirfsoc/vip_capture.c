@@ -234,6 +234,21 @@ static void vip_buffer_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&vip->lock, flags);
 }
 
+/*
+ * vip_buffer_finish : Callback function before DQ buffer return
+ * @vb: ptr to vb2_buffer
+ */
+static void vip_buffer_finish(struct vb2_buffer *vb)
+{
+	struct vip_dev *vip = vb2_get_drv_priv(vb->vb2_queue);
+	struct vip_subdev_info *subdev = &vip->subdev[0];
+	struct v4l2_subdev *sd = subdev->sd;
+	struct v4l2_mbus_framefmt mf;
+
+	v4l2_subdev_call(sd, video, g_mbus_fmt, &mf);
+
+	vb->v4l2_buf.field = mf.field;
+}
 
 /*
  * vip_start_streaming : Callback function to start streaming
@@ -327,6 +342,7 @@ static struct vb2_ops vip_video_qops = {
 	.buf_init		= vip_buffer_init,
 	.buf_prepare		= vip_buffer_prepare,
 	.buf_queue		= vip_buffer_queue,
+	.buf_finish		= vip_buffer_finish,
 	/*.buf_cleanup		= vip_buffer_cleanup,*/
 	.start_streaming	= vip_start_streaming,
 	.stop_streaming		= vip_stop_streaming,
@@ -744,9 +760,6 @@ static void vip_hw_start(struct vip_dev *vip)
 {
 	u32 val;
 
-	/* Reset fifo */
-	vip_hw_reset_fifo(vip);
-
 	/* Reset camera */
 	val = vip_read(CAM_CTRL);
 	vip_write(CAM_CTRL, val | CAM_CTRL_INIT);
@@ -1015,6 +1028,7 @@ static int vip_start_dma(struct vip_dev *vip)
 	if (vip->is_atlas7_vip0) {
 		buf->dma = vb2_dma_contig_plane_dma_addr(vb, 0);
 
+		vip_hw_reset_fifo(vip);
 		vip_hw_start_dma(vip, buf);
 	} else {
 		memset(&config, 0, sizeof(config));
@@ -2158,7 +2172,7 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 	control.vsync_invert	= 0;
 	control.single_cap	= 0;
 	control.hor_mirror_en	= 0;
-	control.cap_from_odd_en	= 1;
+	control.cap_from_odd_en	= 0;
 	control.cap_from_even_en = 0;
 	control.ccir565_en	= 0;
 	vip_hw_set_control(vip, control);
@@ -2182,9 +2196,8 @@ void vip_rv_start(void *data)
 
 	vip->rv.running = true;
 
-	dma_hw_set_start_addr(vip, dma_table_addr);
-
 	vip_hw_reset_fifo(vip);
+	dma_hw_set_start_addr(vip, dma_table_addr);
 
 	v4l2_subdev_call(sd, video, s_stream, 1);
 
