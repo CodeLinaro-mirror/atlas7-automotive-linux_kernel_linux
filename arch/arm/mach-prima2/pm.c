@@ -338,38 +338,19 @@ static const struct of_device_id sirfsoc_pm_ids[] = {
 
 void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 {
-#define CPU_CLK_SEL 0xf8
-#define WDOG_MATCH 0x18
-#define WDOG_TIMER_WDT_INDEX		5
-#define WDOG_EN 0x64
-#define WDOG_CNT_CTRL 0x0
-#define WDOG_CNT	0x48
-
 	/* support standand android recovery mode */
 	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
 		writel(readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
 			| RECOVERY_MODE,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
 
-	/*
-	* set retain register as 0x2 for reset, so that uboot can
-	* disdinguish between real watchdog event and this workaroad
-	*/
+	/* set PAD8 as 0x2 for reset */
 	writel_relaxed(SIRFSOC_PM_RESET,
 		sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
 
-	/* workaround reset for atlas7 */
-	writel(0, sinfo->clkc_base + CPU_CLK_SEL);
-
-	/* update timeout for match */
-	writel(0, sinfo->timer_base + WDOG_CNT +
-		4 * WDOG_TIMER_WDT_INDEX);
-	writel(0x10000000,	sinfo->timer_base + WDOG_MATCH +
-			4 * WDOG_TIMER_WDT_INDEX);
-	/* enable watchdog */
-	writel(0x3, sinfo->timer_base + WDOG_CNT_CTRL +
-			4 * WDOG_TIMER_WDT_INDEX);
-	writel(1, sinfo->timer_base + WDOG_EN);
+#define IPC_M3_OFS 0xc
+#define IPC_M3_TRIG 1
+	writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
 	while (1)
 		;
 }
