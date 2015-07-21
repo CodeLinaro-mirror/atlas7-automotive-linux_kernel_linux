@@ -312,7 +312,7 @@ static const char *get_pad_pull_status(struct atlas7_pmx *pmx,
 		if (regv)
 			return "pull_enable";
 		else
-			return "pull_enable";
+			return "pull_disable";
 	} else {
 		regv = (regv >> conf->pupd_bit) & 0x3;
 		*status = regv;
