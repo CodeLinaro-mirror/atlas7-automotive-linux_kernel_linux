@@ -711,7 +711,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 		}
 	}
 
-	platform_set_drvdata(pdev, ci);
+	dev->platform_data = ci;
 	ret = request_irq(ci->irq, ci_irq, IRQF_SHARED, ci->platdata->name,
 			  ci);
 	if (ret)
@@ -735,7 +735,7 @@ deinit_phy:
 
 static int ci_hdrc_remove(struct platform_device *pdev)
 {
-	struct ci_hdrc *ci = platform_get_drvdata(pdev);
+	struct ci_hdrc *ci = dev_get_platdata(&pdev->dev);
 
 	dbg_remove_files(ci);
 	free_irq(ci->irq, ci);

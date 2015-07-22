@@ -52,7 +52,7 @@ get_a_bus_req(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char		*next;
 	unsigned	size, t;
-	struct ci_hdrc	*ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	next = buf;
 	size = PAGE_SIZE;
@@ -67,7 +67,7 @@ static ssize_t
 set_a_bus_req(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
-	struct ci_hdrc *ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	if (count > 2)
 		return -1;
@@ -96,7 +96,7 @@ get_a_bus_drop(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char		*next;
 	unsigned	size, t;
-	struct ci_hdrc	*ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	next = buf;
 	size = PAGE_SIZE;
@@ -111,7 +111,7 @@ static ssize_t
 set_a_bus_drop(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
-	struct ci_hdrc	*ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	if (count > 2)
 		return -1;
@@ -137,7 +137,7 @@ get_b_bus_req(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char		*next;
 	unsigned	size, t;
-	struct ci_hdrc	*ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	next = buf;
 	size = PAGE_SIZE;
@@ -152,7 +152,7 @@ static ssize_t
 set_b_bus_req(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
-	struct ci_hdrc	*ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	if (count > 2)
 		return -1;
@@ -174,7 +174,7 @@ static ssize_t
 set_a_clr_err(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
-	struct ci_hdrc	*ci = dev_get_drvdata(dev);
+	struct ci_hdrc	*ci = dev_get_platdata(dev);
 
 	if (count > 2)
 		return -1;
