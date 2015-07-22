@@ -2369,13 +2369,12 @@ static int vip_remove(struct platform_device *pdev)
 }
 
 
-/*
- * VIP power management interfaces, but haven't debugged them.
- */
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int vip_pm_suspend(struct device *dev)
 {
 	struct vip_dev *vip = dev_get_drvdata(dev);
+	struct vip_subdev_info *subdev = &vip->subdev[0];
+	struct v4l2_subdev *sd = subdev->sd;
 
 	disable_irq(vip->irq);
 
@@ -2385,30 +2384,49 @@ static int vip_pm_suspend(struct device *dev)
 		dmaengine_terminate_all(vip->dma_chan);
 
 	vip_hw_stop(vip);
+
+	/* capture pipe line is working, also should stop subdev */
+	if (vip->vb2_active)
+		v4l2_subdev_call(sd, video, s_stream, 0);
+
 	clk_disable_unprepare(vip->clk);
+
 	return 0;
 }
 
 static int vip_pm_resume(struct device *dev)
 {
 	struct vip_dev *vip = dev_get_drvdata(dev);
+	struct vip_subdev_info *subdev = &vip->subdev[0];
+	struct v4l2_subdev *sd = subdev->sd;
 	int ret;
 
 	ret = clk_prepare_enable(vip->clk);
-	if (ret)
-		goto exit;
+	if (ret) {
+		dev_err(dev, "vip resume clk enable failed\n");
+		return ret;
+	}
 
-	/* TODO: set HW parameters here ? */
 	enable_irq(vip->irq);
 
-	/* Restart frame capture if active buffer exists */
+	/* Before suspend it's active, so we should restore the pipe line */
 	if (vip->vb2_active) {
-		vip_hw_stop(vip);
+
+		/* now restart pipe line, clear it no matter it was */
+		brestart = 0;
+
+		/* restore VIP hardware configuration */
+		vip_config_host(subdev);
+
+		/* restore subdev hardware configuration and start */
+		v4l2_subdev_call(sd, core, init, 0);
+		v4l2_subdev_call(sd, video, s_stream, 1);
+
+		/* start hardware pipe line */
 		vip_start_dma(vip);
 	}
 
-exit:
-	return ret;
+	return 0;
 }
 #endif
 
