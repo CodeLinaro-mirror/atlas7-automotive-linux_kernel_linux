@@ -1536,12 +1536,78 @@ static int sirfsoc_vout_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_vout_suspend(struct device *dev)
+{
+	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev);
+	struct sirfsoc_video_device *vid_dev = container_of(v4l2_dev,
+		struct sirfsoc_video_device, v4l2_dev);
+	struct sirfsoc_vout_device *vout;
+	struct sirfsoc_vdss_layer *l;
+	int i;
+
+	for (i = 0; i < vid_dev->num_panel; i++) {
+
+		vout = vid_dev->vouts[i];
+
+		/* displaying, need to stop */
+		if (vout->next_frm) {
+
+			l = vout->layer;
+
+			sirfsoc_lcdc_unregister_isr(l->lcdc_id,
+				sirfsoc_vout_isr, vout, LCDC_INT_VSYNC);
+
+			l->disable(l);
+		}
+	}
+
+	return 0;
+}
+
+static int sirfsoc_vout_resume(struct device *dev)
+{
+	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev);
+	struct sirfsoc_video_device *vid_dev = container_of(v4l2_dev,
+		struct sirfsoc_video_device, v4l2_dev);
+	struct sirfsoc_vout_device *vout;
+	struct sirfsoc_vdss_layer *l;
+	int i;
+
+	for (i = 0; i < vid_dev->num_panel; i++) {
+
+		vout = vid_dev->vouts[i];
+
+		/* has frame to be displayed, need to restore */
+		if (vout->next_frm) {
+
+			l = vout->layer;
+
+			/*start display*/
+			__sirfsoc_vout_display(vout, vout->next_frm);
+
+			l->enable(l);
+
+			sirfsoc_lcdc_register_isr(l->lcdc_id,
+					sirfsoc_vout_isr, vout, LCDC_INT_VSYNC);
+		}
+	}
+
+	return 0;
+}
+
+#endif
+
+static SIMPLE_DEV_PM_OPS(sirfsoc_vout_pm_ops,
+				sirfsoc_vout_suspend, sirfsoc_vout_resume);
+
 static struct platform_driver __refdata sirfsoc_vout = {
 	.remove  = sirfsoc_vout_remove,
 	.probe	 = sirfsoc_vout_probe,
 	.driver  = {
 		.name	= SIRFSOC_VOUT_DRV_NAME,
 		.owner	= THIS_MODULE,
+		.pm	= &sirfsoc_vout_pm_ops,
 	},
 };
 
