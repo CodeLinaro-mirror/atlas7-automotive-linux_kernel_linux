@@ -62,6 +62,11 @@ struct cvd_dev {
 	struct resource		*res;
 	void __iomem		*io_base;
 
+	u32			input_port;
+	s32			saturation;
+	s32			brightness;
+	s32			contrast;
+	s32			hue;
 	v4l2_std_id		norm;
 	enum v4l2_field		field;
 	struct v4l2_subdev	sd;
@@ -1128,6 +1133,7 @@ static int cvd_s_routing(struct v4l2_subdev *sd, u32 input,
 				      u32 output, u32 config)
 {
 	unsigned int value;
+	struct cvd_dev *dec = to_state(sd);
 
 	switch (input) {
 	case 0:		/* INPUT_CVBS_0 */
@@ -1146,6 +1152,8 @@ static int cvd_s_routing(struct v4l2_subdev *sd, u32 input,
 		return -EINVAL;
 	}
 
+	dec->input_port = input;
+
 	return 0;
 }
 
@@ -1157,15 +1165,19 @@ static int cvd_s_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_SATURATION:
 		cvd_write(CVBSD_CHROMA_SATURATION, ctrl->val, sd);
+		dec->saturation = ctrl->val;
 		break;
 	case V4L2_CID_BRIGHTNESS:
 		cvd_write(CVBSD_LUMA_BRIGHTNESS, ctrl->val + 32, sd);
+		dec->brightness = ctrl->val;
 		break;
 	case V4L2_CID_CONTRAST:
 		cvd_write(CVBSD_LUMA_CONTRAST, ctrl->val, sd);
+		dec->contrast = ctrl->val;
 		break;
 	case V4L2_CID_HUE:
 		cvd_write(CVBSD_CHROMA_HUE, ctrl->val, sd);
+		dec->hue  = ctrl->val;
 		break;
 	default:
 		return -EINVAL;
@@ -1177,8 +1189,35 @@ static const struct v4l2_ctrl_ops cvd_ctrl_ops = {
 	.s_ctrl = cvd_s_ctrl,
 };
 
+static int cvd_init(struct v4l2_subdev *sd, u32 val)
+{
+	int i;
+	struct v4l2_ctrl ctrl;
+	struct cvd_dev *dec = to_state(sd);
+
+	/* set initial registers */
+	for (i = 0; i < ARRAY_SIZE(initial_registers); i++)
+		cvd_write(initial_registers[i].reg_addr,
+					initial_registers[i].reg_value, sd);
+
+	/* set CVBS source input port */
+	cvd_s_routing(sd, dec->input_port, 0, 0);
+
+	/* set input analog video standard */
+	cvd_s_std(sd, dec->norm);
+
+	/* set saturation brightnes contrast hue */
+	cvd_write(CVBSD_CHROMA_SATURATION, dec->saturation, sd);
+	cvd_write(CVBSD_LUMA_BRIGHTNESS, dec->brightness + 32, sd);
+	cvd_write(CVBSD_LUMA_CONTRAST, dec->contrast, sd);
+	cvd_write(CVBSD_CHROMA_HUE, dec->hue, sd);
+
+	return 0;
+}
+
 static struct v4l2_subdev_core_ops cvd_core_ops = {
 	.interrupt_service_routine = cvd_isr,
+	.init = cvd_init,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register	= cvd_g_register,
 	.s_register	= cvd_s_register,
@@ -1204,7 +1243,7 @@ static struct v4l2_subdev_ops cvd_ops = {
 
 static int cvd_probe(struct platform_device *pdev)
 {
-	int ret, i;
+	int ret;
 	struct device	*dev = &pdev->dev;
 	struct cvd_dev *dec = NULL;
 	struct v4l2_subdev *sd;
@@ -1272,12 +1311,15 @@ static int cvd_probe(struct platform_device *pdev)
 		return hdl->error;
 	}
 
-	/* Initialize cvd */
-	dec->norm = V4L2_STD_NTSC;
+	/* Initialize cvd with default value */
+	dec->norm	= V4L2_STD_NTSC;
+	dec->input_port	= 0;
+	dec->contrast	= 0x80;
+	dec->brightness	= 0;
+	dec->saturation	= 0x80;
+	dec->hue	= 0;
 
-	for (i = 0; i < ARRAY_SIZE(initial_registers); i++)
-		cvd_write(initial_registers[i].reg_addr,
-					initial_registers[i].reg_value, sd);
+	cvd_init(sd, 0);
 
 	return 0;
 }
@@ -1287,6 +1329,8 @@ static int cvd_remove(struct platform_device *pdev)
 	struct cvd_dev *dec = platform_get_drvdata(pdev);
 	struct v4l2_subdev *sd = &dec->sd;
 
+	clk_disable_unprepare(dec->clk);
+
 	v4l2_device_unregister_subdev(sd);
 	v4l2_ctrl_handler_free(&dec->hdl);
 
@@ -1294,19 +1338,10 @@ static int cvd_remove(struct platform_device *pdev)
 }
 
 
-
-/*
- * CVD power management interfaces, but haven't debugged them.
- */
 #ifdef CONFIG_PM_SLEEP
 static int cvd_pm_suspend(struct device *dev)
 {
 	struct cvd_dev *dec = dev_get_drvdata(dev);
-	struct v4l2_subdev *sd = &dec->sd;
-
-	dev_info(dev, "%s\n", __func__);
-
-	cvd_write(CVBSD_AFEPWR_EN, 0x1, sd);	/* CVBSAFE disable */
 
 	clk_disable_unprepare(dec->clk);
 
@@ -1316,13 +1351,11 @@ static int cvd_pm_suspend(struct device *dev)
 static int cvd_pm_resume(struct device *dev)
 {
 	struct cvd_dev *dec = dev_get_drvdata(dev);
-	struct v4l2_subdev *sd = &dec->sd;
-
-	dev_info(dev, "%s\n", __func__);
 
 	clk_prepare_enable(dec->clk);
 
-	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd);	/* CVBSAFE enable */
+	/* restore all the HW configuration */
+	cvd_init(&dec->sd, 0);
 
 	return 0;
 }
