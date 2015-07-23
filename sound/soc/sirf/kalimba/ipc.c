@@ -189,7 +189,7 @@ static u32 read_msg_payload(struct ipc_data *ipc_data)
 		ipc_data->cur_offs = ipc_data->payload +
 				FRAME_MAX_START_COMPLETE_DATA_SIZE;
 		if (ipc_data->debug)
-			pr_info("rsp_id = 0x%04x\n", ipc_data->cur_offs[0]);
+			pr_info("rsp_id = 0x%04x\n", ipc_data->payload[0]);
 		break;
 	case MESSAGING_SHORT_CONTINUE:
 	case MESSAGING_SHORT_END:
