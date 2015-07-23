@@ -149,7 +149,7 @@ static int usbphy_pm_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_phy *sirf_phy = platform_get_drvdata(pdev);
 
-	sirf_phy_shutdown(sirf_phy);
+	sirf_phy_shutdown(&sirf_phy->phy);
 
 	return 0;
 }
@@ -159,7 +159,7 @@ static int usbphy_pm_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sirf_phy *sirf_phy = platform_get_drvdata(pdev);
 
-	sirf_phy_init(sirf_phy);
+	sirf_phy_init(&sirf_phy->phy);
 
 	return 0;
 }
