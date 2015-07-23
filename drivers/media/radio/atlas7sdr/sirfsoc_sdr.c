@@ -6,6 +6,7 @@
  * Licensed under GPLv2 or later.
  */
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direction.h>
@@ -63,6 +64,23 @@ static int sirf_sdr_open(struct inode *inode, struct file *filp)
 
 static int sirf_sdr_release(struct inode *inode, struct file *filp)
 {
+	struct sirf_sdr *sdr = container_of(filp->private_data,
+			struct sirf_sdr, misc_sdr);
+	struct dma_info *pos, *n;
+
+	list_for_each_entry_safe(pos, n, &sdr->rd_dma_info.list, list) {
+		list_del(&pos->list);
+		if (pos->dma_addr)
+			dma_free_coherent(&sdr->pdev->dev, pos->len,
+					pos->dma_virt_addr, pos->dma_addr);
+	}
+
+	list_for_each_entry_safe(pos, n, &sdr->wt_dma_info.list, list) {
+		list_del(&pos->list);
+		if (pos->dma_addr)
+			dma_free_coherent(&sdr->pdev->dev, pos->len,
+					pos->dma_virt_addr, pos->dma_addr);
+	}
 	return 0;
 }
 
@@ -261,26 +279,31 @@ static long sdr_ioctl_decoder(struct sirf_sdr *sdr,
 				sizeof(struct config_info))) {
 		dev_err(&pdev->dev, "sdr: copy buf_info fail\n");
 		ret = -EINVAL;
-		goto copy_fail;
+		goto out;
 	}
 
 	ret = sdr_dmaengine_start_dma(sdr, &cfg_info);
 
 	if (ret)
-		return ret;
+		goto err;
 
 	wait = wait_for_completion_interruptible_timeout(&sdr->data_ready,
 			msecs_to_jiffies(100));
 	reinit_completion(&sdr->data_ready);
 
-	if (wait > 0)
-		ret = 0;
-	else if (!wait)
+	if (!wait)
 		ret = -ETIMEDOUT;
-	else
+	else if (wait < 0)
 		ret = -EINTR;
 
-copy_fail:
+	if (ret)
+		goto err;
+
+	return 0;
+err:
+	dmaengine_terminate_all(sdr->tx_dma_chan);
+	dmaengine_terminate_all(sdr->rx_dma_chan);
+out:
 	return ret;
 }
 
@@ -403,7 +426,9 @@ static long sdr_free_out_dma_buf(struct sirf_sdr *sdr, unsigned int dma_addr)
 
 static long sdr_reset(struct sirf_sdr *sdr)
 {
+	device_reset(&sdr->pdev->dev);
 	writel(1, sdr->regbase + SDR_VSS_DEBUG_RESET);
+
 	return 0;
 }
 
@@ -522,6 +547,7 @@ static int sdr_sirf_probe(struct platform_device *pdev)
 		goto tx_dma_fail;
 	}
 
+	sdr_reset(sdr);
 	sdr->tx_dma_chan = dma_request_slave_channel(&pdev->dev, "tx");
 	if (!sdr->tx_dma_chan) {
 		dev_err(&pdev->dev, "sdr: request write dma failed\n");
@@ -580,8 +606,8 @@ static int sdr_sirf_remove(struct platform_device *pdev)
 	struct dma_info *pos, *n;
 
 	sdr = platform_get_drvdata(pdev);
-	 dma_release_channel(sdr->tx_dma_chan);
-	 dma_release_channel(sdr->rx_dma_chan);
+	dma_release_channel(sdr->tx_dma_chan);
+	dma_release_channel(sdr->rx_dma_chan);
 
 	list_for_each_entry_safe(pos, n, &sdr->rd_dma_info.list, list) {
 		list_del(&pos->list);
