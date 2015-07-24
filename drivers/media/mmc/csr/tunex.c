@@ -809,9 +809,10 @@ static long
 tunex_ioctl_release_buf(struct csr_radio *radio,
 		unsigned long size)
 {
+	unsigned long flags;
 	struct sdhci_host *host = radio->radio_sdio.host;
 
-	spin_lock(&radio->lock);
+	spin_lock_irqsave(&radio->lock, flags);
 	radio->out += radio->data_control.dma_length;
 	if ((radio->buffer_ready & BUF0_READY) &&
 			(radio->out > LOOPDMA_BUF_SIZE / 2)) {
@@ -829,7 +830,7 @@ tunex_ioctl_release_buf(struct csr_radio *radio,
 	}
 	if (radio->buf_full)
 		radio->buf_full = 0;
-	spin_unlock(&radio->lock);
+	spin_unlock_irqrestore(&radio->lock, flags);
 	return 0;
 }
 
