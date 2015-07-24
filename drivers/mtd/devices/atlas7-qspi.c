@@ -278,6 +278,8 @@ struct nor_flash_info {
 
 static int
 atlas7_qspi_nor_macronix_quad_enable(struct atlas7_qspi_nor *a7nor);
+static int
+atlas7_qspi_nor_spansion_quad_enable(struct atlas7_qspi_nor *a7nor);
 
 static int
 atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor);
@@ -317,6 +319,24 @@ static struct nor_flash_info flash_types[] = {
 		133, 30, 20, 100, 4, 6,
 		NULL, atlas7_qspi_nor_macronix_quad_enable,
 		atlas7_qspi_enter_32bit_addr},
+	{ "mx25l12835f", 0xc22018, 0, 256, 4 * 1024, 4096,
+		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
+		133, 30, 20, 100, 4, 6,
+		NULL, atlas7_qspi_nor_macronix_quad_enable,
+		atlas7_qspi_enter_32bit_addr},
+
+	/* Spansion s25flxx */
+#define S25FL_FLAG (FLASH_FLAG_READ_WRITE	|	\
+		   FLASH_FLAG_READ_FAST		|	\
+		   FLASH_FLAG_READ_1_1_2	|	\
+		   FLASH_FLAG_READ_1_2_2	|	\
+		   FLASH_FLAG_READ_1_1_4	|	\
+		   FLASH_FLAG_READ_1_4_4)
+#define ATLAS7_QSPI_SPANSION_QUAD_EN_BIT	(0x1<<1)
+	{ "s25fl164K", 0x014017, 0, 256, 4 * 1024, 2048,
+		S25FL_FLAG,
+		108, 7, 20, 100, 4, 4,
+		NULL, atlas7_qspi_nor_spansion_quad_enable, NULL},
 
 	/* Sentinel */
 	{},
@@ -701,6 +721,43 @@ atlas7_qspi_nor_macronix_quad_enable(struct atlas7_qspi_nor *a7nor)
 		goto out;
 	if (!(val > 0 && (val & ATLAS7_QSPI_MACRONIX_QUAD_EN_BIT))) {
 		dev_err(a7nor->dev, "Macronix Quad bit not set\n");
+		ret = -EINVAL;
+	}
+out:
+	mutex_unlock(&a7nor->lock);
+	return ret;
+}
+
+static int
+atlas7_qspi_nor_spansion_quad_enable(struct atlas7_qspi_nor *a7nor)
+{
+	int ret;
+	u8 val[2];
+
+	mutex_lock(&a7nor->lock);
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR, &val[0], 1);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR2, &val[1], 1);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WREN, NULL, 0);
+	if (ret < 0)
+		goto out;
+
+	val[1] |= ATLAS7_QSPI_SPANSION_QUAD_EN_BIT;
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WRSR, val, 2);
+	if (ret < 0)
+		goto out;
+
+	val[1] = 0;
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR2, &val[1], 1);
+	if (ret < 0)
+		goto out;
+	if (!(val[1] > 0 && (val[1] & ATLAS7_QSPI_SPANSION_QUAD_EN_BIT))) {
+		dev_err(a7nor->dev, "Spansion Quad bit not set\n");
 		ret = -EINVAL;
 	}
 out:
