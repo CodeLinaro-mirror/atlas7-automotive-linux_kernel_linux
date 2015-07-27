@@ -519,7 +519,7 @@ free_memory:
 
 static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 {
-	int size, dma_size;
+	int size;
 	unsigned int sys_addr;
 	struct csr_radio *radio =
 		container_of(hrt, struct csr_radio, hrt);
@@ -528,16 +528,30 @@ static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 	unsigned int intmask;
 	unsigned int buffer_err;
 
+	/* read current DMA address*/
 	sys_addr = readl(host->ioaddr + 0);
+	/* radio->in: last read offset pointer
+	 * loopdma_buf: the start address of the DMA
+	 * size: current avaible data size from last check
+	 */
 	size = sys_addr - loopdma_buf - radio->in;
 	if (size < 0) {
+		/*
+		 * size < 0 means the current dma address
+		 * over the end address of the DMA
+		 */
 		size = LOOPDMA_BUF_SIZE - radio->in;
-		dma_size = size;
-	} else
-		dma_size = radio->data_control.dma_length;
-	if (size >= dma_size) {
+		dma_sync_single_for_cpu(mmc_dev(host->mmc),
+				loopdma_buf + radio->in,
+				size,
+				DMA_FROM_DEVICE);
+		radio->in = 0;
+	}
+	size = sys_addr - loopdma_buf - radio->in;
+	/* process the data by 512 Bytes block */
+	if (size & ~0x1FF) {
 		spin_lock(&radio->lock);
-		size = dma_size * (size / dma_size);
+		size = size & ~0x1FF;
 		dma_sync_single_for_cpu(mmc_dev(host->mmc),
 				loopdma_buf + radio->in,
 				size,
@@ -607,6 +621,7 @@ static void tunex_config_dma_on(struct csr_radio *radio)
 	sdio_claim_host(func);
 	radio->in = 0;
 	radio->out = 0;
+	radio->pre_out = 0;
 	radio->buf_full = 0;
 
 	hrtimer_start(&radio->hrt,
@@ -783,16 +798,25 @@ tunex_ioctl_get_buf_pointer(struct csr_radio *radio, unsigned long arg)
 	long wait;
 	struct dma_buf_info buf_info;
 	struct device *dev;
+	int size;
 
 	dev = radio->device;
 
 	wait = wait_event_interruptible_timeout(
 			radio->data_avail,
-			radio->in != radio->out || radio->buf_full,
+			radio->in != radio->pre_out || radio->buf_full,
 			WAIT_DATA_TIMEOUT);
 	if (likely(wait > 0)) {
-		buf_info.buf_addr =  radio->out;
-		buf_info.size = radio->data_control.dma_length;
+		buf_info.buf_addr =  radio->pre_out;
+		if (radio->in > radio->pre_out) {
+			size = radio->in - radio->pre_out;
+			radio->pre_out = radio->pre_out + size;
+		} else {
+			/* ring-buffer loops to the start */
+			size = LOOPDMA_BUF_SIZE - radio->pre_out;
+			radio->pre_out = 0;
+		}
+		buf_info.size = size;
 		if (copy_to_user((void __user *)arg,
 					&buf_info,
 					sizeof(struct dma_buf_info)))

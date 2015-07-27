@@ -87,7 +87,11 @@ struct csr_radio {
 	dma_addr_t dma_addr;
 	int dma_buf_size;
 	unsigned int in;
-	unsigned int out;
+	unsigned int out; /* save real out pointer when release_buf */
+	/* save the last out pointer before release_buf,
+	   the app may call get pointer twice and then
+	   release buf */
+	unsigned int pre_out;
 	unsigned int buf_full;
 	unsigned int buffer_ready;
 };
