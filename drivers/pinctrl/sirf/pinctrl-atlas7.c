@@ -3850,7 +3850,7 @@ static u32 convert_current_to_drive_strength(u32 type, u32 ma)
 static u32 altas7_pinctrl_get_pull_sel(struct atlas7_pmx *pmx, u32 pin)
 {
 	struct atlas7_pad_config *conf = &pmx->pctl_data->confs[pin];
-	struct atlas7_pull_info *pull_info;
+	const struct atlas7_pull_info *pull_info;
 	int bank;
 	unsigned long regv;
 
@@ -3868,7 +3868,7 @@ static int altas7_pinctrl_set_pull_sel(struct pinctrl_dev *pctldev,
 {
 	struct atlas7_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
 	struct atlas7_pad_config *conf = &pmx->pctl_data->confs[pin];
-	struct atlas7_pull_info *pull_info;
+	const struct atlas7_pull_info *pull_info;
 	u32 bank;
 	unsigned long regv;
 	void __iomem *pull_sel_reg, *pull_clr_reg;
