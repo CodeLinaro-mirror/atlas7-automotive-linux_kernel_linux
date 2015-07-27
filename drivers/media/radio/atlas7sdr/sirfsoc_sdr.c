@@ -446,6 +446,30 @@ static const struct file_operations sirfsdr_fops = {
 	.mmap = sirf_sdr_mmap,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_sdr_pm_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirf_sdr *sdr = platform_get_drvdata(pdev);
+
+	clk_disable_unprepare(sdr->clk);
+
+	return 0;
+}
+
+static int sirfsoc_sdr_pm_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sirf_sdr *sdr = platform_get_drvdata(pdev);
+
+	return clk_prepare_enable(sdr->clk);
+}
+
+#endif
+
+static SIMPLE_DEV_PM_OPS(sirfsoc_sdr_pm_ops, sirfsoc_sdr_pm_suspend,
+		sirfsoc_sdr_pm_resume);
+
 static int sdr_sirf_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -587,6 +611,7 @@ static struct platform_driver sdr_sirf_driver = {
 		.name	= "sdr",
 		.owner	= THIS_MODULE,
 		.of_match_table = sirf_sdr_of_match,
+		.pm = &sirfsoc_sdr_pm_ops,
 	},
 	.probe		= sdr_sirf_probe,
 	.remove		= sdr_sirf_remove,
