@@ -4254,8 +4254,6 @@ save_pull_sel:
 					IN_DISABLE_VAL_0_REG_SET + 0x8 * idx);
 	}
 
-	pr_info("Suspend PINMUX Controller\n");
-
 	return 0;
 }
 
@@ -4303,8 +4301,6 @@ restore_pull_sel:
 		writel(pmx->status_dsv[idx], pmx->regs[BANK_DS] +
 					IN_DISABLE_VAL_0_REG_SET + 0x8 * idx);
 	}
-
-	pr_info("Resume PINMUX Controller\n");
 
 	return 0;
 }
@@ -4858,8 +4854,6 @@ static int atlas7_gpio_suspend_noirq(struct device *dev)
 		}
 	}
 
-	pr_info("Suspend GPIO Controller [%s]\n", a7gc->chip.label);
-
 	return 0;
 }
 
@@ -4877,8 +4871,6 @@ static int atlas7_gpio_resume_noirq(struct device *dev)
 			writel(bank->sleep_data[pin], ctrl_reg);
 		}
 	}
-
-	pr_info("Resume GPIO Controller [%s]\n", a7gc->chip.label);
 
 	return 0;
 }
