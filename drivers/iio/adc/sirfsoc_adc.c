@@ -336,7 +336,6 @@ struct sirfsoc_adc {
 	void __iomem			*ana_base;
 	struct sirfsoc_adc_request	req;
 	struct completion		done;
-	struct mutex			adc_lock;
 };
 
 /* Dual touch samples read registers*/
@@ -357,7 +356,6 @@ static int sirfsoc_adc_get_ts_sample(
 	int ret = 0;
 	int i;
 
-	mutex_lock(&adc->adc_lock);
 	adc_intr = readl(adc->base + adc_reg->intr_status);
 	if (adc_intr & SIRFSOC_ADC_PEN_INTR)
 		writel(adc_intr | SIRFSOC_ADC_PEN_INTR,
@@ -393,7 +391,6 @@ static int sirfsoc_adc_get_ts_sample(
 			sample[i] = readl(adc->base + sirfsoc_adc_ts_reg[i]);
 
 out:
-	mutex_unlock(&adc->adc_lock);
 	return ret;
 }
 
@@ -422,7 +419,6 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 	u32 sel_bits;
 	int ret = 0;
 
-	mutex_lock(&adc->adc_lock);
 
 	/* Store registers for recover */
 	control1 = readl(adc->base + adc_reg->ctrl1);
@@ -472,7 +468,6 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 
 out:
 	writel(control1, adc->base + adc_reg->ctrl1);
-	mutex_unlock(&adc->adc_lock);
 	return ret;
 }
 
@@ -1033,7 +1028,6 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&adc->done);
-	mutex_init(&adc->adc_lock);
 
 	/* some register need set on atlas7 */
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
