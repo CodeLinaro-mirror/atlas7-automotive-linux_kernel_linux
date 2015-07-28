@@ -65,6 +65,17 @@
 			regulator-name = "vdd_cpu";
 		};
 
+		gnss_supply: gnss_supply {
+			compatible = "regulator-gpio";
+			regulator-min-microvolt = <1000>;
+			regulator-max-microvolt = <1100000>;
+			regulator-name = "gnss_supply";
+			regulator-type = "voltage";
+			enable-at-boot;
+			states = <1000 0x0
+					1100000 0x1>;
+			gpios = <&gpio_3 11 0>;
+		};
 	};
 
 	sound-internal-audio {
@@ -468,6 +479,7 @@
 					   status = "okay";
 					   pinctrl-names = "default";
 					   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0>;
+					   gps-supply = <&gnss_supply>;
 					};
 				};
 			};
