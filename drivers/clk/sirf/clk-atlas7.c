@@ -1306,6 +1306,11 @@ static void __init atlas7_clk_init(struct device_node *np)
 		atlas7_clks[i] = atlas7_unit_clk_register(NULL, unit->unit_name, unit->parent_name,
 				unit->flags, unit->regofs, unit->bit, unit->type, unit->idle_bit, unit->lock);
 		BUG_ON(!atlas7_clks[i]);
+		if (!strcmp(unit->unit_name, "gnssm_io") ||
+				!strcmp(unit->unit_name, "cpum_cpu") ||
+				!strcmp(unit->unit_name, "sys2pci2_io") ||
+				!strcmp(unit->unit_name, "sys2pci_io"))
+			clk_prepare_enable(atlas7_clks[i]);
 	}
 
 	clk_data.clks = atlas7_clks;

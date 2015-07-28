@@ -362,7 +362,7 @@ struct noc_macro {
 	u32 errlogoff;
 	u32 faultenoff;
 	u32 log_enable:1;	/*if 1, MUST set errlogoff and faultenoff*/
-	u32 qos_probe_enable:1;	/*if 1, MUST set faultenoff*/
+	u32 qos_probe_enable:1; /*if 1, MUST set faultenoff*/
 	u32 qos_enable:1;
 	char name[NOC_MACRO_NAME_LEN];
 	int (*init_macro)(struct platform_device *);
@@ -1440,10 +1440,9 @@ static void QosGenerator_Get(struct noc_qos_t *entry,
 		0x%x, 0x%x\n", entry->desc, entry->bw, bw, entry->clkfreqMhz,
 		entry->priority, entry->mode, entry->saturation, extcontrol);
 
-#if 0 /* fixme */
-	if (entry->clk)
+	if (!IS_ERR(entry->clk))
 		clk_disable_unprepare(entry->clk);
-#endif
+
 }
 
 static void QosGenerator_Set(struct noc_qos_t *entry,
@@ -1489,10 +1488,9 @@ static void QosGenerator_Set(struct noc_qos_t *entry,
 		readl_relaxed(&qos_reg->saturation));
 	QosGenerator_Get(entry, nocm);
 
-#if 0 /* fixme */
-	if (entry->clk)
+	if (!IS_ERR(entry->clk))
 		clk_disable_unprepare(entry->clk);
-#endif
+
 }
 
 static void QosGenerator_init(struct noc_macro *nocm)
@@ -1983,16 +1981,10 @@ static int noc_macro_init(struct platform_device *pdev)
 	/* ignore qos on pxp for lack some modules*/
 	if (!of_machine_is_compatible("sirf,atlas7-pxp"))
 		QosGenerator_init(nocm);
+
 	if (!(nocm->log_enable || nocm->qos_probe_enable))
 		return 0;
 
-	ret = of_irq_get(pdev->dev.of_node, 0);
-	if (ret <= 0) {
-		dev_info(&pdev->dev,
-			"Unable to find IRQ number. ret=%d\n", ret);
-		goto err;
-	}
-	nocm->irq = ret;
 	/*enable errlog trigger, thus irq/abort could come*/
 	nocm->clk = devm_clk_get(&pdev->dev, "nocm");
 	if (!IS_ERR(nocm->clk)) {
@@ -2001,6 +1993,15 @@ static int noc_macro_init(struct platform_device *pdev)
 		ret = clk_prepare_enable(nocm->clk);
 		pr_info("%s: clk_prepare_enable %d!\n", __func__, ret);
 	}
+
+	ret = of_irq_get(pdev->dev.of_node, 0);
+	if (ret <= 0) {
+		dev_info(&pdev->dev,
+			"Unable to find IRQ number. ret=%d\n", ret);
+		goto err;
+	}
+	nocm->irq = ret;
+
 	noc_fault_enable(nocm);
 	ret = devm_request_irq(&pdev->dev,
 			nocm->irq,
@@ -2017,32 +2018,72 @@ err:
 	return ret;
 }
 
-__init int sirfsoc_noc_init(void)
+#ifdef CONFIG_PM_SLEEP
+static int noc_pm_suspend(struct device *dev)
 {
-	struct device_node *np;
-	const struct of_device_id *match;
-	struct noc_macro *nocm;
-	struct platform_device *pdev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct noc_macro *nocm = platform_get_drvdata(pdev);
 
-	for_each_matching_node_and_match(np, sirfsoc_nocfw_ids, &match) {
-		if (!of_device_is_available(np))
-			continue;
-
-		nocm = (struct noc_macro *)match->data;
-		nocm->mbase = of_iomap(np, 0);
-		if (!nocm->mbase) {
-			pr_err("err: %s: of_iomap error\n", nocm->name);
-			return -ENOMEM;
-		}
-
-		spin_lock_init(&nocm->lock);
-		pdev = of_find_device_by_node(np);
-		platform_set_drvdata(pdev, nocm);
-		nocm->pdev = pdev;
-
-		if (nocm->init_macro)
-			nocm->init_macro(pdev);
-	}
+	if (!IS_ERR(nocm->clk))
+		clk_disable_unprepare(nocm->clk);
 
 	return 0;
 }
+
+static int noc_pm_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct noc_macro *nocm = platform_get_drvdata(pdev);
+
+	if (!IS_ERR(nocm->clk))
+		clk_prepare_enable(nocm->clk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops noc_pm_ops = {
+	.suspend_late = noc_pm_suspend,
+	.resume_early = noc_pm_resume,
+};
+
+#endif
+
+static int sirfsoc_noc_probe(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	const struct of_device_id *match;
+	struct noc_macro *nocm;
+
+	match = of_match_device(sirfsoc_nocfw_ids, &pdev->dev);
+	nocm = (struct noc_macro *)match->data;
+	nocm->mbase = of_iomap(np, 0);
+	if (!nocm->mbase) {
+		pr_err("err: %s: of_iomap error\n", nocm->name);
+		return -ENOMEM;
+	}
+
+	spin_lock_init(&nocm->lock);
+	platform_set_drvdata(pdev, nocm);
+	nocm->pdev = pdev;
+	nocm->clk = NULL;
+
+	if (nocm->init_macro)
+		nocm->init_macro(pdev);
+
+	return 0;
+}
+
+static struct platform_driver sirfsoc_noc_driver = {
+	.driver = {
+		   .name = "sirf-noc",
+		   .of_match_table = sirfsoc_nocfw_ids,
+#ifdef CONFIG_PM_SLEEP
+		   .pm = &noc_pm_ops,
+#endif
+		   },
+	.probe = sirfsoc_noc_probe,
+};
+
+
+module_platform_driver(sirfsoc_noc_driver);
+

@@ -111,8 +111,6 @@ static void __init sirfsoc_init_mach(void)
 		sirf_auxdata_lookup, NULL);
 
 	platform_device_register_simple("cpufreq-cpu0", -1, NULL, 0);
-
-	sirfsoc_noc_init();
 }
 
 static void __init sirfsoc_init_late(void)

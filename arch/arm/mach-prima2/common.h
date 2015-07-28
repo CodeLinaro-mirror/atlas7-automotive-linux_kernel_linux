@@ -65,11 +65,4 @@ extern int sirfsoc_pm_init(void);
 #else
 static inline int sirfsoc_pm_init(void) { return 0; }
 #endif
-
-#ifdef CONFIG_ATLAS7DA_NOC
-extern int sirfsoc_noc_init(void);
-#else
-static inline void sirfsoc_noc_init(void) { return 0; }
-#endif
-
 #endif
