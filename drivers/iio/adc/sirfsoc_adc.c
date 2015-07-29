@@ -352,9 +352,25 @@ static int sirfsoc_adc_get_ts_sample(
 	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
 	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
 	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
+	int control1;
 	int adc_intr;
 	int ret = 0;
 	int i;
+
+	/*
+	 * Atlas7 and M3 may share the ADC concurrently,
+	 * and now use the mode bits in control1 register
+	 * to insulate operations from the two core. If the
+	 * mode bits are nonzero, the adc is occupied by
+	 * the other core, and the driver can't operate
+	 * the adc now. If zero, the adc could be use now,
+	 * and driver can operate the adc to response the
+	 * request. After using, the mode bit must be set
+	 * to zero for using by the other core.
+	 */
+	control1 = readl(adc->base + adc_reg->ctrl1);
+	if (control1 & (ctrl_set->mode_mask << ctrl_set->mode_shift))
+		return -EBUSY;
 
 	adc_intr = readl(adc->base + adc_reg->intr_status);
 	if (adc_intr & SIRFSOC_ADC_PEN_INTR)
@@ -391,6 +407,8 @@ static int sirfsoc_adc_get_ts_sample(
 			sample[i] = readl(adc->base + sirfsoc_adc_ts_reg[i]);
 
 out:
+	writel(control1, adc->base + adc_reg->ctrl1);
+
 	return ret;
 }
 
@@ -420,8 +438,20 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 	int ret = 0;
 
 
-	/* Store registers for recover */
+	/*
+	 * Atlas7 and M3 may share the ADC concurrently,
+	 * and now use the mode bits in control1 register
+	 * to insulate operations from the two core. If the
+	 * mode bits are nonzero, the adc is occupied by
+	 * the other core, and the driver can't operate
+	 * the adc now. If zero, the adc could be use now,
+	 * and driver can operate the adc to response the
+	 * request. After using, the mode bit must be set
+	 * to zero for using by the other core.
+	 */
 	control1 = readl(adc->base + adc_reg->ctrl1);
+	if (control1 & (ctrl_set->mode_mask << ctrl_set->mode_shift))
+		return -EBUSY;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_status);
