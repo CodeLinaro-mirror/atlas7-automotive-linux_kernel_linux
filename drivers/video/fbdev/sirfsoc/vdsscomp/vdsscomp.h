@@ -60,6 +60,8 @@ struct vdsscomp_dev {
 	spinlock_t flip_lock;
 
 	struct workqueue_struct *sync_wkq;
+	ktime_t vsync_timestamp;
+	struct work_struct vsync_work;
 
 	u32 num_displays;
 	struct vdsscomp_display_data displays[MAX_DISPLAYS];

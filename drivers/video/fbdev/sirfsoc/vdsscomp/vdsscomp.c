@@ -328,10 +328,30 @@ static const struct file_operations comp_fops = {
 	.unlocked_ioctl = vdsscomp_ioctl,
 };
 
+static void vdsscomp_flip_send_timestamp(struct work_struct *data)
+{
+	struct device *dev;
+	struct vdsscomp_dev *cdev;
+	char buf[64];
+	char *envp[2];
+
+	cdev = container_of(data, struct vdsscomp_dev, vsync_work);
+	dev = cdev->pdev;
+
+	snprintf(buf, sizeof(buf), "TIMESTAMP=%llu",
+				ktime_to_ns(cdev->vsync_timestamp));
+	envp[0] = buf;
+	envp[1] = NULL;
+	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+}
+
 static void vdsscomp_flip_isr(void *pdata, unsigned int irqstatus)
 {
 	struct vdsscomp_dev *cdev = pdata;
 	struct vdsscomp_sync *sync;
+
+	cdev->vsync_timestamp = ktime_get();
+	schedule_work(&cdev->vsync_work);
 
 	spin_lock(&cdev->flip_lock);
 	if (list_empty(&cdev->flip_list) ||
@@ -359,6 +379,7 @@ static int vdsscomp_init_flip(struct vdsscomp_dev *cdev)
 	if (!cdev->sync_wkq)
 		return -ENOMEM;
 
+	INIT_WORK(&cdev->vsync_work, vdsscomp_flip_send_timestamp);
 	/* the panel for primary display */
 	panel = cdev->displays[0].panel;
 	sirfsoc_lcdc_register_isr(panel->src->lcdc_id, vdsscomp_flip_isr,
