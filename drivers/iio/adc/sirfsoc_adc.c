@@ -425,7 +425,6 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_status);
-		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_enable);
 	} else {
 		writel(SIRFSOC_ADC_DATA_INTR_EN | SIRFSOC_ADC_DATA_INTR,
 			adc->base + adc_reg->intr_status);
@@ -673,8 +672,6 @@ static irqreturn_t sirfsoc_adc_data_irq(int irq, void *handle)
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
 			adc->base + adc_reg->intr_status);
-		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_DATA_INTR,
-			adc->base + adc_reg->intr_enable);
 	} else {
 		writel(SIRFSOC_ADC_PEN_INTR | SIRFSOC_ADC_PEN_INTR_EN |
 			SIRFSOC_ADC_DATA_INTR | SIRFSOC_ADC_DATA_INTR_EN,
