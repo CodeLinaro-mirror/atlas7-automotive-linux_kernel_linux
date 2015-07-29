@@ -45,8 +45,8 @@ struct sirfsoc_timer_hw {
 	int (*wdt_enable)(struct watchdog_device *);
 	int (*wdt_disable)(struct watchdog_device *);
 	void (*wdt_latch)(struct watchdog_device *);
-	int (*wdt_updatetimeout)(struct watchdog_device *);
-	int (*wdt_gettimeleft)(struct watchdog_device *);
+	unsigned int (*wdt_updatetimeout)(struct watchdog_device *);
+	unsigned int (*wdt_gettimeleft)(struct watchdog_device *);
 };
 
 #define SIRFSOC_CNT64_CTRL_LOAD_BIT		BIT(1)
@@ -79,7 +79,7 @@ static unsigned int sirfsoc_wdt_gettimeleft(struct watchdog_device *wdd)
 	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
 	struct sirfsoc_timer_hw *hw = wdt->hw;
 
-	int time_left = hw->wdt_gettimeleft(wdd);
+	unsigned int time_left = hw->wdt_gettimeleft(wdd);
 
 	return  time_left;
 }
@@ -89,7 +89,7 @@ static unsigned int prima2_wdt_gettimeleft(struct watchdog_device *wdd)
 	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
 	struct sirfsoc_timer_hw *hw = wdt->hw;
 	u32 counter, match;
-	int time_left;
+	unsigned int time_left;
 
 	counter = readl(wdt->base + hw->cnt64_lo);
 	match = readl(wdt->base + hw->match +
@@ -105,7 +105,7 @@ static unsigned int atlas7_wdt_gettimeleft(struct watchdog_device *wdd)
 	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
 	struct sirfsoc_timer_hw *hw = wdt->hw;
 	u32 counter, match;
-	int time_left;
+	unsigned int time_left;
 
 	counter = readl(wdt->base + hw->cnt + 4 * SIRFSOC_TIMER_WDT_INDEX);
 	match = readl(wdt->base + hw->match +
@@ -156,7 +156,7 @@ static int prima2_wdt_disable(struct watchdog_device *wdd)
 	return 0;
 }
 
-static int prima2_wdt_updatetimeout(struct watchdog_device *wdd)
+static unsigned int prima2_wdt_updatetimeout(struct watchdog_device *wdd)
 {
 	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
 	struct sirfsoc_timer_hw *hw = wdt->hw;
@@ -209,12 +209,12 @@ static int atlas7_wdt_disable(struct watchdog_device *wdd)
 	return 0;
 }
 
-static int atlas7_wdt_updatetimeout(struct watchdog_device *wdd)
+static unsigned int atlas7_wdt_updatetimeout(struct watchdog_device *wdd)
 {
 	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
 	struct sirfsoc_timer_hw *hw = wdt->hw;
 
-	u32 counter, timeout_ticks;
+	u32 timeout_ticks;
 
 	timeout_ticks = wdd->timeout * wdt->tick_rate;
 
@@ -369,6 +369,7 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 		clk = of_clk_get(np, 0);
 		if (IS_ERR(clk)) {
 			pr_debug("wdt clk get failed\n");
+			ret = PTR_ERR(clk);
 			goto err;
 		}
 
