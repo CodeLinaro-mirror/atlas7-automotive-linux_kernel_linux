@@ -405,7 +405,7 @@ static void lcdc_layer_set_alpha(u32 lcdc_index, enum vdss_layer layer, int fmt,
 
 	if (global)
 		lcdc_write_reg(lcdc_index, reg_offset(layer, L0_ALPHA),
-			LX_ALPHA_VAL(0xff));
+			LX_ALPHA_VAL(alpha));
 
 }
 
