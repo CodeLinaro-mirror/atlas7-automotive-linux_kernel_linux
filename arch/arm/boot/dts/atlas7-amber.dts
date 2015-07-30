@@ -9,7 +9,7 @@
 /dts-v1/;
 
 /include/ "atlas7.dtsi"
-#include "atlas7-a7ca.dtsi"
+#include "atlas7-amber.dtsi"
 
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -601,4 +601,3 @@
 		};
 	};
 };
-
