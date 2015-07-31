@@ -173,7 +173,8 @@ struct vip_subdev_info {
 /* rearview information */
 struct vip_rv_info {
 	struct vip_dev		*rv_vip;
-	bool			running;
+	/* higher priority rearview take control of VIP from other VIP users */
+	bool			preemption;
 	bool			mirror_en;
 	unsigned int		subdev_index;
 	unsigned int		dma_table_addr;
@@ -219,7 +220,7 @@ struct vip_dev {
 
 	struct vip_rect		target_rect;
 
-	unsigned int		use_count;
+	unsigned long		device_is_used;
 
 	/*
 	 * Video format information.

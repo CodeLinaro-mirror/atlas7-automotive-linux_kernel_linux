@@ -1718,32 +1718,23 @@ static int sirfsoc_camera_open(struct file *file)
 		goto exit_module_put;
 	}
 
+	/* if rearview is running or vip opened, we forbid user to use vip */
+	if (test_and_set_bit(1, &vip->device_is_used)) {
+		ret = -EBUSY;
+		goto exit_module_put;
+	}
+
 	if (mutex_lock_interruptible(&vip->host_lock)) {
 		ret = -ERESTARTSYS;
 		goto exit_module_put;
 	}
 
-	/* if rearview is running, we forbid user to use vip attached camera */
-	if ((vip == vip->rv.rv_vip) && vip->rv.running) {
-		ret = -EBUSY;
-		goto exit_mutex;
-	}
+	v4l2_subdev_call(sd, core, s_power, 1);
 
-	vip->use_count++;
+	ret = vip_init_videobuf2(vip);
+	if (ret)
+		goto exit_power;
 
-	/* Now we really have to activate the camera */
-	if (vip->use_count == 1) {
-		v4l2_subdev_call(sd, core, s_power, 1);
-
-		pm_runtime_enable(vip->dev);
-		ret = pm_runtime_resume(vip->dev);
-		if (ret < 0 && ret != -ENOSYS)
-			goto exit_resume;
-
-		ret = vip_init_videobuf2(vip);
-		if (ret < 0)
-			goto exit_runtime_disa;
-	}
 	mutex_unlock(&vip->host_lock);
 
 	file->private_data = subdev;
@@ -1751,18 +1742,9 @@ static int sirfsoc_camera_open(struct file *file)
 
 	return 0;
 
-	/*
-	 * First four errors are entered with the .host_lock held
-	 * and use_count == 1
-	 */
 
-exit_runtime_disa:
-	pm_runtime_disable(vip->dev);
-exit_resume:
+exit_power:
 	v4l2_subdev_call(sd, core, s_power, 0);
-	vip_hw_stop(vip);
-	vip->use_count--;
-exit_mutex:
 	mutex_unlock(&vip->host_lock);
 exit_module_put:
 	module_put(vdev->fops->owner);
@@ -1779,20 +1761,15 @@ static int sirfsoc_camera_close(struct file *file)
 	int ret;
 
 	mutex_lock(&vip->host_lock);
-	vip->use_count--;
-	if (!vip->use_count) {
-		pm_runtime_suspend(vip->dev);
-		pm_runtime_disable(vip->dev);
 
-		vb2_queue_release(&vip->vb2_vidq);
-		vb2_dma_contig_cleanup_ctx(vip->alloc_ctx);
+	vb2_queue_release(&vip->vb2_vidq);
+	vb2_dma_contig_cleanup_ctx(vip->alloc_ctx);
 
-		ret = v4l2_subdev_call(sd, core, s_power, 0);
-		if (ret < 0 && ret != -ENOIOCTLCMD && ret != -ENODEV)
-			return ret;
+	v4l2_subdev_call(sd, core, s_power, 0);
 
-		vip_hw_stop(vip);
-	}
+	vip_hw_stop(vip);
+
+	clear_bit(1, &vip->device_is_used);
 
 	mutex_unlock(&vip->host_lock);
 
@@ -2122,6 +2099,7 @@ static int vip_video_devs_create(struct vip_dev *vip)
 	return 0;
 }
 
+/* called by rearview for configuration before hardware start */
 void vip_rv_config(struct vip_rv_info *rv_info)
 {
 	struct vip_dev	*vip = rv_info->rv_vip;
@@ -2140,6 +2118,15 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 
 	std = vip->rv.std;
 	addrs = vip->rv.match_addrs;
+
+	if (test_and_set_bit(1, &vip->device_is_used)) {
+		dev_info(vip->dev, "VIP has been using\n");
+
+		/* TODO: do some operations for the preemption*/
+		vip->rv.preemption = true;
+	}
+
+	mutex_lock(&vip->host_lock);
 
 	vip_hw_reset(vip);
 
@@ -2182,6 +2169,8 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 	dma_hw_set_chain_mode(vip);
 
 	dma_hw_set_match_addr(vip, addrs, true);
+
+	mutex_unlock(&vip->host_lock);
 }
 
 void vip_rv_start(void *data)
@@ -2193,8 +2182,6 @@ void vip_rv_start(void *data)
 	unsigned int dma_table_addr = vip->rv.dma_table_addr;
 
 	mutex_lock(&vip->host_lock);
-
-	vip->rv.running = true;
 
 	vip_hw_reset_fifo(vip);
 	dma_hw_set_start_addr(vip, dma_table_addr);
@@ -2226,7 +2213,8 @@ void vip_rv_stop(void *data)
 
 	v4l2_subdev_call(sd, video, s_stream, 0);
 
-	vip->rv.running = false;
+	if (!vip->rv.preemption)
+		clear_bit(1, &vip->device_is_used);
 
 	mutex_unlock(&vip->host_lock);
 }
@@ -2254,7 +2242,7 @@ static int vip_probe(struct platform_device *pdev)
 	mutex_init(&vip->host_lock);
 	init_completion(&vip->rv.done);
 	INIT_WORK(&vip->restart_work, vip_restart_worker);
-	vip->rv.running = false;
+	vip->rv.preemption = false;
 
 	vip->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (vip->res == NULL) {
