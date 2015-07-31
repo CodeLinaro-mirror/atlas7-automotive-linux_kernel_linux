@@ -78,6 +78,7 @@ struct rv_dev {
 
 	atomic_t	value;
 	struct work_struct rv_work;
+	struct workqueue_struct *rv_wq;
 
 	void		*rv_vip;
 	void		*rv_vpp;
@@ -113,7 +114,7 @@ static ssize_t rv_enabled_store(struct device *dev,
 		return r;
 
 	atomic_set(&rv->value, e);
-	schedule_work(&rv->rv_work);
+	queue_work(rv->rv_wq, &rv->rv_work);
 
 	return size;
 }
@@ -146,7 +147,7 @@ static bool rv_input_filter(struct input_handle *handle,
 		switch (code) {
 		case KEY_CAMERA:
 			atomic_set(&rv->value, value);
-			schedule_work(&rv->rv_work);
+			queue_work(rv->rv_wq, &rv->rv_work);
 		case KEY_POWER:
 			return false;
 
@@ -370,7 +371,7 @@ static irqreturn_t rv_ipc_irq_handler(int irq, void *data)
 	readl(rv->ipc_int_addr);
 
 	atomic_set(&rv->value, readl(rv->ipc_msg_addr) & IPC_MSG_RV_MASK);
-	schedule_work(&rv->rv_work);
+	queue_work(rv->rv_wq, &rv->rv_work);
 
 	return IRQ_HANDLED;
 }
@@ -625,6 +626,12 @@ static int rv_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	rv->rv_wq = create_workqueue("rearview_workqueue");
+	if (!rv->rv_wq) {
+		dev_err(dev, "create workqueue failed\n");
+		goto exit;
+	}
+
 	INIT_WORK(&rv->rv_work, rv_worker);
 
 	ret = devm_request_irq(dev, rv->ipc_irq, rv_ipc_irq_handler,
@@ -632,7 +639,7 @@ static int rv_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "cannot request ipc irq for rearview switch\n");
 		ret = -EINVAL;
-		goto exit;
+		goto wq_exit;
 	}
 
 	platform_set_drvdata(pdev, rv);
@@ -642,13 +649,15 @@ static int rv_probe(struct platform_device *pdev)
 	ret = sysfs_create_files(&dev->kobj, rv_sysfs_attrs);
 	if (ret) {
 		dev_err(dev, "failed to create sysfs files\n");
-		goto exit;
+		goto wq_exit;
 	}
 
 	pr_info("rearview start on %s\n", display_name);
 
 	return 0;
 
+wq_exit:
+	destroy_workqueue(rv->rv_wq);
 exit:
 	return ret;
 }
@@ -670,6 +679,8 @@ static int rv_remove(struct platform_device *pdev)
 				rv->data_virt_addr, rv->data_dma_addr);
 
 	sysfs_remove_files(&rv->dev->kobj, rv_sysfs_attrs);
+
+	destroy_workqueue(rv->rv_wq);
 
 	pr_info("rv_remove done\n");
 
