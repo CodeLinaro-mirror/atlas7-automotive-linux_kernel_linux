@@ -367,7 +367,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	}
 
 	pix->pixelformat = sirfsoc_vout_formats[index].pixelformat;
-	pix->field = V4L2_FIELD_ANY;
+	pix->field = V4L2_FIELD_NONE;
 	pix->priv = 0;
 
 	switch (pix->pixelformat) {
@@ -459,7 +459,7 @@ static int __sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 	fmt->height = vout->display->timings.yres;
 
 	fmt->pixelformat = V4L2_PIX_FMT_RGB565;
-	fmt->field = V4L2_FIELD_ANY;
+	fmt->field = V4L2_FIELD_NONE;
 	fmt->bytesperline = fmt->width * 2;
 	fmt->sizeimage = fmt->bytesperline * fmt->height;
 	fmt->priv = 0;
