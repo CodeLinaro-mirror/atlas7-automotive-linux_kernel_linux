@@ -260,10 +260,11 @@ struct nor_flash_info {
 	 * FAST_READ frequency, not the READ frequency.
 	 */
 	u32             max_freq;
-	/*these there values is used for clock configure*/
-	u8		tshsl;
-	u8		twhsl;
-	u8		tshwl;
+	/*
+	 * max value of tshsl, twhsl and tshwl.
+	 * these three values are used for clock configure
+	 */
+	u8		clk_delay;
 	/*
 	 * dummy_2b is for read2io dummy cycles
 	 * dummy_4b is for read4io dummy cycles
@@ -287,7 +288,7 @@ atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor);
 static struct nor_flash_info flash_types[] = {
 	/* default */
 	{ "default", 0, 0, 256, 4 * 1024, 4096,
-		0, 108, 20, 20, 100, 8, 8,
+		0, 108, 100, 8, 8,
 		NULL, NULL, NULL},
 	/* Micron n25xxx */
 #define N25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
@@ -301,7 +302,7 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_WRITE_1_1_4)
 	{ "n25q256a", 0x20ba19, 0, 256, 4 * 1024, 4096 * 2,
 		N25Q_FLAG | FLASH_FLAG_32BIT_ADDR,
-		108, 20, 20, 100, 8, 10,
+		108, 100, 8, 10,
 		NULL, NULL, atlas7_qspi_enter_32bit_addr},
 
 	/*Micronix mx25xx */
@@ -316,12 +317,12 @@ static struct nor_flash_info flash_types[] = {
 
 	{ "mx25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
-		133, 30, 20, 100, 4, 6,
+		133, 100, 4, 6,
 		NULL, atlas7_qspi_nor_macronix_quad_enable,
 		atlas7_qspi_enter_32bit_addr},
 	{ "mx25l12835f", 0xc22018, 0, 256, 4 * 1024, 4096,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
-		133, 30, 20, 100, 4, 6,
+		133, 100, 4, 6,
 		NULL, atlas7_qspi_nor_macronix_quad_enable,
 		atlas7_qspi_enter_32bit_addr},
 
@@ -334,8 +335,7 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_READ_1_4_4)
 #define ATLAS7_QSPI_SPANSION_QUAD_EN_BIT	(0x1<<1)
 	{ "s25fl164K", 0x014017, 0, 256, 4 * 1024, 2048,
-		S25FL_FLAG,
-		108, 7, 20, 100, 4, 4,
+		S25FL_FLAG, 108, 100, 4, 4,
 		NULL, atlas7_qspi_nor_spansion_quad_enable, NULL},
 
 	/* Sentinel */
@@ -975,9 +975,8 @@ atlas7_qspi_setup_controller(struct atlas7_qspi_nor *a7nor)
 
 	regval |= ATLAS7_QSPI_SPI_MODE;
 	/* clock delay */
-	clk_delay = max3(a7nor->info->tshsl, a7nor->info->tshwl,
-				a7nor->info->twhsl);
-	clk_delay = max(clk_delay, 9 * (1 * 1000000000 / a7nor->speed_hz));
+	clk_delay = max((u32)a7nor->info->clk_delay,
+			9 * (1 * 1000000000 / a7nor->speed_hz));
 	clk_delay = clk_delay / (1000000000 / source_clk);
 	if (clk_delay > 0xff)
 		clk_delay = 0xff;
