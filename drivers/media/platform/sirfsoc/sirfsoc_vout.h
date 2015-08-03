@@ -41,6 +41,7 @@ struct sirfsoc_vout_device {
 	unsigned int numbuffers;
 
 	struct v4l2_pix_format pix_fmt;
+	struct v4l2_framebuffer fbuf;
 
 	enum v4l2_buf_type type;
 	struct vb2_queue vb2_q;
@@ -52,11 +53,18 @@ struct sirfsoc_vout_device {
 	struct v4l2_rect dst_rect;
 	u32 surf_width;
 	u32 surf_height;
+
+	u32 chromakey;
+	u32 src_ckey;
+	u32 dst_ckey;
+	u32 global_alpha;
+
 	struct sirfsoc_vdss_panel *display;
 	struct sirfsoc_vdss_layer *layer;
 	void *vpp_handle;
 	bool passthrough;
 	bool preempted;
+	bool vout_info_dirty;
 };
 
 

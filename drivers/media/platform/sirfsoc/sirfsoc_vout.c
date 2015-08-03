@@ -246,9 +246,34 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 
 	info.surf_width = vout->surf_width;
 	info.surf_height = vout->surf_height;
+
+	if (vout->fbuf.flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) {
+		info.global_alpha = true;
+		info.alpha = vout->global_alpha;
+	} else
+		info.global_alpha = false;
+
+	if (vout->fbuf.flags & V4L2_FBUF_FLAG_SRC_CHROMAKEY) {
+		info.ckey_on = true;
+		info.ckey = vout->src_ckey;
+	} else
+		info.ckey_on = false;
+
+	if (vout->fbuf.flags & V4L2_FBUF_FLAG_CHROMAKEY) {
+		info.dst_ckey_on = true;
+		info.dst_ckey = vout->dst_ckey;
+	} else
+		info.dst_ckey_on = false;
+
+	if (vout->fbuf.flags & V4L2_FBUF_FLAG_LOCAL_ALPHA)
+		info.source_alpha = true;
+	else
+		info.source_alpha = false;
+
 	l->set_info(l, &info);
 	l->screen->apply(l->screen);
 
+	vout->vout_info_dirty = false;
 }
 
 static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
@@ -256,7 +281,7 @@ static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
 {
 	struct sirfsoc_vdss_layer *l = vout->layer;
 
-	if (l->is_enabled(l)) {
+	if ((l->is_enabled(l)) && !vout->vout_info_dirty) {
 		if ((vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB565) &&
 			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB32)) {
 			struct sirfsoc_vdss_layer *l = vout->layer;
@@ -448,6 +473,9 @@ static int __sirfsoc_vout_try_rect(struct v4l2_rect *new_rect, u32 ref_width,
 	if (new_rect->top + new_rect->height > ref_height)
 		new_rect->height = ref_height - new_rect->top;
 
+	if (new_rect->width == 0 || new_rect->height == 0)
+		return -EINVAL;
+
 	return 0;
 }
 
@@ -477,6 +505,17 @@ static int __sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 
 	vout->surf_width = fmt->width;
 	vout->surf_height = fmt->height;
+
+	vout->global_alpha = 255;
+	vout->src_ckey = 0;
+	vout->dst_ckey = 0;
+
+	vout->fbuf.flags = 0;
+	vout->fbuf.capability = V4L2_FBUF_CAP_LOCAL_ALPHA |
+		V4L2_FBUF_CAP_GLOBAL_ALPHA | V4L2_FBUF_CAP_SRC_CHROMAKEY |
+		V4L2_FBUF_CAP_CHROMAKEY;
+
+	vout->vout_info_dirty = true;
 
 	return 0;
 }
@@ -803,6 +842,8 @@ static int sirfsoc_vout_try_fmt_vid_out_overlay(struct file *file, void *priv,
 	ret = __sirfsoc_vout_try_rect(&win->w, vout->dst_rect.width,
 		vout->dst_rect.height);
 
+	win->global_alpha = fmt->fmt.win.global_alpha;
+
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 
 	return ret;
@@ -814,14 +855,10 @@ static int sirfsoc_vout_s_fmt_vid_out_overlay(struct file *file, void *priv,
 	int ret = 0;
 	struct sirfsoc_vout_device *vout = priv;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+	struct sirfsoc_vdss_layer *l = vout->layer;
 	struct v4l2_window *win = &fmt->fmt.win;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
-
-	if (vout->vb2_q.streaming) {
-		v4l2_err(v4l2_dev, "device is already in streaming state\n");
-		return -EBUSY;
-	}
 
 	if (V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY != fmt->type) {
 		v4l2_err(v4l2_dev, "unsupport buf type\n");
@@ -831,7 +868,18 @@ static int sirfsoc_vout_s_fmt_vid_out_overlay(struct file *file, void *priv,
 	ret = __sirfsoc_vout_try_rect(&win->w, vout->display->timings.xres,
 		vout->display->timings.yres);
 
+	if (ret) {
+		v4l2_err(v4l2_dev, "wrong rect size\n");
+		return -EINVAL;
+	}
+
 	vout->dst_rect = win->w;
+
+	vout->global_alpha = win->global_alpha;
+	vout->chromakey = win->chromakey;
+
+	if (l->is_enabled(l))
+		vout->vout_info_dirty = true;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 
@@ -843,15 +891,16 @@ static int sirfsoc_vout_g_fmt_vid_out_overlay(struct file *file, void *priv,
 {
 	struct sirfsoc_vout_device *vout = priv;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+	struct v4l2_window *win = &fmt->fmt.win;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
-	fmt->fmt.win.w.left = vout->dst_rect.left;
-	fmt->fmt.win.w.top = vout->dst_rect.top;
-	fmt->fmt.win.w.width = vout->dst_rect.width;
-	fmt->fmt.win.w.height = vout->dst_rect.height;
+	win->w = vout->dst_rect;
 
-	fmt->fmt.win.field = vout->pix_fmt.field;
+	win->field = vout->pix_fmt.field;
+
+	win->global_alpha = vout->global_alpha;
+	win->chromakey = vout->chromakey;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 
@@ -1088,6 +1137,11 @@ static int sirfsoc_vout_s_crop(struct file *file, void *priv,
 	ret = __sirfsoc_vout_try_rect(&rect, vout->pix_fmt.width,
 		vout->pix_fmt.height);
 
+	if (ret) {
+		v4l2_err(v4l2_dev, "wrong crop size\n");
+		return -EINVAL;
+	}
+
 	vout->src_rect = rect;
 
 	v4l2_info(v4l2_dev, "src rect(l:%x,t:%x,w:%x,h:%x)\n",
@@ -1190,6 +1244,82 @@ static int sirfsoc_vout_enum_frameintervals(struct file *file, void *priv,
 	fival->stepwise.step = (struct v4l2_fract) {1, 1};
 	return 0;
 }
+
+static int sirfsoc_vout_s_fbuf(struct file *file, void *priv,
+			const struct v4l2_framebuffer *fbuf)
+{
+	struct sirfsoc_vout_device *vout = priv;
+	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+	struct sirfsoc_vdss_layer *l = vout->layer;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
+
+	if ((fbuf->flags & V4L2_FBUF_FLAG_SRC_CHROMAKEY) &&
+		(fbuf->flags & V4L2_FBUF_FLAG_CHROMAKEY)) {
+		/*
+		src ckey and dst ckey could not be transffered
+		at the same time
+		*/
+		v4l2_err(v4l2_dev,
+		"%s: confused color key detected\n",
+		__func__);
+		return -EINVAL;
+	}
+
+	/*src color key*/
+	if (fbuf->flags & V4L2_FBUF_FLAG_SRC_CHROMAKEY) {
+		vout->fbuf.flags |= V4L2_FBUF_FLAG_SRC_CHROMAKEY;
+		vout->src_ckey = vout->chromakey;
+	} else
+		vout->fbuf.flags &= ~V4L2_FBUF_FLAG_SRC_CHROMAKEY;
+
+	/*dst color key*/
+	if (fbuf->flags & V4L2_FBUF_FLAG_CHROMAKEY) {
+		vout->fbuf.flags |= V4L2_FBUF_FLAG_CHROMAKEY;
+		vout->dst_ckey = vout->chromakey;
+	} else
+		vout->fbuf.flags &=  ~V4L2_FBUF_FLAG_CHROMAKEY;
+
+	/*global alpha*/
+	if (fbuf->flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA)
+		vout->fbuf.flags |= V4L2_FBUF_FLAG_GLOBAL_ALPHA;
+	else
+		vout->fbuf.flags &= ~V4L2_FBUF_FLAG_GLOBAL_ALPHA;
+
+	/*src alpha*/
+	if (fbuf->flags & V4L2_FBUF_FLAG_LOCAL_ALPHA)
+		vout->fbuf.flags |= V4L2_FBUF_FLAG_LOCAL_ALPHA;
+	else
+		vout->fbuf.flags &= ~V4L2_FBUF_FLAG_LOCAL_ALPHA;
+
+	if (l->is_enabled(l))
+		vout->vout_info_dirty = true;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+
+	return 0;
+}
+
+static int sirfsoc_vout_g_fbuf(struct file *file, void *priv,
+			struct v4l2_framebuffer *fbuf)
+{
+	struct sirfsoc_vout_device *vout = priv;
+	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
+
+	fbuf->capability = V4L2_FBUF_CAP_LOCAL_ALPHA |
+			V4L2_FBUF_CAP_GLOBAL_ALPHA |
+			V4L2_FBUF_CAP_CHROMAKEY |
+			V4L2_FBUF_CAP_SRC_CHROMAKEY;
+
+	fbuf->flags = vout->fbuf.flags;
+
+	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+
+	return 0;
+}
+
 /* File operations */
 static int sirfsoc_vout_open(struct file *file)
 {
@@ -1357,6 +1487,8 @@ static const struct v4l2_ioctl_ops sirfsoc_vout_ioctl_ops = {
 	.vidioc_cropcap			= sirfsoc_vout_cropcap,
 	.vidioc_g_crop			= sirfsoc_vout_g_crop,
 	.vidioc_s_crop			= sirfsoc_vout_s_crop,
+	.vidioc_g_fbuf			= sirfsoc_vout_g_fbuf,
+	.vidioc_s_fbuf			= sirfsoc_vout_s_fbuf,
 };
 
 static const struct v4l2_file_operations sirfsoc_vout_fops = {
