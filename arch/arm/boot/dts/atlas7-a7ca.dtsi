@@ -17,7 +17,6 @@
  * Now pcm interface is used in android while i2s interface is used in linux
  * It is necessay to drop this workaround after i2s interface is used in android
  */
-#ifndef CONFIG_ANDROID
 	sirf-bt-sco-a2dp {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
@@ -30,7 +29,6 @@
 			frame-master;
 		};
 	};
-#endif
 	noc {
 		vdifm {
 			sdhci@14700000 {
@@ -55,7 +53,6 @@
 				"a7ca_io";
 			};
 		};
-#ifndef CONFIG_ANDROID
 		audiom {
 			usp1: usp@10d30000 {
 				status = "okay";
@@ -71,6 +68,5 @@
 				};
 			};
 		};
-#endif
 	};
 };
