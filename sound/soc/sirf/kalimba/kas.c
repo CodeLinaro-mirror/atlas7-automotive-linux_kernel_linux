@@ -42,9 +42,9 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 		.dpcm_playback = 1,
 	},
 	{
-		.name = "Navigation",
-		.stream_name = "Navigation Playback",
-		.cpu_dai_name = "Navigation Pin",
+		.name = "Notify",
+		.stream_name = "Notify Playback",
+		.cpu_dai_name = "Notify Pin",
 		.platform_name = "kas-pcm-audio",
 		.dynamic = 1,
 		.codec_name = "snd-soc-dummy",
