@@ -27,6 +27,8 @@
 #include "../sirf/kalimba/iacc.h"
 #endif
 
+#define PLAYBACK_FIX_CHANNELS		4
+
 struct sirf_atlas7_codec {
 	struct clk *clk;
 	struct regmap *regmap;
@@ -59,60 +61,9 @@ static const unsigned int volume_reg_values[] = {
 	90/* 9dB */
 };
 
-static int sirf_atlas7_codec_hw_params(struct snd_pcm_substream *substream,
-		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
-{
-	int channels = params_channels(params);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (channels != 1 && channels != 4) {
-			dev_err(dai->dev, "Only support mono or 4 channels.");
-			return -EINVAL;
-		}
-		switch (params_rate(params)) {
-		case 32000:
-		case 44100:
-		case 48000:
-		case 96000:
-		case 192000:
-			break;
-		default:
-			dev_err(dai->dev, "Playback rate %d no support\n",
-				params_rate(params));
-			return -EINVAL;
-		}
-	} else {
-		switch (params_rate(params)) {
-		case 8000:
-		case 11025:
-		case 16000:
-		case 22050:
-		case 32000:
-		case 44100:
-		case 48000:
-		case 96000:
-			break;
-		default:
-			dev_err(dai->dev, "Capture rate %d no support\n",
-				params_rate(params));
-			return -EINVAL;
-		}
-
-	}
-	return 0;
-}
-
 struct rate_reg_values_t {
 	unsigned int rate;
 	u32 value;
-};
-
-struct rate_reg_values_t rate_dac_reg_values[] = {
-	{32000, DAC_BASE_SMAPLE_RATE_32K0},
-	{44100, DAC_BASE_SMAPLE_RATE_44K1},
-	{48000, DAC_BASE_SMAPLE_RATE_48K0},
-	{96000, DAC_BASE_SMAPLE_RATE_96K0},
-	{192000, DAC_BASE_SMAPLE_RATE_192K0},
 };
 
 struct rate_reg_values_t rate_adc_reg_values[] = {
@@ -130,15 +81,10 @@ static u32 rate_reg_value(struct snd_pcm_substream *substream)
 {
 	int i;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		for (i = 0; i < ARRAY_SIZE(rate_dac_reg_values); i++) {
-			if (rate_dac_reg_values[i].rate ==
-				substream->runtime->rate)
-				return KCODEC_DAC_SELECT_EXT
-					| rate_dac_reg_values[i].value
-					<< KCODEC_DAC_EXT_BASE_SAMP_RATE_SHIFT;
-		}
-	} else {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		return KCODEC_DAC_SELECT_EXT | (DAC_BASE_SMAPLE_RATE_48K0
+			<< KCODEC_DAC_EXT_BASE_SAMP_RATE_SHIFT);
+	else {
 		for (i = 0; i < ARRAY_SIZE(rate_adc_reg_values); i++) {
 			if (rate_adc_reg_values[i].rate ==
 				substream->runtime->rate)
@@ -184,7 +130,13 @@ static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			volume_level = atlas7_codec->playback_volume;
-			for (i = 0; i < channels; i++) {
+			/*
+			 * The codec uses the fixed 4 channels.
+			 * Because this codec is used by the backend.
+			 * The kalimba DSP should upmix or downmix
+			 * any channels to fixed 4 channels.
+			 */
+			for (i = 0; i < PLAYBACK_FIX_CHANNELS; i++) {
 				snd_soc_update_bits(codec, dac_gain_regs[i],
 					AUDIO_GAIN_MASK,
 					volume_reg_values[volume_level]);
@@ -219,7 +171,6 @@ static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 }
 
 struct snd_soc_dai_ops sirf_atlas7_codec_dai_ops = {
-	.hw_params = sirf_atlas7_codec_hw_params,
 	.trigger = sirf_atlas7_codec_trigger,
 };
 
