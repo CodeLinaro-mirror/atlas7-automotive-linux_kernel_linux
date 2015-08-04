@@ -1,9 +1,16 @@
 /*
  * I2C bus driver for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/interrupt.h>
@@ -362,11 +369,28 @@ static int i2c_sirfsoc_probe(struct platform_device *pdev)
 	if (err < 0)
 		bitrate = SIRFSOC_I2C_DEFAULT_SPEED;
 
-	if (bitrate < 100000)
-		regval =
-			(2 * ctrl_speed) / (bitrate * 11);
-	else
+	/*
+	 * Since i2c is open drain interface that allows the slave to
+	 * stall the transaction by holding the SCL line at '0', the RTL
+	 * implementation is waiting for SCL feedback from the pin after
+	 * setting it to High-Z ('1'). This wait adds to the high-time
+	 * interval counter few cycles of the input synchronization
+	 * (depending on the SCL_FILTER_REG field), and also the time it
+	 * takes for the board pull-up resistor to rise the SCL line.
+	 * For slow SCL settings these additions are negligible,
+	 * but they start to affect the speed when clock is set to faster
+	 * frequencies.
+	 * So through the actual test, use the different user_div value(which
+	 * in the divider formular 'Fio / (Fi2c * user_div)') to adapt
+	 * the different ranges of i2c bus clock frequency, to make the SCL
+	 * more accurate compare with the expected i2c bus clock frequency.
+	 */
+	if (bitrate <= 30000)
 		regval = ctrl_speed / (bitrate * 5);
+	else if (bitrate > 30000 && bitrate <= 280000)
+		regval = (2 * ctrl_speed) / (bitrate * 11);
+	else
+		regval = ctrl_speed / (bitrate * 6);
 
 	writel(regval, siic->base + SIRFSOC_I2C_CLK_CTRL);
 	if (regval > 0xFF)
@@ -481,6 +505,4 @@ subsys_initcall(i2c_sirfsoc_init);
 module_exit(i2c_sirfsoc_exit);
 
 MODULE_DESCRIPTION("SiRF SoC I2C master controller driver");
-MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>");
-MODULE_AUTHOR("Xiangzhen Ye <Xiangzhen.Ye@csr.com>");
 MODULE_LICENSE("GPL v2");
