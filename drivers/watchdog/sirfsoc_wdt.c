@@ -6,18 +6,14 @@
  * Licensed under GPLv2 or later.
  */
 
-#include <linux/io.h>
-#include <linux/clk.h>
-#include <linux/of.h>
-#include <linux/slab.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
-#include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/watchdog.h>
-#include <linux/of_platform.h>
-#include <linux/moduleparam.h>
 #include <linux/platform_device.h>
+#include <linux/moduleparam.h>
+#include <linux/of.h>
+#include <linux/io.h>
+#include <linux/uaccess.h>
+#include <linux/clk.h>
 
 struct sirfsoc_timer_hw {
 	/* hardware timer specific*/
