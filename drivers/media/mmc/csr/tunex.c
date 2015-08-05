@@ -837,7 +837,7 @@ tunex_ioctl_release_buf(struct csr_radio *radio,
 	struct sdhci_host *host = radio->radio_sdio.host;
 
 	spin_lock_irqsave(&radio->lock, flags);
-	radio->out += radio->data_control.dma_length;
+	radio->out += size;
 	if ((radio->buffer_ready & BUF0_READY) &&
 			(radio->out > LOOPDMA_BUF_SIZE / 2)) {
 		writel(LOOPDMA_BUFF0_RDY_FLAG,
