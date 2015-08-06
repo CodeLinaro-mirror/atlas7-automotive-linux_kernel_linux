@@ -1390,6 +1390,7 @@
 				compatible = "dx,cc44p";
 				reg = <0x18250000 0x10000>;
 				interrupts = <0 27 0>;
+				clocks = <&car 99>;
 			};
 
 			spi1: spi@18200000 {
