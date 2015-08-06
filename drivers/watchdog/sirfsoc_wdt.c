@@ -264,7 +264,6 @@ static int sirfsoc_wdt_disable(struct watchdog_device *wdd)
 static int sirfsoc_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 {
 	wdd->timeout = to;
-
 	sirfsoc_wdt_updatetimeout(wdd);
 
 	return 0;
@@ -364,7 +363,6 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "sirf,atlas7-tick")) {
 		clk = of_clk_get(np, 0);
 		if (IS_ERR(clk)) {
-			pr_debug("wdt clk get failed\n");
 			ret = PTR_ERR(clk);
 			goto err;
 		}
@@ -380,6 +378,7 @@ static int sirfsoc_wdt_probe(struct platform_device *pdev)
 
 	watchdog_init_timeout(&sirfsoc_wdd, timeout, &pdev->dev);
 	watchdog_set_nowayout(&sirfsoc_wdd, nowayout);
+
 	ret = watchdog_register_device(&sirfsoc_wdd);
 	if (ret)
 		goto err;
