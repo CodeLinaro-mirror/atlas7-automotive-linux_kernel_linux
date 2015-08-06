@@ -428,7 +428,12 @@ static void rv_start(struct rv_dev *rv)
 	/* vpp setting */
 	vpp_dev_params.func = NULL;
 	vpp_dev_params.arg = NULL;
-	rv->rv_vpp = sirfsoc_vpp_create_device(SIRFSOC_VDSS_VPP0,
+	/* passthrough mode: VPP0->LCDC0, VPP1->LCDC1, default use VPP0 */
+	if (!strcmp(rv->d_info.display, "display1"))
+		rv->rv_vpp = sirfsoc_vpp_create_device(SIRFSOC_VDSS_VPP1,
+							&vpp_dev_params);
+	else
+		rv->rv_vpp = sirfsoc_vpp_create_device(SIRFSOC_VDSS_VPP0,
 							&vpp_dev_params);
 
 	vpp_op_params.type = VPP_OP_IBV;
