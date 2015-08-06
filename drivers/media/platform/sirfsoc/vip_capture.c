@@ -789,11 +789,13 @@ static void vip_hw_stop(struct vip_dev *vip)
 	/* Stop the FIFO first */
 	vip_hw_stop_fifo(vip);
 
-	/* Disable camera interrupt */
+	/* Disable camera interrupt and clear all bits */
 	vip_write(CAM_INT_EN, 0);
+	vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK_A7);
 
-	/* Disable DMA interrupt */
+	/* Disable DMA interrupt and clear all bits */
 	vip_write(DMAN_INT_EN, 0x0);
+	vip_write(DMAN_INT, DMAN_INT_MASK);
 }
 
 static u32 vip_hw_get_interrupts(struct vip_dev *vip)
