@@ -34,6 +34,11 @@
 #define VIP_DEFAULT_WIDTH	720
 #define VIP_DEFAULT_HEIGHT	480
 
+#define NTSC_STD_F_W	720
+#define NTSC_STD_F_H	240
+#define PAL_STD_F_W	720
+#define PAL_STD_F_H	288
+
 #define	CVD3_INT_MASK	0x1
 #define	VIP_INT_MASK	0x2
 #define	DMAC_INT_MASK	0x4

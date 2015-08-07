@@ -2132,21 +2132,18 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 
 	vip_hw_reset(vip);
 
-	if (std == V4L2_STD_NTSC) {
+	if (std == V4L2_STD_PAL) {
 		rect.left	= 0;
-		rect.right	= 720 - 1;
+		rect.right	= PAL_STD_F_W - 1;
 		rect.top	= 0;
-		rect.bottom	= 240 - 1;
-	} else if (std == V4L2_STD_PAL) {
+		rect.bottom	= PAL_STD_F_H - 1;
+	} else { /* default V4L2_STD_NTSC format */
 		rect.left	= 0;
-		rect.right	= 720 - 1;
+		rect.right	= NTSC_STD_F_W - 1;
 		rect.top	= 0;
-		rect.bottom	= 288 - 1;
-	} else {
-		rect.left	= 0;
-		rect.right	= VIP_DEFAULT_WIDTH - 1;
-		rect.top	= 0;
-		rect.bottom	= VIP_DEFAULT_HEIGHT/2 - 1;
+		rect.bottom	= NTSC_STD_F_H - 1;
+
+		vip->rv.std     = V4L2_STD_NTSC;
 	}
 
 	vip_hw_set_src_size(vip, rect);
@@ -2188,6 +2185,7 @@ void vip_rv_start(void *data)
 	vip_hw_reset_fifo(vip);
 	dma_hw_set_start_addr(vip, dma_table_addr);
 
+	v4l2_subdev_call(sd, video, s_std, vip->rv.std);
 	v4l2_subdev_call(sd, video, s_stream, 1);
 
 	vip_hw_start_fifo(vip);
