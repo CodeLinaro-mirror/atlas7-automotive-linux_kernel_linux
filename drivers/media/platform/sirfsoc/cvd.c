@@ -89,6 +89,7 @@ struct cvd_reg {
 
 
 static const struct cvd_reg config_ntsc[] = {
+	{CVBSD_AFEPWR_EN,		0x3}, /* must PWR on before setting */
 	{CVBSD_AGC_GATE_THRE_ADC_SWAP,	0x80},
 	{CVBSD_LBADRGEN_INIT,		0x1},
 	{CVBSD_YC_SEPARATION,		0x7000},
@@ -100,10 +101,12 @@ static const struct cvd_reg config_ntsc[] = {
 	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x48},
 	{CVBSD_CVD2_CHROMA_EDGE_ENHANC,	0x23},
 	{CVBSD_ACTIVE_VIDEO_VSTART,	0x24},
-	{CVBSD_ACTIVE_VIDEO_VHEIGHT,	0x63}
+	{CVBSD_ACTIVE_VIDEO_VHEIGHT,	0x63},
+	{CVBSD_AFEPWR_EN,		0x1} /* PWR off after setting */
 };
 
 static const struct cvd_reg config_pal[] = {
+	{CVBSD_AFEPWR_EN,		0x3}, /* must PWR on before setting */
 	{CVBSD_AGC_GATE_THRE_ADC_SWAP,	0x80},
 	{CVBSD_LBADRGEN_INIT,		0x1},
 	{CVBSD_CVD1_CONTROL0,		0x32},	/* PAL (I,B,G,H,D,N) */
@@ -136,7 +139,8 @@ static const struct cvd_reg config_pal[] = {
 	{CVBSD_MD_INTER_COMB,		0x18},
 	{CVBSD_HV_DELAY_VSTART,		0x1D5009C},
 	{CVBSD_VACTIVE_HV_WINDOW,	0x15C012C},
-	{CVBSD_VTOTAL_CONFIG,		0x1390271}
+	{CVBSD_VTOTAL_CONFIG,		0x1390271},
+	{CVBSD_AFEPWR_EN,		0x1} /* PWR off after setting */
 };
 
 static inline struct cvd_dev *to_state(struct v4l2_subdev *sd)
@@ -198,7 +202,9 @@ static const struct cvd_reg initial_registers[] = {
 	{CVBSD_CHROMA_HUE,		0x0},	/* hue: default */
 
 	{CVBSD_VDETCET_IMPROVEMENT,	0x303},	/* vfield hoffset fixed mode */
-	{CVBSD_VFIELD_HOFFSET_LSB,	0x50}
+	{CVBSD_VFIELD_HOFFSET_LSB,	0x50},
+
+	{CVBSD_AFEPWR_EN,		0x1} /* PWR off after setting */
 };
 
 
@@ -1135,6 +1141,8 @@ static int cvd_s_routing(struct v4l2_subdev *sd, u32 input,
 	unsigned int value;
 	struct cvd_dev *dec = to_state(sd);
 
+	/* port select doesn't depend on AFE PWR on or off */
+
 	switch (input) {
 	case 0:		/* INPUT_CVBS_0 */
 		value = cvd_read(CVBSD_AFE_REG7, sd);
@@ -1162,6 +1170,8 @@ static int cvd_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct cvd_dev *dec = container_of(ctrl->handler, struct cvd_dev, hdl);
 	struct v4l2_subdev *sd = &dec->sd;
 
+	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* must PWR on before setting */
+
 	switch (ctrl->id) {
 	case V4L2_CID_SATURATION:
 		cvd_write(CVBSD_CHROMA_SATURATION, ctrl->val, sd);
@@ -1180,8 +1190,12 @@ static int cvd_s_ctrl(struct v4l2_ctrl *ctrl)
 		dec->hue  = ctrl->val;
 		break;
 	default:
+		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd); /* PWR off after setting */
 		return -EINVAL;
 	}
+
+	cvd_write(CVBSD_AFEPWR_EN, 0x1, sd); /* PWR off after setting */
+
 	return 0;
 }
 
@@ -1207,10 +1221,12 @@ static int cvd_init(struct v4l2_subdev *sd, u32 val)
 	cvd_s_std(sd, dec->norm);
 
 	/* set saturation brightnes contrast hue */
+	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* must PWR on before setting */
 	cvd_write(CVBSD_CHROMA_SATURATION, dec->saturation, sd);
 	cvd_write(CVBSD_LUMA_BRIGHTNESS, dec->brightness + 32, sd);
 	cvd_write(CVBSD_LUMA_CONTRAST, dec->contrast, sd);
 	cvd_write(CVBSD_CHROMA_HUE, dec->hue, sd);
+	cvd_write(CVBSD_AFEPWR_EN, 0x1, sd); /* PWR off after setting */
 
 	return 0;
 }
