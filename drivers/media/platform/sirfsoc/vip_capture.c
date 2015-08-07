@@ -1947,7 +1947,7 @@ static int vip_get_subdev_input(struct device_node *remote,
 static int vip_subdevs_register(struct vip_dev *vip)
 {
 	struct device_node *parent = vip->dev->of_node;
-	struct device_node *ep, *remote, *port;
+	struct device_node *l_ep, *r_ep, *remote, *port;
 	struct i2c_client *client;
 	struct platform_device *pdev;
 	struct v4l2_subdev *sd;
@@ -1957,14 +1957,21 @@ static int vip_subdevs_register(struct vip_dev *vip)
 	port = of_get_next_child(parent, NULL);
 
 	/* There may be tvdecoder & hdmi receiver endpoints under port node */
-	for_each_available_child_of_node(port, ep) {
+	for_each_available_child_of_node(port, l_ep) {
 
 		struct vip_subdev_info *subdev = &vip->subdev[vip->num_subdev];
 		struct v4l2_of_endpoint *endpoint = &subdev->endpoint;
 
 		subdev->host = vip;
 
-		v4l2_of_parse_endpoint(ep, endpoint);
+		r_ep = of_parse_phandle(l_ep, "remote-endpoint", 0);
+		if (!r_ep) {
+			dev_err(vip->dev, "%s: can't find %s's remote-ep\n",
+				__func__, l_ep->full_name);
+			return -EINVAL;
+		}
+
+		v4l2_of_parse_endpoint(r_ep, endpoint);
 
 		if (endpoint->bus_type == V4L2_MBUS_BT656)
 			dev_info(vip->dev, "%s: BT656 bus type\n", __func__);
@@ -1972,11 +1979,11 @@ static int vip_subdevs_register(struct vip_dev *vip)
 		if (endpoint->bus_type == V4L2_MBUS_PARALLEL)
 			dev_info(vip->dev, "%s: BT601 bus type\n", __func__);
 
-		remote = of_graph_get_remote_port_parent(ep);
-		of_node_put(ep);
+		remote = of_graph_get_remote_port_parent(l_ep);
+		of_node_put(l_ep);
 		if (remote == NULL) {
 			dev_err(vip->dev, "%s: remote dev at %s not found\n",
-				__func__, ep->full_name);
+				__func__, l_ep->full_name);
 			ret = -EINVAL;
 			continue;
 		}

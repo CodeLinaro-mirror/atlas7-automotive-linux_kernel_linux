@@ -274,8 +274,6 @@
 					#size-cells = <0>;
 					vip0_0: endpoint@0 {
 						reg = <0>;
-						hsync-active = <0>;
-						vsync-active = <0>;
 						remote-endpoint = <&cvd_1>;
 					};
 				};
@@ -295,6 +293,8 @@
 					};
 					port {
 						cvd_1: endpoint {
+						hsync-active = <0>;
+						vsync-active = <0>;
 						remote-endpoint = <&vip0_0>;
 					};
 				};
