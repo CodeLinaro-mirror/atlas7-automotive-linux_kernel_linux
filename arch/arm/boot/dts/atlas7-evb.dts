@@ -563,7 +563,7 @@
 			lcd0@13100000 {
 				status = "okay";
 				pinctrl-names = "default";
-				pinctrl-0 = <&ld_ldd_pmx &ld_ldd_fck_pmx
+				pinctrl-0 = <&ld_ldd_16bit_pmx &ld_ldd_fck_pmx
 					&ld_ldd_lck_pmx>;
 			};
 			lvds@10e10000 {
