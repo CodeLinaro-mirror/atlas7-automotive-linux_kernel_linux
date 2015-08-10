@@ -5,19 +5,18 @@
  *
  * Licensed under GPLv2 or later.
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
-#include <linux/kthread.h>
 #include <linux/hwspinlock.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_device.h>
-#include <linux/vmalloc.h>
 #include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
@@ -522,7 +521,6 @@ static struct platform_driver sirf_rproc_driver = {
 	.remove = sirf_rproc_remove,
 	.driver = {
 		.name = "sirfsoc_remoteproc",
-		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(sirf_rproc_dt_ids),
 	},
 };
