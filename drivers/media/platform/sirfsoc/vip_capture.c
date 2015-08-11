@@ -2171,6 +2171,7 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 
 	mutex_unlock(&vip->host_lock);
 }
+EXPORT_SYMBOL(vip_rv_config);
 
 void vip_rv_start(void *data)
 {
@@ -2194,6 +2195,7 @@ void vip_rv_start(void *data)
 
 	mutex_unlock(&vip->host_lock);
 }
+EXPORT_SYMBOL(vip_rv_start);
 
 void vip_rv_stop(void *data)
 {
@@ -2218,6 +2220,7 @@ void vip_rv_stop(void *data)
 
 	mutex_unlock(&vip->host_lock);
 }
+EXPORT_SYMBOL(vip_rv_stop);
 
 /*
  * module interfaces.
