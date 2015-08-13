@@ -13,7 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -23,12 +22,7 @@
 #include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/reset-controller.h>
-#include <linux/syscore_ops.h>
 #include <linux/slab.h>
-#include <asm/system_misc.h>
-#include <linux/regmap.h>
-#include <linux/rtc/sirfsoc_rtciobrg.h>
-#include <linux/mfd/sirfsoc_pwrc.h>
 #include "clk-atlas7.h"
 
 #define SIRFSOC_CLKC_MEMPLL_AB_FREQ          0x0000
