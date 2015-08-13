@@ -1,9 +1,16 @@
 /*
  * Clock tree for CSR SiRFAtlas7
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/bitops.h>
@@ -24,6 +31,10 @@
 #include <linux/mfd/sirfsoc_pwrc.h>
 #include "clk-atlas7.h"
 
+#define SIRFSOC_RTCM_CLKC_PLL_CTRL		0x28
+#define SIRFSOC_RTCM_CLKC_M3_CLK_SEL		0x8C
+#define SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL	0x90
+#define SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL	0x94
 
 struct sirfsoc_rtcmclk_info {
 	struct device *dev;
@@ -237,4 +248,3 @@ static struct platform_driver sirfsoc_rtcmclk_driver = {
 };
 
 module_platform_driver(sirfsoc_rtcmclk_driver);
-

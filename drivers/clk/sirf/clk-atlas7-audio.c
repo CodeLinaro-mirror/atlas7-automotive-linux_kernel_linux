@@ -1,9 +1,16 @@
 /*
  * Clock tree for CSR SiRFAtlas7
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/bitops.h>
@@ -20,6 +27,9 @@
 #include <linux/slab.h>
 #include <asm/system_misc.h>
 #include "clk-atlas7.h"
+
+#define SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL		0x230
+#define SIRFSOC_AUDIO_CLKC_IACC_CLK_STATUS	0x250
 
 static void *sirfsoc_audioclk_vbase;
 static struct clk_onecell_data audioclk_data;
@@ -151,4 +161,3 @@ void __init sirfsoc_clk_audio_init(struct device_node *np)
 }
 
 CLK_OF_DECLARE(atlas7_clk, "sirf,atlas7-audioclk", sirfsoc_clk_audio_init);
-
