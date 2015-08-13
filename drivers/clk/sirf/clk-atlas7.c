@@ -1394,12 +1394,6 @@ static struct atlas7_reset_desc atlas7_reset_unit[] = {
 	{ "THBTM", 0x0548, 5, 0x0380, 5, &leaf8_gate_lock },
 	{ "A7CA", 0x0548, 1, 0x0380, 0, &leaf8_gate_lock },
 	{ "A7CA_APB", 0x0548, 5, 0x0380, 4, &leaf8_gate_lock },
-
-	/*Below reset has not yet implemented
-	*{"IPC", , , 0x0338, 14},
-	*{"INTC", , , 0x0368, 14},
-	*{"CPUIF", , , 0x0368, 15},
-	*/
 };
 
 static int atlas7_reset_module(struct reset_controller_dev *rcdev,
