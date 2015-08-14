@@ -1,11 +1,18 @@
 /*
  * CSR Radio Driver for Linux
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ *
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direction.h>
@@ -1026,11 +1033,35 @@ static void tunex_sdio_remove(struct sdio_func *func)
 	sdio_release_host(func);
 }
 
+#ifdef CONFIG_PM_SLEEP
+/* the card will be removed by mmc core if suspend is NULL */
+
+static int tunex_sdio_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int tunex_sdio_resume(struct device *dev)
+{
+	/* app will re-set the modes after resuming,
+	 * so here driver does nothing
+	 */
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(tunex_sdio_pm_ops, tunex_sdio_suspend,
+		tunex_sdio_resume);
+
 static struct sdio_driver tunex_sdio_driver = {
 	.name = "tunex_sdio",
 	.id_table = tunex_sdio_devices,
 	.probe = tunex_sdio_probe,
 	.remove = tunex_sdio_remove,
+	.drv = {
+		.owner = THIS_MODULE,
+		.pm = &tunex_sdio_pm_ops,
+	}
 };
 
 static int __init tunex_sdio_init(void)
@@ -1046,6 +1077,5 @@ static void __exit tunex_sdio_exit(void)
 
 module_exit(tunex_sdio_exit);
 
-MODULE_AUTHOR("yonghui.zhang@csr.com");
 MODULE_DESCRIPTION("Driver support for CSR SDIO Radio");
 MODULE_LICENSE("GPL v2");
