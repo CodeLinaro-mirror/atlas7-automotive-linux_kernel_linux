@@ -1,10 +1,18 @@
 /*
  * CSRVisor wrapper driver
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/miscdevice.h>
@@ -17,6 +25,7 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/of.h>
+#include <linux/hw_random.h>
 #include <asm/cacheflush.h>
 
 #define CSRVISOR_CPU	0
@@ -28,13 +37,16 @@
 /* command for csrvisor io */
 #define IOCTL_CMD_CSRVISOR_IO	0x70000001
 
-/* function commands -- get chip uid for user */
-#define CVIO_CMD_GET_CHIPUID	0x70000004
-/* Chip ID length fixed at 16 bytes */
-#define DEVICE_CHIPUID_LENGTH	16
+/* sub function commands */
+#define CVIO_CMD_GET_RANDOM	0x70000003	/* get random value from HW */
+#define CVIO_CMD_GET_CHIPUID	0x70000004	/* get chip uid for user */
 
-#define CMD_PACKET_MAGIC	0x6376696F
-struct cmd_packet {
+/* Chip ID length fixed at 16 bytes */
+#define DEVICE_CHIPUID_WORD_LENGTH	4
+#define DEVICE_CHIPUID_BYTE_LENGTH	(DEVICE_CHIPUID_WORD_LENGTH * 4)
+
+#define CMD_PARAM_MAGIC	0x6376696F
+struct cmd_param {
 	int magic;		/* in - magic number */
 	int cmd;		/* in - command */
 	int status;		/* out - command status */
@@ -50,11 +62,11 @@ struct csrvisor_wrapper {
 	wait_queue_head_t wqueue;
 	int wq_wait_type;
 	atomic_t count;
-	struct cmd_packet *xfer_pkt;
+	struct cmd_param *xfer_param;
 	struct miscdevice wrapper_dev;
 };
 
-static inline void csrvisor_fastcall(void *ptr)
+static inline void __csrvisor_fastcall(void *ptr)
 {
 	register unsigned long r0 asm("r0") = 0x80000001;
 	register unsigned long r1 asm("r1") = (unsigned long)ptr;
@@ -80,7 +92,7 @@ static int csrvisor_wrapper_thread(void *data)
 			break;
 
 		/* do fastcall */
-		csrvisor_fastcall(cw_data->xfer_pkt);
+		__csrvisor_fastcall(cw_data->xfer_param);
 
 		/* wake up reader */
 		cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
@@ -91,7 +103,7 @@ static int csrvisor_wrapper_thread(void *data)
 }
 #endif
 
-static int do_csrvisor_fastcall(struct csrvisor_wrapper *cw_data)
+static int _csrvisor_fastcall(struct csrvisor_wrapper *cw_data)
 {
 #ifdef CONFIG_SMP
 	if (smp_processor_id() != CSRVISOR_CPU) {
@@ -102,7 +114,7 @@ static int do_csrvisor_fastcall(struct csrvisor_wrapper *cw_data)
 	}
 #endif
 
-	csrvisor_fastcall(cw_data->xfer_pkt);
+	__csrvisor_fastcall(cw_data->xfer_param);
 	return 0;
 }
 
@@ -126,107 +138,127 @@ static int csrvisor_wrapper_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int map_packet_and_call(struct cmd_packet *user_pkt,
+/* allocate command parameter in kernel for csrvisor call
+ * from_user indicates src_param is a user mode param or a kernel one */
+static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 				struct csrvisor_wrapper *cw_data)
 {
 	int ret;
-	size_t pkt_size, offset;
-	struct cmd_packet *xfer_pkt;
+	size_t param_size, offset;
+	struct cmd_param *xfer_param;
 	struct device *dev;
 	dma_addr_t dma_addr;
 
 	dev = cw_data->wrapper_dev.this_device;
 
-	if (user_pkt->magic != CMD_PACKET_MAGIC)
-		return -EINVAL;
+	mutex_lock(&cw_data->call_mutex);
+
+	if (src_param->magic != CMD_PARAM_MAGIC) {
+		ret = -EINVAL;
+		goto __unlock_and_exit;
+	}
 
 	/*
-	* create transport packet -- csrvisor uses physical address
-	* alloc VA in local and store mapped PA in transport packet
+	* create transport parameter block
+	* csrvisor accesses only physical address
+	* alloc VA in local and store mapped PA in transport block
 	* uses dma coherent since csrvisor works as hardware
 	*/
-	pkt_size = sizeof(struct cmd_packet)
-				+ user_pkt->in_len
-				+ user_pkt->out_len;
-	xfer_pkt = dma_zalloc_coherent(
+	param_size = sizeof(*xfer_param)
+				+ src_param->in_len
+				+ src_param->out_len;
+	xfer_param = dma_zalloc_coherent(
 				dev,
-				pkt_size,
+				param_size,
 				&dma_addr,
 				GFP_KERNEL);
-	if (!xfer_pkt)
-		return -ENOMEM;
+	if (!xfer_param) {
+		ret = -ENOMEM;
+		goto __unlock_and_exit;
+	}
 
-	xfer_pkt->magic = user_pkt->magic;
-	xfer_pkt->cmd = user_pkt->cmd;
-	xfer_pkt->status = user_pkt->status;
+	xfer_param->magic = src_param->magic;
+	xfer_param->cmd = src_param->cmd;
+	xfer_param->status = src_param->status;
 
 	/* map input buffer if there are */
-	if (user_pkt->in_buf && user_pkt->in_len) {
-		offset = sizeof(struct cmd_packet);
-		if (copy_from_user((char *)xfer_pkt + offset,
-				user_pkt->in_buf,
-				user_pkt->in_len)) {
-			ret = -EFAULT;
-			goto __pkt_exit;
-		}
-		xfer_pkt->in_buf = (void *)(dma_addr + offset);
-		xfer_pkt->in_len = user_pkt->in_len;
+	if (src_param->in_buf && src_param->in_len) {
+		offset = sizeof(*xfer_param);
+		if (from_user)
+			ret = copy_from_user((char *)xfer_param + offset,
+				src_param->in_buf, src_param->in_len);
+		else
+			if (memcpy((char *)xfer_param + offset,
+					src_param->in_buf, src_param->in_len))
+				ret = 0;
+			else
+				ret = -EFAULT;
+		if (ret)
+			goto __free_and_exit;
+
+		xfer_param->in_buf = (void *)(dma_addr + offset);
+		xfer_param->in_len = src_param->in_len;
 	}
 
 	/* map output buffer if there are */
-	if (user_pkt->out_buf && user_pkt->out_len) {
-		offset = sizeof(struct cmd_packet) + user_pkt->in_len;
-		xfer_pkt->out_buf = (void *)(dma_addr + offset);
-		xfer_pkt->out_len = user_pkt->out_len;
+	if (src_param->out_buf && src_param->out_len) {
+		offset = sizeof(*xfer_param) + src_param->in_len;
+		xfer_param->out_buf = (void *)(dma_addr + offset);
+		xfer_param->out_len = src_param->out_len;
 	}
 
 	/* csrvisor handles DMA addr */
-	cw_data->xfer_pkt = (struct cmd_packet *)dma_addr;
+	cw_data->xfer_param = (struct cmd_param *)dma_addr;
 
 	/* push to csrviosr */
-	ret = do_csrvisor_fastcall(cw_data);
+	ret = _csrvisor_fastcall(cw_data);
 
 	/* update returned status */
-	user_pkt->status = xfer_pkt->status;
-	user_pkt->out_len = xfer_pkt->out_len;
+	src_param->status = xfer_param->status;
+	src_param->out_len = xfer_param->out_len;
 
-	if (xfer_pkt->out_buf) {
-		offset = sizeof(struct cmd_packet) + user_pkt->in_len;
-		if (copy_to_user(user_pkt->out_buf,
-				(char *)xfer_pkt + offset,
-				user_pkt->out_len))
-			ret = -EFAULT;
+	if (xfer_param->out_buf) {
+		offset = sizeof(*xfer_param) + src_param->in_len;
+		if (from_user)
+			ret = copy_to_user(src_param->out_buf,
+				(char *)xfer_param + offset,
+				src_param->out_len);
+		else
+			if (memcpy(src_param->out_buf,
+				(char *)xfer_param + offset,
+					src_param->out_len))
+				ret = 0;
+			else
+				ret = -EFAULT;
 	}
 
-__pkt_exit:
-	dma_free_coherent(dev, pkt_size, xfer_pkt, dma_addr);
-	cw_data->xfer_pkt = NULL;
+__free_and_exit:
+	dma_free_coherent(dev, param_size, xfer_param, dma_addr);
+	cw_data->xfer_param = NULL;
+__unlock_and_exit:
+	mutex_unlock(&cw_data->call_mutex);
 	return ret;
 }
+
 
 static long csrvisor_wrapper_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret;
-	struct cmd_packet *user_pkt;
+	struct cmd_param *user_param;
 	struct csrvisor_wrapper *cw_data = container_of(file->private_data,
 			struct csrvisor_wrapper, wrapper_dev);
 
 	if (cmd != IOCTL_CMD_CSRVISOR_IO)
 		return -EINVAL;
 
-	if (!access_ok(VERIFY_READ, arg, sizeof(struct cmd_packet)))
+	if (!access_ok(VERIFY_READ, arg, sizeof(*user_param)))
 		return -EFAULT;
 
-	user_pkt = (struct cmd_packet *)arg;
+	user_param = (struct cmd_param *)arg;
 
-	/*
-	* handle one packet only during once call,
-	* lock packet transport process
-	*/
-	mutex_lock(&cw_data->call_mutex);
-	ret = map_packet_and_call(user_pkt, cw_data);
-	mutex_unlock(&cw_data->call_mutex);
+	/* map user parameter and get result */
+	ret = csrvisor_fastcall(user_param, 1, cw_data);
 
 	return ret;
 }
@@ -244,50 +276,58 @@ static struct csrvisor_wrapper cw_private_glob = {
 	.wrapper_dev.fops	=	&csrviosr_wrapper_fops,
 };
 
+#define __CSRVISOR_KPARAM_INITIALIZER(name, xcmd, out_ptr, out_size) {	\
+	.magic		=	CMD_PARAM_MAGIC,			\
+	.cmd		=	xcmd,					\
+	.status		=	0,					\
+	.in_buf		=	NULL,					\
+	.in_len		=	0,					\
+	.out_buf	=	out_ptr,				\
+	.out_len	=	out_size }				\
+
+#define DECLARE_CSRVISOR_KPARAM(name, xcmd, out_ptr, out_size)	\
+	struct cmd_param name = \
+		__CSRVISOR_KPARAM_INITIALIZER(name, xcmd, out_ptr, out_size) \
+
 /* provided an interface to get chip id for user via sysfs */
 static ssize_t chip_uid_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct cmd_packet *local_pkt;
-	unsigned int *chip_uid;
-	size_t pkt_size, str_size;
-	dma_addr_t dma_addr;
+	unsigned int chip_uid[DEVICE_CHIPUID_WORD_LENGTH];
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_CHIPUID,
+			chip_uid, sizeof(chip_uid));
 
-	/* allocate local packet directly */
-	pkt_size = sizeof(struct cmd_packet)
-				+ DEVICE_CHIPUID_LENGTH;
-
-	local_pkt = dma_zalloc_coherent(dev, pkt_size, &dma_addr, GFP_KERNEL);
-	if (!local_pkt)
-		return 0;
-
-	/* build internal packet */
-	local_pkt->magic = CMD_PACKET_MAGIC;
-	local_pkt->cmd = CVIO_CMD_GET_CHIPUID;
-	local_pkt->status = 0;
-	local_pkt->in_buf = NULL; /* input unnecessary */
-	local_pkt->in_len = 0;
-	local_pkt->out_buf = (void *)(dma_addr + sizeof(struct cmd_packet));
-	local_pkt->out_len = DEVICE_CHIPUID_LENGTH;
-
-	/* lock & go */
-	mutex_lock(&cw_data->call_mutex);
-	cw_data->xfer_pkt = (struct cmd_packet *)dma_addr;
-	do_csrvisor_fastcall(cw_data);
-	cw_data->xfer_pkt = NULL;
-	mutex_unlock(&cw_data->call_mutex);
-
-	/* return */
-	chip_uid = (unsigned int *)(local_pkt + 1);
-	str_size = sprintf(buf, "%08x%08x%08x%08x\n",
+	if (!csrvisor_fastcall(&param, 0, cw_data))
+		return sprintf(buf, "%08x%08x%08x%08x\n",
 			chip_uid[0], chip_uid[1], chip_uid[2], chip_uid[3]);
-	dma_free_coherent(dev, pkt_size, local_pkt, dma_addr);
-
-	return str_size;
+	else
+		return 0;
 }
 
 static DEVICE_ATTR_RO(chip_uid);
+
+#ifdef CONFIG_HW_RANDOM
+int cvrng_read(struct hwrng *rng, void *data, size_t max_bytes, bool wait)
+{
+	struct csrvisor_wrapper *cw_data =
+			(struct csrvisor_wrapper *)rng->priv;
+	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_RANDOM, data, max_bytes);
+
+	if (!csrvisor_fastcall(&param, 0, cw_data))
+		return max_bytes;
+	else
+		return 0;
+}
+
+/* csrvisor HW RNG. Simple 'read' is enough for implement */
+static struct hwrng csrvisor_hwrng = {
+	.name		=	"cvrng",
+	.read		=	cvrng_read,
+	.priv		=	(unsigned long)&cw_private_glob,
+	.quality	=	1000,
+};
+#endif
 
 static __init int csrvisor_wrapper_init(void)
 {
@@ -334,6 +374,11 @@ static __init int csrvisor_wrapper_init(void)
 #endif
 	device_create_file(cw_data->wrapper_dev.this_device,
 		&dev_attr_chip_uid);
+
+#ifdef CONFIG_HW_RANDOM
+	/* register hardware random generator */
+	hwrng_register(&csrvisor_hwrng);
+#endif
 
 	return 0;
 
