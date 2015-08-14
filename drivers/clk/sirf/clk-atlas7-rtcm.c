@@ -20,12 +20,40 @@
 #include <linux/slab.h>
 #include <linux/regmap.h>
 #include <linux/mfd/sirfsoc_pwrc.h>
-#include "clk-atlas7.h"
 
 #define SIRFSOC_RTCM_CLKC_PLL_CTRL		0x28
 #define SIRFSOC_RTCM_CLKC_M3_CLK_SEL		0x8C
 #define SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL	0x90
 #define SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL	0x94
+
+static DEFINE_SPINLOCK(m3_gate_lock);
+static DEFINE_SPINLOCK(can0_gate_lock);
+static DEFINE_SPINLOCK(qspi0_gate_lock);
+
+struct clk_rtcm {
+	struct clk_hw hw;
+	u16 regofs;
+	u16 bit;
+	spinlock_t *lock;
+};
+#define to_rtcmclk(_hw) container_of(_hw, struct clk_rtcm, hw)
+
+struct clk_rtcpll {
+	struct clk_hw hw;
+	unsigned short regofs;  /* register offset */
+};
+
+#define to_rtcpllclk(_hw) container_of(_hw, struct clk_rtcpll, hw)
+
+struct atlas7_rtcmclk_init_data {
+	u32 index;
+	const char *unit_name;
+	const char *parent_name;
+	unsigned long flags;
+	u32 regofs;
+	u8 bit;
+	spinlock_t *lock;
+};
 
 struct sirfsoc_rtcmclk_info {
 	struct device *dev;
@@ -49,15 +77,17 @@ static inline void  rtcm_clkc_writel(u32 val, unsigned reg)
 {
 	regmap_write(s_rtcmclk_info->regmap, s_rtcmclk_info->base + reg, val);
 }
+
 static struct clk_onecell_data rtcmclk_data;
-	/* new unit should add start from the tail of list */
-static struct atlas7_unit_init_data rtcm_unit_list[] = {
+
+/* new unit should add start from the tail of list */
+static struct atlas7_rtcmclk_init_data rtcm_unit_list[] = {
 	{0, "m3", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_M3_CLK_SEL, 0, 0, 0, NULL},
+		SIRFSOC_RTCM_CLKC_M3_CLK_SEL, 0, &m3_gate_lock},
 	{1, "can0", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL, 0, 0, 0, NULL},
+		SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL, 0, &can0_gate_lock},
 	{2, "qspi0", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, 0, 0, NULL},
+		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, &qspi0_gate_lock},
 };
 /*AOPD clk controller*/
 
@@ -65,26 +95,33 @@ static struct clk *rtcm_clks[ARRAY_SIZE(rtcm_unit_list)];
 
 static int rtcm_unit_clk_is_enabled(struct clk_hw *hw)
 {
-	struct clk_unit *clk = to_unitclk(hw);
+	struct clk_rtcm *clk = to_rtcmclk(hw);
 
 	return !!(rtcm_clkc_readl(clk->regofs) & BIT(clk->bit));
 }
 
 static int rtcm_unit_clk_enable(struct clk_hw *hw)
 {
-	struct clk_unit *clk = to_unitclk(hw);
+	struct clk_rtcm *clk = to_rtcmclk(hw);
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(clk->lock, flags);
 	rtcm_clkc_writel(BIT(clk->bit), clk->regofs);
+	spin_unlock_irqrestore(clk->lock, flags);
+
 	return 0;
 }
 
 static void rtcm_unit_clk_disable(struct clk_hw *hw)
 {
-	struct clk_unit *clk = to_unitclk(hw);
+	struct clk_rtcm *clk = to_rtcmclk(hw);
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(clk->lock, flags);
 	rtcm_clkc_writel(rtcm_clkc_readl(clk->regofs) &
 		~BIT(clk->bit),
 		clk->regofs);
+	spin_unlock_irqrestore(clk->lock, flags);
 }
 
 static struct clk_ops rtcm_unit_clk_ops = {
@@ -99,7 +136,7 @@ static struct clk *atlas7_rtcm_unit_clk_register
 		 u32 regofs, u8 bit, spinlock_t *lock)
 {
 	struct clk *clk;
-	struct clk_unit *unit;
+	struct clk_rtcm *unit;
 	struct clk_init_data init;
 
 	unit = kzalloc(sizeof(*unit), GFP_KERNEL);
@@ -127,7 +164,7 @@ static struct clk *atlas7_rtcm_unit_clk_register
 static unsigned long pll_rtcmclk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
 {
-	struct clk_pll *clk = to_pllclk(hw);
+	struct clk_rtcpll *clk = to_rtcpllclk(hw);
 	u32 pllctl = rtcm_clkc_readl(clk->regofs);
 	u32 fbdiv;
 	u64 rate;
@@ -154,7 +191,7 @@ static struct clk_init_data clk_rtcmpll_init = {
 	.num_parents = 1,
 };
 
-static struct clk_pll clk_rtcmpll = {
+static struct clk_rtcpll clk_rtcmpll = {
 	.regofs = SIRFSOC_RTCM_CLKC_PLL_CTRL,
 	.hw = {
 		.init = &clk_rtcmpll_init,
@@ -175,7 +212,7 @@ static const struct of_device_id rtcmclk_ids[] = {
 static int sirfsoc_rtcmclk_probe(struct platform_device *pdev)
 {
 	struct sirfsoc_pwrc_info *pwrcinfo = dev_get_drvdata(pdev->dev.parent);
-	struct atlas7_unit_init_data *unit;
+	struct atlas7_rtcmclk_init_data *unit;
 	struct sirfsoc_rtcmclk_info *info;
 	struct device_node *np;
 	struct clk *clk;

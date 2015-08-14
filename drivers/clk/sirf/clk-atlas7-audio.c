@@ -20,20 +20,36 @@
 #include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/slab.h>
-#include "clk-atlas7.h"
 
-#define SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL		0x230
+#define SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL	0x230
 #define SIRFSOC_AUDIO_CLKC_IACC_CLK_STATUS	0x250
 
 static void *sirfsoc_audioclk_vbase;
 static struct clk_onecell_data audioclk_data;
 static DEFINE_SPINLOCK(audio_gate_lock);
 
+struct clk_audio {
+	struct clk_hw hw;
+	u16 regofs;
+	u16 bit;
+	spinlock_t *lock;
+};
+#define to_audioclk(_hw) container_of(_hw, struct clk_audio, hw)
+
 /*audio clk controller*/
-static struct atlas7_unit_init_data audio_unit_list[] = {
+struct atlas7_audio_init_data {
+	u32 index;
+	const char *unit_name;
+	const char *parent_name;
+	unsigned long flags;
+	u32 regofs;
+	u8 bit;
+	spinlock_t *lock;
+};
+
+static struct atlas7_audio_init_data audio_unit_list[] = {
 	{0, "codec_iacc", "xin", 0,
-		SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL, 11, 0,
-		0, &audio_gate_lock},
+		SIRFSOC_AUDIO_CLKC_IACC_CLK_SEL, 11, &audio_gate_lock},
 };
 
 static struct clk *audio_clks[ARRAY_SIZE(audio_unit_list)];
@@ -57,7 +73,7 @@ static int audio_unit_clk_is_enabled(struct clk_hw *hw)
 #define IACC_CLK_RESET_BITOFF	12
 static int audio_unit_clk_enable(struct clk_hw *hw)
 {
-	struct clk_unit *clk = to_unitclk(hw);
+	struct clk_audio *clk = to_audioclk(hw);
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(clk->lock, flags);
@@ -80,7 +96,7 @@ static int audio_unit_clk_enable(struct clk_hw *hw)
 
 static void audio_unit_clk_disable(struct clk_hw *hw)
 {
-	struct clk_unit *clk = to_unitclk(hw);
+	struct clk_audio *clk = to_audioclk(hw);
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(clk->lock, flags);
@@ -103,7 +119,7 @@ atlas7_audio_unit_clk_register(struct device *dev, const char *name,
 		 u32 regofs, u8 bit, spinlock_t *lock)
 {
 	struct clk *clk;
-	struct clk_unit *unit;
+	struct clk_audio *unit;
 	struct clk_init_data init;
 
 	unit = kzalloc(sizeof(*unit), GFP_KERNEL);
@@ -130,7 +146,7 @@ atlas7_audio_unit_clk_register(struct device *dev, const char *name,
 
 void __init sirfsoc_clk_audio_init(struct device_node *np)
 {
-	struct atlas7_unit_init_data *unit;
+	struct atlas7_audio_init_data *unit;
 	int ret;
 	int i;
 

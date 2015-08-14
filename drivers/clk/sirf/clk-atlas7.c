@@ -23,7 +23,6 @@
 #include <linux/io.h>
 #include <linux/reset-controller.h>
 #include <linux/slab.h>
-#include "clk-atlas7.h"
 
 #define SIRFSOC_CLKC_MEMPLL_AB_FREQ          0x0000
 #define SIRFSOC_CLKC_MEMPLL_AB_SSC           0x0004
@@ -224,12 +223,34 @@
 
 #define SIRFSOC_DIVIDOR_TYPE_TABLE	0x1
 
+struct clk_pll {
+	struct clk_hw hw;
+	u16 regofs;  /* register offset */
+};
+#define to_pllclk(_hw) container_of(_hw, struct clk_pll, hw)
+
 struct clk_dto {
 	struct clk_hw hw;
 	u16 inc_offset;  /* dto increment offset */
 	u16 src_offset;  /* dto src offset */
 };
 #define to_dtoclk(_hw) container_of(_hw, struct clk_dto, hw)
+
+enum clk_unit_type {
+	CLK_UNIT_NOC_OTHER,
+	CLK_UNIT_NOC_CLOCK,
+	CLK_UNIT_NOC_SOCKET,
+};
+
+struct clk_unit {
+	struct clk_hw hw;
+	u16 regofs;
+	u16 bit;
+	u32 type;
+	u8 idle_bit;
+	spinlock_t *lock;
+};
+#define to_unitclk(_hw) container_of(_hw, struct clk_unit, hw)
 
 struct atlas7_div_init_data {
 	const char *div_name;
@@ -255,6 +276,18 @@ struct atlas7_mux_init_data {
 	u32 mux_offset;
 	u8 shift;
 	u8 width;
+};
+
+struct atlas7_unit_init_data {
+	u32 index;
+	const char *unit_name;
+	const char *parent_name;
+	unsigned long flags;
+	u32 regofs;
+	u8 bit;
+	u32 type;
+	u8 idle_bit;
+	spinlock_t *lock;
 };
 
 struct atlas7_reset_desc {
