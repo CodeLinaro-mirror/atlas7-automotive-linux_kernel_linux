@@ -1,9 +1,16 @@
 /*
  * CSR SiRFprima2 Video Output Driver
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
  *
- * Licensed under GPLv2 or later.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/dma-mapping.h>
@@ -21,6 +28,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
+#include <media/v4l2-ctrls.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include "sirfsoc_vout.h"
@@ -39,6 +47,17 @@ MODULE_PARM_DESC(debug, "debug level (0-2)");
 #define VIDEO_MAX_HEIGHT 1080
 #define FPS_MAX 60
 
+#define VIDEO_BRIGHTNESS_MAX 128
+#define VIDEO_BRIGHTNESS_MIN (-128)
+
+#define VIDEO_CONTRAST_MAX 256
+#define VIDEO_CONTRAST_MIN 0
+
+#define VIDEO_HUE_MAX 360
+#define VIDEO_HUE_MIN 0
+
+#define VIDEO_SATURATION_MAX 1026
+#define VIDEO_SATURATION_MIN 0
 
 static const struct v4l2_fract
 	fi_min = {.numerator = 1, .denominator = FPS_MAX},
@@ -223,6 +242,15 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 			vout->dst_rect.left + vout->dst_rect.width - 1;
 		params.op.passthrough.dst_rect.bottom =
 			vout->dst_rect.top + vout->dst_rect.height - 1;
+
+		params.op.passthrough.color_ctrl.brightness =
+					vout->color_ctrl.brightness;
+		params.op.passthrough.color_ctrl.contrast =
+					vout->color_ctrl.contrast;
+		params.op.passthrough.color_ctrl.hue =
+					vout->color_ctrl.hue;
+		params.op.passthrough.color_ctrl.saturation =
+					vout->color_ctrl.saturation;
 
 		sirfsoc_vpp_present(vout->vpp_handle, &params);
 	}
@@ -505,6 +533,11 @@ static int __sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 
 	vout->surf_width = fmt->width;
 	vout->surf_height = fmt->height;
+
+	vout->color_ctrl.brightness = 0;
+	vout->color_ctrl.contrast = 128;
+	vout->color_ctrl.hue = 0;
+	vout->color_ctrl.saturation = 128;
 
 	vout->global_alpha = 255;
 	vout->src_ckey = 0;
@@ -1320,6 +1353,48 @@ static int sirfsoc_vout_g_fbuf(struct file *file, void *priv,
 	return 0;
 }
 
+static int sirfsoc_vout_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct sirfsoc_vout_device *vout = container_of(ctrl->handler,
+				struct sirfsoc_vout_device, ctrl_handler);
+	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
+	struct sirfsoc_vdss_layer *l = vout->layer;
+
+	/* suppose vout info is modified with this ctrl*/
+	vout->vout_info_dirty = true;
+
+	switch (ctrl->id) {
+	case V4L2_CID_BRIGHTNESS:
+		ctrl->val = clamp(ctrl->val, (s32)VIDEO_BRIGHTNESS_MIN,
+			(s32)VIDEO_BRIGHTNESS_MAX);
+		vout->color_ctrl.brightness = ctrl->val;
+		break;
+	case V4L2_CID_CONTRAST:
+		ctrl->val = clamp(ctrl->val, (s32)VIDEO_CONTRAST_MIN,
+			(s32)VIDEO_CONTRAST_MAX);
+		vout->color_ctrl.contrast = ctrl->val;
+		break;
+	case V4L2_CID_SATURATION:
+		ctrl->val = clamp(ctrl->val, (s32)VIDEO_SATURATION_MIN,
+			(s32)VIDEO_SATURATION_MAX);
+		vout->color_ctrl.saturation = ctrl->val;
+		break;
+	case V4L2_CID_HUE:
+		ctrl->val = clamp(ctrl->val, (s32)VIDEO_HUE_MIN,
+			(s32)VIDEO_HUE_MAX);
+		vout->color_ctrl.hue = ctrl->val;
+		break;
+	default:
+		vout->vout_info_dirty = false;
+		v4l2_err(v4l2_dev, "%s: Unknown IOCTL: %d\n",
+					__func__, ctrl->id);
+
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* File operations */
 static int sirfsoc_vout_open(struct file *file)
 {
@@ -1500,6 +1575,10 @@ static const struct v4l2_file_operations sirfsoc_vout_fops = {
 	.poll		= sirfsoc_vout_poll,
 };
 
+static const struct v4l2_ctrl_ops sirfsoc_vout_ctrl_ops = {
+	.s_ctrl = sirfsoc_vout_s_ctrl,
+};
+
 static int sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 {
 	return __sirfsoc_setup_video_data(vout);
@@ -1534,6 +1613,42 @@ static int sirfsoc_setup_video_device(struct sirfsoc_vout_device *vout)
 	return 0;
 }
 
+static int sirfsoc_setup_video_ctrl(struct sirfsoc_vout_device *vout)
+{
+	int ret = 0;
+	struct v4l2_ctrl_handler *ctrl_handler = &vout->ctrl_handler;
+
+	vout->vid_dev->v4l2_dev.ctrl_handler = ctrl_handler;
+
+	v4l2_ctrl_handler_init(ctrl_handler, 8);
+
+	v4l2_ctrl_new_std(ctrl_handler, &sirfsoc_vout_ctrl_ops,
+			V4L2_CID_BRIGHTNESS, VIDEO_BRIGHTNESS_MIN,
+			VIDEO_BRIGHTNESS_MAX, 1, 0);
+
+	v4l2_ctrl_new_std(ctrl_handler, &sirfsoc_vout_ctrl_ops,
+			V4L2_CID_CONTRAST, VIDEO_CONTRAST_MIN,
+			VIDEO_CONTRAST_MAX, 1, 128);
+
+	v4l2_ctrl_new_std(ctrl_handler, &sirfsoc_vout_ctrl_ops,
+			V4L2_CID_HUE, VIDEO_HUE_MIN,
+			VIDEO_HUE_MAX, 1, 0);
+
+	v4l2_ctrl_new_std(ctrl_handler, &sirfsoc_vout_ctrl_ops,
+			V4L2_CID_SATURATION, VIDEO_SATURATION_MIN,
+			VIDEO_SATURATION_MAX, 1, 128);
+
+	if (ctrl_handler->error) {
+		ret = ctrl_handler->error;
+		v4l2_ctrl_handler_free(ctrl_handler);
+		return ret;
+	}
+
+	v4l2_ctrl_handler_setup(ctrl_handler);
+
+	return ret;
+}
+
 static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1557,6 +1672,11 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 		sirfsoc_setup_video_data(vout);
 
 		sirfsoc_setup_video_device(vout);
+
+		if (sirfsoc_setup_video_ctrl(vout)) {
+			dev_err(&pdev->dev, "apply ctrl handle failed\n");
+			goto error;
+		}
 
 		video_dev = vout->vd;
 		if (video_register_device(video_dev,
@@ -1647,6 +1767,9 @@ static void sirfsoc_vout_free_device(struct sirfsoc_vout_device *vout)
 		else
 			video_device_release(vd);
 	}
+
+	v4l2_ctrl_handler_free(&vout->ctrl_handler);
+
 	kfree(vout);
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
@@ -1786,5 +1909,4 @@ module_init(sirfsoc_vout_init);
 module_exit(sirfsoc_vout_exit);
 
 MODULE_DESCRIPTION("SirfSoc Video Output driver");
-MODULE_AUTHOR("Renwei Wu<renwei.wu@csr.com>");
 MODULE_LICENSE("GPL v2");

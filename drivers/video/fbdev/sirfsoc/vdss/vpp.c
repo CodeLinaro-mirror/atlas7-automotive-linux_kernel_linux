@@ -33,6 +33,26 @@ struct vpp_device {
 
 #define VPP_MAX_DEVICES	8
 
+static const s8 sin[91] = {0, 2, 3, 5, 7, 9, 10, 12,
+	14, 16, 17, 19, 21, 22, 24, 26, 28, 29, 31,
+	33, 34, 38, 37, 39, 41, 42, 44, 45, 47, 48,
+	50, 52, 53, 54, 56, 57, 59, 60, 62, 63, 64,
+	66, 67, 68, 69, 71, 72, 73, 74, 75, 77, 78,
+	79, 80, 81, 82, 83, 84, 85, 86, 87, 87, 88,
+	89, 90, 91, 91, 92, 93, 93, 94, 95, 95, 96,
+	96, 97, 97, 97, 98, 98, 98, 99, 99, 99, 99,
+	100, 100, 100, 100, 100, 100,};
+
+static const s8 cos[91] = {100, 100, 100, 100, 100,
+	100, 99, 99, 99, 99, 98, 98, 98, 97, 97, 97,
+	96, 96, 95, 95, 94, 93, 93, 92, 91, 91, 90,
+	89, 88, 87, 87, 86, 85, 84, 83, 82, 81, 80,
+	79, 78, 77, 75, 74, 73, 72, 71, 69, 68, 67,
+	66, 64, 63, 62, 60, 59, 57, 56, 54, 53, 51,
+	50, 48, 47, 45, 44, 42, 41, 39, 37, 36, 34,
+	33, 31, 29, 28, 26, 24, 23, 21, 19, 17, 16,
+	14, 12, 10, 9, 7, 5, 3, 2, 0,};
+
 struct vpp_adapter {
 	/* static fields */
 	unsigned char name[8];
@@ -151,6 +171,54 @@ static void vpp_write_reg_with_mask(
 	tmp &= mask;
 	tmp |= (value & ~mask);
 	vpp_write_reg(adapter, offset, tmp);
+}
+
+static s32 vpp_cal_vc(u32 hue, u32 saturation)
+{
+	s32 vc;
+	s32 tmp;
+
+	if (hue > 90 && hue <= 180)
+		tmp = sin[180 - hue];
+	else if (hue > 180 && hue <= 270)
+		tmp = -sin[hue - 180];
+	else if (hue > 270 && hue <= 360)
+		tmp = -sin[360 - hue];
+	else
+		tmp = sin[hue];
+
+	/*
+	 * According to vpp spec, vc is calculated by
+	 * below formula:
+	 * vc = cos(2*PI*(hue/360.0)) * saturation * 2
+	 */
+	vc = tmp * saturation * 2 / 100;
+
+	return vc;
+}
+
+static s32 vpp_cal_uc(u32 hue, u32 saturation)
+{
+	s32 uc;
+	s32 tmp;
+
+	if (hue > 90 && hue <= 180)
+		tmp = -cos[hue - 90];
+	else if (hue > 180 && hue <= 270)
+		tmp = -cos[270 - hue];
+	else if (hue > 270 && hue <= 360)
+		tmp = cos[360 - hue];
+	else
+		tmp = cos[hue];
+
+	/*
+	 * According to vpp spec, uc is calculated by
+	 * below formula:
+	 * uc = sin(2*PI*(hue/360.0)) * saturation * 2
+	 */
+	uc = tmp * saturation * 2 / 100;
+
+	return uc;
 }
 
 static void __vpp_setup(struct vpp_adapter *adapter)
@@ -730,6 +798,27 @@ static void  __vpp_set_dstbase(struct vpp_adapter *adapter,
 	}
 }
 
+static int __vpp_set_color_ctrl(struct vpp_adapter *adapter,
+		struct vdss_vpp_colorctrl *color_ctrl)
+{
+	s32 bc_data;
+	s32 uv_data;
+	s32 uc, vc;
+
+	bc_data = VPP_COLOR_B_CTRL(color_ctrl->brightness) |
+		VPP_COLOR_C_CTRL(color_ctrl->contrast);
+
+	uc = vpp_cal_uc(color_ctrl->hue, color_ctrl->saturation);
+	vc = vpp_cal_vc(color_ctrl->hue, color_ctrl->saturation);
+
+	uv_data = VPP_COLOR_UC_CTRL(uc) | VPP_COLOR_VC_CTRL(vc);
+
+	vpp_write_reg(adapter, VPP_COLOR_HS_CTRL, uv_data);
+	vpp_write_reg(adapter, VPP_COLOR_BC_CTRL, bc_data);
+
+	return 0;
+}
+
 static int __vpp_blt(struct vpp_adapter *adapter,
 		struct vdss_vpp_blt_params *params)
 {
@@ -748,6 +837,9 @@ static int __vpp_blt(struct vpp_adapter *adapter,
 	__vpp_set_dstbase(adapter, &params->dst_surf,
 			&params->dst_rect, &params->interlace);
 	__vpp_set_dst_rect(adapter, &params->dst_rect);
+
+	/* color ctrl setting */
+	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
 
 	/* vpp blt start */
 	__vpp_blt_start(adapter);
@@ -776,6 +868,9 @@ static int __vpp_passthrough(struct vpp_adapter *adapter,
 		__vpp_set_dstbase(adapter, NULL,
 				&params->dst_rect, &params->interlace);
 		__vpp_set_dst_rect(adapter, &params->dst_rect);
+
+		/* color ctrl setting */
+		__vpp_set_color_ctrl(adapter, &params->color_ctrl);
 	}
 
 	return 0;
@@ -799,6 +894,9 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 	__vpp_set_dstbase(adapter, NULL,
 			&params->dst_rect, &params->interlace);
 	__vpp_set_dst_rect(adapter, &params->dst_rect);
+
+	/* color ctrl setting */
+	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
 
 	return 0;
 }

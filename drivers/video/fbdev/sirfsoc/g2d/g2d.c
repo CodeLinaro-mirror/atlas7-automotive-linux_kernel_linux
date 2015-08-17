@@ -1,10 +1,16 @@
 /*
  * CSR sirfsoc Graphics 2D driver.
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/kernel.h>
@@ -134,6 +140,12 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 	vpp_params.op.blt.dst_surf.height = params->dst.height;
 	vpp_params.op.blt.dst_surf.base = params->dst.paddr;
 	vpp_params.op.blt.dst_rect = dstrc;
+
+	/*vpp color ctrl*/
+	vpp_params.op.blt.color_ctrl.brightness = 0;
+	vpp_params.op.blt.color_ctrl.contrast = 128;
+	vpp_params.op.blt.color_ctrl.hue = 0;
+	vpp_params.op.blt.color_ctrl.saturation = 128;
 
 #ifdef CONFIG_SIRF_G2D_DEBUG_LOG
 	g2d_inf("src:baddr:%x, bw:%d, bh:%d, fmt:%d[%d,%d,%d,%d]\n",
@@ -1223,6 +1235,5 @@ static struct platform_driver g2d_driver = {
 
 module_platform_driver(g2d_driver);
 
-MODULE_AUTHOR("Kasin Li <Kasin.Li@csr.com>");
 MODULE_DESCRIPTION("SiRF SoC 2D graphics driver");
 MODULE_LICENSE("GPL v2");

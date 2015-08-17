@@ -1,10 +1,16 @@
 /*
  * CSR SiRF Atlas7DA Rearview driver
  *
- * Copyright (c) 2011 - 2015 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/init.h>
@@ -477,6 +483,12 @@ static void rv_start(struct rv_dev *rv)
 	vpp_op_params.op.ibv.src_surf[2].base = rv->data_dma_addr
 								+ 2*FRAME_SIZE;
 
+	/*vpp color ctrl*/
+	vpp_op_params.op.ibv.color_ctrl.brightness = 0;
+	vpp_op_params.op.ibv.color_ctrl.contrast = 128;
+	vpp_op_params.op.ibv.color_ctrl.hue = 0;
+	vpp_op_params.op.ibv.color_ctrl.saturation = 128;
+
 	/* start vpp */
 	sirfsoc_vpp_present(rv->rv_vpp, &vpp_op_params);
 
@@ -722,5 +734,4 @@ module_exit(sirfsoc_rv_exit);
 
 
 MODULE_DESCRIPTION("SIRFSoC Atlas7 Rearview driver");
-MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");
 MODULE_LICENSE("GPL v2");

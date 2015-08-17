@@ -1,9 +1,16 @@
 /*
  * CSR SiRFprima2 VIP host driver
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
  *
- * Licensed under GPLv2 or later.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _SIRFSOC_VOUT_H_
@@ -65,6 +72,9 @@ struct sirfsoc_vout_device {
 	bool passthrough;
 	bool preempted;
 	bool vout_info_dirty;
+
+	struct v4l2_ctrl_handler ctrl_handler;
+	struct vdss_vpp_colorctrl color_ctrl;
 };
 
 

@@ -1,11 +1,18 @@
 /*
  * linux/include/video/sirfsoc_vdss.h
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc
- * group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #ifndef __SIRFSOC_VDSS_H
 #define __SIRFSOC_VDSS_H
 
@@ -187,6 +194,13 @@ struct vdss_surface {
 	u32 base;
 };
 
+struct vdss_vpp_colorctrl {
+	s16 hue;
+	s16 brightness;
+	s16 contrast;
+	s16 saturation;
+};
+
 enum vdss_vpp {
 	SIRFSOC_VDSS_VPP0 = 0,
 	SIRFSOC_VDSS_VPP1,
@@ -210,6 +224,7 @@ struct vdss_vpp_blt_params {
 	struct vdss_vpp_interlace interlace;
 	struct vdss_surface dst_surf;
 	struct vdss_rect dst_rect;
+	struct vdss_vpp_colorctrl color_ctrl;
 };
 
 struct vdss_vpp_passthrough_params {
@@ -217,6 +232,7 @@ struct vdss_vpp_passthrough_params {
 	struct vdss_vpp_interlace interlace;
 	struct vdss_rect src_rect;
 	struct vdss_rect dst_rect;
+	struct vdss_vpp_colorctrl color_ctrl;
 	bool flip;
 };
 
@@ -227,6 +243,7 @@ struct vdss_vpp_ibv_params {
 	struct vdss_vpp_interlace interlace;
 	struct vdss_rect src_rect;
 	struct vdss_rect dst_rect;
+	struct vdss_vpp_colorctrl color_ctrl;
 };
 
 struct vdss_vpp_op_params {
@@ -245,13 +262,6 @@ typedef void (*sirfsoc_vpp_notify_t)(void *arg,
 struct vdss_vpp_create_device_params {
 	sirfsoc_vpp_notify_t func;
 	void *arg;
-};
-
-struct vdss_vpp_colorctrl {
-	s16 hue;
-	s16 bright;
-	s16 contrast;
-	s16 saturation;
 };
 
 struct sirfsoc_vdss_screen;
