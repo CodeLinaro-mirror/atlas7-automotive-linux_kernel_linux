@@ -2082,7 +2082,7 @@
 				reg = <0x13100000 0x10000>;
 				interrupts = <0 30 0>;
 				clocks = <&car 79>;
-				resets = <&car 29>;
+				resets = <&car 30>;
 				error-diffusion = <1>;
 			};
 			vpp0@13110000 {
@@ -2099,7 +2099,7 @@
 				reg = <0x13120000 0x10000>;
 				interrupts = <0 62 0>;
 				clocks = <&car 81>;
-				reset = <&car 29>;
+				reset = <&car 32>;
 				error-diffusion = <1>;
 			};
 			vpp1@13130000 {
@@ -2108,7 +2108,7 @@
 				reg = <0x13130000 0x10000>;
 				interrupts = <0 65 0>;
 				clocks = <&car 80>;
-				resets = <&car 29>;
+				resets = <&car 31>;
 			};
 			lvds@10e10000 {
 				compatible = "sirf,atlas7-lvdsc";
@@ -2116,7 +2116,7 @@
 				      <0x10E50008 0x00008>;
 				interrupts = <0 64 0>;
 				clocks = <&car 54>;
-				resets = <&car 29>;
+				resets = <&car 9>;
 			};
 			g2d@17010000 {
 				compatible = "sirf, atlas7-g2d";
