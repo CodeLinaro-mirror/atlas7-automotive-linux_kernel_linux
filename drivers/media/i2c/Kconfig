@@ -361,6 +361,15 @@ config VIDEO_TW9906
 	  To compile this driver as a module, choose M here: the
 	  module will be called tw9906.
 
+config VIDEO_IT68013
+	tristate "ITE Tech it68013 video decoder"
+	depends on VIDEO_V4L2 && I2C
+	---help---
+	  Single-port MHL2.1/HDMI1.4 Receiver with 3D Support
+	  Decoding into digital 8-bit 4:2:2 YCbCr for output.
+	  To compile this driver as a module, choose M here: the
+	  module will be called it68013.
+
 config VIDEO_VPX3220
 	tristate "vpx3220a, vpx3216b & vpx3214c video decoders"
 	depends on VIDEO_V4L2 && I2C

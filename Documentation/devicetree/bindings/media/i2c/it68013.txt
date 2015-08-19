@@ -1,0 +1,66 @@
+* ITE TECH it61083 hdmi decoder
+
+The it61083 device supports decoding video and audio signal of hdmi.
+it support the 8bit DDR data bus.
+
+Required properities
+ - compatible: subdevice compatible node, decoder:"itetech,it68013"
+				or "itetech,edid"
+ - reg: subdevice register size
+ - input-number: number of the functions of this subdevice
+ - inputs: the functions phandle name
+ - input-name: description for the function name of the subdevice
+ - input-id: the index of the function, its rangs is input-number - 1
+ - remote-endpoint:phandle to an 'endpoint' subnode of a remote device
+ node. It is defined in video-interfaces.txt
+ - data-mode: the data bus mode,DDR or SDR mode.
+ - data-shift: define the data bus mapping.
+
+Other properties for atlas7 SoC:
+ - clocks: input clock (see clock-bindings.txt)
+
+Example:
+	vip1@13160000 {
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vi_vip1_pmx>;
+		port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vip1_0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&it68013_1>;
+			};
+		};
+	};
+	it68013: decoder@49 {
+		compatible = "itetech,it68013";
+		reg = <0x49>;
+		/*hp-hdmiinput-gpios = <&gpio_3 5 0>;*/
+		input-number = <1>;
+		inputs = <&hdmi0>;
+		hdmi0: hdmi@0 {
+			input-name = "hdmi";
+			input-id = <0>;
+		};
+		port {
+			it68013_1: endpoint {
+				/* SDR or DDR sample
+					mode */
+				data-mode = "DDR";
+				/* 0: 16bit data to
+					VIP */
+				/* 1: 8bit to VIP
+					data[7:0] */
+				/* 2: 8bit to VIP
+					data[8:1] */
+				/* 3: ... */
+				data-shift = <1>;
+				remote-endpoint =<&vip1_0>;
+			};
+		};
+	};
+	it68013_edid@54 {
+		compatible = "itetech,edid";
+		reg = <0x54>;
+	};
