@@ -1,11 +1,18 @@
 /*
  * CSR sirfsoc framebuffer driver
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -1434,6 +1441,11 @@ static int sirfsocfb_probe(struct platform_device *pdev)
 	if (ret)
 		goto cleanup;
 
+#if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
+	fb_prepare_logo(fbdev->fbs[0], 0);
+	fb_show_logo(fbdev->fbs[0], 0);
+#endif
+
 	for (i = 0; i < fbdev->num_displays; i++) {
 		panel = fbdev->displays[i].panel;
 		ret = sirfsocfb_init_panel(fbdev, panel);
@@ -1512,5 +1524,4 @@ subsys_initcall(sirfsocfb_init);
 module_exit(sirfsocfb_exit);
 
 MODULE_DESCRIPTION("SiRF Soc fbdev driver");
-MODULE_AUTHOR("Jiansong Chen<Jiansong.Chen@csr.com>");
 MODULE_LICENSE("GPL");

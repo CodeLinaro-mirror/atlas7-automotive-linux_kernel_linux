@@ -425,6 +425,22 @@ static void fb_do_show_logo(struct fb_info *info, struct fb_image *image,
 {
 	unsigned int x;
 
+	if (of_machine_is_compatible("sirf,atlas7")) {
+		/* CSR Patch: let logo show in the center of the screen.
+		 * This has side effect that logo image will be overwritten
+		 * by vc's content(font or background erase value)when
+		 * framebuffer console is enabled. Since vc_top is set by
+		 * logo_height/vc_font.height in fbcon_prepare_logo, in
+		 * fbcon_switch, update_region will update the whole vc's
+		 * content to framebuffer which may overwrite the logo image
+		 * just done by fb_show_logo.
+		 */
+		if (image->width <= info->var.xres)
+			image->dx = (info->var.xres - image->width)/2;
+		if (image->height <= info->var.yres)
+			image->dy = (info->var.yres - image->height)/2;
+	}
+
 	if (rotate == FB_ROTATE_UR) {
 		for (x = 0;
 		     x < num && image->dx + image->width <= info->var.xres;
@@ -664,8 +680,14 @@ int fb_show_logo(struct fb_info *info, int rotate)
 {
 	int y;
 
-	y = fb_show_logo_line(info, rotate, fb_logo.logo, 0,
-			      num_online_cpus());
+	if (of_machine_is_compatible("sirf,atlas7")) {
+		/* CSR Patch: only Show one logo */
+		y = fb_show_logo_line(info, rotate, fb_logo.logo, 0,
+				      1);
+	} else {
+		y = fb_show_logo_line(info, rotate, fb_logo.logo, 0,
+				      num_online_cpus());
+	}
 	y = fb_show_extra_logos(info, y, rotate);
 
 	return y;

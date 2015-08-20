@@ -47,6 +47,7 @@ extern const struct linux_logo logo_superh_vga16;
 extern const struct linux_logo logo_superh_clut224;
 extern const struct linux_logo logo_m32r_clut224;
 extern const struct linux_logo logo_spe_clut224;
+extern const struct linux_logo logo_atlas7_clut224 __attribute__((weak));
 extern const struct linux_logo logo_prima2_clut224 __attribute__((weak));
 extern const struct linux_logo logo_prima2_wsvga_clut224 __attribute__((weak));
 extern const struct linux_logo logo_atlas6_clut224 __attribute__((weak));
