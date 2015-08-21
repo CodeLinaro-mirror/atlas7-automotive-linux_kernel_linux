@@ -158,7 +158,7 @@ static int __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(__u32 pix_fmt)
 }
 
 static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
-	u32 *hor_stride, u32 *ver_stride)
+	u32 *hor_stride, u32 *ver_stride, bool interlaced)
 {
 	switch (pix_fmt) {
 	case VDSS_PIXELFORMAT_NV12:
@@ -168,7 +168,10 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 		 * heigh: 16. Seems had better define private fmt for it.
 		 */
 		*hor_stride = align_size(width, 64);
-		*ver_stride = align_size(height, 16);
+		if (interlaced)
+			*ver_stride = align_size(height, 32);
+		else
+			*ver_stride = align_size(height, 16);
 		break;
 	case VDSS_PIXELFORMAT_I420:
 		*hor_stride = align_size(width, 16);
@@ -211,6 +214,7 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	struct sirfsoc_vdss_layer *l;
 	struct sirfsoc_vdss_layer_info info;
 	enum vdss_pixelformat pixfmt;
+	enum v4l2_field field = buf->v4l2_buf.field;
 
 	pixfmt  = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(
 		vout->pix_fmt.pixelformat);
@@ -242,6 +246,27 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 			vout->dst_rect.left + vout->dst_rect.width - 1;
 		params.op.passthrough.dst_rect.bottom =
 			vout->dst_rect.top + vout->dst_rect.height - 1;
+
+		if ((field == V4L2_FIELD_SEQ_TB) ||
+			(field == V4L2_FIELD_SEQ_BT) ||
+			(field == V4L2_FIELD_INTERLACED_TB) ||
+			(field == V4L2_FIELD_INTERLACED_BT)) {
+			params.op.passthrough.interlace.interlaced = true;
+			params.op.passthrough.interlace.out_mode =
+							VDSS_P_SINGLE;
+			params.op.passthrough.interlace.di_mode =
+							VDSS_VPP_3MEDIAN;
+			params.op.passthrough.interlace.input_top_first =
+				((field == V4L2_FIELD_INTERLACED_TB) ||
+				(field == V4L2_FIELD_SEQ_TB)) ? true : false;
+			params.op.passthrough.interlace.field_offset =
+				vout->surf_width * vout->surf_height / 2;
+
+			if ((field == V4L2_FIELD_INTERLACED_TB) ||
+				(field == V4L2_FIELD_INTERLACED_BT))
+				params.op.passthrough.interlace.field_offset =
+									0;
+		}
 
 		params.op.passthrough.color_ctrl.brightness =
 					vout->color_ctrl.brightness;
@@ -404,6 +429,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	int index = 0;
 	int bpp = 0; /* byte per pixel */
 	int vdss_pixfmt;
+	bool interlaced = false;
 
 	pix->width = clamp(pix->width, (u32)VIDEO_MIN_WIDTH,
 			(u32)VIDEO_MAX_WIDTH);
@@ -420,8 +446,24 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	}
 
 	pix->pixelformat = sirfsoc_vout_formats[index].pixelformat;
-	pix->field = V4L2_FIELD_NONE;
 	pix->priv = 0;
+
+	switch (pix->field) {
+	case V4L2_FIELD_ANY:
+	case V4L2_FIELD_NONE:
+		pix->field = V4L2_FIELD_NONE;
+		break;
+	/* vout supports progressive video and interlaced video */
+	case V4L2_FIELD_INTERLACED:
+	case V4L2_FIELD_SEQ_TB:
+	case V4L2_FIELD_SEQ_BT:
+	case V4L2_FIELD_INTERLACED_TB:
+	case V4L2_FIELD_INTERLACED_BT:
+		interlaced = true;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	switch (pix->pixelformat) {
 	case V4L2_PIX_FMT_YVYU:
@@ -458,7 +500,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	vdss_pixfmt = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(pix->pixelformat);
 
 	__sirfsoc_vout_alignment(vdss_pixfmt, pix->width, pix->height,
-		hor_stride, ver_stride);
+		hor_stride, ver_stride, interlaced);
 
 	pix->bytesperline = *hor_stride * bpp;
 
@@ -1037,6 +1079,13 @@ static int sirfsoc_vout_qbuf(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
+	if ((vout->pix_fmt.field == V4L2_FIELD_NONE) &&
+		((buf->field == V4L2_FIELD_INTERLACED_TB) ||
+		(buf->field == V4L2_FIELD_INTERLACED_BT))) {
+		v4l2_err(v4l2_dev, "invalid buf field\n");
+		return -EINVAL;
+	}
+
 	ret = vb2_qbuf(&vout->vb2_q, buf);
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s: ret = %d\n", __func__, ret);
@@ -1055,6 +1104,13 @@ static int sirfsoc_vout_dqbuf(struct file *file, void *priv,
 
 	if (V4L2_BUF_TYPE_VIDEO_OUTPUT != buf->type) {
 		v4l2_err(v4l2_dev, "invalid buffer type\n");
+		return -EINVAL;
+	}
+
+	if ((vout->pix_fmt.field == V4L2_FIELD_NONE) &&
+		((buf->field == V4L2_FIELD_INTERLACED_TB) ||
+		(buf->field == V4L2_FIELD_INTERLACED_BT))) {
+		v4l2_err(v4l2_dev, "invalid buf field\n");
 		return -EINVAL;
 	}
 
