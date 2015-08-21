@@ -1782,6 +1782,7 @@
 				compatible = "sirf,cvd";
 				reg = <0x10db2000 0x2000>;
 				clocks = <&car 46>;
+				resets = <&car 2>;
 			};
 
 			dmac2: dma-controller@10d50000 {
