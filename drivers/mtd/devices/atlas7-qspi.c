@@ -1,13 +1,16 @@
 /*
  * atlas7-qspi.c - Quad SPI (qspi) NOR flash driver for CSRatlas7
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * JEDEC probe based on drivers/mtd/devices/m25p80.c
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
- * This code is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/kernel.h>
@@ -281,6 +284,8 @@ static int
 atlas7_qspi_nor_macronix_quad_enable(struct atlas7_qspi_nor *a7nor);
 static int
 atlas7_qspi_nor_spansion_quad_enable(struct atlas7_qspi_nor *a7nor);
+static int
+atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor);
 
 static int
 atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor);
@@ -338,6 +343,18 @@ static struct nor_flash_info flash_types[] = {
 		S25FL_FLAG, 108, 100, 4, 4,
 		NULL, atlas7_qspi_nor_spansion_quad_enable, NULL},
 
+	/* Winbond w25xx */
+#define W25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
+		   FLASH_FLAG_READ_FAST		|	\
+		   FLASH_FLAG_READ_1_1_2	|	\
+		   FLASH_FLAG_READ_1_2_2	|	\
+		   FLASH_FLAG_READ_1_1_4	|	\
+		   FLASH_FLAG_READ_1_4_4	|	\
+		   FLASH_FLAG_WRITE_1_1_4)
+#define ATLAS7_QSPI_WINBOND_QUAD_EN_BIT	(0x1<<1)
+	{ "w25q80bv", 0xef4014, 0, 256, 4 * 1024, 256,
+		W25Q_FLAG, 104, 100, 4, 4,
+		NULL, atlas7_qspi_nor_winbond_quad_enable, NULL},
 	/* Sentinel */
 	{},
 };
@@ -758,6 +775,43 @@ atlas7_qspi_nor_spansion_quad_enable(struct atlas7_qspi_nor *a7nor)
 		goto out;
 	if (!(val[1] > 0 && (val[1] & ATLAS7_QSPI_SPANSION_QUAD_EN_BIT))) {
 		dev_err(a7nor->dev, "Spansion Quad bit not set\n");
+		ret = -EINVAL;
+	}
+out:
+	mutex_unlock(&a7nor->lock);
+	return ret;
+}
+
+static int
+atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor)
+{
+	int ret;
+	u8 val[2];
+
+	mutex_lock(&a7nor->lock);
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR, &val[0], 1);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR2, &val[1], 1);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WREN, NULL, 0);
+	if (ret < 0)
+		goto out;
+
+	val[1] |= ATLAS7_QSPI_WINBOND_QUAD_EN_BIT;
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WRSR, val, 2);
+	if (ret < 0)
+		goto out;
+
+	val[1] = 0;
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RDSR2, &val[1], 1);
+	if (ret < 0)
+		goto out;
+	if (!(val[1] > 0 && (val[1] & ATLAS7_QSPI_WINBOND_QUAD_EN_BIT))) {
+		dev_err(a7nor->dev, "Winbond Quad bit not set\n");
 		ret = -EINVAL;
 	}
 out:
@@ -1330,4 +1384,3 @@ module_platform_driver(atlas7_qspi_nor_driver);
 
 MODULE_DESCRIPTION("SiRF SoC QSPI NOR FLASH driver");
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Shunli Ai<Shunli.Ai@csr.com>");
