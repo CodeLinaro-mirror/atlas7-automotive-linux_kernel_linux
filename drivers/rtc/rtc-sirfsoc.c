@@ -1,9 +1,16 @@
 /*
  * SiRFSoC Real Time Clock interface for Linux
  *
- * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -433,10 +440,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 		}
 	}
 	rtcdrv->overflow_rtc = sirfsoc_rtc_get_overflow(rtcdrv);
-	/*register rtc device after hardware divider etc been initialized,
-	**since below register process call to read_time could cause
-	**infinite loop
-	*/
+
 	rtcdrv->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
 			&sirfsoc_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtcdrv->rtc)) {
@@ -557,6 +561,5 @@ static struct platform_driver sirfsoc_rtc_driver = {
 module_platform_driver(sirfsoc_rtc_driver);
 
 MODULE_DESCRIPTION("SiRF SoC rtc driver");
-MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:sirfsoc-rtc");
