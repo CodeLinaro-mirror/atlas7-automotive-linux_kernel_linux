@@ -1,10 +1,16 @@
 /*
  * CSR SiRFSoc VIP host driver
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/init.h>
@@ -400,30 +406,6 @@ static u32 dma_hw_get_interrupts(struct vip_dev *vip)
 static void dma_hw_clear_interrupts(struct vip_dev *vip, u32 status)
 {
 	vip_write(DMAN_INT, status & DMAN_INT_MASK);
-}
-
-static void dma_hw_wait_first_table_done(struct vip_dev *vip)
-{
-	int ret, value;
-
-	dma_hw_clear_interrupts(vip, DMAN_FINI_INT);
-
-	value = vip_read(DMAN_INT_EN);
-	value |= DMAN_FINI_INT;
-	vip_write(DMAN_INT_EN, value);	/* table finish interrupt enable */
-
-	ret = wait_for_completion_interruptible_timeout(&vip->rv.done,
-							msecs_to_jiffies(120));
-	if (ret == 0)
-		dev_info(vip->dev, "wait completiont timeout\n");
-
-	if (ret < 0)
-		dev_info(vip->dev,
-			"wait completion error: %d\n", ret);
-
-	value = vip_read(DMAN_INT_EN);
-	value &= ~DMAN_FINI_INT;
-	vip_write(DMAN_INT_EN, value);	/* disable table finish interrupt */
 }
 
 static inline void dma_hw_set_start_addr(struct vip_dev *vip, u32 addr)
@@ -978,10 +960,6 @@ static irqreturn_t vip_irq(int irq, void *data)
 		/* DMA CNT_INT happens */
 		if (dma_status & DMAN_INTMASK_CNT)
 				vip_dma_count_done(vip);
-
-		/* DMA FINI_INT happens */
-		if (dma_status & DMAN_INTMASK_FINI)
-				complete(&vip->rv.done);
 	}
 
 	/* VIP interrupt */
@@ -2191,8 +2169,6 @@ void vip_rv_start(void *data)
 
 	vip_hw_start_fifo(vip);
 
-	dma_hw_wait_first_table_done(vip);
-
 	mutex_unlock(&vip->host_lock);
 }
 EXPORT_SYMBOL(vip_rv_start);
@@ -2243,7 +2219,6 @@ static int vip_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&vip->capture);
 	spin_lock_init(&vip->lock);
 	mutex_init(&vip->host_lock);
-	init_completion(&vip->rv.done);
 	INIT_WORK(&vip->restart_work, vip_restart_worker);
 	vip->rv.preemption = false;
 
@@ -2454,5 +2429,4 @@ module_exit(sirfsoc_vip_exit);
 
 
 MODULE_DESCRIPTION("sirfsoc VIP V4l2 capture driver");
-MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");
 MODULE_LICENSE("GPL v2");
