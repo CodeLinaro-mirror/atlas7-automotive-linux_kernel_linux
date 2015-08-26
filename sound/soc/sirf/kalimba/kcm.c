@@ -1,9 +1,16 @@
 /*
  * kailimba components PCM drive
  *
- * Copyright (c) 2015 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/dma-mapping.h>
@@ -11,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include "dsp.h"
 #include "ipc.h"
 #include "kcm.h"
 
@@ -22,7 +30,6 @@
 static struct kcm_t *kcm;
 
 static struct list_head components_chain_list;
-static struct ipc_data *ipc_data;
 
 static struct component components_shared[256];
 static int shared_components_size;
@@ -734,27 +741,26 @@ int execute_component(struct component *component)
 {
 	int ret = 0;
 	u16 primary_stream = 0;
+	u16 resp[64];
 
-	mutex_lock(&ipc_data->msg_send_mutex);
+	kalimba_msg_send_lock();
 
 	switch (component->component_id) {
 	case CREATE_OPERATOR_REQ:
-		ret = ipc_create_operator(ipc_data,
-			(u16)(component->params[0]),
-			component->ret);
-		if (ret == 0)
-			if ((u16)(component->params[0]) == CAPABILITY_ID_MIXER)
-				curr_primary_stream = 0;
+		kalimba_create_operator((u16)(component->params[0]),
+			component->ret, resp);
+		if ((u16)(component->params[0]) == CAPABILITY_ID_MIXER)
+			curr_primary_stream = 0;
 		break;
 	case OPERATOR_MESSAGE_REQ:
 		if ((u16)(component->params[1]) !=
 				OPERATOR_MSG_SET_PRIMARY_STREAM) {
-			ret = ipc_operator_message(ipc_data,
+			ret = kalimba_operator_message(
 				*((u16 *)(component->params[0])),
 				(u16)(component->params[1]),
 				(u16)(component->params[2]),
 				(u16 *)(component->params[3]),
-				NULL, NULL);
+				NULL, NULL, resp);
 			break;
 		}
 		if ((u32)(component->params[4]) == SET_PRIMARY_STREAM)
@@ -773,75 +779,66 @@ int execute_component(struct component *component)
 		curr_primary_stream = primary_stream;
 		if (primary_stream == 0)
 			break;
-		ret = ipc_operator_message(ipc_data,
+		ret = kalimba_operator_message(
 				*((u16 *)(component->params[0])),
 				(u16)(component->params[1]),
 				(u16)(component->params[2]),
 				&primary_stream,
-				NULL, NULL);
+				NULL, NULL, resp);
 		break;
 	case GET_SINK_REQ:
-		ret = ipc_get_sink(ipc_data, (u16)(component->params[0]),
+		kalimba_get_sink((u16)(component->params[0]),
 			(u16)(component->params[1]),
 			*((u16 *)(component->params[2])),
 			*((u32 *)(component->params[3])),
-			component->ret);
+			component->ret, resp);
 		break;
 	case GET_SOURCE_REQ:
-		ret = ipc_get_source(ipc_data, (u16)(component->params[0]),
+		kalimba_get_source((u16)(component->params[0]),
 			(u16)(component->params[1]),
 			*((u16 *)(component->params[2])),
 			*((u32 *)(component->params[3])),
-			component->ret);
+			component->ret, resp);
 		break;
 	case ENDPOINT_CONFIGURE_REQ:
-		ret = ipc_config_endpoint(ipc_data,
-			*((u16 *)(component->params[0])),
+		kalimba_config_endpoint(*((u16 *)(component->params[0])),
 			(u16)(component->params[1]),
-			*((u32 *)(component->params[2])));
+			*((u32 *)(component->params[2])), resp);
 		break;
 	case CONNECT_REQ:
-		ret = ipc_connect_endpoints(ipc_data,
-			*((u16 *)(component->params[0])) +
-			(u16)(component->params[1]),
+		kalimba_connect_endpoints(*((u16 *)(component->params[0]))
+			+ (u16)(component->params[1]),
 			*((u16 *)(component->params[2])) +
 			(u16)(component->params[3]),
-			component->ret);
+			component->ret, resp);
 		break;
 	case START_OPERATOR_REQ:
-		ret = ipc_start_operator(ipc_data,
-			((u16 *)(component->params[0])),
-			(u16)(component->params[1]));
+		ret = kalimba_start_operator((u16 *)(component->params[0]),
+			(u16)(component->params[1]), resp);
 		break;
 	case DATA_PRODUCED:
-		ipc_data_produced(ipc_data,
-			*((u16 *)(component->params[0])));
+		kalimba_data_produced(*((u16 *)(component->params[0])));
 		ret = 0;
 		break;
 	case STOP_OPERATOR_REQ:
-		ret = ipc_stop_operator(ipc_data,
-			((u16 *)(component->params[0])),
-			(u16)(component->params[1]));
+		ret = kalimba_stop_operator((u16 *)(component->params[0]),
+			(u16)(component->params[1]), resp);
 		break;
 	case DISCONNECT_REQ:
-		ret = ipc_disconnect_endpoints(ipc_data,
-			(u16)(component->params[0]),
-			(u16 *)(component->params[1]));
+		ret = kalimba_disconnect_endpoints((u16)(component->params[0]),
+			(u16 *)(component->params[1]), resp);
 		break;
 	case CLOSE_SINK_REQ:
-		ret = ipc_close_sink(ipc_data,
-			(u16)(component->params[0]),
-			(u16 *)(component->params[1]));
+		ret = kalimba_close_sink((u16)(component->params[0]),
+			(u16 *)(component->params[1]), resp);
 		break;
 	case CLOSE_SOURCE_REQ:
-		ret = ipc_close_source(ipc_data,
-			(u16)(component->params[0]),
-			(u16 *)(component->params[1]));
+		ret = kalimba_close_source((u16)(component->params[0]),
+			(u16 *)(component->params[1]), resp);
 		break;
 	case DESTROY_OPERATOR_REQ:
-		ret = ipc_destroy_operator(ipc_data,
-			(u16 *)(component->params[0]),
-			(u16)(component->params[1]));
+		ret = kalimba_destroy_operator((u16 *)(component->params[0]),
+			(u16)(component->params[1]), resp);
 		break;
 	default:
 		ret = -EINVAL;
@@ -851,7 +848,7 @@ int execute_component(struct component *component)
 	if (ret != 0)
 		pr_err("ipc command executed failed: command id: 0x%04x\n",
 			component->component_id);
-	mutex_unlock(&ipc_data->msg_send_mutex);
+	kalimba_msg_send_unlock();
 
 	return ret;
 }
@@ -860,9 +857,6 @@ struct component *get_data_produced_ack_component(
 	struct components_chain *components_chain)
 {
 	struct component *component;
-
-	if (unlikely(ipc_data == NULL))
-		ipc_data = ipc_get_data();
 
 	if (components_chain->component_first == NULL)
 		return NULL;
@@ -898,7 +892,6 @@ int execute_components_chain(struct components_chain *components_chain,
 	struct component *component;
 	int ret = 0;
 
-	ipc_data = ipc_get_data();
 	if (components_chain->component_first == NULL)
 		return -ENODEV;
 	for (component = components_chain->component_first;

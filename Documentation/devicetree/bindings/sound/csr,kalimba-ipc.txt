@@ -1,0 +1,20 @@
+CSR Kalimba IPC
+
+Kalimba IPC deals with inter-processores communication hardware interface.
+
+Required properties:
+
+  - compatible		: Contains "csr,kalimba-ipc".
+
+  - reg			: Offset and length of register set for kalimba and IPC.
+
+  - interrupts		: Contains the IPC interrupt.
+
+Example:
+
+kalimba_ipc@13240000 {
+	compatible = "csr,kalimba-ipc";
+	reg = <0x10C10000 0x1000>,
+		<0x13240000 0x500>;
+	interrupts = <0 118 0>;
+};

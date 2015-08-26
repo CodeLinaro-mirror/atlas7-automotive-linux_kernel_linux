@@ -62,6 +62,15 @@
 		};
 	};
 
+	kalimba {
+		compatible = "csr,kalimba-dsp";
+		status = "disabled";
+		clocks = <&car 55>, <&car 26>, <&car 31>;
+		clock-names = "kas_kas",
+			"audmscm_nocd", "gpum_nocd";
+		resets = <&car 10>;
+	};
+
 	thermal-zones {
 		cpu_thermal: cpu_thermal {
 			polling-delay-passive = <250>; /* milliseconds */
@@ -121,15 +130,12 @@
 			     <0x10302000 0x0100>;
 		};
 
-		kalimba@10C10000 {
-			compatible = "csr,kalimba";
+		kalimba_ipc@10C10000 {
+			compatible = "csr,kalimba-ipc";
 			status = "disabled";
-			reg = <0x10C10000 0x1000 0x13240000 0x500>;
-			reg-names = "kas", "ipc";
-			clocks = <&car 55>, <&car 26>, <&car 31>;
-			clock-names = "kas_kas", "audmscm_nocd", "gpum_nocd";
+			reg = <0x10C10000 0x1000>,
+			    <0x13240000 0x500>;
 			interrupts = <0 118 0>;
-			resets = <&car 10>;
 		};
 
 		ipc@13240000 {

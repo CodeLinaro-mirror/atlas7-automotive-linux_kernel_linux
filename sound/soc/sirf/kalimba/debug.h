@@ -33,6 +33,6 @@
 #define CTRL_DEVICE_TYPE_SPDIF			4
 #define CTRL_DEVICE_TYPE_AUDIODATA		5
 
-int debug_init(struct platform_device *pdev);
-void debug_deinit(struct platform_device *pdev);
+int debug_init(void);
+void debug_deinit(void);
 #endif /* _DEBUG_H */

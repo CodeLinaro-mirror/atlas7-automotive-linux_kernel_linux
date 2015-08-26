@@ -1,10 +1,16 @@
 /*
  * kalimba debug & development interface
- * TODO: This module is for temporary debugging purpose, will be removed.
  *
- * Copyright (c) 2015 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/cdev.h>
@@ -13,10 +19,10 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
-#include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
+#include "buffer.h"
 #include "debug.h"
 #include "dsp.h"
 #include "firmware.h"
@@ -35,117 +41,18 @@ struct audio_unit {
 	u32 type;
 };
 
-struct buff_node {
-	struct list_head node;
-	dma_addr_t phy_addr;
-	void *virt_addr;
-	unsigned long size;
-};
-
 struct kalimba_debug_data {
-	struct regmap *regmap;
-	struct cdev kalimba_cdev;
+	struct cdev debug_cdev;
 	int devid;
 	struct class *class;
 	struct device *dev;
-	struct ipc_data *ipc_data;
 	unsigned long audio_unit_id;
 	struct list_head audio_unit_list;
-	struct list_head buff_list;
 };
 
-static unsigned long buff_alloc(struct kalimba_debug_data *debug_data,
-		unsigned long size)
-{
-	struct buff_node *buff;
+static struct kalimba_debug_data *debug_data;
 
-	buff = kmalloc(sizeof(struct buff_node), GFP_KERNEL);
-	if (buff == NULL)
-		return -ENOMEM;
-	buff->virt_addr = dma_alloc_coherent(debug_data->dev, size * 4,
-			&buff->phy_addr, GFP_KERNEL);
-	if (buff->virt_addr == NULL) {
-		kfree(buff);
-		dev_err(debug_data->dev, "Alloc dram failed.\n");
-		return -ENOMEM;
-	}
-	memset(buff->virt_addr, 0, size * 4);
-	buff->size = size * 4;
-	list_add(&buff->node, &debug_data->buff_list);
-	dev_info(debug_data->dev,
-			"Alloc dram success, phy addr: %p, virt addr: %p\n",
-			(void *)(buff->phy_addr), buff->virt_addr);
-	return (unsigned long)(buff->phy_addr);
-}
-
-static int buff_free(struct kalimba_debug_data *debug_data,
-		unsigned long phy_addr)
-{
-	struct buff_node *buff;
-
-	list_for_each_entry(buff, &debug_data->buff_list, node) {
-		if (buff->phy_addr <= phy_addr
-				&& (buff->phy_addr + buff->size) > phy_addr) {
-			dma_free_coherent(debug_data->dev, buff->size,
-					buff->virt_addr, buff->phy_addr);
-			list_del(&buff->node);
-			dev_info(debug_data->dev, "Free dram success\n");
-			return 0;
-		}
-	}
-	dev_err(debug_data->dev, "Free dram failed. phy addr: %lu\n", phy_addr);
-	return -EINVAL;
-}
-
-static int buff_fill(struct kalimba_debug_data *debug_data,
-		unsigned long start_addr,
-		unsigned long size, void *data)
-{
-	struct buff_node *buff;
-	unsigned long virt_start_addr;
-
-	list_for_each_entry(buff, &debug_data->buff_list, node) {
-		if (buff->phy_addr <= start_addr &&
-			(start_addr + size) <= (buff->phy_addr + buff->size)) {
-			virt_start_addr = (unsigned long)buff->virt_addr +
-				(start_addr - buff->phy_addr);
-			memcpy((void *)virt_start_addr, data, size);
-			dev_info(debug_data->dev, "Write dram success\n");
-			return 0;
-		}
-	}
-	dev_err(debug_data->dev,
-		"The address and size is over range of buffer\n");
-	return -EINVAL;
-}
-
-static int buff_read(struct kalimba_debug_data *debug_data,
-		unsigned long start_addr,
-		unsigned long size, void *data)
-{
-	struct buff_node *buff;
-	unsigned long virt_start_addr;
-
-	if (data == NULL)
-		return -EINVAL;
-
-	list_for_each_entry(buff, &debug_data->buff_list, node) {
-		if (buff->phy_addr <= start_addr &&
-			(start_addr + size) <= (buff->phy_addr + buff->size)) {
-			virt_start_addr = (unsigned long)buff->virt_addr +
-				(start_addr - buff->phy_addr);
-			memcpy(data, (void *)virt_start_addr, size);
-			dev_info(debug_data->dev, "Read dram success\n");
-			return 0;
-		}
-	}
-	dev_err(debug_data->dev,
-		"The address and size is over range of buffer\n");
-	return -EINVAL;
-}
-
-static int insert_audio_unit_into_list(struct kalimba_debug_data *debug_data,
-		unsigned long addr, u32 type,
+static int insert_audio_unit_into_list(unsigned long addr, u32 type,
 		unsigned long buff_length, int pchannels, int rchannels)
 {
 	struct audio_unit *audio_unit;
@@ -166,8 +73,7 @@ static int insert_audio_unit_into_list(struct kalimba_debug_data *debug_data,
 	return debug_data->audio_unit_id;
 }
 
-static int setup_audio_unit(struct kalimba_debug_data *debug_data,
-		unsigned long arg)
+static int setup_audio_unit(unsigned long arg)
 {
 	u32 Type;
 	u32 TypeConf;
@@ -175,7 +81,7 @@ static int setup_audio_unit(struct kalimba_debug_data *debug_data,
 	u32 SampleFormat;
 	u32 SampleRate;
 	u32 Volume;
-	void *buff_addr;
+	unsigned long buff_addr;
 	int ret;
 	int pchannels = 2;
 	int rchannels = 1;
@@ -236,9 +142,9 @@ static int setup_audio_unit(struct kalimba_debug_data *debug_data,
 		}
 	}
 
-	buff_addr = (void *)buff_alloc(debug_data, BufferLength / 4);
-	if (IS_ERR(buff_addr)) {
-		ret = PTR_ERR(buff_addr);
+	buff_addr = buff_alloc(debug_data->dev, BufferLength);
+	if (buff_addr < 0) {
+		ret = buff_addr;
 		goto out;
 	}
 
@@ -260,10 +166,10 @@ static int setup_audio_unit(struct kalimba_debug_data *debug_data,
 		goto out;
 	}
 
-	ret = insert_audio_unit_into_list(debug_data, (u32)buff_addr, Type,
+	ret = insert_audio_unit_into_list(buff_addr, Type,
 			BufferLength, pchannels, rchannels);
 	if (ret < 0)
-		buff_free(debug_data, (u32)buff_addr);
+		buff_free(debug_data->dev, (u32)buff_addr);
 out:
 	if (ret < 0) {
 		ret = 0x200A;
@@ -273,13 +179,12 @@ out:
 
 		put_user(status, (u32 __user *)arg);
 		put_user((u32)ret, (u32 __user *)arg + 1);
-		put_user((u32)buff_addr, (u32 __user *)arg + 2);
+		put_user(buff_addr, (u32 __user *)arg + 2);
 	}
 	return ret;
 }
 
-static void start_audio_unit(struct kalimba_debug_data *debug_data,
-		unsigned long arg)
+static void start_audio_unit(unsigned long arg)
 {
 	struct audio_unit *audio_unit;
 	u32 audio_unit_id;
@@ -315,8 +220,7 @@ static void start_audio_unit(struct kalimba_debug_data *debug_data,
 	put_user((u32)ret, (u32 __user *)arg);
 }
 
-static void stop_audio_unit(struct kalimba_debug_data *debug_data,
-		unsigned long arg)
+static void stop_audio_unit(unsigned long arg)
 {
 	struct audio_unit *audio_unit;
 	u32 audio_unit_id;
@@ -345,8 +249,7 @@ static void stop_audio_unit(struct kalimba_debug_data *debug_data,
 	put_user((u32)ret, (u32 __user *)arg);
 }
 
-static void release_audio_unit(struct kalimba_debug_data *debug_data,
-		unsigned long arg)
+static void release_audio_unit(unsigned long arg)
 {
 	struct audio_unit *audio_unit;
 	u32 audio_unit_id;
@@ -367,162 +270,91 @@ static void release_audio_unit(struct kalimba_debug_data *debug_data,
 			default:
 				break;
 			}
-			buff_free(debug_data, audio_unit->buff_phy_addr);
+			buff_free(debug_data->dev, audio_unit->buff_phy_addr);
 		}
 	}
 	put_user((u32)ret, (u32 __user *)arg);
 }
 
-static void create_operator(struct ipc_data *ipc_data, u16 *cmd)
+static void create_operator(u16 *cmd, u16 *resp)
 {
 	u16 operator_id;
-	int i;
-	u16 resp;
 
-	ipc_create_operator(ipc_data, cmd[2], &operator_id);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-		put_user(resp, &cmd[i]);
-	}
+	kalimba_create_operator(cmd[2], &operator_id, resp);
 }
 
-static void start_operator(struct ipc_data *ipc_data, u16 *cmd)
+static void start_operator(u16 *cmd, u16 *resp)
 {
 	u16 api_length = cmd[1];
-	int i;
-	u16 resp;
 
-	ipc_start_operator(ipc_data, &cmd[2], api_length);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_start_operator(&cmd[2], api_length, resp);
 }
 
-static void stop_operator(struct ipc_data *ipc_data, u16 *cmd)
+static void stop_operator(u16 *cmd, u16 *resp)
 {
 	u16 api_length = cmd[1];
-	int i;
-	u16 resp;
 
-	ipc_stop_operator(ipc_data, &cmd[2], api_length);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_stop_operator(&cmd[2], api_length, resp);
 }
 
-static void reset_operator(struct ipc_data *ipc_data, u16 *cmd)
+static void reset_operator(u16 *cmd, u16 *resp)
 {
 	u16 api_length = cmd[1];
-	int i;
-	u16 resp;
 
-	ipc_reset_operator(ipc_data, &cmd[2], api_length);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_reset_operator(&cmd[2], api_length, resp);
 }
 
-static void destroy_operator(struct ipc_data *ipc_data, u16 *cmd)
+static void destroy_operator(u16 *cmd, u16 *resp)
 {
 	u16 api_length = cmd[1];
-	int i;
-	u16 resp;
 
-	ipc_destroy_operator(ipc_data, &cmd[2], api_length);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_destroy_operator(&cmd[2], api_length, resp);
 }
 
-static void operator_message(struct ipc_data *ipc_data, u16 *cmd)
+static void operator_message(u16 *cmd, u16 *resp)
 {
 	u16 api_length = cmd[1];
-	int i;
-	u16 resp;
 
-	ipc_operator_message(ipc_data, cmd[2], cmd[3],
-			api_length - 2, &cmd[4], NULL, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_operator_message(cmd[2], cmd[3], api_length - 2,
+		&cmd[4], NULL, NULL, resp);
 }
 
-static void get_version_id(struct ipc_data *ipc_data, u16 *cmd)
+static void get_version_id(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_get_version_id(ipc_data, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_version_id(NULL, resp);
 }
 
-static void get_capid_list(struct ipc_data *ipc_data, u16 *cmd)
+static void get_capid_list(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_get_capid_list(ipc_data, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_capid_list(NULL, resp);
 }
 
-static void get_opid_list(struct ipc_data *ipc_data, u16 *cmd)
+static void get_opid_list(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
 	u16 filter = cmd[2];
 
-	ipc_get_opid_list(ipc_data, filter, NULL, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_opid_list(filter, NULL, NULL, resp);
 }
 
-static void get_connection_list(struct ipc_data *ipc_data, u16 *cmd)
+static void get_connection_list(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
 	u16 source_filter = cmd[2];
 	u16 sink_filter = cmd[3];
 
-	ipc_get_connection_list(ipc_data, source_filter,
-			sink_filter, NULL, NULL, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_connection_list(source_filter, sink_filter,
+			NULL, NULL, NULL, resp);
 }
 
-static void endpoint_get_info(struct ipc_data *ipc_data, u16 *cmd)
+static void endpoint_get_info(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
 	u16 endpoint_id = cmd[2];
 	u16 configure_key = cmd[3];
 
-	ipc_get_endpoint_info(ipc_data, endpoint_id, configure_key);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_endpoint_info(endpoint_id, configure_key, resp);
 }
 
-static void get_source(struct ipc_data *ipc_data, u16 *cmd)
+static void get_source(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
 	u16 endpoint_type, instance_id, channels;
 	u32 handle_addr;
 
@@ -531,18 +363,12 @@ static void get_source(struct ipc_data *ipc_data, u16 *cmd)
 	channels = cmd[4];
 	handle_addr = (u32)(cmd[5]) | (cmd[6] << 16);
 
-	ipc_get_source(ipc_data, endpoint_type, instance_id,
-			channels, handle_addr, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_source(endpoint_type, instance_id,
+			channels, handle_addr, NULL, resp);
 }
 
-static void get_sink(struct ipc_data *ipc_data, u16 *cmd)
+static void get_sink(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
 	u16 endpoint_type, instance_id, channels;
 	u32 handle_addr;
 
@@ -551,98 +377,52 @@ static void get_sink(struct ipc_data *ipc_data, u16 *cmd)
 	channels = cmd[4];
 	handle_addr = (u32)(cmd[5]) | (cmd[6] << 16);
 
-	ipc_get_sink(ipc_data, endpoint_type, instance_id,
-			channels, handle_addr, NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_get_sink(endpoint_type, instance_id,
+			channels, handle_addr, NULL, resp);
 }
 
-static void close_source(struct ipc_data *ipc_data, u16 *cmd)
+static void close_source(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_close_source(ipc_data, cmd[1], &cmd[2]);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_close_source(cmd[1], &cmd[2], resp);
 }
 
-static void close_sink(struct ipc_data *ipc_data, u16 *cmd)
+static void close_sink(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_close_sink(ipc_data, cmd[1], &cmd[2]);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_close_sink(cmd[1], &cmd[2], resp);
 }
 
-static void sync_endpoints(struct ipc_data *ipc_data, u16 *cmd)
+static void sync_endpoints(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_sync_endpoint(ipc_data, cmd[2], cmd[3]);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_sync_endpoint(cmd[2], cmd[3], resp);
 }
 
-static void endpoint_configure(struct ipc_data *ipc_data, u16 *cmd)
+static void endpoint_configure(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_config_endpoint(ipc_data, cmd[2], cmd[3],
-			(u32)cmd[4] | cmd[5] << 16);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_config_endpoint(cmd[2], cmd[3], (u32)cmd[4] | cmd[5] << 16,
+		resp);
 }
 
-static void connnect_endpoint(struct ipc_data *ipc_data, u16 *cmd)
+static void connnect_endpoint(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_connect_endpoints(ipc_data, cmd[2], cmd[3], NULL);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_connect_endpoints(cmd[2], cmd[3], NULL, resp);
 }
 
-static void disconnect_endpoint(struct ipc_data *ipc_data, u16 *cmd)
+static void disconnect_endpoint(u16 *cmd, u16 *resp)
 {
-	int i;
-	u16 resp;
-
-	ipc_disconnect_endpoints(ipc_data, cmd[1], &cmd[2]);
-	for (i = 0; i < 64; i++) {
-		resp = ipc_data->payload[i];
-		cmd[i] = resp;
-	}
+	kalimba_disconnect_endpoints(cmd[1], &cmd[2], resp);
 }
 
-static void data_produced(struct ipc_data *ipc_data, u16 *cmd)
+static void data_produced(u16 *cmd)
 {
-	ipc_data_produced(ipc_data, cmd[2]);
+	kalimba_data_produced(cmd[2]);
 }
 
-static void data_consumed(struct ipc_data *ipc_data, u16 *cmd)
+static void data_consumed(u16 *cmd)
 {
-	ipc_data_consumed(ipc_data, cmd[2]);
+	kalimba_data_consumed(cmd[2]);
 }
 
-int kalimba_api(struct ipc_data *ipc_data, u16 *cmd)
+static int kalimba_api(u16 *cmd, u16 *resp)
 {
 	u16 api_id, api_length;
 
@@ -651,84 +431,75 @@ int kalimba_api(struct ipc_data *ipc_data, u16 *cmd)
 
 	switch (api_id) {
 	case CREATE_OPERATOR_REQ:
-		create_operator(ipc_data, cmd);
+		create_operator(cmd, resp);
 		break;
 	case START_OPERATOR_REQ:
-		start_operator(ipc_data, cmd);
+		start_operator(cmd, resp);
 		break;
 	case STOP_OPERATOR_REQ:
-		stop_operator(ipc_data, cmd);
+		stop_operator(cmd, resp);
 		break;
 	case RESET_OPERATOR_REQ:
-		reset_operator(ipc_data, cmd);
+		reset_operator(cmd, resp);
 		break;
 	case DESTROY_OPERATOR_REQ:
-		destroy_operator(ipc_data, cmd);
+		destroy_operator(cmd, resp);
 		break;
 	case OPERATOR_MESSAGE_REQ:
-		operator_message(ipc_data, cmd);
+		operator_message(cmd, resp);
 		break;
 	case GET_SOURCE_REQ:
-		get_source(ipc_data, cmd);
+		get_source(cmd, resp);
 		break;
 	case GET_SINK_REQ:
-		get_sink(ipc_data, cmd);
+		get_sink(cmd, resp);
 		break;
 	case CLOSE_SOURCE_REQ:
-		close_source(ipc_data, cmd);
+		close_source(cmd, resp);
 		break;
 	case CLOSE_SINK_REQ:
-		close_sink(ipc_data, cmd);
+		close_sink(cmd, resp);
 		break;
 	case SYNC_ENDPOINTS_REQ:
-		sync_endpoints(ipc_data, cmd);
+		sync_endpoints(cmd, resp);
 		break;
 	case ENDPOINT_CONFIGURE_REQ:
-		endpoint_configure(ipc_data, cmd);
+		endpoint_configure(cmd, resp);
 		break;
 	case ENDPOINT_GET_INFO_REQ:
-		endpoint_get_info(ipc_data, cmd);
+		endpoint_get_info(cmd, resp);
 		break;
 	case CONNECT_REQ:
-		connnect_endpoint(ipc_data, cmd);
+		connnect_endpoint(cmd, resp);
 		break;
 	case DISCONNECT_REQ:
-		disconnect_endpoint(ipc_data, cmd);
+		disconnect_endpoint(cmd, resp);
 		break;
 	case GET_VERSION_ID_REQ:
-		get_version_id(ipc_data, cmd);
+		get_version_id(cmd, resp);
 		break;
 	case GET_CAPID_LIST_REQ:
-		get_capid_list(ipc_data, cmd);
+		get_capid_list(cmd, resp);
 		break;
 	case GET_OPID_LIST_REQ:
-		get_opid_list(ipc_data, cmd);
+		get_opid_list(cmd, resp);
 		break;
 	case GET_CONNECTION_LIST_REQ:
-		get_connection_list(ipc_data, cmd);
+		get_connection_list(cmd, resp);
 		break;
 	case DATA_PRODUCED:
-		data_produced(ipc_data, cmd);
+		data_produced(cmd);
 		break;
 	case DATA_CONSUMED:
-		data_consumed(ipc_data, cmd);
+		data_consumed(cmd);
 		break;
 	}
-	return 0;
-}
-
-static int debug_open(struct inode *inode, struct file *file)
-{
-	struct kalimba_debug_data *debug_data = container_of(inode->i_cdev,
-			struct kalimba_debug_data, kalimba_cdev);
-	file->private_data = debug_data;
 	return 0;
 }
 
 static long debug_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
-	struct kalimba_debug_data *debug_data = filp->private_data;
 	u16 *api_cmd;
 	u16 api_cmd_length;
 	u16 api_resp_length;
@@ -736,6 +507,7 @@ static long debug_ioctl(struct file *filp,
 	u32 start_addr;
 	u32 size;
 	void *data;
+	u16 resp[64];
 
 	if (_IOC_TYPE(cmd) != KALIMBA_IOC_MAGIC)
 		return -EINVAL;
@@ -752,8 +524,7 @@ static long debug_ioctl(struct file *filp,
 	case IOCTL_KALIMBA_RESUME_PM:
 	case IOCTL_KALIMBA_DUMP_BOOTCODE:
 	case IOCTL_KALIMBA_DOWNLOAD_BOOTCODE:
-		return firmware_ioctl(debug_data->regmap, debug_data->dev,
-			cmd, arg);
+		return firmware_ioctl(debug_data->dev, cmd, arg);
 	case IOCTL_KALIMBA_API:
 		api_cmd = kmalloc(256, GFP_KERNEL);
 		get_user(api_cmd_length, (u16 __user *)(arg + 2));
@@ -761,31 +532,33 @@ static long debug_ioctl(struct file *filp,
 			api_cmd_length * 2 + 4))
 			ret = -EINVAL;
 		else {
-			ret = kalimba_api(debug_data->ipc_data, api_cmd);
-			api_resp_length = api_cmd[1] * 2 + 4;
-			if (copy_to_user((u32 __user *)arg, api_cmd,
+			ret = kalimba_api(api_cmd, resp);
+			api_resp_length = resp[1] * 2 + 4;
+			if (copy_to_user((u32 __user *)arg, resp,
 				api_resp_length))
 				ret = -EINVAL;
 		}
 		kfree(api_cmd);
 		return ret;
 	case IOCTL_KALIMBA_SETUP_AUDIO_UNIT:
-		return setup_audio_unit(debug_data, arg);
+		return setup_audio_unit(arg);
 	case IOCTL_KALIMBA_START_AUDIO_UNIT:
-		start_audio_unit(debug_data, arg);
+		start_audio_unit(arg);
 		return 0;
 	case IOCTL_KALIMBA_STOP_AUDIO_UNIT:
-		stop_audio_unit(debug_data, arg);
+		stop_audio_unit(arg);
 		return 0;
 	case IOCTL_KALIMBA_RELEASE_AUDIO_UNIT:
-		release_audio_unit(debug_data, arg);
+		release_audio_unit(arg);
 		return 0;
 	case IOCTL_KALIMBA_DRAM_ALLOC:
-		ret = buff_alloc(debug_data, *((u32 __user *)arg));
+		/* Length in 32-bit words */
+		ret = buff_alloc(debug_data->dev,
+			*((u32 __user *)arg) * sizeof(u32));
 		put_user(ret, (u32 __user *)arg);
 		break;
 	case IOCTL_KALIMBA_DRAM_FREE:
-		ret = buff_free(debug_data, *((u32 __user *)arg));
+		ret = buff_free(debug_data->dev, *((u32 __user *)arg));
 		put_user(ret, (u32 __user *)arg);
 		break;
 	case IOCTL_KALIMBA_WRITE_DRAM:
@@ -795,8 +568,8 @@ static long debug_ioctl(struct file *filp,
 		data = kmalloc(size, GFP_KERNEL);
 		if (!copy_from_user(data, (u32 __user *)(arg + 8),
 				size)) {
-			ret = buff_fill(debug_data,
-			start_addr, size, data);
+			ret = buff_fill(debug_data->dev, start_addr,
+				size, data);
 		} else
 			ret = -EINVAL;
 		kfree(data);
@@ -806,7 +579,7 @@ static long debug_ioctl(struct file *filp,
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(size, (u32 __user *)(arg + 4));
 		data = kmalloc(size, GFP_KERNEL);
-		ret = buff_read(debug_data, start_addr, size, data);
+		ret = buff_read(debug_data->dev, start_addr, size, data);
 		if (!ret) {
 			if (copy_to_user((u32 __user *)(arg + 8), data,
 					size))
@@ -824,65 +597,62 @@ static long debug_ioctl(struct file *filp,
 
 static const struct file_operations kalimba_debug_fops = {
 	.owner          = THIS_MODULE,
-	.open           = debug_open,
 	.unlocked_ioctl = debug_ioctl,
 };
 
-int debug_init(struct platform_device *pdev)
+int debug_init(void)
 {
-	struct kalimba_debug_data *debug_data;
-	struct kalimba *kalimba = platform_get_drvdata(pdev);
 	int ret;
+	int devid;
+	struct class *class;
+	struct device *dev;
 
-	debug_data = devm_kzalloc(&pdev->dev, sizeof(*debug_data), GFP_KERNEL);
-	if (debug_data == NULL)
-		return -ENOMEM;
-
-	debug_data->class = class_create(THIS_MODULE, "kalimba-dev");
-	if (IS_ERR(debug_data->class)) {
-		dev_err(&pdev->dev, "Create device class failed.\n");
-		return PTR_ERR(debug_data->class);
+	class = class_create(THIS_MODULE, "kalimba-dev");
+	if (IS_ERR(class)) {
+		pr_err("Create device class failed.\n");
+		return PTR_ERR(class);
 	}
 
-	ret = alloc_chrdev_region(&debug_data->devid, 0, 1, "kalimba");
+	ret = alloc_chrdev_region(&devid, 0, 1, "kalimba");
 	if (ret < 0) {
-		dev_err(&pdev->dev, "Alloc device id failed: %d\n", ret);
+		pr_err("Alloc device id failed: %d\n", ret);
 		goto alloc_chrdev_region_failed;
 	}
 
-	debug_data->dev = device_create(debug_data->class, NULL,
-			debug_data->devid, NULL, "kalimba");
-	if (IS_ERR(debug_data->dev)) {
-		dev_err(&pdev->dev, "Create device failed.\n");
-		ret = PTR_ERR(debug_data->dev);
+	dev = device_create(class, NULL, devid, NULL, "kalimba");
+	if (IS_ERR(dev)) {
+		pr_err("Create device failed.\n");
+		ret = PTR_ERR(dev);
 		goto device_create_failed;
 	}
-	debug_data->dev->coherent_dma_mask = DMA_BIT_MASK(32);
-	cdev_init(&debug_data->kalimba_cdev, &kalimba_debug_fops);
-	cdev_add(&debug_data->kalimba_cdev, debug_data->devid, 1);
+	debug_data = devm_kzalloc(dev, sizeof(*debug_data), GFP_KERNEL);
+	if (debug_data == NULL) {
+		ret = -ENOMEM;
+		goto debug_data_alloc_failed;
+	}
 
-	debug_data->regmap = kalimba->regmap;
-	dev_set_drvdata(debug_data->dev, debug_data);
-	kalimba->debug_dev = debug_data->dev;
-	debug_data->ipc_data = kalimba->ipc_data;
+	debug_data->dev = dev;
+	debug_data->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+	debug_data->class = class;
+	debug_data->devid = devid;
+	cdev_init(&debug_data->debug_cdev, &kalimba_debug_fops);
+	cdev_add(&debug_data->debug_cdev, debug_data->devid, 1);
+
 	INIT_LIST_HEAD(&debug_data->audio_unit_list);
-	INIT_LIST_HEAD(&debug_data->buff_list);
 	return 0;
 
+debug_data_alloc_failed:
+	device_destroy(class, devid);
 device_create_failed:
-	unregister_chrdev_region(debug_data->devid, 1);
+	unregister_chrdev_region(devid, 1);
 alloc_chrdev_region_failed:
-	class_destroy(debug_data->class);
+	class_destroy(class);
 	return ret;
 }
 
-void debug_deinit(struct platform_device *pdev)
+void debug_deinit(void)
 {
-	struct kalimba *kalimba = platform_get_drvdata(pdev);
-	struct kalimba_debug_data *debug_data = dev_get_drvdata(
-			kalimba->debug_dev);
-
-	cdev_del(&debug_data->kalimba_cdev);
+	cdev_del(&debug_data->debug_cdev);
 	device_destroy(debug_data->class, debug_data->devid);
 	unregister_chrdev_region(debug_data->devid, 1);
 	class_destroy(debug_data->class);

@@ -176,10 +176,13 @@
 		sw3-sel = <&gpio_3 14 0>;	/* Don't drive if OLM */
 	};
 
-	noc {
+	kalimba {
+		status = "okay";
+	};
 
-		kalimba@10C10000 {
-				status = "okay";
+	noc {
+		kalimba_ipc@10C10000 {
+			status = "okay";
 		};
 
 		audiom {

@@ -23,8 +23,8 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 
+#include "dsp.h"
 #include "iacc.h"
-#include "ipc.h"
 #include "kcm.h"
 
 #define KAS_PCM_COUNT	3
@@ -33,11 +33,7 @@ struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
 	u16 kalimba_notify_ep_id;
 	struct endpoint_handle *sw_ep_handle;
-	struct endpoint_handle *hw_ep_handle;
 	u32 sw_ep_handle_phy_addr;
-	u32 hw_ep_handle_phy_addr;
-	void *hw_ep_buff;
-	u32 hw_ep_buff_phy_addr;
 	u32 pos;
 	snd_pcm_uframes_t last_appl_ptr;
 	void *action_id;
@@ -47,7 +43,6 @@ struct kas_pcm_data {
 };
 
 struct kas_priv_data {
-	struct ipc_data *ipc_data;
 	struct kas_pcm_data pcm[KAS_PCM_COUNT][2];
 	struct kcm_t *kcm;
 	struct mutex playback_kas_shared_exec_stream_mutex;
@@ -89,7 +84,7 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 		SNDRV_PCM_HW_PARAM_PERIODS);
 }
 
-static void kas_data_notify(u32 message, void *priv_data, u32 *message_data)
+static void kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 {
 	struct kas_pcm_data *pcm_data = (struct kas_pcm_data *)priv_data;
 	struct snd_pcm_runtime *runtime = pcm_data->substream->runtime;
@@ -115,7 +110,6 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	bool exec_shared = false;
 
-	pdata->ipc_data = ipc_get_data();
 	pcm_data->pos = 0;
 	pcm_data->last_appl_ptr = 0;
 
@@ -179,13 +173,11 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	pcm_data->kalimba_notify_ep_id =
 		get_notify_ep_id(pcm_data->components_chain);
 	if (playback)
-		pcm_data->action_id = request_ipc(
-			pdata->ipc_data, DATA_CONSUMED, kas_data_notify,
-			pcm_data);
+		pcm_data->action_id = register_kalimba_msg_action(
+			DATA_CONSUMED, kas_data_notify, pcm_data);
 	else
-		pcm_data->action_id = request_ipc(
-			pdata->ipc_data, DATA_PRODUCED, kas_data_notify,
-			pcm_data);
+		pcm_data->action_id = register_kalimba_msg_action(
+			DATA_PRODUCED, kas_data_notify, pcm_data);
 	pcm_data->kas_started = true;
 	return 0;
 failed:
@@ -224,7 +216,7 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 			EXEC_PHASE_HW_FREE);
 	if (playback && exec_shared)
 		execute_shared_components(EXEC_PHASE_HW_FREE_1);
-	free_ipc(pdata->ipc_data, pcm_data->action_id);
+	unregister_kalimba_msg_action(pcm_data->action_id);
 	snd_pcm_lib_free_pages(substream);
 	pcm_data->kas_started = false;
 	return 0;
@@ -433,13 +425,6 @@ static void kas_pcm_free(struct snd_pcm *pcm)
 				sizeof(struct endpoint_handle),
 				pcm_data->sw_ep_handle,
 				pcm_data->sw_ep_handle_phy_addr);
-		dma_free_coherent(rtd->platform->dev,
-				sizeof(struct endpoint_handle),
-				pcm_data->hw_ep_handle,
-				pcm_data->hw_ep_handle_phy_addr);
-		dma_free_coherent(rtd->platform->dev, 1024,
-				pcm_data->hw_ep_buff,
-				pcm_data->hw_ep_buff_phy_addr);
 	}
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
@@ -457,7 +442,6 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 	mutex_init(&priv_data->playback_kas_shared_exec_stream_mutex);
 	if (IS_ERR(priv_data->kcm))
 		return PTR_ERR(priv_data->kcm);
-	priv_data->ipc_data = ipc_get_data();
 	return 0;
 }
 
