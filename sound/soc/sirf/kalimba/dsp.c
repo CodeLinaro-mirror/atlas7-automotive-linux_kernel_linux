@@ -418,6 +418,41 @@ void kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
 	}
 }
 
+static void kalimba_dram_allocation_rsp_send(u16 addr_low, u16 addr_high)
+{
+	u16 msg[5] = {DRAM_ALLOCATION_RSP, 3, 0, addr_low, addr_high};
+
+	ipc_send_msg(msg, 5, MSG_NEED_ACK, NULL);
+}
+
+static void kalimba_dram_free_rsp_send(void)
+{
+	u16 msg[3] = {DRAM_FREE_RSP, 1, 0};
+
+	ipc_send_msg(msg, 3, MSG_NEED_ACK, NULL);
+}
+
+static void dram_allocation_req_actions(u16 message, void *priv_data, u16 *data)
+{
+	struct device *dev = (struct device *)priv_data;
+	unsigned long dram_allocation_addr;
+
+	dram_allocation_addr = buff_alloc(dev, data[0] * sizeof(u32));
+	kalimba_dram_allocation_rsp_send(
+		(u16)(dram_allocation_addr & 0xffff),
+		(u16)((dram_allocation_addr >> 16) & 0xffff));
+}
+
+static void dram_free_req_actions(u16 message, void *priv_data, u16 *data)
+{
+	struct device *dev = (struct device *)priv_data;
+	unsigned long dram_allocation_addr;
+
+	dram_allocation_addr = (data[0] & 0xffff) | (data[1] << 16);
+	buff_free(dev, dram_allocation_addr);
+	kalimba_dram_free_rsp_send();
+}
+
 void *register_kalimba_msg_action(u16 message,
 		void (*handler)(u16, void *, u16 *), void *priv_data)
 {
@@ -478,6 +513,7 @@ void kalimba_msg_send_unlock(void)
 static int kalimba_probe(struct platform_device *pdev)
 {
 	int ret;
+	void *action_id;
 
 	kalimba = devm_kzalloc(&pdev->dev, sizeof(struct kalimba),
 			GFP_KERNEL);
@@ -536,8 +572,22 @@ static int kalimba_probe(struct platform_device *pdev)
 		goto kalimba_reset_failed;
 	}
 #endif
+	action_id = register_kalimba_msg_action(DRAM_ALLOCATION_REQ,
+		dram_allocation_req_actions, &pdev->dev);
+	if (IS_ERR(action_id)) {
+		ret = PTR_ERR(action_id);
+		goto kalimba_reset_failed;
+	}
+	action_id = register_kalimba_msg_action(DRAM_FREE_REQ,
+		dram_free_req_actions, &pdev->dev);
+	if (IS_ERR(action_id)) {
+		ret = PTR_ERR(action_id);
+		goto register_dma_free_req_action_failed;
+	}
 	return 0;
 
+register_dma_free_req_action_failed:
+	unregister_kalimba_msg_all_actions();
 kalimba_reset_failed:
 	clk_disable_unprepare(kalimba->clk_gpum);
 clk_get_gpum_failed:
