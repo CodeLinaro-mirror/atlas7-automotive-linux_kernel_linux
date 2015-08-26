@@ -60,6 +60,10 @@ void kalimba_get_connection_list(u16 source_filter, u16 sink_filter,
 	u16 *connection_ids, u16 *source_ids, u16 *sink_ids, u16 *resp);
 void kalimba_sync_endpoint(u16 endpoint1, u16 endpoint2, u16 *resp);
 void kalimba_get_endpoint_info(u16 endpoint_id, u16 configure_key, u16 *resp);
+void kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
+	u16 *capids, u16 *resp);
+void kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
+	u16 *resp);
 void *register_kalimba_msg_action(u16 message,
 		void (*handler)(u16, void *, u16 *), void *priv_data);
 void unregister_kalimba_msg_action(void *action_id);
@@ -141,6 +145,12 @@ void kalimba_do_actions(u16 message, u16 *data);
 
 #define DISCONNECT_REQ				0x0010
 #define DISCONNECT_RSP				0x1010
+
+#define CAPABILITY_CODE_DRAM_ADDR_SET_REQ	0x0011
+#define CAPABILITY_CODE_DRAM_ADDR_SET_RSP	0x1011
+
+#define CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ	0x0012
+#define CAPABILITY_CODE_DRAM_ADDR_CLEAR_RSP	0x1012
 
 #define DATA_PRODUCED				0x001A
 #define DATA_CONSUMED				0x001B

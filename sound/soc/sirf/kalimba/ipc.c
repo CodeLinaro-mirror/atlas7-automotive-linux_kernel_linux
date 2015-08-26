@@ -113,6 +113,8 @@ static struct {
 	{"Disconnect", DISCONNECT_REQ},
 	{"Data produced", DATA_PRODUCED},
 	{"Data consumed", DATA_CONSUMED},
+	{"Capability addr set", CAPABILITY_CODE_DRAM_ADDR_SET_REQ},
+	{"Capability addr clear", CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ},
 	{"Sync endpoint", SYNC_ENDPOINTS_REQ},
 	{"System get version id", GET_VERSION_ID_REQ},
 	{"System get capid list", GET_CAPID_LIST_REQ},

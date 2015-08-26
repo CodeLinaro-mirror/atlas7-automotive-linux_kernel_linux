@@ -319,6 +319,16 @@ static void operator_message(u16 *cmd, u16 *resp)
 		&cmd[4], NULL, NULL, resp);
 }
 
+static void capability_code_dram_addr_set(u16 *cmd, u16 *resp)
+{
+	kalimba_capability_code_dram_addr_set(cmd[2], cmd[3], NULL, resp);
+}
+
+static void capability_code_dram_addr_clear(u16 *cmd, u16 *resp)
+{
+	kalimba_capability_code_dram_addr_clear(cmd[2], cmd[3], resp);
+}
+
 static void get_version_id(u16 *cmd, u16 *resp)
 {
 	kalimba_get_version_id(NULL, resp);
@@ -486,6 +496,12 @@ static int kalimba_api(u16 *cmd, u16 *resp)
 		break;
 	case GET_CONNECTION_LIST_REQ:
 		get_connection_list(cmd, resp);
+		break;
+	case CAPABILITY_CODE_DRAM_ADDR_SET_REQ:
+		capability_code_dram_addr_set(cmd, resp);
+		break;
+	case CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ:
+		capability_code_dram_addr_clear(cmd, resp);
 		break;
 	case DATA_PRODUCED:
 		data_produced(cmd);

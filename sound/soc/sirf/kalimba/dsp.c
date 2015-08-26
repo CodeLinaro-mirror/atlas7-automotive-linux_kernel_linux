@@ -392,6 +392,32 @@ void kalimba_get_endpoint_info(u16 endpoint_id, u16 configure_key, u16 *resp)
 	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 }
 
+void kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
+	u16 *resp)
+{
+	u16 msg[4] = {CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ, 2,
+		addr_low, addr_high};
+
+	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+}
+
+void kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
+	u16 *capids, u16 *resp)
+{
+	int i;
+	int capid_num;
+	u16 msg[4] = {CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ, 2,
+		addr_low, addr_high};
+
+	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+
+	capid_num = resp[1] - 1;
+	if (capids) {
+		for (i = 0; i < capid_num; i++)
+			capids[i] = resp[3 + i];
+	}
+}
+
 void *register_kalimba_msg_action(u16 message,
 		void (*handler)(u16, void *, u16 *), void *priv_data)
 {
