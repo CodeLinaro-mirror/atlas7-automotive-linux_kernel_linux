@@ -371,7 +371,7 @@ static void __vpp_callback(void *arg,
 			(struct sirfsoc_vout_device *)arg;
 	struct sirfsoc_vdss_layer *l = vout->layer;
 
-	if (id == l->lcdc_id) {
+	if (id == (enum vdss_vpp)l->lcdc_id) {
 		if (type > VPP_OP_PASS_THROUGH) {
 			if (vout->preempted == false)
 				l->disable(l);
@@ -1414,7 +1414,6 @@ static int sirfsoc_vout_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct sirfsoc_vout_device *vout = container_of(ctrl->handler,
 				struct sirfsoc_vout_device, ctrl_handler);
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
-	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	/* suppose vout info is modified with this ctrl*/
 	vout->vout_info_dirty = true;
