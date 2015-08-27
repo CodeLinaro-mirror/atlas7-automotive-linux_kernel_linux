@@ -478,6 +478,17 @@ static void vip_hw_wait_dma_idle(struct vip_dev *vip)
 		cpu_relax();
 }
 
+/* set vip fifo level stop check/low check/high check length */
+static void vip_hw_set_fifo_level_chk(struct vip_dev *vip, u8 sc, u8 lc, u8 hc)
+{
+	u32 val;
+
+	val = CAM_FIFO_LEVEL_CHK_FIFO_SC(sc) |
+		CAM_FIFO_LEVEL_CHK_FIFO_LC(lc) |
+		CAM_FIFO_LEVEL_CHK_FIFO_HC(hc);
+	vip_write(CAM_FIFO_LEVEL_CHECK, val);
+}
+
 static void vip_hw_reset(struct vip_dev *vip)
 {
 	u32 val;
@@ -512,14 +523,9 @@ static void vip_hw_reset(struct vip_dev *vip)
 
 	/* Set FIFO config data, high check, low check and stop check. */
 	if (vip->is_atlas7_vip0)
-		val = CAM_FIFO_LEVEL_CHK_FIFO_SC(0x1) |
-			CAM_FIFO_LEVEL_CHK_FIFO_LC(0x8) |
-			CAM_FIFO_LEVEL_CHK_FIFO_HC(0x10);
+		vip_hw_set_fifo_level_chk(vip, 0x1, 0x8, 0x10);
 	else
-		val = CAM_FIFO_LEVEL_CHK_FIFO_SC(0x4) |
-			CAM_FIFO_LEVEL_CHK_FIFO_LC(0x8) |
-			CAM_FIFO_LEVEL_CHK_FIFO_HC(0x10);
-	vip_write(CAM_FIFO_LEVEL_CHECK, val);
+		vip_hw_set_fifo_level_chk(vip, 0x4, 0x8, 0x10);
 
 	if (vip->is_atlas7_vip0)
 		val = CAM_DMA_CTRL_DMA_OP | CAM_DMA_CTRL_ENDIAN_NO_CHG;
@@ -712,6 +718,27 @@ static void vip_hw_set_data_pin(struct vip_dev *vip, u32 pin_config)
 static void vip_hw_set_int_count(struct vip_dev *vip, u16 x, u16 y)
 {
 	vip_write(CAM_INT_COUNT, CAM_INT_COUNT_XI(x) | CAM_INT_COUNT_YI(y));
+}
+
+static void vip_hw_set_linebuf(struct vip_dev *vip, u32 word_num)
+{
+	u32 val;
+
+	/* linebuf reset active */
+	val = vip_read(CAM_HOR_MIR_LINEBUF_CTRL);
+	val |= CAM_LINEBUF_SW_RST;
+	vip_write(CAM_HOR_MIR_LINEBUF_CTRL, val);
+
+	/* linebuf reset inactive */
+	val = vip_read(CAM_HOR_MIR_LINEBUF_CTRL);
+	val &= ~CAM_LINEBUF_SW_RST;
+	vip_write(CAM_HOR_MIR_LINEBUF_CTRL, val);
+
+	/* set the number of pixel data in one line in the unit of 32 bit */
+	val = vip_read(CAM_HOR_MIR_LINEBUF_CTRL);
+	val &= ~CAM_LINEBUF_WORD_NUM_MASK;
+	val |= CAM_LINEBUF_WORD_NUM(word_num);
+	vip_write(CAM_HOR_MIR_LINEBUF_CTRL, val);
 }
 
 static void vip_hw_reset_fifo(struct vip_dev *vip)
@@ -2126,6 +2153,12 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 
 	vip_hw_set_src_size(vip, rect);
 
+	if (rv_info->mirror_en) {
+		vip_hw_set_fifo_level_chk(vip, 0x4, 0x8, 0x10);
+
+		vip_hw_set_linebuf(vip, 0x167);
+	}
+
 	control.input_fmt = VIP_PIXELFORMAT_UYVY;
 	control.output_fmt = VIP_PIXELFORMAT_UYVY;
 	control.pixclk_internal	= 0;
@@ -2135,7 +2168,10 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 	control.hsync_invert	= 0;
 	control.vsync_invert	= 0;
 	control.single_cap	= 0;
-	control.hor_mirror_en	= 0;
+	if (rv_info->mirror_en)
+		control.hor_mirror_en = 1;
+	else
+		control.hor_mirror_en = 0;
 	control.cap_from_odd_en	= 0;
 	control.cap_from_even_en = 0;
 	control.ccir565_en	= 0;

@@ -474,7 +474,11 @@ static void rv_start(struct rv_dev *rv)
 	vpp_op_params.op.ibv.dst_rect.right = rv->d_info.sca_rect.right - 1;
 	vpp_op_params.op.ibv.dst_rect.bottom = rv->d_info.sca_rect.bottom - 1;
 
-	vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YVYU;
+	/* if mirror enabled, line buffer will disorder the pixel data */
+	if (rv->mirror_en)
+		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YUYV;
+	else
+		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YVYU;
 	vpp_op_params.op.ibv.src_surf[0].width = rv->width;
 	vpp_op_params.op.ibv.src_surf[0].height = rv->height;
 	vpp_op_params.op.ibv.src_surf[0].base = rv->data_dma_addr;
@@ -539,7 +543,7 @@ static int rv_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct rv_dev *rv = NULL;
 	const char *std_name, *display_name;
-	unsigned char mirror = 0;
+	unsigned int mirror = 0;
 	struct resource	*res;
 	int ret = 0;
 
@@ -584,7 +588,7 @@ static int rv_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	of_property_read_u8(node, "mirror", &mirror);
+	of_property_read_u32(node, "mirror", &mirror);
 	of_property_read_string(node, "source-std", &std_name);
 	of_property_read_string(node, "display-panel", &display_name);
 

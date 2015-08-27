@@ -1,10 +1,16 @@
 /*
  * CSR SiRFSoc VIP host driver header
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef _SIRFSOC_VIP_CAPTURE_H
@@ -468,7 +474,15 @@ struct vip_dev {
 #define CAM_TS_CTRL_NEG_SAMPLE		(1 << 5)
 #define CAM_TS_CTRL_VIP_TS		(1 << 4)
 
+/* Horizontal mirror linebuf control register */
 #define CAM_HOR_MIR_LINEBUF_CTRL	0x64
+#define CAM_LINEBUF_SW_RST		(1 << 31)
+#define CAM_LINEBUF_HC_MASK		(0x1FF << 20)
+#define CAM_LINEBUF_HC(x)		(((x) & 0x1FF) << 20)
+#define CAM_LINEBUF_LC_MASK		(0x1FF << 10)
+#define CAM_LINEBUF_LC(x)		(((x) & 0x1FF) << 10)
+#define CAM_LINEBUF_WORD_NUM_MASK	(0x1FF << 0)
+#define CAM_LINEBUF_WORD_NUM(x)		(((x) & 0x1FF) << 0)
 
 /* DMAC register */
 #define DMAN_ADDR			0x400
