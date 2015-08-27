@@ -1,10 +1,16 @@
 /*
  * CSR SiRF Atlas7DA CVD driver
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/init.h>
@@ -996,6 +1002,9 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0, value = 0;
 
 	if (!enable) {
+		/* need make sure power on before access INTERRUPT_CONFIG */
+		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd);
+
 		/* disable field sync interrupt */
 		cvd_write(CVBSD_INTERRUPT_CONFIG, 0x0, sd);
 
@@ -1409,5 +1418,4 @@ module_exit(sirfsoc_cvd_exit);
 
 
 MODULE_DESCRIPTION("sirfsoc CVD(CVBS Decoder) driver");
-MODULE_AUTHOR("Bin SUN <Andy.Sun@csr.com>");
 MODULE_LICENSE("GPL v2");
