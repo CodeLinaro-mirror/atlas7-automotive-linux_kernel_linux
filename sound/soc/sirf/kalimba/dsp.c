@@ -510,6 +510,17 @@ void kalimba_msg_send_unlock(void)
 	mutex_unlock(&kalimba->msg_send_mutex);
 }
 
+static ssize_t firmware_version_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	u32 fw_version;
+	u16 resp[64];
+
+	kalimba_get_version_id(&fw_version, resp);
+	return sprintf(buf, "%d\n", fw_version);
+}
+static DEVICE_ATTR_RO(firmware_version);
+
 static int kalimba_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -584,6 +595,8 @@ static int kalimba_probe(struct platform_device *pdev)
 		ret = PTR_ERR(action_id);
 		goto register_dma_free_req_action_failed;
 	}
+
+	device_create_file(&pdev->dev, &dev_attr_firmware_version);
 	return 0;
 
 register_dma_free_req_action_failed:
@@ -601,6 +614,7 @@ static int kalimba_remove(struct platform_device *pdev)
 {
 	struct kalimba *kalimba = platform_get_drvdata(pdev);
 
+	device_remove_file(&pdev->dev, &dev_attr_firmware_version);
 	unregister_kalimba_msg_all_actions();
 	clk_disable_unprepare(kalimba->clk_gpum);
 	clk_disable_unprepare(kalimba->clk_audmscm);
