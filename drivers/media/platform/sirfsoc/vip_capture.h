@@ -45,9 +45,10 @@
 #define PAL_STD_F_W	720
 #define PAL_STD_F_H	288
 
-#define	CVD3_INT_MASK	0x1
+#define	CVD3_INT_MASK	0x1	/* CVD vsync */
 #define	VIP_INT_MASK	0x2
 #define	DMAC_INT_MASK	0x4
+#define	DEBUG_INT_MASK	0x8	/* CVD ext locked and etc. */
 
 /* Interrupt Mask definition */
 #define     VIP_INTMASK_ALL            0x00000007

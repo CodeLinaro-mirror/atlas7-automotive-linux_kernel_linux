@@ -1,14 +1,23 @@
 /*
  * CSR SiRF Atlas7DA CVD hardware registers
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __CVD_REG_H__
 #define __CVD_REG_H__
+
+#define	CVD3_INT_MASK	0x1	/* vsync */
+#define	DEBUG_INT_MASK	0x8	/* ext locked and etc. */
 
 #define CVBSD_CVD1_CONTROL0		0x0000
 #define CVBSD_CVD1_CONTROL1		0x0004
@@ -318,6 +327,9 @@
 
 #define CVBSD_AFEPWR_EN			0x1000
 #define CVBSD_INTERRUPT_STATUS		0x1004
+#define CVBSD_DEBUG_INTERRUPT		0x1008
+#define CVBSD_DEBUG_INTERRUPT_MASK	0x100C
+#define CVBSD_DEBUG_STATUS		0x1010
 
 #define CVBSD_END			0xFFFF
 

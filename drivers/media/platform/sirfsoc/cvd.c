@@ -79,7 +79,8 @@ struct cvd_dev {
 	struct v4l2_ctrl_handler hdl;
 
 	int			skip_count;
-	struct completion	done;	/* used to get a stable state */
+	struct completion	order_done;	/* get top -> bottom fields */
+	struct completion	locked_done;	/* get locked signals */
 };
 
 struct cvd_reg {
@@ -292,9 +293,27 @@ static int cvd_s_std(struct v4l2_subdev *sd, v4l2_std_id norm)
 /* Interrupt handler */
 static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 {
+	u32 val;
 	struct cvd_dev *dec = to_state(sd);
 
-	if (cvd_read(CVBSD_INTERRUPT_CONFIG, sd) & 0x1) {
+	/* CVD ext locked interrupt */
+	if ((cvd_read(CVBSD_DEBUG_INTERRUPT, sd) & 0x2) &&
+						(status & DEBUG_INT_MASK)) {
+		/* cleared by writing 1 to the bit */
+		cvd_write(CVBSD_DEBUG_INTERRUPT, 0x2, sd);
+
+		/* only need once, then disable ext locked interrupt */
+		val = cvd_read(CVBSD_DEBUG_INTERRUPT_MASK, sd);
+		val &= ~0x2;
+		cvd_write(CVBSD_DEBUG_INTERRUPT_MASK, val, sd);
+
+		/* now all the PLLs are locked */
+		complete(&dec->locked_done);
+	}
+
+	/* CVD vsync interrupt */
+	if ((cvd_read(CVBSD_INTERRUPT_CONFIG, sd) & 0x1) &&
+						(status & CVD3_INT_MASK)) {
 		/*
 		* Cleared by writing 0 to INTERRUPT_CONFIG.enable register,
 		* also disable the vsync interrupt.
@@ -328,7 +347,7 @@ static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 		/* we need to make sure field order into vip is top->bottom */
 		if (dec->field == V4L2_FIELD_SEQ_TB)
 			/* we get it, leave with the disabled interrupt */
-			complete(&dec->done);
+			complete(&dec->order_done);
 		else
 			/*
 			* The coming captured field is bottom field,
@@ -1032,10 +1051,39 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 		/* start CVD */
 		cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x0, sd);
 
-		/* wait until Horizontal/Vertical /Chroma PLL locaked */
-		while ((cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd) & 0xe)
-									!= 0xe)
-			usleep_range(5000, 5500);
+		/* clear ext locked flag before enable it */
+		cvd_write(CVBSD_DEBUG_INTERRUPT, 0x2, sd);
+
+		/* then enable ext locked interrupt */
+		value = cvd_read(CVBSD_DEBUG_INTERRUPT_MASK, sd);
+		value |= 0x2;
+		cvd_write(CVBSD_DEBUG_INTERRUPT_MASK, value, sd);
+
+		/* wait for ext locked signals */
+		ret = wait_for_completion_interruptible_timeout(
+				&dec->locked_done, msecs_to_jiffies(100));
+
+		if (ret == 0) {
+			/* user might disconnect camera, set blank screen */
+			cvd_write(CVBSD_BLUE_SCREEN_Y, 0x10, sd);
+			cvd_write(CVBSD_BLUE_SCREEN_CB, 0x80, sd);
+			cvd_write(CVBSD_BLUE_SCREEN_CR, 0x80, sd);
+
+			/* needn't it, disable ext locked interrupt */
+			value = cvd_read(CVBSD_DEBUG_INTERRUPT_MASK, sd);
+			value &= ~0x2;
+			cvd_write(CVBSD_DEBUG_INTERRUPT_MASK, value, sd);
+
+			dev_err(to_state(sd)->dev,
+				"ERROR: please make sure camera connected!\n");
+			return -ETIMEDOUT;
+		}
+
+		if (ret < 0) {
+			dev_err(to_state(sd)->dev,
+				"wait for locked completion error: %d\n", ret);
+			return ret;
+		}
 
 		/* we have to skip several fields to get correct FID */
 		dec->skip_count = FIELD_SKIP_NUM;
@@ -1045,7 +1093,7 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1 | (VSYNC_DELAY_LINE << 4), sd);
 
 	/* wait for a top -> bottom order frame */
-	ret = wait_for_completion_interruptible_timeout(&dec->done,
+	ret = wait_for_completion_interruptible_timeout(&dec->order_done,
 							msecs_to_jiffies(200));
 
 	if (ret == 0) {
@@ -1280,7 +1328,8 @@ static int cvd_probe(struct platform_device *pdev)
 
 	dec->dev = dev;
 
-	init_completion(&dec->done);
+	init_completion(&dec->order_done);
+	init_completion(&dec->locked_done);
 
 	dec->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (dec->res == NULL) {

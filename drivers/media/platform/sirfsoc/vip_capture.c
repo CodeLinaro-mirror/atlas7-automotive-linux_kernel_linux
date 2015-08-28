@@ -973,11 +973,10 @@ static irqreturn_t vip_irq(int irq, void *data)
 	/* CVD_VIP handler starts */
 	status = readl(irq_base);
 
-	/* CVD interrupt */
-	if (status & CVD3_INT_MASK) {
-		dev_dbg(vip->dev, "CVD interrupt happens\n");
-		v4l2_subdev_call(sd, core, interrupt_service_routine, 0, &hd);
-	}
+	/* CVD interrupts: vsync and signals locked */
+	if ((status & CVD3_INT_MASK) || (status & DEBUG_INT_MASK))
+		v4l2_subdev_call(sd, core, interrupt_service_routine,
+								status, &hd);
 
 	/* DMA interrupt */
 	if (status & DMAC_INT_MASK) {
