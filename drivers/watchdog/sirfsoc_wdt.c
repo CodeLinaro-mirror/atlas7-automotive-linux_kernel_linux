@@ -1,9 +1,16 @@
 /*
  * Watchdog driver for CSR SiRFprimaII and SiRFatlasVI
  *
- * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -13,43 +20,19 @@
 #include <linux/of.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
-#include <linux/clk.h>
 
-struct sirfsoc_timer_hw {
-	/* hardware timer specific*/
-	u32 match;
-	u32 irq_status;
-	u32 watchdog_en;
-	u32 cnt64_lo;
-	u32 cnt64_hi;
-	u32 cnt64_latch_lo;
-	u32 cnt64_latch_hi;
+#define CLOCK_FREQ	1000000
 
-	/* only atlas7 has*/
-	u32 match_num;
-	u32 cnt_ctrl;
-	u32 cnt;
-	u32 cnt64_load_lo;
-	u32 cnt64_load_hi;
-	u32 cnt64_ctrl;
-
-	/* only prima2 has*/
-	u32 irq_enable;
-	u32 div;
-	u32 latch_eable;
-
-	int (*wdt_enable)(struct watchdog_device *);
-	int (*wdt_disable)(struct watchdog_device *);
-	void (*wdt_latch)(struct watchdog_device *);
-	unsigned int (*wdt_updatetimeout)(struct watchdog_device *);
-	unsigned int (*wdt_gettimeleft)(struct watchdog_device *);
-};
-
-#define SIRFSOC_CNT64_CTRL_LOAD_BIT		BIT(1)
-#define SIRFSOC_CNT64_CTRL_LATCH_BIT		BIT(0)
+#define SIRFSOC_TIMER_COUNTER_LO	0x0000
+#define SIRFSOC_TIMER_MATCH_0		0x0008
+#define SIRFSOC_TIMER_INT_EN		0x0024
+#define SIRFSOC_TIMER_WATCHDOG_EN	0x0028
+#define SIRFSOC_TIMER_LATCH		0x0030
+#define SIRFSOC_TIMER_LATCHED_LO	0x0034
 
 #define SIRFSOC_TIMER_WDT_INDEX		5
-#define SIRFSOC_WDT_MIN_TIMEOUT		1		/* 1 sec */
+
+#define SIRFSOC_WDT_MIN_TIMEOUT		30		/* 30 secs */
 #define SIRFSOC_WDT_MAX_TIMEOUT		(10 * 60)	/* 10 mins */
 #define SIRFSOC_WDT_DEFAULT_TIMEOUT	30		/* 30 secs */
 
@@ -63,200 +46,69 @@ MODULE_PARM_DESC(timeout, "Default watchdog timeout (in seconds)");
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
 			__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
 
-struct sirfsoc_wdog {
-	struct device *dev;
-	struct sirfsoc_timer_hw *hw;
-	void __iomem *base;
-	unsigned long tick_rate;
-};
-
 static unsigned int sirfsoc_wdt_gettimeleft(struct watchdog_device *wdd)
 {
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-
-	unsigned int time_left = hw->wdt_gettimeleft(wdd);
-
-	return  time_left;
-}
-
-static unsigned int prima2_wdt_gettimeleft(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
 	u32 counter, match;
-	unsigned int time_left;
+	void __iomem *wdt_base;
+	int time_left;
 
-	counter = readl(wdt->base + hw->cnt64_lo);
-	match = readl(wdt->base + hw->match +
-			4 * SIRFSOC_TIMER_WDT_INDEX);
+	wdt_base = watchdog_get_drvdata(wdd);
+	counter = readl(wdt_base + SIRFSOC_TIMER_COUNTER_LO);
+	match = readl(wdt_base +
+		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
 
 	time_left = match - counter;
 
-	return  time_left / wdt->tick_rate;
-}
-
-static unsigned int atlas7_wdt_gettimeleft(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-	u32 counter, match;
-	unsigned int time_left;
-
-	counter = readl(wdt->base + hw->cnt + 4 * SIRFSOC_TIMER_WDT_INDEX);
-	match = readl(wdt->base + hw->match +
-			4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	time_left = match - counter;
-
-	return  time_left / wdt->tick_rate;
-}
-
-static void prima2_wdt_latch(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-
-	/* Enable the latch before reading the LATCH_LO register */
-	writel(SIRFSOC_CNT64_CTRL_LATCH_BIT,
-		wdt->base + hw->latch_eable);
-}
-
-static int prima2_wdt_enable(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-	/*
-	 * NOTE: If interrupt is not enabled
-	 * then WD-Reset doesn't get generated at all.
-	 */
-	writel(readl(wdt->base + hw->irq_enable) |
-				(1 << SIRFSOC_TIMER_WDT_INDEX),
-			wdt->base + hw->irq_enable);
-
-	writel(1, wdt->base + hw->watchdog_en);
-	return 0;
-}
-
-static int prima2_wdt_disable(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-
-	writel(0, wdt->base + hw->watchdog_en);
-
-	writel(readl(wdt->base + hw->irq_enable) &
-		~(1 << SIRFSOC_TIMER_WDT_INDEX),
-	wdt->base + hw->irq_enable);
-
-	return 0;
-}
-
-static unsigned int prima2_wdt_updatetimeout(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-	u32 timeout_ticks;
-
-	timeout_ticks = wdd->timeout * wdt->tick_rate;
-
-	/* Enable the latch before reading the LATCH_LO register */
-	hw->wdt_latch(wdd);
-
-	writel(readl(wdt->base + hw->cnt64_latch_lo) +
-		timeout_ticks,
-	wdt->base + hw->match +
-		4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	return 0;
-}
-
-static int atlas7_wdt_enable(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-
-	/*
-	 * NOTE: If interrupt is not enabled
-	 * then WD-Reset doesn't get generated at all.
-	 */
-	writel(1, wdt->base + hw->watchdog_en);
-	writel(readl(wdt->base + hw->cnt_ctrl +
-			4 * SIRFSOC_TIMER_WDT_INDEX) | 0x3,
-		wdt->base + hw->cnt_ctrl +
-			4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	return 0;
-}
-
-static int atlas7_wdt_disable(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-
-	writel(0, wdt->base + hw->watchdog_en);
-
-	writel(readl(wdt->base +
-			hw->cnt_ctrl +
-			4 * SIRFSOC_TIMER_WDT_INDEX) & ~0x3,
-		wdt->base + hw->cnt_ctrl +
-			4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	return 0;
-}
-
-static unsigned int atlas7_wdt_updatetimeout(struct watchdog_device *wdd)
-{
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
-
-	u32 timeout_ticks;
-
-	timeout_ticks = wdd->timeout * wdt->tick_rate;
-
-	/* disable counter count */
-	writel(readl(wdt->base + hw->cnt_ctrl +
-			4 * SIRFSOC_TIMER_WDT_INDEX) & 0xfffffffe,
-		wdt->base + hw->cnt_ctrl + 4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	writel(timeout_ticks,
-			wdt->base + hw->match +	4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	/* enable counter count */
-	writel(readl(wdt->base + hw->cnt_ctrl +
-			4 * SIRFSOC_TIMER_WDT_INDEX) | 0x1,
-		wdt->base + hw->cnt_ctrl + 4 * SIRFSOC_TIMER_WDT_INDEX);
-
-	return 0;
+	return time_left / CLOCK_FREQ;
 }
 
 static int sirfsoc_wdt_updatetimeout(struct watchdog_device *wdd)
 {
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
+	u32 counter, timeout_ticks;
+	void __iomem *wdt_base;
 
-	hw->wdt_updatetimeout(wdd);
+	timeout_ticks = wdd->timeout * CLOCK_FREQ;
+	wdt_base = watchdog_get_drvdata(wdd);
+
+	/* Enable the latch before reading the LATCH_LO register */
+	writel(1, wdt_base + SIRFSOC_TIMER_LATCH);
+
+	/* Set the TO value */
+	counter = readl(wdt_base + SIRFSOC_TIMER_LATCHED_LO);
+
+	counter += timeout_ticks;
+
+	writel(counter, wdt_base +
+		SIRFSOC_TIMER_MATCH_0 + (SIRFSOC_TIMER_WDT_INDEX << 2));
 
 	return 0;
 }
 
 static int sirfsoc_wdt_enable(struct watchdog_device *wdd)
 {
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
+	void __iomem *wdt_base = watchdog_get_drvdata(wdd);
 
 	sirfsoc_wdt_updatetimeout(wdd);
-	hw->wdt_enable(wdd);
+	/*
+	 * NOTE: If interrupt is not enabled
+	 * then WD-Reset doesn't get generated at all.
+	 */
+	writel(readl(wdt_base + SIRFSOC_TIMER_INT_EN)
+		| (1 << SIRFSOC_TIMER_WDT_INDEX),
+		wdt_base + SIRFSOC_TIMER_INT_EN);
+	writel(1, wdt_base + SIRFSOC_TIMER_WATCHDOG_EN);
 
 	return 0;
 }
 
 static int sirfsoc_wdt_disable(struct watchdog_device *wdd)
 {
-	struct sirfsoc_wdog *wdt = watchdog_get_drvdata(wdd);
-	struct sirfsoc_timer_hw *hw = wdt->hw;
+	void __iomem *wdt_base = watchdog_get_drvdata(wdd);
 
-	hw->wdt_disable(wdd);
+	writel(0, wdt_base + SIRFSOC_TIMER_WATCHDOG_EN);
+	writel(readl(wdt_base + SIRFSOC_TIMER_INT_EN)
+		& (~(1 << SIRFSOC_TIMER_WDT_INDEX)),
+		wdt_base + SIRFSOC_TIMER_INT_EN);
 
 	return 0;
 }
@@ -294,101 +146,29 @@ static struct watchdog_device sirfsoc_wdd = {
 	.max_timeout = SIRFSOC_WDT_MAX_TIMEOUT,
 };
 
-struct sirfsoc_timer_hw sirfsoc_timer_atlas7 = {
-	.cnt_ctrl = 0x0,
-	.match = 0x18,
-	.cnt = 0x48,
-	.irq_status = 0x60,
-	.watchdog_en = 0x64,
-	.cnt64_ctrl = 0x68,
-	.cnt64_lo = 0x6c,
-	.cnt64_hi = 0x70,
-	.cnt64_load_lo = 0x74,
-	.cnt64_load_hi = 0x78,
-	.cnt64_latch_lo = 0x7c,
-	.cnt64_latch_hi = 0x80,
-	.wdt_enable = atlas7_wdt_enable,
-	.wdt_disable = atlas7_wdt_disable,
-	.wdt_updatetimeout = atlas7_wdt_updatetimeout,
-	.wdt_gettimeleft = atlas7_wdt_gettimeleft,
-};
-
-struct sirfsoc_timer_hw sirfsoc_timer_prima2 = {
-	.match = 0x8,
-	.irq_status = 0x20,
-	.watchdog_en = 0x28,
-	.cnt64_lo = 0x0,
-	.cnt64_hi = 0x4,
-	.cnt64_latch_lo = 0x34,
-	.cnt64_latch_hi = 0x38,
-	.irq_enable = 0x24,
-	.div = 0x2c,
-	.latch_eable = 0x30,
-	.wdt_enable = prima2_wdt_enable,
-	.wdt_disable = prima2_wdt_disable,
-	.wdt_latch = prima2_wdt_latch,
-	.wdt_updatetimeout = prima2_wdt_updatetimeout,
-	.wdt_gettimeleft = prima2_wdt_gettimeleft,
-};
-
-static const struct of_device_id sirfsoc_wdt_of_match[] = {
-	{ .compatible = "sirf,atlas7-tick", .data = &sirfsoc_timer_atlas7},
-	{ .compatible = "sirf,prima2-tick", .data = &sirfsoc_timer_prima2},
-	{}
-};
-
 static int sirfsoc_wdt_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
-	struct sirfsoc_wdog *wdt;
-	const struct of_device_id *match;
 	struct resource *res;
-	struct clk *clk;
 	int ret;
+	void __iomem *base;
 
-	wdt = devm_kzalloc(&pdev->dev, sizeof(*wdt), GFP_KERNEL);
-	if (!wdt)
-		return -ENOMEM;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	wdt->base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(wdt->base))
-		return PTR_ERR(wdt->base);
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
-	match = of_match_node(sirfsoc_wdt_of_match, np);
-	if (!match)
-		return -ENODEV;
-	wdt->hw = (struct sirfsoc_timer_hw *)match->data;
-
-	/*assign clks div and callbacks*/
-	if (of_device_is_compatible(np, "sirf,atlas7-tick")) {
-		clk = of_clk_get(np, 0);
-		if (IS_ERR(clk)) {
-			ret = PTR_ERR(clk);
-			goto err;
-		}
-
-		ret = clk_prepare_enable(clk);
-		if (ret) {
-			pr_debug("wdt clk enable failed\n");
-			goto err;
-		}
-		wdt->tick_rate = clk_get_rate(clk);
-	} else if (of_device_is_compatible(np, "sirf,prima2-tick"))
-		wdt->tick_rate = 1000000;
+	watchdog_set_drvdata(&sirfsoc_wdd, base);
 
 	watchdog_init_timeout(&sirfsoc_wdd, timeout, &pdev->dev);
 	watchdog_set_nowayout(&sirfsoc_wdd, nowayout);
 
 	ret = watchdog_register_device(&sirfsoc_wdd);
 	if (ret)
-		goto err;
+		return ret;
 
-	watchdog_set_drvdata(&sirfsoc_wdd, wdt);
 	platform_set_drvdata(pdev, &sirfsoc_wdd);
 
 	return 0;
-err:
-	return ret;
 }
 
 static void sirfsoc_wdt_shutdown(struct platform_device *pdev)
@@ -428,11 +208,16 @@ static int sirfsoc_wdt_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(sirfsoc_wdt_pm_ops,
 		sirfsoc_wdt_suspend, sirfsoc_wdt_resume);
 
+static const struct of_device_id sirfsoc_wdt_of_match[] = {
+	{ .compatible = "sirf,prima2-tick"},
+	{},
+};
 MODULE_DEVICE_TABLE(of, sirfsoc_wdt_of_match);
 
 static struct platform_driver sirfsoc_wdt_driver = {
 	.driver = {
 		.name = "sirfsoc-wdt",
+		.owner = THIS_MODULE,
 		.pm = &sirfsoc_wdt_pm_ops,
 		.of_match_table	= sirfsoc_wdt_of_match,
 	},
@@ -443,6 +228,5 @@ static struct platform_driver sirfsoc_wdt_driver = {
 module_platform_driver(sirfsoc_wdt_driver);
 
 MODULE_DESCRIPTION("SiRF SoC watchdog driver");
-MODULE_AUTHOR("Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:sirfsoc-wdt");
