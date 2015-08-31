@@ -205,6 +205,7 @@
 #define SIRFSOC_CLKC_LEAF_CLK_EN0_STAT       0x024c
 
 #define SIRFSOC_CLKC_RSTC_A7_SW_RST          0x0308
+#define SIRFSOC_CLKC_DRAM_SELF_REFRESH_ENABLE          0x0310
 
 #define SIRFSOC_CLKC_LEAF_CLK_EN1_SET        0x04a0
 #define SIRFSOC_CLKC_LEAF_CLK_EN2_SET        0x04b8
@@ -1578,7 +1579,6 @@ static void __init atlas7_clk_init(struct device_node *np)
 				!strcmp(unit->unit_name, "cpum_cpu") ||
 				!strcmp(unit->unit_name, "sys2pci2_io") ||
 				!strcmp(unit->unit_name, "dmac3_kas") ||
-				!strcmp(unit->unit_name, "graphic_gpu") ||
 				!strcmp(unit->unit_name, "ccsec_sec") ||
 				!strcmp(unit->unit_name, "sys2pci_io"))
 			clk_prepare_enable(atlas7_clks[i]);
@@ -1590,8 +1590,8 @@ static void __init atlas7_clk_init(struct device_node *np)
 
 	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 	BUG_ON(ret);
-
-
+	/*wdt depends on dram self-refresh, need disable it*/
+	clkc_writel(0, SIRFSOC_CLKC_DRAM_SELF_REFRESH_ENABLE);
 	atlas7_rst_ctlr.of_node = np;
 	atlas7_rst_ctlr.nr_resets = ARRAY_SIZE(atlas7_reset_unit);
 	reset_controller_register(&atlas7_rst_ctlr);
