@@ -88,7 +88,7 @@ static int tunex_writel(struct sdio_func *func, u32 val)
  */
 static u16 tunex_sdio_readw(struct sdio_func *func, unsigned int addr, int *err)
 {
-	int ret;
+	int ret = 0;
 	u16 reg_val;
 	u8 val;
 
@@ -149,7 +149,7 @@ tunex_fn1_read(struct csr_radio *radio, unsigned int num,
 		u16 *buf, int addr)
 {
 	int i, offset;
-	int ret;
+	int ret = 0;
 	struct sdio_func *func = radio->radio_sdio.func;
 	/* function 1 read order is LSB then MSB */
 	for (i = 0; i < num; i++) {
@@ -255,7 +255,7 @@ static int
 tunex_config_data_read(struct csr_radio *radio, unsigned int num,
 		int addr, u16 *buf)
 {
-	int ret;
+	int ret = 0;
 	int i;
 	struct sdio_func *func = radio->radio_sdio.func;
 
