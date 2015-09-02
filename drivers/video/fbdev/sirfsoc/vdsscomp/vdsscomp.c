@@ -91,10 +91,10 @@ static bool vdsscomp_layer_enable(
 		params.op.passthrough.dst_rect.bottom = info->dst_rect.bottom;
 
 		/*vpp color ctrl*/
-		vpp_params.op.passthrough.color_ctrl.brightness = 0;
-		vpp_params.op.passthrough.color_ctrl.contrast = 128;
-		vpp_params.op.passthrough.color_ctrl.hue = 0;
-		vpp_params.op.passthrough.color_ctrl.saturation = 128;
+		params.op.passthrough.color_ctrl.brightness = 0;
+		params.op.passthrough.color_ctrl.contrast = 128;
+		params.op.passthrough.color_ctrl.hue = 0;
+		params.op.passthrough.color_ctrl.saturation = 128;
 
 		sirfsoc_vpp_present(l->vpp, &params);
 	}
