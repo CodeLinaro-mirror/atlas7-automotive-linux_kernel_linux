@@ -20,9 +20,9 @@
 #include <video/sirfsoc_vdss.h>
 
 
-#define SIRFSOC_MAX_VOUT 2
+#define SIRFSOC_MAX_VOUT 6
 #define SIRFSOC_MAX_DISPLAY 2
-
+#define SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY 3
 
 struct sirfsoc_vout_buf {
 	struct vb2_buffer vb;

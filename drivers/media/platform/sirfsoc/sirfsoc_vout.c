@@ -1714,7 +1714,8 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 			struct sirfsoc_video_device, v4l2_dev);
 	int i = 0;
 
-	for (i = 0; i < vid_dev->num_panel; i++) {
+	for (i = 0; i < (SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY *
+		vid_dev->num_panel); i++) {
 		vout = kzalloc(sizeof(struct sirfsoc_vout_device), GFP_KERNEL);
 		if (!vout) {
 			dev_err(&pdev->dev, "allocate memory for vout error\n");
