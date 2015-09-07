@@ -1741,6 +1741,9 @@ static int sirfsoc_camera_open(struct file *file)
 	if (ret)
 		goto exit_power;
 
+	/* save dvd application info for rearview concurrency case */
+	vip->task = current;
+
 	mutex_unlock(&vip->host_lock);
 
 	file->private_data = subdev;
@@ -1776,6 +1779,8 @@ static int sirfsoc_camera_close(struct file *file)
 	vip_hw_stop(vip);
 
 	clear_bit(1, &vip->device_is_used);
+
+	vip->task = NULL;
 
 	mutex_unlock(&vip->host_lock);
 
@@ -2112,6 +2117,62 @@ static int vip_video_devs_create(struct vip_dev *vip)
 	return 0;
 }
 
+/* stop vip & subdev, backup std & port info, stop dvd player application */
+static void vip_rv_pre_preempt(struct vip_dev *vip)
+{
+	unsigned int index = vip->rv.subdev_index;
+	struct vip_subdev_info *subdev = &vip->subdev[index];
+	struct v4l2_subdev *sd = subdev->sd;
+	unsigned long flags;
+
+	spin_lock_irqsave(&vip->lock, flags);
+
+	vip_hw_wait_dma_idle(vip);
+	vip_hw_stop(vip);
+
+	spin_unlock_irqrestore(&vip->lock, flags);
+
+	vip->dvd_port = subdev->cur_input;
+	v4l2_subdev_call(sd, video, g_std, &vip->dvd_std);
+	v4l2_subdev_call(sd, video, s_stream, 0);
+
+	if (vip->task) {
+		send_sig(SIGSTOP, vip->task, 0);
+
+		while (!task_is_stopped(vip->task))
+			cpu_relax();
+	}
+}
+
+/* continue dvd player application, restore vip setting and start it */
+static void vip_rv_post_preempt(struct vip_dev *vip)
+{
+	unsigned int index = vip->rv.subdev_index;
+	struct vip_subdev_info *subdev = &vip->subdev[index];
+	struct v4l2_subdev *sd = subdev->sd;
+
+	if (vip->task)
+		send_sig(SIGCONT, vip->task, 0);
+
+	/* now restart pipe line, clear it no matter it was */
+	brestart = 0;
+
+	/* restore VIP hardware configuration */
+	vip_config_subdev(subdev);
+	vip_config_host(subdev);
+
+	/* restore subdev hardware configuration and start */
+	v4l2_subdev_call(sd, video, s_routing, vip->dvd_port, 0, 0);
+	v4l2_subdev_call(sd, video, s_std, vip->dvd_std);
+	v4l2_subdev_call(sd, video, s_stream, 1);
+
+	/* start hardware pipe line */
+	vip_start_dma(vip);
+
+	/* preempt done */
+	vip->rv.preemption = false;
+}
+
 /* called by rearview for configuration before hardware start */
 void vip_rv_config(struct vip_rv_info *rv_info)
 {
@@ -2132,14 +2193,17 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 	std = vip->rv.std;
 	addrs = vip->rv.match_addrs;
 
+	mutex_lock(&vip->host_lock);
+
 	if (test_and_set_bit(1, &vip->device_is_used)) {
 		dev_info(vip->dev, "VIP has been using\n");
 
-		/* TODO: do some operations for the preemption*/
+		/* rearview take over vip from dvd player */
 		vip->rv.preemption = true;
-	}
 
-	mutex_lock(&vip->host_lock);
+		/* need to stop dvd player before rearview preempt vip */
+		vip_rv_pre_preempt(vip);
+	}
 
 	vip_hw_reset(vip);
 
@@ -2206,6 +2270,7 @@ void vip_rv_start(void *data)
 	vip_hw_reset_fifo(vip);
 	dma_hw_set_start_addr(vip, dma_table_addr);
 
+	v4l2_subdev_call(sd, video, s_routing, index, 0, 0);
 	v4l2_subdev_call(sd, video, s_std, vip->rv.std);
 	v4l2_subdev_call(sd, video, s_stream, 1);
 
@@ -2233,8 +2298,10 @@ void vip_rv_stop(void *data)
 
 	v4l2_subdev_call(sd, video, s_stream, 0);
 
-	if (!vip->rv.preemption)
+	if (!vip->rv.preemption)	/* only rearview is running */
 		clear_bit(1, &vip->device_is_used);
+	else	/* dvd player ran before, need to restore it */
+		vip_rv_post_preempt(vip);
 
 	mutex_unlock(&vip->host_lock);
 }
@@ -2263,6 +2330,7 @@ static int vip_probe(struct platform_device *pdev)
 	mutex_init(&vip->host_lock);
 	INIT_WORK(&vip->restart_work, vip_restart_worker);
 	vip->rv.preemption = false;
+	vip->task = NULL;
 
 	vip->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (vip->res == NULL) {

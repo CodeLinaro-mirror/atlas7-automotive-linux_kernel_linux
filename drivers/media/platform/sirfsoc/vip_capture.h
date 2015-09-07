@@ -234,6 +234,11 @@ struct vip_dev {
 
 	unsigned long		device_is_used;
 
+	/* DVD player which holds VIP hardware info */
+	struct task_struct      *task;
+	unsigned int		dvd_port;
+	v4l2_std_id		dvd_std;
+
 	/*
 	 * Video format information.
 	 * subdev_format is kept in a form that we can use to pass to the
