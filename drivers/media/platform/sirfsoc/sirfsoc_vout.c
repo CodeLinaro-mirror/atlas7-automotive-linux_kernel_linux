@@ -1723,7 +1723,8 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 		}
 		vid_dev->vouts[i] = vout;
 		vout->vid_dev = vid_dev;
-		vout->display = vid_dev->display[i];
+		vout->display =
+			vid_dev->display[i / SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY];
 
 		sirfsoc_setup_video_data(vout);
 
