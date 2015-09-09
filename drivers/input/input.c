@@ -669,18 +669,15 @@ EXPORT_SYMBOL(input_close_device);
 static void input_dev_release_keys(struct input_dev *dev)
 {
 	int code;
-	bool has_events = false;
 
 	if (is_event_supported(EV_KEY, dev->evbit, EV_MAX)) {
 		for (code = 0; code <= KEY_MAX; code++) {
 			if (is_event_supported(code, dev->keybit, KEY_MAX) &&
 			    __test_and_clear_bit(code, dev->key)) {
-				has_events = true;
 				input_pass_event(dev, EV_KEY, code, 0);
 			}
 		}
-		if (has_events)
-			input_pass_event(dev, EV_SYN, SYN_REPORT, 1);
+		input_pass_event(dev, EV_SYN, SYN_REPORT, 1);
 	}
 }
 
@@ -1678,6 +1675,7 @@ static int input_dev_suspend(struct device *dev)
 	struct input_dev *input_dev = to_input_dev(dev);
 
 	spin_lock_irq(&input_dev->event_lock);
+
 	/*
 	 * Keys that are pressed now are unlikely to be
 	 * still pressed when we resume.
