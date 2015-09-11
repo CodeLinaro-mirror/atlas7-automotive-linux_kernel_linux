@@ -30,6 +30,24 @@ menuconfig VIDEO_SIRFSOC_REARVIEW
 	  Please note, its priority is higher than DVD playback(using CVD/VIP0 HW)
 	  and video playback(using VPP0 HW) cases.
 
+menuconfig REARVIEW_AUXILIARY
+	bool "Rearview auxiliary line support"
+	depends on VIDEO_SIRFSOC_REARVIEW
+	default n
+	help
+	  Say Y here if you want kernel to draw distance auxiliary line on the top
+	  of rearview picture.
+
+config AUXILIARY_TRANSPARENT_VALUE
+	int "Percent value of rearview auxiliary line transparent"
+	range 0 100
+	default 50
+	depends on REARVIEW_AUXILIARY
+	help
+	  0 means no transparent totally, we can't see the background of lines.
+	  50 means 50 percent transparent, we can see both background and lines.
+	  100 means 100 percent transparent, we can't see the auxiliary lines.
+
 choice
 	prompt "Rearview De-Interlace Methods"
 	default VERTICAL_MEDIAN
