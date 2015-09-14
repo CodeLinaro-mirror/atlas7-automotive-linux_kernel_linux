@@ -1,9 +1,16 @@
 /*
  * SIRF Remote processor machine-specific module
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/kernel.h>
@@ -236,7 +243,7 @@ struct rproc_fw_ops sirf_rproc_fw_ops = {
 	.find_rsc_table = srproc_fw_find_rsc_table,
 };
 
-static int __sirf_rproc_parse_memory(struct platform_device *pdev,
+static int sirf_rproc_parse_memory(struct platform_device *pdev,
 				struct sirf_rproc *srproc)
 {
 	struct device_node *m_node;
@@ -273,7 +280,7 @@ static int __sirf_rproc_parse_memory(struct platform_device *pdev,
 	return 0;
 }
 
-static int __sirf_rproc_parse_args(struct platform_device *pdev,
+static int sirf_rproc_parse_args(struct platform_device *pdev,
 				struct sirf_rproc *srproc)
 {
 	void *tx_buffer, *rx_buffer;
@@ -324,7 +331,7 @@ static int __sirf_rproc_parse_args(struct platform_device *pdev,
 	}
 
 	/* Parse share memory information */
-	ret = __sirf_rproc_parse_memory(pdev, srproc);
+	ret = sirf_rproc_parse_memory(pdev, srproc);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Unable to setup ipc share memory info. ret=%d\n",
@@ -422,7 +429,7 @@ static int sirf_rproc_probe(struct platform_device *pdev)
 	/* This rproc is always on */
 	rproc->state = RPROC_ALWAYS_ON;
 
-	ret = __sirf_rproc_parse_args(pdev, srproc);
+	ret = sirf_rproc_parse_args(pdev, srproc);
 	if (ret)
 		goto free_rproc;
 
@@ -436,10 +443,6 @@ static int sirf_rproc_probe(struct platform_device *pdev)
 			srproc->irq, ret);
 		goto free_rproc;
 	}
-
-	dev_info(&rproc->dev,
-		"Register SIRF remote processor device to IRQ:%d\n",
-		srproc->irq);
 
 	ret = rproc_add(rproc);
 	if (ret) {
