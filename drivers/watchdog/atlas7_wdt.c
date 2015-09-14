@@ -71,7 +71,6 @@ static int atlas7_wdt_updatetimeout(struct watchdog_device *wdd)
 
 	timeout_ticks = wdd->timeout * wdt->tick_rate;
 
-	/* Enable the latch before reading the LATCH_LO register */
 	writel(readl(wdt->base + ATLAS7_WDT_CNT +
 			4 * ATLAS7_TIMER_WDT_INDEX) +
 			timeout_ticks,
@@ -121,7 +120,7 @@ static int atlas7_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 static const struct watchdog_info atlas7_wdt_ident = {
 	.options          =     OPTIONS,
 	.firmware_version =	0,
-	.identity         =	"SiRFSOC Watchdog",
+	.identity         =	"atlas7 Watchdog",
 };
 
 static struct watchdog_ops atlas7_wdt_ops = {
@@ -248,6 +247,6 @@ static struct platform_driver atlas7_wdt_driver = {
 };
 module_platform_driver(atlas7_wdt_driver);
 
-MODULE_DESCRIPTION("atlas7 watchdog driver");
+MODULE_DESCRIPTION("CSRatlas7 watchdog driver");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:atlas7-wdt");
