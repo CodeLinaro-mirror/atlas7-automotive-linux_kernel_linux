@@ -180,13 +180,17 @@ static int atlas7_wdt_probe(struct platform_device *pdev)
 	watchdog_set_nowayout(&atlas7_wdd, nowayout);
 	ret = watchdog_register_device(&atlas7_wdd);
 	if (ret)
-		goto err;
+		goto err1;
 
 	watchdog_set_drvdata(&atlas7_wdd, wdt);
 	platform_set_drvdata(pdev, &atlas7_wdd);
 
 	return 0;
+
+err1:
+	clk_disable_unprepare(wdt->clk);
 err:
+	clk_put(wdt->clk);
 	return ret;
 }
 
