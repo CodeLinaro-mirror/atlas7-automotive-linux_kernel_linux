@@ -192,7 +192,7 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	if (ret <= 0) {
 		dev_info(&pdev->dev,
 			"Unable to find IRQ for pwrc. ret=%d\n", ret);
-		goto err;
+		goto err_irq;
 	}
 
 	pwrcinfo->irq = ret;
@@ -209,14 +209,14 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	regmap_irq_chip->ack_base = pwrcinfo->base +
 						pwrc_reg->pwrc_int_status;
 
-	/* enable irq for onkey */
+	/* enable onkey trigger interrupt controller */
 	ret = regmap_update_bits(map,
 			pwrcinfo->base +
 			pwrc_reg->pwrc_trigger_en_set,
 			BIT(PWRC_IRQ_ONKEY) | BIT(PWRC_IRQ_EXT_ONKEY),
 			BIT(PWRC_IRQ_ONKEY) | BIT(PWRC_IRQ_EXT_ONKEY));
 	if (ret < 0)
-		goto err;
+		goto err_irq;
 
 	/* add irq controller for pwrc */
 	ret = regmap_add_irq_chip(map, pwrcinfo->irq, IRQF_ONESHOT,
@@ -229,6 +229,8 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	}
 
 	return 0;
+err_irq:
+	mfd_remove_devices(pwrcinfo->dev);
 err:
 	return ret;
 }
