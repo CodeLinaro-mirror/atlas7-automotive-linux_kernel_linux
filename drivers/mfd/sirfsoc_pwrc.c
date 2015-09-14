@@ -13,8 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)        "(sirfsoc_pm): " fmt
-
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -153,15 +151,12 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	if (!pwrcinfo)
 		return -ENOMEM;
 	pwrcinfo->base = base;
+
 	/*
 	 * pwrc behind rtciobrg offset is diff between prima2 and atlas7
 	 * here match to each ids data for it.
 	 */
 	match = of_match_node(pwrc_ids, np);
-	if (!match) {
-		pr_err("Unknown device model\n");
-		return -EINVAL;
-	}
 	pwrcinfo->pwrc_reg = (struct sirfsoc_pwrc_register *)match->data;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-pwrc"))
