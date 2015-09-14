@@ -462,9 +462,9 @@ config MOXART_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called moxart_wdt.
 
-config SIRFSOC_WATCHDOG
-	tristate "SiRFSOC watchdog"
-	depends on ARCH_SIRF
+config PRIMA2_WATCHDOG
+	tristate "CSR SiRFprimaII watchdog"
+	depends on ARCH_PRIMA2
 	select WATCHDOG_CORE
 	default y
 	help
@@ -504,6 +504,16 @@ config MESON_WATCHDOG
 	  in Amlogic Meson SoCs.
 	  To compile this driver as a module, choose M here: the
 	  module will be called meson_wdt.
+
+config ATLAS7_WDT
+	tristate "CSRatlas7 watchdog"
+	depends on ARCH_ATLAS7
+	help
+	  Say Y here to include Watchdog timer support for the watchdog
+	  existing on the CSRatlas7 series platforms.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called atlas7_wdt.
 
 # AVR32 Architecture
 
