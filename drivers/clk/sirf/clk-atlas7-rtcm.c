@@ -89,7 +89,8 @@ static struct atlas7_rtcmclk_init_data rtcm_unit_list[] = {
 	{2, "qspi0", "rtcmpll_fast_fixdiv", 0,
 		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, &qspi0_gate_lock},
 };
-/*AOPD clk controller*/
+
+/* AOPD (always on power domain) clk controller */
 
 static struct clk *rtcm_clks[ARRAY_SIZE(rtcm_unit_list)];
 
@@ -225,9 +226,9 @@ static int sirfsoc_rtcmclk_probe(struct platform_device *pdev)
 
 	info->dev = &pdev->dev;
 	info->pwrc_reg = pwrcinfo->pwrc_reg;
-	info->regmap  = pwrcinfo->regmap;
-	info->base	= pwrcinfo->base;
-	info->ver  = pwrcinfo->ver;
+	info->regmap = pwrcinfo->regmap;
+	info->base = pwrcinfo->base;
+	info->ver = pwrcinfo->ver;
 
 	if (!info->regmap) {
 		dev_err(&pdev->dev, "no regmap!\n");
@@ -265,14 +266,11 @@ static int sirfsoc_rtcmclk_probe(struct platform_device *pdev)
 	return 0;
 }
 
-
 static struct platform_driver sirfsoc_rtcmclk_driver = {
-	.probe		= sirfsoc_rtcmclk_probe,
+	.probe	= sirfsoc_rtcmclk_probe,
 	.driver	= {
-	.name	= "rtcmclk",
-	.owner	= THIS_MODULE,
-	.of_match_table = rtcmclk_ids,
+		.name	= "rtcmclk",
+		.of_match_table = rtcmclk_ids,
 	},
 };
-
 module_platform_driver(sirfsoc_rtcmclk_driver);
