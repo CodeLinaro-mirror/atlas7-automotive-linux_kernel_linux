@@ -1,9 +1,16 @@
 /*
  * Atlas7 evb keypad Driver
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/err.h>
@@ -20,24 +27,38 @@
 struct atlas7_keys_keymap {
 	u32 voltage;
 	u32 keycode;
+	bool pressed;
 };
 
 struct atlas7_keys {
 	struct device		*dev;
 	struct input_dev	*input;
+	int			irq;
 	struct iio_channel	*chan;
 	struct atlas7_keys_keymap *keys_map;
-	struct workqueue_struct	*keys_wq;
-	struct delayed_work	keys_poll;
 	u32			keys_map_count;
 	u32			keys_keycode;
+	u32			max_press_volt;
 };
 
-static void atlas7_keys_check_volt_work(struct work_struct *work)
+static void atlas7_keys_release_keys(struct atlas7_keys *keys)
 {
-	struct delayed_work *delay = to_delayed_work(work);
-	struct atlas7_keys *keys = container_of(delay,
-				struct atlas7_keys, keys_poll);
+	int i;
+
+	for (i = 0; i < keys->keys_map_count; i++) {
+		if (keys->keys_map[i].pressed) {
+			input_report_key(keys->input,
+					keys->keys_map[i].keycode, 0);
+			input_sync(keys->input);
+
+			keys->keys_map[i].pressed = false;
+		}
+	}
+}
+
+static irqreturn_t atlas7_keys_irq_handler(int irq, void *dev_id)
+{
+	struct atlas7_keys *keys = dev_id;
 	int volt;
 	int ret;
 	int i;
@@ -46,26 +67,50 @@ static void atlas7_keys_check_volt_work(struct work_struct *work)
 	if (ret < 0)
 		dev_WARN(keys->dev, "read channel error\n");
 
-	for (i = 0; i < keys->keys_map_count; i++) {
-		if (abs(keys->keys_map[i].voltage - volt) < 35) {
-			input_report_key(keys->input,
-					keys->keys_map[i].keycode, 1);
-			input_sync(keys->input);
+	if (volt > keys->max_press_volt)
+		atlas7_keys_release_keys(keys);
+	else {
+		for (i = 0; i < keys->keys_map_count; i++) {
+			if (abs(keys->keys_map[i].voltage - volt) < 35) {
+				input_report_key(keys->input,
+						keys->keys_map[i].keycode, 1);
+				input_sync(keys->input);
 
-			input_report_key(keys->input,
-					keys->keys_map[i].keycode, 0);
-			input_sync(keys->input);
+				keys->keys_map[i].pressed = true;
+			}
 		}
 	}
 
-	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 30);
+	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int atlas7_keys_suspend(struct device *dev)
+{
+	struct atlas7_keys *keys = dev_get_drvdata(dev);
+
+	disable_irq(keys->irq);
+	return 0;
+}
+
+static int atlas7_keys_resume(struct device *dev)
+{
+	struct atlas7_keys *keys = dev_get_drvdata(dev);
+
+	enable_irq(keys->irq);
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(atlas7_keys_pm_ops,
+			atlas7_keys_suspend, atlas7_keys_resume);
+#endif
 
 static int atlas7_keys_probe(struct platform_device *pdev)
 {
 	struct atlas7_keys *keys;
 	struct device_node *pp, *np;
-	int i, ret;
+	int ret;
+	int i = 0;
 
 	keys = devm_kzalloc(&pdev->dev,
 			sizeof(struct atlas7_keys), GFP_KERNEL);
@@ -79,7 +124,14 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 	if (!keys->keys_map)
 		return -ENOMEM;
 
-	i = 0;
+	/* when keys release, the volt greater then the max_press_volt value */
+	ret = of_property_read_u32(np, "max-press-volt", &keys->max_press_volt);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"%s: no max valid press voltage prop\n", np->name);
+		return -EINVAL;
+	}
+
 	for_each_child_of_node(np, pp) {
 		struct atlas7_keys_keymap *map = &keys->keys_map[i];
 
@@ -97,6 +149,19 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		}
 
 		i++;
+	}
+
+	keys->irq = platform_get_irq(pdev, 0);
+	if (keys->irq < 0) {
+		dev_err(&pdev->dev, "atlas7 keys: get irq failed!\n");
+		return keys->irq;
+	}
+	ret = devm_request_threaded_irq(&pdev->dev, keys->irq, NULL,
+				atlas7_keys_irq_handler,
+				IRQF_ONESHOT, "atlas7-keys", keys);
+	if (ret) {
+		dev_err(&pdev->dev, "atlas7 keys: request irq thread fail!\n");
+		return ret;
 	}
 
 	keys->chan = iio_channel_get(&pdev->dev, "adc_keys");
@@ -122,18 +187,7 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 	if (ret)
 		goto out;
 
-	keys->keys_wq = create_singlethread_workqueue("atlas7_keys");
-	if (!keys->keys_wq) {
-		dev_err(&pdev->dev, "can't create keys check thread\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	INIT_DELAYED_WORK(&keys->keys_poll, atlas7_keys_check_volt_work);
-
 	platform_set_drvdata(pdev, keys);
-
-	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 0);
 
 	return 0;
 out:
@@ -146,7 +200,6 @@ static int atlas7_keys_remove(struct platform_device *pdev)
 {
 	struct atlas7_keys *keys = platform_get_drvdata(pdev);
 
-	destroy_workqueue(keys->keys_wq);
 	input_unregister_device(keys->input);
 	iio_channel_release(keys->chan);
 
@@ -161,6 +214,9 @@ MODULE_DEVICE_TABLE(of, atlas7_keys_of_match);
 
 static struct platform_driver atlas7_keys_driver = {
 	.driver = {
+#ifdef CONFIG_PM_SLEEP
+		.pm = &atlas7_keys_pm_ops,
+#endif
 		.name = "atlas7-keys",
 		.of_match_table = of_match_ptr(atlas7_keys_of_match),
 	},
@@ -171,5 +227,4 @@ static struct platform_driver atlas7_keys_driver = {
 module_platform_driver(atlas7_keys_driver);
 
 MODULE_DESCRIPTION("Adc keys on atlas7 evb driver");
-MODULE_AUTHOR("Guoying Zhang <Guoying.Zhang@csr.com>");
 MODULE_LICENSE("GPL v2");

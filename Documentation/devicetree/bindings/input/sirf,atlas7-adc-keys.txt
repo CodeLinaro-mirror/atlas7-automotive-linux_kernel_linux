@@ -7,6 +7,7 @@ Required properties:
 - interrupt: touch controller interrupt
 - io-channels: adc iio channels which ts data from
 - io-channel-names: iio channels names
+- max-press-volt: volt less then the value when key pressing
 - linux,code: linux input code reported
 - voltage: keys out voltage which readed from adc(mv)
 
@@ -15,6 +16,7 @@ adc-keys {
 	interrupts = <0 32 0>;
 	io-channels = <&adc 5>;
 	io-channel-names = "adc_keys";
+	max-press-volt = <2500>;
 
 	button-s2 {
 		label = "Volume Up";

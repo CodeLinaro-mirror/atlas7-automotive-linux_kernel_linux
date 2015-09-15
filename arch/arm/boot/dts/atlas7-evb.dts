@@ -220,6 +220,7 @@
 					interrupts = <0 32 0>;
 					io-channels = <&adc 5>;
 					io-channel-names = "adc_keys";
+					max-press-volt = <2500>;
 
 					button-s2 {
 						label = "Home";
