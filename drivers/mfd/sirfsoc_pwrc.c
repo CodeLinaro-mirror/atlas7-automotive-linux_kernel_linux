@@ -1,10 +1,18 @@
 /*
  * power management entry for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #define pr_fmt(fmt)        "(sirfsoc_pm): " fmt
 
 #include <linux/kernel.h>
@@ -88,13 +96,34 @@ struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc = {
 };
 
 static const struct regmap_irq pwrc_irqs[] = {
-	/* INT0 */
 	[PWRC_IRQ_ONKEY] = {
 		.mask = BIT(PWRC_IRQ_ONKEY),
 	},
 	[PWRC_IRQ_EXT_ONKEY] = {
 		.mask = BIT(PWRC_IRQ_EXT_ONKEY),
 	},
+	[PWRC_IRQ_LOWBAT] = {
+		.mask = BIT(PWRC_IRQ_LOWBAT),
+	},
+	[PWRC_IRQ_MULT_BUTTON1] = {
+		.mask = BIT(PWRC_IRQ_MULT_BUTTON1),
+	},
+	[PWRC_IRQ_MULT_BUTTON2] = {
+		.mask = BIT(PWRC_IRQ_MULT_BUTTON2),
+	},
+	[PWRC_IRQ_GNSS_PON_REQ] = {
+		.mask = BIT(PWRC_IRQ_GNSS_PON_REQ),
+	},
+	[PWRC_IRQ_GNSS_POFF_REQ] = {
+		.mask = BIT(PWRC_IRQ_GNSS_POFF_REQ),
+	},
+	[PWRC_IRQ_GNSS_PON_ACK] = {
+		.mask = BIT(PWRC_IRQ_GNSS_PON_ACK),
+	},
+	[PWRC_IRQ_GNSS_POFF_ACK] = {
+		.mask = BIT(PWRC_IRQ_GNSS_POFF_ACK),
+	},
+
 };
 
 static struct regmap_irq_chip pwrc_irq_chip = {
@@ -221,12 +250,11 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	regmap_irq_chip->ack_base = pwrcinfo->base +
 						pwrc_reg->pwrc_int_status;
 
-	/*enable irq for onkey..*/
+	/* enable irq trigger capability for onkey/extonkey/lowbat/multi-butt */
 	ret = regmap_update_bits(map,
 			pwrcinfo->base +
-			pwrc_reg->pwrc_trigger_en_set,
-			BIT(PWRC_IRQ_ONKEY) | BIT(PWRC_IRQ_EXT_ONKEY),
-			BIT(PWRC_IRQ_ONKEY) | BIT(PWRC_IRQ_EXT_ONKEY));
+			pwrc_reg->pwrc_trigger_en_set, 0x1F, 0x1F);
+
 	if (ret < 0)
 		goto err;
 
@@ -258,4 +286,3 @@ static struct platform_driver sirfsoc_pwrc_driver = {
 };
 
 module_platform_driver(sirfsoc_pwrc_driver);
-
