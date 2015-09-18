@@ -378,18 +378,18 @@ static int rv_get_display_info(struct rv_dev *rv)
 	/* full source capture full screen display */
 	rv->d_info.src_rect.left	= 0;
 	rv->d_info.src_rect.top		= 0;
-	rv->d_info.src_rect.right	= rv->width;
-	rv->d_info.src_rect.bottom	= rv->height;
+	rv->d_info.src_rect.right	= rv->width - 1;
+	rv->d_info.src_rect.bottom	= rv->height - 1;
 
 	rv->d_info.sca_rect.left	= 0;
 	rv->d_info.sca_rect.top		= 0;
-	rv->d_info.sca_rect.right	= rv->d_info.panel->timings.xres;
-	rv->d_info.sca_rect.bottom	= rv->d_info.panel->timings.yres;
+	rv->d_info.sca_rect.right	= rv->d_info.panel->timings.xres - 1;
+	rv->d_info.sca_rect.bottom	= rv->d_info.panel->timings.yres - 1;
 
 	rv->d_info.dst_rect.left	= 0;
 	rv->d_info.dst_rect.top		= 0;
-	rv->d_info.dst_rect.right	= rv->d_info.panel->timings.xres;
-	rv->d_info.dst_rect.bottom	= rv->d_info.panel->timings.yres;
+	rv->d_info.dst_rect.right	= rv->d_info.panel->timings.xres - 1;
+	rv->d_info.dst_rect.bottom	= rv->d_info.panel->timings.yres - 1;
 
 	return	0;
 }
@@ -685,19 +685,19 @@ static void rv_start(struct rv_dev *rv)
 	info.base = 0;
 	info.passthrough = true;
 
-	info.src_rect.left = rv->d_info.sca_rect.left;
-	info.src_rect.top = rv->d_info.sca_rect.top;
-	info.src_rect.right = rv->d_info.sca_rect.right - 1;
-	info.src_rect.bottom = rv->d_info.sca_rect.bottom - 1;
+	info.src_rect.left	= rv->d_info.sca_rect.left;
+	info.src_rect.top	= rv->d_info.sca_rect.top;
+	info.src_rect.right	= rv->d_info.sca_rect.right;
+	info.src_rect.bottom	= rv->d_info.sca_rect.bottom;
 
-	info.dst_rect.left = rv->d_info.dst_rect.left;
-	info.dst_rect.top = rv->d_info.dst_rect.top;
-	info.dst_rect.right = rv->d_info.dst_rect.right - 1;
-	info.dst_rect.bottom = rv->d_info.dst_rect.bottom - 1;
+	info.dst_rect.left	= rv->d_info.dst_rect.left;
+	info.dst_rect.top	= rv->d_info.dst_rect.top;
+	info.dst_rect.right	= rv->d_info.dst_rect.right;
+	info.dst_rect.bottom	= rv->d_info.dst_rect.bottom;
 
 	info.fmt = VPP_TO_LCD_PIXELFORMAT;
-	info.surf_width = info.src_rect.right - info.src_rect.left;
-	info.surf_height = info.src_rect.bottom - info.src_rect.top;
+	info.surf_width = info.src_rect.right - info.src_rect.left + 1;
+	info.surf_height = info.src_rect.bottom - info.src_rect.top + 1;
 
 	rv->d_info.l->set_info(rv->d_info.l, &info);
 	rv->d_info.l->screen->apply(rv->d_info.l->screen);
@@ -738,15 +738,15 @@ static void rv_start(struct rv_dev *rv)
 	vpp_op_params.op.ibv.interlace.input_top_first = true;
 	vpp_op_params.op.ibv.interlace.output_top_first = false;
 
-	vpp_op_params.op.ibv.src_rect.left = rv->d_info.src_rect.left;
-	vpp_op_params.op.ibv.src_rect.top = rv->d_info.src_rect.top;
-	vpp_op_params.op.ibv.src_rect.right = rv->d_info.src_rect.right - 1;
-	vpp_op_params.op.ibv.src_rect.bottom = rv->d_info.src_rect.bottom - 1;
+	vpp_op_params.op.ibv.src_rect.left	= rv->d_info.src_rect.left;
+	vpp_op_params.op.ibv.src_rect.top	= rv->d_info.src_rect.top;
+	vpp_op_params.op.ibv.src_rect.right	= rv->d_info.src_rect.right;
+	vpp_op_params.op.ibv.src_rect.bottom	= rv->d_info.src_rect.bottom;
 
-	vpp_op_params.op.ibv.dst_rect.left = rv->d_info.sca_rect.left;
-	vpp_op_params.op.ibv.dst_rect.top = rv->d_info.sca_rect.top;
-	vpp_op_params.op.ibv.dst_rect.right = rv->d_info.sca_rect.right - 1;
-	vpp_op_params.op.ibv.dst_rect.bottom = rv->d_info.sca_rect.bottom - 1;
+	vpp_op_params.op.ibv.dst_rect.left	= rv->d_info.sca_rect.left;
+	vpp_op_params.op.ibv.dst_rect.top	= rv->d_info.sca_rect.top;
+	vpp_op_params.op.ibv.dst_rect.right	= rv->d_info.sca_rect.right;
+	vpp_op_params.op.ibv.dst_rect.bottom	= rv->d_info.sca_rect.bottom;
 
 	/* if mirror enabled, line buffer will disorder the pixel data */
 	if (rv->mirror_en)
