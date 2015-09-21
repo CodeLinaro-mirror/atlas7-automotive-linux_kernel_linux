@@ -5,7 +5,6 @@
 # Each configuration option enables a list of files.
 
 wm97xx-ts-y := wm97xx-core.o
-sirfsoc_touch-objs := sirfsoc_ts.o sirfsoc_ts_linear.o
 
 obj-$(CONFIG_OF_TOUCHSCREEN)		+= of_touchscreen.o
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o
@@ -79,7 +78,8 @@ obj-$(CONFIG_TOUCHSCREEN_WM97XX_MAINSTONE)	+= mainstone-wm97xx.o
 obj-$(CONFIG_TOUCHSCREEN_WM97XX_ZYLONITE)	+= zylonite-wm97xx.o
 obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
-obj-$(CONFIG_TOUCHSCREEN_SIRFSOC)       += sirfsoc_touch.o
+obj-$(CONFIG_TOUCHSCREEN_SIRFSOC)       += sirfsoc_ts.o
+obj-$(CONFIG_TOUCHSCREEN_LINEAR)       += ts_linear.o
 obj-$(CONFIG_TOUCHSCREEN_TANGOC)	+= pixcir_tangoc_ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT5X06)       += ft5x06_ts.o
 obj-$(CONFIG_TOUCHSCREEN_ZFORCE)	+= zforce_ts.o

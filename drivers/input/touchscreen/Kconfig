@@ -991,6 +991,15 @@ config TOUCHSCREEN_SIRFSOC_DUAL_TOUCH
 
 	 If unsure, say N.
 
+config TOUCHSCREEN_SIRFSOC_CALIBRATE
+	bool "Calibrate sirfsoc touchscreen data before report"
+	select TOUCHSCREEN_LINEAR
+	help
+	 Say Y here, The sirfsoc touch data will be calibrated by
+	 the ts linear module before report to user space.
+	 If say N, the sirfsoc touch data will be reported as raw.
+
+	 If unsure, say N.
 endif
 
 config TOUCHSCREEN_ZFORCE
@@ -1005,5 +1014,14 @@ config TOUCHSCREEN_ZFORCE
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called zforce_ts.
+
+config TOUCHSCREEN_LINEAR
+	tristate "Touchscreen linear scale adaptor driver"
+	help
+	 Say Y here, The resistance touch will use the linear driver api
+	 to calibrate the input datas
+	 If say N, the touchscreen can't use the api to calibrate datas
+
+	 If unsure, say N.
 
 endif

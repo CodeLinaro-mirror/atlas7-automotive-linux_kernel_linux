@@ -28,7 +28,9 @@
 #include <linux/reset.h>
 #include <linux/iio/consumer.h>
 
-#include "sirfsoc_ts_linear.h"
+#ifdef TOUCHSCREEN_SIRFSOC_CALIBRATE
+#include "ts_linear.h"
+#endif
 
 #define DRIVER_NAME		"sirfsoc_tsc"
 
@@ -480,7 +482,9 @@ static void sirfsoc_ts_report_coord(struct sirfsoc_ts *ts)
 			ts->issued_y[i] = ts->sampled_y[i];
 		}
 
+#ifdef TOUCHSCREEN_SIRFSOC_CALIBRATE
 		ts_linear_scale(&ts->sampled_x[i], &ts->sampled_y[i]);
+#endif
 
 		input_report_abs(ts->input, ABS_MT_POSITION_X,
 				ts->sampled_x[i]);
