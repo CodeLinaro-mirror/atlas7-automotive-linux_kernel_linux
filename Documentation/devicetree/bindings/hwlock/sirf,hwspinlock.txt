@@ -7,6 +7,10 @@ Required properties :
 
 - reg : the register address of hwspinlock
 
+- base-id : the index of the first lock in this device
+
+- num-spinlocks : how many spinlocks this device provides
+
 - #hwlock-cells : hwlock users only use the hwlock id to represent a specific
 	hwlock, so the number of cells should be <1> here.
 
@@ -18,6 +22,8 @@ Example of hwlock provider:
 		compatible = "sirf,hwspinlock";
 		reg = <0x13240000 0x00010000>;
 		#hwlock-cells = <1>;
+		base-id = <0>;
+		num-spinlocks = <30>;
 	};
 
 Example of hwlock users:

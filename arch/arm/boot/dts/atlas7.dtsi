@@ -142,6 +142,8 @@
 				compatible = "sirf,hwspinlock";
 				reg = <0x13240400 0x0100>;
 				#hwlock-cells = <1>;
+				base-id = <8>;
+				num-spinlocks = <30>;
 			};
 
 			ns_m3_rproc@0 {
@@ -2063,6 +2065,14 @@
 			retain@0x188D0000 {
 				compatible = "sirf,atlas7-retain";
 				reg = <0x188D0000 0x1000>;
+			};
+
+			hwlock_retain: hwlock@0 {
+				compatible = "sirf,hwspinlock";
+				reg = <0x188D0074 0x020>;
+				#hwlock-cells = <1>;
+				base-id = <0>;
+				num-spinlocks = <8>;
 			};
 
 		};
