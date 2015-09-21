@@ -442,7 +442,7 @@ static void rv_start(struct rv_dev *rv)
 
 	vpp_op_params.type = VPP_OP_IBV;
 	vpp_op_params.op.ibv.src_id =
-		((struct vip_dev *)rv->rv_vip)->is_atlas7_vip0 ?
+		is_cvd_vip((struct vip_dev *)rv->rv_vip) ?
 				SIRFSOC_VDSS_VIP0_EXT : SIRFSOC_VDSS_VIP1_EXT;
 	vpp_op_params.op.ibv.src_size	= 3;
 

@@ -1619,6 +1619,7 @@
 			#size-cells = <1>;
 			ranges = <0x13290000 0x13290000 0x10000>,
 				<0x13300000 0x13300000 0x1000>,
+				<0x13160000 0x13160000 0x1000>,
 				<0x14200000 0x14200000 0x600000>;
 
 			vdifm@13290000 {
@@ -1718,6 +1719,13 @@
 				status = "disabled";
 				bus-width = <4>;
 			};
+			vip1@13160000 {
+				compatible = "sirf,atlas7-com-vip";
+				reg = <0x13160000 0x1000>;
+				clocks = <&car 74>;
+				interrupts = <0 63 0>, <0 84 0>;
+				sirf,vip_cma_size = <0x1A00000>;
+			};
 		};
 
 		audiom {
@@ -1777,7 +1785,7 @@
 			};
 
 			vip0@10db0000 {
-				compatible = "sirf,atlas7-vip0";
+				compatible = "sirf,atlas7-cvd-vip";
 				reg = <0x10db0000 0x2000>;
 				interrupts = <0 85 0>;
 				clocks = <&car 46>;

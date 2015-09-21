@@ -265,7 +265,8 @@
 			};
 
 			vip0@10db0000 {
-				compatible = "sirf,atlas7-vip0", "sirf,rv-vip";
+				compatible = "sirf,atlas7-cvd-vip",
+						"sirf,rv-vip";
 				status = "okay";
 				port {
 					#address-cells = <1>;

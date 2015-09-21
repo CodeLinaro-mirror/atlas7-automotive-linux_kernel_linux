@@ -38,10 +38,17 @@ Example:
 	};
 
 	vip0@10db0000 {
-		compatible = "sirf,atlas7-vip0", "sirf,rv-vip";
+		compatible = "sirf,atlas7-cvd-vip", "sirf,rv-vip";
 		reg = <0x10db0000 0x2000>;
 		interrupts = <0 85 0>;
 		sirf,vip_cma_size = <0xC00000>;
+	};
+	vip1@13160000 {
+		compatible = "sirf,atlas7-com-vip";
+		reg = <0x13160000 0x1000>;
+		clocks = <&car 74>;
+		interrupts = <0 63 0>, <0 84 0>;
+		sirf,vip_cma_size = <0x1A00000>;
 	};
 
 SiRFSOC camera subdevice interface

@@ -45,6 +45,7 @@
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
 #include <linux/i2c.h>
+#include <linux/pinctrl/consumer.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-dev.h>
@@ -295,7 +296,7 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 	if (list_empty(&vip->capture))
 		goto out;
 
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_hw_wait_dma_idle(vip);
 	else
 		dmaengine_terminate_all(vip->dma_chan);
@@ -512,8 +513,8 @@ static void vip_hw_reset(struct vip_dev *vip)
 	/* Work in continnous mode, bypass yuv2rgb */
 	vip_write(CAM_CTRL, 0);
 
-	if (vip->is_atlas7_vip0)
-		vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_UV_SWAP |
+	if (is_cvd_vip(vip))
+		vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_BYTE_SWAP |
 						CAM_PIXEL_SHIFT_16BIT);
 	else
 		vip_write(CAM_PIXEL_SHIFT, CAM_PIXEL_SHIFT_0TO7);
@@ -522,12 +523,12 @@ static void vip_hw_reset(struct vip_dev *vip)
 	vip_hw_stop_fifo(vip);
 
 	/* Set FIFO config data, high check, low check and stop check. */
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_hw_set_fifo_level_chk(vip, 0x1, 0x8, 0x10);
 	else
 		vip_hw_set_fifo_level_chk(vip, 0x4, 0x8, 0x10);
 
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		val = CAM_DMA_CTRL_DMA_OP | CAM_DMA_CTRL_ENDIAN_NO_CHG;
 	else
 		val = CAM_DMA_CTRL_DMA_FLUSH | CAM_DMA_CTRL_ENDIAN_WXDW;
@@ -548,7 +549,7 @@ static void vip_hw_set_src_size(struct vip_dev *vip, struct vip_rect rect)
 {
 	vip_write(CAM_START, CAM_START_XS(rect.left) | CAM_START_YS(rect.top));
 
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip))
 		vip_write(CAM_END, CAM_END_XE(rect.right + 1) |
 					CAM_END_YE(rect.bottom + 1));
 	else
@@ -654,7 +655,7 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 	else
 		val &= ~CAM_CTRL_VSYNC_INV;
 
-	if (control.ccir565_en)
+	if (control.ccir656_en)
 		val |= CAM_CTRL_CCIR656_EN;
 	else
 		val &= ~CAM_CTRL_CCIR656_EN;
@@ -664,7 +665,7 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 	else
 		val &= ~CAM_CTRL_SINGLE;
 
-	if (!vip->is_atlas7_vip0) {
+	if (!is_cvd_vip(vip) && !is_com_vip(vip)) {
 		if (control.pad_mux_on_upli)
 			val |= CAM_CTRL_PAD_MUX_ON_UPLI;
 		else
@@ -686,6 +687,19 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 	else
 		val &= ~CAM_CTRL_HOR_MIRROR;
 
+	switch (vip->data_mode) {
+	case VIP_DATA_SAMPLE_MODE_SDR:
+		val &= ~CAM_CTRL_DDR_SYNC_EN;
+		break;
+	case VIP_DATA_SAMPLE_MODE_DDR:
+		val |= CAM_CTRL_DDR_SYNC_EN;
+		break;
+	default:
+		pr_err("%s(%d): unknown data mode 0x%x\n",
+			__func__, __LINE__, vip->data_mode);
+		return;
+	}
+
 	vip_write(CAM_CTRL, val);
 }
 
@@ -698,7 +712,10 @@ static void vip_hw_set_data_pin(struct vip_dev *vip, u32 pin_config)
 	val &= ~CAM_PIXEL_SHIFT_MASK;
 	switch (pin_config) {
 	case VIP_PIXELSET_DATAPIN_0TO7:
-		val |= CAM_PIXEL_SHIFT_0TO7;
+		if (vip->data_mode == VIP_DATA_SAMPLE_MODE_DDR)
+			val |= CAM_PIXEL_SHIFT_16BIT;
+		else
+			val |= CAM_PIXEL_SHIFT_0TO7;
 		break;
 	case VIP_PIXELSET_DATAPIN_0TO15:
 		val |= CAM_PIXEL_SHIFT_16BIT;
@@ -709,10 +726,45 @@ static void vip_hw_set_data_pin(struct vip_dev *vip, u32 pin_config)
 		return;
 	}
 
-	if (vip->is_atlas7_vip0)
-		val |= CAM_PIXEL_UV_SWAP;
+	if (is_cvd_vip(vip))
+		val |= CAM_PIXEL_BYTE_SWAP;
+	if (is_com_vip(vip))
+		val |= CAM_PIXEL_WORD_SWAP;
 
 	vip_write(CAM_PIXEL_SHIFT, val);
+
+	/* re-sequence 8bit SDR 656&601 pixel data */
+	if ((vip->data_shift == VIP_PIXELSET_DATAPIN_0TO7) &&
+		(vip->data_mode == VIP_DATA_SAMPLE_MODE_SDR)) {
+		val = vip_read(CAM_DMA_CTRL);
+		val &= ~CAM_DMA_CTRL_ENDIAN_MODE_MASK;
+		val |= CAM_DMA_CTRL_ENDIAN_BXDW;
+		vip_write(CAM_DMA_CTRL, val);
+	}
+
+	if (is_com_vip(vip)) {
+		vip_write(CAM_PXCLK_CFG, 0);
+		vip_write(CAM_INPUT_BIT_SEL_0, 0);
+		vip_write(CAM_INPUT_BIT_SEL_1, 1);
+		vip_write(CAM_INPUT_BIT_SEL_2, 2);
+		vip_write(CAM_INPUT_BIT_SEL_3, 3);
+		vip_write(CAM_INPUT_BIT_SEL_4, 4);
+		vip_write(CAM_INPUT_BIT_SEL_5, 5);
+		vip_write(CAM_INPUT_BIT_SEL_6, 6);
+		vip_write(CAM_INPUT_BIT_SEL_7, 7);
+		vip_write(CAM_INPUT_BIT_SEL_8, 12);
+		vip_write(CAM_INPUT_BIT_SEL_9, 13);
+		vip_write(CAM_INPUT_BIT_SEL_10, 14);
+		vip_write(CAM_INPUT_BIT_SEL_11, 15);
+		vip_write(CAM_INPUT_BIT_SEL_12, 16);
+		vip_write(CAM_INPUT_BIT_SEL_13, 17);
+		vip_write(CAM_INPUT_BIT_SEL_14, 18);
+		vip_write(CAM_INPUT_BIT_SEL_15, 19);
+		vip_write(CAM_INPUT_BIT_SEL_HSYNC, 9);
+		vip_write(CAM_INPUT_BIT_SEL_VSYNC, 10);
+	}
+
+
 }
 
 static void vip_hw_set_int_count(struct vip_dev *vip, u16 x, u16 y)
@@ -775,15 +827,16 @@ static void vip_hw_start(struct vip_dev *vip)
 	vip_write(CAM_CTRL, val & ~CAM_CTRL_INIT);
 
 	/* clear all interrupts */
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK_A7);
 	else
 		vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK);
 
 	/* Enable overflow, underflow, sensor interrupt and bad field */
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_write(CAM_INT_EN, CAM_INT_EN_FIFO_OFLOW |
 					CAM_INT_EN_FIFO_UFLOW |
+					CAM_INT_EN_CCIR656_INCOMP |
 					CAM_INT_EN_BAD_FIELD);
 	else
 		vip_write(CAM_INT_EN, CAM_INT_EN_FIFO_OFLOW |
@@ -798,18 +851,18 @@ static void vip_hw_stop(struct vip_dev *vip)
 	/* Stop the FIFO first */
 	vip_hw_stop_fifo(vip);
 
-	/* Disable camera interrupt and clear all bits */
+	/* Disable camera interrupt */
 	vip_write(CAM_INT_EN, 0);
 	vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK_A7);
 
-	/* Disable DMA interrupt and clear all bits */
+	/* Disable DMA interrupt */
 	vip_write(DMAN_INT_EN, 0x0);
 	vip_write(DMAN_INT, DMAN_INT_MASK);
 }
 
 static u32 vip_hw_get_interrupts(struct vip_dev *vip)
 {
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		return (vip_read(CAM_INT_EN) &
 			vip_read(CAM_INT_CTRL)) & CAM_INT_CTRL_MASK_A7;
 	else
@@ -819,13 +872,13 @@ static u32 vip_hw_get_interrupts(struct vip_dev *vip)
 
 static void vip_hw_clear_interrupts(struct vip_dev *vip, u32 status)
 {
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK_A7);
 	else
 		vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK);
 }
 
-static void vip_print_registers(struct vip_dev *vip)
+static void __maybe_unused vip_print_registers(struct vip_dev *vip)
 {
 	pr_info("VIP registers\n");
 	pr_info("CAM_COUNT             = 0x%.8x\n",
@@ -878,6 +931,47 @@ static void vip_print_registers(struct vip_dev *vip)
 		vip_read(CAM_RD_FIFO_DATA));
 	pr_info("CAM_TS_CTRL           = 0x%.8x\n",
 		vip_read(CAM_TS_CTRL));
+	pr_info("CAM_HOR_MIR_LINEBUF   = 0x%.8x\n",
+		vip_read(CAM_HOR_MIR_LINEBUF_CTRL));
+
+	pr_info("CAM_PXCLK_CFG         = 0x%.8x\n",
+		vip_read(CAM_PXCLK_CFG));
+	pr_info("CAM_INPUT_BIT_SEL_0   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_0));
+	pr_info("CAM_INPUT_BIT_SEL_1   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_1));
+	pr_info("CAM_INPUT_BIT_SEL_2   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_2));
+	pr_info("CAM_INPUT_BIT_SEL_3   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_3));
+	pr_info("CAM_INPUT_BIT_SEL_4   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_4));
+	pr_info("CAM_INPUT_BIT_SEL_5   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_5));
+	pr_info("CAM_INPUT_BIT_SEL_6   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_6));
+	pr_info("CAM_INPUT_BIT_SEL_7   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_7));
+	pr_info("CAM_INPUT_BIT_SEL_8   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_8));
+	pr_info("CAM_INPUT_BIT_SEL_9   = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_9));
+	pr_info("CAM_INPUT_BIT_SEL_10  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_10));
+	pr_info("CAM_INPUT_BIT_SEL_11  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_11));
+	pr_info("CAM_INPUT_BIT_SEL_12  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_12));
+	pr_info("CAM_INPUT_BIT_SEL_13  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_13));
+	pr_info("CAM_INPUT_BIT_SEL_14  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_14));
+	pr_info("CAM_INPUT_BIT_SEL_15  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_15));
+	pr_info("CAM_INPUT_BIT_SEL_HS  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_HSYNC));
+	pr_info("CAM_INPUT_BIT_SEL_VS  = 0x%.8x\n",
+		vip_read(CAM_INPUT_BIT_SEL_VSYNC));
 
 	pr_info("DMAN_ADDR             = 0x%.8x\n",
 		vip_read(DMAN_ADDR));
@@ -948,11 +1042,32 @@ static void vip_vip_isr(struct vip_dev *vip)
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(vip->dev, "FIFO underflow interrupt happens\n");
 
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip)) {
+		if (status & VIP_INTMASK_656_INCOMP)
+			dev_err(vip->dev,
+				"BT656 incomplete interrupt happens\n");
+
 		if (status & VIP_INTMASK_BAD_FIELD)
 			dev_err(vip->dev,
 				"Bad field detection interrupt happens\n");
+	}
 }
+
+static irqreturn_t dma_irq(int irq, void *data)
+{
+	struct vip_dev *vip = data;
+	u32 dma_status;
+
+	dma_status = dma_hw_get_interrupts(vip);
+	dma_hw_clear_interrupts(vip, dma_status);
+
+	/* DMA CNT_INT happens */
+	if (dma_status & DMAN_INTMASK_CNT)
+		vip_dma_count_done(vip);
+
+	return IRQ_HANDLED;
+}
+
 
 static irqreturn_t vip_irq(int irq, void *data)
 {
@@ -963,7 +1078,7 @@ static irqreturn_t vip_irq(int irq, void *data)
 	bool hd;
 	u32 status, dma_status;
 
-	if (vip->is_atlas7_vip0) {
+	if (is_cvd_vip(vip)) {
 		irq_base = v4l2_get_subdevdata(sd); /* I am CVD_VIP */
 	} else {
 		vip_vip_isr(vip);		/* I am VIP1 or ancient VIP */
@@ -1021,7 +1136,7 @@ static int vip_start_dma(struct vip_dev *vip)
 
 	/* maybe it can be removed */
 	if (vb == NULL) {
-		if (vip->is_atlas7_vip0)
+		if (is_cvd_vip(vip) || is_com_vip(vip))
 			vip_hw_wait_dma_idle(vip);
 		else
 			dmaengine_terminate_all(vip->dma_chan);
@@ -1031,7 +1146,7 @@ static int vip_start_dma(struct vip_dev *vip)
 	}
 
 	vb->state = VB2_BUF_STATE_ACTIVE;
-	if (vip->is_atlas7_vip0) {
+	if (is_cvd_vip(vip) || is_com_vip(vip)) {
 		buf->dma = vb2_dma_contig_plane_dma_addr(vb, 0);
 
 		vip_hw_reset_fifo(vip);
@@ -1067,7 +1182,7 @@ static void vip_restart_worker(struct work_struct *work)
 	struct vip_subdev_info *subdev = &vip->subdev[0];
 	struct v4l2_subdev *sd = subdev->sd;
 
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip))
 		v4l2_subdev_call(sd, video, s_stream, 1);
 
 	vip_start_dma(vip);
@@ -1118,7 +1233,7 @@ static void vip_dma_count_done(void *pdata)
 
 		vip->vb2_active->state = VB2_BUF_STATE_ACTIVE;
 
-		if (vip->is_atlas7_vip0) {
+		if (is_cvd_vip(vip) || is_com_vip(vip)) {
 			buf->dma = vb2_dma_contig_plane_dma_addr(
 							vip->vb2_active, 0);
 
@@ -1193,7 +1308,8 @@ static int vip_config_subdev(struct vip_subdev_info *subdev)
 	struct v4l2_subdev *sd = subdev->sd;
 	struct v4l2_mbus_framefmt mbus_fmt;
 	struct v4l2_pix_format *spix = &vip->subdev_format;
-	unsigned int width, height, x_start, y_start, x_end, y_end;
+	struct v4l2_dv_timings timings;
+	unsigned int height, x_start, y_start, x_end, y_end;
 	int ret = 0;
 
 	v4l2_fill_mbus_format(&mbus_fmt, spix, vip->mbus_code);
@@ -1203,20 +1319,44 @@ static int vip_config_subdev(struct vip_subdev_info *subdev)
 		return ret;
 	v4l2_fill_pix_format(spix, &mbus_fmt);
 
-	width = spix->width;
 	height = spix->height;
 	x_start = 0;
 	y_start = 0;
 
-	if (vip->is_atlas7_vip0)
-		x_end = width + x_start - 1;
+	/*
+	 * VIP always receive 2x8bit style data
+	 * so if use 16 bits data width, set pixel width to END
+	 * if use 8 bits data width, set bytesperline to END
+	*/
+	if ((vip->data_shift == VIP_PIXELSET_DATAPIN_0TO15) ||
+				(vip->data_mode == VIP_DATA_SAMPLE_MODE_DDR))
+		x_end = spix->width + x_start - 1;		/* 16 bits */
 	else
-		x_end = spix->bytesperline + x_start - 1;
+		x_end = spix->bytesperline + x_start - 1;	/* 8 bits */
 
 	if (subdev->interlaced)
 		y_end = height / 2 + y_start - 1;
 	else
 		y_end = height + y_start - 1;
+
+	if (subdev->endpoint.bus_type == V4L2_MBUS_PARALLEL) {
+		memset(&timings, 0, sizeof(timings));
+		v4l2_subdev_call(sd, video, g_dv_timings, &timings);
+
+		if ((vip->data_shift == VIP_PIXELSET_DATAPIN_0TO15) ||
+			(vip->data_mode == VIP_DATA_SAMPLE_MODE_DDR)) {
+			x_start	+= timings.bt.hsync + timings.bt.hbackporch;
+			x_end	+= timings.bt.hsync + timings.bt.hbackporch;
+		} else {
+			x_start	+= (timings.bt.hsync + timings.bt.hbackporch)
+									* 2;
+			x_end	+= (timings.bt.hsync + timings.bt.hbackporch)
+									* 2;
+		}
+
+		y_start	+= timings.bt.vsync + timings.bt.vbackporch;
+		y_end	+= timings.bt.vsync + timings.bt.vbackporch;
+	}
 
 	dev_dbg(vip->dev,
 		"%s: x_start %d x_end %d y_start %d y_end %d\n",
@@ -1253,13 +1393,13 @@ static int vip_config_host(struct vip_subdev_info *subdev)
 	control.cap_from_even_en = 0;
 
 	if (subdev->endpoint.bus_type == V4L2_MBUS_BT656)
-		control.ccir565_en	= 1;
+		control.ccir656_en	= 1;
 
 	if (subdev->endpoint.bus_type == V4L2_MBUS_PARALLEL)
-		control.ccir565_en	= 0;
+		control.ccir656_en	= 0;
 
 #ifdef CONFIG_ARCH_ATLAS6
-	if (!vip->is_atlas7_vip0)
+	if (!is_cvd_vip(vip) && !is_com_vip(vip))
 		control.pad_mux_on_upli	= 1;
 #endif
 
@@ -1267,10 +1407,7 @@ static int vip_config_host(struct vip_subdev_info *subdev)
 	vip_hw_set_src_size(vip, rect);
 	vip_hw_set_control(vip, control);
 
-	if (vip->is_atlas7_vip0)
-		vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO15);
-	else
-		vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO7);
+	vip_hw_set_data_pin(vip, vip->data_shift);
 
 	vip_hw_set_int_count(vip, 0x0001, 0x0001);
 
@@ -1767,7 +1904,6 @@ static int sirfsoc_camera_close(struct file *file)
 	struct vip_subdev_info *subdev = file->private_data;
 	struct vip_dev *vip = subdev->host;
 	struct v4l2_subdev *sd = subdev->sd;
-	int ret;
 
 	mutex_lock(&vip->host_lock);
 
@@ -1949,6 +2085,69 @@ static int vip_get_subdev_input(struct device_node *remote,
 	return ret;
 }
 
+static int vip_get_data_shift(struct vip_dev *vip,	struct device_node *np)
+{
+	int ret = 0;
+
+	if (of_find_property(np, "data-shift", NULL)) {
+		/* VIP1 should point this */
+		ret = of_property_read_u32(np, "data-shift", &vip->data_shift);
+		if (ret) {
+			dev_err(vip->dev, "%s: Can't get data shift value\n",
+								__func__);
+			return ret;
+		}
+	}
+
+	/* Translate VIP0&VIP1 data shift value to our language */
+
+	/* VIP0 uses fixed 15:0 data pins  */
+	if (is_cvd_vip(vip))
+		vip->data_shift = VIP_PIXELSET_DATAPIN_0TO15;
+
+	if (is_com_vip(vip)) {
+		switch (vip->data_shift) {
+		case 0:
+			vip->data_shift = VIP_PIXELSET_DATAPIN_0TO15;
+			break;
+		case 1:
+			vip->data_shift = VIP_PIXELSET_DATAPIN_0TO7;
+			break;
+		case 2:
+			vip->data_shift = VIP_PIXELSET_DATAPIN_1TO8;
+			break;
+		default:
+			vip->data_shift = VIP_PIXELSET_DATAPIN_0TO7;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static int vip_get_data_mode(struct vip_dev *vip, struct device_node *np)
+{
+	int ret = 0;
+	const char *mode;
+
+	ret = of_property_read_string(np, "data-mode", &mode);
+	if (!ret) {
+		if (!strcmp(mode, "SDR"))
+			vip->data_mode = VIP_DATA_SAMPLE_MODE_SDR;
+		else if (!strcmp(mode, "DDR"))
+			vip->data_mode = VIP_DATA_SAMPLE_MODE_DDR;
+		else {
+			dev_info(vip->dev, "invalid data mode, set to SDR\n");
+			vip->data_mode = VIP_DATA_SAMPLE_MODE_SDR;
+		}
+	} else {
+		dev_info(vip->dev, "no set data mode, default SDR\n");
+		vip->data_mode = VIP_DATA_SAMPLE_MODE_SDR;
+	}
+
+	return 0;
+}
+
 static int vip_subdevs_register(struct vip_dev *vip)
 {
 	struct device_node *parent = vip->dev->of_node;
@@ -1983,6 +2182,17 @@ static int vip_subdevs_register(struct vip_dev *vip)
 
 		if (endpoint->bus_type == V4L2_MBUS_PARALLEL)
 			dev_info(vip->dev, "%s: BT601 bus type\n", __func__);
+
+
+		ret = vip_get_data_shift(vip, r_ep);
+		if (ret)
+			dev_info(vip->dev, "%s: can't get data shift\n",
+						__func__);
+
+		ret = vip_get_data_mode(vip, r_ep);
+		if (ret)
+			dev_info(vip->dev, "%s: can't get data mode\n",
+						__func__);
 
 		remote = of_graph_get_remote_port_parent(l_ep);
 		of_node_put(l_ep);
@@ -2071,7 +2281,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 		return ret;
 	}
 
-	return 0;
+	return (vip->num_subdev == 0) ? ret : 0;
 }
 
 static int vip_video_devs_create(struct vip_dev *vip)
@@ -2244,7 +2454,7 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 		control.hor_mirror_en = 0;
 	control.cap_from_odd_en	= 0;
 	control.cap_from_even_en = 0;
-	control.ccir565_en	= 0;
+	control.ccir656_en	= 0;
 	vip_hw_set_control(vip, control);
 
 	vip_hw_set_data_pin(vip, VIP_PIXELSET_DATAPIN_0TO15);
@@ -2314,7 +2524,8 @@ static int vip_probe(struct platform_device *pdev)
 {
 	struct device	*dev = &pdev->dev;
 	struct vip_dev	*vip = NULL;
-	u32 i = 0, ret = 0;
+	struct pinctrl *p;
+	int i = 0, ret = 0;
 
 	vip = devm_kzalloc(dev, sizeof(*vip), GFP_KERNEL);
 	if (!vip)
@@ -2354,10 +2565,26 @@ static int vip_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (of_device_is_compatible(dev->of_node, "sirf,atlas7-vip0"))
-		vip->is_atlas7_vip0 = true;
-	else
-		vip->is_atlas7_vip0 = false;
+	vip->type = *(const unsigned int *)(of_match_device(dev->driver
+					->of_match_table, dev)->data);
+	if (is_com_vip(vip)) {
+		vip->dma_irq = platform_get_irq(pdev, 1);
+		if (!vip->dma_irq) {
+			dev_err(dev, "%s: fail to get dma_irq\n", __func__);
+			return -EINVAL;
+		}
+		ret = devm_request_irq(dev, vip->dma_irq, dma_irq, 0,
+						VIP_DRV_NAME, vip);
+		if (ret) {
+			dev_err(dev, "%s: fail to request irq\n", __func__);
+			return ret;
+		}
+		p = devm_pinctrl_get_select_default(&pdev->dev);
+		if (IS_ERR(p)) {
+			dev_err(dev, "Fail to select vip1 pinmux\n");
+			return  -EINVAL;
+		}
+	}
 
 	vip->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(vip->clk)) {
@@ -2378,7 +2605,7 @@ static int vip_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	if (!vip->is_atlas7_vip0) {
+	if (!is_cvd_vip(vip) && !is_com_vip(vip)) {
 		vip->dma_chan = dma_request_slave_channel(vip->dev, "rx");
 		if (!vip->dma_chan) {
 			dev_err(dev, "%s: vip dma channel req fail\n",
@@ -2396,7 +2623,7 @@ static int vip_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(dev, "%s: vip_subdev_register failed: %d\n",
 				__func__, ret);
-		goto exit_release_declared_memory;
+		goto exit_v4l2_unregister;
 	}
 
 	ret = vip_video_devs_create(vip);
@@ -2410,11 +2637,10 @@ static int vip_probe(struct platform_device *pdev)
 exit_subdev_unregister:
 	for (i = 0; vip->num_subdev > 0; vip->num_subdev--, i++)
 		v4l2_device_unregister_subdev(vip->subdev[i].sd);
-exit_release_declared_memory:
-	dma_release_declared_memory(vip->dev);
+exit_v4l2_unregister:
 	v4l2_device_unregister(&vip->v4l2_dev);
 exit_uninit_dma:
-	if (!vip->is_atlas7_vip0)
+	if (!is_cvd_vip(vip) && !is_com_vip(vip))
 		dma_release_channel(vip->dma_chan);
 exit:
 	return ret;
@@ -2432,7 +2658,7 @@ static int vip_remove(struct platform_device *pdev)
 
 	v4l2_device_unregister(&vip->v4l2_dev);
 
-	if (vip->is_atlas7_vip0) {
+	if (is_cvd_vip(vip) || is_com_vip(vip)) {
 		vip_hw_wait_dma_idle(vip);
 	} else {
 		dmaengine_terminate_all(vip->dma_chan);
@@ -2453,8 +2679,10 @@ static int vip_pm_suspend(struct device *dev)
 	struct v4l2_subdev *sd = subdev->sd;
 
 	disable_irq(vip->irq);
+	if (is_com_vip(vip))
+		disable_irq(vip->dma_irq);
 
-	if (vip->is_atlas7_vip0)
+	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_hw_wait_dma_idle(vip);
 	else
 		dmaengine_terminate_all(vip->dma_chan);
@@ -2484,6 +2712,8 @@ static int vip_pm_resume(struct device *dev)
 	}
 
 	enable_irq(vip->irq);
+	if (is_com_vip(vip))
+		enable_irq(vip->dma_irq);
 
 	/* Before suspend it's active, so we should restore the pipe line */
 	if (vip->vb2_active) {
@@ -2508,9 +2738,15 @@ static int vip_pm_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(vip_pm_ops, vip_pm_suspend, vip_pm_resume);
 
+
+static const unsigned int p2_vip_type  = P2_VIP;
+static const unsigned int cvd_vip_type = CVD_VIP;
+static const unsigned int com_vip_type = COM_VIP;
+
 static struct of_device_id vip_match_tbl[] = {
-	{ .compatible = "sirf,prima2-vip", },
-	{ .compatible = "sirf,atlas7-vip0", },
+	{ .compatible = "sirf,prima2-vip",     .data = &p2_vip_type },
+	{ .compatible = "sirf,atlas7-cvd-vip", .data = &cvd_vip_type },
+	{ .compatible = "sirf,atlas7-com-vip", .data = &com_vip_type },
 	{ /* end */ }
 };
 
