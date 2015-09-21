@@ -2027,6 +2027,8 @@
 				#size-cells = <1>;
 				reg = <0x18840000 0x1000>;
 
+				hwlocks = <&hwlock_retain 0>;
+
 				sysrtc@2000 {
 					compatible = "sirf,prima2-sysrtc";
 					reg = <0x2000 0x100>;

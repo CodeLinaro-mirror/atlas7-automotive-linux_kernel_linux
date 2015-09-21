@@ -1,16 +1,23 @@
 /*
  * RTC I/O Bridge interfaces for CSR SiRFprimaII/atlas7
- * ARM access the registers of SYSRTC, GPSRTC and PWRC through this module
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011, 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/regmap.h>
+#include <linux/hwspinlock.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -26,7 +33,7 @@
  * after DRAM becomes self-refresh
  */
 void __iomem *sirfsoc_rtciobrg_base;
-static DEFINE_SPINLOCK(rtciobrg_lock);
+struct hwspinlock *rtciobrg_hwlock;
 
 /*
  * symbols without lock are only used by suspend asm codes
@@ -41,12 +48,18 @@ void sirfsoc_rtc_iobrg_wait_sync(void)
 void sirfsoc_rtc_iobrg_besyncing(void)
 {
 	unsigned long flags;
+	int err;
 
-	spin_lock_irqsave(&rtciobrg_lock, flags);
+	err = hwspin_lock_timeout_irqsave(rtciobrg_hwlock, 100, &flags);
+	if (err) {
+		pr_err("%s, IOBridge get hwspinlock failed!err= %d\n",
+			__func__, err);
+		BUG_ON(err);
+	}
 
 	sirfsoc_rtc_iobrg_wait_sync();
 
-	spin_unlock_irqrestore(&rtciobrg_lock, flags);
+	hwspin_unlock_irqrestore(rtciobrg_hwlock, &flags);
 }
 EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_besyncing);
 
@@ -66,13 +79,18 @@ u32 __sirfsoc_rtc_iobrg_readl(u32 addr)
 u32 sirfsoc_rtc_iobrg_readl(u32 addr)
 {
 	unsigned long flags, val;
+	int err;
 
-	/* TODO: add hwspinlock to sync with M3 */
-	spin_lock_irqsave(&rtciobrg_lock, flags);
+	err = hwspin_lock_timeout_irqsave(rtciobrg_hwlock, 100, &flags);
+	if (err) {
+		pr_err("%s, IOBridge get hwspinlock failed!err= %d\n",
+			__func__, err);
+		BUG_ON(err);
+	}
 
 	val = __sirfsoc_rtc_iobrg_readl(addr);
 
-	spin_unlock_irqrestore(&rtciobrg_lock, flags);
+	hwspin_unlock_irqrestore(rtciobrg_hwlock, &flags);
 
 	return val;
 }
@@ -91,9 +109,14 @@ void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 {
 	unsigned long flags;
+	int err;
 
-	 /* TODO: add hwspinlock to sync with M3 */
-	spin_lock_irqsave(&rtciobrg_lock, flags);
+	err = hwspin_lock_timeout_irqsave(rtciobrg_hwlock, 100, &flags);
+	if (err) {
+		pr_err("%s, IOBridge get hwspinlock failed!err= %d\n",
+			__func__, err);
+		BUG_ON(err);
+	}
 
 	sirfsoc_rtc_iobrg_pre_writel(val, addr);
 
@@ -101,7 +124,7 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 
 	sirfsoc_rtc_iobrg_wait_sync();
 
-	spin_unlock_irqrestore(&rtciobrg_lock, flags);
+	hwspin_unlock_irqrestore(rtciobrg_hwlock, &flags);
 }
 EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_writel);
 
@@ -152,10 +175,21 @@ static const struct of_device_id rtciobrg_ids[] = {
 static int sirfsoc_rtciobrg_probe(struct platform_device *op)
 {
 	struct device_node *np = op->dev.of_node;
+	uint32_t hwlock_id;
 
 	sirfsoc_rtciobrg_base = of_iomap(np, 0);
 	if (!sirfsoc_rtciobrg_base)
 		panic("unable to map rtc iobrg registers\n");
+
+	/* Request hwlock for rtc io-bridge */
+	hwlock_id = of_hwspin_lock_get_id(np, 0);
+	if (hwlock_id < 0)
+		panic("unable to acquire hwlock for rtc iobrg\n");
+
+
+	rtciobrg_hwlock = hwspin_lock_request_specific(hwlock_id);
+	if (!rtciobrg_hwlock)
+		panic("request specific hwlock for rtc iobrg failed!\n");
 
 	return 0;
 }
@@ -175,7 +209,5 @@ static int __init sirfsoc_rtciobrg_init(void)
 }
 postcore_initcall(sirfsoc_rtciobrg_init);
 
-MODULE_AUTHOR("Zhiwu Song <zhiwu.song@csr.com>");
-MODULE_AUTHOR("Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("CSR SiRFprimaII rtc io bridge");
 MODULE_LICENSE("GPL v2");
