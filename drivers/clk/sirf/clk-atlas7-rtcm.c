@@ -26,7 +26,6 @@
 #define SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL	0x90
 #define SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL	0x94
 
-static DEFINE_SPINLOCK(m3_gate_lock);
 static DEFINE_SPINLOCK(can0_gate_lock);
 static DEFINE_SPINLOCK(qspi0_gate_lock);
 
@@ -80,13 +79,10 @@ static inline void  rtcm_clkc_writel(u32 val, unsigned reg)
 
 static struct clk_onecell_data rtcmclk_data;
 
-/* new unit should add start from the tail of list */
 static struct atlas7_rtcmclk_init_data rtcm_unit_list[] = {
-	{0, "m3", "rtcmpll_fast_fixdiv", 0,
-		SIRFSOC_RTCM_CLKC_M3_CLK_SEL, 0, &m3_gate_lock},
-	{1, "can0", "rtcmpll_fast_fixdiv", 0,
+	{0, "can0", "rtcmpll_fast_fixdiv", 0,
 		SIRFSOC_RTCM_CLKC_CAN0_CLK_SEL, 0, &can0_gate_lock},
-	{2, "qspi0", "rtcmpll_fast_fixdiv", 0,
+	{1, "qspi0", "rtcmpll_fast_fixdiv", 0,
 		SIRFSOC_RTCM_CLKC_QSPI0_CLK_SEL, 0, &qspi0_gate_lock},
 };
 /*AOPD clk controller*/
