@@ -184,7 +184,11 @@
 			usp2: usp@10d40000 {
 				status = "disabled";
 				compatible = "sirf,atlas7-usp-spi";
-				pinctrl-0 = <&audio_uart2_pmx0>;
+				pinctrl-0 = <&audio_uart2_urfs_pmx0
+					&audio_uart2_urxd_pmx0
+					&audio_uart2_usclk_pmx0
+					&audio_uart2_utfs_pmx0
+					&audio_uart2_utxd_pmx0>;
 				pinctrl-names = "default";
 				fifosize = <512>;
 				uspspiflash: mxicy@0{
@@ -375,7 +379,9 @@
 			sdhci@14200000 {
 				status = "okay";
 				pinctrl-names = "default";
-				pinctrl-0 = <&sd2_pmx0>;
+				pinctrl-0 = <&sd2_basic_pmx
+						&sd2_cdb_pmx0
+						&sd2_wpb_pmx0>;
 			};
 
 			sdhci@14500000 {
@@ -410,13 +416,16 @@
 
 			uart2: uart@18030000 {
 				status = "disabled";
-				pinctrl-0 = <&uart2_pmx>;
+				pinctrl-0 = <&uart2_cts_pmx0
+						&uart2_rts_pmx0
+						&uart2_rxd_pmx0
+						&uart2_txd_pmx0>;
 				pinctrl-names = "default";
 			};
 
 			uart3: uart@18040000 {
 				status = "disabled";
-				pinctrl-0 = <&uart3_nopause_pmx0>;
+				pinctrl-0 = <&uart3_rxd_pmx0 &uart3_txd_pmx0>;
 				pinctrl-names = "default";
 			};
 

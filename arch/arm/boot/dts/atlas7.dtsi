@@ -189,6 +189,27 @@
 				};
 			};
 
+			audio_digmic_pmx0: audio_digmic@0 {
+				audio_digmic_0 {
+					groups = "audio_digmic_grp0";
+					function = "audio_digmic_m0";
+				};
+			};
+
+			audio_digmic_pmx1: audio_digmic@1 {
+				audio_digmic_1 {
+					groups = "audio_digmic_grp1";
+					function = "audio_digmic_m1";
+				};
+			};
+
+			audio_digmic_pmx2: audio_digmic@2 {
+				audio_digmic_2 {
+					groups = "audio_digmic_grp2";
+					function = "audio_digmic_m2";
+				};
+			};
+
 			audio_func_dbg_pmx: audio_func_dbg@0 {
 				audio_func_dbg {
 					groups = "audio_func_dbg_grp";
@@ -217,73 +238,304 @@
 				};
 			};
 
-			audio_uart0_pmx: audio_uart0@0 {
-				audio_uart0 {
-					groups = "audio_uart0_grp";
-					function = "audio_uart0";
+			audio_spdif_out_pmx0: audio_spdif_out@0 {
+				audio_spdif_out_0 {
+					groups = "audio_spdif_out_grp0";
+					function = "audio_spdif_out_m0";
 				};
 			};
 
-			audio_uart1_pmx: audio_uart1@0 {
-				audio_uart1 {
-					groups = "audio_uart1_grp";
-					function = "audio_uart1";
+			audio_spdif_out_pmx1: audio_spdif_out@1 {
+				audio_spdif_out_1 {
+					groups = "audio_spdif_out_grp1";
+					function = "audio_spdif_out_m1";
 				};
 			};
 
-			audio_uart2_pmx0: audio_uart2@0 {
-				audio_uart2_0 {
-					groups = "audio_uart2_grp0";
-					function = "audio_uart2_m0";
+			audio_spdif_out_pmx2: audio_spdif_out@2 {
+				audio_spdif_out_2 {
+					groups = "audio_spdif_out_grp2";
+					function = "audio_spdif_out_m2";
 				};
 			};
 
-			audio_uart2_pmx1: audio_uart2@1 {
-				audio_uart2_1 {
-					groups = "audio_uart2_grp1";
-					function = "audio_uart2_m1";
+			audio_uart0_basic_pmx: audio_uart0_basic@0 {
+				audio_uart0_basic {
+					groups = "audio_uart0_basic_grp";
+					function = "audio_uart0_basic";
 				};
 			};
 
-			c_can_trnsvr_pmx: c_can_trnsvr@0 {
-				c_can_trnsvr {
-					groups = "c_can_trnsvr_grp";
-					function = "c_can_trnsvr";
+			audio_uart0_urfs_pmx0: audio_uart0_urfs@0 {
+				audio_uart0_urfs_0 {
+					groups = "audio_uart0_urfs_grp0";
+					function = "audio_uart0_urfs_m0";
 				};
 			};
 
-			c0_can_pmx0: c0_can@0 {
-				c0_can_0 {
-					groups = "c0_can_grp0";
-					function = "c0_can_m0";
+			audio_uart0_urfs_pmx1: audio_uart0_urfs@1 {
+				audio_uart0_urfs_1 {
+					groups = "audio_uart0_urfs_grp1";
+					function = "audio_uart0_urfs_m1";
 				};
 			};
 
-			c0_can_pmx1: c0_can@1 {
-				c0_can_1 {
-					groups = "c0_can_grp1";
-					function = "c0_can_m1";
+			audio_uart0_urfs_pmx2: audio_uart0_urfs@2 {
+				audio_uart0_urfs_2 {
+					groups = "audio_uart0_urfs_grp2";
+					function = "audio_uart0_urfs_m2";
 				};
 			};
 
-			c1_can_pmx0: c1_can@0 {
-				c1_can_0 {
-					groups = "c1_can_grp0";
-					function = "c1_can_m0";
+			audio_uart0_urfs_pmx3: audio_uart0_urfs@3 {
+				audio_uart0_urfs_3 {
+					groups = "audio_uart0_urfs_grp3";
+					function = "audio_uart0_urfs_m3";
 				};
 			};
 
-			c1_can_pmx1: c1_can@1 {
-				c1_can_1 {
-					groups = "c1_can_grp1";
-					function = "c1_can_m1";
+			audio_uart1_basic_pmx: audio_uart1_basic@0 {
+				audio_uart1_basic {
+					groups = "audio_uart1_basic_grp";
+					function = "audio_uart1_basic";
 				};
 			};
 
-			c1_can_pmx2: c1_can@2 {
-				c1_can_2 {
-					groups = "c1_can_grp2";
-					function = "c1_can_m2";
+			audio_uart1_urfs_pmx0: audio_uart1_urfs@0 {
+				audio_uart1_urfs_0 {
+					groups = "audio_uart1_urfs_grp0";
+					function = "audio_uart1_urfs_m0";
+				};
+			};
+
+			audio_uart1_urfs_pmx1: audio_uart1_urfs@1 {
+				audio_uart1_urfs_1 {
+					groups = "audio_uart1_urfs_grp1";
+					function = "audio_uart1_urfs_m1";
+				};
+			};
+
+			audio_uart1_urfs_pmx2: audio_uart1_urfs@2 {
+				audio_uart1_urfs_2 {
+					groups = "audio_uart1_urfs_grp2";
+					function = "audio_uart1_urfs_m2";
+				};
+			};
+
+			audio_uart2_urfs_pmx0: audio_uart2_urfs@0 {
+				audio_uart2_urfs_0 {
+					groups = "audio_uart2_urfs_grp0";
+					function = "audio_uart2_urfs_m0";
+				};
+			};
+
+			audio_uart2_urfs_pmx1: audio_uart2_urfs@1 {
+				audio_uart2_urfs_1 {
+					groups = "audio_uart2_urfs_grp1";
+					function = "audio_uart2_urfs_m1";
+				};
+			};
+
+			audio_uart2_urfs_pmx2: audio_uart2_urfs@2 {
+				audio_uart2_urfs_2 {
+					groups = "audio_uart2_urfs_grp2";
+					function = "audio_uart2_urfs_m2";
+				};
+			};
+
+			audio_uart2_urxd_pmx0: audio_uart2_urxd@0 {
+				audio_uart2_urxd_0 {
+					groups = "audio_uart2_urxd_grp0";
+					function = "audio_uart2_urxd_m0";
+				};
+			};
+
+			audio_uart2_urxd_pmx1: audio_uart2_urxd@1 {
+				audio_uart2_urxd_1 {
+					groups = "audio_uart2_urxd_grp1";
+					function = "audio_uart2_urxd_m1";
+				};
+			};
+
+			audio_uart2_urxd_pmx2: audio_uart2_urxd@2 {
+				audio_uart2_urxd_2 {
+					groups = "audio_uart2_urxd_grp2";
+					function = "audio_uart2_urxd_m2";
+				};
+			};
+
+			audio_uart2_usclk_pmx0: audio_uart2_usclk@0 {
+				audio_uart2_usclk_0 {
+					groups = "audio_uart2_usclk_grp0";
+					function = "audio_uart2_usclk_m0";
+				};
+			};
+
+			audio_uart2_usclk_pmx1: audio_uart2_usclk@1 {
+				audio_uart2_usclk_1 {
+					groups = "audio_uart2_usclk_grp1";
+					function = "audio_uart2_usclk_m1";
+				};
+			};
+
+			audio_uart2_usclk_pmx2: audio_uart2_usclk@2 {
+				audio_uart2_usclk_2 {
+					groups = "audio_uart2_usclk_grp2";
+					function = "audio_uart2_usclk_m2";
+				};
+			};
+
+			audio_uart2_utfs_pmx0: audio_uart2_utfs@0 {
+				audio_uart2_utfs_0 {
+					groups = "audio_uart2_utfs_grp0";
+					function = "audio_uart2_utfs_m0";
+				};
+			};
+
+			audio_uart2_utfs_pmx1: audio_uart2_utfs@1 {
+				audio_uart2_utfs_1 {
+					groups = "audio_uart2_utfs_grp1";
+					function = "audio_uart2_utfs_m1";
+				};
+			};
+
+			audio_uart2_utfs_pmx2: audio_uart2_utfs@2 {
+				audio_uart2_utfs_2 {
+					groups = "audio_uart2_utfs_grp2";
+					function = "audio_uart2_utfs_m2";
+				};
+			};
+
+			audio_uart2_utxd_pmx0: audio_uart2_utxd@0 {
+				audio_uart2_utxd_0 {
+					groups = "audio_uart2_utxd_grp0";
+					function = "audio_uart2_utxd_m0";
+				};
+			};
+
+			audio_uart2_utxd_pmx1: audio_uart2_utxd@1 {
+				audio_uart2_utxd_1 {
+					groups = "audio_uart2_utxd_grp1";
+					function = "audio_uart2_utxd_m1";
+				};
+			};
+
+			audio_uart2_utxd_pmx2: audio_uart2_utxd@2 {
+				audio_uart2_utxd_2 {
+					groups = "audio_uart2_utxd_grp2";
+					function = "audio_uart2_utxd_m2";
+				};
+			};
+
+			c_can_trnsvr_en_pmx0: c_can_trnsvr_en@0 {
+				c_can_trnsvr_en_0 {
+					groups = "c_can_trnsvr_en_grp0";
+					function = "c_can_trnsvr_en_m0";
+				};
+			};
+
+			c_can_trnsvr_en_pmx1: c_can_trnsvr_en@1 {
+				c_can_trnsvr_en_1 {
+					groups = "c_can_trnsvr_en_grp1";
+					function = "c_can_trnsvr_en_m1";
+				};
+			};
+
+			c_can_trnsvr_intr_pmx: c_can_trnsvr_intr@0 {
+				c_can_trnsvr_intr {
+					groups = "c_can_trnsvr_intr_grp";
+					function = "c_can_trnsvr_intr";
+				};
+			};
+
+			c_can_trnsvr_stb_n_pmx: c_can_trnsvr_stb_n@0 {
+				c_can_trnsvr_stb_n {
+					groups = "c_can_trnsvr_stb_n_grp";
+					function = "c_can_trnsvr_stb_n";
+				};
+			};
+
+			c0_can_rxd_trnsv0_pmx: c0_can_rxd_trnsv0@0 {
+				c0_can_rxd_trnsv0 {
+					groups = "c0_can_rxd_trnsv0_grp";
+					function = "c0_can_rxd_trnsv0";
+				};
+			};
+
+			c0_can_rxd_trnsv1_pmx: c0_can_rxd_trnsv1@0 {
+				c0_can_rxd_trnsv1 {
+					groups = "c0_can_rxd_trnsv1_grp";
+					function = "c0_can_rxd_trnsv1";
+				};
+			};
+
+			c0_can_txd_trnsv0_pmx: c0_can_txd_trnsv0@0 {
+				c0_can_txd_trnsv0 {
+					groups = "c0_can_txd_trnsv0_grp";
+					function = "c0_can_txd_trnsv0";
+				};
+			};
+
+			c0_can_txd_trnsv1_pmx: c0_can_txd_trnsv1@0 {
+				c0_can_txd_trnsv1 {
+					groups = "c0_can_txd_trnsv1_grp";
+					function = "c0_can_txd_trnsv1";
+				};
+			};
+
+			c1_can_rxd_pmx0: c1_can_rxd@0 {
+				c1_can_rxd_0 {
+					groups = "c1_can_rxd_grp0";
+					function = "c1_can_rxd_m0";
+				};
+			};
+
+			c1_can_rxd_pmx1: c1_can_rxd@1 {
+				c1_can_rxd_1 {
+					groups = "c1_can_rxd_grp1";
+					function = "c1_can_rxd_m1";
+				};
+			};
+
+			c1_can_rxd_pmx2: c1_can_rxd@2 {
+				c1_can_rxd_2 {
+					groups = "c1_can_rxd_grp2";
+					function = "c1_can_rxd_m2";
+				};
+			};
+
+			c1_can_rxd_pmx3: c1_can_rxd@3 {
+				c1_can_rxd_3 {
+					groups = "c1_can_rxd_grp3";
+					function = "c1_can_rxd_m3";
+				};
+			};
+
+			c1_can_txd_pmx0: c1_can_txd@0 {
+				c1_can_txd_0 {
+					groups = "c1_can_txd_grp0";
+					function = "c1_can_txd_m0";
+				};
+			};
+
+			c1_can_txd_pmx1: c1_can_txd@1 {
+				c1_can_txd_1 {
+					groups = "c1_can_txd_grp1";
+					function = "c1_can_txd_m1";
+				};
+			};
+
+			c1_can_txd_pmx2: c1_can_txd@2 {
+				c1_can_txd_2 {
+					groups = "c1_can_txd_grp2";
+					function = "c1_can_txd_m2";
+				};
+			};
+
+			c1_can_txd_pmx3: c1_can_txd@3 {
+				c1_can_txd_3 {
+					groups = "c1_can_txd_grp3";
+					function = "c1_can_txd_m3";
 				};
 			};
 
@@ -637,10 +889,164 @@
 				};
 			};
 
-			jtag_pmx0: jtag@0 {
-				jtag_0 {
-					groups = "jtag_grp0";
-					function = "jtag_m0";
+			i2s0_pmx: i2s0@0 {
+				i2s0 {
+					groups = "i2s0_grp";
+					function = "i2s0";
+				};
+			};
+
+			i2s1_basic_pmx: i2s1_basic@0 {
+				i2s1_basic {
+					groups = "i2s1_basic_grp";
+					function = "i2s1_basic";
+				};
+			};
+
+			i2s1_rxd0_pmx0: i2s1_rxd0@0 {
+				i2s1_rxd0_0 {
+					groups = "i2s1_rxd0_grp0";
+					function = "i2s1_rxd0_m0";
+				};
+			};
+
+			i2s1_rxd0_pmx1: i2s1_rxd0@1 {
+				i2s1_rxd0_1 {
+					groups = "i2s1_rxd0_grp1";
+					function = "i2s1_rxd0_m1";
+				};
+			};
+
+			i2s1_rxd0_pmx2: i2s1_rxd0@2 {
+				i2s1_rxd0_2 {
+					groups = "i2s1_rxd0_grp2";
+					function = "i2s1_rxd0_m2";
+				};
+			};
+
+			i2s1_rxd0_pmx3: i2s1_rxd0@3 {
+				i2s1_rxd0_3 {
+					groups = "i2s1_rxd0_grp3";
+					function = "i2s1_rxd0_m3";
+				};
+			};
+
+			i2s1_rxd0_pmx4: i2s1_rxd0@4 {
+				i2s1_rxd0_4 {
+					groups = "i2s1_rxd0_grp4";
+					function = "i2s1_rxd0_m4";
+				};
+			};
+
+			i2s1_rxd1_pmx0: i2s1_rxd1@0 {
+				i2s1_rxd1_0 {
+					groups = "i2s1_rxd1_grp0";
+					function = "i2s1_rxd1_m0";
+				};
+			};
+
+			i2s1_rxd1_pmx1: i2s1_rxd1@1 {
+				i2s1_rxd1_1 {
+					groups = "i2s1_rxd1_grp1";
+					function = "i2s1_rxd1_m1";
+				};
+			};
+
+			i2s1_rxd1_pmx2: i2s1_rxd1@2 {
+				i2s1_rxd1_2 {
+					groups = "i2s1_rxd1_grp2";
+					function = "i2s1_rxd1_m2";
+				};
+			};
+
+			i2s1_rxd1_pmx3: i2s1_rxd1@3 {
+				i2s1_rxd1_3 {
+					groups = "i2s1_rxd1_grp3";
+					function = "i2s1_rxd1_m3";
+				};
+			};
+
+			i2s1_rxd1_pmx4: i2s1_rxd1@4 {
+				i2s1_rxd1_4 {
+					groups = "i2s1_rxd1_grp4";
+					function = "i2s1_rxd1_m4";
+				};
+			};
+
+			jtag_jt_dbg_nsrst_pmx: jtag_jt_dbg_nsrst@0 {
+				jtag_jt_dbg_nsrst {
+					groups = "jtag_jt_dbg_nsrst_grp";
+					function = "jtag_jt_dbg_nsrst";
+				};
+			};
+
+			jtag_ntrst_pmx0: jtag_ntrst@0 {
+				jtag_ntrst_0 {
+					groups = "jtag_ntrst_grp0";
+					function = "jtag_ntrst_m0";
+				};
+			};
+
+			jtag_ntrst_pmx1: jtag_ntrst@1 {
+				jtag_ntrst_1 {
+					groups = "jtag_ntrst_grp1";
+					function = "jtag_ntrst_m1";
+				};
+			};
+
+			jtag_swdiotms_pmx0: jtag_swdiotms@0 {
+				jtag_swdiotms_0 {
+					groups = "jtag_swdiotms_grp0";
+					function = "jtag_swdiotms_m0";
+				};
+			};
+
+			jtag_swdiotms_pmx1: jtag_swdiotms@1 {
+				jtag_swdiotms_1 {
+					groups = "jtag_swdiotms_grp1";
+					function = "jtag_swdiotms_m1";
+				};
+			};
+
+			jtag_tck_pmx0: jtag_tck@0 {
+				jtag_tck_0 {
+					groups = "jtag_tck_grp0";
+					function = "jtag_tck_m0";
+				};
+			};
+
+			jtag_tck_pmx1: jtag_tck@1 {
+				jtag_tck_1 {
+					groups = "jtag_tck_grp1";
+					function = "jtag_tck_m1";
+				};
+			};
+
+			jtag_tdi_pmx0: jtag_tdi@0 {
+				jtag_tdi_0 {
+					groups = "jtag_tdi_grp0";
+					function = "jtag_tdi_m0";
+				};
+			};
+
+			jtag_tdi_pmx1: jtag_tdi@1 {
+				jtag_tdi_1 {
+					groups = "jtag_tdi_grp1";
+					function = "jtag_tdi_m1";
+				};
+			};
+
+			jtag_tdo_pmx0: jtag_tdo@0 {
+				jtag_tdo_0 {
+					groups = "jtag_tdo_grp0";
+					function = "jtag_tdo_m0";
+				};
+			};
+
+			jtag_tdo_pmx1: jtag_tdo@1 {
+				jtag_tdo_1 {
+					groups = "jtag_tdo_grp1";
+					function = "jtag_tdo_m1";
 				};
 			};
 
@@ -812,6 +1218,13 @@
 				};
 			};
 
+			pw_cko0_pmx3: pw_cko0@3 {
+				pw_cko0_3 {
+					groups = "pw_cko0_grp3";
+					function = "pw_cko0_m3";
+				};
+			};
+
 			pw_cko1_pmx0: pw_cko1@0 {
 				pw_cko1_0 {
 					groups = "pw_cko1_grp0";
@@ -823,6 +1236,13 @@
 				pw_cko1_1 {
 					groups = "pw_cko1_grp1";
 					function = "pw_cko1_m1";
+				};
+			};
+
+			pw_cko1_pmx2: pw_cko1@2 {
+				pw_cko1_2 {
+					groups = "pw_cko1_grp2";
+					function = "pw_cko1_m2";
 				};
 			};
 
@@ -840,17 +1260,45 @@
 				};
 			};
 
-			pw_pwm0_pmx: pw_pwm0@0 {
-				pw_pwm0 {
-					groups = "pw_pwm0_grp";
-					function = "pw_pwm0";
+			pw_i2s01_clk_pmx2: pw_i2s01_clk@2 {
+				pw_i2s01_clk_2 {
+					groups = "pw_i2s01_clk_grp2";
+					function = "pw_i2s01_clk_m2";
 				};
 			};
 
-			pw_pwm1_pmx: pw_pwm1@0 {
-				pw_pwm1 {
-					groups = "pw_pwm1_grp";
-					function = "pw_pwm1";
+			pw_pwm0_pmx0: pw_pwm0@0 {
+				pw_pwm0_0 {
+					groups = "pw_pwm0_grp0";
+					function = "pw_pwm0_m0";
+				};
+			};
+
+			pw_pwm0_pmx1: pw_pwm0@1 {
+				pw_pwm0_1 {
+					groups = "pw_pwm0_grp1";
+					function = "pw_pwm0_m1";
+				};
+			};
+
+			pw_pwm1_pmx0: pw_pwm1@0 {
+				pw_pwm1_0 {
+					groups = "pw_pwm1_grp0";
+					function = "pw_pwm1_m0";
+				};
+			};
+
+			pw_pwm1_pmx1: pw_pwm1@1 {
+				pw_pwm1_1 {
+					groups = "pw_pwm1_grp1";
+					function = "pw_pwm1_m1";
+				};
+			};
+
+			pw_pwm1_pmx2: pw_pwm1@2 {
+				pw_pwm1_2 {
+					groups = "pw_pwm1_grp2";
+					function = "pw_pwm1_m2";
 				};
 			};
 
@@ -865,6 +1313,13 @@
 				pw_pwm2_1 {
 					groups = "pw_pwm2_grp1";
 					function = "pw_pwm2_m1";
+				};
+			};
+
+			pw_pwm2_pmx2: pw_pwm2@2 {
+				pw_pwm2_2 {
+					groups = "pw_pwm2_grp2";
+					function = "pw_pwm2_m2";
 				};
 			};
 
@@ -893,6 +1348,13 @@
 				pw_pwm_cpu_vol_1 {
 					groups = "pw_pwm_cpu_vol_grp1";
 					function = "pw_pwm_cpu_vol_m1";
+				};
+			};
+
+			pw_pwm_cpu_vol_pmx2: pw_pwm_cpu_vol@2 {
+				pw_pwm_cpu_vol_2 {
+					groups = "pw_pwm_cpu_vol_grp2";
+					function = "pw_pwm_cpu_vol_m2";
 				};
 			};
 
@@ -984,17 +1446,38 @@
 				};
 			};
 
-			sd2_pmx0: sd2@0 {
-				sd2_0 {
-					groups = "sd2_grp0";
-					function = "sd2_m0";
+			sd2_basic_pmx: sd2_basic@0 {
+				sd2_basic {
+					groups = "sd2_basic_grp";
+					function = "sd2_basic";
 				};
 			};
 
-			sd2_no_cdb_pmx0: sd2_no_cdb@0 {
-				sd2_no_cdb_0 {
-					groups = "sd2_no_cdb_grp0";
-					function = "sd2_no_cdb_m0";
+			sd2_cdb_pmx0: sd2_cdb@0 {
+				sd2_cdb_0 {
+					groups = "sd2_cdb_grp0";
+					function = "sd2_cdb_m0";
+				};
+			};
+
+			sd2_cdb_pmx1: sd2_cdb@1 {
+				sd2_cdb_1 {
+					groups = "sd2_cdb_grp1";
+					function = "sd2_cdb_m1";
+				};
+			};
+
+			sd2_wpb_pmx0: sd2_wpb@0 {
+				sd2_wpb_0 {
+					groups = "sd2_wpb_grp0";
+					function = "sd2_wpb_m0";
+				};
+			};
+
+			sd2_wpb_pmx1: sd2_wpb@1 {
+				sd2_wpb_1 {
+					groups = "sd2_wpb_grp1";
+					function = "sd2_wpb_m1";
 				};
 			};
 
@@ -1075,94 +1558,234 @@
 				};
 			};
 
-			uart2_pmx: uart2@0 {
-				uart2 {
-					groups = "uart2_grp";
-					function = "uart2";
+			uart2_cts_pmx0: uart2_cts@0 {
+				uart2_cts_0 {
+					groups = "uart2_cts_grp0";
+					function = "uart2_cts_m0";
 				};
 			};
 
-			uart3_pmx0: uart3@0 {
-				uart3_0 {
-					groups = "uart3_grp0";
-					function = "uart3_m0";
+			uart2_cts_pmx1: uart2_cts@1 {
+				uart2_cts_1 {
+					groups = "uart2_cts_grp1";
+					function = "uart2_cts_m1";
 				};
 			};
 
-			uart3_pmx1: uart3@1 {
-				uart3_1 {
-					groups = "uart3_grp1";
-					function = "uart3_m1";
+			uart2_rts_pmx0: uart2_rts@0 {
+				uart2_rts_0 {
+					groups = "uart2_rts_grp0";
+					function = "uart2_rts_m0";
 				};
 			};
 
-			uart3_pmx2: uart3@2 {
-				uart3_2 {
-					groups = "uart3_grp2";
-					function = "uart3_m2";
+			uart2_rts_pmx1: uart2_rts@1 {
+				uart2_rts_1 {
+					groups = "uart2_rts_grp1";
+					function = "uart2_rts_m1";
 				};
 			};
 
-			uart3_pmx3: uart3@3 {
-				uart3_3 {
-					groups = "uart3_grp3";
-					function = "uart3_m3";
+			uart2_rxd_pmx0: uart2_rxd@0 {
+				uart2_rxd_0 {
+					groups = "uart2_rxd_grp0";
+					function = "uart2_rxd_m0";
 				};
 			};
 
-			uart3_nopause_pmx0: uart3_nopause@0 {
-				uart3_nopause_0 {
-					groups = "uart3_nopause_grp0";
-					function = "uart3_nopause_m0";
+			uart2_rxd_pmx1: uart2_rxd@1 {
+				uart2_rxd_1 {
+					groups = "uart2_rxd_grp1";
+					function = "uart2_rxd_m1";
 				};
 			};
 
-			uart3_nopause_pmx1: uart3_nopause@1 {
-				uart3_nopause_1 {
-					groups = "uart3_nopause_grp1";
-					function = "uart3_nopause_m1";
+			uart2_rxd_pmx2: uart2_rxd@2 {
+				uart2_rxd_2 {
+					groups = "uart2_rxd_grp2";
+					function = "uart2_rxd_m2";
 				};
 			};
 
-			uart4_pmx0: uart4@0 {
-				uart4_0 {
-					groups = "uart4_grp0";
-					function = "uart4_m0";
+			uart2_txd_pmx0: uart2_txd@0 {
+				uart2_txd_0 {
+					groups = "uart2_txd_grp0";
+					function = "uart2_txd_m0";
 				};
 			};
 
-			uart4_pmx1: uart4@1 {
-				uart4_1 {
-					groups = "uart4_grp1";
-					function = "uart4_m1";
+			uart2_txd_pmx1: uart2_txd@1 {
+				uart2_txd_1 {
+					groups = "uart2_txd_grp1";
+					function = "uart2_txd_m1";
 				};
 			};
 
-			uart4_pmx2: uart4@2 {
-				uart4_2 {
-					groups = "uart4_grp2";
-					function = "uart4_m2";
+			uart2_txd_pmx2: uart2_txd@2 {
+				uart2_txd_2 {
+					groups = "uart2_txd_grp2";
+					function = "uart2_txd_m2";
 				};
 			};
 
-			uart4_nopause_pmx: uart4_nopause@0 {
-				uart4_nopause {
-					groups = "uart4_nopause_grp";
-					function = "uart4_nopause";
+			uart3_cts_pmx0: uart3_cts@0 {
+				uart3_cts_0 {
+					groups = "uart3_cts_grp0";
+					function = "uart3_cts_m0";
 				};
 			};
 
-			usb0_drvvbus_pmx: usb0_drvvbus@0 {
-				usb0_drvvbus {
-					groups = "usb0_drvvbus_grp";
-					function = "usb0_drvvbus";
+			uart3_cts_pmx1: uart3_cts@1 {
+				uart3_cts_1 {
+					groups = "uart3_cts_grp1";
+					function = "uart3_cts_m1";
 				};
 			};
 
-			usb1_drvvbus_pmx: usb1_drvvbus@0 {
-				usb1_drvvbus {
-					groups = "usb1_drvvbus_grp";
-					function = "usb1_drvvbus";
+			uart3_cts_pmx2: uart3_cts@2 {
+				uart3_cts_2 {
+					groups = "uart3_cts_grp2";
+					function = "uart3_cts_m2";
+				};
+			};
+
+			uart3_rts_pmx0: uart3_rts@0 {
+				uart3_rts_0 {
+					groups = "uart3_rts_grp0";
+					function = "uart3_rts_m0";
+				};
+			};
+
+			uart3_rts_pmx1: uart3_rts@1 {
+				uart3_rts_1 {
+					groups = "uart3_rts_grp1";
+					function = "uart3_rts_m1";
+				};
+			};
+
+			uart3_rts_pmx2: uart3_rts@2 {
+				uart3_rts_2 {
+					groups = "uart3_rts_grp2";
+					function = "uart3_rts_m2";
+				};
+			};
+
+			uart3_rxd_pmx0: uart3_rxd@0 {
+				uart3_rxd_0 {
+					groups = "uart3_rxd_grp0";
+					function = "uart3_rxd_m0";
+				};
+			};
+
+			uart3_rxd_pmx1: uart3_rxd@1 {
+				uart3_rxd_1 {
+					groups = "uart3_rxd_grp1";
+					function = "uart3_rxd_m1";
+				};
+			};
+
+			uart3_rxd_pmx2: uart3_rxd@2 {
+				uart3_rxd_2 {
+					groups = "uart3_rxd_grp2";
+					function = "uart3_rxd_m2";
+				};
+			};
+
+			uart3_txd_pmx0: uart3_txd@0 {
+				uart3_txd_0 {
+					groups = "uart3_txd_grp0";
+					function = "uart3_txd_m0";
+				};
+			};
+
+			uart3_txd_pmx1: uart3_txd@1 {
+				uart3_txd_1 {
+					groups = "uart3_txd_grp1";
+					function = "uart3_txd_m1";
+				};
+			};
+
+			uart3_txd_pmx2: uart3_txd@2 {
+				uart3_txd_2 {
+					groups = "uart3_txd_grp2";
+					function = "uart3_txd_m2";
+				};
+			};
+
+			uart4_basic_pmx: uart4_basic@0 {
+				uart4_basic {
+					groups = "uart4_basic_grp";
+					function = "uart4_basic";
+				};
+			};
+
+			uart4_cts_pmx0: uart4_cts@0 {
+				uart4_cts_0 {
+					groups = "uart4_cts_grp0";
+					function = "uart4_cts_m0";
+				};
+			};
+
+			uart4_cts_pmx1: uart4_cts@1 {
+				uart4_cts_1 {
+					groups = "uart4_cts_grp1";
+					function = "uart4_cts_m1";
+				};
+			};
+
+			uart4_cts_pmx2: uart4_cts@2 {
+				uart4_cts_2 {
+					groups = "uart4_cts_grp2";
+					function = "uart4_cts_m2";
+				};
+			};
+
+			uart4_rts_pmx0: uart4_rts@0 {
+				uart4_rts_0 {
+					groups = "uart4_rts_grp0";
+					function = "uart4_rts_m0";
+				};
+			};
+
+			uart4_rts_pmx1: uart4_rts@1 {
+				uart4_rts_1 {
+					groups = "uart4_rts_grp1";
+					function = "uart4_rts_m1";
+				};
+			};
+
+			uart4_rts_pmx2: uart4_rts@2 {
+				uart4_rts_2 {
+					groups = "uart4_rts_grp2";
+					function = "uart4_rts_m2";
+				};
+			};
+
+			usb0_drvvbus_pmx0: usb0_drvvbus@0 {
+				usb0_drvvbus_0 {
+					groups = "usb0_drvvbus_grp0";
+					function = "usb0_drvvbus_m0";
+				};
+			};
+
+			usb0_drvvbus_pmx1: usb0_drvvbus@1 {
+				usb0_drvvbus_1 {
+					groups = "usb0_drvvbus_grp1";
+					function = "usb0_drvvbus_m1";
+				};
+			};
+
+			usb1_drvvbus_pmx0: usb1_drvvbus@0 {
+				usb1_drvvbus_0 {
+					groups = "usb1_drvvbus_grp0";
+					function = "usb1_drvvbus_m0";
+				};
+			};
+
+			usb1_drvvbus_pmx1: usb1_drvvbus@1 {
+				usb1_drvvbus_1 {
+					groups = "usb1_drvvbus_grp1";
+					function = "usb1_drvvbus_m1";
 				};
 			};
 
