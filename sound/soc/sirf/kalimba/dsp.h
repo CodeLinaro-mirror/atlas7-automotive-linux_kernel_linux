@@ -173,6 +173,10 @@ void kalimba_do_actions(u16 message, u16 *data);
 #define DRAM_FREE_REQ				0x0018
 #define DRAM_FREE_RSP				0x1018
 
+/* license messages from design spec */
+#define KASCMD_SIGNAL_ID_LICENCE_CHECK_REQ	0x0022
+#define KASCMD_SIGNAL_ID_LICENCE_CHECK_RSP	0x1022
+
 #define ENDPOINT_CONF_AUDIO_SAMPLE_RATE		0x0A00
 #define ENDPOINT_CONF_AUDIO_DATA_FORMAT		0x0A01
 #define ENDPOINT_CONF_DRAM_PACKING_FORMAT	0x0A02

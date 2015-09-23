@@ -24,6 +24,7 @@
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
 #include "debug.h"
 #endif
+#include "license.h"
 #include "dsp.h"
 #include "ipc.h"
 #include "regs.h"
@@ -583,6 +584,13 @@ static int kalimba_probe(struct platform_device *pdev)
 		goto kalimba_reset_failed;
 	}
 #endif
+
+	ret = license_init();
+	if (ret != 0) {
+		dev_err(&pdev->dev, "Initialzie license interface failed.\n");
+		goto kalimba_reset_failed;
+	}
+
 	action_id = register_kalimba_msg_action(DRAM_ALLOCATION_REQ,
 		dram_allocation_req_actions, &pdev->dev);
 	if (IS_ERR(action_id)) {
@@ -623,6 +631,7 @@ static int kalimba_remove(struct platform_device *pdev)
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
 	debug_deinit();
 #endif
+	license_deinit();
 	return 0;
 }
 

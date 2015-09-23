@@ -83,6 +83,7 @@ struct ipc_data {
 	void __iomem *ipc_base;
 	struct regmap *kalimba_regs_regmap;
 	struct mutex ipc_comm_mutex;
+	struct mutex ipc_send_mutex;
 	wait_queue_head_t waitq_dsp_ack;
 	bool msg_send_ack;
 	wait_queue_head_t waitq_dsp_rsp;
@@ -348,6 +349,7 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 	char trace_info[512];
 #endif
 
+	mutex_lock(&ipc_data->ipc_send_mutex);
 	mutex_lock(&ipc_data->ipc_comm_mutex);
 	msg_id = msg[0];
 	ipc_data->msg_dsp_rsp = false;
@@ -423,6 +425,7 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 	if (resp)
 		memcpy(resp, ipc_data->payload, 64);
 	mutex_unlock(&ipc_data->ipc_comm_mutex);
+	mutex_unlock(&ipc_data->ipc_send_mutex);
 }
 
 static irqreturn_t ipc_irq_handler(int irq, void *pdata)
@@ -503,6 +506,7 @@ static int ipc_probe(struct platform_device *pdev)
 	init_waitqueue_head(&ipc_data->waitq_dsp_ack);
 	init_waitqueue_head(&ipc_data->waitq_dsp_rsp);
 	mutex_init(&ipc_data->ipc_comm_mutex);
+	mutex_init(&ipc_data->ipc_send_mutex);
 
 	return 0;
 }
