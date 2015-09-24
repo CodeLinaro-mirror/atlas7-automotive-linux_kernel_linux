@@ -2133,7 +2133,7 @@
 				gpio-ranges = <&pinctrl 0 0 0>,
 						<&pinctrl 32 0 0>;
 				gpio-ranges-group-names = "lvds_gpio_grp",
-							"uart_nand_gpio_grp";
+						"jtag_uart_nand_gpio_grp";
 			};
 
 			nand@17050000 {
