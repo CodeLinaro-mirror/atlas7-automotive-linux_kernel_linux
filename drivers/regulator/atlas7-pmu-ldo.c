@@ -1,9 +1,16 @@
 /*
  * CSRAtlas7 analog regulators drivers
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/io.h>
@@ -102,13 +109,6 @@ static int atlas7_analog_ldo_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(analog_regulator_info); i++) {
 		rdesc = &analog_regulator_info[i];
 
-		if (i == 2) {
-			/* fix ldo2 with diff hwver */
-			if (of_machine_is_compatible("sirf,atlas7-a1"))
-				rdesc->enable_is_inverted = true;
-			else if (of_machine_is_compatible("sirf,atlas7-b0"))
-				rdesc->enable_is_inverted = true;
-		}
 		rdev = devm_regulator_register(&pdev->dev,
 			rdesc, &config);
 
@@ -144,6 +144,5 @@ static void __exit atlas7_analog_ldo_exit(void)
 }
 module_exit(atlas7_analog_ldo_exit);
 
-MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>");
 MODULE_DESCRIPTION("CSRAtlas7 Analog ldo regulator driver");
 MODULE_LICENSE("GPL v2");
