@@ -1,9 +1,16 @@
 /*
  * plat smp support for CSR Marco dual-core SMP SoCs
  *
- * Copyright (c) 2012 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/init.h>
@@ -59,16 +66,14 @@ static int sirfsoc_boot_secondary(unsigned int cpu, struct task_struct *idle)
 		return -ENOMEM;
 
 	/*
-	 * write the address of secondary startup into the clkc register
-	 * at offset 0x2bC, then write the magic number 0x3CAF5D62 to the
-	 * clkc register at offset 0x2b8, which is what boot rom code is
-	 * waiting for. This would wake up the secondary core from WFE
+	 * write the address of secondary startup and magic number into
+	 * clkc registers. This would wake up the secondary core from WFE
 	 */
-#define SIRFSOC_CPU1_JUMPADDR_OFFSET 0x2bc
+#define SIRFSOC_CPU1_JUMPADDR_OFFSET 0x468
 	__raw_writel(virt_to_phys(sirfsoc_secondary_startup),
 		clk_base + SIRFSOC_CPU1_JUMPADDR_OFFSET);
 
-#define SIRFSOC_CPU1_WAKEMAGIC_OFFSET 0x2b8
+#define SIRFSOC_CPU1_WAKEMAGIC_OFFSET 0x464
 	__raw_writel(0x3CAF5D62,
 		clk_base + SIRFSOC_CPU1_WAKEMAGIC_OFFSET);
 
