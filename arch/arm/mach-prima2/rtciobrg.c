@@ -175,7 +175,7 @@ static const struct of_device_id rtciobrg_ids[] = {
 static int sirfsoc_rtciobrg_probe(struct platform_device *op)
 {
 	struct device_node *np = op->dev.of_node;
-	uint32_t hwlock_id;
+	int hwlock_id;
 
 	sirfsoc_rtciobrg_base = of_iomap(np, 0);
 	if (!sirfsoc_rtciobrg_base)
