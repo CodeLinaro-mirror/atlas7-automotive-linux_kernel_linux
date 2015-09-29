@@ -1399,6 +1399,7 @@
 					"rgmii", "gmac";
 				local-mac-address = [00 00 00 00 00 00];
 				phy-mode = "rgmii";
+				status = "disabled";
 			};
 			dspub@18250000 {
 				compatible = "dx,cc44p";
@@ -2057,6 +2058,7 @@
 					};
 					gps-power {
 						compatible = "sirf,gps-power";
+						status = "disabled";
 					};
 					gps-sysctl {
 						compatible = "sirf,sirf-sysctl";
