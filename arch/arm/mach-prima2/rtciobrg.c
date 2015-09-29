@@ -207,7 +207,7 @@ static int __init sirfsoc_rtciobrg_init(void)
 {
 	return platform_driver_register(&sirfsoc_rtciobrg_driver);
 }
-postcore_initcall(sirfsoc_rtciobrg_init);
+subsys_initcall(sirfsoc_rtciobrg_init);
 
 MODULE_DESCRIPTION("CSR SiRFprimaII rtc io bridge");
 MODULE_LICENSE("GPL v2");

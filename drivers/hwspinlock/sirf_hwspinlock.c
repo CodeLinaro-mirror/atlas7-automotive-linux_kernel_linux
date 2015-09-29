@@ -158,11 +158,11 @@ static int __init sirf_hwspinlock_init(void)
 }
 
 /*
- * We have to put this driver's init level to core init, because
- * this driver will be used by iobridge driver. The iobridge
- * driver's init level is postcore init.
+ * We have to put this driver's init level to arch init, because
+ * this driver will be used by iobridge driver which begins to
+ * work during subsys init
  */
-core_initcall(sirf_hwspinlock_init);
+arch_initcall(sirf_hwspinlock_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("SIRF Hardware spinlock driver");
