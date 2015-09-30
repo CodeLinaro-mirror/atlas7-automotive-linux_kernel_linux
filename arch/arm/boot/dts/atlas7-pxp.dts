@@ -44,18 +44,17 @@
 			compatible = "pwm-regulator";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
-			pwms = <&pwm 2 600>;
-			voltage-table = <1260000 0>,
-				<1188000 10>,
-				<1116000 20>,
-				<1044000 30>,
-				<972000 40>,
+			pwms = <&pwm 2 60>;
+			voltage-table = <1265000 0>,
+				<1196000 10>,
+				<1127000 20>,
+				<1058000 30>,
+				<990000 40>,
 				<900000 50>;
 			regulator-min-microvolt = <900000>;
-			regulator-max-microvolt = <1260000>;
+			regulator-max-microvolt = <1265000>;
 			regulator-name = "vdd_cpu";
 		};
-
 	};
 
 	reserved-memory {
@@ -67,8 +66,8 @@
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			alloc-ranges = <0x4BC00000 0x4000000>;
-			size = <0x4000000>;
+			alloc-ranges = <0x49C00000 0x6000000>;
+			size = <0x6000000>;
 			alignment = <0x2000>;
 			linux,cma-default;
 		};
@@ -94,7 +93,12 @@
 		};
 
 		multimedia_reserved: multimedia@58800000 {
-			reg = <0x58800000 0x6000000>;
+			reg = <0x58800000 0x2400000>;
+			no-map;
+		};
+
+		uboot_reserved: uboot@5b800000 {
+			reg = <0x5b800000 0x200000>;
 			no-map;
 		};
 
@@ -105,6 +109,11 @@
 	};
 
 	noc {
+		gpum {
+			sdr@0x13010000 {
+				status = "disabled";
+			};
+		};
 		audiom {
 			timer@10dc0000 {
 				status = "okay";
@@ -115,15 +124,15 @@
 			};
 
 			usp2: usp@10d40000 {
-				status = "disabled";
-				compatible = "sirf,atlas7-usp-spi";
-				pinctrl-0 = <&audio_uart2_urfs_pmx0
+			       status = "disabled";
+			       compatible = "sirf,atlas7-usp-spi";
+			       pinctrl-0 = <&audio_uart2_urfs_pmx0
 					&audio_uart2_urxd_pmx0
 					&audio_uart2_usclk_pmx0
 					&audio_uart2_utfs_pmx0
 					&audio_uart2_utxd_pmx0>;
-				pinctrl-names = "default";
-				fifosize = <512>;
+			       pinctrl-names = "default";
+			       fifosize = <512>;
 				uspspiflash: mxicy@0{
 					status = "okay";
 					compatible = "mxicy,mx25l6405d";
@@ -142,10 +151,17 @@
 
 			pulsec@10d90000 {
 				status = "disabled";
-				pinctrl-names = "default";
-				pinctrl-0 = <&ps_pmx>;
 			};
 			adc: adc@10d80000 {
+				status = "disabled";
+			};
+			i2s: i2s@10d02000 {
+				status = "disabled";
+			};
+			vip0@10db0000 {
+				status = "disabled";
+			};
+			cvd@10db2000 {
 				status = "disabled";
 			};
 
@@ -177,16 +193,6 @@
 
 		};
 
-		sirf-backlight {
-			compatible = "pwm-backlight";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pw_backlight_pmx1>;
-			pwms = <&pwm 3 50000>;
-			brightness-levels = <0 32 48 56 64 96 112 128 144 160
-				176 192 208 214 230 255>;
-			default-brightness-level = <7>;
-		};
-
 		gnssm {
 			uart1: uart@18020000 {
 				status = "okay";
@@ -209,13 +215,11 @@
 			};
 
 			uart3: uart@18040000 {
-				status = "okay";
-				pinctrl-0 = <&uart3_rxd_pmx0 &uart3_txd_pmx0>;
-				pinctrl-names = "default";
+				status = "disabled";
 			};
 
 			uart5: uart@18060000 {
-				status = "okay";
+				status = "disabled";
 			};
 
 			gmac: eth@180b0000 {
@@ -243,8 +247,9 @@
 						label = "myspiboot";
 						reg = <0x0 0x800000>;
 					};
-				};
+			       };
 			};
+
 		};
 
 		rtcm {
@@ -259,7 +264,8 @@
 					gps-power {
 					   status = "okay";
 					   pinctrl-names = "default";
-					   pinctrl-0 = <&gn_trg_spi_pmx0 &gn_trg_pmx0>;
+					   pinctrl-0 = <&gn_trg_spi_pmx0
+						&gn_trg_pmx0>;
 					};
 				};
 			};
@@ -276,8 +282,7 @@
 			};
 
 			ns_kal_rproc@0 {
-				memory-region = <&ipc_mem1>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			ns_kal_rproc@1 {
@@ -285,5 +290,33 @@
 			};
 		};
 
+		disp-iobg {
+
+			lcd0@13100000 {
+				status = "disabled";
+			};
+			vpp0@13110000 {
+				status = "disabled";
+			};
+			lcd1@13120000 {
+				status = "disabled";
+			};
+			vpp1@13130000 {
+				status = "disabled";
+			};
+			lvds@10e10000 {
+				status = "disabled";
+			};
+			g2d@17010000 {
+				status = "disabled";
+			};
+
+		};
+
+		graphics-iobg {
+			graphics@12000000 {
+				status = "disabled";
+			};
+		};
 	};
 };
