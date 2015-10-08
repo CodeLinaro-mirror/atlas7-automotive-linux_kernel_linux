@@ -1,9 +1,16 @@
 /*
  * CSR Altas7 kailimba audio
  *
- * Copyright (c) 2015 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -42,9 +49,21 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 		.dpcm_playback = 1,
 	},
 	{
-		.name = "Notify",
-		.stream_name = "Notify Playback",
-		.cpu_dai_name = "Notify Pin",
+		.name = "Navigation",
+		.stream_name = "Navigation Playback",
+		.cpu_dai_name = "Navigation Pin",
+		.platform_name = "kas-pcm-audio",
+		.dynamic = 1,
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.dpcm_playback = 1,
+	},
+	{
+		.name = "Alarm",
+		.stream_name = "Alarm Playback",
+		.cpu_dai_name = "Alarm Pin",
 		.platform_name = "kas-pcm-audio",
 		.dynamic = 1,
 		.codec_name = "snd-soc-dummy",
@@ -65,7 +84,6 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 			SND_SOC_DPCM_TRIGGER_POST},
 		.dpcm_capture = 1,
 	},
-
 	/* Back End DAI links */
 	{
 		/* IACC - Codec */
@@ -115,6 +133,5 @@ static struct platform_driver kas_audio_driver = {
 module_platform_driver(kas_audio_driver);
 
 /* Module information */
-MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com");
 MODULE_DESCRIPTION("Kalimba audio driver for SiRF A7DA");
 MODULE_LICENSE("GPL v2");

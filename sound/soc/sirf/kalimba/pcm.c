@@ -27,7 +27,7 @@
 #include "iacc.h"
 #include "kcm.h"
 
-#define KAS_PCM_COUNT	3
+#define KAS_PCM_COUNT	4
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -475,9 +475,19 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
-		.name = "Notify Pin",
+		.name = "Navigation Pin",
 		.playback = {
-			.stream_name = "Notify Playback",
+			.stream_name = "Navigation Playback",
+			.channels_min = 1,
+			.channels_max = 4,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
+		.name = "Alarm Pin",
+		.playback = {
+			.stream_name = "Alarm Playback",
 			.channels_min = 1,
 			.channels_max = 4,
 			.rates = KAS_RATES,
@@ -507,7 +517,8 @@ static const struct snd_soc_dapm_widget widgets[] = {
 static const struct snd_soc_dapm_route graph[] = {
 	/* Playback Mixer */
 	{"Playback VMixer", NULL, "Music Playback"},
-	{"Playback VMixer", NULL, "Notify Playback"},
+	{"Playback VMixer", NULL, "Navigation Playback"},
+	{"Playback VMixer", NULL, "Alarm Playback"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
 };

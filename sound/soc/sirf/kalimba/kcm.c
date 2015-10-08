@@ -60,8 +60,9 @@ static char *sw_ep_configure_params_key[] = {
 static void init_shared_components(void)
 {
 	int i;
-	static u16 mixer_oper_conf_channels[3] = {0x4, 0x4, 0x2};
+	static u16 mixer_oper_conf_channels[3] = {0x4, 0x4, 0x4};
 	static u16 mixer_oper_conf_gains[6] = {0x20, 0, 0x20, 0, 0x20, 0};
+	static u16 volume_ctrl_conf_gains[4] = {1, 0x0021, 0x0, 0x168};
 
 	components_shared[0].component_id = CREATE_OPERATOR_REQ;
 	components_shared[0].execute_phase = EXEC_PHASE_HW_PARAMS;
@@ -89,101 +90,174 @@ static void init_shared_components(void)
 	components_shared[3].params[3] =
 		(u32)(&kcm->playback_hw_ep_handle_phy_addr);
 
+	components_shared[4].component_id = CREATE_OPERATOR_REQ;
+	components_shared[4].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_shared[4].params[0] = CAPABILITY_ID_VOLUME_CONTROL;
+
+	components_shared[5].component_id = CREATE_OPERATOR_REQ;
+	components_shared[5].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_shared[5].params[0] = CAPABILITY_ID_PEQ;
+
+	components_shared[6].component_id = CREATE_OPERATOR_REQ;
+	components_shared[6].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_shared[6].params[0] = CAPABILITY_ID_PEQ;
+
+	components_shared[7].component_id = CREATE_OPERATOR_REQ;
+	components_shared[7].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_shared[7].params[0] = CAPABILITY_ID_PEQ;
+
+	components_shared[8].component_id = CREATE_OPERATOR_REQ;
+	components_shared[8].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_shared[8].params[0] = CAPABILITY_ID_PEQ;
+
+	components_shared[9].component_id = OPERATOR_MESSAGE_REQ;
+	components_shared[9].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_shared[9].params[0] = (u32)(&components_shared[4].ret[0]);
+	components_shared[9].params[1] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
+	components_shared[9].params[2] = 4;
+	components_shared[9].params[3] = (u32)(volume_ctrl_conf_gains);
+
 	for (i = 0; i < 4; i++) {
-		components_shared[4 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[4 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[4 + i].params[0] =
+		components_shared[10 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[10 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[10 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
-		components_shared[4 + i].params[1] =
+		components_shared[10 + i].params[1] =
 			ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-		components_shared[4 + i].params[2] =
+		components_shared[10 + i].params[2] =
 			(u32)(&kcm->hw_playback_sample_rate);
 	}
 
 	for (i = 0; i < 4; i++) {
-		components_shared[8 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[8 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[8 + i].params[0] =
+		components_shared[14 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[14 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[14 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
-		components_shared[8 + i].params[1] =
+		components_shared[14 + i].params[1] =
 			ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-		components_shared[8 + i].params[2] =
+		components_shared[14 + i].params[2] =
 			(u32)(&kcm->hw_audio_data_format);
 	}
 
 	for (i = 0; i < 4; i++) {
-		components_shared[12 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[12 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[12 + i].params[0] =
+		components_shared[18 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[18 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[18 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
-		components_shared[12 + i].params[1] =
+		components_shared[18 + i].params[1] =
 			ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-		components_shared[12 + i].params[2] =
+		components_shared[18 + i].params[2] =
 			(u32)(&kcm->hw_packing_format);
 	}
 
 	for (i = 0; i < 4; i++) {
-		components_shared[16 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[16 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[16 + i].params[0] =
+		components_shared[22 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[22 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[22 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
-		components_shared[16 + i].params[1] =
+		components_shared[22 + i].params[1] =
 			ENDPOINT_CONF_INTERLEAVING_MODE;
-		components_shared[16 + i].params[2] =
+		components_shared[22 + i].params[2] =
 			(u32)(&kcm->hw_interleaving_format);
 	}
 
 	for (i = 0; i < 4; i++) {
-		components_shared[20 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[20 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[20 + i].params[0] =
+		components_shared[26 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[26 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[26 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
-		components_shared[20 + i].params[1] =
+		components_shared[26 + i].params[1] =
 			ENDPOINT_CONF_CLOCK_MASTER;
-		components_shared[20 + i].params[2] =
+		components_shared[26 + i].params[2] =
 			(u32)(&kcm->hw_clock_master);
 	}
 
 	for (i = 0; i < 4; i++) {
-		components_shared[24 + i].component_id = CONNECT_REQ;
-		components_shared[24 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[24 + i].params[0] =
-			(u32)(&components_shared[0].ret[0]);
-		components_shared[24 + i].params[1] = 0x2000 + i;
-		components_shared[24 + i].params[2] =
+		components_shared[30 + i].component_id = CONNECT_REQ;
+		components_shared[30 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[30 + i].params[0] =
+			(u32)(&components_shared[4].ret[0]);
+		components_shared[30 + i].params[1] = 0x2000 + i;
+		components_shared[30 + i].params[2] =
 			(u32)(&components_shared[3].ret[i]);
-		components_shared[24 + i].params[3] = 0;
+		components_shared[30 + i].params[3] = 0;
 	}
-
-	components_shared[28].component_id = START_OPERATOR_REQ;
-	components_shared[28].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_shared[28].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[28].params[1] = 1;
-
-	components_shared[29].component_id = STOP_OPERATOR_REQ;
-	components_shared[29].execute_phase = EXEC_PHASE_HW_FREE;
-	components_shared[29].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[29].params[1] = 1;
 
 	for (i = 0; i < 4; i++) {
-		components_shared[30 + i].component_id = DISCONNECT_REQ;
-		components_shared[30 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
-		components_shared[30 + i].params[0] = 1;
-		components_shared[30 + i].params[1] =
-			(u32)(&components_shared[24 + i].ret[0]);
+		components_shared[34 + i].component_id = CONNECT_REQ;
+		components_shared[34 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[34 + i].params[0] =
+			(u32)(&components_shared[5 + i].ret[0]);
+		components_shared[34 + i].params[1] = 0x2000;
+		components_shared[34 + i].params[2] =
+			(u32)(&components_shared[4].ret[0]);
+		components_shared[34 + i].params[3] = 0xA000 + i * 2;
 	}
 
-	components_shared[34].component_id = CLOSE_SINK_REQ;
-	components_shared[34].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[34].params[0] = 4;
-	components_shared[34].params[1] = (u32)(components_shared[3].ret);
+	for (i = 0; i < 4; i++) {
+		components_shared[38 + i].component_id = CONNECT_REQ;
+		components_shared[38 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[38 + i].params[0] =
+			(u32)(&components_shared[0].ret[0]);
+		components_shared[38 + i].params[1] = 0x2000 + i;
+		components_shared[38 + i].params[2] =
+			(u32)(&components_shared[5 + i].ret[0]);
+		components_shared[38 + i].params[3] = 0xA000;
+	}
 
-	components_shared[35].component_id = DESTROY_OPERATOR_REQ;
-	components_shared[35].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[35].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[35].params[1] = 1;
+	components_shared[42].component_id = START_OPERATOR_REQ;
+	components_shared[42].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components_shared[42].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[42].params[1] = 1;
 
-	shared_components_size = 36;
+	for (i = 0; i < 5; i++) {
+		components_shared[43 + i].component_id = START_OPERATOR_REQ;
+		components_shared[43 + i].execute_phase =
+			EXEC_PHASE_TRIGGER_START;
+		components_shared[43 + i].params[0] =
+			(u32)(&components_shared[4 + i].ret[0]);
+		components_shared[43 + i].params[1] = 1;
+	}
+
+	components_shared[48].component_id = STOP_OPERATOR_REQ;
+	components_shared[48].execute_phase = EXEC_PHASE_HW_FREE;
+	components_shared[48].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[48].params[1] = 1;
+
+	for (i = 0; i < 5; i++) {
+		components_shared[49 + i].component_id = STOP_OPERATOR_REQ;
+		components_shared[49 + i].execute_phase = EXEC_PHASE_HW_FREE;
+		components_shared[49 + i].params[0] =
+			(u32)(&components_shared[4 + i].ret[0]);
+		components_shared[49 + i].params[1] = 1;
+	}
+
+	for (i = 0; i < 12; i++) {
+		components_shared[54 + i].component_id = DISCONNECT_REQ;
+		components_shared[54 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
+		components_shared[54 + i].params[0] = 1;
+		components_shared[54 + i].params[1] =
+			(u32)(&components_shared[30 + i].ret[0]);
+	}
+
+	components_shared[66].component_id = CLOSE_SINK_REQ;
+	components_shared[66].execute_phase = EXEC_PHASE_HW_FREE_1;
+	components_shared[66].params[0] = 4;
+	components_shared[66].params[1] = (u32)(components_shared[3].ret);
+
+	components_shared[67].component_id = DESTROY_OPERATOR_REQ;
+	components_shared[67].execute_phase = EXEC_PHASE_HW_FREE_1;
+	components_shared[67].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[67].params[1] = 1;
+
+	for (i = 0; i < 5; i++) {
+		components_shared[68 + i].component_id = DESTROY_OPERATOR_REQ;
+		components_shared[68 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
+		components_shared[68 + i].params[0] =
+			(u32)(&components_shared[4 + i].ret[0]);
+		components_shared[68 + i].params[1] = 1;
+	}
+	shared_components_size = 73;
 }
 
 struct components_chain *create_components_chain(char *stream_name)
@@ -264,7 +338,7 @@ struct components_chain *get_components_chain(const char *stream_name)
 	return NULL;
 }
 
-static void hard_code_init_components_chain_notify_playback(
+static void hard_code_init_components_chain_navigation_playback(
 	struct components_chain *components_chain)
 {
 	struct component *components = components_chain->components;
@@ -292,12 +366,6 @@ static void hard_code_init_components_chain_notify_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	components[i].component_id = CREATE_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_BASIC_PASSTHOUGH;
-	components[i - 1].component_next = &components[i];
-	i++;
-
 	components[i].component_id = OPERATOR_MESSAGE_REQ;
 	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = (u32)(&components[1].ret[0]);
@@ -307,7 +375,7 @@ static void hard_code_init_components_chain_notify_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	/* i == 4 */
+	/* i == 3 */
 	for (k = 0; k < 4; k++) {
 		for (j = 0; j < 6; j++) {
 			components[i].component_id = ENDPOINT_CONFIGURE_REQ;
@@ -323,7 +391,7 @@ static void hard_code_init_components_chain_notify_playback(
 		}
 	}
 
-	/* i == 28 */
+	/* i == 27 */
 	for (k = 0; k < 4; k++) {
 		components[i].component_id = CONNECT_REQ;
 		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
@@ -339,17 +407,6 @@ static void hard_code_init_components_chain_notify_playback(
 		components[i].component_id = CONNECT_REQ;
 		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
 		components[i].params[0] = (u32)(&components[1].ret[0]);
-		components[i].params[1] = 0x2000 + k;
-		components[i].params[2] = (u32)(&components[2].ret[0]);
-		components[i].params[3] = 0xA000 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[0]);
 		components[i].params[1] = 0x2000 + k;
 		components[i].params[2] = (u32)(&components_shared[0].ret[0]);
 		components[i].params[3] = 0xA000 + 4 + k;
@@ -367,14 +424,12 @@ static void hard_code_init_components_chain_notify_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = START_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = 1;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
+	components[i].component_id = START_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
 
 	components[i].component_id = DATA_PRODUCED;
 	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
@@ -388,14 +443,12 @@ static void hard_code_init_components_chain_notify_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = STOP_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = 1;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
+	components[i].component_id = STOP_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
 
 	components[i].component_id = OPERATOR_MESSAGE_REQ;
 	components[i].execute_phase = EXEC_PHASE_HW_FREE;
@@ -407,11 +460,11 @@ static void hard_code_init_components_chain_notify_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	for (k = 0; k < 12; k++) {
+	for (k = 0; k < 8; k++) {
 		components[i].component_id = DISCONNECT_REQ;
 		components[i].execute_phase = EXEC_PHASE_HW_FREE;
 		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[28 + k].ret[0]);
+		components[i].params[1] = (u32)(&components[27 + k].ret[0]);
 		components[i - 1].component_next = &components[i];
 		i++;
 	}
@@ -423,14 +476,162 @@ static void hard_code_init_components_chain_notify_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = DESTROY_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = 1;
+	components[i].component_id = DESTROY_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i - 1].component_next = NULL;
+
+	components_chain->notify_ep_id = &components[0].ret[0];
+}
+
+static void hard_code_init_components_chain_alarm_playback(
+	struct components_chain *components_chain)
+{
+	struct component *components = components_chain->components;
+	int i, j, k;
+	u32 *value;
+	static u16 mixer_oper_conf_primary_stream = 0x3;
+	static u16 resampler_oper_conf_conversion_rate = 0x38;
+
+	i = 0;
+
+	components[i].component_id = GET_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_FILE;
+	components[i].params[1] = 0;
+	get_external_param_addr(components_chain, "sw_ep_channles", &value);
+	components[i].params[2] = (u32)value;
+	get_external_param_addr(components_chain, "sw_ep_handle_addr", &value);
+	components[i].params[3] = (u32)value;
+	components_chain->component_first = &components[i];
+	i++;
+
+	components[i].component_id = CREATE_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = OPERATOR_MESSAGE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = RESAMPLER_SET_CONVERSION_RATE;
+	components[i].params[2] = 1;
+	components[i].params[3] = (u32)(&resampler_oper_conf_conversion_rate);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* i == 3 */
+	for (k = 0; k < 4; k++) {
+		for (j = 0; j < 6; j++) {
+			components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+			components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+			components[i].params[0] =
+				(u32)(&components[0].ret[0]);
+			components[i].params[1] = (u32)(ep_configure_key[j]);
+			get_external_param_addr(components_chain,
+					sw_ep_configure_params_key[j], &value);
+			components[i].params[2] = (u32)value;
+			components[i - 1].component_next = &components[i];
+			i++;
+		}
+	}
+
+	/* i == 27 */
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = CONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[0].ret[k]);
+		components[i].params[1] = 0;
+		components[i].params[2] = (u32)(&components[1].ret[0]);
+		components[i].params[3] = 0xA000 + k;
 		components[i - 1].component_next = &components[i];
 		i++;
 	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = CONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[0]);
+		components[i].params[1] = 0x2000 + k;
+		components[i].params[2] = (u32)(&components_shared[0].ret[0]);
+		components[i].params[3] = 0xA000 + 8 + k;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	components[i].component_id = OPERATOR_MESSAGE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
+	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
+	components[i].params[2] = 1;
+	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
+	components[i].params[4] = SET_PRIMARY_STREAM;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = START_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = DATA_PRODUCED;
+	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = DATA_PRODUCED;
+	components[i].execute_phase = EXEC_PHASE_ACK;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = STOP_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = OPERATOR_MESSAGE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
+	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
+	components[i].params[2] = 1;
+	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
+	components[i].params[4] = CLEAR_PRIMARY_STREAM;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	for (k = 0; k < 8; k++) {
+		components[i].component_id = DISCONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_FREE;
+		components[i].params[0] = 1;
+		components[i].params[1] = (u32)(&components[27 + k].ret[0]);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	components[i].component_id = CLOSE_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = 4;
+	components[i].params[1] = (u32)(components[0].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = DESTROY_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
 
 	components[i - 1].component_next = NULL;
 
@@ -460,7 +661,7 @@ static void hard_code_init_components_chain_music_playback(
 
 	components[i].component_id = CREATE_OPERATOR_REQ;
 	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_BASIC_PASSTHOUGH;
+	components[i].params[0] = CAPABILITY_ID_PEQ;
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -774,6 +975,8 @@ int execute_component(struct component *component)
 			primary_stream = 2;
 		else if (test_bit(0, &active_stream))
 			primary_stream = 1;
+		else if (test_bit(2, &active_stream))
+			primary_stream = 3;
 		if (curr_primary_stream == primary_stream)
 			break;
 		curr_primary_stream = primary_stream;
@@ -971,9 +1174,13 @@ struct kcm_t *kcm_init(struct device *dev)
 	init_sw_external_param(components_chain);
 	hard_code_init_components_chain_music_playback(components_chain);
 
-	components_chain = create_components_chain("Notify Playback");
+	components_chain = create_components_chain("Navigation Playback");
 	init_sw_external_param(components_chain);
-	hard_code_init_components_chain_notify_playback(components_chain);
+	hard_code_init_components_chain_navigation_playback(components_chain);
+
+	components_chain = create_components_chain("Alarm Playback");
+	init_sw_external_param(components_chain);
+	hard_code_init_components_chain_alarm_playback(components_chain);
 
 	components_chain = create_components_chain("Analog Capture");
 	init_sw_external_param(components_chain);
