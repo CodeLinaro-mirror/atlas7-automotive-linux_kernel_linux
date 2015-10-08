@@ -1,6 +1,17 @@
 /*
-* Atlas7 NoC support
-*/
+ * Atlas7 NoC support
+ *
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #define pr_fmt(fmt) "NoC: " fmt
 
@@ -1436,13 +1447,9 @@ static void QosGenerator_Get(struct noc_qos_t *entry,
 	entry->saturation = readl_relaxed(&qos_reg->saturation);
 	entry->priority = readl_relaxed(&qos_reg->priority);
 	extcontrol = readl_relaxed(&qos_reg->extcontrol);
-	pr_info("get: %s qos values:  %d(reg=0x%x, freq=%dM), 0x%x, 0x%x, \
-		0x%x, 0x%x\n", entry->desc, entry->bw, bw, entry->clkfreqMhz,
-		entry->priority, entry->mode, entry->saturation, extcontrol);
 
 	if (!IS_ERR(entry->clk))
 		clk_disable_unprepare(entry->clk);
-
 }
 
 static void QosGenerator_Set(struct noc_qos_t *entry,
@@ -1481,11 +1488,6 @@ static void QosGenerator_Set(struct noc_qos_t *entry,
 	writel_relaxed(entry->saturation, &qos_reg->saturation);
 	writel_relaxed(entry->priority, &qos_reg->priority);
 	writel_relaxed(0, &qos_reg->extcontrol);
-	pr_info("set: %s qos values read:  0x%x, 0x%x, 0x%x, 0x%x\n",
-		entry->desc, readl_relaxed(&qos_reg->bw),
-		readl_relaxed(&qos_reg->priority),
-		readl_relaxed(&qos_reg->mode),
-		readl_relaxed(&qos_reg->saturation));
 	QosGenerator_Get(entry, nocm);
 
 	if (!IS_ERR(entry->clk))
@@ -2086,4 +2088,3 @@ static struct platform_driver sirfsoc_noc_driver = {
 
 
 module_platform_driver(sirfsoc_noc_driver);
-
