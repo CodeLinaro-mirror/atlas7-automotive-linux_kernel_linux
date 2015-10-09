@@ -143,6 +143,7 @@ found:
 	mutex_unlock(&udc_lock);
 
 	sysfs_notify(&udc->dev.kobj, NULL, "state");
+	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 }
 
 void usb_gadget_set_state(struct usb_gadget *gadget,
