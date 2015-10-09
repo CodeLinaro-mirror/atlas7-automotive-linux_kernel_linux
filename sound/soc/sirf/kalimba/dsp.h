@@ -69,6 +69,7 @@ void *register_kalimba_msg_action(u16 message,
 void unregister_kalimba_msg_action(void *action_id);
 
 void kalimba_do_actions(u16 message, u16 *data);
+void kalimba_set_channel_volume(int channel, int vol);
 
 #define ENDPOINT_TYPE_I2S			2
 #define ENDPOINT_TYPE_IACC			3

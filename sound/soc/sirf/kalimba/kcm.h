@@ -58,6 +58,7 @@ int set_external_param(struct components_chain *components_chain,
 	char *key, u32 value);
 struct components_chain *get_components_chain(const char *stream_name);
 u16 get_notify_ep_id(struct components_chain *components_chain);
+u16 get_volume_control_op_id(void);
 int execute_shared_components(u32 exec_phase);
 int execute_components_chain(struct components_chain *components_chain,
 	u32 exec_phase);

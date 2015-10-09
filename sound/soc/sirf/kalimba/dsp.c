@@ -27,9 +27,20 @@
 #include "license.h"
 #include "dsp.h"
 #include "ipc.h"
+#include "kcm.h"
 #include "regs.h"
 
 struct kalimba *kalimba;
+
+void kalimba_msg_send_lock(void)
+{
+	mutex_lock(&kalimba->msg_send_mutex);
+}
+
+void kalimba_msg_send_unlock(void)
+{
+	mutex_unlock(&kalimba->msg_send_mutex);
+}
 
 void kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp)
 {
@@ -102,6 +113,23 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 			*res_msg_data[i] = resp[5 + i];
 	}
 	return 0;
+}
+
+void kalimba_set_channel_volume(int channel, int vol)
+{
+	u16 channels_id[4] = {0x10, 0x11, 0x12, 0x13};
+	u32 volume_setting = (u32)(vol * 60);
+	u16 msg[4] = {1, channels_id[channel], (u16)(volume_setting >> 16),
+		(u16)(volume_setting & 0xffff)};
+	u16 volume_control_op_id;
+
+	kalimba_msg_send_lock();
+	volume_control_op_id = get_volume_control_op_id();
+	if (volume_control_op_id)
+		kalimba_operator_message(volume_control_op_id,
+			OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL, 4, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
 }
 
 int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
@@ -499,16 +527,6 @@ void kalimba_do_actions(u16 message, u16 *data)
 		if (action->message == message)
 			action->handler(message, action->priv_data, data);
 	}
-}
-
-void kalimba_msg_send_lock(void)
-{
-	mutex_lock(&kalimba->msg_send_mutex);
-}
-
-void kalimba_msg_send_unlock(void)
-{
-	mutex_unlock(&kalimba->msg_send_mutex);
 }
 
 static ssize_t firmware_version_show(struct device *dev,

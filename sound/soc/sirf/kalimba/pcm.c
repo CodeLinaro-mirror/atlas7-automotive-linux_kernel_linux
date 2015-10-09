@@ -22,6 +22,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <sound/tlv.h>
 
 #include "dsp.h"
 #include "iacc.h"
@@ -48,6 +49,7 @@ struct kas_priv_data {
 	struct mutex playback_kas_shared_exec_stream_mutex;
 	unsigned long playback_kas_shared_exec_stream;
 	unsigned long playback_running_stream;
+	unsigned long pre_channel_volume[4];
 };
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
@@ -65,6 +67,49 @@ static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.periods_min		= 2,
 	.periods_max		= 128,
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
+};
+
+#define MIN_GAIN_DB		-12000
+
+static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned long cache_vol = pdata->pre_channel_volume[mc->reg];
+
+	ucontrol->value.integer.value[0] = cache_vol;
+	return 0;
+}
+
+static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+
+	pdata->pre_channel_volume[mc->reg] = ucontrol->value.integer.value[0];
+	kalimba_set_channel_volume(mc->reg, MIN_GAIN_DB / 100 +
+		pdata->pre_channel_volume[mc->reg]);
+	return 0;
+}
+
+/* TLV used by volume control volumes */
+static const DECLARE_TLV_DB_SCALE(kas_vol_tlv, MIN_GAIN_DB, 100, 0);
+
+static const struct snd_kcontrol_new kas_channels_volume_controls[] = {
+	SOC_SINGLE_EXT_TLV("Front Left Playback Volume", 0, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Front Right Playback Volume", 1, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Rear Left Playback Volume", 2, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Rear Right Playback Volume", 3, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv)
 };
 
 static int kas_pcm_open(struct snd_pcm_substream *substream)
@@ -109,6 +154,7 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dmab;
 	int ret;
 	bool exec_shared = false;
+	int i;
 
 	pcm_data->pos = 0;
 	pcm_data->last_appl_ptr = 0;
@@ -163,6 +209,16 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		ret = execute_shared_components(EXEC_PHASE_HW_PARAMS);
 		if (ret < 0)
 			goto failed;
+		/*
+		 * Before the volume control operator is established,
+		 * the volume value is updated into the cache only.
+		 * After the volume control operator is established,
+		 * setup the volume value of each channel into the
+		 * volume control operator.
+		 */
+		for (i = 0; i < 4; i++)
+			kalimba_set_channel_volume(i, MIN_GAIN_DB / 100 +
+				pdata->pre_channel_volume[i]);
 	}
 
 	ret = execute_components_chain(pcm_data->components_chain,
@@ -525,6 +581,8 @@ static const struct snd_soc_dapm_route graph[] = {
 
 static const struct snd_soc_component_driver kas_dai_component = {
 	.name = "kas-dai",
+	.controls = kas_channels_volume_controls,
+	.num_controls = ARRAY_SIZE(kas_channels_volume_controls),
 	.dapm_widgets = widgets,
 	.num_dapm_widgets = ARRAY_SIZE(widgets),
 	.dapm_routes = graph,
