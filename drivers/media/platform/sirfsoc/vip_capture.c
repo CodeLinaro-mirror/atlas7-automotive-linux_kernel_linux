@@ -2177,13 +2177,6 @@ static int vip_subdevs_register(struct vip_dev *vip)
 
 		v4l2_of_parse_endpoint(r_ep, endpoint);
 
-		if (endpoint->bus_type == V4L2_MBUS_BT656)
-			dev_info(vip->dev, "%s: BT656 bus type\n", __func__);
-
-		if (endpoint->bus_type == V4L2_MBUS_PARALLEL)
-			dev_info(vip->dev, "%s: BT601 bus type\n", __func__);
-
-
 		ret = vip_get_data_shift(vip, r_ep);
 		if (ret)
 			dev_info(vip->dev, "%s: can't get data shift\n",
@@ -2245,8 +2238,6 @@ static int vip_subdevs_register(struct vip_dev *vip)
 
 			if (!client->dev.driver ||
 				!try_module_get(client->dev.driver->owner)) {
-				dev_err(vip->dev, "%s: %s I2C driver not found\n",
-					__func__, client->name);
 				device_unlock(&client->dev);
 				of_node_put(remote);
 				ret = -EPROBE_DEFER;
@@ -2275,11 +2266,9 @@ static int vip_subdevs_register(struct vip_dev *vip)
 		vip->num_subdev++;
 	}
 
-	if (vip->num_subdev == 0) {
-		dev_err(vip->dev, "%s: no one subdev registered: %d\n",
-				__func__, ret);
+	if (vip->num_subdev == 0)
 		return ret;
-	}
+
 
 	return (vip->num_subdev == 0) ? ret : 0;
 }
@@ -2620,11 +2609,8 @@ static int vip_probe(struct platform_device *pdev)
 		goto exit_uninit_dma;
 
 	ret = vip_subdevs_register(vip);
-	if (ret < 0) {
-		dev_err(dev, "%s: vip_subdev_register failed: %d\n",
-				__func__, ret);
+	if (ret < 0)
 		goto exit_v4l2_unregister;
-	}
 
 	ret = vip_video_devs_create(vip);
 	if (ret) {
