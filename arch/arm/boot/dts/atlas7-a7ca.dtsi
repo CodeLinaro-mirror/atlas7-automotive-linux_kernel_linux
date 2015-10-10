@@ -55,7 +55,7 @@
 			};
 			a7ca_bt {
 				compatible = "sirf,a7ca_bt";
-				clocks = <&car 129>, <&car 137>, <&car 133>;
+				clocks = <&car 135>, <&car 134>, <&car 139>;
 				clock-names="a7ca_btss","a7ca_btslow",
 				"a7ca_io";
 			};
