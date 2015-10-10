@@ -5,12 +5,20 @@ Required properties:
 - compatible : Should contain entries for this and backward compatible
   versions:
   - "dx,cc44p" for Discretix Public Crypto Public.
+  - "dx,cc44s" for Discretix Public Crypto Secure.
 - reg : Offset and length of the register set for the module
 - interrupts : the interrupt-specifier for the module.
+- clock : necessary clock for specficied device
 
 Example:
-	/* dx-pub */
-	dxpub@53500000 {
+	/* Discretix secure */
+	dssec@53400000 {
+		compatible = 'dx,cc44s';
+		reg = <0x53400000 0xa0>;
+		clock = <&clk 18>;
+	};
+	/* Discretix Public */
+	dspub@53500000 {
 		compatible = "dx,cc44p";
 		reg = <0x53500000 0xa0>;
 		interrupts = <102>;

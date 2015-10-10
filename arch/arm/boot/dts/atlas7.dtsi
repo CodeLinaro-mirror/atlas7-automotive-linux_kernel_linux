@@ -1303,8 +1303,9 @@
 				<0x18060000 0x18060000 0x1000>,
 				<0x180b0000 0x180b0000 0x4000>,
 				<0x18100000 0x18100000 0x3000>,
-				<0x18250000 0x18250000 0x10000>,
-				<0x18200000 0x18200000 0x1000>;
+				<0x18200000 0x18200000 0x1000>,
+				<0x18240000 0x18240000 0x10000>,
+				<0x18250000 0x18250000 0x10000>;
 
 			dmac0: dma-controller@18000000 {
 				cell-index = <0>;
@@ -1401,13 +1402,6 @@
 				phy-mode = "rgmii";
 				status = "disabled";
 			};
-			dspub@18250000 {
-				compatible = "dx,cc44p";
-				reg = <0x18250000 0x10000>;
-				interrupts = <0 27 0>;
-				clocks = <&car 99>;
-			};
-
 			spi1: spi@18200000 {
 				compatible = "sirf,prima2-spi";
 				reg = <0x18200000 0x1000>;
@@ -1418,6 +1412,18 @@
 				dmas = <&dmac0 12>, <&dmac0 13>;
 				dma-names = "rx", "tx";
 				status = "disabled";
+			};
+			dssec@18240000 {
+				compatible = "dx,cc44s";
+				reg = <0x18240000 0x10000>;
+				interrupts = <0 26 0>;
+				clocks = <&car 98>;
+			};
+			dspub@18250000 {
+				compatible = "dx,cc44p";
+				reg = <0x18250000 0x10000>;
+				interrupts = <0 27 0>;
+				clocks = <&car 99>;
 			};
 		};
 

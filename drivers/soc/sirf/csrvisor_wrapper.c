@@ -25,6 +25,7 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/of.h>
+#include <linux/clk.h>
 #include <linux/hw_random.h>
 #include <asm/cacheflush.h>
 
@@ -64,6 +65,7 @@ struct csrvisor_wrapper {
 	atomic_t count;
 	struct cmd_param *xfer_param;
 	struct miscdevice wrapper_dev;
+	struct clk *sec_clk;
 };
 
 static inline void __csrvisor_fastcall(void *ptr)
@@ -332,6 +334,7 @@ static struct hwrng csrvisor_hwrng = {
 static __init int csrvisor_wrapper_init(void)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	struct device_node *dn;
 	int ret;
 
 	if (!of_machine_is_compatible("sirf,atlas7"))
@@ -344,11 +347,26 @@ static __init int csrvisor_wrapper_init(void)
 		return ret;
 	}
 
+	/* open discretix secuity clock since csrvisor uses it */
+	dn = of_find_compatible_node(NULL, NULL, "dx,cc44s");
+	cw_data->sec_clk = of_clk_get_by_name(dn, NULL);
+	if (IS_ERR(cw_data->sec_clk)) {
+		pr_err("can not find ccsec clock\n");
+		ret = PTR_ERR(cw_data->sec_clk);
+		goto __err_exit_dev;
+	}
+
+	ret = clk_prepare_enable(cw_data->sec_clk);
+	if (ret) {
+		pr_err("enable ccsec clock failed\n");
+		goto __err_exit_put;
+	}
+
 	ret = dma_set_coherent_mask(cw_data->wrapper_dev.this_device,
 				DMA_BIT_MASK(32));
 	if (ret) {
 		pr_err("failed to set dma coherent mask:%d\n", ret);
-		goto __fail;
+		goto __err_exit_disable;
 	}
 
 #ifdef CONFIG_SMP
@@ -365,7 +383,7 @@ static __init int csrvisor_wrapper_init(void)
 	if (IS_ERR(cw_data->wrapper_thread)) {
 		pr_err("failed to create csrvisor_wrapper_thread\n");
 		ret = PTR_ERR(cw_data->wrapper_thread);
-		goto __fail;
+		goto __err_exit_disable;
 	}
 
 	/* bind to cpu 0 */
@@ -379,10 +397,13 @@ static __init int csrvisor_wrapper_init(void)
 	/* register hardware random generator */
 	hwrng_register(&csrvisor_hwrng);
 #endif
-
 	return 0;
 
-__fail:
+__err_exit_disable:
+	clk_disable_unprepare(cw_data->sec_clk);
+__err_exit_put:
+	clk_put(cw_data->sec_clk);
+__err_exit_dev:
 	misc_deregister(&cw_data->wrapper_dev);
 	return ret;
 }
@@ -394,6 +415,8 @@ static void __exit csrvisor_wrapper_exit(void)
 #ifdef CONFIG_SMP
 	kthread_stop(cw_data->wrapper_thread);
 #endif
+	clk_disable_unprepare(cw_data->sec_clk);
+	clk_put(cw_data->sec_clk);
 	misc_deregister(&cw_data->wrapper_dev);
 }
 module_exit(csrvisor_wrapper_exit);
