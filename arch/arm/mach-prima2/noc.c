@@ -1,6 +1,17 @@
 /*
-* Atlas7 NoC support
-*/
+ * Atlas7 NoC support
+ *
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #define pr_fmt(fmt) "NoC: " fmt
 
@@ -1979,9 +1990,10 @@ static int noc_macro_init(struct platform_device *pdev)
 
 	nocm = platform_get_drvdata(pdev);
 	/* ignore qos on pxp for lack some modules*/
+#if 0
 	if (!of_machine_is_compatible("sirf,atlas7-pxp"))
 		QosGenerator_init(nocm);
-
+#endif
 	if (!(nocm->log_enable || nocm->qos_probe_enable))
 		return 0;
 
@@ -2086,4 +2098,3 @@ static struct platform_driver sirfsoc_noc_driver = {
 
 
 module_platform_driver(sirfsoc_noc_driver);
-
