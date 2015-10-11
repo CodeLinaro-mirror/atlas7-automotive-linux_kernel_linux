@@ -189,4 +189,21 @@ void kalimba_set_channel_volume(int channel, int vol);
 #define ENDPOINT_CONF_CLOCK_MASTER		0x0A04
 #define ENDPOINT_CONF_PERIOD_SIZE		0x0A05
 
+#define OPMSG_COMMON_GET_CAPABILITY_VERSION     0x1000
+#define OPMSG_COMMON_ENABLE_FADE_OUT            0x2000
+#define OPMSG_COMMON_DISABLE_FADE_OUT           0x2001
+#define OPMSG_COMMON_SET_CONTROL                0x2002
+#define OPMSG_COMMON_GET_PARAMS                 0x2003
+#define OPMSG_COMMON_GET_DEFAULTS               0x2004
+#define OPMSG_COMMON_SET_PARAMS                 0x2005
+#define OPMSG_COMMON_GET_STATUS                 0x2006
+#define OPMSG_COMMON_SET_UCID                   0x2007
+#define OPMSG_COMMON_GET_LOGICAL_PS_ID          0x2008
+#define OPMSG_COMMON_SET_BUFFER_SIZE            0x200C
+#define OPMSG_COMMON_SET_TERMINAL_BUFFER_SIZE   0x200D
+#define OPMSG_COMMON_SET_SAMPLE_RATE            0x200E
+#define OPMSG_COMMON_SET_DATA_STREAM_BASED      0x200F
+
+#define OPMSG_PEQ_SET_COEFFS                    0x0001
+
 #endif /* _KAS_DSP_H */

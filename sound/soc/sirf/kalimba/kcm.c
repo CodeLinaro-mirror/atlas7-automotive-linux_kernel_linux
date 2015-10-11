@@ -37,6 +37,36 @@ static unsigned long active_stream;
 static int curr_primary_stream;
 static u16 *volume_control_op_id;
 
+/* Index array for control components */
+static int control_component_index[CTYPE_MAX];
+
+/* PEQ default parameter-set array: for init and reset */
+static const u16 peq_oper_param_default[PEQ_PARAM_SET_LEN] = {
+	/* blocks, offset, number */
+	0x0001, 0x0000, 0x002C,
+	/* PEQ_CONFIG, CORE_TYPE, NUM_BANDS, MASTER_GAIN */
+	0x0000, 0x0000, 0x0000, 0x0000, 0x0a00, 0x0000,
+	/* bands 1 ~ 10: FILTER, FC, GAIN, Q */
+	/*  FILTER      FC           GAIN       Q     */
+	/*|--------||--------|    |--------||--------|*/
+	0x0000, 0x0D00, 0x0200, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x0400, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x07D0, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x0FA0, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x1F40, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x3E80, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x7D00, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0xFA00, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D01, 0xF400, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D03, 0xE800, 0x0000, 0x0000, 0xB505,
+};
+
+/* PEQ default sample rate: 48KHz, for init */
+static u16 peq_oper_rate = PEQ_SAMPLE_RATE;
+
+/* PEQ cached parameter-set array: for init and runtime modify */
+static u16 peq_oper_param[PEQ_NUM_MAX][PEQ_PARAM_SET_LEN];
+
 /* Hard code for init the components chain */
 static u32 ep_configure_key[] = {
 	ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
@@ -253,7 +283,39 @@ static void init_shared_components(void)
 			(u32)(&components_shared[4 + i].ret[0]);
 		components_shared[67 + i].params[1] = 1;
 	}
-	shared_components_size = 72;
+
+	for (i = 0; i < 4; i++) {
+		/* init PEQ sample rate */
+		components_shared[72 + i].component_id = OPERATOR_MESSAGE_REQ;
+		components_shared[72 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[72 + i].params[0] =
+			(u32)(&components_shared[5 + i].ret[0]);
+		components_shared[72 + i].params[1] =
+			OPMSG_COMMON_SET_SAMPLE_RATE;
+		components_shared[72 + i].params[2] = 1;
+		components_shared[72 + i].params[3] =
+			(u32)(&peq_oper_rate);
+
+		/* init PEQ parameter set */
+		components_shared[76 + i].component_id = OPERATOR_MESSAGE_REQ;
+		components_shared[76 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[76 + i].params[0] =
+			(u32)(&components_shared[5 + i].ret[0]);
+		components_shared[76 + i].params[1] = OPMSG_COMMON_SET_PARAMS;
+		components_shared[76 + i].params[2] = PEQ_PARAM_SET_LEN;
+		components_shared[76 + i].params[3] =
+			(u32)(peq_oper_param[1 + i]);
+
+		/* init PEQ control component */
+		components_shared[80 + i].component_id = OPERATOR_MESSAGE_REQ;
+		components_shared[80 + i].execute_phase = EXEC_PHASE_CONTROL;
+		components_shared[80 + i].params[0] =
+			(u32)(&components_shared[5 + i].ret[0]);
+		control_component_index[1 + i] = 80 + i;
+		memcpy(peq_oper_param[1 + i], peq_oper_param_default,
+			sizeof(peq_oper_param_default));
+	}
+	shared_components_size = 84;
 }
 
 struct components_chain *create_components_chain(char *stream_name)
@@ -768,6 +830,36 @@ static void hard_code_init_components_chain_music_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
+	/* init PEQ sample rate */
+	components[i].component_id = OPERATOR_MESSAGE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = OPMSG_COMMON_SET_SAMPLE_RATE;
+	components[i].params[2] = 1;
+	components[i].params[3] = (u32)(&peq_oper_rate);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* init PEQ parameter set */
+	components[i].component_id = OPERATOR_MESSAGE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = OPMSG_COMMON_SET_PARAMS;
+	components[i].params[2] = PEQ_PARAM_SET_LEN;
+	components[i].params[3] = (u32)(peq_oper_param[0]);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* init PEQ control component */
+	components[i].component_id = OPERATOR_MESSAGE_REQ;
+	components[i].execute_phase = EXEC_PHASE_CONTROL;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	control_component_index[CTYPE_USER_PEQ] = i;
+	memcpy(peq_oper_param[0], peq_oper_param_default,
+		sizeof(peq_oper_param_default));
+	components[i - 1].component_next = &components[i];
+	i++;
+
 	components[i - 1].component_next = NULL;
 
 	components_chain->notify_ep_id = &components[0].ret[0];
@@ -1057,6 +1149,111 @@ int execute_component(struct component *component)
 	kalimba_msg_send_unlock();
 
 	return ret;
+}
+
+struct component *get_control_component(int ctype)
+{
+	struct component *component = NULL;
+	int index;
+
+	switch (ctype) {
+	case CTYPE_USER_PEQ:
+		index = control_component_index[ctype];
+		component =
+		    &(get_components_chain("Music Playback")->
+		      components[index]);
+		break;
+	case CTYPE_SPK1_PEQ:
+	case CTYPE_SPK2_PEQ:
+	case CTYPE_SPK3_PEQ:
+	case CTYPE_SPK4_PEQ:
+	case CTYPE_DELAY:
+		index = control_component_index[ctype];
+		component = &components_shared[index];
+		break;
+	default:
+		component = NULL;
+		break;
+	}
+	return component;
+}
+
+int get_peq_param(u32 peq, u32 band, u32 ptype)
+{
+	int ret = 0;
+	int offset = 0;
+
+	if (peq >= PEQ_NUM_MAX || band < PEQ_BAND_MIN || band > PEQ_BAND_MAX
+	    || ptype > PEQ_PARAM_MAX)
+		return -EINVAL;
+	offset = PEQ_PARAM_BLOCKS_LEN + PEQ_PARAM_MAIN_LEN_16B
+	    + PEQ_PARAM_BAND_LEN_16B * (band - 1);
+	switch (ptype) {
+	/* Get parameter from cached parameter-set array: 16bit -> 24bit */
+	/*     FILTER      FC           GAIN       Q                     */
+	/*   |--------||--------|    |--------||--------| ==> 0x00AABBCC */
+	/* 0x0000, 0x00AA, 0xBBCC, 0x0000, 0x0000, 0x0000                */
+	case PEQ_PARAM_BAND_FILTER:
+		ret = peq_oper_param[peq][offset] << 8
+		    | (peq_oper_param[peq][offset + 1] & 0xFF00) >> 8;
+		break;
+	case PEQ_PARAM_BAND_FC:
+		ret = (peq_oper_param[peq][offset + 1] & 0x00FF) << 16
+		    | peq_oper_param[peq][offset + 2];
+		break;
+	case PEQ_PARAM_BAND_GAIN:
+		ret = peq_oper_param[peq][offset + 3] << 8
+		    | (peq_oper_param[peq][offset + 4] & 0xFF00) >> 8;
+		break;
+	case PEQ_PARAM_BAND_Q:
+		ret = (peq_oper_param[peq][offset + 4] & 0x00FF) << 16
+		    | peq_oper_param[peq][offset + 5];
+		break;
+	}
+	return ret;
+}
+
+int set_peq_param(u32 peq, u32 band, u32 ptype, int value)
+{
+	int offset = 0;
+
+	if (peq >= PEQ_NUM_MAX || band < PEQ_BAND_MIN || band > PEQ_BAND_MAX
+	    || ptype > PEQ_PARAM_MAX)
+		return -EINVAL;
+	offset = PEQ_PARAM_BLOCKS_LEN + PEQ_PARAM_MAIN_LEN_16B
+	    + PEQ_PARAM_BAND_LEN_16B * (band - 1);
+	switch (ptype) {
+	/* Set parameter to cached parameter-set array: 24bit -> 16bit   */
+	/*                    FILTER      FC           GAIN       Q      */
+	/* 0x00AABBCC   ==> |--------||--------|    |--------||--------| */
+	/*                0x0000, 0x00AA, 0xBBCC, 0x0000, 0x0000, 0x0000 */
+	case PEQ_PARAM_BAND_FILTER:
+		peq_oper_param[peq][offset] = (value & 0x00FFFF00) >> 8;
+		peq_oper_param[peq][offset + 1] &= 0x00FF;
+		peq_oper_param[peq][offset + 1] |=
+		    (value & 0x000000FF) << 8;
+		break;
+	case PEQ_PARAM_BAND_FC:
+		peq_oper_param[peq][offset + 1] &= 0xFF00;
+		peq_oper_param[peq][offset + 1] |=
+		    (value & 0x00FF0000) >> 16;
+		peq_oper_param[peq][offset + 2] = value & 0x0000FFFF;
+		break;
+	case PEQ_PARAM_BAND_GAIN:
+		peq_oper_param[peq][offset + 3] =
+		    (value & 0x00FFFF00) >> 8;
+		peq_oper_param[peq][offset + 4] &= 0x00FF;
+		peq_oper_param[peq][offset + 4] |=
+		    (value & 0x000000FF) << 8;
+		break;
+	case PEQ_PARAM_BAND_Q:
+		peq_oper_param[peq][offset + 4] &= 0xFF00;
+		peq_oper_param[peq][offset + 4] |=
+		    (value & 0x00FF0000) >> 16;
+		peq_oper_param[peq][offset + 5] = value & 0x0000FFFF;
+		break;
+	}
+	return 0;
 }
 
 struct component *get_data_produced_ack_component(
