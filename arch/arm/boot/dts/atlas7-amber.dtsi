@@ -42,7 +42,6 @@
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&sd3_pmx>;
-				clocks = <&car 70>, <&car 75>;
 				broken-cd;
 			};
 		};
