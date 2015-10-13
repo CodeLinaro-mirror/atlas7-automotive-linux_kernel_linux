@@ -853,8 +853,9 @@ static int noc_abort_handler(unsigned long addr, unsigned int fsr,
 	int ret;
 
 	ret = noc_dump_errlog(&noc_macro_list[CPUM_IDX]);
-	if (0 != ret)
-		return 1;
+	/* temporarily comment this to work around unhandled abort*/
+	/*if (0 != ret)
+		return 1;*/
 	/*
 	* If it was not an imprecise abort (Bit10==0),
 	* then we need to correct the
