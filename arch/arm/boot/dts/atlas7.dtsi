@@ -1113,6 +1113,13 @@
 				};
 			};
 
+			nd_df_nocs_pmx: nd_df_nocs@0 {
+				nd_df_nocs {
+					groups = "nd_df_nocs_grp";
+					function = "nd_df_nocs";
+				};
+			};
+
 			ps_pmx: ps@0 {
 				ps {
 					groups = "ps_grp";
