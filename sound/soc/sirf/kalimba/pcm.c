@@ -57,7 +57,8 @@ struct kas_priv_data {
 	struct mutex voicecall_kas_shared_exec_stream_mutex;
 	unsigned long voicecall_kas_shared_exec_stream;
 	unsigned long cvc_stream_running;
-	unsigned long pre_channel_volume[4];
+	int pre_channel_volume[4];
+	int stream_volume[MIXER_SUPPORT_STREAMS];
 };
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
@@ -77,7 +78,9 @@ static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 };
 
-#define MIN_GAIN_DB		-12000
+#define MIN_CHANNEL_GAIN_DB		-120
+#define MIN_STREAM_GAIN_DB		-96
+#define MIXER_GAIN_REG			4
 
 static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -86,9 +89,13 @@ static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
 	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	unsigned long cache_vol = pdata->pre_channel_volume[mc->reg];
 
-	ucontrol->value.integer.value[0] = cache_vol;
+	if (mc->reg < MIXER_GAIN_REG)
+		ucontrol->value.integer.value[0] =
+			pdata->pre_channel_volume[mc->reg];
+	else
+		ucontrol->value.integer.value[0] =
+			pdata->stream_volume[mc->reg - MIXER_GAIN_REG];
 	return 0;
 }
 
@@ -100,24 +107,50 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pdata->pre_channel_volume[mc->reg] = ucontrol->value.integer.value[0];
-	kalimba_set_channel_volume(mc->reg, MIN_GAIN_DB / 100 +
-		pdata->pre_channel_volume[mc->reg]);
+	if (mc->reg < MIXER_GAIN_REG) {
+		pdata->pre_channel_volume[mc->reg] =
+			ucontrol->value.integer.value[0];
+		kalimba_set_channel_volume(mc->reg, MIN_CHANNEL_GAIN_DB +
+			pdata->pre_channel_volume[mc->reg]);
+	} else {
+		pdata->stream_volume[mc->reg - MIXER_GAIN_REG] =
+			ucontrol->value.integer.value[0];
+		kalimba_set_stream_volume(mc->reg - MIXER_GAIN_REG,
+			MIN_STREAM_GAIN_DB +
+			pdata->stream_volume[mc->reg - MIXER_GAIN_REG]);
+	}
 	return 0;
 }
 
 /* TLV used by volume control volumes */
-static const DECLARE_TLV_DB_SCALE(kas_vol_tlv, MIN_GAIN_DB, 100, 0);
+static const DECLARE_TLV_DB_SCALE(kas_channel_vol_tlv,
+		MIN_CHANNEL_GAIN_DB * 100, 100, 0);
+/* TLV used by stream volumes */
+static const DECLARE_TLV_DB_SCALE(kas_stream_vol_tlv,
+		MIN_STREAM_GAIN_DB * 100, 100, 0);
 
 static const struct snd_kcontrol_new kas_channels_volume_controls[] = {
 	SOC_SINGLE_EXT_TLV("Front Left Playback Volume", 0, 0, 129, 0,
-		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_channel_vol_tlv),
 	SOC_SINGLE_EXT_TLV("Front Right Playback Volume", 1, 0, 129, 0,
-		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_channel_vol_tlv),
 	SOC_SINGLE_EXT_TLV("Rear Left Playback Volume", 2, 0, 129, 0,
-		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_channel_vol_tlv),
 	SOC_SINGLE_EXT_TLV("Rear Right Playback Volume", 3, 0, 129, 0,
-		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv)
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_channel_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Music Stream Playback Volume", 4, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Navigation Stream Playback Volume", 5, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Alarm Stream Playback Volume", 6, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
 };
 
 static int kas_pcm_open(struct snd_pcm_substream *substream)
@@ -207,15 +240,18 @@ static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
 		if (ret < 0)
 			return ret;
 		/*
-		 * Before the volume control operator is established,
-		 * the volume value is updated into the cache only.
-		 * After the volume control operator is established,
-		 * setup the volume value of each channel into the
-		 * volume control operator.
+		 * Before the volume control and mixer operators are
+		 * established,the volume value is updated into the cache only.
+		 * After the volume control and mixer operators is established,
+		 * setup the volume value of each channel/stream into the
+		 * volume control and mixer operators.
 		 */
 		for (i = 0; i < 4; i++)
-			kalimba_set_channel_volume(i, MIN_GAIN_DB / 100 +
+			kalimba_set_channel_volume(i, MIN_CHANNEL_GAIN_DB +
 				pdata->pre_channel_volume[i]);
+		for (i = 0; i < MIXER_SUPPORT_STREAMS; i++)
+			kalimba_set_stream_volume(i,  MIN_STREAM_GAIN_DB +
+				pdata->stream_volume[i]);
 	}
 
 	ret = execute_components_chain(pcm_data->components_chain,

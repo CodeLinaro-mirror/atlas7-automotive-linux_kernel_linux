@@ -132,6 +132,26 @@ void kalimba_set_channel_volume(int channel, int vol)
 	kalimba_msg_send_unlock();
 }
 
+void kalimba_set_stream_volume(int stream, int vol)
+{
+	int i;
+	u16 mixer_op_id;
+	static u16 streams_volume[MIXER_SUPPORT_STREAMS];
+	u16 msg[MIXER_SUPPORT_STREAMS];
+
+	streams_volume[stream] = (u16)(vol * 60);
+
+	for (i = 0; i < MIXER_SUPPORT_STREAMS; i++)
+		msg[i] = streams_volume[i];
+
+	kalimba_msg_send_lock();
+	mixer_op_id = get_mixer_op_id();
+	if (mixer_op_id)
+		kalimba_operator_message(mixer_op_id, OPERATOR_MSG_SET_GAINS,
+			MIXER_SUPPORT_STREAMS, msg, NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
 int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 {
 	int msg_size = 2 + operator_count;

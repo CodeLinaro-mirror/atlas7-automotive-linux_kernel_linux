@@ -97,6 +97,7 @@ u16 get_notify_ep_id(struct components_chain *components_chain);
 u16 get_volume_control_op_id(void);
 int execute_global_shared_components(u32 exec_phase);
 int execute_cvc_shared_components(u32 exec_phase);
+u16 get_mixer_op_id(void);
 int execute_components_chain(struct components_chain *components_chain,
 	u32 exec_phase);
 struct component *get_data_produced_ack_component(

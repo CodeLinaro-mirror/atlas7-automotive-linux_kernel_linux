@@ -42,6 +42,7 @@ static int cvc_shared_components_size;
 static unsigned long active_stream;
 static int curr_primary_stream;
 static u16 *volume_control_op_id;
+static u16 *mixer_op_id;
 
 /* Index array for control components */
 static int control_component_index[CTYPE_MAX];
@@ -98,11 +99,17 @@ static void init_shared_components(void)
 {
 	int i;
 	static u16 mixer_oper_conf_channels[3] = {0x4, 0x4, 0x4};
-	static u16 mixer_oper_conf_gains[6] = {0x20, 0, 0x20, 0, 0x20, 0};
+	/*
+	 * Mixer need set the sample rate for avoid noise.
+	 * The value is "sample rate / 25".
+	 */
+	static u16 mixer_sample_rate = 48000 / 25;
 
 	components_shared[0].component_id = CREATE_OPERATOR_REQ;
 	components_shared[0].execute_phase = EXEC_PHASE_HW_PARAMS;
 	components_shared[0].params[0] = CAPABILITY_ID_MIXER;
+
+	mixer_op_id = &(components_shared[0].ret[0]);
 
 	components_shared[1].component_id = OPERATOR_MESSAGE_REQ;
 	components_shared[1].execute_phase = EXEC_PHASE_HW_PARAMS;
@@ -114,9 +121,9 @@ static void init_shared_components(void)
 	components_shared[2].component_id = OPERATOR_MESSAGE_REQ;
 	components_shared[2].execute_phase = EXEC_PHASE_HW_PARAMS;
 	components_shared[2].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[2].params[1] = OPERATOR_MSG_SET_GAINS;
-	components_shared[2].params[2] = 6;
-	components_shared[2].params[3] = (u32)(mixer_oper_conf_gains);
+	components_shared[2].params[1] = OPMSG_COMMON_SET_SAMPLE_RATE;
+	components_shared[2].params[2] = 1;
+	components_shared[2].params[3] = (u32)(&mixer_sample_rate);
 
 	components_shared[3].component_id = GET_SINK_REQ;
 	components_shared[3].execute_phase = EXEC_PHASE_HW_PARAMS;
@@ -1726,6 +1733,11 @@ u16 get_notify_ep_id(struct components_chain *components_chain)
 u16 get_volume_control_op_id(void)
 {
 	return *volume_control_op_id;
+}
+
+u16 get_mixer_op_id(void)
+{
+	return *mixer_op_id;
 }
 
 int execute_component(struct component *component)
