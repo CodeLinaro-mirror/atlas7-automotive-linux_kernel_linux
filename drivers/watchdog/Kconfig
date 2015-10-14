@@ -508,6 +508,8 @@ config MESON_WATCHDOG
 config ATLAS7_WATCHDOG
 	tristate "CSRatlas7 watchdog"
 	depends on ARCH_ATLAS7
+	select WATCHDOG_CORE
+	default y
 	help
 	  Say Y here to include Watchdog timer support for the watchdog
 	  existing on the CSRatlas7 series platforms.
