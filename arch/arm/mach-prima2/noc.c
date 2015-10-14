@@ -803,6 +803,8 @@ static int noc_has_err(void __iomem *noc_errlog_mbase)
  * CAUTION: gpum, audiom don't have ERRORLOGGER_0_ERRLOG5 register!!!
  * when their error log is enabled, this function should be modified!!!
  */
+#define NOC_INITIATOR_TYPE	BIT(0)
+#define NOC_INITIATOR_TYPE_CPU	0
 static int noc_dump_errlog(struct noc_macro *nocm)
 {
 	u32 errCode0, errCode1, errCode3, errCode5, vld;
@@ -827,17 +829,15 @@ static int noc_dump_errlog(struct noc_macro *nocm)
 	pr_info("err:\t%s\n", noc_err_list[(errCode0>>8) & 0x7].desc);
 
 	/*initiator id*/
-	if (nocm->idx == CPUM_IDX)
-		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>3) & 0x3].desc);
-	else	if (0 == (errCode5 & 0x1))
-		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>2) & 0x3].desc);
+	if (NOC_INITIATOR_TYPE_CPU == (errCode5 & NOC_INITIATOR_TYPE))
+		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>10) & 0x3].desc);
 	else
-		pr_info("ID:\%s\n", noc_initator_id_list[(errCode5>>7 & 0x1F)
-				| ((errCode5>>2 & 0x3)<<5)].desc);
+		pr_info("ID:\%s\n", noc_initator_id_list[(errCode5>>5)
+			& 0x7F].desc);
 
 	pr_info("Opc:\t%s\n", noc_opc_list[(errCode0>>1) & 0xF].desc);
 	pr_info("Addr\t%08x\n", errCode3);
-	pr_info("Len\t%08x\n", errCode0>>16 & 0x3F);
+	pr_info("Len\t%08x\n", errCode0>>16 & 0xFF);
 
 	/* clear the NoC errlog */
 	writel_relaxed(0x1, noc_errlog_mbase + ERRORLOGGER_0_ERRCLR);
