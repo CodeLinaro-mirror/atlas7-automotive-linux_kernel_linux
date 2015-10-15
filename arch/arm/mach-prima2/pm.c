@@ -1,10 +1,18 @@
 /*
  * power management entry for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #define pr_fmt(fmt)        "(sirfsoc_pm): " fmt
 
 #include <linux/kernel.h>
@@ -139,21 +147,26 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 	sirfsoc_set_wakeup_source();
 }
 
+static void sirfsoc_pm_notity_m3(u32 state)
+{
+#define IPC_M3_OFS 0x10c
+#define IPC_M3_TRIG 1
+
+	writel(state & 0xf, sinfo->retain_base +
+		SIRFSOC_PWRC_SCRATCH_PAD8);
+	writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
+	while (1)
+		;
+}
+
 void sirfsoc_pm_power_off(void)
 {
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
 	u32 sleep_mode;
 
-	/*for atlas7, M3 responsible for power off,
-	**set retain register as 0x3 for software shutdown
-	*/
-	if (sinfo->ver == PWRC_ATLAS7_VER) {
-#define IPC_M3_OFS 0xc
-#define IPC_M3_TRIG 1
-		writel(SIRFSOC_PM_SHUTDOWN,	sinfo->retain_base +
-			SIRFSOC_PWRC_SCRATCH_PAD8);
-		writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
-	}
+	if (sinfo->ver == PWRC_ATLAS7_VER)
+		sirfsoc_pm_notity_m3(SIRFSOC_PM_SHUTDOWN);
+
 
 	else if (sinfo->ver == PWRC_PRIMA2_VER) {
 		sirfsoc_set_sleep_mode(SIRFSOC_HIBERNATION_MODE);
@@ -175,13 +188,8 @@ int sirfsoc_pre_suspend_power_off(void)
 	if (sinfo->ver == PWRC_ATLAS7_VER) {
 		writel_relaxed(wakeup_entry,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
-		writel_relaxed(SIRFSOC_PM_SLEEP,
-			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
 
-		/*for atlas7, M3 responsible for enter deep sleep,
-		**sirfsoc_finish_suspend responsible for trigger IPC
-		*/
-
+		sirfsoc_pm_notity_m3(SIRFSOC_PM_SLEEP);
 	} else {
 		regmap_write(sinfo->regmap,
 				sinfo->base + pwrc_reg->pwrc_scratch_pad1,
@@ -344,15 +352,7 @@ void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 			| RECOVERY_MODE,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
 
-	/* set PAD8 as 0x2 for reset */
-	writel_relaxed(SIRFSOC_PM_RESET,
-		sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
-
-#define IPC_M3_OFS 0xc
-#define IPC_M3_TRIG 1
-	writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
-	while (1)
-		;
+	sirfsoc_pm_notity_m3(SIRFSOC_PM_RESET);
 }
 
 static int atlas7_pm_retain_init(struct sirfsoc_pm_init_t *pinit)
