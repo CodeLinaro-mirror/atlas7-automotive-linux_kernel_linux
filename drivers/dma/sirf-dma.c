@@ -1,9 +1,16 @@
 /*
  * DMA controller driver for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -861,7 +868,8 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		break;
 
 	case SIRFSOC_DMA_VER_A7V2:
-		if (!(sg_len > 1 && sg_len < SIRFSOC_DMA_TABLE_NUM))
+		if (!(sg_len > 0 && sg_len < SIRFSOC_DMA_TABLE_NUM))
+			ret = -EINVAL;
 			goto err;
 
 		list_del(&first_sdesc->node);
@@ -889,6 +897,7 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		break;
 
 	default:
+		ret = -EINVAL;
 		goto err;
 	}
 
@@ -1351,7 +1360,5 @@ static void __exit sirfsoc_dma_exit(void)
 subsys_initcall(sirfsoc_dma_init);
 module_exit(sirfsoc_dma_exit);
 
-MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>");
-MODULE_AUTHOR("Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("SIRFSOC DMA control driver");
 MODULE_LICENSE("GPL v2");
