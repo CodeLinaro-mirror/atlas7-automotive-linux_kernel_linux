@@ -1534,6 +1534,7 @@ static void __init atlas7_clk_init(struct device_node *np)
 		BUG_ON(!atlas7_clks[i]);
 		if (!strcmp(unit->unit_name, "gnssm_io") ||
 				!strcmp(unit->unit_name, "cpum_cpu") ||
+				!strcmp(unit->unit_name, "memc_mem") ||
 				!strcmp(unit->unit_name, "sys2pci2_io") ||
 				!strcmp(unit->unit_name, "dmac3_kas") ||
 				!strcmp(unit->unit_name, "ccsec_sec") ||

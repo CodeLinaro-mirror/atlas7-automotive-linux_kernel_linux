@@ -2251,8 +2251,15 @@
 				compatible = "sirf,nocfw-vdifm";
 				reg = <0x13290000 0x10000>;
 				interrupts = <0 110 0>;
-				clocks = <&car 88>, <&car 93>, <&car 54>, <&car 131>, <&car 79>, <&car 90>, <&car 92>, <&car 89>, <&car 91>;
-				clock-names = "vip1_vip", "dcu_deint", "sys2pci_io", "media_vdec", "lcd0_disp0", "lcd1_disp1", "sys2pci_io", "vpp0_disp0", "vpp1_disp1";
+				clocks = <&car 88>, <&car 93>, <&car 54>,
+					<&car 131>, <&car 79>, <&car 90>,
+					<&car 92>, <&car 89>, <&car 91>,
+					<&car 73>;
+				clock-names = "vip1_vip", "dcu_deint",
+					"sys2pci_io", "media_vdec",
+					"lcd0_disp0", "lcd1_disp1",
+					"sys2pci_io", "vpp0_disp0",
+					"vpp1_disp1", "dmac1_hsi2s";
 			};
 
 			gpio_1: gpio_vdifm@13300000 {
@@ -2555,6 +2562,8 @@
 				compatible = "sirf,nocfw-ddrm";
 				reg = <0x10820000 0x3000>;
 				interrupts = <0 105 0>;
+				clocks = <&car 123>;
+				clock-names = "memc_mem";
 			};
 
 			memory-controller@0x10800000 {

@@ -413,7 +413,7 @@ static struct noc_qos_t noc_qos_cpum_list[] = {
 static struct noc_qos_t noc_qos_audmscm_list[] = {
 	{"dmac2", 0x500, 1, 100, 0x40, RTLL_PRIO, 0, "dmac2_kas"},
 	{"dmac3", 0x580, 1, 100, 0x40, RTLL_PRIO, 0, "dmac3_kas"},
-	{"audio_afe_cvd_vip0", 0x700, 1, 100, 0x40, RT_PRIO, 0,
+	{"audio_afe_cvd_vip0", 0x700, 1, 100, 0x40, RTLL_PRIO, 0,
 		"cvd_io"},/*26M?*/
 	{"kas_apb", 0x780, 1, 0, 0x40, RTLL_PRIO, 0, "kas_kas"},/*?*/
 	{"kas_axi", 0xa00, 1, 100, 0x40, RTLL_PRIO, 0, "kas_kas"},
@@ -431,27 +431,23 @@ static struct noc_qos_t noc_qos_gpum_list[] = {
 
 static struct noc_qos_t noc_qos_vdifm_list[] = {
 	{"dcu", 0x500, 1, 60, 0x40, RT_PRIO, 0, "dcu_deint"},
-	{"lcd0_r", 0x600, 1, 100, 0x40, RT_PRIO + 0x202, 0, "lcd0_disp0"},
-	{"lcd1_r", 0x700, 1, 100, 0x40, RT_PRIO + 0x202, 0, "lcd1_disp1"},
-	{"sys2pci", 0x800, 1, 100, 0x40, RTLL_PRIO, 0, "sys2pci_io"},
+	{"lcd0", 0x600, 1, 100, 0x40, RT_PRIO + 0x202, 0, "lcd0_disp0"},
+	{"lcd1", 0x700, 1, 100, 0x40, RT_PRIO + 0x202, 0, "lcd1_disp1"},
+	{"sys2pci", 0x800, 1, 100, 0x40, RT_PRIO, 0, "sys2pci_io"},
 	{"vip1", 0xa00, 1, 100, 0x40, RT_PRIO, 0, "vip1_vip"},
-	{"vpp0_r", 0xa80, 1, 100, 0x40, RT_PRIO + 0x101, 0, "vpp0_disp0"},
-	{"vpp1_r", 0xb80, 1, 100, 0x40, RT_PRIO + 0x101, 0, "vpp1_disp1"},
-	{"lcd0_w", 0xc80, 1, 100, 0x40, RT_PRIO + 0x202, 0, "lcd0_disp0"},
-	{"lcd1_w", 0xd80, 1, 100, 0x40, RT_PRIO + 0x202, 0, "lcd1_disp1"},
-	{"vpp0_w", 0xe80, 1, 100, 0x40, RT_PRIO + 0x101, 0, "vpp0_disp0"},
-	{"vpp1_w", 0xf80, 1, 100, 0x40, RT_PRIO + 0x101, 0, "vpp1_disp1"},
+	{"vpp0", 0xa80, 1, 100, 0x40, RT_PRIO + 0x101, 0, "vpp0_disp0"},
+	{"vpp1", 0xb80, 1, 100, 0x40, RT_PRIO + 0x101, 0, "vpp1_disp1"},
+	{"dmac1", 0xc80, 1, 100, 0x40, RT_PRIO, 0, "dmac1_hsi2s"},
 };
 
 static struct noc_qos_t noc_qos_mediam_list[] = {
-	{"g2d_r", 0x000, 1, 100, 0x40, DEF_PRIO, 0, "g2d_g2d"},
+	{"g2d", 0x000, 1, 100, 0x40, DEF_PRIO, 0, "g2d_g2d"},
 	{"jpeg", 0x080, 1, 100, 0x40, DEF_PRIO, 0, "media_jpenc"},
 	{"nand", 0x200, 1, 100, 0x40, DEF_PRIO, 0, "nand_io"},
 	{"vxd", 0x280, 1, 100, 0x40, DEF_PRIO, 0, "media_vdec"},
 	{"usb0", 0x300, 1, 100, 0x40, DEF_PRIO, 0, "usb0_usb"},
 	{"usb1", 0x380, 1, 100, 0x40, DEF_PRIO, 0, "usb1_usb"},
 	{"mediam_sys2pci", 0x400, 1, 100, 0x40, DEF_PRIO, 0, "sys2pci2_io"},
-	{"g2d_w", 0xa00, 1, 100, 0x40, DEF_PRIO, 0, "g2d_g2d"},
 };
 
 static struct noc_qos_t noc_qos_gnssm_list[] = {
@@ -461,6 +457,10 @@ static struct noc_qos_t noc_qos_gnssm_list[] = {
 		/*300M?*/
 	{"sec_secure", 0x180, 1, 86, 0x40, DEF_PRIO, 0, "ccsec_sec"},
 		/*300M?*/
+};
+
+static struct noc_qos_t noc_qos_ddrm_list[] = {
+	{"ddr_bist", 0x200, 1, 100, 0x40, DEF_PRIO, 0, "memc_mem"},
 };
 
 static struct noc_qos_t noc_qos_rtcm_list[] = {
@@ -645,7 +645,6 @@ static struct noc_macro noc_macro_list[] = {
 	}, {
 		.name = "gpum",
 		.idx = GPUM_IDX,
-		.errlogoff = 0x280,
 		.faultenoff = 0x800,
 		.init_macro = noc_macro_init,
 		.qos_probe_enable = 1,
@@ -657,7 +656,6 @@ static struct noc_macro noc_macro_list[] = {
 	}, {
 		.name = "mediam",
 		.idx = MEDIAM_IDX,
-		.errlogoff = 0xb00,
 		.faultenoff = 0x900,
 		.init_macro = noc_macro_init,
 		.qos_probe_enable = 1,
@@ -700,6 +698,9 @@ static struct noc_macro noc_macro_list[] = {
 		.qos_probe_enable = 1,
 		.qos_probe_tbl = &qos_probe_ddrm_list[0],
 		.qos_probe_size = ARRAY_SIZE(qos_probe_ddrm_list),
+		.qos_enable = 1,
+		.qos_tbl = &noc_qos_ddrm_list[0],
+		.qos_size = ARRAY_SIZE(noc_qos_ddrm_list),
 	}, {
 		.name = "rtcm",
 		.idx = RTCM_IDX,
@@ -1990,10 +1991,8 @@ static int noc_macro_init(struct platform_device *pdev)
 
 	nocm = platform_get_drvdata(pdev);
 	/* ignore qos on pxp for lack some modules*/
-#if 0
 	if (!of_machine_is_compatible("sirf,atlas7-pxp"))
 		QosGenerator_init(nocm);
-#endif
 	if (!(nocm->log_enable || nocm->qos_probe_enable))
 		return 0;
 
