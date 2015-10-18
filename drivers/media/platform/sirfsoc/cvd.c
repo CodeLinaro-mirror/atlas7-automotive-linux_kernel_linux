@@ -30,6 +30,7 @@
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/videodev2.h>
 #include <linux/ioctl.h>
 #include <linux/slab.h>
@@ -1373,6 +1374,12 @@ static int cvd_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(dec->clk);
 	if (ret) {
 		dev_err(dev, "%s: fail to enable cvd clock\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = device_reset(dev);
+	if (ret) {
+		dev_err(dev, "Failed to reset\n");
 		return -EINVAL;
 	}
 
