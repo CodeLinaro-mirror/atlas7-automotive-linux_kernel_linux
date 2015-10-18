@@ -260,6 +260,9 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 				((field == V4L2_FIELD_INTERLACED_TB) ||
 				(field == V4L2_FIELD_SEQ_TB)) ? true : false;
 			params.op.passthrough.interlace.field_offset =
+				((field == V4L2_FIELD_SEQ_TB) ||
+					(field == V4L2_FIELD_SEQ_BT)) ?
+				vout->surf_width * vout->surf_height :
 				vout->surf_width * vout->surf_height / 2;
 
 			if ((field == V4L2_FIELD_INTERLACED_TB) ||
