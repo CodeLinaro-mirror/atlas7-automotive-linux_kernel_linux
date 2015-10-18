@@ -1,10 +1,16 @@
 /*
  * CSR sirfsoc vdss core file
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc
- * group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #define VDSS_SUBSYS_NAME "LVDS"
@@ -14,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/delay.h>
@@ -331,7 +338,18 @@ static int sirfsoc_lvdsc_probe(struct platform_device *pdev)
 	}
 
 	ret = clk_prepare_enable(lvdsc.clk);
-	return ret;
+	if (ret) {
+		VDSSERR("Can't enable clock\n");
+		return -EINVAL;
+	}
+
+	ret = device_reset(&pdev->dev);
+	if (ret) {
+		VDSSERR("Failed to reset lvdsc\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
