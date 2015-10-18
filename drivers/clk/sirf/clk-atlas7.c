@@ -1114,7 +1114,7 @@ static struct atlas7_mux_init_data mux_list[] __initdata = {
 };
 
 	/* new unit should add start from the tail of list */
-static struct atlas7_unit_init_data unit_list[] __initdata = {
+static struct atlas7_unit_init_data unit_list[] = {
 	/* unit_name, parent_name, flags, regofs, bit, lock */
 	{ 0, "audmscm_kas", "kas_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 0, 0, 0, &root0_gate_lock },
 	{ 1, "gnssm_gnss", "gnss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 1, 0, 0, &root0_gate_lock },
