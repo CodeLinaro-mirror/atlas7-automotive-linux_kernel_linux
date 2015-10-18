@@ -59,7 +59,7 @@
 #define CVD_DUMP(fmt, ...)	pr_info(fmt, ## __VA_ARGS__)
 
 #define FIELD_SKIP_NUM		4
-#define VSYNC_DELAY_LINE	30
+#define VSYNC_DELAY_LINE	0
 
 
 struct cvd_dev {
@@ -363,20 +363,9 @@ static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 			goto out;
 		}
 
-		dec->field = (get_fid(sd) == 0) ?
-					V4L2_FIELD_SEQ_TB : V4L2_FIELD_SEQ_BT;
-
-		/* we need to make sure field order into vip is top->bottom */
-		if (dec->field == V4L2_FIELD_SEQ_TB)
-			/* we get it, leave with the disabled interrupt */
-			complete(&dec->order_done);
-		else
-			/*
-			* The coming captured field is bottom field,
-			* we have to wait for the next.
-			*/
-			cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1 |
-						(VSYNC_DELAY_LINE << 4), sd);
+		/* tell user to use top->bottom sequence */
+		dec->field = V4L2_FIELD_SEQ_TB;
+		complete(&dec->order_done);
 	}
 
 out:

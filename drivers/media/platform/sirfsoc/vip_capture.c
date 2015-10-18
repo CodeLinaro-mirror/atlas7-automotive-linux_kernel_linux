@@ -494,12 +494,6 @@ static void vip_hw_reset(struct vip_dev *vip)
 {
 	u32 val;
 
-	val = vip_read(CAM_CTRL);
-
-	/* Reset camera */
-	vip_write(CAM_CTRL, val | CAM_CTRL_INIT);
-	vip_write(CAM_CTRL, val & ~CAM_CTRL_INIT);
-
 	/* Disable camera SENSOR_INT interrupt */
 	vip_write(CAM_INT_COUNT, 0x7fff7fff);
 
@@ -821,11 +815,6 @@ static void vip_hw_start(struct vip_dev *vip)
 {
 	u32 val;
 
-	/* Reset camera */
-	val = vip_read(CAM_CTRL);
-	vip_write(CAM_CTRL, val | CAM_CTRL_INIT);
-	vip_write(CAM_CTRL, val & ~CAM_CTRL_INIT);
-
 	/* clear all interrupts */
 	if (is_cvd_vip(vip) || is_com_vip(vip))
 		vip_write(CAM_INT_CTRL, CAM_INT_CTRL_MASK_A7);
@@ -841,6 +830,11 @@ static void vip_hw_start(struct vip_dev *vip)
 	else
 		vip_write(CAM_INT_EN, CAM_INT_EN_FIFO_OFLOW |
 					CAM_INT_EN_FIFO_UFLOW);
+
+	/* Reset and active all the configuration before starting */
+	val = vip_read(CAM_CTRL);
+	vip_write(CAM_CTRL, val | CAM_CTRL_INIT);
+	vip_write(CAM_CTRL, val & ~CAM_CTRL_INIT);
 
 	/* Start FIFO transfer to DMA */
 	vip_hw_start_fifo(vip);
@@ -1201,11 +1195,6 @@ static int vip_start_dma(struct vip_dev *vip)
 static void vip_restart_worker(struct work_struct *work)
 {
 	struct vip_dev *vip = container_of(work, struct vip_dev, restart_work);
-	struct vip_subdev_info *subdev = &vip->subdev[0];
-	struct v4l2_subdev *sd = subdev->sd;
-
-	if (is_cvd_vip(vip))
-		v4l2_subdev_call(sd, video, s_stream, 1);
 
 	vip_start_dma(vip);
 }
@@ -1411,7 +1400,16 @@ static int vip_config_host(struct vip_subdev_info *subdev)
 	control.vsync_invert	= 0;
 	control.single_cap	= 0;
 	control.hor_mirror_en	= 0;
-	control.cap_from_odd_en	= 0;
+	/*
+	 * The input source into cvd-vip is always interlaced,
+	 * we force cvd-vip to caputre fields always from odd.
+	 * Normally the input source into vip1 is progressive,
+	 * the capture from odd/even field feature should be disabled.
+	 */
+	if (is_cvd_vip(vip))
+		control.cap_from_odd_en	= 1;
+	else
+		control.cap_from_odd_en	= 0;
 	control.cap_from_even_en = 0;
 
 	if (subdev->endpoint.bus_type == V4L2_MBUS_BT656)
@@ -2463,7 +2461,7 @@ void vip_rv_config(struct vip_rv_info *rv_info)
 		control.hor_mirror_en = 1;
 	else
 		control.hor_mirror_en = 0;
-	control.cap_from_odd_en	= 0;
+	control.cap_from_odd_en	= 1;
 	control.cap_from_even_en = 0;
 	control.ccir656_en	= 0;
 	vip_hw_set_control(vip, control);
@@ -2494,6 +2492,11 @@ void vip_rv_start(void *data)
 	v4l2_subdev_call(sd, video, s_routing, index, 0, 0);
 	v4l2_subdev_call(sd, video, s_std, vip->rv.std);
 	v4l2_subdev_call(sd, video, s_stream, 1);
+
+	/* Reset and active all the configuration before starting */
+	index = vip_read(CAM_CTRL);
+	vip_write(CAM_CTRL, index | CAM_CTRL_INIT);
+	vip_write(CAM_CTRL, index & ~CAM_CTRL_INIT);
 
 	vip_hw_start_fifo(vip);
 
