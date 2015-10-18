@@ -35,6 +35,37 @@
 #define SX150X_456 0
 #define SX150X_789 1
 
+#ifdef CONFIG_PM_SLEEP
+struct sx150x_pm_data {
+	u8 pullup[2];
+	u8 pulldn[2];
+	u8 dir[2];
+	u8 data[2];
+	u8 irq_mask[2];
+	u8 irq_src[2];
+	u8 sense[4];
+	union {
+		struct x456_pm_data {
+			u8 pld_mode[2];
+			u8 pld_table0[2];
+			u8 pld_table1[2];
+			u8 pld_table2[2];
+			u8 pld_table3[2];
+			u8 pld_table4[2];
+			u8 advance[1];
+		} x456;
+
+		struct x789_pm_data {
+			u8 drain[2];
+			u8 polarity[2];
+			u8 clock[1];
+			u8 misc[1];
+			u8 reset[1];
+		} x789;
+	} pri;
+};
+#endif
+
 struct sx150x_456_pri {
 	u8 reg_pld_mode;
 	u8 reg_pld_table0;
@@ -51,7 +82,6 @@ struct sx150x_789_pri {
 	u8 reg_clock;
 	u8 reg_misc;
 	u8 reg_reset;
-	u8 ngpios;
 };
 
 struct sx150x_device_data {
@@ -74,6 +104,7 @@ struct sx150x_chip {
 	struct gpio_chip                 gpio_chip;
 	struct i2c_client               *client;
 	const struct sx150x_device_data *dev_cfg;
+	bool                             reset_during_probe;
 	int                              irq_summary;
 	int                              irq_base;
 	int				 irq_update;
@@ -83,6 +114,9 @@ struct sx150x_chip {
 	u32				 dev_masked;
 	struct irq_chip                  irq_chip;
 	struct mutex                     lock;
+#ifdef CONFIG_PM_SLEEP
+	struct sx150x_pm_data            pm_data;
+#endif
 };
 
 static const struct sx150x_device_data sx150x_devices[] = {
@@ -486,6 +520,7 @@ static void sx150x_init_chip(struct sx150x_chip *chip,
 	chip->gpio_chip.ngpio            = chip->dev_cfg->ngpios;
 	chip->gpio_chip.of_node          = client->dev.of_node;
 	chip->gpio_chip.of_gpio_n_cells  = 2;
+	chip->reset_during_probe         = pdata->reset_during_probe;
 	if (pdata->oscio_is_gpo)
 		++chip->gpio_chip.ngpio;
 
@@ -727,6 +762,7 @@ static int sx150x_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chip);
 
 	return 0;
+
 probe_fail_post_gpiochip_add:
 	gpiochip_remove(&chip->gpio_chip);
 	return rc;
@@ -742,10 +778,148 @@ static int sx150x_remove(struct i2c_client *client)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+
+#define PM_SAVE_DATA(CHIP, NAME, OFS) \
+do { \
+	err = sx150x_i2c_read(CHIP->client, \
+	CHIP->dev_cfg->reg_##NAME - OFS, \
+	&CHIP->pm_data.NAME[OFS]); \
+	if (err < 0) \
+		goto err_exit; \
+} while (0)
+
+#define PM_RESTORE_DATA(CHIP, NAME, OFS) \
+do { \
+	err = sx150x_i2c_write(CHIP->client, \
+	CHIP->dev_cfg->reg_##NAME - OFS, \
+	CHIP->pm_data.NAME[OFS]); \
+	if (err < 0) \
+		goto err_exit; \
+} while (0)
+
+#define PM_SAVE_PRI_DATA(CHIP, VER, NAME, OFS) \
+do { \
+	err = sx150x_i2c_read(CHIP->client, \
+	CHIP->dev_cfg->pri.VER.reg_##NAME - OFS, \
+	&CHIP->pm_data.pri.VER.NAME[OFS]); \
+	if (err < 0) \
+		goto err_exit; \
+} while (0)
+
+#define PM_RESTORE_PRI_DATA(CHIP, VER, NAME, OFS) \
+do { \
+	err = sx150x_i2c_write(CHIP->client, \
+	CHIP->dev_cfg->pri.VER.reg_##NAME - OFS, \
+	CHIP->pm_data.pri.VER.NAME[OFS]); \
+	if (err < 0) \
+		goto err_exit; \
+} while (0)
+
+static int sx150x_suspend(struct device *dev)
+{
+	int err, idx;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct sx150x_chip *chip = i2c_get_clientdata(client);
+
+	/* Save the registers' data with bit width 1 */
+	for (idx = 0; idx < (chip->dev_cfg->ngpios / 8); idx++) {
+		PM_SAVE_DATA(chip, pullup, idx);
+		PM_SAVE_DATA(chip, pulldn, idx);
+		PM_SAVE_DATA(chip, dir, idx);
+		PM_SAVE_DATA(chip, data, idx);
+		PM_SAVE_DATA(chip, irq_mask, idx);
+		PM_SAVE_DATA(chip, irq_src, idx);
+		if (chip->dev_cfg->model == SX150X_789) {
+			PM_SAVE_PRI_DATA(chip, x789, drain, idx);
+			PM_SAVE_PRI_DATA(chip, x789, polarity, idx);
+		} else {
+			PM_SAVE_PRI_DATA(chip, x456, pld_mode, idx);
+			PM_SAVE_PRI_DATA(chip, x456, pld_table0, idx);
+			PM_SAVE_PRI_DATA(chip, x456, pld_table1, idx);
+			PM_SAVE_PRI_DATA(chip, x456, pld_table2, idx);
+			PM_SAVE_PRI_DATA(chip, x456, pld_table3, idx);
+			PM_SAVE_PRI_DATA(chip, x456, pld_table4, idx);
+		}
+	}
+
+	/* Save the registers' data with bit width 2 */
+	for (idx = 0; idx < (chip->dev_cfg->ngpios / 4); idx++)
+		PM_SAVE_DATA(chip, sense, idx);
+
+	if (chip->dev_cfg->model == SX150X_789) {
+		PM_SAVE_PRI_DATA(chip, x789, clock, 0);
+		PM_SAVE_PRI_DATA(chip, x789, misc, 0);
+	} else {
+		PM_SAVE_PRI_DATA(chip, x456, advance, 0);
+	}
+
+	return 0;
+
+err_exit:
+	return err;
+}
+
+static int sx150x_resume(struct device *dev)
+{
+	int err, idx;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct sx150x_chip *chip = i2c_get_clientdata(client);
+
+	if (chip->reset_during_probe) {
+		err = sx150x_reset(chip);
+		if (err < 0)
+			goto err_exit;
+	}
+
+	if (chip->dev_cfg->model == SX150X_789) {
+		PM_RESTORE_PRI_DATA(chip, x789, misc, 0);
+		PM_RESTORE_PRI_DATA(chip, x789, clock, 0);
+	} else {
+		PM_RESTORE_PRI_DATA(chip, x456, advance, 0);
+	}
+
+	/* Restore the registers' data with bit width 1 */
+	for (idx = 0; idx < (chip->dev_cfg->ngpios / 8); idx++) {
+		if (chip->dev_cfg->model == SX150X_789) {
+			PM_RESTORE_PRI_DATA(chip, x789, drain, idx);
+			PM_RESTORE_PRI_DATA(chip, x789, polarity, idx);
+		} else {
+			PM_RESTORE_PRI_DATA(chip, x456, pld_mode, idx);
+			PM_RESTORE_PRI_DATA(chip, x456, pld_table0, idx);
+			PM_RESTORE_PRI_DATA(chip, x456, pld_table1, idx);
+			PM_RESTORE_PRI_DATA(chip, x456, pld_table2, idx);
+			PM_RESTORE_PRI_DATA(chip, x456, pld_table3, idx);
+			PM_RESTORE_PRI_DATA(chip, x456, pld_table4, idx);
+		}
+		PM_RESTORE_DATA(chip, pullup, idx);
+		PM_RESTORE_DATA(chip, pulldn, idx);
+		PM_RESTORE_DATA(chip, dir, idx);
+		PM_RESTORE_DATA(chip, data, idx);
+		PM_RESTORE_DATA(chip, irq_mask, idx);
+		PM_RESTORE_DATA(chip, irq_src, idx);
+	}
+
+	/* Restore the registers' data with bit width 2 */
+	for (idx = 0; idx < (chip->dev_cfg->ngpios / 4); idx++)
+		PM_RESTORE_DATA(chip, sense, idx);
+
+	return 0;
+
+err_exit:
+	return err;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(sx150x_pm_ops, sx150x_suspend, sx150x_resume);
+
 static struct i2c_driver sx150x_driver = {
 	.driver = {
 		.name = "sx150x",
-		.owner = THIS_MODULE
+		.owner = THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &sx150x_pm_ops,
+#endif
 	},
 	.probe    = sx150x_probe,
 	.remove   = sx150x_remove,
