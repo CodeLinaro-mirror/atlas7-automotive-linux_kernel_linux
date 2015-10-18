@@ -6,6 +6,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/slab.h>
@@ -1420,6 +1421,11 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 	}
 
 	clk_prepare_enable(adapter->clk);
+
+	if (device_reset(&pdev->dev)) {
+		VDSSERR("Failed to reset vpp %d\n", index);
+		return  -EINVAL;
+	}
 
 	adapter->id = index;
 	sprintf(adapter->name, "vpp%d", index);
