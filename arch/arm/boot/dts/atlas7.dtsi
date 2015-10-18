@@ -2749,7 +2749,7 @@
 				reg = <0x13120000 0x10000>;
 				interrupts = <0 62 0>;
 				clocks = <&car 92>;
-				reset = <&car 92>;
+				resets = <&car 92>;
 				error-diffusion = <1>;
 			};
 			vpp1@13130000 {
