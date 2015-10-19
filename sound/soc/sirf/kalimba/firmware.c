@@ -23,6 +23,7 @@
 #endif
 #include "ipc.h"
 #include "regs.h"
+#include "ps.h"
 
 #define KAS_ADDR_CONST16 0x007FA7
 #define KAS_ADDR_CONST32 0x007FA9
@@ -483,6 +484,7 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 	case IOCTL_KALIMBA_RUN_PM:
 		get_user(start_addr, (u32 __user *)arg);
 		firmware_run_pm(start_addr);
+		ps_ptr_update();
 		break;
 	case IOCTL_KALIMBA_STOP_PM:
 		dev_info(dev, "Pause PM\n");

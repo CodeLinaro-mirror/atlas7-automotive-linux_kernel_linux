@@ -28,6 +28,7 @@
 #include "dsp.h"
 #include "ipc.h"
 #include "kcm.h"
+#include "ps.h"
 #include "regs.h"
 
 struct kalimba *kalimba;
@@ -615,6 +616,7 @@ static int kalimba_probe(struct platform_device *pdev)
 	mutex_init(&kalimba->msg_send_mutex);
 	platform_set_drvdata(pdev, kalimba);
 
+	ps_init();
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
 	ret = debug_init();
 	if (ret != 0) {

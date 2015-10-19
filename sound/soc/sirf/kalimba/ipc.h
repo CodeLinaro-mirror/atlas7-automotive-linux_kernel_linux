@@ -28,6 +28,7 @@ void update_bits_kalimba_reg(u32 reg_addr, u32 mask, u32 val);
 #define DSP_ACK_COUNT_ADDR			0x007F9B
 #define DSP_MESSAGE_SEND_ADDR			0x007F9C
 #define DSP_INTR_RAISED_ADDR			0x007FA6
+#define DSP_PS_FILE_BASE_ADDR			0x007FAB
 
 #define FRAME_MAX_SIZE					10
 #define FRAME_MAX_START_COMPLETE_DATA_SIZE		(FRAME_MAX_SIZE - 2)
