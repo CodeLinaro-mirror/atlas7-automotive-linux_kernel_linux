@@ -1,9 +1,16 @@
 /*
  * SiRF ATLAS7 internal audio codec controller driver
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/clk.h>
@@ -83,16 +90,21 @@ static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
 	int channels)
 {
 	int i;
+	u32 rx_dma_ctrl = 0;
 
-	for (i = 0; i < channels; i++)
+	for (i = 0; i < channels; i++) {
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			ADC_EN << i, ADC_EN << i);
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
+		rx_dma_ctrl |= (1 << i);
+	}
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
+		RX_DMA_CTRL_MASK, rx_dma_ctrl << RX_DMA_CTRL_SHIFT);
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
 		FIFO_RESET, FIFO_RESET);
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
 		FIFO_RESET, ~FIFO_RESET);
-	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_INT_MSK, 0);
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP,
+	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_INT_MSK, 0);
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
 		FIFO_START, FIFO_START);
 }
 
@@ -103,7 +115,7 @@ static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)
 	for (i = 0; i < 2; i++)
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			ADC_EN << i, 0);
-	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO_OP, 0);
+	regmap_write(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP, 0);
 }
 
 static int atlas7_iacc_hw_params(struct snd_pcm_substream *substream,
@@ -264,7 +276,7 @@ static const struct regmap_config atlas7_iacc_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = INTCODECCTL_RXFIFO_INT_MSK,
+	.max_register = INTCODECCTL_RXFIFO2_INT_MSK,
 	.cache_type = REGCACHE_NONE,
 };
 
@@ -686,5 +698,4 @@ static struct platform_driver atlas7_iacc_driver = {
 module_platform_driver(atlas7_iacc_driver);
 
 MODULE_DESCRIPTION("SiRF ATLAS7 IACC(internal audio codec cotroller) driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
 MODULE_LICENSE("GPL v2");

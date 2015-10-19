@@ -28,16 +28,32 @@
 #define INTCODECCTL_TXFIFO3_INT			0x88
 #define INTCODECCTL_TXFIFO3_INT_MSK		0x78
 
-#define INTCODECCTL_RXFIFO_OP			0xB8
-#define INTCODECCTL_RXFIFO_LEV_CHK		0xBC
-#define INTCODECCTL_RXFIFO_STS			0XC0
-#define INTCODECCTL_RXFIFO_INT			0xC4
-#define INTCODECCTL_RXFIFO_INT_MSK		0xC8
+#define INTCODECCTL_RXFIFO0_OP			0xB8
+#define INTCODECCTL_RXFIFO0_LEV_CHK		0xBC
+#define INTCODECCTL_RXFIFO0_STS			0XC0
+#define INTCODECCTL_RXFIFO0_INT			0xC4
+#define INTCODECCTL_RXFIFO0_INT_MSK		0xC8
+
+#define INTCODECCTL_RXFIFO1_OP			0xCC
+#define INTCODECCTL_RXFIFO1_LEV_CHK		0xD0
+#define INTCODECCTL_RXFIFO1_STS			0XD4
+#define INTCODECCTL_RXFIFO1_INT			0xD8
+#define INTCODECCTL_RXFIFO1_INT_MSK		0xDC
+
+#define INTCODECCTL_RXFIFO2_OP			0xE0
+#define INTCODECCTL_RXFIFO2_LEV_CHK		0xE4
+#define INTCODECCTL_RXFIFO2_STS			0XE8
+#define INTCODECCTL_RXFIFO2_INT			0xEC
+#define INTCODECCTL_RXFIFO2_INT_MSK		0xF0
 
 #define TX_24BIT				1
 #define RX_24BIT				(1 << 1)
+#define RX0_24BIT				(1 << 1)
 #define TX_START_SYNC_EN			(1 << 2)
 #define TX_SYNC_EN				(1 << 3)
+#define RX1_24BIT				(1 << 4)
+#define RX2_24BIT				(1 << 5)
+#define RX3_24BIT				(1 << 6)
 #define RX_SYNC_TIMEOUT_BIT_MASK		(0xFFF << 16)
 
 #define DAC_EN					1
@@ -46,9 +62,17 @@
 #define DAC2_EN					(1 << 2)
 #define DAC3_EN					(1 << 3)
 
-#define ADC_EN					(1 << 6)
-#define ADC0_EN					(1 << 6)
-#define ADC1_EN					(1 << 7)
+#define ADC_EN					(1 << 8)
+#define ADC0_EN					(1 << 8)
+#define ADC1_EN					(1 << 9)
+#define ADC2_EN					(1 << 10)
+#define ADC3_EN					(1 << 11)
+
+#define RX_DMA_CTRL_MASK			(0xF << 8)
+#define RX_DMA_CTRL_SHIFT			8
+
+#define RX_DMA_SYNC_EN_MASK			(1 << 4)
+#define RX_DMA_SYNC_EN_SHIFT			4
 
 #define FIFO_START				1
 #define FIFO_RESET				(1 << 1)
