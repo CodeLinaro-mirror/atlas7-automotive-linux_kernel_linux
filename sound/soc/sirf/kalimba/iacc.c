@@ -453,7 +453,7 @@ static const struct regmap_config atlas7_iacc_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = INTCODECCTL_RXFIFO_INT_MSK,
+	.max_register = INTCODECCTL_RXFIFO2_INT_MSK,
 	.cache_type = REGCACHE_NONE,
 };
 
@@ -526,5 +526,4 @@ static struct platform_driver atlas7_iacc_driver = {
 module_platform_driver(atlas7_iacc_driver);
 
 MODULE_DESCRIPTION("SiRF ATLAS7 IACC(internal audio codec cotroller) driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
 MODULE_LICENSE("GPL v2");
