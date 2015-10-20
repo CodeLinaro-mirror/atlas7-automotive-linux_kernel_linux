@@ -62,6 +62,15 @@
 		};
 	};
 
+	kalimba {
+		compatible = "csr,kalimba-dsp";
+		status = "disabled";
+		clocks = <&car 55>, <&car 26>, <&car 31>;
+		clock-names = "kas_kas",
+			"audmscm_nocd", "gpum_nocd";
+		resets = <&car 10>;
+	};
+
 	thermal-zones {
 		cpu_thermal: cpu_thermal {
 			polling-delay-passive = <250>; /* milliseconds */
@@ -121,8 +130,8 @@
 			     <0x10302000 0x0100>;
 		};
 
-		kalimba@10C10000 {
-			compatible = "csr,kalimba";
+		kalimba_ipc@10C10000 {
+			compatible = "csr,kalimba-ipc";
 			status = "disabled";
 			reg = <0x10C10000 0x1000 0x13240000 0x500>;
 			reg-names = "kas", "ipc";
@@ -1929,8 +1938,9 @@
 				<0x18060000 0x18060000 0x1000>,
 				<0x180b0000 0x180b0000 0x4000>,
 				<0x18100000 0x18100000 0x3000>,
-				<0x18250000 0x18250000 0x10000>,
-				<0x18200000 0x18200000 0x1000>;
+				<0x18200000 0x18200000 0x1000>,
+				<0x18240000 0x18240000 0x10000>,
+				<0x18250000 0x18250000 0x10000>;
 
 			dmac0: dma-controller@18000000 {
 				cell-index = <0>;
@@ -2025,12 +2035,7 @@
 					"rgmii", "gmac";
 				local-mac-address = [00 00 00 00 00 00];
 				phy-mode = "rgmii";
-			};
-			dspub@18250000 {
-				compatible = "dx,cc44p";
-				reg = <0x18250000 0x10000>;
-				interrupts = <0 27 0>;
-				clocks = <&car 112>;
+				status = "disabled";
 			};
 
 			spi1: spi@18200000 {
@@ -2043,6 +2048,18 @@
 				dmas = <&dmac0 12>, <&dmac0 13>;
 				dma-names = "rx", "tx";
 				status = "disabled";
+			};
+			dssec@18240000 {
+				compatible = "dx,cc44s";
+				reg = <0x18240000 0x10000>;
+				interrupts = <0 26 0>;
+				clocks = <&car 98>;
+			};
+			dspub@18250000 {
+				compatible = "dx,cc44p";
+				reg = <0x18250000 0x10000>;
+				interrupts = <0 27 0>;
+				clocks = <&car 112>;
 			};
 		};
 
@@ -2245,6 +2262,7 @@
 			#size-cells = <1>;
 			ranges = <0x13290000 0x13290000 0x10000>,
 				<0x13300000 0x13300000 0x1000>,
+				<0x13160000 0x13160000 0x1000>,
 				<0x14200000 0x14200000 0x600000>;
 
 			vdifm@13290000 {
@@ -2349,6 +2367,13 @@
 				status = "disabled";
 				bus-width = <4>;
 			};
+			vip1@13160000 {
+				compatible = "sirf,atlas7-com-vip";
+				reg = <0x13160000 0x1000>;
+				clocks = <&car 74>;
+				interrupts = <0 63 0>, <0 84 0>;
+				sirf,vip_cma_size = <0x1A00000>;
+			};
 		};
 
 		audiom {
@@ -2408,7 +2433,7 @@
 			};
 
 			vip0@10db0000 {
-				compatible = "sirf,atlas7-vip0";
+				compatible = "sirf,atlas7-cvd-vip";
 				reg = <0x10db0000 0x2000>;
 				interrupts = <0 85 0>;
 				clocks = <&car 95>;
@@ -2684,6 +2709,7 @@
 					};
 					gps-power {
 						compatible = "sirf,gps-power";
+						status = "disabled";
 					};
 					gps-sysctl {
 						compatible = "sirf,sirf-sysctl";

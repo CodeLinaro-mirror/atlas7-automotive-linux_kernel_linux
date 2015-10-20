@@ -1,19 +1,27 @@
 /*
  * kailimba firmware load driver
  *
- * Copyright (c) 2015 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
-#include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
 #include "debug.h"
 #endif
+#include "ipc.h"
 #include "regs.h"
 
 struct firmware_code_head {
@@ -47,82 +55,71 @@ struct firmware_code {
 	dma_addr_t code_dma_addr;
 };
 
-static void firmware_run_pm(struct regmap *regmap, u32 start_addr)
+static void firmware_run_pm(u32 start_addr)
 {
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
-			(KAS_DEBUG << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, (KAS_DEBUG << 2) | (0x2 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
 
 	/* Set KAS program counter */
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(KAS_REGFILE_PC << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, start_addr);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, start_addr);
 
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
-			(KAS_DEBUG << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_RUN);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, (KAS_DEBUG << 2) | (0x2 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_RUN);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(KAS_REGFILE_PC << 2) | (0x2 << 30));
-	regmap_read(regmap, KAS_CPU_KEYHOLE_DATA, &start_addr);
+	start_addr = read_kalimba_reg(KAS_CPU_KEYHOLE_DATA);
 }
 
-void firmware_stop_pm(struct regmap *regmap)
+void firmware_stop_pm(void)
 {
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
-			(KAS_DEBUG << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, (KAS_DEBUG << 2) | (0x2 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(KAS_REGFILE_PC << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, 0);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, 0);
 
 }
 
-static void firmware_run_pm_unpacker(
-		struct regmap *regmap,
-		u32 dm_block_src,
-		u32 pm_block_dest,
-		u32 pm_bytes_len,
-		u32 params_start_addr,
+static void firmware_run_pm_unpacker(u32 dm_block_src, u32 pm_block_dest,
+		u32 pm_bytes_len, u32 params_start_addr,
 		u32 pm_unpacker_image_start_addr)
 {
 	u32 unpack_status;
 
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
-			(KAS_DEBUG << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, (KAS_DEBUG << 2) | (0x2 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
 
-	regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(PM_UNPACKER_PARAMS_DM_SRC(params_start_addr) <<
 			 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, dm_block_src);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-			pm_block_dest / 4);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-			pm_bytes_len / 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, dm_block_src);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, pm_block_dest / 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, pm_bytes_len / 4);
 	/* IPC_TRGT.lo16 */
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, 0);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, 0);
 	/* IPC_TRGT.hi16 */
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, 0);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, 0);
 	/* UNPACK_STATUS */
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, 0);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, 0);
 
 	/* Set KAS program counter */
-	firmware_run_pm(regmap, pm_unpacker_image_start_addr);
+	firmware_run_pm(pm_unpacker_image_start_addr);
 
 	/* Wait PM-unpacker complete */
-	regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 0);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 0);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(PM_UNPACKER_PARAMS_UNPACK_STATUS(params_start_addr) <<
 			 2) | (0x2 << 30));
 	do {
-		regmap_read(regmap, KAS_CPU_KEYHOLE_DATA,
-				&unpack_status);
+		unpack_status = read_kalimba_reg(KAS_CPU_KEYHOLE_DATA);
 	} while (!(unpack_status & 1));
 }
 
-static u32 firmware_download_pm_unpacker(struct regmap *regmap,
-		struct firmware_code *code, u32 *pm_unpacker_start_addr)
+static u32 firmware_download_pm_unpacker(struct firmware_code *code,
+	u32 *pm_unpacker_start_addr)
 {
 	u32 i;
 	struct firmware_pm_unpacker_image *pm_unpacker_image;
@@ -134,33 +131,28 @@ static u32 firmware_download_pm_unpacker(struct regmap *regmap,
 	size = pm_unpacker_image->pm_unpacker_size;
 	pm_unpacker_code = &pm_unpacker_image->pm_unpacker_code;
 
-	regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			*pm_unpacker_start_addr | (0x3 << 30));
 	for (i = 0; i < size; i++)
-		regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-				pm_unpacker_code[i]);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, pm_unpacker_code[i]);
 
 	return pm_unpacker_image->params_start_addr;
 }
 
-static void firmware_load_pm_though_keyhole(
-		struct regmap *regmap,
-		u32 start_addr, u32 size_bytes, void *data)
+static void firmware_load_pm_though_keyhole(u32 start_addr, u32 size_bytes,
+	void *data)
 {
 	u32 i;
 	u32 *code = (u32 *)data;
 
-	regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
-			start_addr | (0x3 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, start_addr | (0x3 << 30));
 	for (i = 0; i < size_bytes / 4; i++)
-		regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-				code[i]);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, code[i]);
 }
 
-static void firmware_load_pm_though_dma(
-		struct regmap *regmap, struct firmware_code *code,
+static void firmware_load_pm_though_dma(struct firmware_code *code,
 		u32 start_addr, u32 size_bytes, void *data)
 {
 	void *pm_code_dma_addr;
@@ -169,50 +161,41 @@ static void firmware_load_pm_though_dma(
 	pm_code_dma_addr = (void *)code->code_dma_addr + (data - code->code);
 
 	do {
-		regmap_read(regmap, KAS_DMA_STATUS, &val);
+		val = read_kalimba_reg(KAS_DMA_STATUS);
 	} while (!(val & KAS_DMAC_IDLE));
 
-	regmap_write(regmap, KAS_DMAC_DMA_XLEN,
-			size_bytes / 4);
-	regmap_write(regmap, KAS_DMAC_DMA_WIDTH,
-			size_bytes / 4);
-	regmap_write(regmap, KAS_DMA_ADDR,
-			start_addr / 4);
-	regmap_write(regmap, KAS_DMAC_DMA_ADDR,
-			(u32)pm_code_dma_addr);
+	write_kalimba_reg(KAS_DMAC_DMA_XLEN, size_bytes / 4);
+	write_kalimba_reg(KAS_DMAC_DMA_WIDTH, size_bytes / 4);
+	write_kalimba_reg(KAS_DMA_ADDR, start_addr / 4);
+	write_kalimba_reg(KAS_DMAC_DMA_ADDR, (u32)pm_code_dma_addr);
 
 	do {
-		regmap_read(regmap, KAS_DMAC_DMA_INT, &val);
+		val = read_kalimba_reg(KAS_DMAC_DMA_INT);
 	} while (!(val & KAS_DMAC_FINISH_INT));
-	regmap_read(regmap, KAS_DMAC_DMA_CUR_DATA_ADDR, &val);
-	regmap_update_bits(regmap, KAS_DMAC_DMA_INT,
+	val = read_kalimba_reg(KAS_DMAC_DMA_CUR_DATA_ADDR);
+	update_bits_kalimba_reg(KAS_DMAC_DMA_INT,
 			KAS_DMAC_FINISH_INT, KAS_DMAC_FINISH_INT);
 }
 
-static void firmware_init_dma(struct regmap *regmap,
-		u32 transfer_mode)
+static void firmware_init_dma(u32 transfer_mode)
 {
 	/* Reset DMA client */
-	regmap_update_bits(regmap, KAS_DMA_MODE,
-			KAS_RESET_DMA_CLIENT, KAS_RESET_DMA_CLIENT);
-	regmap_update_bits(regmap, KAS_DMA_MODE,
-			KAS_RESET_DMA_CLIENT, 0);
+	update_bits_kalimba_reg(KAS_DMA_MODE, KAS_RESET_DMA_CLIENT,
+		KAS_RESET_DMA_CLIENT);
+	update_bits_kalimba_reg(KAS_DMA_MODE, KAS_RESET_DMA_CLIENT, 0);
 
 	/* Set KAS DMA as Single transaction */
-	regmap_update_bits(regmap, KAS_DMA_MODE,
-			KAS_DMA_CHAIN_MODE, 0);
+	update_bits_kalimba_reg(KAS_DMA_MODE, KAS_DMA_CHAIN_MODE, 0);
 
-	regmap_write(regmap, KAS_TRANSLATE, transfer_mode);
-	regmap_write(regmap, KAS_DMAC_DMA_CTRL,
-			KAS_DMAC_TRANS_MEM_TO_FIFO);
-	regmap_write(regmap, KAS_DMAC_DMA_YLEN, 0);
-	regmap_write(regmap, KAS_DMAC_DMA_INT_EN, 0);
-	regmap_write(regmap, KAS_DMA_INC, 0);
-	regmap_write(regmap, KAS_DMAC_DMA_INT, 0xFFFFFFFF);
+	write_kalimba_reg(KAS_TRANSLATE, transfer_mode);
+	write_kalimba_reg(KAS_DMAC_DMA_CTRL, KAS_DMAC_TRANS_MEM_TO_FIFO);
+	write_kalimba_reg(KAS_DMAC_DMA_YLEN, 0);
+	write_kalimba_reg(KAS_DMAC_DMA_INT_EN, 0);
+	write_kalimba_reg(KAS_DMA_INC, 0);
+	write_kalimba_reg(KAS_DMAC_DMA_INT, 0xFFFFFFFF);
 }
 
-static void firmware_download_pm(struct regmap *regmap,
-		struct firmware_code *code)
+static void firmware_download_pm(struct firmware_code *code)
 {
 #define UP_ALIGN_12BYTES(x)	((x + 11) / 12 * 12)
 #define DOWN_ALIGN_12BYTES(x)	(x / 12 * 12)
@@ -225,15 +208,13 @@ static void firmware_download_pm(struct regmap *regmap,
 		pm_image + sizeof(u32);
 
 	/* Stop pm running */
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
-			(KAS_DEBUG << 2) | (0x2 << 30));
-	regmap_write(regmap, KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,	(KAS_DEBUG << 2) | (0x2 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
 
 	params_start_addr =
-		firmware_download_pm_unpacker(regmap, code,
-				&pm_unpacker_start_addr);
+		firmware_download_pm_unpacker(code, &pm_unpacker_start_addr);
 
-	firmware_init_dma(regmap, KAS_TRANSLATE_24BIT);
+	firmware_init_dma(KAS_TRANSLATE_24BIT);
 
 	/* The KAS's DMA must transfer multiples-of-12 bytes */
 	for (i = 0; i < block_num; i++) {
@@ -249,7 +230,7 @@ static void firmware_download_pm(struct regmap *regmap,
 				 * use the keyhole to download
 				 */
 				firmware_load_pm_though_keyhole(
-						regmap, current_start_addr,
+						current_start_addr,
 						remaining_bytes, data);
 				remaining_bytes = 0;
 			} else if (current_start_addr >=
@@ -258,7 +239,7 @@ static void firmware_download_pm(struct regmap *regmap,
 				 * PM-unpacker area,use the keyhole to download
 				 */
 				firmware_load_pm_though_keyhole(
-						regmap, current_start_addr,
+						current_start_addr,
 						remaining_bytes, data);
 				remaining_bytes = 0;
 			} else {
@@ -284,15 +265,15 @@ static void firmware_download_pm(struct regmap *regmap,
 				 */
 				if (dma_transfer_bytes < 12) {
 					firmware_load_pm_though_keyhole(
-						regmap, current_start_addr,
+						current_start_addr,
 						remaining_bytes, data);
 					break;
 				}
 
-				firmware_load_pm_though_dma(regmap, code,
+				firmware_load_pm_though_dma(code,
 						KAS_DM1_SRAM_START_ADDR,
 						dma_transfer_bytes, data);
-				firmware_run_pm_unpacker(regmap,
+				firmware_run_pm_unpacker(
 						KAS_DM1_SRAM_START_ADDR,
 						current_start_addr,
 						dma_transfer_bytes,
@@ -310,8 +291,7 @@ static void firmware_download_pm(struct regmap *regmap,
 	}
 }
 
-static void firmware_download_dm(struct regmap *regmap,
-		struct firmware_code *code, void *dm_image)
+static void firmware_download_dm(struct firmware_code *code, void *dm_image)
 {
 	u32 block_num = ((u32 *)dm_image)[0];
 	struct firmware_pm_dm_block *dm_block_ptr =
@@ -320,30 +300,25 @@ static void firmware_download_dm(struct regmap *regmap,
 	u32 val;
 	void *dm_code_dma_addr;
 
-	firmware_init_dma(regmap, KAS_TRANSLATE_24BIT_RIGHT_ALIGNED);
+	firmware_init_dma(KAS_TRANSLATE_24BIT_RIGHT_ALIGNED);
 
 	for (i = 0; i < block_num; i++) {
 		dm_code_dma_addr = (void *)code->code_dma_addr +
 			((void *)&dm_block_ptr->data -
 			 code->code);
 		do {
-			regmap_read(regmap, KAS_DMA_STATUS, &val);
+			val = read_kalimba_reg(KAS_DMA_STATUS);
 		} while (!(val & KAS_DMAC_IDLE));
 
-		regmap_write(regmap, KAS_DMAC_DMA_XLEN,
-				dm_block_ptr->size);
-		regmap_write(regmap, KAS_DMAC_DMA_WIDTH,
-				dm_block_ptr->size);
-		regmap_write(regmap, KAS_DMA_ADDR,
-				dm_block_ptr->start_addr);
-		regmap_write(regmap, KAS_DMAC_DMA_ADDR,
-				(u32) dm_code_dma_addr);
+		write_kalimba_reg(KAS_DMAC_DMA_XLEN, dm_block_ptr->size);
+		write_kalimba_reg(KAS_DMAC_DMA_WIDTH, dm_block_ptr->size);
+		write_kalimba_reg(KAS_DMA_ADDR,	dm_block_ptr->start_addr);
+		write_kalimba_reg(KAS_DMAC_DMA_ADDR, (u32) dm_code_dma_addr);
 
 		do {
-			regmap_read(regmap, KAS_DMAC_DMA_INT,
-					&val);
+			val = read_kalimba_reg(KAS_DMAC_DMA_INT);
 		} while (!(val & KAS_DMAC_FINISH_INT));
-		regmap_update_bits(regmap, KAS_DMAC_DMA_INT,
+		update_bits_kalimba_reg(KAS_DMAC_DMA_INT,
 				KAS_DMAC_FINISH_INT, KAS_DMAC_FINISH_INT);
 
 		dm_block_ptr = (((void *)dm_block_ptr) + 8
@@ -352,30 +327,27 @@ static void firmware_download_dm(struct regmap *regmap,
 
 }
 
-static void firmware_download_code(struct regmap *regmap,
-		struct firmware_code *code)
+static void firmware_download_code(struct firmware_code *code)
 {
-	firmware_download_pm(regmap, code);
-	firmware_download_dm(regmap, code, code->code + code->head.dm1_offset);
-	firmware_download_dm(regmap, code, code->code + code->head.dm2_offset);
+	firmware_download_pm(code);
+	firmware_download_dm(code, code->code + code->head.dm1_offset);
+	firmware_download_dm(code, code->code + code->head.dm2_offset);
 }
 
-static void dump_pm_codes(struct regmap *regmap,
-		u32 __user *buffer)
+static void dump_pm_codes(u32 __user *buffer)
 {
 	u32 i;
 	u32 val;
 
-	regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-	regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR, 0 | 0x3 << 30);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, 0 | 0x3 << 30);
 	for (i = 0; i < KAS_PM_SRAM_SIZE; i++) {
-		regmap_read(regmap, KAS_CPU_KEYHOLE_DATA, &val);
+		val = read_kalimba_reg(KAS_CPU_KEYHOLE_DATA);
 		put_user(val, buffer + i);
 	}
 }
 
-int firmware_ioctl(struct regmap *regmap, struct device *dev,
-		unsigned int cmd, unsigned long arg)
+int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 {
 	struct firmware_code code;
 	u32 start_addr, length, i;
@@ -392,22 +364,20 @@ int firmware_ioctl(struct regmap *regmap, struct device *dev,
 			kfree(data);
 			return -EINVAL;
 		}
-		firmware_load_pm_though_keyhole(regmap, start_addr,
-			length, data);
+		firmware_load_pm_though_keyhole(start_addr, length, data);
 		kfree(data);
 		break;
 	case IOCTL_KALIMBA_READ_PM:
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
 		arg += 8;
-		regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-		regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+		write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			start_addr | (0x3 << 30));
 		for (i = 0; i < length / 4; i++) {
 			u32 tmp;
 
-			regmap_read(regmap, KAS_CPU_KEYHOLE_DATA,
-			&tmp);
+			tmp = read_kalimba_reg(KAS_CPU_KEYHOLE_DATA);
 			put_user(tmp, (u32 __user *)(arg + i * 4));
 		}
 		break;
@@ -415,52 +385,48 @@ int firmware_ioctl(struct regmap *regmap, struct device *dev,
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
 		arg += 8;
-		regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-		regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+		write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(start_addr << 2) | (0x2 << 30));
 		for (i = 0; i < length / 4; i++) {
 			u32 tmp;
 
 			get_user(tmp, (u32 __user *)(arg + i * 4));
-			regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-				tmp);
+			write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, tmp);
 		}
 		break;
 	case IOCTL_KALIMBA_READ_DM:
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
 		arg += 8;
-		regmap_write(regmap, KAS_CPU_KEYHOLE_MODE, 4);
-		regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+		write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(start_addr << 2) | (0x2 << 30));
 		for (i = 0; i < length / 4; i++) {
 			u32 tmp;
 
-			regmap_read(regmap, KAS_CPU_KEYHOLE_DATA,
-			&tmp);
+			tmp = read_kalimba_reg(KAS_CPU_KEYHOLE_DATA);
 			put_user(tmp, (u32 __user *)(arg + i * 4));
 		}
 		break;
 	case IOCTL_KALIMBA_RUN_PM:
 		get_user(start_addr, (u32 __user *)arg);
-		firmware_run_pm(regmap, start_addr);
+		firmware_run_pm(start_addr);
 		break;
 	case IOCTL_KALIMBA_STOP_PM:
 		dev_info(dev, "Pause PM\n");
-		regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(KAS_DEBUG << 2) | (0x2 << 30));
-		regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-			KAS_DEBUG_STOP);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
 		break;
 	case IOCTL_KALIMBA_RESUME_PM:
 		dev_info(dev, "Resume PM\n");
-		regmap_write(regmap, KAS_CPU_KEYHOLE_ADDR,
+		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(KAS_DEBUG << 2) | (0x2 << 30));
-		regmap_write(regmap, KAS_CPU_KEYHOLE_DATA,
-			KAS_DEBUG_RUN);
+		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_RUN);
 		break;
 	case IOCTL_KALIMBA_DUMP_BOOTCODE:
-		dump_pm_codes(regmap, (u32 __user *)arg);
+		dump_pm_codes((u32 __user *)arg);
 		break;
 	case IOCTL_KALIMBA_DOWNLOAD_BOOTCODE:
 		if (copy_from_user(&code.head,
@@ -482,8 +448,8 @@ int firmware_ioctl(struct regmap *regmap, struct device *dev,
 			dev_err(dev, "Get bootcode data failed.\n");
 			return -EINVAL;
 		}
-		firmware_download_code(regmap, &code);
-		firmware_stop_pm(regmap);
+		firmware_download_code(&code);
+		firmware_stop_pm();
 		dma_free_coherent(dev,
 			code.head.code_size, code.code, code.code_dma_addr);
 		break;
@@ -493,7 +459,7 @@ int firmware_ioctl(struct regmap *regmap, struct device *dev,
 	return 0;
 }
 
-void firmware_download(struct regmap *regmap, u32 *fw_data)
+void firmware_download(u32 *fw_data)
 {
 	struct firmware_code code;
 
@@ -504,6 +470,6 @@ void firmware_download(struct regmap *regmap, u32 *fw_data)
 	code.head.dm2_offset = be32_to_cpu(fw_data[4]);
 	code.code = &fw_data[5];
 	code.code_dma_addr = virt_to_phys(code.code);
-	firmware_download_code(regmap, &code);
-	firmware_run_pm(regmap, 0);
+	firmware_download_code(&code);
+	firmware_run_pm(0);
 }

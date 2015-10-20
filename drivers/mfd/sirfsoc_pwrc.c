@@ -1,5 +1,5 @@
 /*
- * power management entry for CSR SiRFprimaII
+ * power management mfd for CSR SiRFSoC chips
  *
  * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
@@ -13,25 +13,14 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt)        "(sirfsoc_pm): " fmt
-
 #include <linux/kernel.h>
-#include <linux/suspend.h>
-#include <linux/slab.h>
-#include <linux/export.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
-#include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/regmap.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/sirfsoc_pwrc.h>
-#include <linux/proc_fs.h>
-#include <linux/uaccess.h>
-
 
 struct sirfsoc_pwrc_register sirfsoc_a7da_pwrc = {
 	.pwrc_pdn_ctrl_set = 0x0,
@@ -92,7 +81,6 @@ struct sirfsoc_pwrc_register sirfsoc_prima2_pwrc = {
 	.pwrc_scratch_pad12 = 0x44,
 	.pwrc_gpio3_clk = 0x54,
 	.pwrc_gpio_ds = 0x78,
-
 };
 
 static const struct regmap_irq pwrc_irqs[] = {
@@ -136,10 +124,8 @@ static struct regmap_irq_chip pwrc_irq_chip = {
 	.init_ack_masked = true,
 };
 
-
 static const struct of_device_id pwrc_ids[] = {
 	{ .compatible = "sirf,prima2-pwrc", .data = &sirfsoc_prima2_pwrc},
-	{ .compatible = "sirf,marco-pwrc",  .data = &sirfsoc_prima2_pwrc},
 	{ .compatible = "sirf,atlas7-pwrc", .data = &sirfsoc_a7da_pwrc},
 	{}
 };
@@ -148,16 +134,13 @@ static const struct mfd_cell pwrc_devs[] = {
 	{
 		.name = "rtcmclk",
 		.of_compatible = "sirf,atlas7-rtcmclk",
-	},
-	{
+	}, {
 		.name = "sirf-sysctl",
 		.of_compatible = "sirf,sirf-sysctl",
-	},
-	{
+	}, {
 		.name = "gps-power",
 		.of_compatible = "sirf,gps-power",
-	},
-	{
+	}, {
 		.name = "onkey",
 		.of_compatible = "sirf,prima2-onkey",
 	},
@@ -189,15 +172,12 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	if (!pwrcinfo)
 		return -ENOMEM;
 	pwrcinfo->base = base;
+
 	/*
-	 * pwrc behind rtciobrg offset is diff between prima2 and a7da
+	 * pwrc behind rtciobrg offset is diff between prima2 and atlas7
 	 * here match to each ids data for it.
 	 */
 	match = of_match_node(pwrc_ids, np);
-	if (!match) {
-		pr_err("Unknown device model\n");
-		return -EINVAL;
-	}
 	pwrcinfo->pwrc_reg = (struct sirfsoc_pwrc_register *)match->data;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-pwrc"))
@@ -233,7 +213,7 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	if (ret <= 0) {
 		dev_info(&pdev->dev,
 			"Unable to find IRQ for pwrc. ret=%d\n", ret);
-		goto err;
+		goto err_irq;
 	}
 
 	pwrcinfo->irq = ret;
@@ -256,9 +236,9 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 			pwrc_reg->pwrc_trigger_en_set, 0x1F, 0x1F);
 
 	if (ret < 0)
-		goto err;
+		goto err_irq;
 
-	/*add irq controller for pwrc*/
+	/* add irq controller for pwrc */
 	ret = regmap_add_irq_chip(map, pwrcinfo->irq, IRQF_ONESHOT,
 				-1, pwrcinfo->regmap_irq_chip,
 				&pwrcinfo->irq_data);
@@ -269,20 +249,17 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	}
 
 	return 0;
+err_irq:
+	mfd_remove_devices(pwrcinfo->dev);
 err:
 	return ret;
-
 }
 
-
-
 static struct platform_driver sirfsoc_pwrc_driver = {
-	.probe		= sirfsoc_pwrc_probe,
-	.driver		= {
-		.name	= "sirfsoc_pwrc",
-		.owner	= THIS_MODULE,
+	.probe	= sirfsoc_pwrc_probe,
+	.driver	= {
+		.name = "sirfsoc_pwrc",
 		.of_match_table = pwrc_ids,
 	},
 };
-
 module_platform_driver(sirfsoc_pwrc_driver);

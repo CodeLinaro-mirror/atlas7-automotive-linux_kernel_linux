@@ -7,12 +7,6 @@ Required properties:
 
   - compatible		: Contains "csr,kalimba-dsp".
 
-  - reg			: Offset and length of register set for device and IPC.
-
-  - reg-names		: Register names.
-
-  - interrupts		: Contains the IPC interrupt.
-
   - clocks		: Contains an entry for each entry in clock-names.
 
   - clock-names		: Contains required clock names.
@@ -21,12 +15,9 @@ Required properties:
 
 Example:
 
-kalimba_dsp@10C10000 {
-	compatible = "csr,kalimba-dsp";
-	reg = <0x10C10000 0x1000 0x13240000 0x500>;
-	reg-names = "kas", "ipc";
+kalimba {
+	compatible = "csr,kalimba";
 	clocks = <&car 55>, <&car 26>, <&car 31>;
 	clock-names = "kas_kas", "audmscm_nocd", "gpum_nocd";
-	interrupts = <0 118 0>;
 	resets = <&car 10>;
 };

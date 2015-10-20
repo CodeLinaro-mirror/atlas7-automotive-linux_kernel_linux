@@ -22,22 +22,19 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <sound/tlv.h>
 
+#include "dsp.h"
 #include "iacc.h"
-#include "ipc.h"
 #include "kcm.h"
 
-#define KAS_PCM_COUNT	3
+#define KAS_PCM_COUNT	4
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
 	u16 kalimba_notify_ep_id;
 	struct endpoint_handle *sw_ep_handle;
-	struct endpoint_handle *hw_ep_handle;
 	u32 sw_ep_handle_phy_addr;
-	u32 hw_ep_handle_phy_addr;
-	void *hw_ep_buff;
-	u32 hw_ep_buff_phy_addr;
 	u32 pos;
 	snd_pcm_uframes_t last_appl_ptr;
 	void *action_id;
@@ -47,12 +44,12 @@ struct kas_pcm_data {
 };
 
 struct kas_priv_data {
-	struct ipc_data *ipc_data;
 	struct kas_pcm_data pcm[KAS_PCM_COUNT][2];
 	struct kcm_t *kcm;
 	struct mutex playback_kas_shared_exec_stream_mutex;
 	unsigned long playback_kas_shared_exec_stream;
 	unsigned long playback_running_stream;
+	unsigned long pre_channel_volume[4];
 };
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
@@ -72,6 +69,49 @@ static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 };
 
+#define MIN_GAIN_DB		-12000
+
+static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned long cache_vol = pdata->pre_channel_volume[mc->reg];
+
+	ucontrol->value.integer.value[0] = cache_vol;
+	return 0;
+}
+
+static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+
+	pdata->pre_channel_volume[mc->reg] = ucontrol->value.integer.value[0];
+	kalimba_set_channel_volume(mc->reg, MIN_GAIN_DB / 100 +
+		pdata->pre_channel_volume[mc->reg]);
+	return 0;
+}
+
+/* TLV used by volume control volumes */
+static const DECLARE_TLV_DB_SCALE(kas_vol_tlv, MIN_GAIN_DB, 100, 0);
+
+static const struct snd_kcontrol_new kas_channels_volume_controls[] = {
+	SOC_SINGLE_EXT_TLV("Front Left Playback Volume", 0, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Front Right Playback Volume", 1, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Rear Left Playback Volume", 2, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Rear Right Playback Volume", 3, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put, kas_vol_tlv)
+};
+
 static int kas_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -89,7 +129,7 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 		SNDRV_PCM_HW_PARAM_PERIODS);
 }
 
-static void kas_data_notify(u32 message, void *priv_data, u32 *message_data)
+static void kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 {
 	struct kas_pcm_data *pcm_data = (struct kas_pcm_data *)priv_data;
 	struct snd_pcm_runtime *runtime = pcm_data->substream->runtime;
@@ -114,8 +154,8 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dmab;
 	int ret;
 	bool exec_shared = false;
+	int i;
 
-	pdata->ipc_data = ipc_get_data();
 	pcm_data->pos = 0;
 	pcm_data->last_appl_ptr = 0;
 
@@ -169,6 +209,16 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		ret = execute_shared_components(EXEC_PHASE_HW_PARAMS);
 		if (ret < 0)
 			goto failed;
+		/*
+		 * Before the volume control operator is established,
+		 * the volume value is updated into the cache only.
+		 * After the volume control operator is established,
+		 * setup the volume value of each channel into the
+		 * volume control operator.
+		 */
+		for (i = 0; i < 4; i++)
+			kalimba_set_channel_volume(i, MIN_GAIN_DB / 100 +
+				pdata->pre_channel_volume[i]);
 	}
 
 	ret = execute_components_chain(pcm_data->components_chain,
@@ -179,13 +229,11 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	pcm_data->kalimba_notify_ep_id =
 		get_notify_ep_id(pcm_data->components_chain);
 	if (playback)
-		pcm_data->action_id = request_ipc(
-			pdata->ipc_data, DATA_CONSUMED, kas_data_notify,
-			pcm_data);
+		pcm_data->action_id = register_kalimba_msg_action(
+			DATA_CONSUMED, kas_data_notify, pcm_data);
 	else
-		pcm_data->action_id = request_ipc(
-			pdata->ipc_data, DATA_PRODUCED, kas_data_notify,
-			pcm_data);
+		pcm_data->action_id = register_kalimba_msg_action(
+			DATA_PRODUCED, kas_data_notify, pcm_data);
 	pcm_data->kas_started = true;
 	return 0;
 failed:
@@ -224,7 +272,7 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 			EXEC_PHASE_HW_FREE);
 	if (playback && exec_shared)
 		execute_shared_components(EXEC_PHASE_HW_FREE_1);
-	free_ipc(pdata->ipc_data, pcm_data->action_id);
+	unregister_kalimba_msg_action(pcm_data->action_id);
 	snd_pcm_lib_free_pages(substream);
 	pcm_data->kas_started = false;
 	return 0;
@@ -433,13 +481,6 @@ static void kas_pcm_free(struct snd_pcm *pcm)
 				sizeof(struct endpoint_handle),
 				pcm_data->sw_ep_handle,
 				pcm_data->sw_ep_handle_phy_addr);
-		dma_free_coherent(rtd->platform->dev,
-				sizeof(struct endpoint_handle),
-				pcm_data->hw_ep_handle,
-				pcm_data->hw_ep_handle_phy_addr);
-		dma_free_coherent(rtd->platform->dev, 1024,
-				pcm_data->hw_ep_buff,
-				pcm_data->hw_ep_buff_phy_addr);
 	}
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
@@ -457,7 +498,6 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 	mutex_init(&priv_data->playback_kas_shared_exec_stream_mutex);
 	if (IS_ERR(priv_data->kcm))
 		return PTR_ERR(priv_data->kcm);
-	priv_data->ipc_data = ipc_get_data();
 	return 0;
 }
 
@@ -491,9 +531,19 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
-		.name = "Notify Pin",
+		.name = "Navigation Pin",
 		.playback = {
-			.stream_name = "Notify Playback",
+			.stream_name = "Navigation Playback",
+			.channels_min = 1,
+			.channels_max = 4,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
+		.name = "Alarm Pin",
+		.playback = {
+			.stream_name = "Alarm Playback",
 			.channels_min = 1,
 			.channels_max = 4,
 			.rates = KAS_RATES,
@@ -523,13 +573,16 @@ static const struct snd_soc_dapm_widget widgets[] = {
 static const struct snd_soc_dapm_route graph[] = {
 	/* Playback Mixer */
 	{"Playback VMixer", NULL, "Music Playback"},
-	{"Playback VMixer", NULL, "Notify Playback"},
+	{"Playback VMixer", NULL, "Navigation Playback"},
+	{"Playback VMixer", NULL, "Alarm Playback"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
 };
 
 static const struct snd_soc_component_driver kas_dai_component = {
 	.name = "kas-dai",
+	.controls = kas_channels_volume_controls,
+	.num_controls = ARRAY_SIZE(kas_channels_volume_controls),
 	.dapm_widgets = widgets,
 	.num_dapm_widgets = ARRAY_SIZE(widgets),
 	.dapm_routes = graph,

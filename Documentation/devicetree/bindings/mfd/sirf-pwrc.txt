@@ -7,7 +7,7 @@ status configuration. the pwrc is access by io bridge, so the
 node's parent should be io bridge.
 
 Required properties:
-- compatible: "sirf,atlas7-pwrc"
+- compatible: "sirf,prima2-pwrc", or "sirf,atlas7-pwrc"
 - reg: Address range of pwrc register set
 - sysctl:mfd cell device of pwrc
 - rtcm-clk:mfd cell device of pwrc

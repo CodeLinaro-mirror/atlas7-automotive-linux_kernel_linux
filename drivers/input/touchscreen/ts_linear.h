@@ -1,7 +1,7 @@
 /*
- * DTS file for CSR SiRFatlas7 Evaluation Board
+ * Touchscreen Linear Scale Adaptor
  *
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,9 +13,9 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef __TS_LINEAR_H__
+#define __TS_LINEAR_H__
 
-/include/ "atlas7.dtsi"
-#include "atlas7-amber.dtsi"
-#include "atlas7-evb-common.dtsi"
-#include "atlas7-dual-common.dtsi"
+extern int ts_linear_scale(int *x, int *y);
+
+#endif

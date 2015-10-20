@@ -1,0 +1,61 @@
+/*
+ * common components for atlas7 entry EVB
+ *
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		display0 = &rgb;
+	};
+
+	noc {
+		disp-iobg {
+			lcd0@13100000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ld_ldd_pmx &ld_ldd_fck_pmx
+					&ld_ldd_lck_pmx>;
+			};
+		};
+
+		rgb: display@0 {
+			compatible = "rgb-panel";
+			source = "rgb.0";
+			status = "okay";
+
+			data-lines  = <16>;
+
+			display-timings {
+				native-mode = <&timing0>;
+				timing0: timing0 {
+					clock-frequency = <40000000>;
+					hactive = <800>;
+					vactive = <480>;
+					hfront-porch = <210>;
+					hback-porch = <45>;
+					hsync-len = <1>;
+					vback-porch = <22>;
+					vfront-porch = <132>;
+					vsync-len = <1>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+			};
+		};
+	};
+};

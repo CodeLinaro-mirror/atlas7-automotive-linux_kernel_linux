@@ -1354,18 +1354,6 @@ config MFD_VEXPRESS_SYSREG
 	  System Registers are the platform configuration block
 	  on the ARM Ltd. Versatile Express board.
 
-config SIRF_SOC_IPC
-	bool "SIRF Inter-Processor Communication device"
-	depends on ARCH_SIRF
-	select MFD_CORE
-	help
-	  The SIRF Inter-Processor Communication device provides
-	  a set of hardware spinlock and a group of registers to
-	  trigger/receive interrupts to/from remote processors.
-
-	  It's safe to say n here if you're not interested in SIRF
-	  IPC device or just want a bare minimum kernel.
-
 config MFD_SIRFSOC_PWRC
         bool "CSR Power Control Chip"
         select MFD_CORE

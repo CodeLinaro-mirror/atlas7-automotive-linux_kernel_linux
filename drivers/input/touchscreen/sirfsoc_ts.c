@@ -1,9 +1,16 @@
 /*
  * sirfsoc touch controller Driver
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -21,7 +28,9 @@
 #include <linux/reset.h>
 #include <linux/iio/consumer.h>
 
-#include "sirfsoc_ts_linear.h"
+#ifdef TOUCHSCREEN_SIRFSOC_CALIBRATE
+#include "ts_linear.h"
+#endif
 
 #define DRIVER_NAME		"sirfsoc_tsc"
 
@@ -473,7 +482,9 @@ static void sirfsoc_ts_report_coord(struct sirfsoc_ts *ts)
 			ts->issued_y[i] = ts->sampled_y[i];
 		}
 
+#ifdef TOUCHSCREEN_SIRFSOC_CALIBRATE
 		ts_linear_scale(&ts->sampled_x[i], &ts->sampled_y[i]);
+#endif
 
 		input_report_abs(ts->input, ABS_MT_POSITION_X,
 				ts->sampled_x[i]);
@@ -659,6 +670,5 @@ static struct platform_driver tsc_sirfsoc_driver = {
 
 module_platform_driver(tsc_sirfsoc_driver);
 
-MODULE_AUTHOR("Sober Song <Zhiwu.Song@csr.com>");
 MODULE_DESCRIPTION("SiRF SoC On-chip Touch screen driver");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");

@@ -50,6 +50,10 @@
 #define	DMAC_INT_MASK	0x4
 #define	DEBUG_INT_MASK	0x8	/* CVD ext locked and etc. */
 
+#define CVD_VIP			0x0
+#define COM_VIP			0x1
+#define P2_VIP			0x2
+
 /* Interrupt Mask definition */
 #define     VIP_INTMASK_ALL            0x00000007
 #define     VIP_INTMASK_ALL_A7         0x0000003F
@@ -126,6 +130,11 @@ enum vip_pixelfmt {
 	VIP_PIXELFORMAT_CUSTOMFORMAT = 0x1000
 };
 
+enum vip_data_mode {
+	VIP_DATA_SAMPLE_MODE_NONE,
+	VIP_DATA_SAMPLE_MODE_SDR,
+	VIP_DATA_SAMPLE_MODE_DDR,
+};
 struct vip_rect {
 	int    left;
 	int    top;
@@ -142,7 +151,7 @@ struct vip_control {
 	bool	pixclk_invert;
 	bool	hsync_invert;
 	bool	vsync_invert;
-	bool	ccir565_en;
+	bool	ccir656_en;
 	bool	single_cap;
 	bool	pad_mux_on_upli;
 	bool	cap_from_even_en;
@@ -202,7 +211,7 @@ struct vip_dev {
 	struct device		*dev;
 	struct v4l2_device	v4l2_dev;
 
-	bool	is_atlas7_vip0;
+	unsigned int		type;
 
 	struct vip_subdev_info	subdev[VIP_MAX_SUBDEVS];
 	unsigned int		num_subdev;
@@ -212,9 +221,12 @@ struct vip_dev {
 	struct clk		*clk;
 
 	unsigned int		irq;
+	unsigned int		dma_irq;
 	struct resource		*res;
 	void __iomem		*io_base;
 	unsigned int		video_limit;
+	unsigned int		data_shift;
+	enum vip_data_mode	data_mode;
 
 	dma_addr_t		dst_start;
 	struct dma_chan		*dma_chan;
@@ -233,6 +245,11 @@ struct vip_dev {
 	struct vip_rect		target_rect;
 
 	unsigned long		device_is_used;
+
+	/* DVD player which holds VIP hardware info */
+	struct task_struct      *task;
+	unsigned int		dvd_port;
+	v4l2_std_id		dvd_std;
 
 	/*
 	 * Video format information.
@@ -280,6 +297,8 @@ struct vip_dev {
 /* Camera Control register */
 #define CAM_CTRL			0x10
 #define CAM_CTRL_INIT			(1 << 31)
+#define CAM_CTRL_USE_OLD_SYNC		(1 << 27)
+#define CAM_CTRL_DDR_SYNC_EN		(1 << 26)
 #define CAM_CTRL_FID			(1 << 25)
 #define CAM_CTRL_CCIR656_EN		(1 << 24)
 #define CAM_CTRL_PAD_MUX_ON_UPLI	(1 << 23)
@@ -328,7 +347,10 @@ struct vip_dev {
 #define CAM_PIXEL_SHIFT_MASK		(0x7 << 0)
 #define CAM_PIXEL_SHIFT_16BIT		(0 << 0)
 #define CAM_PIXEL_SHIFT_0TO7		(1 << 0)
-#define CAM_PIXEL_UV_SWAP		0x100
+#define CAM_PIXEL_NO_SWAP		(0 << 8)
+#define CAM_PIXEL_BYTE_SWAP		(1 << 8)
+#define CAM_PIXEL_WORD_SWAP		(2 << 8)
+#define CAM_PIXEL_BYTE_WORD_SWAP	(3 << 8)
 
 /* Red coefficent of YUV to RGB */
 #define CAM_YUV_COEF1			0x18
@@ -485,6 +507,27 @@ struct vip_dev {
 #define CAM_LINEBUF_WORD_NUM_MASK	(0x1FF << 0)
 #define CAM_LINEBUF_WORD_NUM(x)		(((x) & 0x1FF) << 0)
 
+
+#define CAM_PXCLK_CFG			0x68
+#define CAM_INPUT_BIT_SEL_0		0x6C
+#define CAM_INPUT_BIT_SEL_1		0x70
+#define CAM_INPUT_BIT_SEL_2		0x74
+#define CAM_INPUT_BIT_SEL_3		0x78
+#define CAM_INPUT_BIT_SEL_4		0x7C
+#define CAM_INPUT_BIT_SEL_5		0x80
+#define CAM_INPUT_BIT_SEL_6		0x84
+#define CAM_INPUT_BIT_SEL_7		0x88
+#define CAM_INPUT_BIT_SEL_8		0x8C
+#define CAM_INPUT_BIT_SEL_9		0x90
+#define CAM_INPUT_BIT_SEL_10		0x94
+#define CAM_INPUT_BIT_SEL_11		0x98
+#define CAM_INPUT_BIT_SEL_12		0x9C
+#define CAM_INPUT_BIT_SEL_13		0xA0
+#define CAM_INPUT_BIT_SEL_14		0xA4
+#define CAM_INPUT_BIT_SEL_15		0xA8
+#define CAM_INPUT_BIT_SEL_HSYNC		0xAC
+#define CAM_INPUT_BIT_SEL_VSYNC		0xB0
+
 /* DMAC register */
 #define DMAN_ADDR			0x400
 #define DMAN_XLEN			0x404
@@ -518,5 +561,9 @@ struct vip_dev {
 void vip_rv_config(struct vip_rv_info *rv_info);
 void vip_rv_start(void *data);
 void vip_rv_stop(void *data);
+
+#define is_cvd_vip(vip)		((vip)->type == CVD_VIP)
+#define is_com_vip(vip)		((vip)->type == COM_VIP)
+
 
 #endif

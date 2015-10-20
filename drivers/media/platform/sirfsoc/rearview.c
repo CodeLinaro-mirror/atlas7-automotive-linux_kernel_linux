@@ -65,8 +65,15 @@ struct display_info {
 	struct vdss_rect	sca_rect;
 	struct vdss_rect	dst_rect;
 	struct sirfsoc_vdss_panel *panel;
-	struct sirfsoc_vdss_layer *l;
+	struct sirfsoc_vdss_layer *l;		/* rearviw data layer */
 	struct sirfsoc_vdss_screen *scn;
+
+	#ifdef CONFIG_REARVIEW_AUXILIARY
+	struct sirfsoc_vdss_layer *aux_l;	/* rearviw auxiliary layer */
+	/* auxiliary layer might take over from other layer, need restore */
+	struct sirfsoc_vdss_layer_info saved_l_info;
+	enum vdss_layer	saved_toplayer;
+	#endif
 };
 
 struct rv_dev {
@@ -94,6 +101,12 @@ struct rv_dev {
 
 	dma_addr_t	data_dma_addr, table_dma_addr;
 	void		*data_virt_addr, *table_virt_addr;
+
+	#ifdef CONFIG_REARVIEW_AUXILIARY
+	dma_addr_t	aux_dma_addr;
+	void		*aux_virt_addr;
+	unsigned int	aux_bytesperlength, aux_size;
+	#endif
 
 	void __iomem	*ipc_int_addr, *ipc_msg_addr;
 };
@@ -213,13 +226,11 @@ static void rv_input_disconnect(struct input_handle *handle)
 
 static const struct input_device_id rv_input_ids[] = {
 	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-			INPUT_DEVICE_ID_MATCH_KEYBIT,
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
 		.evbit = { BIT_MASK(EV_KEY) },
 	},
 	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
 		.evbit = { BIT_MASK(EV_ABS) },
 	},
 	{},
@@ -282,7 +293,7 @@ static inline void rv_set_dma_table_stop(struct rv_dev *rv)
 
 static int rv_setup_dma(struct rv_dev *rv)
 {
-	int ret = 0;
+	int ret = 0, xres, yres;
 
 	ret = dma_set_coherent_mask(rv->dev, DMA_BIT_MASK(32));
 	if (ret) {
@@ -302,6 +313,21 @@ static int rv_setup_dma(struct rv_dev *rv)
 		dev_err(rv->dev, "can't alloc dma memory\n");
 		return -ENOMEM;
 	}
+
+	#ifdef CONFIG_REARVIEW_AUXILIARY
+	/* alloc panel resolution@ARGB8888 format buffer */
+	xres = rv->d_info.panel->timings.xres;
+	yres = rv->d_info.panel->timings.yres;
+	rv->aux_bytesperlength = xres * 4;
+	rv->aux_size = yres * rv->aux_bytesperlength;
+
+	rv->aux_virt_addr = dma_alloc_coherent(rv->dev, rv->aux_size,
+						&rv->aux_dma_addr, GFP_KERNEL);
+	if (rv->aux_virt_addr == NULL) {
+		dev_err(rv->dev, "can't alloc aux memory\n");
+		return -ENOMEM;
+	}
+	#endif
 
 	rv->table_dma_addr = rv->data_dma_addr + DATA_DMA_SIZE;
 	rv->table_virt_addr = rv->data_virt_addr + DATA_DMA_SIZE;
@@ -352,18 +378,18 @@ static int rv_get_display_info(struct rv_dev *rv)
 	/* full source capture full screen display */
 	rv->d_info.src_rect.left	= 0;
 	rv->d_info.src_rect.top		= 0;
-	rv->d_info.src_rect.right	= rv->width;
-	rv->d_info.src_rect.bottom	= rv->height;
+	rv->d_info.src_rect.right	= rv->width - 1;
+	rv->d_info.src_rect.bottom	= rv->height - 1;
 
 	rv->d_info.sca_rect.left	= 0;
 	rv->d_info.sca_rect.top		= 0;
-	rv->d_info.sca_rect.right	= rv->d_info.panel->timings.xres;
-	rv->d_info.sca_rect.bottom	= rv->d_info.panel->timings.yres;
+	rv->d_info.sca_rect.right	= rv->d_info.panel->timings.xres - 1;
+	rv->d_info.sca_rect.bottom	= rv->d_info.panel->timings.yres - 1;
 
 	rv->d_info.dst_rect.left	= 0;
 	rv->d_info.dst_rect.top		= 0;
-	rv->d_info.dst_rect.right	= rv->d_info.panel->timings.xres;
-	rv->d_info.dst_rect.bottom	= rv->d_info.panel->timings.yres;
+	rv->d_info.dst_rect.right	= rv->d_info.panel->timings.xres - 1;
+	rv->d_info.dst_rect.bottom	= rv->d_info.panel->timings.yres - 1;
 
 	return	0;
 }
@@ -381,6 +407,254 @@ static irqreturn_t rv_ipc_irq_handler(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+#ifdef CONFIG_REARVIEW_AUXILIARY
+
+static void rv_aux_fillrect(struct rv_dev *rv, struct vdss_rect *rect,
+							void *color, int len)
+{
+	int i, j;
+
+	for (j = rect->top; j < rect->bottom; j++)
+		for (i = rect->left; i < rect->right; i++)
+			memcpy(rv->aux_virt_addr + j * rv->aux_bytesperlength
+						+ i * len, color, len);
+}
+
+/*
+* Draw distance alarm lines on another overlay.
+* We haven't plan to maintain it in future, so hard code here, sorry.
+*/
+static void rv_aux_drawline(struct rv_dev *rv)
+{
+	struct vdss_rect rect;
+	int xres, yres, i;
+
+	unsigned int red32 = 0x00ff0000;
+	unsigned int yellow32 = 0x00ffff00;
+	unsigned int green32 = 0x0000ff00;
+	unsigned int transparent_ratio = CONFIG_AUXILIARY_TRANSPARENT_VALUE;
+
+	/* integrating alpha value to the colors */
+	red32		|= ((100 - transparent_ratio) * 0xFF / 100) << 24;
+	yellow32	|= ((100 - transparent_ratio) * 0xFF / 100) << 24;
+	green32		|= ((100 - transparent_ratio) * 0xFF / 100) << 24;
+
+	xres = rv->d_info.panel->timings.xres;
+	yres = rv->d_info.panel->timings.yres;
+
+	/* green lines drawing */
+	rect.left	= xres * 5 / 16;
+	rect.right	= xres * 7 / 16 - 20;
+	rect.top	= yres * 5 / 8;
+	rect.bottom	= yres * 5 / 8 + 7;
+	rv_aux_fillrect(rv, &rect, &green32, 4);
+	rect.left	= xres * 9 / 16 + 20;
+	rect.right	= xres * 11 / 16;
+	rect.top	= yres * 5 / 8;
+	rect.bottom	= yres * 5 / 8 + 7;
+	rv_aux_fillrect(rv, &rect, &green32, 4);
+	for (i = 0; i < 17; i++) {
+		rect.left	= xres * 5 / 16 - i;
+		rect.right	= xres * 5 / 16 + 9 - i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &green32, 4);
+
+		rect.left	= xres * 11 / 16 - 9 + i;
+		rect.right	= xres * 11 / 16 + i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &green32, 4);
+	}
+	for (i = 27; i < 37; i++) {
+		rect.left	= xres * 5 / 16 - i;
+		rect.right	= xres * 5 / 16 + 9 - i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &green32, 4);
+
+		rect.left	= xres * 11 / 16 - 9 + i;
+		rect.right	= xres * 11 / 16 + i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &green32, 4);
+	}
+
+	/* yellow lines drawing */
+	i = 47;
+	rect.left	= xres * 5 / 16 - i;
+	rect.right	= xres * 7 / 16 - i;
+	rect.top	= yres * 5 / 8 + i;
+	rect.bottom	= yres * 5 / 8 + i + 7;
+	rv_aux_fillrect(rv, &rect, &yellow32, 4);
+	rect.left	= xres * 9 / 16 + i;
+	rect.right	= xres * 11 / 16 + i;
+	rect.top	= yres * 5 / 8 + i;
+	rect.bottom	= yres * 5 / 8 + i + 7;
+	rv_aux_fillrect(rv, &rect, &yellow32, 4);
+	for (i = 47; i < 72; i++) {
+		rect.left	= xres * 5 / 16 - i;
+		rect.right	= xres * 5 / 16 + 9 - i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &yellow32, 4);
+
+		rect.left	= xres * 11 / 16 - 9 + i;
+		rect.right	= xres * 11 / 16 + i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &yellow32, 4);
+	}
+	for (i = 82; i < 107; i++) {
+		rect.left	= xres * 5 / 16 - i;
+		rect.right	= xres * 5 / 16 + 9 - i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &yellow32, 4);
+
+		rect.left	= xres * 11 / 16 - 9 + i;
+		rect.right	= xres * 11 / 16 + i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &yellow32, 4);
+	}
+
+	/* red lines drawing */
+	i = 117;
+	rect.left	= xres * 5 / 16 - i;
+	rect.right	= xres * 7 / 16 - i + 40;
+	rect.top	= yres * 5 / 8 + i;
+	rect.bottom	= yres * 5 / 8 + i + 7;
+	rv_aux_fillrect(rv, &rect, &red32, 4);
+	rect.left	= xres * 9 / 16 + i - 40;
+	rect.right	= xres * 11 / 16 + i;
+	rect.top	= yres * 5 / 8 + i;
+	rect.bottom	= yres * 5 / 8 + i + 7;
+	rv_aux_fillrect(rv, &rect, &red32, 4);
+	for (i = 117; i < 157; i++) {
+		rect.left	= xres * 5 / 16 - i;
+		rect.right	= xres * 5 / 16 + 9 - i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &red32, 4);
+
+		rect.left	= xres * 11 / 16 - 9 + i;
+		rect.right	= xres * 11 / 16 + i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &red32, 4);
+	}
+	for (i = 167; i < 207; i++) {
+		rect.left	= xres * 5 / 16 - i;
+		rect.right	= xres * 5 / 16 + 9 - i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &red32, 4);
+
+		rect.left	= xres * 11 / 16 - 9 + i;
+		rect.right	= xres * 11 / 16 + i;
+		rect.top	= yres * 5 / 8 + i;
+		rect.bottom	= yres * 5 / 8 + i + 1;
+		rv_aux_fillrect(rv, &rect, &red32, 4);
+	}
+}
+
+static int rv_auxiliary_start(struct rv_dev *rv)
+{
+	struct sirfsoc_vdss_layer *l;
+	struct sirfsoc_vdss_layer *active_layers[2]; /* rearview & auxiliary */
+	struct sirfsoc_vdss_layer_info info;
+	struct sirfsoc_vdss_screen_info sinfo;
+
+	rv->d_info.aux_l = sirfsoc_vdss_get_layer_from_screen(rv->d_info.scn,
+									false);
+	if (!rv->d_info.aux_l) {
+		dev_err(rv->dev, "no layer for rearview auxiliary");
+		return -EBUSY;
+	}
+
+	/* set all the layer data to 0, default transparent 100% */
+	memset(rv->aux_virt_addr, 0, rv->aux_size);
+
+	/* unlock rearview & auxiliary layers, disable and lock other layers */
+	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, false);
+	active_layers[0] = rv->d_info.l;
+	active_layers[1] = rv->d_info.aux_l;
+	sirfsoc_vdss_set_exclusive_layers(&active_layers[0], 2, true);
+
+	/* get the layer which used for auxiliary original info and backup */
+	l = rv->d_info.aux_l;
+	l->get_info(l, &info);
+	rv->d_info.saved_l_info = info;
+
+	/* apply rearview auxiliary layer setting */
+	info.base = rv->aux_dma_addr;
+	info.passthrough = false;
+
+	info.src_rect.left = 0;
+	info.src_rect.top = 0;
+	info.src_rect.right = rv->d_info.panel->timings.xres - 1;
+	info.src_rect.bottom = rv->d_info.panel->timings.yres - 1;
+
+	info.dst_rect.left = 0;
+	info.dst_rect.top = 0;
+	info.dst_rect.right =  rv->d_info.panel->timings.xres - 1;
+	info.dst_rect.bottom = rv->d_info.panel->timings.yres - 1;
+	info.fmt = VDSS_PIXELFORMAT_8888;
+
+	info.surf_width = rv->d_info.panel->timings.xres;
+	info.surf_height = rv->d_info.panel->timings.yres;
+
+	info.global_alpha	= false;
+	info.ckey_on		= false;
+	info.dst_ckey_on	= false;
+	info.pre_mult_alpha	= false;
+	info.source_alpha	= true;
+
+	l->set_info(l, &info);
+	l->screen->apply(l->screen);
+	l->enable(l);
+
+	/* get the original toplayer info and backup */
+	l->screen->get_info(l->screen, &sinfo);
+	rv->d_info.saved_toplayer = sinfo.top_layer;
+
+	/* set the auxiliary layer to the new toplayer */
+	sinfo.top_layer = l->id;
+	l->screen->set_info(l->screen, &sinfo);
+	l->screen->apply(l->screen);
+
+	/* start to draw distance alarm lines */
+	rv_aux_drawline(rv);
+
+	return 0;
+}
+
+static void rv_auxiliary_stop(struct rv_dev *rv)
+{
+	struct sirfsoc_vdss_layer *l = rv->d_info.aux_l;
+	struct sirfsoc_vdss_screen_info sinfo;
+
+	if (!l)
+		return;
+
+	/* remove the distance alarm lines */
+	memset(rv->aux_virt_addr, 0, rv->aux_size);
+
+	/* disable auxiliary layer and restore its original setting */
+	l->disable(l);
+	l->set_info(l, &rv->d_info.saved_l_info);
+	l->screen->apply(l->screen);
+
+	/* restore original toplayer setting */
+	l->screen->get_info(l->screen, &sinfo);
+	sinfo.top_layer = rv->d_info.saved_toplayer;
+	l->screen->set_info(l->screen, &sinfo);
+	l->screen->apply(l->screen);
+}
+
+#endif
 
 static void rv_start(struct rv_dev *rv)
 {
@@ -411,19 +685,19 @@ static void rv_start(struct rv_dev *rv)
 	info.base = 0;
 	info.passthrough = true;
 
-	info.src_rect.left = rv->d_info.sca_rect.left;
-	info.src_rect.top = rv->d_info.sca_rect.top;
-	info.src_rect.right = rv->d_info.sca_rect.right - 1;
-	info.src_rect.bottom = rv->d_info.sca_rect.bottom - 1;
+	info.src_rect.left	= rv->d_info.sca_rect.left;
+	info.src_rect.top	= rv->d_info.sca_rect.top;
+	info.src_rect.right	= rv->d_info.sca_rect.right;
+	info.src_rect.bottom	= rv->d_info.sca_rect.bottom;
 
-	info.dst_rect.left = rv->d_info.dst_rect.left;
-	info.dst_rect.top = rv->d_info.dst_rect.top;
-	info.dst_rect.right = rv->d_info.dst_rect.right - 1;
-	info.dst_rect.bottom = rv->d_info.dst_rect.bottom - 1;
+	info.dst_rect.left	= rv->d_info.dst_rect.left;
+	info.dst_rect.top	= rv->d_info.dst_rect.top;
+	info.dst_rect.right	= rv->d_info.dst_rect.right;
+	info.dst_rect.bottom	= rv->d_info.dst_rect.bottom;
 
 	info.fmt = VPP_TO_LCD_PIXELFORMAT;
-	info.surf_width = info.src_rect.right - info.src_rect.left;
-	info.surf_height = info.src_rect.bottom - info.src_rect.top;
+	info.surf_width = info.src_rect.right - info.src_rect.left + 1;
+	info.surf_height = info.src_rect.bottom - info.src_rect.top + 1;
 
 	rv->d_info.l->set_info(rv->d_info.l, &info);
 	rv->d_info.l->screen->apply(rv->d_info.l->screen);
@@ -444,7 +718,7 @@ static void rv_start(struct rv_dev *rv)
 
 	vpp_op_params.type = VPP_OP_IBV;
 	vpp_op_params.op.ibv.src_id =
-		((struct vip_dev *)rv->rv_vip)->is_atlas7_vip0 ?
+		is_cvd_vip((struct vip_dev *)rv->rv_vip) ?
 				SIRFSOC_VDSS_VIP0_EXT : SIRFSOC_VDSS_VIP1_EXT;
 	vpp_op_params.op.ibv.src_size	= 3;
 
@@ -464,15 +738,15 @@ static void rv_start(struct rv_dev *rv)
 	vpp_op_params.op.ibv.interlace.input_top_first = true;
 	vpp_op_params.op.ibv.interlace.output_top_first = false;
 
-	vpp_op_params.op.ibv.src_rect.left = rv->d_info.src_rect.left;
-	vpp_op_params.op.ibv.src_rect.top = rv->d_info.src_rect.top;
-	vpp_op_params.op.ibv.src_rect.right = rv->d_info.src_rect.right - 1;
-	vpp_op_params.op.ibv.src_rect.bottom = rv->d_info.src_rect.bottom - 1;
+	vpp_op_params.op.ibv.src_rect.left	= rv->d_info.src_rect.left;
+	vpp_op_params.op.ibv.src_rect.top	= rv->d_info.src_rect.top;
+	vpp_op_params.op.ibv.src_rect.right	= rv->d_info.src_rect.right;
+	vpp_op_params.op.ibv.src_rect.bottom	= rv->d_info.src_rect.bottom;
 
-	vpp_op_params.op.ibv.dst_rect.left = rv->d_info.sca_rect.left;
-	vpp_op_params.op.ibv.dst_rect.top = rv->d_info.sca_rect.top;
-	vpp_op_params.op.ibv.dst_rect.right = rv->d_info.sca_rect.right - 1;
-	vpp_op_params.op.ibv.dst_rect.bottom = rv->d_info.sca_rect.bottom - 1;
+	vpp_op_params.op.ibv.dst_rect.left	= rv->d_info.sca_rect.left;
+	vpp_op_params.op.ibv.dst_rect.top	= rv->d_info.sca_rect.top;
+	vpp_op_params.op.ibv.dst_rect.right	= rv->d_info.sca_rect.right;
+	vpp_op_params.op.ibv.dst_rect.bottom	= rv->d_info.sca_rect.bottom;
 
 	/* if mirror enabled, line buffer will disorder the pixel data */
 	if (rv->mirror_en)
@@ -499,10 +773,18 @@ static void rv_start(struct rv_dev *rv)
 	/* start lcd layer */
 	if (!rv->d_info.l->is_enabled(rv->d_info.l))
 		rv->d_info.l->enable(rv->d_info.l);
+
+	#ifdef CONFIG_REARVIEW_AUXILIARY
+	rv_auxiliary_start(rv);
+	#endif
 }
 
 static void rv_stop(struct rv_dev *rv)
 {
+	#ifdef CONFIG_REARVIEW_AUXILIARY
+	rv_auxiliary_stop(rv);
+	#endif
+
 	/* stop lcd layer */
 	if (rv->d_info.l->is_enabled(rv->d_info.l))
 		rv->d_info.l->disable(rv->d_info.l);
@@ -635,15 +917,15 @@ static int rv_probe(struct platform_device *pdev)
 		rv->height	= FRAME_HEIGHT_DEFAULT;
 	}
 
-	ret = rv_setup_dma(rv);
-	if (ret) {
-		dev_err(dev, "set memory error\n");
-		goto exit;
-	}
-
 	ret = rv_get_display_info(rv);
 	if (ret) {
 		dev_err(dev, "get display info error\n");
+		goto exit;
+	}
+
+	ret = rv_setup_dma(rv);
+	if (ret) {
+		dev_err(dev, "set memory error\n");
 		goto exit;
 	}
 
@@ -698,6 +980,11 @@ static int rv_remove(struct platform_device *pdev)
 
 	dma_free_coherent(rv->dev, DATA_DMA_SIZE + TABLE_DMA_SIZE,
 				rv->data_virt_addr, rv->data_dma_addr);
+
+	#ifdef CONFIG_REARVIEW_AUXILIARY
+	dma_free_coherent(rv->dev, rv->aux_size,
+				rv->aux_virt_addr, rv->aux_dma_addr);
+	#endif
 
 	sysfs_remove_files(&rv->dev->kobj, rv_sysfs_attrs);
 

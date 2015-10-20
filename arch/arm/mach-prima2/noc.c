@@ -1448,13 +1448,9 @@ static void QosGenerator_Get(struct noc_qos_t *entry,
 	entry->saturation = readl_relaxed(&qos_reg->saturation);
 	entry->priority = readl_relaxed(&qos_reg->priority);
 	extcontrol = readl_relaxed(&qos_reg->extcontrol);
-	pr_info("get: %s qos values:  %d(reg=0x%x, freq=%dM), 0x%x, 0x%x, \
-		0x%x, 0x%x\n", entry->desc, entry->bw, bw, entry->clkfreqMhz,
-		entry->priority, entry->mode, entry->saturation, extcontrol);
 
 	if (!IS_ERR(entry->clk))
 		clk_disable_unprepare(entry->clk);
-
 }
 
 static void QosGenerator_Set(struct noc_qos_t *entry,
@@ -1493,11 +1489,6 @@ static void QosGenerator_Set(struct noc_qos_t *entry,
 	writel_relaxed(entry->saturation, &qos_reg->saturation);
 	writel_relaxed(entry->priority, &qos_reg->priority);
 	writel_relaxed(0, &qos_reg->extcontrol);
-	pr_info("set: %s qos values read:  0x%x, 0x%x, 0x%x, 0x%x\n",
-		entry->desc, readl_relaxed(&qos_reg->bw),
-		readl_relaxed(&qos_reg->priority),
-		readl_relaxed(&qos_reg->mode),
-		readl_relaxed(&qos_reg->saturation));
 	QosGenerator_Get(entry, nocm);
 
 	if (!IS_ERR(entry->clk))

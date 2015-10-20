@@ -1,10 +1,16 @@
 /*
  * Power key driver for SiRF PrimaII
  *
- * Copyright (c) 2013 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -189,6 +195,19 @@ static int sirfsoc_onkey_resume(struct device *dev)
 		enable_irq(info->virq);
 
 	mutex_unlock(&input->mutex);
+
+#ifdef CONFIG_ANDROID
+	/*
+	 * For android suspend/resume, after resume back, a POWER
+	 * key event is needed by power management to set related
+	 * flag to block "autosleep"
+	 */
+	input_event(info->input, EV_KEY, KEY_POWER, 1);
+	input_sync(info->input);
+	input_event(info->input, EV_KEY, KEY_POWER, 0);
+	input_sync(info->input);
+#endif
+
 	return 0;
 }
 
@@ -224,6 +243,5 @@ static struct platform_driver sirfsoc_onkey_driver = {
 module_platform_driver(sirfsoc_onkey_driver);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Binghua Duan <Binghua.Duan@csr.com>, Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_DESCRIPTION("CSR Prima2 onkey Driver");
 MODULE_ALIAS("platform:onkey");
