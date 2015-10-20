@@ -63,10 +63,15 @@ static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
 	int channels)
 {
 	int i;
+	u32 rx_dma_ctrl = 0;
 
-	for (i = 0; i < channels; i++)
+	for (i = 0; i < channels; i++) {
 		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
 			ADC_EN << i, ADC_EN << i);
+		rx_dma_ctrl |= (1 << i);
+	}
+	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
+		RX_DMA_CTRL_MASK, rx_dma_ctrl << RX_DMA_CTRL_SHIFT);
 }
 
 static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)

@@ -196,7 +196,7 @@ void ipc_clear_raised_and_send_ack(void)
 	/* Increnment the ACK counter, then send a ACK single to kalimba */
 	increment_counter(ARM_ACK_COUNT_ADDR);
 	/* Send IPC intr to kalimba */
-	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT0_1);
+	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT1_1);
 }
 
 static u32 read_msg_payload(void)
@@ -327,7 +327,7 @@ static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 	for (i = 0; i < size; i++)
 		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, msg[i]);
 	increment_counter(ARM_SEND_COUNT_ADDR);
-	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT0_1);
+	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT1_1);
 	if (need_ack_rsp & MSG_NEED_ACK) {
 		mutex_unlock(&ipc_data->ipc_comm_mutex);
 		if (!wait_event_timeout(ipc_data->waitq_dsp_ack,
@@ -433,7 +433,7 @@ static irqreturn_t ipc_irq_handler(int irq, void *pdata)
 	u16 resp[64];
 
 	/* Read from IPC interrupt register will clear the interrupt */
-	readl(ipc_data->ipc_base + IPC_TRGT0_INIT3_1);
+	readl(ipc_data->ipc_base + IPC_TRGT1_INIT3_1);
 
 	if (ipc_recv_msg_payload_handler(resp) == IPC_SEND_MSG_TO_ARM)
 		kalimba_do_actions(resp[0], &resp[2]);

@@ -65,10 +65,10 @@
 	kalimba {
 		compatible = "csr,kalimba-dsp";
 		status = "disabled";
-		clocks = <&car 55>, <&car 26>, <&car 31>;
+		clocks = <&car 82>, <&car 26>, <&car 31>;
 		clock-names = "kas_kas",
 			"audmscm_nocd", "gpum_nocd";
-		resets = <&car 10>;
+		resets = <&car 82>;
 	};
 
 	thermal-zones {
@@ -133,12 +133,9 @@
 		kalimba_ipc@10C10000 {
 			compatible = "csr,kalimba-ipc";
 			status = "disabled";
-			reg = <0x10C10000 0x1000 0x13240000 0x500>;
-			reg-names = "kas", "ipc";
-			clocks = <&car 82>, <&car 26>, <&car 31>;
-			clock-names = "kas_kas", "audmscm_nocd", "gpum_nocd";
-			interrupts = <0 118 0>;
-			resets = <&car 82>;
+			reg = <0x10C10000 0x1000>,
+			    <0x13240000 0x500>;
+			interrupts = <0 124 0>;
 		};
 
 		ipc@13240000 {

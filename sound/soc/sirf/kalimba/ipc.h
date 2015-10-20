@@ -7,8 +7,8 @@ u32 read_kalimba_reg(u32 reg_addr);
 void write_kalimba_reg(u32 reg_addr, u32 val);
 void update_bits_kalimba_reg(u32 reg_addr, u32 mask, u32 val);
 
-#define IPC_TRGT3_INIT0_1			0x10
-#define IPC_TRGT0_INIT3_1			0x300
+#define IPC_TRGT3_INIT1_1			0x110
+#define IPC_TRGT1_INIT3_1			0x308
 
 #define MSG_NEED_ACK				0x1
 #define MSG_NEED_RSP				0x2
