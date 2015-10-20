@@ -154,6 +154,7 @@ static void sirfsoc_pm_notity_m3(u32 state)
 
 	writel(state & 0xf, sinfo->retain_base +
 		SIRFSOC_PWRC_SCRATCH_PAD8);
+
 	writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
 	while (1)
 		;
@@ -189,7 +190,8 @@ int sirfsoc_pre_suspend_power_off(void)
 		writel_relaxed(wakeup_entry,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
 
-		sirfsoc_pm_notity_m3(SIRFSOC_PM_SLEEP);
+		writel(SIRFSOC_PM_SLEEP, sinfo->retain_base +
+			SIRFSOC_PWRC_SCRATCH_PAD8);
 	} else {
 		regmap_write(sinfo->regmap,
 				sinfo->base + pwrc_reg->pwrc_scratch_pad1,
