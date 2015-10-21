@@ -18,13 +18,28 @@ struct a7ca_bt_trim {
 	u32 val;
 };
 
+#define SIRFSOC_A7CA_XTAL_AUX	0x04
+
+#define SIRFSOC_A7CA_ENABLE_IN	BIT(0)
+#define SIRFSOC_A7CA_LPC_CLK	BIT(8)
+
 #define reg_read_write(reg, val) writel(readl(reg)|val, reg)
+
+/* clocks required by atlas7 A7CA */
+static const char *const a7ca_clks[] = {
+	"a7ca_btss",
+	"a7ca_btslow",
+	"a7ca_io",
+	"analogtest_xin"
+};
+
+#define NUM_CLKS	ARRAY_SIZE(a7ca_clks)
+
 struct a7ca_bt_dev {
 	struct cdev cdev;
+	void __iomem *base;
 	struct a7ca_bt_trim bt_trim;
-	struct clk *a7ca_btss_clk;
-	struct clk *a7ca_btslow_clk;
-	struct clk *a7ca_io_clk;
+	struct clk *clks[NUM_CLKS];
 	struct regulator *regulator;
 	struct platform_device *pdev;
 	struct miscdevice miscdev;
@@ -43,18 +58,14 @@ static int a7ca_bt_release(struct inode *inode, struct file *filp)
 static int a7ca_bt_hw_enable(struct a7ca_bt_dev *dev)
 {
 	int err = 0;
+	int i;
 
-	err = clk_prepare_enable(dev->a7ca_btss_clk);
-	if (err)
-		goto out;
+	for (i = 0; i < NUM_CLKS; i++)
+		clk_prepare_enable(dev->clks[i]);
 
-	err = clk_prepare_enable(dev->a7ca_btslow_clk);
-	if (err)
-		goto out;
-
-	err = clk_prepare_enable(dev->a7ca_io_clk);
-	if (err)
-		goto out;
+	/* enable a7ca internal clks */
+	writel(SIRFSOC_A7CA_ENABLE_IN | SIRFSOC_A7CA_LPC_CLK,
+		dev->base + SIRFSOC_A7CA_XTAL_AUX);
 
 	err = regulator_enable(dev->regulator);
 	if (err)
@@ -66,9 +77,13 @@ out:
 
 static int a7ca_bt_hw_disable(struct a7ca_bt_dev *dev)
 {
-	clk_disable_unprepare(dev->a7ca_btss_clk);
-	clk_disable_unprepare(dev->a7ca_btslow_clk);
-	clk_disable_unprepare(dev->a7ca_io_clk);
+	int i;
+
+	/* gate A7CA internal clocks */
+	writel(0, dev->base + SIRFSOC_A7CA_XTAL_AUX);
+
+	for (i = 0; i < NUM_CLKS; i++)
+		clk_disable_unprepare(dev->clks[i]);
 
 	regulator_disable(dev->regulator);
 
@@ -148,30 +163,28 @@ static struct a7ca_bt_dev a7ca_bt = {
 
 static int a7ca_bt_probe(struct platform_device *pdev)
 {
-	int err;
+	int err, i;
 
 	struct a7ca_bt_dev *dev = &a7ca_bt;
+	struct resource *mem_res;
 
 	dev->pdev = pdev;
-	dev->a7ca_btss_clk = devm_clk_get(&pdev->dev, "a7ca_btss");
-	if (IS_ERR(dev->a7ca_btss_clk)) {
-		err = PTR_ERR(dev->a7ca_btss_clk);
-		dev_err(&pdev->dev, "Clock get failed\n");
+
+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	dev->base = devm_ioremap_resource(&pdev->dev, mem_res);
+	if (IS_ERR(dev->base)) {
+		err = PTR_ERR(dev->base);
 		goto out;
 	}
 
-	dev->a7ca_btslow_clk = devm_clk_get(&pdev->dev, "a7ca_btslow");
-	if (IS_ERR(dev->a7ca_btslow_clk)) {
-		err = PTR_ERR(dev->a7ca_btslow_clk);
-		dev_err(&pdev->dev, "Clock get failed\n");
-		goto out;
-	}
-
-	dev->a7ca_io_clk = devm_clk_get(&pdev->dev, "a7ca_io");
-	if (IS_ERR(dev->a7ca_io_clk)) {
-		err = PTR_ERR(dev->a7ca_io_clk);
-		dev_err(&pdev->dev, "Clock a7ca_io get failed\n");
-		goto out;
+	for (i = 0; i < NUM_CLKS; i++) {
+		dev->clks[i] = devm_clk_get(&pdev->dev, a7ca_clks[i]);
+		if (IS_ERR(dev->clks[i])) {
+			err = PTR_ERR(dev->clks[i]);
+			dev_err(&pdev->dev, "Clock %s get failed\n",
+				a7ca_clks[i]);
+			goto out;
+		}
 	}
 
 	dev->regulator = devm_regulator_get(&pdev->dev, "ldo2");
@@ -243,5 +256,4 @@ static struct platform_driver a7ca_bt_driver = {
 
 module_platform_driver(a7ca_bt_driver);
 
-MODULE_AUTHOR("Wei Yang <wei.yang@csr.com>");
 MODULE_LICENSE("GPL");

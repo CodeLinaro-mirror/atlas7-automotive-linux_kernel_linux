@@ -53,11 +53,13 @@
 				status = "okay";
 				sirf,uart-has-rtscts;
 			};
-			a7ca_bt {
+			a7ca: a7ca_bt@11003000 {
 				compatible = "sirf,a7ca_bt";
-				clocks = <&car 135>, <&car 134>, <&car 139>;
+				clocks = <&car 135>, <&car 134>, <&car 139>,
+					<&car 85>;
 				clock-names="a7ca_btss","a7ca_btslow",
-				"a7ca_io";
+				"a7ca_io","analogtest_xin";
+				reg = <0x11003000 0x1000>;
 			};
 		};
 		audiom {
