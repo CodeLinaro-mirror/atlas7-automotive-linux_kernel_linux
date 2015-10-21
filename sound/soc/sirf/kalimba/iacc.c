@@ -138,50 +138,7 @@ static u32 dac_sample_rate_regs[] = {
 static int atlas7_codec_setup(int pchannels, int rchannels,
 	enum iacc_input_path path, u32 SampleRate)
 {
-	u32 pll_status;
 	int i;
-
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_PLL_CTRL_1,
-		1 << 11, 0);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_PLL_CTRL_1,
-			CLKSYNR_NRST, CLKSYNR_NRST);
-	msleep(100);
-	/* Wait for PLL lock */
-	regmap_read(atlas7_codec_regmap, AUDIO_PLL_STATUS, &pll_status);
-	if (!pll_status)
-		return -EINVAL;
-	/*Enable VBG trim*/
-	regmap_update_bits(atlas7_codec_regmap, ANA_PMUCTL2,
-		PMUCTRL2_VBG_TRIM, PMUCTRL2_VBG_TRIM_0XF);
-
-	/* Workaround for some registers update fail. */
-	regmap_update_bits(atlas7_codec_regmap,  0x58,
-			(0x3 << 5), (2 << 5));
-	regmap_update_bits(atlas7_codec_regmap, 0x50,
-			1, 1);
-	regmap_update_bits(atlas7_codec_regmap, 0x50,
-			1, 0);
-	regmap_update_bits(atlas7_codec_regmap,  0x58,
-			(0x3 << 5), (0 << 5));
-
-	/* loutbais */
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_REF_CTRL0,
-		1, 1);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN,
-			AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_REF_CTRL2,
-			AUDIO_REF_BIAS_BG_VTH_TRIM_MASK, 4);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_MASK,
-			(7 << AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_SHIFT));
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_REF_CTRL,
-			AUDIO_REF_BOOST_EN_DACBUFF_IREF_MASK, 3);
-
-	/* DACx clock enable */
-	for (i = 0; i < pchannels; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_REGS_CLK_CTRL,
-			1 << (6 + i), 1 << (6 + i));
 
 	/* DACx config */
 	regmap_update_bits(atlas7_codec_regmap, AUDIO_KCODEC_CTRL,
@@ -197,38 +154,6 @@ static int atlas7_codec_setup(int pchannels, int rchannels,
 			1 << 13, 1 << 13);
 	}
 
-	/* VGEN enable */
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_DAC_CTRL0, 1, 1);
-
-	/* LOUTx PGA */
-	for (i = 0; i < pchannels; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_DAC_CTRL0,
-			1 << (1 + i), 1 << (1 + i));
-
-	/* LOUTx Buff PGA */
-	for (i = 0; i < pchannels; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_DAC_CTRL0,
-			1 << (7 + i), 1 << (7 + i));
-
-	/* DACx reset */
-	for (i = 0; i < pchannels; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_DAC_CTRL,
-			1 << i, 0);
-
-	/* Dither EN */
-	regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG_EXTENSION2,
-		1 << 5, 0);
-	regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG_EXTENSION2,
-		KCODEC_CONFIG_DEM_DITHER_CFG_MASK, 0);
-	if (pchannels == 4) {
-		regmap_update_bits(atlas7_codec_regmap,
-				KCODEC_CONFIG2_EXTENSION2,
-				1 << 5, 0);
-		regmap_update_bits(atlas7_codec_regmap,
-			KCODEC_CONFIG2_EXTENSION2,
-			KCODEC_CONFIG_DEM_DITHER_CFG_MASK, 0);
-	}
-
 	/* Sample rate */
 	for (i = 0; i < pchannels; i++)
 		regmap_write(atlas7_codec_regmap, dac_sample_rate_regs[i],
@@ -237,26 +162,6 @@ static int atlas7_codec_setup(int pchannels, int rchannels,
 	if (rchannels == 0)
 		return 0;
 
-	/* LINBIAS */
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN
-			| AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN,
-			AUDIO_ANA_REF_AUDBIAS_VAG_TX_EN
-			| AUDIO_ANA_REF_AUDBIAS_VAG_RX_EN);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_CTRL_SPARE_0,
-			TXADC_IREF_EN, TXADC_IREF_EN);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_REF_CTRL2,
-			AUDIO_REF_BIAS_BG_VTH_TRIM_MASK
-			| AUDIO_REF_BIAS_BG_PTAT_TRIM_MASK,
-			4 | (0xC << AUDIO_REF_BIAS_BG_PTAT_TRIM_SHIFT));
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_REF_CTRL0,
-			AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_MASK,
-			(7 << AUDIO_ANA_REF_AUDBIAS_IREF_TRIM_SHIFT));
-
-	/* ADCx CLK */
-	for (i = 0; i < rchannels; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_REGS_CLK_CTRL,
-			1 << (4 + i), 1 << (4 + i));
 
 	/* ADCx */
 	regmap_update_bits(atlas7_codec_regmap, AUDIO_KCODEC_CTRL,
@@ -265,33 +170,7 @@ static int atlas7_codec_setup(int pchannels, int rchannels,
 		regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG,
 			1 << (10 + i), 1 << (10 + i));
 
-	/* ADCx ANA EN */
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL2, 1, 1);
-	if (rchannels == 2)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL3,
-			1, 1);
-
-	/* ADCx ANA Dither EN */
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL2,
-		1 << 1, 1 << 1);
-	if (rchannels == 2)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL3,
-			1 << 1, 1 << 1);
-
-	/* ADCx ANA Dither EN */
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL2,
-		1 << 2, 1 << 2);
-	if (rchannels == 2)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL3,
-			1 << 2, 1 << 2);
-
-	/* ADC RESET */
 	regmap_write(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL0, 0x1850);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_CAL_CTRL0,
-			AUDIO_ANA_CTRL_ADC_EN, 0);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_REGS_CLK_CTRL,
-			AUDIO_ANA_CAL_CLK_EN, AUDIO_ANA_CAL_CLK_EN);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_CAL_CTRL0, 1, 1);
 
 	/* Sample rate */
 	for (i = 0; i < rchannels; i++)
@@ -305,50 +184,12 @@ void atlas7_codec_release(void)
 {
 	int i;
 
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_CAL_CTRL0, 1, 0);
-
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL2,
-		1 << 2, 0);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL3,
-		1 << 2, 0);
-
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL2,
-		1 << 1, 0);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL3,
-		1 << 1, 0);
-
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL2, 1, 0);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL3, 1, 0);
-
 	for (i = 0; i < 2; i++)
 		regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG,
 			1 << (10 + i), 0);
 
 	regmap_update_bits(atlas7_codec_regmap, AUDIO_KCODEC_CTRL,
 		KCODEC_ADC_EN, 0);
-
-	for (i = 0; i < 2; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_REGS_CLK_CTRL,
-			1 << (4 + i), 0);
-
-	regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG2_EXTENSION2,
-		1 << 5, 1 << 5);
-	regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG_EXTENSION2,
-		1 << 5, 1 << 5);
-
-	for (i = 0; i < 4; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_DAC_CTRL,
-			1 << i, 1 << i);
-
-	for (i = 0; i < 4; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_DAC_CTRL0,
-			1 << (7 + i), 0);
-
-	for (i = 0; i < 4; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_DAC_CTRL0,
-			1 << (1 + i), 0);
-
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_DAC_CTRL0, 1, 0);
 
 	regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG,
 			1 << 12, 0);
@@ -360,18 +201,6 @@ void atlas7_codec_release(void)
 			1 << 13, 0);
 	regmap_update_bits(atlas7_codec_regmap, AUDIO_KCODEC_CTRL,
 			KCODEC_DAC_EN, 0);
-
-	for (i = 0; i < 4; i++)
-		regmap_update_bits(atlas7_codec_regmap, AUDIO_REGS_CLK_CTRL,
-			1 << (6 + i), 0);
-
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_ANA_REF_CTRL0,
-		1, 0);
-
-	regmap_update_bits(atlas7_codec_regmap, ANA_PMUCTL2,
-			PMUCTRL2_VBG_TRIM, 0);
-	regmap_update_bits(atlas7_codec_regmap, AUDIO_PLL_CTRL_1,
-		1 << 11, 1 << 11);
 }
 
 int iacc_setup(int pchannels, int rchannels,
