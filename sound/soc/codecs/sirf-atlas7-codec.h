@@ -84,7 +84,6 @@
 #define AUDIO_REF_BOOST_EN_DACBUFF_IREF_MASK	0x3
 
 #define DAC_CLK_EN				(0xF << 6)
-#define ADC_CLK_EN				(0x3 << 2)
 
 #define DAC_RESET_MASK				0xF
 
