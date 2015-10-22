@@ -1,10 +1,18 @@
 /*
  * SiRF USP in I2S/DSP mode
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -18,7 +26,7 @@
 
 /* Extra clocks required by Atlas7 USP3 */
 static const char *const a7_exclks[] = {
-	"a7ca_btss", "thbtm_io",
+	"a7ca_btss", "a7ca_io",
 };
 
 struct sirf_usp {
@@ -487,5 +495,4 @@ static struct platform_driver sirf_usp_pcm_driver = {
 module_platform_driver(sirf_usp_pcm_driver);
 
 MODULE_DESCRIPTION("SiRF SoC USP PCM bus driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
 MODULE_LICENSE("GPL v2");
