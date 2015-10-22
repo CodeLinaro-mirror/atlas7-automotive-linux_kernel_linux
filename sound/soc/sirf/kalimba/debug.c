@@ -545,10 +545,13 @@ static long debug_ioctl(struct file *filp,
 		api_cmd = kmalloc(256, GFP_KERNEL);
 		get_user(api_cmd_length, (u16 __user *)(arg + 2));
 		if (copy_from_user(api_cmd, (u32 __user *)arg,
-			api_cmd_length * 2 + 4))
-			ret = -EINVAL;
-		else {
-			ret = kalimba_api(api_cmd, resp);
+			api_cmd_length * 2 + 4)) {
+			kfree(api_cmd);
+			return -EINVAL;
+		}
+		ret = kalimba_api(api_cmd, resp);
+		if (api_cmd[0] != DATA_PRODUCED &&
+			api_cmd[0] != DATA_CONSUMED) {
 			api_resp_length = resp[1] * 2 + 4;
 			if (copy_to_user((u32 __user *)arg, resp,
 				api_resp_length))
