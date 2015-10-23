@@ -379,6 +379,12 @@
 		};
 
 		vdifm {
+			sdhci@14100000 {
+				status = "disabled";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd9_pmx>;
+			};
+
 			sdhci@14200000 {
 				status = "okay";
 				pinctrl-names = "default";
