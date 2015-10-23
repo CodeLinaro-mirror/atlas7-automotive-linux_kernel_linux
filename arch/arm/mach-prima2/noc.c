@@ -1331,8 +1331,12 @@ static void noc_dramfw_set(struct noc_dram_params_t *params)
 static void noc_regfw_setval(void __iomem *addr_clr,
 			void __iomem *addr_set, u32 val)
 {
-	writel_relaxed(0xFFFFFFFF, addr_clr);
-	writel_relaxed(val, addr_set);
+	u32 old, mask;
+
+	old = readl(addr_clr + 4);
+	mask = old ^ val;
+	writel_relaxed(mask, addr_clr);
+	writel(val, addr_set);
 }
 
 static void noc_regfw_set(void __iomem *mbase, u32 off, u32 ns,
