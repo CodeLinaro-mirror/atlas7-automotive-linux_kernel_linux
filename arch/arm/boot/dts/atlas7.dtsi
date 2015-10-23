@@ -1522,6 +1522,13 @@
 				};
 			};
 
+			sd9_pmx: sd9@0 {
+				sd9 {
+					groups = "sd3_9_grp";
+					function = "sd9";
+				};
+			};
+
 			sp0_ext_ldo_on_pmx: sp0_ext_ldo_on@0 {
 				sp0_ext_ldo_on {
 					groups = "sp0_ext_ldo_on_grp";
@@ -2257,10 +2264,16 @@
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x13290000 0x13290000 0x10000>,
+			ranges = <0x131e0000 0x131e0000 0x100>,
+				<0x13290000 0x13290000 0x10000>,
 				<0x13300000 0x13300000 0x1000>,
 				<0x13160000 0x13160000 0x1000>,
 				<0x14200000 0x14200000 0x600000>;
+
+			sys2pci@131e0000 {
+				compatible = "sirf,sys2pci";
+				reg = <0x131e0000 0x100>;
+			};
 
 			vdifm@13290000 {
 				compatible = "sirf,nocfw-vdifm";
