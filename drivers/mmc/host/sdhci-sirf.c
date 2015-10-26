@@ -1,9 +1,16 @@
 /*
  * SDHCI support for SiRF primaII and marco SoCs
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/delay.h>
@@ -198,33 +205,15 @@ static u32 sdhci_sirf_readl_le(struct sdhci_host *host, int reg)
 
 	if (unlikely((reg == SDHCI_CAPABILITIES_1) &&
 			(host->mmc->caps & MMC_CAP_UHS_SDR50))) {
-		/* fake CAP_1 register */
-		val = SDHCI_SUPPORT_DDR50 |
-			SDHCI_SUPPORT_SDR50 | SDHCI_USE_SDR50_TUNING;
+		/* fake CAP_1 register
+		* SDR50_TUNING need to be faked
+		*/
+		val |= SDHCI_USE_SDR50_TUNING;
 	}
 
-	if (unlikely(reg == SDHCI_SLOT_INT_STATUS)) {
-		u32 prss = val;
-		/* fake chips as V3.0 host controller */
-		prss &= ~(0xFF << 16);
-		val = prss | (SDHCI_SPEC_300 << 16);
-	}
 	return val;
 }
 
-static u16 sdhci_sirf_readw_le(struct sdhci_host *host, int reg)
-{
-	u16 ret = 0;
-
-	ret = readw(host->ioaddr + reg);
-
-	if (unlikely(reg == SDHCI_HOST_VERSION)) {
-		ret = readw(host->ioaddr + SDHCI_HOST_VERSION);
-		ret |= SDHCI_SPEC_300;
-	}
-
-	return ret;
-}
 
 static int sdhci_sirf_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
@@ -316,7 +305,6 @@ static void sdhci_sirf_card_event(struct sdhci_host *host)
 
 static struct sdhci_ops sdhci_sirf_ops = {
 	.read_l = sdhci_sirf_readl_le,
-	.read_w = sdhci_sirf_readw_le,
 	.platform_execute_tuning = sdhci_sirf_execute_tuning,
 	.set_clock = sdhci_set_clock,
 	.get_max_clock	= sdhci_sirf_get_max_clk,
