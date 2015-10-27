@@ -24,12 +24,17 @@
 #include "ipc.h"
 #include "regs.h"
 
+#define KAS_ADDR_CONST16 0x007FA7
+#define KAS_ADDR_CONST32 0x007FA9
+
 struct firmware_code_head {
 	int code_size;
 	int pm_unpacker_offset;
 	int pm_offset;
 	int dm1_offset;
 	int dm2_offset;
+	int const16_offset;
+	int const32_offset;
 };
 
 struct firmware_pm_unpacker_image {
@@ -54,6 +59,13 @@ struct firmware_code {
 	void *code;
 	dma_addr_t code_dma_addr;
 };
+
+static void *const16_data_virt_addr;
+static dma_addr_t const16_data_phy_addr;
+static int const16_data_size;
+static void *const32_data_virt_addr;
+static dma_addr_t const32_data_phy_addr;
+static int const32_data_size;
 
 static void firmware_run_pm(u32 start_addr)
 {
@@ -327,11 +339,70 @@ static void firmware_download_dm(struct firmware_code *code, void *dm_image)
 
 }
 
+static int firmware_download_const(struct firmware_code *code,
+	void *const_image, int kas_addr_ptr)
+{
+	int size;
+	u32 start_addr_dm[2];
+	void *virt_addr;
+	dma_addr_t phy_addr;
+
+	/* If the old constant data is exists, free this memory firstly */
+	if (kas_addr_ptr == KAS_ADDR_CONST16 && const16_data_virt_addr) {
+		dma_free_coherent(NULL, const16_data_size,
+			const16_data_virt_addr, const16_data_phy_addr);
+		const16_data_virt_addr = NULL;
+	} else if (kas_addr_ptr == KAS_ADDR_CONST32 && const32_data_virt_addr) {
+		dma_free_coherent(NULL, const32_data_size,
+			const32_data_virt_addr, const32_data_phy_addr);
+		const32_data_virt_addr = NULL;
+	}
+
+	if (kas_addr_ptr == KAS_ADDR_CONST16)
+		size = (code->code - code->head.const16_offset)
+			 - (code->code - code->head.const32_offset);
+	else if (kas_addr_ptr == KAS_ADDR_CONST32)
+		size = (code->head.code_size - code->head.const32_offset);
+
+	virt_addr = dma_alloc_coherent(NULL, size, &phy_addr, GFP_KERNEL);
+	if (virt_addr == NULL) {
+		dev_err(NULL, "Alloc dram failed.\n");
+		return -ENOMEM;
+	}
+	/* Copy the data into the memory */
+	memcpy(virt_addr, const_image, size);
+
+	start_addr_dm[0] = phy_addr >> 24;
+	start_addr_dm[1] = phy_addr;
+
+	/* Update kas pointers in DM*/
+	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
+			(kas_addr_ptr << 2) | (0x2 << 30));
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, start_addr_dm[0]);
+	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, start_addr_dm[1]);
+
+	if (kas_addr_ptr == KAS_ADDR_CONST16) {
+		const16_data_size = size;
+		const16_data_phy_addr = phy_addr;
+		const16_data_virt_addr = virt_addr;
+	} else if (kas_addr_ptr == KAS_ADDR_CONST32) {
+		const32_data_size = size;
+		const32_data_phy_addr = phy_addr;
+		const32_data_virt_addr = virt_addr;
+	}
+	return 0;
+}
+
 static void firmware_download_code(struct firmware_code *code)
 {
 	firmware_download_pm(code);
 	firmware_download_dm(code, code->code + code->head.dm1_offset);
 	firmware_download_dm(code, code->code + code->head.dm2_offset);
+	firmware_download_const(code, code->code + code->head.const16_offset,
+					KAS_ADDR_CONST16);
+	firmware_download_const(code, code->code + code->head.const32_offset,
+					KAS_ADDR_CONST32);
 }
 
 static void dump_pm_codes(u32 __user *buffer)
@@ -462,13 +533,13 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 void firmware_download(u32 *fw_data)
 {
 	struct firmware_code code;
+	int i;
+	int *p = &code.head;
+	int head_size = sizeof(struct firmware_code_head) / sizeof(int);
 
-	code.head.code_size = be32_to_cpu(fw_data[0]);
-	code.head.pm_unpacker_offset = be32_to_cpu(fw_data[1]);
-	code.head.pm_offset = be32_to_cpu(fw_data[2]);
-	code.head.dm1_offset = be32_to_cpu(fw_data[3]);
-	code.head.dm2_offset = be32_to_cpu(fw_data[4]);
-	code.code = &fw_data[5];
+	for (i = 0; i < head_size; i++)
+		p[i] = be32_to_cpu(fw_data[i]);
+	code.code = &fw_data[head_size];
 	code.code_dma_addr = virt_to_phys(code.code);
 	firmware_download_code(&code);
 	firmware_run_pm(0);
