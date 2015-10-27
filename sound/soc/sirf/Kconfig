@@ -33,7 +33,6 @@ config SND_SOC_SIRF_I2S
 config SND_SOC_SIRF_ATLAS7_CS42XX8
 	tristate "SoC Audio support for CSRatlas7 board using CS42XX8 codec"
 	depends on SND_SOC_SIRF && I2C
-	select SND_SOC_SIRF_I2S
 	select SND_SOC_CS42XX8_I2C
 	help
 	  Say Y or M here if you want to add support for SoC audio on CSRatlas7
