@@ -367,6 +367,12 @@
 					compatible = "itetech,edid";
 					reg = <0x45>;
 				};
+				pca9540@70 {
+					compatible = "nxp,pca9540";
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x70>;
+				};
 			};
 
 			usb1: usb@17070000 {
