@@ -60,6 +60,9 @@
 #define SIRFSOC_DMA_MUL_ATLAS7                  0x38
 #define SIRFSOC_DMA_CH_LOOP_CTRL_ATLAS7         0x158
 #define SIRFSOC_DMA_CH_LOOP_CTRL_CLR_ATLAS7     0x15C
+#define SIRFSOC_DMA_INT_OWNER_REG0		0x164
+#define SIRFSOC_DMA_INT_OWNER_REG1		0x168
+#define SIRFSOC_OWNER_MASK			0x7
 #define SIRFSOC_DMA_IOBG_SCMD_EN		0x800
 #define SIRFSOC_DMA_EARLY_RESP_SET		0x818
 #define SIRFSOC_DMA_EARLY_RESP_CLR		0x81C
@@ -122,6 +125,8 @@ struct sirfsoc_dma_chan {
 struct sirfsoc_dma_regs {
 	u32				ctrl[SIRFSOC_DMA_CHANNELS];
 	u32				interrupt_en;
+	u32				owener_reg0;
+	u32				owener_reg1;
 };
 
 struct sirfsoc_dma {
@@ -149,6 +154,13 @@ enum sirfsoc_dma_chain_flag {
 	SIRFSOC_DMA_CHAIN_PAUSE = 0x02,
 	SIRFSOC_DMA_CHAIN_LOOP = 0x03,
 	SIRFSOC_DMA_CHAIN_END = 0x04
+};
+
+#define SIRFSOC_DMA_OWNER_A7	0x0
+#define SIRFSOC_DMA_OWNER_KAS	0x03
+static u32 sirfsoc_owner_regs[] = {
+	SIRFSOC_DMA_INT_OWNER_REG0,
+	SIRFSOC_DMA_INT_OWNER_REG1
 };
 
 #define DRV_NAME	"sirfsoc_dma"
@@ -291,8 +303,10 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 			writel_relaxed(1 << ch, reg);
 			schan = &sdma->channels[ch];
 			spin_lock(&schan->lock);
-			sdesc = list_first_entry(&schan->active,
+			sdesc = list_first_entry_or_null(&schan->active,
 						 struct sirfsoc_dma_desc, node);
+			if (!sdesc)
+				goto empty_list1;
 			if (!sdesc->cyclic) {
 				/* Execute queued descriptors */
 				list_splice_tail_init(&schan->active,
@@ -302,6 +316,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 					sirfsoc_dma_execute(schan);
 			} else
 				schan->happened_cyclic++;
+empty_list1:
 			spin_unlock(&schan->lock);
 		}
 		break;
@@ -313,8 +328,10 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 		writel_relaxed(SIRFSOC_DMA_INT_ALL_ATLAS7, reg);
 		schan = &sdma->channels[0];
 		spin_lock(&schan->lock);
-		sdesc = list_first_entry(&schan->active,
+		sdesc = list_first_entry_or_null(&schan->active,
 					 struct sirfsoc_dma_desc, node);
+		if (!sdesc)
+			goto empty_list2;
 		if (!sdesc->cyclic) {
 			chain = sdesc->chain;
 			if ((chain && (is & SIRFSOC_DMA_INT_END_INT_ATLAS7)) ||
@@ -330,7 +347,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 		} else if (sdesc->cyclic && (is &
 					SIRFSOC_DMA_INT_LOOP_INT_ATLAS7))
 			schan->happened_cyclic++;
-
+empty_list2:
 		spin_unlock(&schan->lock);
 		break;
 
@@ -581,6 +598,45 @@ static int sirfsoc_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	return -ENOSYS;
 }
 
+static int sirfsoc_dma_chan_owner_get(struct dma_chan *chan)
+{
+	int reg_idx, offset, owner;
+	u32 val;
+	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
+	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+	/*
+	 * DMA ownership registers are separated into two groups,
+	 * group 0 for ch0-9, group 1 for the rest channels
+	 */
+	reg_idx = schan->chan.chan_id / 10;
+	offset = schan->chan.chan_id % 10;
+	offset *= 3;
+	val = readl_relaxed(sdma->base + sirfsoc_owner_regs[reg_idx]);
+	val &= ~(SIRFSOC_OWNER_MASK << offset);
+	val |= SIRFSOC_DMA_OWNER_A7 << offset;
+	writel_relaxed(val, sdma->base + sirfsoc_owner_regs[reg_idx]);
+
+	return 0;
+}
+
+static int sirfsoc_dma_chan_owner_put(struct dma_chan *chan)
+{
+	int reg_idx, offset, owner;
+	u32 val;
+	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
+	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
+
+	reg_idx = schan->chan.chan_id / 10;
+	offset = schan->chan.chan_id % 10;
+	offset *= 3;
+	val = readl_relaxed(sdma->base + sirfsoc_owner_regs[reg_idx]);
+	val &= ~(SIRFSOC_OWNER_MASK << offset);
+	val |= SIRFSOC_DMA_OWNER_KAS << offset;
+	writel_relaxed(val, sdma->base + sirfsoc_owner_regs[reg_idx]);
+
+	return 0;
+}
+
 /* Alloc channel resources */
 static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 {
@@ -615,6 +671,8 @@ static int sirfsoc_dma_alloc_chan_resources(struct dma_chan *chan)
 
 	spin_lock_irqsave(&schan->lock, flags);
 
+	if (sdma->type == SIRFSOC_DMA_VER_A7V1)
+		sirfsoc_dma_chan_owner_get(chan);
 	list_splice_tail_init(&descs, &schan->free);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
@@ -641,6 +699,8 @@ static void sirfsoc_dma_free_chan_resources(struct dma_chan *chan)
 	/* Move data */
 	list_splice_tail_init(&schan->free, &descs);
 
+	if (sdma->type == SIRFSOC_DMA_VER_A7V1)
+		sirfsoc_dma_chan_owner_put(chan);
 	spin_unlock_irqrestore(&schan->lock, flags);
 
 	/* Free descriptors */
@@ -1239,6 +1299,12 @@ static int sirfsoc_dma_pm_suspend_noirq(struct device *dev)
 	}
 	save->interrupt_en = readl_relaxed(sdma->base + int_offset);
 
+	if (sdma->type == SIRFSOC_DMA_VER_A7V1) {
+		save->owener_reg0 = readl_relaxed(sdma->base +
+						  SIRFSOC_DMA_INT_OWNER_REG0);
+		save->owener_reg1 = readl_relaxed(sdma->base +
+						  SIRFSOC_DMA_INT_OWNER_REG1);
+	}
 	/* Disable clock */
 	sirfsoc_dma_runtime_suspend(dev);
 
@@ -1272,6 +1338,12 @@ static int sirfsoc_dma_pm_resume_noirq(struct device *dev)
 		width_offset = SIRFSOC_DMA_WIDTH_0;
 	}
 
+	if (sdma->type == SIRFSOC_DMA_VER_A7V1) {
+		writel_relaxed(save->owener_reg0, sdma->base +
+			       SIRFSOC_DMA_INT_OWNER_REG0);
+		writel_relaxed(save->owener_reg1, sdma->base +
+			       SIRFSOC_DMA_INT_OWNER_REG1);
+	}
 	writel_relaxed(save->interrupt_en, sdma->base + int_offset);
 	for (ch = 0; ch < count; ch++) {
 		schan = &sdma->channels[ch];
