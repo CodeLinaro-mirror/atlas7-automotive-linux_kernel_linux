@@ -19,6 +19,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
@@ -81,6 +82,30 @@ static const struct regmap_config atlas7_ldo_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int atlas7_analog_ldo_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct clk *clk = platform_get_drvdata(pdev);
+
+	clk_disable_unprepare(clk);
+	return 0;
+}
+
+static int atlas7_analog_ldo_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct clk *clk = platform_get_drvdata(pdev);
+
+	clk_prepare_enable(clk);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(atlas7_analog_ldo_pm_ops,
+		atlas7_analog_ldo_suspend, atlas7_analog_ldo_resume);
+
 static int atlas7_analog_ldo_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
@@ -89,13 +114,32 @@ static int atlas7_analog_ldo_probe(struct platform_device *pdev)
 	struct regulator_config config = { };
 	struct regulator_dev *rdev;
 	struct regulator_desc *rdesc;
+	struct clk *clk;
+	int ret;
 	u32 i;
+
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap(&pdev->dev, mem_res->start,
 		resource_size(mem_res));
 	if (IS_ERR(base))
 		return PTR_ERR(base);
+
+
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(clk)) {
+		dev_err(&pdev->dev,
+			"Failed to get clock, err=%ld\n", PTR_ERR(clk));
+		return PTR_ERR(clk);
+	}
+	ret = clk_prepare_enable(clk);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to prepare or enable clock, err=%d\n", ret);
+		return ret;
+	}
+
+	platform_set_drvdata(pdev, clk);
 
 	regmap = devm_regmap_init_mmio(&pdev->dev, base,
 			    &atlas7_ldo_regmap_config);
@@ -130,6 +174,7 @@ static struct platform_driver atlas7_analog_ldo_driver = {
 	.driver = {
 		.name = "atlas7-analog-ldo",
 		.of_match_table	= atlas7_analog_ldo_match,
+		.pm = &atlas7_analog_ldo_pm_ops,
 	},
 };
 static int __init atlas7_analog_ldo_init(void)

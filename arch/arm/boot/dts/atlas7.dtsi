@@ -2557,6 +2557,7 @@
 				compatible = "sirf,atlas7-analog-ldo";
 				status = "disabled";
 				reg = <0x10E30000 0x100>;
+				clocks = <&car 85>;
 				ldo0: ldo0 {
 					regulator-name = "ldo0";
 					regulator-min-microvolt = <1800000>;
