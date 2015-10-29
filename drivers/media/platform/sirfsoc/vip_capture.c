@@ -878,6 +878,24 @@ static void vip_hw_clear_interrupts(struct vip_dev *vip, u32 status)
 		vip_write(CAM_INT_CTRL, status & CAM_INT_CTRL_MASK);
 }
 
+static void dma_hw_wait_first_table_done(struct vip_dev *vip)
+{
+	int ret, value, old_value;
+
+	/* clear table finish interrupt flag firstly */
+	dma_hw_clear_interrupts(vip, DMAN_FINI_INT);
+
+	old_value = value = vip_read(DMAN_INT_EN);
+	value |= DMAN_FINI_INT;
+	vip_write(DMAN_INT_EN, value); /* enable table finish interrupt */
+
+	/* 120ms is enough for transfer done & timing control for the caller */
+	if (!wait_for_completion_timeout(&vip->rv.done, msecs_to_jiffies(120)))
+		dev_err(vip->dev, "wait dma table completiont timeout\n");
+
+	vip_write(DMAN_INT_EN, old_value); /* restore dma interrupt enable */
+}
+
 static void __maybe_unused vip_print_registers(struct vip_dev *vip)
 {
 	pr_info("VIP registers\n");
@@ -1101,6 +1119,10 @@ static irqreturn_t vip_irq(int irq, void *data)
 		/* DMA CNT_INT happens */
 		if (dma_status & DMAN_INTMASK_CNT)
 				vip_dma_count_done(vip);
+
+		/* DMA FINI_INT happens */
+		if (dma_status & DMAN_INTMASK_FINI)
+				complete(&vip->rv.done);
 	}
 
 	/* VIP interrupt */
@@ -2475,6 +2497,9 @@ void vip_rv_start(void *data)
 
 	vip_hw_start_fifo(vip);
 
+	/* timing control: after that we can do the display */
+	dma_hw_wait_first_table_done(vip);
+
 	mutex_unlock(&vip->host_lock);
 }
 EXPORT_SYMBOL(vip_rv_start);
@@ -2528,6 +2553,7 @@ static int vip_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&vip->capture);
 	spin_lock_init(&vip->lock);
 	mutex_init(&vip->host_lock);
+	init_completion(&vip->rv.done);
 	INIT_WORK(&vip->restart_work, vip_restart_worker);
 	vip->rv.preemption = false;
 	vip->task = NULL;

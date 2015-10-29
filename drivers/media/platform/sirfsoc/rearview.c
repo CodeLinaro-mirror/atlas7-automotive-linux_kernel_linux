@@ -676,9 +676,6 @@ static void rv_start(struct rv_dev *rv)
 	/* start vip dma */
 	rv_set_dma_table_run(rv);
 
-	/* start vip */
-	vip_rv_start(rv->rv_vip);
-
 	/* lcd layer setting */
 	rv->d_info.l->get_info(rv->d_info.l, &info);
 
@@ -701,9 +698,6 @@ static void rv_start(struct rv_dev *rv)
 
 	rv->d_info.l->set_info(rv->d_info.l, &info);
 	rv->d_info.l->screen->apply(rv->d_info.l->screen);
-
-	/* disable all other layers */
-	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, true);
 
 	/* vpp setting */
 	vpp_dev_params.func = NULL;
@@ -770,9 +764,15 @@ static void rv_start(struct rv_dev *rv)
 	/* start vpp */
 	sirfsoc_vpp_present(rv->rv_vpp, &vpp_op_params);
 
-	/* start lcd layer */
+	/* start vip */
+	vip_rv_start(rv->rv_vip);
+
+	/* enable lcd rearview layer */
 	if (!rv->d_info.l->is_enabled(rv->d_info.l))
 		rv->d_info.l->enable(rv->d_info.l);
+
+	/* disable lcd other layers */
+	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, true);
 
 	#ifdef CONFIG_REARVIEW_AUXILIARY
 	rv_auxiliary_start(rv);
