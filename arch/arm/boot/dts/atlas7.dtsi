@@ -2839,6 +2839,7 @@
 				reg = <0x12000000 0x1000000>;
 				interrupts = <0 6 0>;
 				clocks = <&car 130>;
+				resets = <&car 72>;
 			};
 		};
 	};
