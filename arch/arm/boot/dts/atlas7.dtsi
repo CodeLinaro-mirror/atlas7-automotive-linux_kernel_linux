@@ -1871,10 +1871,10 @@
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x10250000 0x10250000 0x3000>;
+			ranges = <0x10250000 0x10250000 0x4000>;
 			spramfw@10820000 {
 				compatible = "sirf,nocfw-spramfw";
-				reg = <0x10250000 0x3000>;
+				reg = <0x10250000 0x4000>;
 			};
 		};
 
