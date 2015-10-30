@@ -418,6 +418,13 @@
 					};
 				};
 			};
+
+			hsi2s0: i2s0@133d0000 {
+				status = "disabled";
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2s0_pmx>;
+			};
+
 		};
 
 		sirf-backlight {

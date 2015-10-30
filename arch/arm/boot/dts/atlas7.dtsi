@@ -2268,6 +2268,9 @@
 				<0x13290000 0x13290000 0x10000>,
 				<0x13300000 0x13300000 0x1000>,
 				<0x13160000 0x13160000 0x1000>,
+				<0x133d0000 0x133d0000 0x100>,
+				<0x133e0000 0x133e0000 0x100>,
+				<0x133f0000 0x133f0000 0x1000>,
 				<0x14100000 0x14100000 0x700000>;
 
 			sys2pci@131e0000 {
@@ -2397,6 +2400,38 @@
 				clocks = <&car 88>;
 				interrupts = <0 63 0>, <0 84 0>;
 				sirf,vip_cma_size = <0x1A00000>;
+			};
+
+			dmac1: dma-controller@133f0000 {
+				cell-index = <1>;
+				compatible = "sirf,atlas7-dmac";
+				reg = <0x133f0000 0x1000>;
+				interrupts = <0 73 0>;
+				clocks = <&car 73>;
+				dma-channels = <16>;
+				#dma-cells = <1>;
+			};
+
+			hsi2s0: i2s0@133d0000 {
+				cell-index = <0>;
+				compatible = "sirf,atlas7-hsi2s";
+				reg = <0x133d0000 0x100>;
+				interrupts = <0 114 0>;
+				clocks = <&car 71>;
+				dmas = <&dmac1 0>;
+				dma-names = "rx";
+				status = "disabled";
+			};
+
+			hsi2s1: i2s0@133e0000 {
+				cell-index = <1>;
+				compatible = "sirf,atlas7-hsi2s";
+				reg = <0x133e0000 0x100>;
+				interrupts = <0 115 0>;
+				clocks = <&car 72>;
+				dmas = <&dmac1 1>;
+				dma-name = "rx";
+				status = "disabled";
 			};
 		};
 
