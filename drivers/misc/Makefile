@@ -64,3 +64,4 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-y				+= atlas7_gps.o
 obj-$(CONFIG_A7CA_BT)		+= a7ca_bt.o
+obj-y				+= hs_i2s/
