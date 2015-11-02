@@ -827,7 +827,8 @@ static int noc_dump_errlog(struct noc_macro *nocm)
 	errCode5 = readl_relaxed(noc_errlog_mbase + ERRORLOGGER_0_ERRLOG5);
 
 	/*error type*/
-	pr_info("err:\t%s\n", noc_err_list[(errCode0>>8) & 0x7].desc);
+	pr_info("err[%s]:\t%s\n", nocm->name,
+		noc_err_list[(errCode0>>8) & 0x7].desc);
 
 	/*initiator id*/
 	if (NOC_INITIATOR_TYPE_CPU == (errCode5 & NOC_INITIATOR_TYPE))
