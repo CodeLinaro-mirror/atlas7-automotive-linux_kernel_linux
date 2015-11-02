@@ -868,9 +868,10 @@ sirfsoc_dma_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		break;
 
 	case SIRFSOC_DMA_VER_A7V2:
-		if (!(sg_len > 0 && sg_len < SIRFSOC_DMA_TABLE_NUM))
+		if (!(sg_len > 0 && sg_len < SIRFSOC_DMA_TABLE_NUM)) {
 			ret = -EINVAL;
 			goto err;
+		}
 
 		list_del(&first_sdesc->node);
 		for_each_sg(sgl, sg, sg_len, i) {
