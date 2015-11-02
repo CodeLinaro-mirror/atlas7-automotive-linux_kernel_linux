@@ -1,0 +1,14 @@
+
+atlas7 gps module
+
+atlas7 gps control is by pwrc iobg interface, thus can be
+controlled by A7 by existing regmap interface.
+
+Required properties:
+- compatible: "sirf,atlas7-gps"
+
+Example:
+
+atlas7-gps {
+	compatible = "sirf,atlas7-gps";
+};

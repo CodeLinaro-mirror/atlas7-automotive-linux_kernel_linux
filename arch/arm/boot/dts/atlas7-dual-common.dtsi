@@ -103,7 +103,7 @@
 		rtcm {
 			rtc-iobg@18840000 {
 				pwrc@3000 {
-					gps-power {
+					atlas7-gps {
 					   status = "okay";
 					   pinctrl-names = "default";
 					   pinctrl-0 = <&gn_trg_spi_pmx0

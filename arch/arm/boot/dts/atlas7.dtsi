@@ -2732,8 +2732,10 @@
 					onkey {
 						compatible = "sirf,prima2-onkey";
 					};
-					gps-power {
-						compatible = "sirf,gps-power";
+					atlas7-gps {
+						compatible = "sirf,atlas7-gps";
+						clocks = <&car 108>;
+						resets = <&car 108>;
 						status = "disabled";
 					};
 					gps-sysctl {

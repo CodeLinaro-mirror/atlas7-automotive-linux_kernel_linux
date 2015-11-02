@@ -138,8 +138,8 @@ static const struct mfd_cell pwrc_devs[] = {
 		.name = "sirf-sysctl",
 		.of_compatible = "sirf,sirf-sysctl",
 	}, {
-		.name = "gps-power",
-		.of_compatible = "sirf,gps-power",
+		.name = "atlas7-gps",
+		.of_compatible = "sirf,atlas7-gps",
 	}, {
 		.name = "onkey",
 		.of_compatible = "sirf,prima2-onkey",
