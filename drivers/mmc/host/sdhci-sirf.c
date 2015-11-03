@@ -203,13 +203,21 @@ static u32 sdhci_sirf_readl_le(struct sdhci_host *host, int reg)
 {
 	u32 val = readl(host->ioaddr + reg);
 
-	if (unlikely((reg == SDHCI_CAPABILITIES_1) &&
-			(host->mmc->caps & MMC_CAP_UHS_SDR50))) {
+	if (unlikely(reg == SDHCI_CAPABILITIES_1)) {
 		/* fake CAP_1 register
 		* SDR50_TUNING need to be faked
 		*/
-		val |= SDHCI_USE_SDR50_TUNING;
+		if (host->mmc->caps & MMC_CAP_UHS_SDR50)
+			val |= SDHCI_USE_SDR50_TUNING;
+		else
+			/*for slots which does not set SDR50
+			*in dts, disable the SDR50 support
+			*/
+			val &= ~(SDHCI_SUPPORT_SDR50
+				| SDHCI_USE_SDR50_TUNING);
+
 	}
+
 
 	return val;
 }
