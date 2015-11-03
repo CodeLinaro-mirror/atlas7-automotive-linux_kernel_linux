@@ -80,6 +80,7 @@ static int sirfsoc_onkey_open(struct input_dev *input)
 	struct sirfsoc_onkey_info *info = input_get_drvdata(input);
 
 	enable_irq(info->virq);
+	enable_irq(info->exton_virq);
 	return 0;
 }
 
@@ -88,6 +89,7 @@ static void sirfsoc_onkey_close(struct input_dev *input)
 	struct sirfsoc_onkey_info *info = input_get_drvdata(input);
 
 	disable_irq(info->virq);
+	disable_irq(info->exton_virq);
 }
 
 static const struct of_device_id sirfsoc_onkey_of_match[] = {
@@ -127,14 +129,16 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 	info->input->phys = "pwrc/input0";
 	info->input->evbit[0] = BIT_MASK(EV_KEY);
 	input_set_capability(info->input, EV_KEY, KEY_POWER);
-
 	info->input->open = sirfsoc_onkey_open;
 	info->input->close = sirfsoc_onkey_close;
-
 	input_set_drvdata(info->input, info);
 
-	info->virq = regmap_irq_get_virq(pwrcinfo->irq_data, PWRC_IRQ_ONKEY);
-
+	info->virq = of_irq_get(pdev->dev.of_node, 0);
+	if (info->virq <= 0) {
+		dev_info(&pdev->dev,
+			"Unable to find IRQ for onkey. err=%d\n", info->virq);
+		goto err;
+	}
 	irq_set_status_flags(info->virq, IRQ_NOAUTOEN);
 	ret = request_threaded_irq(info->virq, NULL, sirfsoc_onkey_handler,
 					    IRQF_ONESHOT, "onkey", info);
@@ -144,21 +148,23 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	info->exton_virq = of_irq_get(pdev->dev.of_node, 1);
+	if (info->exton_virq <= 0) {
+		dev_info(&pdev->dev,
+			"Unable to find IRQ for exton_key. ret=%d\n",
+			info->exton_virq);
+		goto err;
+	}
 	irq_set_status_flags(info->exton_virq,
 			IRQ_NOAUTOEN);
-	info->exton_virq = regmap_irq_get_virq(pwrcinfo->irq_data,
-			PWRC_IRQ_EXT_ONKEY);
-
 	ret = request_threaded_irq(info->exton_virq, NULL,
 			sirfsoc_onkey_handler,
 			IRQF_ONESHOT, "ext_onkey", info);
-
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to request IRQ: #%d: %d\n",
 			info->virq, ret);
 		goto err;
 	}
-
 
 	ret = input_register_device(info->input);
 	if (ret) {

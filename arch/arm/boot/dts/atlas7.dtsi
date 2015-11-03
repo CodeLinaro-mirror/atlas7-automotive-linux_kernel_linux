@@ -2756,25 +2756,35 @@
 					reg = <0x2000 0x100>;
 					interrupts = <0 52 0>;
 				};
-				pwrc@3000 {
+				pwrc:pwrc@3000 {
 					compatible = "sirf,atlas7-pwrc";
 					reg = <0x3000 0x100>;
 					interrupts = <0 32 0>;
+					interrupt-controller;
+					#interrupt-cells = <2>;
 					rtcmclk: clock-controller {
 						compatible = "sirf,atlas7-rtcmclk";
 						#clock-cells = <1>;
 					};
+
+					sysctl {
+						compatible = "sirf,sirf-sysctl";
+					};
+
 					onkey {
 						compatible = "sirf,prima2-onkey";
+						interrupt-parent = <&pwrc>;
+						interrupts = <0 0>, <1 0>;
 					};
+
 					atlas7-gps {
 						compatible = "sirf,atlas7-gps";
 						clocks = <&car 108>;
 						resets = <&car 108>;
+						interrupt-parent = <&pwrc>;
+						interrupts = <5 0>, <6 0>,
+							<7 0>, <8 0>;
 						status = "disabled";
-					};
-					gps-sysctl {
-						compatible = "sirf,sirf-sysctl";
 					};
 				};
 			};
