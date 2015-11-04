@@ -17,6 +17,7 @@
 #include <linux/export.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
@@ -33,6 +34,7 @@ struct atlas7_gps_info {
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	spinlock_t lock;
 	u32 base;
+	int virq[4];
 };
 
 
@@ -184,6 +186,12 @@ static int atlas7_gps_sysfs_init(struct platform_device *pdev)
 	return 0;
 }
 
+static irqreturn_t atlas7_gps_handler(int irq, void *dev_id)
+{
+	/* FIXME: requirement not clear, will implement later */
+
+	return IRQ_HANDLED;
+}
 
 static int atlas7_gps_probe(struct platform_device *pdev)
 {
@@ -191,9 +199,16 @@ static int atlas7_gps_probe(struct platform_device *pdev)
 	struct sirfsoc_pwrc_info *pwrcinfo = dev_get_drvdata(pdev->dev.parent);
 	struct atlas7_gps_info *info;
 	struct clk *clk;
-	int ret;
+	int ret, i;
 
-	info = kzalloc(sizeof(struct atlas7_gps_info), GFP_KERNEL);
+	static const char * const gps_virq_name[] = {
+		"GNSS_PON_REQ",
+		"GNSS_POFF_REQ",
+		"GNSS_PON_ACK",
+		"GNSS_POFF_ACK",
+	};
+
+	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
 
@@ -223,13 +238,31 @@ static int atlas7_gps_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to reset\n");
 		return -EINVAL;
 	}
+	for (i = 0; i < ARRAY_SIZE(gps_virq_name); i++) {
+
+		info->virq[i] = of_irq_get(pdev->dev.of_node, i);
+		if (info->virq[i] <= 0) {
+			dev_info(&pdev->dev,
+				"Unable to find IRQ for GPS. err=%d\n",
+				info->virq[i]);
+			goto out;
+		}
+		irq_set_status_flags(info->virq[i], IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(&pdev->dev, info->virq[i],
+				NULL, atlas7_gps_handler,
+				0, gps_virq_name[i], info);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to request IRQ: #%d: %d\n",
+				info->virq[i], ret);
+			goto out;
+		}
+	}
 
 	platform_set_drvdata(pdev, info);
 	atlas7_gps_sysfs_init(pdev);
 
 	return 0;
 out:
-	kfree(info);
 	return ret;
 }
 
