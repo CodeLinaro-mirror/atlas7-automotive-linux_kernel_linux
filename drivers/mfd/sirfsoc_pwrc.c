@@ -262,4 +262,9 @@ static struct platform_driver sirfsoc_pwrc_driver = {
 		.of_match_table = pwrc_ids,
 	},
 };
-module_platform_driver(sirfsoc_pwrc_driver);
+
+static int __init atlas7_pwrc_init(void)
+{
+	return platform_driver_register(&sirfsoc_pwrc_driver);
+}
+subsys_initcall(atlas7_pwrc_init);
