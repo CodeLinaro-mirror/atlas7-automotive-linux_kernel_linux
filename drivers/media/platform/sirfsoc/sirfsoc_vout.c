@@ -330,6 +330,7 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	l->screen->apply(l->screen);
 
 	vout->vout_info_dirty = false;
+	vout->v4l2buf_field = field;
 }
 
 static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
@@ -339,7 +340,8 @@ static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
 
 	if ((l->is_enabled(l)) && !vout->vout_info_dirty) {
 		if ((vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB565) &&
-			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB32)) {
+			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB32) &&
+			(vout->v4l2buf_field == buf->v4l2_buf.field)) {
 			struct sirfsoc_vdss_layer *l = vout->layer;
 
 			if (vout->passthrough) {
@@ -729,6 +731,7 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	struct sirfsoc_vout_device *vout = vb2_get_drv_priv(vq);
 	struct sirfsoc_vout_buf *buf = NULL;
 	unsigned long flags;
+	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	if (!vb2_is_streaming(vq))
 		return;
@@ -752,6 +755,12 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	vout->next_frm = NULL;
 
 	spin_unlock_irqrestore(&vout->vbq_lock, flags);
+
+	if (l->is_enabled(l)) {
+		/*disable the overlay*/
+		l->disable(l);
+	}
+
 }
 /*
  * sirfsoc_vout_buf_queue()

@@ -50,6 +50,7 @@ struct sirfsoc_vout_device {
 	struct v4l2_pix_format pix_fmt;
 	struct v4l2_framebuffer fbuf;
 
+	enum v4l2_field v4l2buf_field;
 	enum v4l2_buf_type type;
 	struct vb2_queue vb2_q;
 	struct vb2_buffer *active_frm, *next_frm;
