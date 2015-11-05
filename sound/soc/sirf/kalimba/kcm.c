@@ -116,9 +116,9 @@ static void init_shared_components(void)
 	components_shared[3].execute_phase = EXEC_PHASE_HW_PARAMS;
 	components_shared[3].params[0] = ENDPOINT_TYPE_IACC;
 	components_shared[3].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components_shared[3].params[2] = (u32)(&kcm->hw_playback_channels);
+	components_shared[3].params[2] = (u32)(&kcm->playback_iacc_ep.channels);
 	components_shared[3].params[3] =
-		(u32)(&kcm->playback_hw_ep_handle_phy_addr);
+		(u32)(&kcm->playback_iacc_ep.handle_phy_addr);
 
 	components_shared[4].component_id = CREATE_OPERATOR_REQ;
 	components_shared[4].execute_phase = EXEC_PHASE_HW_PARAMS;
@@ -151,7 +151,7 @@ static void init_shared_components(void)
 		components_shared[9 + i].params[1] =
 			ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
 		components_shared[9 + i].params[2] =
-			(u32)(&kcm->hw_playback_sample_rate);
+			(u32)(&kcm->playback_iacc_ep.sample_rate);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -162,7 +162,7 @@ static void init_shared_components(void)
 		components_shared[13 + i].params[1] =
 			ENDPOINT_CONF_AUDIO_DATA_FORMAT;
 		components_shared[13 + i].params[2] =
-			(u32)(&kcm->hw_audio_data_format);
+			(u32)(&kcm->playback_iacc_ep.audio_data_format);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -173,7 +173,7 @@ static void init_shared_components(void)
 		components_shared[17 + i].params[1] =
 			ENDPOINT_CONF_DRAM_PACKING_FORMAT;
 		components_shared[17 + i].params[2] =
-			(u32)(&kcm->hw_packing_format);
+			(u32)(&kcm->playback_iacc_ep.packing_format);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -184,7 +184,7 @@ static void init_shared_components(void)
 		components_shared[21 + i].params[1] =
 			ENDPOINT_CONF_INTERLEAVING_MODE;
 		components_shared[21 + i].params[2] =
-			(u32)(&kcm->hw_interleaving_format);
+			(u32)(&kcm->playback_iacc_ep.interleaving_format);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -195,7 +195,7 @@ static void init_shared_components(void)
 		components_shared[25 + i].params[1] =
 			ENDPOINT_CONF_CLOCK_MASTER;
 		components_shared[25 + i].params[2] =
-			(u32)(&kcm->hw_clock_master);
+			(u32)(&kcm->playback_iacc_ep.clock_master);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -882,8 +882,9 @@ static void hard_code_init_components_chain_capture(
 	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = ENDPOINT_TYPE_IACC;
 	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components[i].params[2] = (u32)(&kcm->hw_capture_channels);
-	components[i].params[3] = (u32)(&kcm->capture_hw_ep_handle_phy_addr);
+	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->capture_iacc_ep.handle_phy_addr);
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -902,7 +903,7 @@ static void hard_code_init_components_chain_capture(
 	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = (u32)(&components[1].ret[0]);
 	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components[i].params[2] = (u32)(&kcm->hw_capture_sample_rate);
+	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.sample_rate);
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -910,7 +911,8 @@ static void hard_code_init_components_chain_capture(
 	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = (u32)(&components[1].ret[0]);
 	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components[i].params[2] = (u32)(&kcm->hw_audio_data_format);
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_ep.audio_data_format);
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -918,7 +920,7 @@ static void hard_code_init_components_chain_capture(
 	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = (u32)(&components[1].ret[0]);
 	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components[i].params[2] = (u32)(&kcm->hw_packing_format);
+	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.packing_format);
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -926,7 +928,8 @@ static void hard_code_init_components_chain_capture(
 	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = (u32)(&components[1].ret[0]);
 	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-	components[i].params[2] = (u32)(&kcm->hw_interleaving_format);
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_ep.interleaving_format);
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -934,7 +937,7 @@ static void hard_code_init_components_chain_capture(
 	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
 	components[i].params[0] = (u32)(&components[1].ret[0]);
 	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-	components[i].params[2] = (u32)(&kcm->hw_clock_master);
+	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.clock_master);
 	components[i - 1].component_next = &components[i];
 	i++;
 
@@ -1308,10 +1311,55 @@ int execute_components_chain(struct components_chain *components_chain,
 	return 0;
 }
 
+static int alloc_hw_ep_handle_and_buff(struct device *dev,
+	struct hw_ep_handle_buff_t *hw_ep_handle_buff,
+	int buff_bytes_each_channel, int channels, int rate)
+{
+	hw_ep_handle_buff->audio_data_format = 0;
+	hw_ep_handle_buff->packing_format = 2;
+	hw_ep_handle_buff->interleaving_format = 1;
+	hw_ep_handle_buff->clock_master = 1;
+	hw_ep_handle_buff->sample_rate = rate;
+	hw_ep_handle_buff->channels = channels;
+
+	hw_ep_handle_buff->buff_bytes = buff_bytes_each_channel * channels;
+
+	hw_ep_handle_buff->handle = dma_alloc_coherent(dev,
+		sizeof(struct endpoint_handle),
+		&hw_ep_handle_buff->handle_phy_addr, GFP_KERNEL);
+	if (hw_ep_handle_buff->handle == NULL) {
+		pr_err("Can't allocate playback hw endpoint handle buffer.\n");
+		return -ENOMEM;
+	}
+
+	hw_ep_handle_buff->buff = dma_alloc_coherent(dev,
+		hw_ep_handle_buff->buff_bytes,
+		&hw_ep_handle_buff->handle->buff_addr, GFP_KERNEL);
+	if (hw_ep_handle_buff->buff == NULL) {
+		pr_err("Can't allocate playback hw endpoint buffer.\n");
+		dma_free_coherent(dev, sizeof(struct endpoint_handle),
+			hw_ep_handle_buff->handle,
+			hw_ep_handle_buff->handle_phy_addr);
+		return -ENOMEM;
+	}
+	hw_ep_handle_buff->handle->buff_length =
+		hw_ep_handle_buff->buff_bytes / sizeof(u32);
+	return 0;
+}
+
+static void free_hw_ep_handle_and_buff(struct device *dev,
+	struct hw_ep_handle_buff_t *hw_ep_handle_buff)
+{
+	dma_free_coherent(dev, hw_ep_handle_buff->buff_bytes,
+		hw_ep_handle_buff->buff, hw_ep_handle_buff->handle->buff_addr);
+	dma_free_coherent(dev, sizeof(struct endpoint_handle),
+		hw_ep_handle_buff->handle, hw_ep_handle_buff->handle_phy_addr);
+}
+
 struct kcm_t *kcm_init(struct device *dev)
 {
 	struct components_chain *components_chain;
-	u32 playback_buff_bytes, capture_buff_bytes;
+	int ret;
 
 	INIT_LIST_HEAD(&components_chain_list);
 
@@ -1319,55 +1367,18 @@ struct kcm_t *kcm_init(struct device *dev)
 	if (kcm == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	kcm->hw_playback_sample_rate = 48000;
-	kcm->hw_capture_sample_rate = 16000;
-	kcm->hw_playback_channels = 4;
-	kcm->hw_capture_channels = 1;
-	kcm->hw_audio_data_format = 0;
-	kcm->hw_packing_format = 2;
-	kcm->hw_interleaving_format = 1;
-	kcm->hw_clock_master = 1;
-
-	playback_buff_bytes = BUFF_BYTES_EACH_CHANNEL
-			* kcm->hw_playback_channels;
-	capture_buff_bytes = BUFF_BYTES_EACH_CHANNEL * kcm->hw_capture_channels;
-
-	kcm->playback_hw_ep_handle = dma_alloc_coherent(dev,
-		sizeof(struct endpoint_handle),
-		&kcm->playback_hw_ep_handle_phy_addr, GFP_KERNEL);
-	if (kcm->playback_hw_ep_handle == NULL) {
-		pr_err("Can't allocate playback hw endpoint handle buffer.\n");
-		return ERR_PTR(-ENOMEM);
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep,
+		BUFF_BYTES_EACH_CHANNEL, 4, 48000);
+	if (ret) {
+		pr_err("Allocate IACC playback endpoint buffer failed.\n");
+		return ERR_PTR(ret);
 	}
-
-	kcm->playback_hw_ep_buff = dma_alloc_coherent(dev,
-		playback_buff_bytes,
-		&kcm->playback_hw_ep_handle->buff_addr, GFP_KERNEL);
-	if (kcm->playback_hw_ep_buff == NULL) {
-		pr_err("Can't allocate playback hw endpoint buffer.\n");
-		goto error_playback_hw_ep_buffer;
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep,
+		BUFF_BYTES_EACH_CHANNEL, 1, 16000);
+	if (ret) {
+		pr_err("Allocate IACC capture endpoint buffer failed.\n");
+		goto error_alloc_capture_iacc_ep_failed;
 	}
-	kcm->playback_hw_ep_handle->buff_length = playback_buff_bytes
-		/ sizeof(u32);
-
-	kcm->capture_hw_ep_handle = dma_alloc_coherent(dev,
-		sizeof(struct endpoint_handle),
-		&kcm->capture_hw_ep_handle_phy_addr, GFP_KERNEL);
-	if (kcm->capture_hw_ep_handle == NULL) {
-		pr_err("Can't allocate capture hw endpoint handle buffer.\n");
-		goto error_capture_hw_ep_handle_buffer;
-	}
-
-	kcm->capture_hw_ep_buff = dma_alloc_coherent(dev,
-		capture_buff_bytes,
-		&kcm->capture_hw_ep_handle->buff_addr, GFP_KERNEL);
-	if (kcm->capture_hw_ep_buff == NULL) {
-		pr_err("Can't allocate capture hw endpoint buffer.\n");
-		goto error_capture_hw_ep_buffer;
-	}
-
-	kcm->capture_hw_ep_handle->buff_length = capture_buff_bytes
-		/ sizeof(u32);
 
 	init_shared_components();
 	components_chain = create_components_chain("Music Playback");
@@ -1387,33 +1398,13 @@ struct kcm_t *kcm_init(struct device *dev)
 	hard_code_init_components_chain_capture(components_chain);
 
 	return kcm;
-error_capture_hw_ep_buffer:
-	dma_free_coherent(dev, sizeof(struct endpoint_handle),
-		kcm->capture_hw_ep_handle, kcm->capture_hw_ep_handle_phy_addr);
-error_capture_hw_ep_handle_buffer:
-	dma_free_coherent(dev,
-		BUFF_BYTES_EACH_CHANNEL * kcm->hw_playback_channels,
-		kcm->playback_hw_ep_buff,
-		kcm->playback_hw_ep_handle->buff_addr);
-error_playback_hw_ep_buffer:
-	dma_free_coherent(dev, sizeof(struct endpoint_handle),
-		kcm->playback_hw_ep_handle,
-		kcm->playback_hw_ep_handle_phy_addr);
-	return ERR_PTR(-ENOMEM);
+error_alloc_capture_iacc_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
+	return ERR_PTR(ret);
 }
 
 void kcm_deinit(struct device *dev)
 {
-	dma_free_coherent(dev,
-		BUFF_BYTES_EACH_CHANNEL * kcm->hw_capture_channels,
-		kcm->capture_hw_ep_buff, kcm->capture_hw_ep_handle->buff_addr);
-	dma_free_coherent(dev, sizeof(struct endpoint_handle),
-		kcm->capture_hw_ep_handle, kcm->capture_hw_ep_handle_phy_addr);
-	dma_free_coherent(dev,
-		BUFF_BYTES_EACH_CHANNEL * kcm->hw_playback_channels,
-		kcm->playback_hw_ep_buff,
-		kcm->playback_hw_ep_handle->buff_addr);
-	dma_free_coherent(dev, sizeof(struct endpoint_handle),
-		kcm->playback_hw_ep_handle,
-		kcm->playback_hw_ep_handle_phy_addr);
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep);
+	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
 }

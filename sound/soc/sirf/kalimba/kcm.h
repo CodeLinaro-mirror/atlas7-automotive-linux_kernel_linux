@@ -43,21 +43,22 @@
 
 #include "ipc.h"
 
+struct hw_ep_handle_buff_t {
+	struct endpoint_handle *handle;
+	u32 handle_phy_addr;
+	void *buff;
+	u32 sample_rate;
+	u32 channels;
+	u32 audio_data_format;
+	u32 packing_format;
+	u32 interleaving_format;
+	u32 clock_master;
+	int buff_bytes;
+};
+
 struct kcm_t {
-	struct endpoint_handle *playback_hw_ep_handle;
-	struct endpoint_handle *capture_hw_ep_handle;
-	u32 playback_hw_ep_handle_phy_addr;
-	u32 capture_hw_ep_handle_phy_addr;
-	void *playback_hw_ep_buff;
-	void *capture_hw_ep_buff;
-	u32 hw_playback_sample_rate;
-	u32 hw_capture_sample_rate;
-	u32 hw_playback_channels;
-	u32 hw_capture_channels;
-	u32 hw_audio_data_format;
-	u32 hw_packing_format;
-	u32 hw_interleaving_format;
-	u32 hw_clock_master;
+	struct hw_ep_handle_buff_t playback_iacc_ep;
+	struct hw_ep_handle_buff_t capture_iacc_ep;
 };
 
 struct component {

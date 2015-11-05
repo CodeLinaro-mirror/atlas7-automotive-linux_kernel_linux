@@ -288,17 +288,16 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret;
 	u32 hw_channels;
+	struct kcm_t *kcm = pdata->kcm;
 
 	if (playback) {
-		memset(pdata->kcm->playback_hw_ep_buff, 0,
-			pdata->kcm->playback_hw_ep_handle->buff_length
-			* sizeof(u32));
-		hw_channels = pdata->kcm->hw_playback_channels;
+		memset(kcm->playback_iacc_ep.buff, 0,
+			kcm->playback_iacc_ep.buff_bytes);
+		hw_channels = kcm->playback_iacc_ep.channels;
 	} else {
-		memset(pdata->kcm->capture_hw_ep_buff, 0,
-			pdata->kcm->capture_hw_ep_handle->buff_length
-			* sizeof(u32));
-		hw_channels = pdata->kcm->hw_capture_channels;
+		memset(kcm->capture_iacc_ep.buff, 0,
+			kcm->capture_iacc_ep.buff_bytes);
+		hw_channels = kcm->capture_iacc_ep.channels;
 	}
 
 	switch (cmd) {
