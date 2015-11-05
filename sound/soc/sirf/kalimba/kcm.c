@@ -877,6 +877,219 @@ static void hard_code_init_components_chain_voicecall_bt_to_iacc(
 	components[i - 1].component_next = NULL;
 }
 
+static void hard_code_init_components_chain_a2dp_playback(
+	struct components_chain *components_chain)
+{
+	struct component *components = components_chain->components;
+	int i = 0, k;
+
+	components[i].component_id = CREATE_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = CAPABILITY_ID_SPLITTER;
+	components_chain->component_first = &components[i];
+	i++;
+
+	components[i].component_id = GET_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_USP;
+	components[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components[i].params[2] = (u32)(&kcm->capture_usp_a2dp_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->capture_usp_a2dp_ep.handle_phy_addr);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = GET_SINK_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_IACC;
+	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components[i].params[2] = (u32)(&kcm->playback_iacc_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->playback_iacc_ep.handle_phy_addr);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* i == 3 */
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+		components[i].params[2] =
+			(u32)(&kcm->capture_usp_a2dp_ep.sample_rate);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+		components[i].params[2] =
+			(u32)(&kcm->capture_usp_a2dp_ep.audio_data_format);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+		components[i].params[2] =
+			(u32)(&kcm->capture_usp_a2dp_ep.packing_format);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
+		components[i].params[2] =
+			(u32)(&kcm->capture_usp_a2dp_ep.interleaving_format);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
+		components[i].params[2] =
+			(u32)(&kcm->capture_usp_a2dp_ep.clock_master);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[2].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+		components[i].params[2] =
+			(u32)(&kcm->playback_iacc_ep.sample_rate);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[2].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+		components[i].params[2] =
+			(u32)(&kcm->playback_iacc_ep.audio_data_format);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[2].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+		components[i].params[2] =
+			(u32)(&kcm->playback_iacc_ep.packing_format);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[2].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
+		components[i].params[2] =
+			(u32)(&kcm->playback_iacc_ep.interleaving_format);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[2].ret[k]);
+		components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
+		components[i].params[2] =
+			(u32)(&kcm->playback_iacc_ep.clock_master);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	/* i == 33 */
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = CONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1].ret[k]);
+		components[i].params[1] = 0;
+		components[i].params[2] = (u32)(&components[0].ret[0]);
+		components[i].params[3] = 0xA000 + k;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = CONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[0].ret[0]);
+		components[i].params[1] = 0x2000 + k;
+		components[i].params[2] = (u32)(&components[2].ret[k]);
+		components[i].params[3] = 0;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	components[i].component_id = START_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = STOP_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	for (k = 0; k < 6; k++) {
+		components[i].component_id = DISCONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_FREE;
+		components[i].params[0] = 1;
+		components[i].params[1] = (u32)(&components[33 + k].ret[0]);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	components[i].component_id = CLOSE_SINK_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = kcm->playback_iacc_ep.channels;
+	components[i].params[1] = (u32)(components[2].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = CLOSE_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = kcm->capture_usp_a2dp_ep.channels;
+	components[i].params[1] = (u32)(components[1].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = DESTROY_OPERATOR_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = 1;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i - 1].component_next = NULL;
+}
+
 static void hard_code_init_components_chain_navigation_playback(
 	struct components_chain *components_chain)
 {
@@ -1885,6 +2098,12 @@ struct kcm_t *kcm_init(struct device *dev)
 		pr_err("Allocate USP-SCO capture endpoint buffer failed.\n");
 		goto error_alloc_capture_usp_sco_ep_failed;
 	}
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep,
+		BUFF_BYTES_EACH_CHANNEL, 2, 48000);
+	if (ret) {
+		pr_err("Allocate USP-A2DP capture endpoint buffer failed.\n");
+		goto error_alloc_capture_usp_a2dp_ep_failed;
+	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
 		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 16000);
 	if (ret) {
@@ -1912,6 +2131,9 @@ struct kcm_t *kcm_init(struct device *dev)
 	init_sw_external_param(components_chain);
 	hard_code_init_components_chain_alarm_playback(components_chain);
 
+	components_chain = create_components_chain("A2DP Playback");
+	hard_code_init_components_chain_a2dp_playback(components_chain);
+
 	components_chain = create_components_chain("Voicecall-bt-to-iacc");
 	hard_code_init_components_chain_voicecall_bt_to_iacc(components_chain);
 
@@ -1926,6 +2148,8 @@ struct kcm_t *kcm_init(struct device *dev)
 error_alloc_playback_iacc_sco_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
 error_alloc_capture_iacc_sco_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
+error_alloc_capture_usp_a2dp_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
 error_alloc_capture_usp_sco_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
@@ -1940,6 +2164,7 @@ void kcm_deinit(struct device *dev)
 {
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep);

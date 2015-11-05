@@ -556,6 +556,18 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 		.dpcm_playback = 1,
 	},
 	{
+		.name = "A2DP",
+		.stream_name = "A2DP Playback",
+		.cpu_dai_name = "A2DP Pin",
+		.platform_name = "kas-pcm-audio",
+		.dynamic = 1,
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.dpcm_playback = 1,
+	},
+	{
 		.name = "Voicecall-bt-to-iacc",
 		.stream_name = "Voicecall-bt-to-iacc",
 		.cpu_dai_name = "Voicecall-bt-to-iacc Pin",

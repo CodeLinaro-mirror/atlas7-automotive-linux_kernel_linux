@@ -63,6 +63,7 @@ struct kcm_t {
 	struct hw_ep_handle_buff_t capture_iacc_sco_ep;
 	struct hw_ep_handle_buff_t playback_usp_sco_ep;
 	struct hw_ep_handle_buff_t capture_usp_sco_ep;
+	struct hw_ep_handle_buff_t capture_usp_a2dp_ep;
 };
 
 struct component {

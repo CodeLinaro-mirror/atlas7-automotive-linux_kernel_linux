@@ -29,7 +29,7 @@
 #include "kcm.h"
 #include "usp-pcm.h"
 
-#define KAS_PCM_COUNT	6
+#define KAS_PCM_COUNT	7
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -267,6 +267,22 @@ static int kas_pcm_voicecall_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int kas_pcm_a2dp_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+	struct kcm_t *kcm = pdata->kcm;
+
+	sirf_usp_pcm_params(kcm->capture_usp_a2dp_ep.channels,
+		kcm->capture_usp_a2dp_ep.sample_rate);
+	return execute_components_chain(pcm_data->components_chain,
+			EXEC_PHASE_HW_PARAMS);
+}
+
 static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
@@ -359,6 +375,18 @@ static int kas_pcm_voicecall_hw_free(struct snd_pcm_substream *substream)
 		execute_cvc_shared_components(EXEC_PHASE_HW_FREE);
 
 	return 0;
+}
+
+static int kas_pcm_a2dp_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+
+	return execute_components_chain(pcm_data->components_chain,
+			EXEC_PHASE_HW_FREE);
 }
 
 static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
@@ -514,6 +542,45 @@ static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
+	int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+	int ret;
+	struct kcm_t *kcm = pdata->kcm;
+
+	memset(kcm->playback_iacc_ep.buff, 0,
+			kcm->playback_iacc_ep.buff_bytes);
+	memset(kcm->capture_usp_a2dp_ep.buff, 0,
+			kcm->capture_usp_a2dp_ep.buff_bytes);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		iacc_start(1, kcm->playback_iacc_ep.channels);
+		sirf_usp_pcm_start(0);
+		ret = execute_components_chain(pcm_data->components_chain,
+				EXEC_PHASE_TRIGGER_START);
+		if (ret < 0)
+			return ret;
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		iacc_stop(1);
+		sirf_usp_pcm_stop(0);
+		execute_components_chain(pcm_data->components_chain,
+				EXEC_PHASE_TRIGGER_STOP);
+		break;
+	}
+	return 0;
+}
+
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -620,6 +687,11 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 			pcm_data->hw_params = kas_pcm_voicecall_hw_params;
 			pcm_data->hw_free = kas_pcm_voicecall_hw_free;
 			pcm_data->trigger = kas_pcm_voicecall_trigger;
+		} else if (!strncmp(rtd->dai_link->stream_name, "A2DP Playback",
+			strlen("A2DP Playback"))) {
+			pcm_data->hw_params = kas_pcm_a2dp_hw_params;
+			pcm_data->hw_free = kas_pcm_a2dp_hw_free;
+			pcm_data->trigger = kas_pcm_a2dp_trigger;
 		} else {
 			pcm_data->hw_params = kas_pcm_generic_hw_params;
 			pcm_data->hw_free = kas_pcm_generic_hw_free;
@@ -720,6 +792,16 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
+		.name = "A2DP Pin",
+		.playback = {
+			.stream_name = "A2DP Playback",
+			.channels_min = 1,
+			.channels_max = 4,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
 		.name = "Voicecall-bt-to-iacc Pin",
 		.playback = {
 			.stream_name = "Voicecall-bt-to-iacc",
@@ -764,6 +846,7 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"Playback VMixer", NULL, "Music Playback"},
 	{"Playback VMixer", NULL, "Navigation Playback"},
 	{"Playback VMixer", NULL, "Alarm Playback"},
+	{"Playback VMixer", NULL, "A2DP Playback"},
 	{"Playback VMixer", NULL, "Voicecall-bt-to-iacc"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
