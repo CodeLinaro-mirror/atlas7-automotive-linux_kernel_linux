@@ -131,7 +131,7 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 	np = pdev->dev.of_node;
 
 	keys->keys_map_count = of_get_child_count(np);
-	keys->keys_map = devm_kmalloc(&pdev->dev, keys->keys_map_count *
+	keys->keys_map = devm_kzalloc(&pdev->dev, keys->keys_map_count *
 				sizeof(struct atlas7_keys_keymap), GFP_KERNEL);
 	if (!keys->keys_map)
 		return -ENOMEM;
