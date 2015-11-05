@@ -18,11 +18,15 @@
 #include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/iio/consumer.h>
 #include <linux/slab.h>
+#include <linux/irq.h>
+
+#define KEYS_DETECT_UP_TIME		40	/* ms*/
 
 struct atlas7_keys_keymap {
 	u32 voltage;
@@ -67,19 +71,26 @@ static irqreturn_t atlas7_keys_irq_handler(int irq, void *dev_id)
 	if (ret < 0)
 		dev_WARN(keys->dev, "read channel error\n");
 
-	if (volt > keys->max_press_volt)
-		atlas7_keys_release_keys(keys);
-	else {
-		for (i = 0; i < keys->keys_map_count; i++) {
-			if (abs(keys->keys_map[i].voltage - volt) < 35) {
-				input_report_key(keys->input,
-						keys->keys_map[i].keycode, 1);
-				input_sync(keys->input);
+	for (i = 0; i < keys->keys_map_count; i++) {
+		if (abs(keys->keys_map[i].voltage - volt) < 35) {
+			input_report_key(keys->input,
+					keys->keys_map[i].keycode, 1);
+			input_sync(keys->input);
 
-				keys->keys_map[i].pressed = true;
-			}
+			keys->keys_map[i].pressed = true;
 		}
 	}
+
+	/* poll key-up since key-up has no interrupt */
+	do {
+		msleep(KEYS_DETECT_UP_TIME);
+
+		ret = iio_read_channel_processed(keys->chan, &volt);
+		if (ret < 0)
+			dev_err(keys->dev, "read channel error\n");
+	} while (volt < keys->max_press_volt);
+
+	atlas7_keys_release_keys(keys);
 
 	return IRQ_HANDLED;
 }
@@ -164,6 +175,7 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "atlas7 keys: get irq failed!\n");
 		return keys->irq;
 	}
+	irq_set_status_flags(keys->irq, IRQ_NOAUTOEN);
 
 	ret = devm_request_threaded_irq(&pdev->dev, keys->irq, NULL,
 				atlas7_keys_irq_handler,
@@ -192,6 +204,7 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		goto out;
 
 	platform_set_drvdata(pdev, keys);
+	enable_irq(keys->irq);
 
 	return 0;
 out:
@@ -204,6 +217,7 @@ static int atlas7_keys_remove(struct platform_device *pdev)
 {
 	struct atlas7_keys *keys = platform_get_drvdata(pdev);
 
+	disable_irq(keys->irq);
 	input_unregister_device(keys->input);
 	iio_channel_release(keys->chan);
 
