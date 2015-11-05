@@ -1496,7 +1496,7 @@
 
 			sd3_pmx: sd3@0 {
 				sd3 {
-					groups = "sd3_grp";
+					groups = "sd3_9_grp";
 					function = "sd3";
 				};
 			};
