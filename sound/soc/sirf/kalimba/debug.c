@@ -30,6 +30,7 @@
 #include "iacc.h"
 #include "ipc.h"
 #include "regs.h"
+#include "usp-pcm.h"
 
 struct audio_unit {
 	struct list_head node;
@@ -98,6 +99,18 @@ static int setup_audio_unit(unsigned long arg)
 	if ((Type == CTRL_DEVICE_TYPE_I2S) && (TypeConf & 0x1))
 		pchannels = 6;
 
+	if (Type == CTRL_DEVICE_TYPE_USP) {
+		/* The bit4 to bit6 indicate the channels of USP */
+		u32 channels = (TypeConf >> 4) & 0x7;
+
+		if (channels == 0)
+			pchannels = 1;
+		else
+			pchannels = channels * 2;
+		/* The record channels must same as playback channels */
+		rchannels = pchannels;
+	}
+
 	if (Type == CTRL_DEVICE_TYPE_IACC) {
 		if ((TypeConf & 0xf) == 0xf)
 			pchannels = 4;
@@ -161,6 +174,9 @@ static int setup_audio_unit(unsigned long arg)
 		if (ret < 0)
 			goto out;
 		break;
+	case CTRL_DEVICE_TYPE_USP:
+		sirf_usp_pcm_params(pchannels, SampleRate);
+		break;
 	default:
 		ret = -EINVAL;
 		goto out;
@@ -207,6 +223,10 @@ static void start_audio_unit(unsigned long arg)
 				iacc_start(playback, channels);
 				ret = 0;
 				break;
+			case CTRL_DEVICE_TYPE_USP:
+				sirf_usp_pcm_start(playback);
+				ret = 0;
+				break;
 			default:
 				break;
 			}
@@ -236,6 +256,10 @@ static void stop_audio_unit(unsigned long arg)
 				iacc_stop(playback);
 				ret = 0;
 				break;
+			case CTRL_DEVICE_TYPE_USP:
+				sirf_usp_pcm_stop(playback);
+				ret = 0;
+				break;
 			default:
 				break;
 			}
@@ -257,6 +281,7 @@ static void release_audio_unit(unsigned long arg)
 		if (audio_unit->id == audio_unit_id) {
 			switch (audio_unit->type) {
 			case CTRL_DEVICE_TYPE_I2S:
+			case CTRL_DEVICE_TYPE_USP:
 				ret = 0;
 				break;
 			case CTRL_DEVICE_TYPE_IACC:
