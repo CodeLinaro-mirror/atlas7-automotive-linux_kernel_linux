@@ -409,7 +409,7 @@
 			vip1@13160000 {
 				status = "okay";
 				pinctrl-names = "default";
-				pinctrl-0 = <&vi_vip1_pmx>;
+				pinctrl-0 = <&vi_vip1_low8bit_pmx>;
 				port {
 					#address-cells = <1>;
 					#size-cells = <0>;
