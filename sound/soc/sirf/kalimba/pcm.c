@@ -287,21 +287,17 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret;
-	u32 hw_buff_phy_addr;
-	u32 hw_buff_bytes;
 	u32 hw_channels;
 
 	if (playback) {
-		hw_buff_phy_addr = pdata->kcm->playback_hw_ep_handle->buff_addr;
-		hw_buff_bytes =	pdata->kcm->playback_hw_ep_handle->buff_length
-			* sizeof(u32);
-		memset(pdata->kcm->playback_hw_ep_buff, 0, hw_buff_bytes);
+		memset(pdata->kcm->playback_hw_ep_buff, 0,
+			pdata->kcm->playback_hw_ep_handle->buff_length
+			* sizeof(u32));
 		hw_channels = pdata->kcm->hw_playback_channels;
 	} else {
-		hw_buff_phy_addr = pdata->kcm->capture_hw_ep_handle->buff_addr;
-		hw_buff_bytes =	pdata->kcm->capture_hw_ep_handle->buff_length
-			* sizeof(u32);
-		memset(pdata->kcm->capture_hw_ep_buff, 0, hw_buff_bytes);
+		memset(pdata->kcm->capture_hw_ep_buff, 0,
+			pdata->kcm->capture_hw_ep_handle->buff_length
+			* sizeof(u32));
 		hw_channels = pdata->kcm->hw_capture_channels;
 	}
 
@@ -316,9 +312,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			 * of kalimba
 			 */
 			if (pdata->playback_running_stream == 0) {
-				iacc_start(playback, hw_channels,
-						hw_buff_phy_addr,
-						hw_buff_bytes / hw_channels);
+				iacc_start(playback, hw_channels);
 				ret = execute_shared_components(
 					EXEC_PHASE_TRIGGER_START);
 				if (ret < 0)
@@ -327,9 +321,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			set_bit(rtd->cpu_dai->id,
 				&pdata->playback_running_stream);
 		} else {
-			iacc_start(playback, hw_channels,
-				hw_buff_phy_addr,
-				hw_buff_bytes / hw_channels);
+			iacc_start(playback, hw_channels);
 		}
 
 		ret = execute_components_chain(pcm_data->components_chain,

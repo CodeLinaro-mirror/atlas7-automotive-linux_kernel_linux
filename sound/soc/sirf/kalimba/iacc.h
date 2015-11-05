@@ -14,10 +14,7 @@ enum iacc_input_path {
 
 int iacc_setup(int pchannels, int rchannels,
 	enum iacc_input_path path, u32 SampleRate, u32 format);
-void iacc_start(int playback, int channels, dma_addr_t dma_buff_addr,
-		unsigned long buff_size);
-void debug_iacc_start(int playback, int channels, dma_addr_t dma_buff_addr,
-		unsigned long buff_size);
+void iacc_start(int playback, int channels);
 void iacc_stop(int playback);
 void atlas7_codec_release(void);
 

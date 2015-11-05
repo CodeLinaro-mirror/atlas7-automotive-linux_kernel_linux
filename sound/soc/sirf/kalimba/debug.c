@@ -198,17 +198,13 @@ static void start_audio_unit(unsigned long arg)
 		if (audio_unit->id == audio_unit_id) {
 			switch (audio_unit->type) {
 			case CTRL_DEVICE_TYPE_I2S:
-				sirf_i2s_start(playback,
-					(u32)(audio_unit->buff_phy_addr),
-					audio_unit->buff_length);
+				sirf_i2s_start(playback);
 				ret = 0;
 				break;
 			case CTRL_DEVICE_TYPE_IACC:
 				channels = playback ? audio_unit->pchannels
 					: audio_unit->rchannels;
-				debug_iacc_start(playback, channels,
-					(u32)(audio_unit->buff_phy_addr),
-					audio_unit->buff_length);
+				iacc_start(playback, channels);
 				ret = 0;
 				break;
 			default:

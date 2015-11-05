@@ -13,8 +13,6 @@
 #include "../../codecs/sirf-atlas7-codec.h"
 #endif
 
-#include "dma-hack.h"
-
 #define IACC_TX_CHANNELS	4
 #define IACC_RX_CHANNELS	2
 
@@ -225,62 +223,24 @@ int iacc_setup(int pchannels, int rchannels,
 	}
 	return 0;
 }
-
-void debug_iacc_start(int playback, int channels, dma_addr_t dma_buff_addr,
-		unsigned long buff_size)
-{
-	int i;
-	const int ch[] = { CH_IACC_TX0, CH_IACC_TX1, CH_IACC_TX2, CH_IACC_TX3 };
-
-	if (playback)
-		for (i = 0; i < channels; i++)
-			__dmac_enable(3, ch[i], dma_buff_addr + i*buff_size/6,
-					buff_size / 6, 1, 0);
-	else
-		__dmac_enable(3, 0, dma_buff_addr + 4 * buff_size / 6,
-				buff_size / 6, 0, 0);
-
-	if (playback)
-		atlas7_iacc_tx_enable(atlas7_iacc, channels);
-	else
-		atlas7_iacc_rx_enable(atlas7_iacc, channels);
-}
 #endif
 
 /* TODO: Remove this function after Kalimba takes over the job */
-void iacc_start(int playback, int channels, dma_addr_t dma_buff_addr,
-		unsigned long buff_size)
+void iacc_start(int playback, int channels)
 {
-	int i;
-	const int ch[] = { CH_IACC_TX0, CH_IACC_TX1, CH_IACC_TX2, CH_IACC_TX3 };
-
-	if (playback) {
-		for (i = 0; i < channels; i++)
-			__dmac_enable(DMAC_IACC, ch[i],
-					dma_buff_addr + i * buff_size,
-					buff_size, MEM_TO_DEV, DMA_SINGLE);
+	if (playback)
 		atlas7_iacc_tx_enable(atlas7_iacc, channels);
-	} else {
-		__dmac_enable(DMAC_IACC, CH_IACC_RX, dma_buff_addr,
-				buff_size, DEV_TO_MEM, DMA_SINGLE);
+	else
 		atlas7_iacc_rx_enable(atlas7_iacc, channels);
-	}
 }
 
 /* TODO: Remove this function after Kalimba takes over the job */
 void iacc_stop(int playback)
 {
-	int i;
-	const int ch[] = { CH_IACC_TX0, CH_IACC_TX1, CH_IACC_TX2, CH_IACC_TX3 };
-
-	if (playback) {
+	if (playback)
 		atlas7_iacc_tx_disable(atlas7_iacc);
-		for (i = 0; i < IACC_TX_CHANNELS; i++)
-			__dmac_disable(DMAC_IACC, ch[i]);
-	} else {
+	else
 		atlas7_iacc_rx_disable(atlas7_iacc);
-		__dmac_disable(DMAC_IACC, CH_IACC_RX);
-	}
 }
 
 static const struct regmap_config atlas7_iacc_regmap_config = {

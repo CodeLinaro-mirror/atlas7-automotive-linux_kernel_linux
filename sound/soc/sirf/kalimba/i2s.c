@@ -1,10 +1,18 @@
 /*
  * SiRF I2S driver
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
@@ -16,8 +24,6 @@
 
 #include "../sirf-i2s.h"
 #include "i2s.h"
-
-#include "dma-hack.h"
 
 struct sirf_i2s {
 	struct device *dev;
@@ -78,31 +84,21 @@ static void sirf_i2s_rx_disable(struct sirf_i2s *i2s)
 }
 
 /* TODO: Remove this function after Kalimba takes over the job */
-void sirf_i2s_start(int playback, dma_addr_t dma_buff_addr,
-		unsigned long buff_size)
+void sirf_i2s_start(int playback)
 {
-	if (playback) {
-		__dmac_enable(DMAC_I2S, CH_I2S_TX, dma_buff_addr,
-				buff_size / 2, MEM_TO_DEV, DMA_SINGLE);
+	if (playback)
 		sirf_i2s_tx_enable(i2s);
-	} else {
-		__dmac_enable(DMAC_I2S, CH_I2S_RX,
-				dma_buff_addr + buff_size / 2,
-				buff_size / 2, DEV_TO_MEM, DMA_SINGLE);
+	else
 		sirf_i2s_rx_enable(i2s);
-	}
 }
 
 /* TODO: Remove this function after Kalimba takes over the job */
 void sirf_i2s_stop(int playback)
 {
-	if (playback) {
+	if (playback)
 		sirf_i2s_tx_disable(i2s);
-		__dmac_disable(DMAC_I2S, CH_I2S_TX);
-	} else {
+	else
 		sirf_i2s_rx_disable(i2s);
-		__dmac_disable(DMAC_I2S, CH_I2S_RX);
-	}
 }
 
 void sirf_i2s_params(int channels, int rate, int slave)
@@ -274,5 +270,4 @@ static struct platform_driver sirf_i2s_driver = {
 module_platform_driver(sirf_i2s_driver);
 
 MODULE_DESCRIPTION("SiRF SoC I2S driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
 MODULE_LICENSE("GPL v2");
