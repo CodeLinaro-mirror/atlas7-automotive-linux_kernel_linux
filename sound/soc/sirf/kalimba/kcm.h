@@ -59,6 +59,10 @@ struct hw_ep_handle_buff_t {
 struct kcm_t {
 	struct hw_ep_handle_buff_t playback_iacc_ep;
 	struct hw_ep_handle_buff_t capture_iacc_ep;
+	struct hw_ep_handle_buff_t playback_iacc_sco_ep;
+	struct hw_ep_handle_buff_t capture_iacc_sco_ep;
+	struct hw_ep_handle_buff_t playback_usp_sco_ep;
+	struct hw_ep_handle_buff_t capture_usp_sco_ep;
 };
 
 struct component {
@@ -90,7 +94,8 @@ int set_external_param(struct components_chain *components_chain,
 struct components_chain *get_components_chain(const char *stream_name);
 u16 get_notify_ep_id(struct components_chain *components_chain);
 u16 get_volume_control_op_id(void);
-int execute_shared_components(u32 exec_phase);
+int execute_global_shared_components(u32 exec_phase);
+int execute_cvc_shared_components(u32 exec_phase);
 int execute_components_chain(struct components_chain *components_chain,
 	u32 exec_phase);
 struct component *get_data_produced_ack_component(

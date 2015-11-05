@@ -27,8 +27,9 @@
 #include "dsp.h"
 #include "iacc.h"
 #include "kcm.h"
+#include "usp-pcm.h"
 
-#define KAS_PCM_COUNT	4
+#define KAS_PCM_COUNT	6
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -41,6 +42,10 @@ struct kas_pcm_data {
 	bool kas_started;
 	struct components_chain *components_chain;
 	struct component *data_produced_ack_component;
+	int (*hw_params)(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params);
+	int (*hw_free)(struct snd_pcm_substream *substream);
+	int (*trigger)(struct snd_pcm_substream *substream, int cmd);
 };
 
 struct kas_priv_data {
@@ -49,6 +54,9 @@ struct kas_priv_data {
 	struct mutex playback_kas_shared_exec_stream_mutex;
 	unsigned long playback_kas_shared_exec_stream;
 	unsigned long playback_running_stream;
+	struct mutex voicecall_kas_shared_exec_stream_mutex;
+	unsigned long voicecall_kas_shared_exec_stream;
+	unsigned long cvc_stream_running;
 	unsigned long pre_channel_volume[4];
 };
 
@@ -142,8 +150,8 @@ static void kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 	}
 }
 
-static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
-		struct snd_pcm_hw_params *params)
+static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct kas_priv_data *pdata =
@@ -153,11 +161,8 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct snd_dma_buffer *dmab;
 	int ret;
-	bool exec_shared = false;
 	int i;
-
-	pcm_data->pos = 0;
-	pcm_data->last_appl_ptr = 0;
+	bool exec_shared = false;
 
 	pcm_data->data_produced_ack_component =
 		get_data_produced_ack_component(pcm_data->components_chain);
@@ -174,14 +179,6 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 			&pdata->playback_kas_shared_exec_stream);
 		mutex_unlock(&pdata->playback_kas_shared_exec_stream_mutex);
 	}
-
-	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
-	if (ret < 0) {
-		dev_err(rtd->dev, "allocate %d bytes for PCM failed: %d\n",
-			params_buffer_bytes(params), ret);
-		return ret;
-	}
-
 	dmab = snd_pcm_get_dma_buf(substream);
 
 	pcm_data->sw_ep_handle->buff_addr = dmab->addr;
@@ -206,9 +203,9 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 			"sw_ep_period_size", params_period_bytes(params) / 4);
 
 	if (playback && exec_shared) {
-		ret = execute_shared_components(EXEC_PHASE_HW_PARAMS);
+		ret = execute_global_shared_components(EXEC_PHASE_HW_PARAMS);
 		if (ret < 0)
-			goto failed;
+			return ret;
 		/*
 		 * Before the volume control operator is established,
 		 * the volume value is updated into the cache only.
@@ -224,7 +221,7 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	ret = execute_components_chain(pcm_data->components_chain,
 			EXEC_PHASE_HW_PARAMS);
 	if (ret < 0)
-		goto failed;
+		return ret;
 
 	pcm_data->kalimba_notify_ep_id =
 		get_notify_ep_id(pcm_data->components_chain);
@@ -234,6 +231,66 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	else
 		pcm_data->action_id = register_kalimba_msg_action(
 			DATA_PRODUCED, kas_data_notify, pcm_data);
+	return 0;
+}
+
+static int kas_pcm_voicecall_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+	int ret;
+	bool exec_shared = false;
+	struct kcm_t *kcm = pdata->kcm;
+
+	mutex_lock(&pdata->voicecall_kas_shared_exec_stream_mutex);
+	if (pdata->voicecall_kas_shared_exec_stream == 0)
+		exec_shared = true;
+	set_bit(rtd->cpu_dai->id,
+			&pdata->voicecall_kas_shared_exec_stream);
+	mutex_unlock(&pdata->voicecall_kas_shared_exec_stream_mutex);
+	if (exec_shared) {
+		sirf_usp_pcm_params(kcm->capture_usp_sco_ep.channels,
+				kcm->capture_usp_sco_ep.sample_rate);
+		ret = execute_cvc_shared_components(
+				EXEC_PHASE_HW_PARAMS);
+		if (ret < 0)
+			return ret;
+	}
+	ret = execute_components_chain(pcm_data->components_chain,
+			EXEC_PHASE_HW_PARAMS);
+	if (ret < 0)
+		return ret;
+	return 0;
+}
+
+static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+	int ret;
+
+	pcm_data->pos = 0;
+	pcm_data->last_appl_ptr = 0;
+
+	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+	if (ret < 0) {
+		dev_err(rtd->dev, "allocate %d bytes for PCM failed: %d\n",
+			params_buffer_bytes(params), ret);
+		return ret;
+	}
+
+	ret = pcm_data->hw_params(substream, params);
+	if (ret < 0)
+		goto failed;
+
 	pcm_data->kas_started = true;
 	return 0;
 failed:
@@ -241,7 +298,7 @@ failed:
 	return ret;
 }
 
-static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
+static int kas_pcm_generic_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct kas_priv_data *pdata =
@@ -250,9 +307,6 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	bool exec_shared = false;
-
-	if (!pcm_data->kas_started)
-		return 0;
 
 	if (playback) {
 		mutex_lock(&pdata->playback_kas_shared_exec_stream_mutex);
@@ -267,18 +321,65 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 		mutex_unlock(&pdata->playback_kas_shared_exec_stream_mutex);
 	}
 	if (playback && exec_shared)
-		execute_shared_components(EXEC_PHASE_HW_FREE);
+		execute_global_shared_components(EXEC_PHASE_HW_FREE);
 	execute_components_chain(pcm_data->components_chain,
 			EXEC_PHASE_HW_FREE);
 	if (playback && exec_shared)
-		execute_shared_components(EXEC_PHASE_HW_FREE_1);
+		execute_global_shared_components(EXEC_PHASE_HW_FREE_1);
 	unregister_kalimba_msg_action(pcm_data->action_id);
+
+	return 0;
+}
+
+static int kas_pcm_voicecall_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+	bool exec_shared = false;
+
+	mutex_lock(&pdata->voicecall_kas_shared_exec_stream_mutex);
+	clear_bit(rtd->cpu_dai->id,
+			&pdata->voicecall_kas_shared_exec_stream);
+	/*
+	 * If no streams are using the kalimba, then destroy the shared
+	 * components of kalimba.
+	 */
+	if (pdata->voicecall_kas_shared_exec_stream == 0)
+		exec_shared = true;
+	mutex_unlock(&pdata->voicecall_kas_shared_exec_stream_mutex);
+
+	if (exec_shared)
+		execute_cvc_shared_components(EXEC_PHASE_HW_FREE_1);
+	execute_components_chain(pcm_data->components_chain,
+			EXEC_PHASE_HW_FREE);
+	if (exec_shared)
+		execute_cvc_shared_components(EXEC_PHASE_HW_FREE);
+
+	return 0;
+}
+
+static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+
+	if (!pcm_data->kas_started)
+		return 0;
+
+	pcm_data->hw_free(substream);
+
 	snd_pcm_lib_free_pages(substream);
 	pcm_data->kas_started = false;
 	return 0;
 }
 
-static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
+static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct kas_priv_data *pdata =
@@ -312,16 +413,15 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			 */
 			if (pdata->playback_running_stream == 0) {
 				iacc_start(playback, hw_channels);
-				ret = execute_shared_components(
+				ret = execute_global_shared_components(
 					EXEC_PHASE_TRIGGER_START);
 				if (ret < 0)
 					return ret;
 			}
 			set_bit(rtd->cpu_dai->id,
 				&pdata->playback_running_stream);
-		} else {
+		} else
 			iacc_start(playback, hw_channels);
-		}
 
 		ret = execute_components_chain(pcm_data->components_chain,
 			EXEC_PHASE_TRIGGER_START);
@@ -340,7 +440,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			 * of kalimba
 			 */
 			if (pdata->playback_running_stream == 0) {
-				execute_shared_components(
+				execute_global_shared_components(
 					EXEC_PHASE_TRIGGER_STOP);
 				iacc_stop(playback);
 			}
@@ -356,6 +456,73 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		return -EINVAL;
 	}
 	return 0;
+}
+
+static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
+	int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	int ret;
+	struct kcm_t *kcm = pdata->kcm;
+
+	memset(kcm->playback_iacc_sco_ep.buff, 0,
+			kcm->playback_iacc_sco_ep.buff_bytes);
+	memset(kcm->capture_usp_sco_ep.buff, 0,
+			kcm->capture_usp_sco_ep.buff_bytes);
+	memset(kcm->capture_iacc_sco_ep.buff, 0,
+			kcm->capture_iacc_sco_ep.buff_bytes);
+	memset(kcm->playback_usp_sco_ep.buff, 0,
+			kcm->playback_usp_sco_ep.buff_bytes);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		if (playback) {
+			sirf_usp_pcm_start(0);
+			iacc_start(1, kcm->playback_iacc_sco_ep.channels);
+		} else {
+			iacc_start(0, kcm->capture_iacc_sco_ep.channels);
+			sirf_usp_pcm_start(1);
+		}
+		if (pdata->cvc_stream_running != 0) {
+			ret = execute_cvc_shared_components(
+					EXEC_PHASE_TRIGGER_START);
+			if (ret < 0)
+				return ret;
+		}
+		set_bit(rtd->cpu_dai->id, &pdata->cvc_stream_running);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (playback) {
+			sirf_usp_pcm_stop(0);
+			iacc_stop(1);
+		} else {
+			iacc_stop(0);
+			sirf_usp_pcm_stop(1);
+		}
+		clear_bit(rtd->cpu_dai->id, &pdata->cvc_stream_running);
+		if  (pdata->cvc_stream_running != 0)
+			execute_cvc_shared_components(EXEC_PHASE_TRIGGER_STOP);
+		break;
+	}
+	return 0;
+}
+
+static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kas_pcm_data *pcm_data =
+		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+
+	return pcm_data->trigger(substream, cmd);
 }
 
 static snd_pcm_uframes_t kas_pcm_pointer(struct snd_pcm_substream *substream)
@@ -448,6 +615,16 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		pcm_data->sw_ep_handle = dma_alloc_coherent(rtd->platform->dev,
 				sizeof(struct endpoint_handle),
 				&pcm_data->sw_ep_handle_phy_addr, GFP_KERNEL);
+		if (!strncmp(rtd->dai_link->stream_name, "Voicecall",
+			strlen("Voicecall"))) {
+			pcm_data->hw_params = kas_pcm_voicecall_hw_params;
+			pcm_data->hw_free = kas_pcm_voicecall_hw_free;
+			pcm_data->trigger = kas_pcm_voicecall_trigger;
+		} else {
+			pcm_data->hw_params = kas_pcm_generic_hw_params;
+			pcm_data->hw_free = kas_pcm_generic_hw_free;
+			pcm_data->trigger = kas_pcm_generic_trigger;
+		}
 	}
 
 	return ret;
@@ -487,6 +664,7 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 	snd_soc_platform_set_drvdata(platform, priv_data);
 	priv_data->kcm = kcm_init(platform->dev);
 	mutex_init(&priv_data->playback_kas_shared_exec_stream_mutex);
+	mutex_init(&priv_data->voicecall_kas_shared_exec_stream_mutex);
 	if (IS_ERR(priv_data->kcm))
 		return PTR_ERR(priv_data->kcm);
 	return 0;
@@ -542,9 +720,29 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
+		.name = "Voicecall-bt-to-iacc Pin",
+		.playback = {
+			.stream_name = "Voicecall-bt-to-iacc",
+			.channels_min = 1,
+			.channels_max = 4,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
 		.name = "Capture Pin",
 		.capture = {
 			.stream_name = "Analog Capture",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
+		.name = "Voicecall-iacc-to-bt Pin",
+		.capture = {
+			.stream_name = "Voicecall-iacc-to-bt",
 			.channels_min = 1,
 			.channels_max = 1,
 			.rates = KAS_RATES,
@@ -566,8 +764,10 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"Playback VMixer", NULL, "Music Playback"},
 	{"Playback VMixer", NULL, "Navigation Playback"},
 	{"Playback VMixer", NULL, "Alarm Playback"},
+	{"Playback VMixer", NULL, "Voicecall-bt-to-iacc"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
+	{"Voicecall-iacc-to-bt", NULL, "Codec IN"},
 };
 
 static const struct snd_soc_component_driver kas_dai_component = {

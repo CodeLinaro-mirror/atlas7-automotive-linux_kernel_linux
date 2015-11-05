@@ -71,6 +71,7 @@ void unregister_kalimba_msg_action(void *action_id);
 void kalimba_do_actions(u16 message, u16 *data);
 void kalimba_set_channel_volume(int channel, int vol);
 
+#define ENDPOINT_TYPE_USP			1
 #define ENDPOINT_TYPE_I2S			2
 #define ENDPOINT_TYPE_IACC			3
 #define ENDPOINT_TYPE_SPDIF			5
@@ -93,8 +94,16 @@ void kalimba_set_channel_volume(int channel, int vol);
 #define CAPABILITY_ID_BASIC_PASSTHOUGH		0x0001
 #define CAPABILITY_ID_RESAMPLER			0x0009
 #define CAPABILITY_ID_MIXER			0x000A
+#define CAPABILITY_ID_SPLITTER			0x0013
+#define CAPABILITY_ID_CVC_RCV_WB		0x001F
+#define CAPABILITY_ID_CVCHF1MIC_SEND_WB		0x001E
+#define CAPABILITY_ID_AEC_REF_1MIC		0x0040
 #define CAPABILITY_ID_VOLUME_CONTROL		0x0048
 #define CAPABILITY_ID_PEQ			0x0049
+
+#define AEC_REF_SET_SAMPLE_RATES		0x00FE
+#define OPERATOR_MSG_SET_CVC_PARAM		0x2007
+#define OPERATOR_MSG_SET_CVC_SAMPLE_RATE	0x1F40
 
 #define RESAMPLER_SET_CONVERSION_RATE		0x0002
 #define RESAMPLER_SET_CUSTOM_RATE		0x0003

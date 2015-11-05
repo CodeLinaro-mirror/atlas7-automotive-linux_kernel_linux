@@ -23,6 +23,10 @@
 #include "kcm.h"
 
 #define BUFF_BYTES_EACH_CHANNEL		256
+#define BUFF_BYTES_IACC_SCO_PLAYBACK	192
+#define BUFF_BYTES_IACC_SCO_CAPTURE	64
+#define BUFF_BYTES_USP_SCO_PLAYBACK	480
+#define BUFF_BYTES_USP_SCO_CAPTURE	480
 
 #define SET_PRIMARY_STREAM		0
 #define CLEAR_PRIMARY_STREAM		1
@@ -32,7 +36,9 @@ static struct kcm_t *kcm;
 static struct list_head components_chain_list;
 
 static struct component components_shared[256];
+static struct component components_cvc_shared[256];
 static int shared_components_size;
+static int cvc_shared_components_size;
 static unsigned long active_stream;
 static int curr_primary_stream;
 static u16 *volume_control_op_id;
@@ -318,6 +324,155 @@ static void init_shared_components(void)
 	shared_components_size = 84;
 }
 
+static void init_cvc_shared_components(void)
+{
+	static u16 cvc_aec_ref_rate[2] = {0x3E80, 0x3E80};
+	static u16 cvc_param = 0x4;
+	int i;
+
+	components_cvc_shared[0].component_id = CREATE_OPERATOR_REQ;
+	components_cvc_shared[0].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[0].params[0] = CAPABILITY_ID_AEC_REF_1MIC;
+
+	/* Send the sample rate to AEC Ref */
+	components_cvc_shared[1].component_id = OPERATOR_MESSAGE_REQ;
+	components_cvc_shared[1].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[1].params[0] =
+		(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[1].params[1] = AEC_REF_SET_SAMPLE_RATES;
+	components_cvc_shared[1].params[2] = 2;
+	components_cvc_shared[1].params[3] = (u32)(cvc_aec_ref_rate);
+
+	components_cvc_shared[2].component_id = OPERATOR_MESSAGE_REQ;
+	components_cvc_shared[2].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[2].params[0] =
+		(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[2].params[1] = OPERATOR_MSG_SET_CVC_PARAM;
+	components_cvc_shared[2].params[2] = 1;
+	components_cvc_shared[2].params[3] = (u32)(&cvc_param);
+
+	/* Create the CVC 1MIC */
+	components_cvc_shared[3].component_id = CREATE_OPERATOR_REQ;
+	components_cvc_shared[3].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[3].params[0] = CAPABILITY_ID_CVCHF1MIC_SEND_WB;
+
+	components_cvc_shared[4].component_id = OPERATOR_MESSAGE_REQ;
+	components_cvc_shared[4].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[4].params[0] =
+		(u32)(&components_cvc_shared[3].ret[0]);
+	components_cvc_shared[4].params[1] = OPERATOR_MSG_SET_CVC_PARAM;
+	components_cvc_shared[4].params[2] = 1;
+	components_cvc_shared[4].params[3] = (u32)(&cvc_param);
+
+	/* Create the CVC 1MIC */
+	components_cvc_shared[5].component_id = CREATE_OPERATOR_REQ;
+	components_cvc_shared[5].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[5].params[0] = CAPABILITY_ID_CVC_RCV_WB;
+
+	components_cvc_shared[6].component_id = OPERATOR_MESSAGE_REQ;
+	components_cvc_shared[6].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[6].params[0] =
+		(u32)(&components_cvc_shared[5].ret[0]);
+	components_cvc_shared[6].params[1] = OPERATOR_MSG_SET_CVC_PARAM;
+	components_cvc_shared[6].params[2] = 1;
+	components_cvc_shared[6].params[3] = (u32)(&cvc_param);
+
+	/* Connect CVC_RCV Source 0 to AEC_Ref Sink 0  */
+	components_cvc_shared[7].component_id = CONNECT_REQ;
+	components_cvc_shared[7].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[7].params[0] =
+		(u32)(&components_cvc_shared[5].ret[0]);
+	components_cvc_shared[7].params[1] = 0x2000;
+	components_cvc_shared[7].params[2] =
+		(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[7].params[3] = 0xA000;
+
+	/* Connect AEC_Ref Source 3 to CVC_Send Sink 1 - MIC */
+	components_cvc_shared[8].component_id = CONNECT_REQ;
+	components_cvc_shared[8].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[8].params[0] =
+			(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[8].params[1] = 0x2000 + 3;
+	components_cvc_shared[8].params[2] =
+			(u32)(&components_cvc_shared[3].ret[0]);
+	components_cvc_shared[8].params[3] = 0xA000 + 1;
+
+	/* Connect the AEC_Ref Source 0 to CVC_Send Sink 0 */
+	components_cvc_shared[9].component_id = CONNECT_REQ;
+	components_cvc_shared[9].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components_cvc_shared[9].params[0] =
+		(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[9].params[1] = 0x2000;
+	components_cvc_shared[9].params[2] =
+		(u32)(&components_cvc_shared[3].ret[0]);
+	components_cvc_shared[9].params[3] = 0xA000;
+
+	components_cvc_shared[10].component_id = START_OPERATOR_REQ;
+	components_cvc_shared[10].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components_cvc_shared[10].params[0] =
+		(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[10].params[1] = 1;
+
+	components_cvc_shared[11].component_id = START_OPERATOR_REQ;
+	components_cvc_shared[11].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components_cvc_shared[11].params[0] =
+		(u32)(&components_cvc_shared[3].ret[0]);
+	components_cvc_shared[11].params[1] = 1;
+
+	components_cvc_shared[12].component_id = START_OPERATOR_REQ;
+	components_cvc_shared[12].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components_cvc_shared[12].params[0] =
+		(u32)(&components_cvc_shared[5].ret[0]);
+	components_cvc_shared[12].params[1] = 1;
+
+	components_cvc_shared[13].component_id = STOP_OPERATOR_REQ;
+	components_cvc_shared[13].execute_phase = EXEC_PHASE_TRIGGER_STOP;
+	components_cvc_shared[13].params[0] =
+		(u32)(&components_cvc_shared[5].ret[0]);
+	components_cvc_shared[13].params[1] = 1;
+
+	components_cvc_shared[14].component_id = STOP_OPERATOR_REQ;
+	components_cvc_shared[14].execute_phase = EXEC_PHASE_TRIGGER_STOP;
+	components_cvc_shared[14].params[0] =
+		(u32)(&components_cvc_shared[3].ret[0]);
+	components_cvc_shared[14].params[1] = 1;
+
+	components_cvc_shared[15].component_id = STOP_OPERATOR_REQ;
+	components_cvc_shared[15].execute_phase = EXEC_PHASE_TRIGGER_STOP;
+	components_cvc_shared[15].params[0] =
+		(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[15].params[1] = 1;
+
+	for (i = 0; i < 3; i++) {
+		components_cvc_shared[16 + i].component_id = DISCONNECT_REQ;
+		components_cvc_shared[16 + i].execute_phase =
+			EXEC_PHASE_HW_FREE_1;
+		components_cvc_shared[16 + i].params[0] = 1;
+		components_cvc_shared[16 + i].params[1] =
+			(u32)(&components_cvc_shared[7 + i].ret[0]);
+	}
+
+	components_cvc_shared[19].component_id = DESTROY_OPERATOR_REQ;
+	components_cvc_shared[19].execute_phase = EXEC_PHASE_HW_FREE;
+	components_cvc_shared[19].params[0] =
+			(u32)(&components_cvc_shared[0].ret[0]);
+	components_cvc_shared[19].params[1] = 1;
+
+	components_cvc_shared[20].component_id = DESTROY_OPERATOR_REQ;
+	components_cvc_shared[20].execute_phase = EXEC_PHASE_HW_FREE;
+	components_cvc_shared[20].params[0] =
+			(u32)(&components_cvc_shared[3].ret[0]);
+	components_cvc_shared[20].params[1] = 1;
+
+	components_cvc_shared[21].component_id = DESTROY_OPERATOR_REQ;
+	components_cvc_shared[21].execute_phase = EXEC_PHASE_HW_FREE;
+	components_cvc_shared[21].params[0] =
+			(u32)(&components_cvc_shared[5].ret[0]);
+	components_cvc_shared[21].params[1] = 1;
+
+	cvc_shared_components_size = 22;
+}
+
 struct components_chain *create_components_chain(char *stream_name)
 {
 	struct components_chain *components_chain;
@@ -394,6 +549,332 @@ struct components_chain *get_components_chain(const char *stream_name)
 			return components_chain;
 	}
 	return NULL;
+}
+
+static void hard_code_init_components_chain_voicecall_iacc_to_bt(
+	struct components_chain *components_chain)
+{
+	struct component *components = components_chain->components;
+	int i = 0, k;
+
+	components[i].component_id = GET_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_IACC;
+	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components[i].params[2] = (u32)(&kcm->capture_iacc_sco_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->capture_iacc_sco_ep.handle_phy_addr);
+	components_chain->component_first = &components[i];
+	i++;
+
+	components[i].component_id = GET_SINK_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_USP;
+	components[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components[i].params[2] = (u32)(&kcm->playback_usp_sco_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->playback_usp_sco_ep.handle_phy_addr);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components[i].params[2] =
+		(u32)(&kcm->playback_usp_sco_ep.sample_rate);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->playback_usp_sco_ep.audio_data_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->playback_usp_sco_ep.packing_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components[i].params[2] =
+		(u32)(&kcm->playback_usp_sco_ep.interleaving_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
+	components[i].params[2] =
+		(u32)(&kcm->playback_usp_sco_ep.clock_master);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_sco_ep.sample_rate);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_sco_ep.audio_data_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_sco_ep.packing_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_sco_ep.interleaving_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
+	components[i].params[2] =
+		(u32)(&kcm->capture_iacc_sco_ep.clock_master);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* Connect USP-RX with CVC_SEND Source 0*/
+	components[i].component_id = CONNECT_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components_cvc_shared[3].ret[0]);
+	components[i].params[1] = 0x2000;
+	components[i].params[2] = (u32)(&components[1].ret[0]);
+	components[i].params[3] = 0x0;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* Connect "mic" to AEC_REf Sink 2 */
+	components[i].component_id = CONNECT_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = 0x0;
+	components[i].params[2] = (u32)(&components_cvc_shared[0].ret[0]);
+	components[i].params[3] = 0xA000 + 2;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* Disconnect*/
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = DISCONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_FREE;
+		components[i].params[0] = 1;
+		components[i].params[1] = (u32)(&components[12 + k].ret[0]);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	components[i].component_id = CLOSE_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = 1;
+	components[i].params[1] = (u32)(components[0].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = CLOSE_SINK_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = 1;
+	components[i].params[1] = (u32)(components[1].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i - 1].component_next = NULL;
+}
+
+static void hard_code_init_components_chain_voicecall_bt_to_iacc(
+	struct components_chain *components_chain)
+{
+	struct component *components = components_chain->components;
+	int i = 0, k;
+
+	components[i].component_id = GET_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_USP;
+	components[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components[i].params[2] = (u32)(&kcm->capture_usp_sco_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->capture_usp_sco_ep.handle_phy_addr);
+	components_chain->component_first = &components[i];
+	i++;
+
+	components[i].component_id = GET_SINK_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = ENDPOINT_TYPE_IACC;
+	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components[i].params[2] = (u32)(&kcm->playback_iacc_sco_ep.channels);
+	components[i].params[3] =
+		(u32)(&kcm->playback_iacc_sco_ep.handle_phy_addr);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components[i].params[2] =
+		(u32)(&kcm->playback_iacc_sco_ep.sample_rate);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->playback_iacc_sco_ep.audio_data_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->playback_iacc_sco_ep.packing_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components[i].params[2] =
+		(u32)(&kcm->playback_iacc_sco_ep.interleaving_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[1].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
+	components[i].params[2] =
+		(u32)(&kcm->playback_iacc_sco_ep.clock_master);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components[i].params[2] =
+		(u32)(&kcm->capture_usp_sco_ep.sample_rate);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->capture_usp_sco_ep.audio_data_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components[i].params[2] =
+		(u32)(&kcm->capture_usp_sco_ep.packing_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components[i].params[2] =
+		(u32)(&kcm->capture_usp_sco_ep.interleaving_format);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
+	components[i].params[2] =
+		(u32)(&kcm->capture_usp_sco_ep.clock_master);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* Connect USP-TX to cvc rcv sink 0  */ /* i == 7 */
+	components[i].component_id = CONNECT_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components[0].ret[0]);
+	components[i].params[1] = 0;
+	components[i].params[2] = (u32)(&components_cvc_shared[5].ret[0]);
+	components[i].params[3] = 0xA000;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* Connect AEC_Ref Source 1 to "Speaker"  */
+	components[i].component_id = CONNECT_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+	components[i].params[0] = (u32)(&components_cvc_shared[0].ret[0]);
+	components[i].params[1] = 0x2000 + 1;
+	components[i].params[2] = (u32)(&components[1].ret[0]);
+	components[i].params[3] = 0x0;
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	/* Disconnect*/
+	for (k = 0; k < 2; k++) {
+		components[i].component_id = DISCONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_FREE;
+		components[i].params[0] = 1;
+		components[i].params[1] = (u32)(&components[12 + k].ret[0]);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	components[i].component_id = CLOSE_SOURCE_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = 1;
+	components[i].params[1] = (u32)(components[0].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i].component_id = CLOSE_SINK_REQ;
+	components[i].execute_phase = EXEC_PHASE_HW_FREE;
+	components[i].params[0] = 1;
+	components[i].params[1] = (u32)(components[1].ret);
+	components[i - 1].component_next = &components[i];
+	i++;
+
+	components[i - 1].component_next = NULL;
 }
 
 static void hard_code_init_components_chain_navigation_playback(
@@ -1277,19 +1758,32 @@ struct component *get_data_produced_ack_component(
 	return NULL;
 }
 
-int execute_shared_components(u32 exec_phase)
+static int __execute_shared_components(struct component *components,
+		int components_count, u32 exec_phase)
 {
 	int i;
 	int ret = 0;
 
-	for (i = 0; i < shared_components_size; i++) {
-		if (components_shared[i].execute_phase != exec_phase)
+	for (i = 0; i < components_count; i++) {
+		if (components[i].execute_phase != exec_phase)
 			continue;
-		ret = execute_component(&components_shared[i]);
+		ret = execute_component(&components[i]);
 		if (ret < 0)
 			break;
 	}
 	return 0;
+}
+
+int execute_global_shared_components(u32 exec_phase)
+{
+	return __execute_shared_components(components_shared,
+		shared_components_size, exec_phase);
+}
+
+int execute_cvc_shared_components(u32 exec_phase)
+{
+	return __execute_shared_components(components_cvc_shared,
+		cvc_shared_components_size, exec_phase);
 }
 
 int execute_components_chain(struct components_chain *components_chain,
@@ -1379,8 +1873,33 @@ struct kcm_t *kcm_init(struct device *dev)
 		pr_err("Allocate IACC capture endpoint buffer failed.\n");
 		goto error_alloc_capture_iacc_ep_failed;
 	}
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep,
+		BUFF_BYTES_USP_SCO_PLAYBACK, 1, 16000);
+	if (ret) {
+		pr_err("Allocate USP-SCO playback endpoint buffer failed.\n");
+		goto error_alloc_playback_usp_sco_ep_failed;
+	}
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep,
+		BUFF_BYTES_USP_SCO_CAPTURE, 1, 16000);
+	if (ret) {
+		pr_err("Allocate USP-SCO capture endpoint buffer failed.\n");
+		goto error_alloc_capture_usp_sco_ep_failed;
+	}
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
+		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 16000);
+	if (ret) {
+		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
+		goto error_alloc_capture_iacc_sco_ep_failed;
+	}
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_sco_ep,
+		BUFF_BYTES_IACC_SCO_PLAYBACK, 1, 48000);
+	if (ret) {
+		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
+		goto error_alloc_playback_iacc_sco_ep_failed;
+	}
 
 	init_shared_components();
+	init_cvc_shared_components();
 	components_chain = create_components_chain("Music Playback");
 	init_sw_external_param(components_chain);
 	hard_code_init_components_chain_music_playback(components_chain);
@@ -1393,11 +1912,25 @@ struct kcm_t *kcm_init(struct device *dev)
 	init_sw_external_param(components_chain);
 	hard_code_init_components_chain_alarm_playback(components_chain);
 
+	components_chain = create_components_chain("Voicecall-bt-to-iacc");
+	hard_code_init_components_chain_voicecall_bt_to_iacc(components_chain);
+
+	components_chain = create_components_chain("Voicecall-iacc-to-bt");
+	hard_code_init_components_chain_voicecall_iacc_to_bt(components_chain);
+
 	components_chain = create_components_chain("Analog Capture");
 	init_sw_external_param(components_chain);
 	hard_code_init_components_chain_capture(components_chain);
 
 	return kcm;
+error_alloc_playback_iacc_sco_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
+error_alloc_capture_iacc_sco_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
+error_alloc_capture_usp_sco_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
+error_alloc_playback_usp_sco_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep);
 error_alloc_capture_iacc_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
 	return ERR_PTR(ret);
@@ -1405,6 +1938,10 @@ error_alloc_capture_iacc_ep_failed:
 
 void kcm_deinit(struct device *dev)
 {
+	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_sco_ep);
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
+	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
 }
