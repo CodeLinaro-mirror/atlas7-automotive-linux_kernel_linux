@@ -114,15 +114,6 @@
 			};
 		};
 
-		disp-iobg {
-			lcd0@13100000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&ld_ldd_16bit_pmx &ld_ldd_fck_pmx
-					&ld_ldd_lck_pmx>;
-			};
-		};
-
 		lvds: display@1 {
 			compatible = "lvds-panel";
 			source = "lvds.0";

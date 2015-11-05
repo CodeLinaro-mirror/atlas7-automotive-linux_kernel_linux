@@ -501,12 +501,46 @@
 		};
 
 		disp-iobg {
+			lcd0@13100000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&ld_ldd_16bit_pmx &ld_ldd_fck_pmx
+					&ld_ldd_lck_pmx>;
+			};
+
 			lvds@10e10000 {
 				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&lvds_analog_pmx>;
 				/* set to SYN or SLAVE for lvds panel */
 				lvds-mode = "SLAVE";
+			};
+		};
+
+		rgb: display@0 {
+			compatible = "rgb-panel";
+			source = "rgb.0";
+			status = "disabled";
+
+			data-lines  = <16>;
+
+			display-timings {
+				native-mode = <&timing0>;
+				timing0: timing0 {
+					clock-frequency = <40000000>;
+					hactive = <800>;
+					vactive = <480>;
+					hfront-porch = <210>;
+					hback-porch = <45>;
+					hsync-len = <1>;
+					vback-porch = <22>;
+					vfront-porch = <132>;
+					vsync-len = <1>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
 			};
 		};
 
