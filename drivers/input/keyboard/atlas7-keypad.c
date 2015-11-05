@@ -118,6 +118,7 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	np = pdev->dev.of_node;
+
 	keys->keys_map_count = of_get_child_count(np);
 	keys->keys_map = devm_kmalloc(&pdev->dev, keys->keys_map_count *
 				sizeof(struct atlas7_keys_keymap), GFP_KERNEL);
@@ -151,11 +152,19 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		i++;
 	}
 
+	keys->chan = iio_channel_get(&pdev->dev, "adc_keys");
+	if (IS_ERR(keys->chan)) {
+		dev_err(&pdev->dev,
+			"atlas7 keys: Unable to get the adc channel\n");
+		return PTR_ERR(keys->chan);
+	}
+
 	keys->irq = platform_get_irq(pdev, 0);
 	if (keys->irq < 0) {
 		dev_err(&pdev->dev, "atlas7 keys: get irq failed!\n");
 		return keys->irq;
 	}
+
 	ret = devm_request_threaded_irq(&pdev->dev, keys->irq, NULL,
 				atlas7_keys_irq_handler,
 				IRQF_ONESHOT, "atlas7-keys", keys);
@@ -164,17 +173,12 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	keys->chan = iio_channel_get(&pdev->dev, "adc_keys");
-	if (IS_ERR(keys->chan)) {
-		dev_err(&pdev->dev,
-			"atlas7 keys: Unable to get the adc channel\n");
-		return PTR_ERR(keys->chan);
-	}
-
 	keys->dev = &pdev->dev;
 	keys->input = devm_input_allocate_device(&pdev->dev);
-	if (!keys->input)
-		return -ENOMEM;
+	if (!keys->input) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	keys->input->name = pdev->name;
 	keys->input->evbit[0] = BIT(EV_SYN) | BIT(EV_KEY);
