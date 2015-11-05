@@ -1,0 +1,12 @@
+Key Comparator to check keys press event on atlas7b
+
+Required properties:
+- compatible: "sirf,atlas7-key-comparator"
+- reg: offset and length of the register set for the device
+
+Example:
+key_comparator: key_comparator@10E30030 {
+	compatible = "sirf,atlas7-key-comparator";
+	reg = <0x10E30030 0x8>;
+};
+

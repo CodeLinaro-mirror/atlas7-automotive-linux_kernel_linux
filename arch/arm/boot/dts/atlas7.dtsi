@@ -2635,6 +2635,10 @@
 				clocks = <&car 83>;
 				status = "disabled";
 			};
+			key_comparator@10E30030 {
+				compatible = "sirf,atlas7-key-comparator";
+				reg = <0x10E30030 0x8>;
+			};
 		};
 
 		ddrm {
