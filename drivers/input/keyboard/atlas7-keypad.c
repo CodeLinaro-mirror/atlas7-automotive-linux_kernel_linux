@@ -21,10 +21,14 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/iio/consumer.h>
 #include <linux/slab.h>
 #include <linux/irq.h>
+
+#define KEY_COMPARE_CTRL		0x00
+#define KEY_COMPARE_EN			0x3
 
 #define KEYS_DETECT_UP_TIME		40	/* ms*/
 
@@ -37,6 +41,7 @@ struct atlas7_keys_keymap {
 struct atlas7_keys {
 	struct device		*dev;
 	struct input_dev	*input;
+	void __iomem		*comp_base;
 	int			irq;
 	struct iio_channel	*chan;
 	struct atlas7_keys_keymap *keys_map;
@@ -100,6 +105,7 @@ static int atlas7_keys_suspend(struct device *dev)
 {
 	struct atlas7_keys *keys = dev_get_drvdata(dev);
 
+	writel(0, keys->comp_base + KEY_COMPARE_CTRL);
 	disable_irq(keys->irq);
 	return 0;
 }
@@ -108,6 +114,7 @@ static int atlas7_keys_resume(struct device *dev)
 {
 	struct atlas7_keys *keys = dev_get_drvdata(dev);
 
+	writel(KEY_COMPARE_EN, keys->comp_base + KEY_COMPARE_CTRL);
 	enable_irq(keys->irq);
 	return 0;
 }
@@ -119,7 +126,7 @@ static SIMPLE_DEV_PM_OPS(atlas7_keys_pm_ops,
 static int atlas7_keys_probe(struct platform_device *pdev)
 {
 	struct atlas7_keys *keys;
-	struct device_node *pp, *np;
+	struct device_node *pp, *np, *key_comp_np;
 	int ret;
 	int i = 0;
 
@@ -170,6 +177,30 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		return PTR_ERR(keys->chan);
 	}
 
+	/*
+	 * The key comparator is  to compare the key's voltage with a reference
+	 * voltage. when the key's voltage lower then the reference voltage,
+	 * the comparator is tripping and the change is delivered to the SOC
+	 * and then the key interrupt occurring.
+	 */
+	key_comp_np = of_find_compatible_node(NULL,
+				NULL, "sirf,atlas7-key-comparator");
+	if (!key_comp_np) {
+		dev_err(&pdev->dev,
+			"atlas7 keys: Unable to get key comparator node\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	keys->comp_base = of_iomap(key_comp_np, 0);
+	if (!keys->comp_base) {
+		dev_err(&pdev->dev,
+			"atlas7 keys: Unable to remap key comparator resource\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	writel(KEY_COMPARE_EN, keys->comp_base + KEY_COMPARE_CTRL);
+
 	keys->irq = platform_get_irq(pdev, 0);
 	if (keys->irq < 0) {
 		dev_err(&pdev->dev, "atlas7 keys: get irq failed!\n");
@@ -217,6 +248,8 @@ static int atlas7_keys_remove(struct platform_device *pdev)
 {
 	struct atlas7_keys *keys = platform_get_drvdata(pdev);
 
+	writel(0, keys->comp_base + KEY_COMPARE_CTRL);
+	iounmap(keys->comp_base);
 	disable_irq(keys->irq);
 	input_unregister_device(keys->input);
 	iio_channel_release(keys->chan);
