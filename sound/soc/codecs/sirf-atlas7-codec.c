@@ -48,8 +48,8 @@ struct sirf_atlas7_codec {
 };
 
 enum input_path_enum {
-	MIC0_IN,
-	MIC1_IN,
+	MIC_MONO_IN,
+	MIC_STEREO_IN,
 	LINE0_IN,
 	LINE1_IN,
 	LINE2_IN,
@@ -152,11 +152,12 @@ static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
 			}
 		} else {
 			volume_level = atlas7_codec->capture_volume;
-			if (atlas7_codec->input_path == MIC0_IN)
+			if (atlas7_codec->input_path == MIC_MONO_IN
+				|| atlas7_codec->input_path == MIC_STEREO_IN)
 				snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
 					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
 					AUDIO_ANA_ADC_MICAMP_GAIN);
-			else if (atlas7_codec->input_path == MIC1_IN)
+			if (atlas7_codec->input_path == MIC_STEREO_IN)
 				snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
 					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
 					AUDIO_ANA_ADC_MICAMP_GAIN);
@@ -315,11 +316,12 @@ static int sirf_atlas7_codec_dapm_put_input_path_enum(
 	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(codec->dev);
 
 	atlas7_codec->input_path = ucontrol->value.enumerated.item[0];
-	if (atlas7_codec->input_path == 0)
+	if (atlas7_codec->input_path == MIC_MONO_IN ||
+		atlas7_codec->input_path == MIC_STEREO_IN)
 		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
 			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
 			AUDIO_ANA_ADC_MICAMP_GAIN);
-	else if (atlas7_codec->input_path == 1)
+	if (atlas7_codec->input_path == MIC_STEREO_IN)
 		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
 			AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
 			AUDIO_ANA_ADC_MICAMP_GAIN);
@@ -345,9 +347,9 @@ static const struct soc_enum output_mode_enum =
 static const struct snd_kcontrol_new sirf_atlas7_codec_output_mode_control =
 	SOC_DAPM_ENUM("Output mode", output_mode_enum);
 
-static const char * const input_path_text[] = {"MIC0", "MIC1", "LINE0",
+static const char * const input_path_text[] = {"MIC0", "2MIC", "LINE0",
 		"LINE1", "LINE2", "LINE3"};
-static const int input_path_val[] = {0x1080, 0x0041, 0x1850,
+static const int input_path_val[] = {0x1080, 0x10C1, 0x1850,
 		0x1448, 0x1244, 0x1142};
 
 static const struct soc_enum input_path_enum =
@@ -448,7 +450,8 @@ static const struct snd_soc_dapm_route sirf_atlas7_codec_map[] = {
 	{"ADCB", NULL, "Input path"},
 
 	{"Input path", "MIC0", "MICIN0"},
-	{"Input path", "MIC1", "MICIN1"},
+	{"Input path", "2MIC", "MICIN0"},
+	{"Input path", "2MIC", "MICIN1"},
 	{"Input path", "LINE0", "LIN0"},
 	{"Input path", "LINE1", "LIN1"},
 	{"Input path", "LINE2", "LIN2"},
