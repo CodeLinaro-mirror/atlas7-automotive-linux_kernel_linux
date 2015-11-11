@@ -1,10 +1,18 @@
 /*
  * SiRF I2S driver
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -23,6 +31,7 @@ struct sirf_i2s {
 	struct clk *clk;
 	u32 i2s_ctrl;
 	u32 i2s_ctrl_tx_rx_en;
+	u32 tdm_ctrl, tdm_bclk_ratio, tdm_tx_mask, tdm_rx_mask;
 	bool master;
 	bool clkout;
 	int clk_id;
@@ -46,6 +55,12 @@ static int sirf_i2s_dai_probe(struct snd_soc_dai *dai)
 
 static void sirf_i2s_tx_enable(struct sirf_i2s *i2s)
 {
+	/* Reset TDM playback logic */
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_TX_RESET, I2S_TDM_TX_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_TX_RESET, 0);
+
 	/* First start the FIFO, then enable the tx/rx */
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
 		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
@@ -68,6 +83,12 @@ static void sirf_i2s_tx_disable(struct sirf_i2s *i2s)
 
 static void sirf_i2s_rx_enable(struct sirf_i2s *i2s)
 {
+	/* Reset TDM record logic */
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_RX_RESET, I2S_TDM_RX_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_RX_RESET, 0);
+
 	/* First start the FIFO, then enable the tx/rx */
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
 		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
@@ -122,28 +143,45 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 	u32 i2s_ctrl = 0;
 	u32 i2s_tx_rx_ctrl = 0, i2s_tx_rx_mask = 0;
+	u32 tdm_ctrl = 0, tdm_mask = BIT(0);
 	u32 left_len, frame_len;
 	int channels = params_channels(params);
+	int playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 	u32 bitclk;
 	u32 bclk_div;
 	u32 div;
+	u32 bclk_ratio = i2s->tdm_bclk_ratio;
 
-	/*
-	 * SiRFSoC I2S controller only support 2 and 6 channells output.
-	 * I2S_SIX_CHANNELS bit clear: select 2 channels mode.
-	 * I2S_SIX_CHANNELS bit set: select 6 channels mode.
-	 */
 	switch (channels) {
 	case 2:
 		i2s_ctrl &= ~I2S_SIX_CHANNELS;
 		break;
+	case 4:
 	case 6:
-		i2s_ctrl |= I2S_SIX_CHANNELS;
+	case 8:
+		/* TDM */
+		regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL, &tdm_ctrl);
+		if (playback) {
+			tdm_mask = I2S_TDM_MASK_TX;
+			tdm_ctrl &= ~tdm_mask;
+			tdm_ctrl |= I2S_TDM_DAC_CH(channels);
+			tdm_ctrl |= i2s->tdm_tx_mask;
+		} else {
+			tdm_mask = I2S_TDM_MASK_RX;
+			tdm_ctrl &= ~tdm_mask;
+			tdm_ctrl |= I2S_TDM_ADC_CH(channels);
+			tdm_ctrl |= i2s->tdm_rx_mask;
+		}
+		tdm_ctrl |= I2S_TDM_ENA;	/* Start TDM */
+		tdm_ctrl |= i2s->tdm_ctrl;	/* Frame sync and polarity */
 		break;
 	default:
 		dev_err(dai->dev, "%d channels unsupported\n", channels);
 		return -EINVAL;
 	}
+
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			tdm_mask, tdm_ctrl);
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S8:
@@ -163,9 +201,12 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	if (bclk_ratio == 0)
+		bclk_ratio = frame_len;
+
 	/* Atlas7 supports 24bit resolution */
 	if (i2s->is_atlas7) {
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (playback) {
 			i2s_tx_rx_mask |= I2S_TX_24BIT_ATLAS7;
 			i2s_tx_rx_ctrl |=
 				(left_len == 24 ? I2S_TX_24BIT_ATLAS7 : 0);
@@ -182,7 +223,7 @@ static int sirf_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	if (i2s->master) {
 		i2s_ctrl &= ~I2S_SLAVE_MODE;
-		bitclk = params_rate(params) * frame_len;
+		bitclk = params_rate(params) * bclk_ratio;
 		div = i2s->sysclk / bitclk;
 		/* MCLK divide-by-2 from source clk */
 		div /= 2;
@@ -229,21 +270,32 @@ static int sirf_i2s_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
+	i2s->tdm_ctrl = 0;
+
 	/* interface format */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
+		i2s->tdm_ctrl |= I2S_TDM_FRAME_SYNC_I2S;
+		break;
+	case SND_SOC_DAIFMT_DSP_A:
+		i2s->tdm_ctrl |= I2S_TDM_FRAME_SYNC_DSP0;
+		break;
+	case SND_SOC_DAIFMT_DSP_B:
+		i2s->tdm_ctrl |= I2S_TDM_FRAME_SYNC_DSP1;
 		break;
 	default:
-		dev_err(dai->dev, "Only I2S format supported\n");
 		return -EINVAL;
 	}
 
 	/* clock inversion */
 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
 	case SND_SOC_DAIFMT_NB_NF:
+		i2s->tdm_ctrl |= I2S_TDM_FRAME_POLARITY_HIGH;
+		break;
+	case SND_SOC_DAIFMT_NB_IF:
+		i2s->tdm_ctrl |= I2S_TDM_FRAME_POLARITY_LOW;
 		break;
 	default:
-		dev_err(dai->dev, "Only normal bit clock, normal frame clock supported\n");
 		return -EINVAL;
 	}
 
@@ -284,11 +336,31 @@ static int sirf_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return 0;
 }
 
+static int sirf_i2s_set_bclk_ratio(struct snd_soc_dai *dai, unsigned int ratio)
+{
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+
+	i2s->tdm_bclk_ratio = ratio;
+	return 0;
+}
+
+static int sirf_i2s_set_tdm_slot(struct snd_soc_dai *dai, unsigned tx_mask,
+		unsigned int rx_mask, int slots, int slot_width)
+{
+	struct sirf_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+
+	i2s->tdm_tx_mask = tx_mask;
+	i2s->tdm_rx_mask = rx_mask;
+	return 0;
+}
+
 struct snd_soc_dai_ops sirfsoc_i2s_dai_ops = {
 	.trigger	= sirf_i2s_trigger,
 	.hw_params	= sirf_i2s_hw_params,
 	.set_fmt	= sirf_i2s_set_dai_fmt,
 	.set_sysclk	= sirf_i2s_set_sysclk,
+	.set_bclk_ratio	= sirf_i2s_set_bclk_ratio,
+	.set_tdm_slot	= sirf_i2s_set_tdm_slot,
 };
 
 static struct snd_soc_dai_driver sirf_i2s_dai = {
@@ -298,20 +370,16 @@ static struct snd_soc_dai_driver sirf_i2s_dai = {
 	.playback = {
 		.stream_name = "SiRF I2S Playback",
 		.channels_min = 2,
-		.channels_max = 6,
+		.channels_max = 8,
 		.rates = SNDRV_PCM_RATE_8000_96000,
-		.formats = SNDRV_PCM_FMTBIT_S8 |
-			SNDRV_PCM_FMTBIT_S16_LE |
-			SNDRV_PCM_FMTBIT_S24_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 	},
 	.capture = {
 		.stream_name = "SiRF I2S Capture",
 		.channels_min = 2,
-		.channels_max = 2,
+		.channels_max = 8,
 		.rates = SNDRV_PCM_RATE_8000_96000,
-		.formats = SNDRV_PCM_FMTBIT_S8 |
-			SNDRV_PCM_FMTBIT_S16_LE |
-			SNDRV_PCM_FMTBIT_S24_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 	},
 	.ops = &sirfsoc_i2s_dai_ops,
 };
@@ -506,5 +574,4 @@ static struct platform_driver sirf_i2s_driver = {
 module_platform_driver(sirf_i2s_driver);
 
 MODULE_DESCRIPTION("SiRF SoC I2S driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
 MODULE_LICENSE("GPL v2");
