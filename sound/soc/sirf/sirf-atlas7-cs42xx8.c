@@ -1,4 +1,16 @@
-/* CSRatlas7 I2S + CS42xx8 machine driver.  */
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/of.h>
@@ -63,26 +75,59 @@ static int sirf_hdmi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = rtd->card;
 	struct sirf_hdmi_data *data = snd_soc_card_get_drvdata(card);
+	unsigned int fmt = data->fmt;
 	unsigned int mclk;
+	unsigned int bclk_ratio = 0;
+	const int channels = params_channels(params);
 	int ret;
+
+	/* Though both CSRatlas7 I2S controller and CS42xx8 codec support
+	 * 2/4/6/8 channels, combining their requirements together, only
+	 * 2 and 8 channels can be easily implemented.
+	 */
+	if (channels != 2 && channels != 8) {
+		dev_err(card->dev, "Only support 2 or 8 channels.\n");
+		return -EINVAL;
+	}
 
 	ret = rate_to_mclk(card, params_rate(params), &mclk);
 	if (ret)
 		return ret;
 
+	if (channels == 8)
+		fmt |= SND_SOC_DAIFMT_DSP_A;
+	else
+		fmt |= SND_SOC_DAIFMT_I2S;
+
 	/* Double reference clock as the output mclk is half of it */
 	if (snd_soc_dai_set_sysclk(cpu_dai, data->clk_id, mclk * 2,
 				SND_SOC_CLOCK_OUT) ||
-			snd_soc_dai_set_fmt(cpu_dai, data->fmt)) {
+			snd_soc_dai_set_fmt(cpu_dai, fmt)) {
 		dev_err(card->dev, "Can't set cpu dai hw params\n");
 		return -EINVAL;
 	}
 
 	if (snd_soc_dai_set_sysclk(codec_dai, 0, mclk, 0) ||
-			snd_soc_dai_set_fmt(codec_dai, data->fmt)) {
+			snd_soc_dai_set_fmt(codec_dai, fmt)) {
 		dev_err(card->dev, "Can't set codec dai hw params\n");
 		return -EINVAL;
 	}
+
+	/* TDM specific configuration */
+	if (channels == 8) {
+		unsigned int tx_mask, rx_mask;
+
+		tx_mask = I2S_TDM_WORD_ALIGN_TX_LEFT_J |
+			I2S_TDM_WORD_SIZE_TX(32);
+		tx_mask |= I2S_TDM_WORD_ALIGN_TX_I2S0;
+		rx_mask = I2S_TDM_WORD_ALIGN_RX_LEFT_J |
+			I2S_TDM_DATA_ALIGN_RX_LEFT_J |
+			I2S_TDM_WORD_SIZE_RX(32);
+		snd_soc_dai_set_tdm_slot(cpu_dai, tx_mask, rx_mask, 0, 0);
+
+		bclk_ratio = 256;
+	}
+	snd_soc_dai_set_bclk_ratio(cpu_dai, bclk_ratio);
 
 	return 0;
 }
@@ -128,7 +173,6 @@ static int sirf_hdmi_card_probe(struct platform_device *pdev)
 
 	data->clk_id = SIRF_I2S_DTO_CLK;
 
-	data->fmt = SND_SOC_DAIFMT_I2S;
 	if (of_get_property(np, "frame-master", NULL))
 		data->fmt |= SND_SOC_DAIFMT_CBM_CFM;
 	else
