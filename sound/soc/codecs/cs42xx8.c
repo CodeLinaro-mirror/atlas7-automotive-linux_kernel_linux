@@ -308,6 +308,7 @@ static struct snd_soc_dai_driver cs42xx8_dai = {
 	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 1,
+		.channels_max = 8,
 		.rates = SNDRV_PCM_RATE_8000_192000,
 		.formats = CS42XX8_FORMATS,
 	},
@@ -517,9 +518,6 @@ int cs42xx8_probe(struct device *dev, struct regmap *regmap)
 	regcache_cache_bypass(cs42xx8->regmap, false);
 
 	cs42xx8_dai.name = cs42xx8->drvdata->name;
-
-	/* Each adc supports stereo input */
-	cs42xx8_dai.capture.channels_max = cs42xx8->drvdata->num_adcs * 2;
 
 	ret = snd_soc_register_codec(dev, &cs42xx8_driver, &cs42xx8_dai, 1);
 	if (ret) {
