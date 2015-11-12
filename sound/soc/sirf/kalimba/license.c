@@ -104,10 +104,10 @@ static ssize_t license_write(struct file *file, const char __user *data,
 
 	/* assemble and send license verdict resp to kamlimba
 	1st word : command
-	2nd word : total size in words
+	2nd word : data size in words
 	rest words : data content */
 	resp[0] = KASCMD_SIGNAL_ID_LICENCE_CHECK_RSP;
-	resp[1] = DSP_RESP_TOTAL_WORDS;
+	resp[1] = DSP_RESP_DATA_WORDS;
 	if (copy_from_user(&resp[2], data, size))
 		return -EFAULT;
 
