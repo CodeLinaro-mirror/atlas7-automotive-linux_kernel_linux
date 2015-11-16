@@ -585,7 +585,7 @@ static int sirf_atlas7_codec_pre_init_adc(struct regmap *regmap)
 
 	regmap_update_bits(regmap, KCODEC_ADC_A_GAIN,
 		KCODEC_ADC_GAIN_SELECT_FINE, KCODEC_ADC_GAIN_SELECT_FINE);
-	regmap_update_bits(regmap, KCODEC_ADC_A_GAIN,
+	regmap_update_bits(regmap, KCODEC_ADC_B_GAIN,
 		KCODEC_ADC_GAIN_SELECT_FINE, KCODEC_ADC_GAIN_SELECT_FINE);
 
 	regmap_update_bits(regmap, KCODEC_CONFIG,
