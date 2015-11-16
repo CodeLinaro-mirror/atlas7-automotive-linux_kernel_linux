@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -85,7 +86,6 @@ struct ipc_data {
 	struct mutex ipc_comm_mutex;
 	struct mutex ipc_send_mutex;
 	wait_queue_head_t waitq_dsp_ack;
-	bool msg_send_ack;
 	wait_queue_head_t waitq_dsp_rsp;
 	bool msg_dsp_rsp;
 	u16 payload[64];
@@ -261,6 +261,23 @@ static int process_ipc_payload(u32 msg_type)
 	return ret;
 }
 
+static bool is_ipc_ack(void)
+{
+	u32 arm_send_count;
+	u32 dsp_ack_count;
+
+	arm_send_count = read_sram(ARM_SEND_COUNT_ADDR);
+	dsp_ack_count = read_sram(DSP_ACK_COUNT_ADDR);
+	/*
+	 * If the counter of ARM send equal the counter of the DSP ack,
+	 * that means the kalimba sends ACKs signal for the messages by
+	 * the ARM.
+	 */
+	if (arm_send_count == dsp_ack_count)
+		return true;
+	return false;
+}
+
 int ipc_recv_msg_payload_handler(u16 *resp)
 {
 	u32 msg_type;
@@ -272,16 +289,10 @@ int ipc_recv_msg_payload_handler(u16 *resp)
 	arm_ack_count = read_sram(ARM_ACK_COUNT_ADDR);
 	dsp_send_count = read_sram(DSP_SEND_COUNT_ADDR);
 	/*
-	 * If the counter of ARM ack equal the counter of the DSP send,
-	 * that means the kalimba sends ACKs signal for the messages by
-	 * the ARM.
+	 * If the counter of ARM ack unequal to the counter of the DSP send,
+	 * that means the kalimba sends a message or a response to the ARM.
 	 */
-	if (arm_ack_count == dsp_send_count) {
-		write_sram(DSP_INTR_RAISED_ADDR, 0);
-		ipc_data->msg_send_ack = true;
-		wake_up(&ipc_data->waitq_dsp_ack);
-		ret = IPC_SEND_ACK_TO_ARM;
-	} else {
+	if (arm_ack_count != dsp_send_count) {
 		msg_type = read_msg_payload();
 		ret = process_ipc_payload(msg_type);
 		if (ret	== IPC_SEND_MSG_TO_ARM) {
@@ -307,13 +318,11 @@ static void check_response(u16 msg_id, u16 resp_id, u16 status)
 	}
 }
 
-
 static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 	int total_len, u32 need_ack_rsp)
 {
 	int i;
 
-	ipc_data->msg_send_ack = false;
 	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
 	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(ARM_MESSAGE_SEND_ADDR << 2) | (0x2 << 30));
@@ -329,14 +338,18 @@ static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 	increment_counter(ARM_SEND_COUNT_ADDR);
 	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT1_1);
 	if (need_ack_rsp & MSG_NEED_ACK) {
-		mutex_unlock(&ipc_data->ipc_comm_mutex);
-		if (!wait_event_timeout(ipc_data->waitq_dsp_ack,
-			ipc_data->msg_send_ack,
-			msecs_to_jiffies(IPC_COMM_TIMEOUT))) {
+		/* Try to check the ACK for 10 times */
+		for (i = 0; i < 10; i++) {
+			if (is_ipc_ack())
+				break;
+			usleep_range(50, 60);
+		}
+		if (i == 10) {
 			pr_err("Ack from DSP timeout: Maybe Kalimba is down\n");
 			BUG();
 		}
-		mutex_lock(&ipc_data->ipc_comm_mutex);
+		/* Notify the kalimba, the ACK has received.*/
+		write_sram(DSP_INTR_RAISED_ADDR, 0);
 	}
 }
 
