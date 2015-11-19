@@ -476,6 +476,11 @@ static int it68013_video_start(struct i2c_client *client)
 	break;
 	}
 
+	/*wait port 0 video stable status  */
+	ret = it68013_wait_status(client, 0x80);
+	if (ret)
+		return ret;
+
 	priv->is_start = true;
 
 	/*get the actual video timing here   */
