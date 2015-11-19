@@ -58,6 +58,18 @@
 
 #define IPC_MSG_RV_MASK		BIT(31)
 
+#define VIDEO_BRIGHTNESS_MAX 128
+#define VIDEO_BRIGHTNESS_MIN (-128)
+
+#define VIDEO_CONTRAST_MAX 256
+#define VIDEO_CONTRAST_MIN 0
+
+#define VIDEO_HUE_MAX 360
+#define VIDEO_HUE_MIN 0
+
+#define VIDEO_SATURATION_MAX 1026
+#define VIDEO_SATURATION_MIN 0
+
 
 struct display_info {
 	char		display[16];
@@ -86,6 +98,8 @@ struct rv_dev {
 
 	bool		running;
 	struct mutex	hw_lock;
+
+	struct vdss_vpp_colorctrl color_ctrl;
 
 	bool		mirror_en;
 
@@ -138,11 +152,141 @@ static ssize_t rv_enabled_store(struct device *dev,
 	return size;
 }
 
+static void rv_setup_color(struct rv_dev *rv)
+{
+	struct vdss_vpp_op_params vpp_op_params = {0};
+
+	vpp_op_params.type = VPP_OP_IBV;
+
+	/*vpp color ctrl*/
+	vpp_op_params.op.ibv.color_update_only = true;
+	vpp_op_params.op.ibv.color_ctrl = rv->color_ctrl;
+
+	/* start vpp */
+	sirfsoc_vpp_present(rv->rv_vpp, &vpp_op_params);
+}
+
+static ssize_t rv_brightness_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rv->color_ctrl.brightness);
+}
+
+static ssize_t rv_brightness_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int r, val;
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	r = kstrtoint(buf, 0, &val);
+	if (r)
+		return r;
+
+	rv->color_ctrl.brightness = clamp(val, (s32)VIDEO_BRIGHTNESS_MIN,
+			(s32)VIDEO_BRIGHTNESS_MAX);
+	rv_setup_color(rv);
+
+	return size;
+}
+
+static ssize_t rv_contrast_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rv->color_ctrl.contrast);
+}
+
+static ssize_t rv_contrast_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int r, val;
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	r = kstrtoint(buf, 0, &val);
+	if (r)
+		return r;
+
+	rv->color_ctrl.contrast = clamp(val, (s32)VIDEO_CONTRAST_MIN,
+			(s32)VIDEO_CONTRAST_MAX);
+	rv_setup_color(rv);
+
+	return size;
+}
+
+static ssize_t rv_hue_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rv->color_ctrl.hue);
+}
+
+static ssize_t rv_hue_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int r, val;
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	r = kstrtoint(buf, 0, &val);
+	if (r)
+		return r;
+
+	rv->color_ctrl.hue = clamp(val, (s32)VIDEO_HUE_MIN,
+			(s32)VIDEO_HUE_MAX);
+	rv_setup_color(rv);
+
+	return size;
+}
+
+static ssize_t rv_saturation_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rv->color_ctrl.saturation);
+}
+
+static ssize_t rv_saturation_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int r, val;
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	r = kstrtoint(buf, 0, &val);
+	if (r)
+		return r;
+
+	rv->color_ctrl.saturation = clamp(val, (s32)VIDEO_SATURATION_MIN,
+			(s32)VIDEO_SATURATION_MAX);
+	rv_setup_color(rv);
+
+	return size;
+}
+
 static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
 				rv_enabled_show, rv_enabled_store);
+static DEVICE_ATTR(brightness, S_IRUGO|S_IWUSR,
+				rv_brightness_show, rv_brightness_store);
+static DEVICE_ATTR(contrast, S_IRUGO|S_IWUSR,
+				rv_contrast_show, rv_contrast_store);
+static DEVICE_ATTR(hue, S_IRUGO|S_IWUSR,
+				rv_hue_show, rv_hue_store);
+static DEVICE_ATTR(saturation, S_IRUGO|S_IWUSR,
+				rv_saturation_show, rv_saturation_store);
 
 static const struct attribute *rv_sysfs_attrs[] = {
 	&dev_attr_enabled.attr,
+	&dev_attr_brightness.attr,
+	&dev_attr_contrast.attr,
+	&dev_attr_hue.attr,
+	&dev_attr_saturation.attr,
 	NULL
 };
 
@@ -756,10 +900,8 @@ static void rv_start(struct rv_dev *rv)
 								+ 2*FRAME_SIZE;
 
 	/*vpp color ctrl*/
-	vpp_op_params.op.ibv.color_ctrl.brightness = 0;
-	vpp_op_params.op.ibv.color_ctrl.contrast = 128;
-	vpp_op_params.op.ibv.color_ctrl.hue = 0;
-	vpp_op_params.op.ibv.color_ctrl.saturation = 128;
+	vpp_op_params.op.ibv.color_update_only = false;
+	vpp_op_params.op.ibv.color_ctrl = rv->color_ctrl;
 
 	/* start vpp */
 	sirfsoc_vpp_present(rv->rv_vpp, &vpp_op_params);
@@ -791,6 +933,7 @@ static void rv_stop(struct rv_dev *rv)
 
 	/* stop vpp */
 	sirfsoc_vpp_destroy_device(rv->rv_vpp);
+	rv->rv_vpp = NULL;
 
 	/* enable all other layers */
 	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, false);
@@ -948,6 +1091,12 @@ static int rv_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rv);
 
 	rv_input_register(rv);
+
+	/* set default colors */
+	rv->color_ctrl.brightness = 0;
+	rv->color_ctrl.contrast = 128;
+	rv->color_ctrl.hue = 0;
+	rv->color_ctrl.saturation = 128;
 
 	ret = sysfs_create_files(&dev->kobj, rv_sysfs_attrs);
 	if (ret) {

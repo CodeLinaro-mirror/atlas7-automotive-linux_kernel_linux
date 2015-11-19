@@ -244,6 +244,7 @@ struct vdss_vpp_ibv_params {
 	struct vdss_rect src_rect;
 	struct vdss_rect dst_rect;
 	struct vdss_vpp_colorctrl color_ctrl;
+	bool color_update_only;
 };
 
 struct vdss_vpp_op_params {

@@ -883,6 +883,12 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 	if (adapter == NULL || params == NULL)
 		return -EINVAL;
 
+	/* color ctrl setting */
+	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
+
+	if (params->color_update_only)
+		return 0;
+
 	/* src setting */
 	__vpp_setup_src(adapter, &params->src_surf[0], &params->interlace);
 	__vpp_set_srcbase(adapter, &params->src_surf[0], params->src_size,
@@ -895,9 +901,6 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 	__vpp_set_dstbase(adapter, NULL,
 			&params->dst_rect, &params->interlace);
 	__vpp_set_dst_rect(adapter, &params->dst_rect);
-
-	/* color ctrl setting */
-	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
 
 	return 0;
 }
