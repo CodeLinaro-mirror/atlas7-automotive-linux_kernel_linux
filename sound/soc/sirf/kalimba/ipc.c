@@ -34,10 +34,6 @@
 #include "kerror.h"
 #include "regs.h"
 
-#define START_OPERATOR_REPS_INIT_STATUS		0
-#define START_OPERATOR_REPS_SUCCESS		1
-#define START_OPERATOR_REPS_FAILED		0xff
-
 /*
  * Messaging between ARM and Kalimba.
  * - Two shared buffers are used to achieve bi-directional communication.
@@ -357,7 +353,6 @@ static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 
 void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 {
-	u32 status;
 	u16 msg_id;
 #ifdef CONFIG_TRACING
 	int i;
@@ -377,15 +372,6 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 #endif
 
 	dump_req_or_rsp(msg_id);
-	/* Clear the flag of start_operator_respond, if send sart_operator_req.
-	 * - Value START_OPERATOR_REPS_SUCCESS is used to indicate
-	 *   that the command was successfully executed.
-	 * - Value START_OPERATOR_REPS_FAILED is used to indicate
-	 *   that the command failed.
-	 */
-	if (msg_id == START_OPERATOR_REQ)
-		write_sram(DSP_START_OPERATOR_REPS_ADDR,
-			START_OPERATOR_REPS_INIT_STATUS);
 
 	if (size <= FRAME_MAX_START_COMPLETE_DATA_SIZE)
 		ipc_send_msg_package(msg, size,
@@ -405,24 +391,7 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 		ipc_send_msg_package(msg, size, MESSAGING_SHORT_END,
 			0, need_ack_rsp);
 	}
-	/* Check the status of start operator response */
-	if (msg_id == START_OPERATOR_REQ) {
-		/* Wait the result of start operatore command */
-		do {
-			cpu_relax();
-			status = read_sram(DSP_START_OPERATOR_REPS_ADDR);
-		} while (status == START_OPERATOR_REPS_INIT_STATUS);
-		ipc_data->payload[0] = START_OPERATOR_RSP;
-		ipc_data->payload[1] = 3;
-		if (status == START_OPERATOR_REPS_SUCCESS)
-			ipc_data->payload[2] = 0;
-		else
-			ipc_data->payload[2] = 0x1000;
-		ipc_data->payload[3] = msg[1];
-		ipc_data->payload[4] = status;
-		check_response(msg_id, ipc_data->payload[0],
-			ipc_data->payload[2]);
-	}
+
 	if (need_ack_rsp & MSG_NEED_RSP) {
 		mutex_unlock(&ipc_data->ipc_comm_mutex);
 		if (!wait_event_timeout(ipc_data->waitq_dsp_rsp,

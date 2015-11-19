@@ -175,7 +175,7 @@ int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 	for (i = 0; i < msg[1]; i++)
 		msg[2 + i] = operators_id[i];
 
-	ipc_send_msg(msg, msg_size, 0, resp);
+	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
 	return 0;
