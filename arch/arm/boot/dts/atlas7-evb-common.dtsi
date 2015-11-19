@@ -186,38 +186,38 @@
 					button-s2 {
 						label = "Home";
 						linux,code = <KEY_HOMEPAGE>;
-						voltage = <1285>;
+						voltage = <1322>;
 					};
 
 					button-s7 {
 						label = "Back";
 						linux,code = <KEY_BACK>;
-						voltage = <1215>;
+						voltage = <1258>;
 					};
 
 					button-s1 {
 						label = "Volume Up";
 						linux,code = <KEY_VOLUMEUP>;
-						voltage = <1090>;
+						voltage = <1128>;
 					};
 
 					button-s4 {
 						label = "Volume Down";
 						linux,code =
 							<KEY_VOLUMEDOWN>;
-						voltage = <955>;
+						voltage = <994>;
 					};
 
 					button-s5 {
 						label = "Recent APP";
 						linux,code = <KEY_DASHBOARD>;
-						voltage = <1355>;
+						voltage = <1392>;
 					};
 
 					button-s6 {
 						label = "RearView";
 						linux,code = <KEY_DIRECTION>;
-						voltage = <1425>;
+						voltage = <1466>;
 					};
 				};
 			};
