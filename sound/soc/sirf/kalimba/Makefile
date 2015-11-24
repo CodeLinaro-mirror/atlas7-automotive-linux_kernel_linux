@@ -1,4 +1,4 @@
-snd-soc-sirf-kalimba-objs := kas.o buffer.o license.o ps.o
+snd-soc-sirf-kalimba-objs := kas.o buffer.o license.o ps.o kerror.o
 snd-soc-sirf-kalimba-pcm-objs := pcm.o kcm.o
 snd-soc-sirf-kalimba-dsp-objs := dsp.o ipc.o \
 		$(if $(CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG),debug.o firmware.o)

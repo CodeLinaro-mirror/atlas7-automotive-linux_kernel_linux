@@ -29,6 +29,7 @@
 #include "ipc.h"
 #include "kcm.h"
 #include "ps.h"
+#include "kerror.h"
 #include "regs.h"
 
 struct kalimba *kalimba;
@@ -617,6 +618,8 @@ static int kalimba_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, kalimba);
 
 	ps_init();
+
+	kcoredump_init();
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
 	ret = debug_init();
 	if (ret != 0) {

@@ -31,6 +31,7 @@
 #include "dsp.h"
 #include "firmware.h"
 #include "ipc.h"
+#include "kerror.h"
 #include "regs.h"
 
 #define START_OPERATOR_REPS_INIT_STATUS		0
@@ -311,7 +312,7 @@ static void check_response(u16 msg_id, u16 resp_id, u16 status)
 	 * then cause the system oops.
 	 */
 	if ((resp_id != (msg_id | 0x1000)) || status != 0) {
-		pr_err("Invalid response id or failure status:\n");
+		pr_err("kas response: %s\n", kerror_str(status));
 		pr_err("msg id: 0x%04x, resp id: 0x%04x, status: 0x%04x\n",
 			msg_id, resp_id, status);
 		BUG();
@@ -345,6 +346,7 @@ static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 			usleep_range(50, 60);
 		}
 		if (i == 10) {
+			kcoredump();
 			pr_err("Ack from DSP timeout: Maybe Kalimba is down\n");
 			BUG();
 		}
@@ -426,6 +428,7 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 		if (!wait_event_timeout(ipc_data->waitq_dsp_rsp,
 			ipc_data->msg_dsp_rsp,
 			msecs_to_jiffies(IPC_COMM_TIMEOUT))) {
+			kcoredump();
 			pr_err("RSP from DSP timeout: Maybe Kalimba is down\n");
 			BUG();
 		}
