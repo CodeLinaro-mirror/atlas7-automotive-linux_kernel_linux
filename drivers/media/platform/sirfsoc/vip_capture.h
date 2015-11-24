@@ -558,6 +558,7 @@ struct vip_dev {
 #define DMAN_MATCH_ADDR3		0x450
 #define DMAN_MATCH_ADDR_EN		0x454
 
+v4l2_std_id vip_rv_querystd(void *data);
 void vip_rv_config(struct vip_rv_info *rv_info);
 void vip_rv_start(void *data);
 void vip_rv_stop(void *data);

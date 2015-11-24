@@ -1597,6 +1597,14 @@ static int vidioc_g_std(struct file *file, void *priv, v4l2_std_id *a)
 	return v4l2_subdev_call(sd, video, g_std, a);
 }
 
+static int vidioc_querystd(struct file *file, void *priv, v4l2_std_id *a)
+{
+	struct vip_subdev_info *subdev = file->private_data;
+	struct v4l2_subdev *sd = subdev->sd;
+
+	return v4l2_subdev_call(sd, video, querystd, a);
+}
+
 static int vidioc_enum_framesizes(struct file *file, void *fh,
 					 struct v4l2_frmsizeenum *fsize)
 {
@@ -2021,6 +2029,7 @@ static const struct v4l2_ioctl_ops sirfsoc_camera_ioctl_ops = {
 	.vidioc_s_input		 = vidioc_s_input,
 	.vidioc_s_std		 = vidioc_s_std,
 	.vidioc_g_std		 = vidioc_g_std,
+	.vidioc_querystd	 = vidioc_querystd,
 	.vidioc_enum_framesizes  = vidioc_enum_framesizes,
 	.vidioc_reqbufs		 = vidioc_reqbufs,
 	.vidioc_querybuf	 = vidioc_querybuf,
@@ -2391,6 +2400,25 @@ static void vip_rv_post_preempt(struct vip_dev *vip)
 	/* preempt done */
 	vip->rv.preemption = false;
 }
+
+v4l2_std_id vip_rv_querystd(void *data)
+{
+	struct vip_dev	*vip = data;
+	unsigned int index = vip->rv.subdev_index;
+	struct vip_subdev_info *subdev = &vip->subdev[index];
+	struct v4l2_subdev *sd = subdev->sd;
+	v4l2_std_id std;
+
+	mutex_lock(&vip->host_lock);
+
+	v4l2_subdev_call(sd, video, s_routing, index, 0, 0);
+	v4l2_subdev_call(sd, video, querystd, &std);
+
+	mutex_unlock(&vip->host_lock);
+
+	return std;
+}
+EXPORT_SYMBOL(vip_rv_querystd);
 
 /* called by rearview for configuration before hardware start */
 void vip_rv_config(struct vip_rv_info *rv_info)

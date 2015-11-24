@@ -970,6 +970,7 @@ static int rv_probe(struct platform_device *pdev)
 	const char *std_name, *display_name;
 	unsigned int mirror = 0;
 	struct resource	*res;
+	v4l2_std_id std;
 	int ret = 0;
 
 	rv = devm_kzalloc(dev, sizeof(*rv), GFP_KERNEL);
@@ -1044,10 +1045,20 @@ static int rv_probe(struct platform_device *pdev)
 	mutex_init(&rv->hw_lock);
 	strncpy(rv->d_info.display, display_name, sizeof(rv->d_info.display));
 
+	/* set NTSC format as default */
+	rv->source_std = V4L2_STD_NTSC;
+
 	if (strcmp(std_name, "NTSC") == 0)
 		rv->source_std = V4L2_STD_NTSC;
 	if (strcmp(std_name, "PAL") == 0)
 		rv->source_std = V4L2_STD_PAL;
+	if (strcmp(std_name, "AUTO") == 0) {
+		std = vip_rv_querystd(rv->rv_vip);
+		if (std & (V4L2_STD_NTSC | V4L2_STD_NTSC_443))
+			rv->source_std = V4L2_STD_NTSC;
+		if (std & (V4L2_STD_PAL | V4L2_STD_PAL_Nc))
+			rv->source_std = V4L2_STD_PAL;
+	}
 
 	if (rv->source_std == V4L2_STD_NTSC) {
 		rv->width	= 720;

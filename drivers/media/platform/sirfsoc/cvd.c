@@ -266,6 +266,9 @@ static int cvd_detect_video_signal(struct v4l2_subdev *sd)
 			* in this condition, need check it further.
 			*/
 			return V4L2_STD_NTSC;
+		} else if (!(cvd1_status_3 & 0x4) && (cvd1_status_3 & 0x1)
+			&& fc_same_flag) {
+			return V4L2_STD_PAL_60;
 		} else if (!(cvd1_status_3 & 0x4) && !fc_same_flag) {
 			return V4L2_STD_NTSC_443;
 		} else if ((cvd1_status_3 & 0x4) && !fc_same_flag) {
@@ -1118,18 +1121,20 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 		return ret;
 	}
 
+	return 0;
+}
+
+static int cvd_querystd(struct v4l2_subdev *sd, v4l2_std_id *norm)
+{
+	struct cvd_dev *dec = to_state(sd);
+	int value;
+
+	cvd_s_stream(sd, 1);
+
 	value = cvd_detect_video_signal(sd);
+	*norm = (value < 0) ? V4L2_STD_UNKNOWN : value;
 
-	if (value < 0) {
-		dev_err(to_state(sd)->dev, "No signal detected\n");
-		return value;
-	}
-
-	if (value == V4L2_STD_NTSC)
-		dev_info(to_state(sd)->dev, "NTSC signal\n");
-
-	if (value == V4L2_STD_PAL_I)
-		dev_info(to_state(sd)->dev, "PAL(I) signal\n");
+	cvd_s_stream(sd, 0);
 
 	return 0;
 }
@@ -1314,6 +1319,7 @@ static struct v4l2_subdev_core_ops cvd_core_ops = {
 static struct v4l2_subdev_video_ops cvd_video_ops = {
 	.s_std		= cvd_s_std,
 	.g_std		= cvd_g_std,
+	.querystd	= cvd_querystd,
 	.s_stream	= cvd_s_stream,
 	.g_mbus_fmt	= cvd_g_fmt,
 	.cropcap	= cvd_cropcap,
