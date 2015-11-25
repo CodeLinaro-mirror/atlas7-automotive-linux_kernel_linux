@@ -1246,7 +1246,7 @@ static int cvd_s_ctrl(struct v4l2_ctrl *ctrl)
 		dec->saturation = ctrl->val;
 		break;
 	case V4L2_CID_BRIGHTNESS:
-		cvd_write(CVBSD_LUMA_BRIGHTNESS, ctrl->val + 32, sd);
+		cvd_write(CVBSD_LUMA_BRIGHTNESS, ctrl->val, sd);
 		dec->brightness = ctrl->val;
 		break;
 	case V4L2_CID_CONTRAST:
@@ -1291,7 +1291,7 @@ static int cvd_init(struct v4l2_subdev *sd, u32 val)
 	/* set saturation brightnes contrast hue */
 	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* must PWR on before setting */
 	cvd_write(CVBSD_CHROMA_SATURATION, dec->saturation, sd);
-	cvd_write(CVBSD_LUMA_BRIGHTNESS, dec->brightness + 32, sd);
+	cvd_write(CVBSD_LUMA_BRIGHTNESS, dec->brightness, sd);
 	cvd_write(CVBSD_LUMA_CONTRAST, dec->contrast, sd);
 	cvd_write(CVBSD_CHROMA_HUE, dec->hue, sd);
 	cvd_write(CVBSD_AFEPWR_EN, 0x1, sd); /* PWR off after setting */
@@ -1388,11 +1388,11 @@ static int cvd_probe(struct platform_device *pdev)
 	hdl = &dec->hdl;
 	v4l2_ctrl_handler_init(hdl, 5);
 	v4l2_ctrl_new_std(hdl, &cvd_ctrl_ops,
-				V4L2_CID_BRIGHTNESS, 32, 223, 1, 50);
+				V4L2_CID_BRIGHTNESS, 0, 255, 1, 32);
 	v4l2_ctrl_new_std(hdl, &cvd_ctrl_ops,
-				V4L2_CID_CONTRAST, 0, 255, 1, 70);
+				V4L2_CID_CONTRAST, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(hdl, &cvd_ctrl_ops,
-				V4L2_CID_SATURATION, 0, 255, 1, 100);
+				V4L2_CID_SATURATION, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(hdl, &cvd_ctrl_ops,
 				V4L2_CID_HUE, -128, 127, 1, 0);
 	sd->ctrl_handler = hdl;
@@ -1406,7 +1406,7 @@ static int cvd_probe(struct platform_device *pdev)
 	dec->norm	= V4L2_STD_NTSC;
 	dec->input_port	= 0;
 	dec->contrast	= 0x80;
-	dec->brightness	= 0;
+	dec->brightness	= 0x20;
 	dec->saturation	= 0x80;
 	dec->hue	= 0;
 
