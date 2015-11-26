@@ -223,9 +223,9 @@
 			};
 
 			pulsec@10d90000 {
-				status = "disabled";
+				status = "okay";
 				pinctrl-names = "default";
-				pinctrl-0 = <&ps_pmx>;
+				pinctrl-0 = <&ps_no_dir_pmx>;
 			};
 
 			vip0@10db0000 {
