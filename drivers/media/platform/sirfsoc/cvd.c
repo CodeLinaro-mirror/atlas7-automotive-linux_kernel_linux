@@ -1237,32 +1237,35 @@ static int cvd_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct cvd_dev *dec = container_of(ctrl->handler, struct cvd_dev, hdl);
 	struct v4l2_subdev *sd = &dec->sd;
-
-	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* must PWR on before setting */
+	unsigned int original_val = cvd_read(CVBSD_AFEPWR_EN, sd);
 
 	switch (ctrl->id) {
 	case V4L2_CID_SATURATION:
+		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* PWR on firstly */
 		cvd_write(CVBSD_CHROMA_SATURATION, ctrl->val, sd);
 		dec->saturation = ctrl->val;
 		break;
 	case V4L2_CID_BRIGHTNESS:
+		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* PWR on firstly */
 		cvd_write(CVBSD_LUMA_BRIGHTNESS, ctrl->val, sd);
 		dec->brightness = ctrl->val;
 		break;
 	case V4L2_CID_CONTRAST:
+		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* PWR on firstly */
 		cvd_write(CVBSD_LUMA_CONTRAST, ctrl->val, sd);
 		dec->contrast = ctrl->val;
 		break;
 	case V4L2_CID_HUE:
+		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* PWR on firstly */
 		cvd_write(CVBSD_CHROMA_HUE, ctrl->val, sd);
 		dec->hue  = ctrl->val;
 		break;
 	default:
-		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd); /* PWR off after setting */
 		return -EINVAL;
 	}
 
-	cvd_write(CVBSD_AFEPWR_EN, 0x1, sd); /* PWR off after setting */
+	/* we should set back to original PWR status */
+	cvd_write(CVBSD_AFEPWR_EN, original_val, sd);
 
 	return 0;
 }
