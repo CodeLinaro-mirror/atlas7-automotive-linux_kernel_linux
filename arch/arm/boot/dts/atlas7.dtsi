@@ -1133,6 +1133,13 @@
 				};
 			};
 
+			ps_no_dir_pmx: ps_no_dir@0 {
+				ps_no_dir {
+					groups = "ps_no_dir_grp";
+					function = "ps_no_dir";
+				};
+			};
+
 			pwc_core_on_pmx: pwc_core_on@0 {
 				pwc_core_on {
 					groups = "pwc_core_on_grp";
