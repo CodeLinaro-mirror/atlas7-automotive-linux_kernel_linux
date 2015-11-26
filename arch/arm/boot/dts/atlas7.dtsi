@@ -2057,7 +2057,7 @@
 				compatible = "dx,cc44s";
 				reg = <0x18240000 0x10000>;
 				interrupts = <0 26 0>;
-				clocks = <&car 98>;
+				clocks = <&car 111>;
 			};
 			dspub@18250000 {
 				compatible = "dx,cc44p";
