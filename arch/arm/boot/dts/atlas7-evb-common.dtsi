@@ -130,7 +130,7 @@
 		};
 
 		multimedia_reserved: multimedia@58800000 {
-			reg = <0x58800000 0x2400000>;
+			reg = <0x58800000 0x1800000>;
 			no-map;
 		};
 
