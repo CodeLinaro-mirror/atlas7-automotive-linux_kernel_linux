@@ -1651,7 +1651,8 @@ static int sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 	return __sirfsoc_setup_video_data(vout);
 }
 
-static int sirfsoc_setup_video_device(struct sirfsoc_vout_device *vout)
+static int sirfsoc_setup_video_device(struct sirfsoc_vout_device *vout,
+						int index)
 {
 	struct video_device *video_dev;
 	struct platform_device *pdev = vout->vid_dev->pdev;
@@ -1663,8 +1664,13 @@ static int sirfsoc_setup_video_device(struct sirfsoc_vout_device *vout)
 		return -ENOMEM;
 	}
 
-	strlcpy(video_dev->name, SIRFSOC_VOUT_DRV_NAME,
-		sizeof(video_dev->name));
+	/* set more info into dev name: the index of lcdc, vout and hdmi */
+	if (vout->display->type == SIRFSOC_PANEL_HDMI)
+		snprintf(video_dev->name, sizeof(video_dev->name),
+		"sirf-hdmi-output%d", index);
+	else
+		snprintf(video_dev->name, sizeof(video_dev->name),
+		"%s-%s-vout%d", "sirf", vout->display->name, index);
 
 	video_dev->release = video_device_release;
 	video_dev->fops = &sirfsoc_vout_fops;
@@ -1724,7 +1730,7 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 	struct v4l2_device *v4l2_dev = platform_get_drvdata(pdev);
 	struct sirfsoc_video_device *vid_dev = container_of(v4l2_dev,
 			struct sirfsoc_video_device, v4l2_dev);
-	int i = 0;
+	int i = 0, index = 0;
 
 	for (i = 0; i < (SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY *
 		vid_dev->num_panel); i++) {
@@ -1740,7 +1746,9 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 
 		sirfsoc_setup_video_data(vout);
 
-		sirfsoc_setup_video_device(vout);
+		/* the internal index in each display, from 0 to 'MAX -1' */
+		index = i % SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY;
+		sirfsoc_setup_video_device(vout, index);
 
 		if (sirfsoc_setup_video_ctrl(vout)) {
 			dev_err(&pdev->dev, "apply ctrl handle failed\n");
