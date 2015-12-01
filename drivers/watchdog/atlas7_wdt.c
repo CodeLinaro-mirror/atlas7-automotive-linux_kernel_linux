@@ -64,7 +64,7 @@ static unsigned int atlas7_wdt_gettimeleft(struct watchdog_device *wdd)
 	return  time_left / wdt->tick_rate;
 }
 
-static int atlas7_wdt_updatetimeout(struct watchdog_device *wdd)
+static int atlas7_wdt_ping(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
 	u32 timeout_ticks;
@@ -84,7 +84,7 @@ static int atlas7_wdt_enable(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
 
-	atlas7_wdt_updatetimeout(wdd);
+	atlas7_wdt_ping(wdd);
 	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL +
 			4 * ATLAS7_TIMER_WDT_INDEX) | 0x3,
 			wdt->base + ATLAS7_WDT_CNT_CTRL +
@@ -110,7 +110,7 @@ static int atlas7_wdt_disable(struct watchdog_device *wdd)
 static int atlas7_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 {
 	wdd->timeout = to;
-	atlas7_wdt_updatetimeout(wdd);
+	atlas7_wdt_ping(wdd);
 
 	return 0;
 }
@@ -128,7 +128,7 @@ static struct watchdog_ops atlas7_wdt_ops = {
 	.start = atlas7_wdt_enable,
 	.stop = atlas7_wdt_disable,
 	.get_timeleft = atlas7_wdt_gettimeleft,
-	.ping = atlas7_wdt_updatetimeout,
+	.ping = atlas7_wdt_ping,
 	.set_timeout = atlas7_wdt_settimeout,
 };
 
@@ -228,7 +228,7 @@ static int atlas7_wdt_resume(struct device *dev)
 	 * and restored back by the timer-atlas7.c, so we need not
 	 * update WD settings except refreshing timeout.
 	 */
-	atlas7_wdt_updatetimeout(wdd);
+	atlas7_wdt_ping(wdd);
 
 	return 0;
 }
