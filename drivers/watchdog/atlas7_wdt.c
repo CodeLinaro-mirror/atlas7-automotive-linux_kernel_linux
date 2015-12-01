@@ -27,8 +27,9 @@
 
 #define ATLAS7_WDT_CNT_CTRL	0
 #define ATLAS7_WDT_CNT_MATCH	0x18
-#define ATLAS7_WDT_CNT	0x48
-#define ATLAS7_WDT_EN	0x64
+#define ATLAS7_WDT_CNT		0x48
+#define ATLAS7_WDT_CNT_EN	(BIT(0) | BIT(1))
+#define ATLAS7_WDT_EN		0x64
 
 static unsigned int timeout = ATLAS7_WDT_DEFAULT_TIMEOUT;
 static bool nowayout = WATCHDOG_NOWAYOUT;
@@ -50,30 +51,29 @@ struct atlas7_wdog {
 static unsigned int atlas7_wdt_gettimeleft(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
-	u32 counter, match;
-	unsigned int time_left;
+	u32 counter, match, delta;
 
 	counter = readl(wdt->base + ATLAS7_WDT_CNT +
 		4 * ATLAS7_TIMER_WDT_INDEX);
 	match = readl(wdt->base + ATLAS7_WDT_CNT_MATCH +
 			4 * ATLAS7_TIMER_WDT_INDEX);
-	time_left = match - counter;
+	delta = match - counter;
 
-	return  time_left / wdt->tick_rate;
+	return  delta / wdt->tick_rate;
 }
 
 static int atlas7_wdt_ping(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
-	u32 timeout_ticks;
+	u32 counter, match, delta;
 
-	timeout_ticks = wdd->timeout * wdt->tick_rate;
+	counter = readl(wdt->base + ATLAS7_WDT_CNT +
+			4 * ATLAS7_TIMER_WDT_INDEX);
+	delta = wdd->timeout * wdt->tick_rate;
+	match = counter + delta;
 
-	writel(readl(wdt->base + ATLAS7_WDT_CNT +
-			4 * ATLAS7_TIMER_WDT_INDEX) +
-			timeout_ticks,
-			wdt->base + ATLAS7_WDT_CNT_MATCH +
-				4 * ATLAS7_TIMER_WDT_INDEX);
+	writel(match, wdt->base + ATLAS7_WDT_CNT_MATCH +
+		4 * ATLAS7_TIMER_WDT_INDEX);
 
 	return 0;
 }
@@ -81,12 +81,12 @@ static int atlas7_wdt_ping(struct watchdog_device *wdd)
 static int atlas7_wdt_enable(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
+	void __iomem *ctrl_reg = wdt->base + ATLAS7_WDT_CNT_CTRL +
+		4 * ATLAS7_TIMER_WDT_INDEX;
 
 	atlas7_wdt_ping(wdd);
-	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL +
-			4 * ATLAS7_TIMER_WDT_INDEX) | 0x3,
-			wdt->base + ATLAS7_WDT_CNT_CTRL +
-			4 * ATLAS7_TIMER_WDT_INDEX);
+
+	writel(readl(ctrl_reg) | ATLAS7_WDT_CNT_EN, ctrl_reg);
 	writel(1, wdt->base + ATLAS7_WDT_EN);
 
 	return 0;
@@ -95,12 +95,11 @@ static int atlas7_wdt_enable(struct watchdog_device *wdd)
 static int atlas7_wdt_disable(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
+	void __iomem *ctrl_reg = wdt->base + ATLAS7_WDT_CNT_CTRL +
+		4 * ATLAS7_TIMER_WDT_INDEX;
 
 	writel(0, wdt->base + ATLAS7_WDT_EN);
-	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL +
-			4 * ATLAS7_TIMER_WDT_INDEX) &  ~0x3,
-			wdt->base + ATLAS7_WDT_CNT_CTRL +
-			4 * ATLAS7_TIMER_WDT_INDEX);
+	writel(readl(ctrl_reg) & ~ATLAS7_WDT_CNT_EN, ctrl_reg);
 
 	return 0;
 }
