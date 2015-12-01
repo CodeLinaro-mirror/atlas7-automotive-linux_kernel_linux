@@ -23,8 +23,6 @@
 #include <linux/clk.h>
 
 #define ATLAS7_TIMER_WDT_INDEX		5
-#define ATLAS7_WDT_MIN_TIMEOUT		10		/* 20 secs */
-#define ATLAS7_WDT_MAX_TIMEOUT		28	/* 28 secs for 150Mhz */
 #define ATLAS7_WDT_DEFAULT_TIMEOUT	20		/* 20 secs */
 
 #define ATLAS7_WDT_CNT_CTRL	0
@@ -135,8 +133,6 @@ static struct watchdog_device atlas7_wdd = {
 	.info = &atlas7_wdt_ident,
 	.ops = &atlas7_wdt_ops,
 	.timeout = ATLAS7_WDT_DEFAULT_TIMEOUT,
-	.min_timeout = ATLAS7_WDT_MIN_TIMEOUT,
-	.max_timeout = ATLAS7_WDT_MAX_TIMEOUT,
 };
 
 static const struct of_device_id atlas7_wdt_ids[] = {
@@ -177,6 +173,8 @@ static int atlas7_wdt_probe(struct platform_device *pdev)
 
 	wdt->tick_rate = clk_get_rate(clk);
 	wdt->clk = clk;
+	atlas7_wdd.min_timeout = 1;
+	atlas7_wdd.max_timeout = UINT_MAX / wdt->tick_rate;
 
 	watchdog_init_timeout(&atlas7_wdd, timeout, &pdev->dev);
 	watchdog_set_nowayout(&atlas7_wdd, nowayout);
