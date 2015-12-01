@@ -168,28 +168,33 @@ static int atlas7_wdt_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(clk);
 	if (ret) {
 		pr_err("wdt clk enable failed\n");
-		goto err;
+		goto err1;
 	}
+
+	/* disable watchdog hardware */
 	writel(0, wdt->base + ATLAS7_WDT_CNT_CTRL +
 			4 * ATLAS7_TIMER_WDT_INDEX);
+
 	wdt->tick_rate = clk_get_rate(clk);
 	wdt->clk = clk;
 
 	watchdog_init_timeout(&atlas7_wdd, timeout, &pdev->dev);
 	watchdog_set_nowayout(&atlas7_wdd, nowayout);
-	ret = watchdog_register_device(&atlas7_wdd);
-	if (ret)
-		goto err1;
 
 	watchdog_set_drvdata(&atlas7_wdd, wdt);
 	platform_set_drvdata(pdev, &atlas7_wdd);
 
+	ret = watchdog_register_device(&atlas7_wdd);
+	if (ret)
+		goto err2;
+
 	return 0;
 
-err1:
+err2:
 	clk_disable_unprepare(wdt->clk);
-err:
+err1:
 	clk_put(wdt->clk);
+err:
 	return ret;
 }
 
