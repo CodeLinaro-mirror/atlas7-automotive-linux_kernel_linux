@@ -110,7 +110,6 @@ static int atlas7_wdt_disable(struct watchdog_device *wdd)
 static int atlas7_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 {
 	wdd->timeout = to;
-	atlas7_wdt_ping(wdd);
 
 	return 0;
 }
