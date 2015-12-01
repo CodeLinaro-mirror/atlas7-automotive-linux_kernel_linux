@@ -217,13 +217,12 @@ static int atlas7_wdt_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef	CONFIG_PM_SLEEP
-static int atlas7_wdt_suspend(struct device *dev)
+static int __maybe_unused atlas7_wdt_suspend(struct device *dev)
 {
 	return 0;
 }
 
-static int atlas7_wdt_resume(struct device *dev)
+static int __maybe_unused atlas7_wdt_resume(struct device *dev)
 {
 	struct watchdog_device *wdd = dev_get_drvdata(dev);
 
@@ -236,7 +235,6 @@ static int atlas7_wdt_resume(struct device *dev)
 
 	return 0;
 }
-#endif
 
 static SIMPLE_DEV_PM_OPS(atlas7_wdt_pm_ops,
 		atlas7_wdt_suspend, atlas7_wdt_resume);
