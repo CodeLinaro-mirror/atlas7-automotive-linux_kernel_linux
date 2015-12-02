@@ -1101,13 +1101,14 @@ static int rv_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, rv);
 
-	rv_input_register(rv);
-
 	/* set default colors */
 	rv->color_ctrl.brightness = 0;
 	rv->color_ctrl.contrast = 128;
 	rv->color_ctrl.hue = 0;
 	rv->color_ctrl.saturation = 128;
+
+	/* rearview might start here, must be put after default colors set */
+	rv_input_register(rv);
 
 	ret = sysfs_create_files(&dev->kobj, rv_sysfs_attrs);
 	if (ret) {
