@@ -13,21 +13,20 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/clk.h>
+#include <linux/io.h>
 #include <linux/module.h>
-#include <linux/watchdog.h>
-#include <linux/platform_device.h>
 #include <linux/moduleparam.h>
 #include <linux/of.h>
-#include <linux/io.h>
-#include <linux/uaccess.h>
-#include <linux/clk.h>
+#include <linux/platform_device.h>
+#include <linux/watchdog.h>
 
 #define ATLAS7_TIMER_WDT_INDEX		5
-#define ATLAS7_WDT_DEFAULT_TIMEOUT	20		/* 20 secs */
+#define ATLAS7_WDT_DEFAULT_TIMEOUT	20
 
-#define ATLAS7_WDT_CNT_CTRL	0
-#define ATLAS7_WDT_CNT_MATCH	0x18
-#define ATLAS7_WDT_CNT		0x48
+#define ATLAS7_WDT_CNT_CTRL	(0 + 4 * ATLAS7_TIMER_WDT_INDEX)
+#define ATLAS7_WDT_CNT_MATCH	(0x18 + 4 * ATLAS7_TIMER_WDT_INDEX)
+#define ATLAS7_WDT_CNT		(0x48 +  4 * ATLAS7_TIMER_WDT_INDEX)
 #define ATLAS7_WDT_CNT_EN	(BIT(0) | BIT(1))
 #define ATLAS7_WDT_EN		0x64
 
@@ -53,10 +52,8 @@ static unsigned int atlas7_wdt_gettimeleft(struct watchdog_device *wdd)
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
 	u32 counter, match, delta;
 
-	counter = readl(wdt->base + ATLAS7_WDT_CNT +
-		4 * ATLAS7_TIMER_WDT_INDEX);
-	match = readl(wdt->base + ATLAS7_WDT_CNT_MATCH +
-			4 * ATLAS7_TIMER_WDT_INDEX);
+	counter = readl(wdt->base + ATLAS7_WDT_CNT);
+	match = readl(wdt->base + ATLAS7_WDT_CNT_MATCH);
 	delta = match - counter;
 
 	return  delta / wdt->tick_rate;
@@ -67,13 +64,11 @@ static int atlas7_wdt_ping(struct watchdog_device *wdd)
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
 	u32 counter, match, delta;
 
-	counter = readl(wdt->base + ATLAS7_WDT_CNT +
-			4 * ATLAS7_TIMER_WDT_INDEX);
+	counter = readl(wdt->base + ATLAS7_WDT_CNT);
 	delta = wdd->timeout * wdt->tick_rate;
 	match = counter + delta;
 
-	writel(match, wdt->base + ATLAS7_WDT_CNT_MATCH +
-		4 * ATLAS7_TIMER_WDT_INDEX);
+	writel(match, wdt->base + ATLAS7_WDT_CNT_MATCH);
 
 	return 0;
 }
@@ -81,12 +76,11 @@ static int atlas7_wdt_ping(struct watchdog_device *wdd)
 static int atlas7_wdt_enable(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
-	void __iomem *ctrl_reg = wdt->base + ATLAS7_WDT_CNT_CTRL +
-		4 * ATLAS7_TIMER_WDT_INDEX;
 
 	atlas7_wdt_ping(wdd);
 
-	writel(readl(ctrl_reg) | ATLAS7_WDT_CNT_EN, ctrl_reg);
+	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL) | ATLAS7_WDT_CNT_EN,
+	      wdt->base + ATLAS7_WDT_CNT_CTRL);
 	writel(1, wdt->base + ATLAS7_WDT_EN);
 
 	return 0;
@@ -95,11 +89,10 @@ static int atlas7_wdt_enable(struct watchdog_device *wdd)
 static int atlas7_wdt_disable(struct watchdog_device *wdd)
 {
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
-	void __iomem *ctrl_reg = wdt->base + ATLAS7_WDT_CNT_CTRL +
-		4 * ATLAS7_TIMER_WDT_INDEX;
 
 	writel(0, wdt->base + ATLAS7_WDT_EN);
-	writel(readl(ctrl_reg) & ~ATLAS7_WDT_CNT_EN, ctrl_reg);
+	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL) & ~ATLAS7_WDT_CNT_EN,
+	      wdt->base + ATLAS7_WDT_CNT_CTRL);
 
 	return 0;
 }
@@ -114,9 +107,9 @@ static int atlas7_wdt_settimeout(struct watchdog_device *wdd, unsigned int to)
 #define OPTIONS (WDIOF_SETTIMEOUT | WDIOF_KEEPALIVEPING | WDIOF_MAGICCLOSE)
 
 static const struct watchdog_info atlas7_wdt_ident = {
-	.options          =     OPTIONS,
-	.firmware_version =	0,
-	.identity         =	"atlas7 Watchdog",
+	.options = OPTIONS,
+	.firmware_version = 0,
+	.identity = "atlas7 Watchdog",
 };
 
 static struct watchdog_ops atlas7_wdt_ops = {
@@ -156,26 +149,23 @@ static int atlas7_wdt_probe(struct platform_device *pdev)
 		return PTR_ERR(wdt->base);
 
 	clk = of_clk_get(np, 0);
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		goto err;
-	}
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 	ret = clk_prepare_enable(clk);
 	if (ret) {
-		pr_err("wdt clk enable failed\n");
-		goto err1;
+		dev_err(&pdev->dev, "clk enable failed\n");
+		goto err;
 	}
 
 	/* disable watchdog hardware */
-	writel(0, wdt->base + ATLAS7_WDT_CNT_CTRL +
-			4 * ATLAS7_TIMER_WDT_INDEX);
+	writel(0, wdt->base + ATLAS7_WDT_CNT_CTRL);
 
 	wdt->tick_rate = clk_get_rate(clk);
 	wdt->clk = clk;
 	atlas7_wdd.min_timeout = 1;
 	atlas7_wdd.max_timeout = UINT_MAX / wdt->tick_rate;
 
-	watchdog_init_timeout(&atlas7_wdd, timeout, &pdev->dev);
+	watchdog_init_timeout(&atlas7_wdd, 0, &pdev->dev);
 	watchdog_set_nowayout(&atlas7_wdd, nowayout);
 
 	watchdog_set_drvdata(&atlas7_wdd, wdt);
@@ -183,15 +173,14 @@ static int atlas7_wdt_probe(struct platform_device *pdev)
 
 	ret = watchdog_register_device(&atlas7_wdd);
 	if (ret)
-		goto err2;
+		goto err1;
 
 	return 0;
 
-err2:
-	clk_disable_unprepare(wdt->clk);
 err1:
-	clk_put(wdt->clk);
+	clk_disable_unprepare(clk);
 err:
+	clk_put(clk);
 	return ret;
 }
 
@@ -216,6 +205,10 @@ static int atlas7_wdt_remove(struct platform_device *pdev)
 
 static int __maybe_unused atlas7_wdt_suspend(struct device *dev)
 {
+	/*
+	 * NOTE:timer controller registers settings are saved
+	 * and restored back by the timer-atlas7.c
+	 */
 	return 0;
 }
 
