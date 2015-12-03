@@ -1988,7 +1988,6 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
 	struct resource *res;
-	struct pinctrl *p;
 	u32 id;
 	u32 ed = 1;
 	u32 plist_idx = 0;
@@ -2045,14 +2044,6 @@ static int __init sirfsoc_lcdc_probe(struct platform_device *pdev)
 
 	of_property_read_u32(dn, "error-diffusion", &ed);
 	lcdc[id].property.error_diffusion = !!ed;
-
-	if (SIRFSOC_VDSS_LCDC0 == id) {
-		p = devm_pinctrl_get_select_default(&pdev->dev);
-		if (IS_ERR(p)) {
-			VDSSERR("Fail to select lcdc pinmux\n");
-			return  -EINVAL;
-		}
-	}
 
 	clk_prepare_enable(lcdc[id].clk);
 
