@@ -168,6 +168,16 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 	int r = 0;
 	unsigned long flags;
 
+	/*
+	 * when compositor(eg. surfaceflinger, weston) exit,
+	 * no new valid vdsscomp_setup_data queued any more,
+	 * but sync object of the last frame should be released,
+	 * so in this case, call vdsscomp_gralloc_queue with
+	 * fake vdsscomp_setup_data can flush sync
+	 */
+	if (d == NULL)
+		goto flush_sync;
+
 	if ((d->num_disps > gdev->num_displays) ||
 		(d->disps[0].num_layers > gdev->displays[0].num_layers) ||
 		(d->num_disps > 1 &&
@@ -232,7 +242,7 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 					);
 		}
 	}
-
+flush_sync:
 	sync = kzalloc(sizeof(*sync), GFP_KERNEL);
 	sync->cb_arg = cb_arg;
 	sync->cb_fn = cb_fn;
