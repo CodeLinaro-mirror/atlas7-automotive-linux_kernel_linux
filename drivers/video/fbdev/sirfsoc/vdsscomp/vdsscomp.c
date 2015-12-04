@@ -341,6 +341,7 @@ static const struct file_operations comp_fops = {
 	.unlocked_ioctl = vdsscomp_ioctl,
 };
 
+#ifdef CONFIG_ANDROID
 static void vdsscomp_flip_send_timestamp(struct work_struct *data)
 {
 	struct device *dev;
@@ -357,14 +358,17 @@ static void vdsscomp_flip_send_timestamp(struct work_struct *data)
 	envp[1] = NULL;
 	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
 }
+#endif
 
 static void vdsscomp_flip_isr(void *pdata, unsigned int irqstatus)
 {
 	struct vdsscomp_dev *cdev = pdata;
 	struct vdsscomp_sync *sync;
 
+#ifdef CONFIG_ANDROID
 	cdev->vsync_timestamp = ktime_get();
 	schedule_work(&cdev->vsync_work);
+#endif
 
 	spin_lock(&cdev->flip_lock);
 	if (list_empty(&cdev->flip_list) ||
@@ -392,7 +396,9 @@ static int vdsscomp_init_flip(struct vdsscomp_dev *cdev)
 	if (!cdev->sync_wkq)
 		return -ENOMEM;
 
+#ifdef CONFIG_ANDROID
 	INIT_WORK(&cdev->vsync_work, vdsscomp_flip_send_timestamp);
+#endif
 	/* the panel for primary display */
 	panel = cdev->displays[0].panel;
 	sirfsoc_lcdc_register_isr(panel->src->lcdc_id, vdsscomp_flip_isr,

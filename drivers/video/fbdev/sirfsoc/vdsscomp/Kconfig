@@ -1,6 +1,6 @@
 menuconfig VDSSCOMP
 	tristate "SIRFSOC VDSS Composition support"
-	depends on SIRF_VDSS && ANDROID
+	depends on SIRF_VDSS
 	default y
 
 	help

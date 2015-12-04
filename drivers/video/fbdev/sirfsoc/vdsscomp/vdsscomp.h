@@ -1,11 +1,18 @@
 /*
  * CSR sirfsoc vdss composition header file
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #ifndef __VDSSCOMP_H
 #define __VDSSCOMP_H
 
@@ -60,8 +67,10 @@ struct vdsscomp_dev {
 	spinlock_t flip_lock;
 
 	struct workqueue_struct *sync_wkq;
+#ifdef CONFIG_ANDROID
 	ktime_t vsync_timestamp;
 	struct work_struct vsync_work;
+#endif
 
 	u32 num_displays;
 	struct vdsscomp_display_data displays[MAX_DISPLAYS];
