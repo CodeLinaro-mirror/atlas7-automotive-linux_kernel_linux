@@ -569,12 +569,6 @@ static int atlas7_hsi2s_probe(struct platform_device *pdev)
 		dev_crit(dev, "failed to get a clock.\n");
 		return PTR_ERR(i2s->clk);
 	}
-	parent = clk_get_parent_by_index(i2s->clk, 7);
-	if (!parent)
-		return -ENODEV;
-	ret = clk_set_parent(i2s->clk, parent);
-	if (ret)
-		return ret;
 
 	platform_set_drvdata(pdev, i2s);
 	atlas7_hsi2s_pm_resume(dev);
