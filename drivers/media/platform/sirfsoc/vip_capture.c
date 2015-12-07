@@ -249,13 +249,9 @@ static void vip_buffer_queue(struct vb2_buffer *vb)
 static void vip_buffer_finish(struct vb2_buffer *vb)
 {
 	struct vip_dev *vip = vb2_get_drv_priv(vb->vb2_queue);
-	struct vip_subdev_info *subdev = &vip->subdev[0];
-	struct v4l2_subdev *sd = subdev->sd;
-	struct v4l2_mbus_framefmt mf;
+	struct v4l2_pix_format *upix = &vip->user_format;
 
-	v4l2_subdev_call(sd, video, g_mbus_fmt, &mf);
-
-	vb->v4l2_buf.field = mf.field;
+	vb->v4l2_buf.field = upix->field;
 }
 
 /*
@@ -1302,7 +1298,31 @@ static int vip_do_try_fmt(struct vip_subdev_info *subdev,
 	v4l2_subdev_call(sd, video, try_mbus_fmt, &mbus_fmt);
 	v4l2_fill_pix_format(upix, &mbus_fmt);
 
-	upix->field = V4L2_FIELD_NONE;
+	/*
+	 * Normally the input source into cvd-vip is interlaced, default TB SEQ
+	 * Input source into vip1 is progressive,
+	 * the capture from odd/even field feature should be disabled.
+	 */
+	switch (upix->field) {
+	case V4L2_FIELD_NONE:
+		subdev->interlaced = false;
+		break;
+	case V4L2_FIELD_SEQ_TB:
+	case V4L2_FIELD_SEQ_BT:
+		subdev->interlaced = true;
+		break;
+	default:
+		/* can't support other formats, return default type to user */
+		if (is_cvd_vip(vip)) {
+			subdev->interlaced = true;
+			upix->field = V4L2_FIELD_SEQ_TB;
+		} else {
+			subdev->interlaced = false;
+			upix->field = V4L2_FIELD_NONE;
+		}
+		break;
+	}
+
 	upix->colorspace = V4L2_COLORSPACE_JPEG;
 
 	if (!upix->bytesperline)
@@ -1403,17 +1423,24 @@ static int vip_config_host(struct vip_subdev_info *subdev)
 	control.vsync_invert	= 0;
 	control.single_cap	= 0;
 	control.hor_mirror_en	= 0;
-	/*
-	 * The input source into cvd-vip is always interlaced,
-	 * we force cvd-vip to caputre fields always from odd.
-	 * Normally the input source into vip1 is progressive,
-	 * the capture from odd/even field feature should be disabled.
-	 */
-	if (is_cvd_vip(vip))
-		control.cap_from_odd_en	= 1;
-	else
+
+	switch (upix->field) {
+	case V4L2_FIELD_NONE:
 		control.cap_from_odd_en	= 0;
-	control.cap_from_even_en = 0;
+		control.cap_from_even_en = 0;
+		break;
+	case V4L2_FIELD_SEQ_TB:
+		control.cap_from_odd_en	= 1;
+		control.cap_from_even_en = 0;
+		break;
+	case V4L2_FIELD_SEQ_BT:
+		control.cap_from_odd_en	= 0;
+		control.cap_from_even_en = 1;
+		break;
+	default:
+		dev_err(vip->dev, "un-supported field format\n");
+		return -EINVAL;
+	}
 
 	if (subdev->endpoint.bus_type == V4L2_MBUS_BT656)
 		control.ccir656_en	= 1;
@@ -1797,50 +1824,6 @@ static int vidioc_s_parm(struct file *file, void *fh,
 	return v4l2_subdev_call(sd, video, s_parm, a);
 }
 
-static int vidioc_s_dv_timings(struct file *file, void *priv,
-					struct v4l2_dv_timings *timings)
-{
-	struct vip_subdev_info *subdev = file->private_data;
-	struct v4l2_subdev *sd = subdev->sd;
-	struct vip_dev *vip = subdev->host;
-	int ret = 0;
-
-	if (timings->type != V4L2_DV_BT_656_1120) {
-		dev_err(vip->dev, "Timing type not defined\n");
-		return -EINVAL;
-	}
-
-	/* Configure subdevice timings, if any */
-	v4l2_subdev_call(sd, video, s_dv_timings, timings);
-
-	subdev->interlaced = timings->bt.interlaced ? 1 : 0;
-
-	ret = vip_config_subdev(subdev);
-	if (!ret)
-		ret = vip_config_host(subdev);
-
-	return ret;
-}
-
-static int vidioc_g_dv_timings(struct file *file, void *priv,
-		struct v4l2_dv_timings *timings)
-{
-	struct vip_subdev_info *subdev = file->private_data;
-	struct v4l2_subdev *sd = subdev->sd;
-	struct vip_dev *vip = subdev->host;
-
-	if (timings->type != V4L2_DV_BT_656_1120) {
-		dev_err(vip->dev, "Timing type not defined\n");
-		return -EINVAL;
-	}
-
-	v4l2_subdev_call(sd, video, g_dv_timings, timings);
-
-	timings->bt.interlaced = subdev->interlaced;
-
-	return 0;
-}
-
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int vidioc_g_register(struct file *file, void *fh,
 				 struct v4l2_dbg_register *reg)
@@ -2048,8 +2031,6 @@ static const struct v4l2_ioctl_ops sirfsoc_camera_ioctl_ops = {
 	.vidioc_s_crop		 = vidioc_s_crop,
 	.vidioc_g_parm		 = vidioc_g_parm,
 	.vidioc_s_parm		 = vidioc_s_parm,
-	.vidioc_s_dv_timings	 = vidioc_s_dv_timings,
-	.vidioc_g_dv_timings	 = vidioc_g_dv_timings,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.vidioc_g_register	 = vidioc_g_register,
 	.vidioc_s_register	 = vidioc_s_register,

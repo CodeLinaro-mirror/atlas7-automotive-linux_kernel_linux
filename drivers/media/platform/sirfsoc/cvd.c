@@ -75,12 +75,11 @@ struct cvd_dev {
 	s32			contrast;
 	s32			hue;
 	v4l2_std_id		norm;
-	enum v4l2_field		field;
 	struct v4l2_subdev	sd;
 	struct v4l2_ctrl_handler hdl;
 
 	int			skip_count;
-	struct completion	order_done;	/* get top -> bottom fields */
+	struct completion	skip_done;	/* skip unstable fields */
 	struct completion	locked_done;	/* get locked signals */
 };
 
@@ -366,9 +365,7 @@ static int cvd_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 			goto out;
 		}
 
-		/* tell user to use top->bottom sequence */
-		dec->field = V4L2_FIELD_SEQ_TB;
-		complete(&dec->order_done);
+		complete(&dec->skip_done);
 	}
 
 out:
@@ -1106,8 +1103,8 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	/* enable delayed field sync interrupt */
 	cvd_write(CVBSD_INTERRUPT_CONFIG, 0x1 | (VSYNC_DELAY_LINE << 4), sd);
 
-	/* wait for a top -> bottom order frame */
-	ret = wait_for_completion_interruptible_timeout(&dec->order_done,
+	/* wait for a good field stream */
+	ret = wait_for_completion_interruptible_timeout(&dec->skip_done,
 							msecs_to_jiffies(200));
 
 	if (ret == 0) {
@@ -1154,7 +1151,6 @@ static int cvd_g_fmt(struct v4l2_subdev *sd,
 
 	mf->code	= V4L2_MBUS_FMT_UYVY8_2X8;
 	mf->colorspace	= V4L2_COLORSPACE_JPEG;
-	mf->field	= dec->field;
 
 	return 0;
 }
@@ -1348,7 +1344,7 @@ static int cvd_probe(struct platform_device *pdev)
 
 	dec->dev = dev;
 
-	init_completion(&dec->order_done);
+	init_completion(&dec->skip_done);
 	init_completion(&dec->locked_done);
 
 	dec->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
