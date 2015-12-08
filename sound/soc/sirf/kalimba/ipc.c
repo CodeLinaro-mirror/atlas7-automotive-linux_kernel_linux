@@ -97,6 +97,7 @@ static struct {
 	u16 msg_id;
 } msg_text[] = {
 	{"Create op", CREATE_OPERATOR_REQ},
+	{"Create Extended Operator", CREATE_OPERATOR_EXTENDED_REQ},
 	{"Start op", START_OPERATOR_REQ},
 	{"Stop op", STOP_OPERATOR_REQ},
 	{"Reset op", RESET_OPERATOR_REQ},

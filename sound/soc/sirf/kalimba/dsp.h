@@ -34,6 +34,8 @@ void kalimba_msg_send_lock(void);
 void kalimba_msg_send_unlock(void);
 
 void kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp);
+int kalimba_create_operator_extended(u16 capability_id, u16 num_of_keys,
+	u16 *msg_data, u16 *operator_id, u16 *resp);
 int kalimba_destroy_operator(u16 *operators_id, u16 operator_count, u16 *resp);
 int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 	u16 *msg_data, u16 **res_msg_data, u16 *rsp_msg_len, u16 *resp);
@@ -192,6 +194,9 @@ void kalimba_set_stream_volume(int stream, int vol);
 /* license messages from design spec */
 #define KASCMD_SIGNAL_ID_LICENCE_CHECK_REQ	0x0022
 #define KASCMD_SIGNAL_ID_LICENCE_CHECK_RSP	0x1022
+
+#define CREATE_OPERATOR_EXTENDED_REQ		0x0023
+#define CREATE_OPERATOR_EXTENDED_RSP		0x1023
 
 #define ENDPOINT_CONF_AUDIO_SAMPLE_RATE		0x0A00
 #define ENDPOINT_CONF_AUDIO_DATA_FORMAT		0x0A01

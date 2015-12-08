@@ -1755,6 +1755,12 @@ int execute_component(struct component *component)
 		if ((u16)(component->params[0]) == CAPABILITY_ID_MIXER)
 			curr_primary_stream = 0;
 		break;
+	case CREATE_OPERATOR_EXTENDED_REQ:
+		kalimba_create_operator_extended((u16)(component->params[0]),
+			(u16)(component->params[1]),
+			(u16 *)(component->params[2]),
+			component->ret, resp);
+		break;
 	case OPERATOR_MESSAGE_REQ:
 		if ((u16)(component->params[1]) !=
 				OPERATOR_MSG_SET_PRIMARY_STREAM) {

@@ -304,6 +304,15 @@ static void create_operator(u16 *cmd, u16 *resp)
 	kalimba_create_operator(cmd[2], &operator_id, resp);
 }
 
+static void create_operator_extended(u16 *cmd, u16 *resp)
+{
+	u16 vlength = cmd[3];
+	u16 operator_id;
+
+	kalimba_create_operator_extended(cmd[2], vlength, &cmd[4],
+		&operator_id, resp);
+}
+
 static void start_operator(u16 *cmd, u16 *resp)
 {
 	u16 api_length = cmd[1];
@@ -463,6 +472,9 @@ static int kalimba_api(u16 *cmd, u16 *resp)
 	switch (api_id) {
 	case CREATE_OPERATOR_REQ:
 		create_operator(cmd, resp);
+		break;
+	case CREATE_OPERATOR_EXTENDED_REQ:
+		create_operator_extended(cmd, resp);
 		break;
 	case START_OPERATOR_REQ:
 		start_operator(cmd, resp);

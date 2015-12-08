@@ -52,6 +52,42 @@ void kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp)
 	*operator_id = resp[3];
 }
 
+int kalimba_create_operator_extended(u16 capability_id, u16 num_of_keys,
+	u16 *msg_data, u16 *operator_id, u16 *resp)
+{
+
+	int vec_size = 3 * num_of_keys;
+	int msg_size = 2 + 2 + vec_size;
+	u16 *msg;
+	int i, j;
+
+	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
+	if (msg == NULL)
+		return -ENOMEM;
+
+	msg[0] = CREATE_OPERATOR_EXTENDED_REQ;
+	msg[1] = 2 + vec_size;
+	msg[2] = capability_id;
+	msg[3] = num_of_keys;
+
+	/*
+	 * The keys are 16bit size and their corresponding
+	 * values are 32bit size. KAS needs the 32bit value swapped.
+	 */
+	for (i = 0; i < num_of_keys; i++) {
+		j = i * 3;
+		msg[4 + j] = msg_data[j];
+		msg[5 + j] = msg_data[2 + j];
+		msg[6 + j] = msg_data[1 + j];
+	}
+
+	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	kfree(msg);
+	*operator_id = resp[3];
+
+	return 0;
+}
+
 int kalimba_destroy_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 {
 	int msg_size = 2 + operator_count;
