@@ -1538,7 +1538,8 @@ static void __init atlas7_clk_init(struct device_node *np)
 				!strcmp(unit->unit_name, "sys2pci2_io") ||
 				!strcmp(unit->unit_name, "dmac3_kas") ||
 				!strcmp(unit->unit_name, "ccsec_sec") ||
-				!strcmp(unit->unit_name, "sys2pci_io"))
+				!strcmp(unit->unit_name, "sys2pci_io") ||
+				!strcmp(unit->unit_name, "coresight_cpudiv2"))
 			clk_prepare_enable(atlas7_clks[i]);
 	}
 
