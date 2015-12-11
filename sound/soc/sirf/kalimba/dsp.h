@@ -73,6 +73,9 @@ void unregister_kalimba_msg_action(void *action_id);
 void kalimba_do_actions(u16 message, u16 *data);
 void kalimba_set_channel_volume(int channel, int vol);
 void kalimba_set_stream_volume(int stream, int vol);
+void kalimba_set_peq_control(u16 index, u16 mode);
+void kalimba_set_peq_params(u16 index, u16 offset, int val);
+void kalimba_set_peq_params_overall(u16 index, u16 *data);
 
 #define ENDPOINT_TYPE_USP			1
 #define ENDPOINT_TYPE_I2S			2
@@ -221,5 +224,59 @@ void kalimba_set_stream_volume(int stream, int vol);
 #define OPMSG_COMMON_SET_DATA_STREAM_BASED      0x200F
 
 #define OPMSG_PEQ_SET_COEFFS                    0x0001
+
+#define PEQ_NUM_MAX			5
+#define PEQ_BAND_MIN			1
+#define PEQ_BAND_MAX			10
+#define PEQ_PARAMS_ARRAY_LEN_16B	66
+#define PEQ_MSG_PARAMS_ARRAY_LEN_16B	(PEQ_PARAMS_ARRAY_LEN_16B + 3)
+#define PEQ_MSG_CNTL_BLOCK_LEN_16B	3
+#define PEQ_PARAMS_ARRAY_LEN_24B	44
+#define PEQ_SAMPLE_RATE			0x0780	/* 48K/25 */
+
+/* PEQ reg */
+/* base band    cntl   */
+/*|----|----|----|----|*/
+/*15   11   7    3    0*/
+#define PEQ_BASE_MASK			0xf000
+#define PEQ_BASE_SHIFT			12
+#define PEQ_BAND_MASK			0x0f00
+#define PEQ_BAND_SHIFT			8
+#define PEQ_CNTL_MASK			0x00ff
+#define USER_PEQ_BASE			0x0000
+#define SPK1_PEQ_BASE			0x1000
+#define SPK2_PEQ_BASE			0x2000
+#define SPK3_PEQ_BASE			0x3000
+#define SPK4_PEQ_BASE			0x4000
+#define PEQ_CNTL_SWITCH			0x00ff
+#define PEQ_PARAM_CONFIG		0x0000
+#define PEQ_PARAM_CORE_TYPE		0x0001
+#define PEQ_PARAM_BANDS_NUM		0x0002
+#define PEQ_PARAM_MASTER_GAIN		0x0003
+#define PEQ_PARAM_BAND_FILTER		0x0004
+#define PEQ_PARAM_BAND_FC		0x0005
+#define PEQ_PARAM_BAND_GAIN		0x0006
+#define PEQ_PARAM_BAND_Q		0x0007
+#define Q24_MASK			0x00ffffff
+
+/* PEQ default parameter-set array: for init and reset */
+static const u16 peq_params_array_def[PEQ_PARAMS_ARRAY_LEN_16B] = {
+	/* PEQ_CONF  CORE_TYPE    NUM_BANDS MASTER_GAIN */
+	/*|--------||--------|    |--------||--------|*/
+	0x0000, 0x0000, 0x0000, 0x0000, 0x0a00, 0x0000,
+	/* band: 1 ~ 10 */
+	/*  FILTER      FC           GAIN       Q     */
+	/*|--------||--------|    |--------||--------|*/
+	0x0000, 0x0D00, 0x0200, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x0400, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x07D0, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x0FA0, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x1F40, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x3E80, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0x7D00, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D00, 0xFA00, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D01, 0xF400, 0x0000, 0x0000, 0xB505,
+	0x0000, 0x0D03, 0xE800, 0x0000, 0x0000, 0xB505,
+};
 
 #endif /* _KAS_DSP_H */

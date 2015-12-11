@@ -43,36 +43,10 @@ static unsigned long active_stream;
 static int curr_primary_stream;
 static u16 *volume_control_op_id;
 static u16 *mixer_op_id;
-
-/* Index array for control components */
-static int control_component_index[CTYPE_MAX];
-
-/* PEQ default parameter-set array: for init and reset */
-static const u16 peq_oper_param_default[PEQ_PARAM_SET_LEN] = {
-	/* blocks, offset, number */
-	0x0001, 0x0000, 0x002C,
-	/* PEQ_CONFIG, CORE_TYPE, NUM_BANDS, MASTER_GAIN */
-	0x0000, 0x0000, 0x0000, 0x0000, 0x0a00, 0x0000,
-	/* bands 1 ~ 10: FILTER, FC, GAIN, Q */
-	/*  FILTER      FC           GAIN       Q     */
-	/*|--------||--------|    |--------||--------|*/
-	0x0000, 0x0D00, 0x0200, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x0400, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x07D0, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x0FA0, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x1F40, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x3E80, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x7D00, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0xFA00, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D01, 0xF400, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D03, 0xE800, 0x0000, 0x0000, 0xB505,
-};
+static u16 *peq_op_id[PEQ_NUM_MAX];
 
 /* PEQ default sample rate: 48KHz, for init */
-static u16 peq_oper_rate = PEQ_SAMPLE_RATE;
-
-/* PEQ cached parameter-set array: for init and runtime modify */
-static u16 peq_oper_param[PEQ_NUM_MAX][PEQ_PARAM_SET_LEN];
+static u16 peq_sample_rate = PEQ_SAMPLE_RATE;
 
 /* Hard code for init the components chain */
 static u32 ep_configure_key[] = {
@@ -140,21 +114,16 @@ static void init_shared_components(void)
 	/* Init the volume control operator id pointer */
 	volume_control_op_id = &(components_shared[4].ret[0]);
 
-	components_shared[5].component_id = CREATE_OPERATOR_REQ;
-	components_shared[5].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[5].params[0] = CAPABILITY_ID_PEQ;
-
-	components_shared[6].component_id = CREATE_OPERATOR_REQ;
-	components_shared[6].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[6].params[0] = CAPABILITY_ID_PEQ;
-
-	components_shared[7].component_id = CREATE_OPERATOR_REQ;
-	components_shared[7].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[7].params[0] = CAPABILITY_ID_PEQ;
-
-	components_shared[8].component_id = CREATE_OPERATOR_REQ;
-	components_shared[8].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[8].params[0] = CAPABILITY_ID_PEQ;
+	for (i = 0; i < 4; i++) {
+		components_shared[5 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[5 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components_shared[5 + i].params[0] =
+			(u32)(&components_shared[3].ret[i]);
+		components_shared[5 + i].params[1] =
+			ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+		components_shared[5 + i].params[2] =
+			(u32)(&kcm->playback_iacc_ep.sample_rate);
+	}
 
 	for (i = 0; i < 4; i++) {
 		components_shared[9 + i].component_id = ENDPOINT_CONFIGURE_REQ;
@@ -162,9 +131,9 @@ static void init_shared_components(void)
 		components_shared[9 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
 		components_shared[9 + i].params[1] =
-			ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+			ENDPOINT_CONF_AUDIO_DATA_FORMAT;
 		components_shared[9 + i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.sample_rate);
+			(u32)(&kcm->playback_iacc_ep.audio_data_format);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -173,9 +142,9 @@ static void init_shared_components(void)
 		components_shared[13 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
 		components_shared[13 + i].params[1] =
-			ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+			ENDPOINT_CONF_DRAM_PACKING_FORMAT;
 		components_shared[13 + i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.audio_data_format);
+			(u32)(&kcm->playback_iacc_ep.packing_format);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -184,9 +153,9 @@ static void init_shared_components(void)
 		components_shared[17 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
 		components_shared[17 + i].params[1] =
-			ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+			ENDPOINT_CONF_INTERLEAVING_MODE;
 		components_shared[17 + i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.packing_format);
+			(u32)(&kcm->playback_iacc_ep.interleaving_format);
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -195,140 +164,77 @@ static void init_shared_components(void)
 		components_shared[21 + i].params[0] =
 			(u32)(&components_shared[3].ret[i]);
 		components_shared[21 + i].params[1] =
-			ENDPOINT_CONF_INTERLEAVING_MODE;
+			ENDPOINT_CONF_CLOCK_MASTER;
 		components_shared[21 + i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.interleaving_format);
+			(u32)(&kcm->playback_iacc_ep.clock_master);
 	}
 
 	for (i = 0; i < 4; i++) {
-		components_shared[25 + i].component_id = ENDPOINT_CONFIGURE_REQ;
+		components_shared[25 + i].component_id = CONNECT_REQ;
 		components_shared[25 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
 		components_shared[25 + i].params[0] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[25 + i].params[1] =
-			ENDPOINT_CONF_CLOCK_MASTER;
+			(u32)(&components_shared[4].ret[0]);
+		components_shared[25 + i].params[1] = 0x2000 + i;
 		components_shared[25 + i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.clock_master);
+			(u32)(&components_shared[3].ret[i]);
+		components_shared[25 + i].params[3] = 0;
 	}
 
 	for (i = 0; i < 4; i++) {
 		components_shared[29 + i].component_id = CONNECT_REQ;
 		components_shared[29 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
 		components_shared[29 + i].params[0] =
-			(u32)(&components_shared[4].ret[0]);
+			(u32)(&components_shared[0].ret[0]);
 		components_shared[29 + i].params[1] = 0x2000 + i;
 		components_shared[29 + i].params[2] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[29 + i].params[3] = 0;
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[33 + i].component_id = CONNECT_REQ;
-		components_shared[33 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[33 + i].params[0] =
-			(u32)(&components_shared[5 + i].ret[0]);
-		components_shared[33 + i].params[1] = 0x2000;
-		components_shared[33 + i].params[2] =
 			(u32)(&components_shared[4].ret[0]);
-		components_shared[33 + i].params[3] = 0xA000 + i * 2;
+		components_shared[29 + i].params[3] = 0xA000 + i*2;
 	}
 
-	for (i = 0; i < 4; i++) {
-		components_shared[37 + i].component_id = CONNECT_REQ;
-		components_shared[37 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[37 + i].params[0] =
-			(u32)(&components_shared[0].ret[0]);
-		components_shared[37 + i].params[1] = 0x2000 + i;
-		components_shared[37 + i].params[2] =
-			(u32)(&components_shared[5 + i].ret[0]);
-		components_shared[37 + i].params[3] = 0xA000;
+	components_shared[33].component_id = START_OPERATOR_REQ;
+	components_shared[33].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components_shared[33].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[33].params[1] = 1;
+
+	components_shared[34].component_id = START_OPERATOR_REQ;
+	components_shared[34].execute_phase = EXEC_PHASE_TRIGGER_START;
+	components_shared[34].params[0] = (u32)(&components_shared[4].ret[0]);
+	components_shared[34].params[1] = 1;
+
+	components_shared[35].component_id = STOP_OPERATOR_REQ;
+	components_shared[35].execute_phase = EXEC_PHASE_HW_FREE;
+	components_shared[35].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[35].params[1] = 1;
+
+	components_shared[36].component_id = STOP_OPERATOR_REQ;
+	components_shared[36].execute_phase = EXEC_PHASE_HW_FREE;
+	components_shared[36].params[0] = (u32)(&components_shared[4].ret[0]);
+	components_shared[36].params[1] = 1;
+
+	for (i = 0; i < 8; i++) {
+		components_shared[37 + i].component_id = DISCONNECT_REQ;
+		components_shared[37 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
+		components_shared[37 + i].params[0] = 1;
+		components_shared[37 + i].params[1] =
+			(u32)(&components_shared[25 + i].ret[0]);
 	}
 
-	components_shared[41].component_id = START_OPERATOR_REQ;
-	components_shared[41].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_shared[41].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[41].params[1] = 1;
+	components_shared[45].component_id = CLOSE_SINK_REQ;
+	components_shared[45].execute_phase = EXEC_PHASE_HW_FREE_1;
+	components_shared[45].params[0] = 4;
+	components_shared[45].params[1] = (u32)(components_shared[3].ret);
 
-	for (i = 0; i < 5; i++) {
-		components_shared[42 + i].component_id = START_OPERATOR_REQ;
-		components_shared[42 + i].execute_phase =
-			EXEC_PHASE_TRIGGER_START;
-		components_shared[42 + i].params[0] =
-			(u32)(&components_shared[4 + i].ret[0]);
-		components_shared[42 + i].params[1] = 1;
-	}
+	components_shared[46].component_id = DESTROY_OPERATOR_REQ;
+	components_shared[46].execute_phase = EXEC_PHASE_HW_FREE_1;
+	components_shared[46].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[46].params[1] = 1;
 
-	components_shared[47].component_id = STOP_OPERATOR_REQ;
-	components_shared[47].execute_phase = EXEC_PHASE_HW_FREE;
-	components_shared[47].params[0] = (u32)(&components_shared[0].ret[0]);
+	components_shared[47].component_id = DESTROY_OPERATOR_REQ;
+	components_shared[47].execute_phase = EXEC_PHASE_HW_FREE_1;
+	components_shared[47].params[0] = (u32)(&components_shared[4].ret[0]);
 	components_shared[47].params[1] = 1;
 
-	for (i = 0; i < 5; i++) {
-		components_shared[48 + i].component_id = STOP_OPERATOR_REQ;
-		components_shared[48 + i].execute_phase = EXEC_PHASE_HW_FREE;
-		components_shared[48 + i].params[0] =
-			(u32)(&components_shared[4 + i].ret[0]);
-		components_shared[48 + i].params[1] = 1;
-	}
-
-	for (i = 0; i < 12; i++) {
-		components_shared[53 + i].component_id = DISCONNECT_REQ;
-		components_shared[53 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
-		components_shared[53 + i].params[0] = 1;
-		components_shared[53 + i].params[1] =
-			(u32)(&components_shared[29 + i].ret[0]);
-	}
-
-	components_shared[65].component_id = CLOSE_SINK_REQ;
-	components_shared[65].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[65].params[0] = 4;
-	components_shared[65].params[1] = (u32)(components_shared[3].ret);
-
-	components_shared[66].component_id = DESTROY_OPERATOR_REQ;
-	components_shared[66].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[66].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[66].params[1] = 1;
-
-	for (i = 0; i < 5; i++) {
-		components_shared[67 + i].component_id = DESTROY_OPERATOR_REQ;
-		components_shared[67 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
-		components_shared[67 + i].params[0] =
-			(u32)(&components_shared[4 + i].ret[0]);
-		components_shared[67 + i].params[1] = 1;
-	}
-
-	for (i = 0; i < 4; i++) {
-		/* init PEQ sample rate */
-		components_shared[72 + i].component_id = OPERATOR_MESSAGE_REQ;
-		components_shared[72 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[72 + i].params[0] =
-			(u32)(&components_shared[5 + i].ret[0]);
-		components_shared[72 + i].params[1] =
-			OPMSG_COMMON_SET_SAMPLE_RATE;
-		components_shared[72 + i].params[2] = 1;
-		components_shared[72 + i].params[3] =
-			(u32)(&peq_oper_rate);
-
-		/* init PEQ parameter set */
-		components_shared[76 + i].component_id = OPERATOR_MESSAGE_REQ;
-		components_shared[76 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[76 + i].params[0] =
-			(u32)(&components_shared[5 + i].ret[0]);
-		components_shared[76 + i].params[1] = OPMSG_COMMON_SET_PARAMS;
-		components_shared[76 + i].params[2] = PEQ_PARAM_SET_LEN;
-		components_shared[76 + i].params[3] =
-			(u32)(peq_oper_param[1 + i]);
-
-		/* init PEQ control component */
-		components_shared[80 + i].component_id = OPERATOR_MESSAGE_REQ;
-		components_shared[80 + i].execute_phase = EXEC_PHASE_CONTROL;
-		components_shared[80 + i].params[0] =
-			(u32)(&components_shared[5 + i].ret[0]);
-		control_component_index[1 + i] = 80 + i;
-		memcpy(peq_oper_param[1 + i], peq_oper_param_default,
-			sizeof(peq_oper_param_default));
-	}
-	shared_components_size = 84;
+	shared_components_size = 48;
 }
 
 static void init_cvc_shared_components(void)
@@ -1418,13 +1324,18 @@ static void hard_code_init_components_chain_music_playback(
 	components_chain->component_first = &components[i];
 	i++;
 
-	components[i].component_id = CREATE_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_PEQ;
-	components[i - 1].component_next = &components[i];
-	i++;
+	/* peq create */
+	for (k = 0; k < 5; k++) {
+		components[i].component_id = CREATE_OPERATOR_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = CAPABILITY_ID_PEQ;
+		components[i - 1].component_next = &components[i];
+		/* Init the peq operator id pointer */
+		peq_op_id[k] = &(components[i].ret[0]);
+		i++;
+	}
 
-	/* i == 2 */
+	/* i == 6 */
 	for (k = 0; k < 4; k++) {
 		for (j = 0; j < 6; j++) {
 			components[i].component_id = ENDPOINT_CONFIGURE_REQ;
@@ -1439,7 +1350,20 @@ static void hard_code_init_components_chain_music_playback(
 		}
 	}
 
-	/* i == 26*/
+	/* peq config */
+	for (k = 0; k < 5; k++) {
+		/* init PEQ sample rate */
+		components[i].component_id = OPERATOR_MESSAGE_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
+		components[i].params[1] = OPMSG_COMMON_SET_SAMPLE_RATE;
+		components[i].params[2] = 1;
+		components[i].params[3] = (u32)(&peq_sample_rate);
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	/* i == 35 */
 	for (k = 0; k < 4; k++) {
 		components[i].component_id = CONNECT_REQ;
 		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
@@ -1451,11 +1375,23 @@ static void hard_code_init_components_chain_music_playback(
 		i++;
 	}
 
+	/* peq connect */
 	for (k = 0; k < 4; k++) {
 		components[i].component_id = CONNECT_REQ;
 		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
 		components[i].params[0] = (u32)(&components[1].ret[0]);
 		components[i].params[1] = 0x2000 + k;
+		components[i].params[2] = (u32)(&components[2 + k].ret[0]);
+		components[i].params[3] = 0xA000;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		components[i].component_id = CONNECT_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[2 + k].ret[0]);
+		components[i].params[1] = 0x2000;
 		components[i].params[2] = (u32)(&components_shared[0].ret[0]);
 		components[i].params[3] = 0xA000 + k;
 		components[i - 1].component_next = &components[i];
@@ -1472,12 +1408,15 @@ static void hard_code_init_components_chain_music_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	components[i].component_id = START_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
+	/* peq start */
+	for (k = 0; k < 5; k++) {
+		components[i].component_id = START_OPERATOR_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
+		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
+		components[i].params[1] = 1;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
 
 	components[i].component_id = DATA_PRODUCED;
 	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
@@ -1491,12 +1430,15 @@ static void hard_code_init_components_chain_music_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	components[i].component_id = STOP_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
+	/* peq stop */
+	for (k = 0; k < 5; k++) {
+		components[i].component_id = STOP_OPERATOR_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_FREE;
+		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
+		components[i].params[1] = 1;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
 
 	components[i].component_id = OPERATOR_MESSAGE_REQ;
 	components[i].execute_phase = EXEC_PHASE_HW_FREE;
@@ -1508,11 +1450,11 @@ static void hard_code_init_components_chain_music_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	for (k = 0; k < 8; k++) {
+	for (k = 0; k < 12; k++) {
 		components[i].component_id = DISCONNECT_REQ;
 		components[i].execute_phase = EXEC_PHASE_HW_FREE;
 		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[k + 26].ret[0]);
+		components[i].params[1] = (u32)(&components[k + 35].ret[0]);
 		components[i - 1].component_next = &components[i];
 		i++;
 	}
@@ -1524,42 +1466,15 @@ static void hard_code_init_components_chain_music_playback(
 	components[i - 1].component_next = &components[i];
 	i++;
 
-	components[i].component_id = DESTROY_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* init PEQ sample rate */
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = OPMSG_COMMON_SET_SAMPLE_RATE;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&peq_oper_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* init PEQ parameter set */
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = OPMSG_COMMON_SET_PARAMS;
-	components[i].params[2] = PEQ_PARAM_SET_LEN;
-	components[i].params[3] = (u32)(peq_oper_param[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* init PEQ control component */
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_CONTROL;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	control_component_index[CTYPE_USER_PEQ] = i;
-	memcpy(peq_oper_param[0], peq_oper_param_default,
-		sizeof(peq_oper_param_default));
-	components[i - 1].component_next = &components[i];
-	i++;
+	/* peq stop */
+	for (k = 0; k < 5; k++) {
+		components[i].component_id = DESTROY_OPERATOR_REQ;
+		components[i].execute_phase = EXEC_PHASE_HW_FREE;
+		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
+		components[i].params[1] = 1;
+		components[i - 1].component_next = &components[i];
+		i++;
+	}
 
 	components[i - 1].component_next = NULL;
 
@@ -1740,6 +1655,12 @@ u16 get_mixer_op_id(void)
 	return *mixer_op_id;
 }
 
+u16 get_peq_op_id(u16 index)
+{
+	return *peq_op_id[index];
+}
+
+
 int execute_component(struct component *component)
 {
 	int ret = 0;
@@ -1864,111 +1785,6 @@ int execute_component(struct component *component)
 	kalimba_msg_send_unlock();
 
 	return ret;
-}
-
-struct component *get_control_component(int ctype)
-{
-	struct component *component = NULL;
-	int index;
-
-	switch (ctype) {
-	case CTYPE_USER_PEQ:
-		index = control_component_index[ctype];
-		component =
-		    &(get_components_chain("Music Playback")->
-		      components[index]);
-		break;
-	case CTYPE_SPK1_PEQ:
-	case CTYPE_SPK2_PEQ:
-	case CTYPE_SPK3_PEQ:
-	case CTYPE_SPK4_PEQ:
-	case CTYPE_DELAY:
-		index = control_component_index[ctype];
-		component = &components_shared[index];
-		break;
-	default:
-		component = NULL;
-		break;
-	}
-	return component;
-}
-
-int get_peq_param(u32 peq, u32 band, u32 ptype)
-{
-	int ret = 0;
-	int offset = 0;
-
-	if (peq >= PEQ_NUM_MAX || band < PEQ_BAND_MIN || band > PEQ_BAND_MAX
-	    || ptype > PEQ_PARAM_MAX)
-		return -EINVAL;
-	offset = PEQ_PARAM_BLOCKS_LEN + PEQ_PARAM_MAIN_LEN_16B
-	    + PEQ_PARAM_BAND_LEN_16B * (band - 1);
-	switch (ptype) {
-	/* Get parameter from cached parameter-set array: 16bit -> 24bit */
-	/*     FILTER      FC           GAIN       Q                     */
-	/*   |--------||--------|    |--------||--------| ==> 0x00AABBCC */
-	/* 0x0000, 0x00AA, 0xBBCC, 0x0000, 0x0000, 0x0000                */
-	case PEQ_PARAM_BAND_FILTER:
-		ret = peq_oper_param[peq][offset] << 8
-		    | (peq_oper_param[peq][offset + 1] & 0xFF00) >> 8;
-		break;
-	case PEQ_PARAM_BAND_FC:
-		ret = (peq_oper_param[peq][offset + 1] & 0x00FF) << 16
-		    | peq_oper_param[peq][offset + 2];
-		break;
-	case PEQ_PARAM_BAND_GAIN:
-		ret = peq_oper_param[peq][offset + 3] << 8
-		    | (peq_oper_param[peq][offset + 4] & 0xFF00) >> 8;
-		break;
-	case PEQ_PARAM_BAND_Q:
-		ret = (peq_oper_param[peq][offset + 4] & 0x00FF) << 16
-		    | peq_oper_param[peq][offset + 5];
-		break;
-	}
-	return ret;
-}
-
-int set_peq_param(u32 peq, u32 band, u32 ptype, int value)
-{
-	int offset = 0;
-
-	if (peq >= PEQ_NUM_MAX || band < PEQ_BAND_MIN || band > PEQ_BAND_MAX
-	    || ptype > PEQ_PARAM_MAX)
-		return -EINVAL;
-	offset = PEQ_PARAM_BLOCKS_LEN + PEQ_PARAM_MAIN_LEN_16B
-	    + PEQ_PARAM_BAND_LEN_16B * (band - 1);
-	switch (ptype) {
-	/* Set parameter to cached parameter-set array: 24bit -> 16bit   */
-	/*                    FILTER      FC           GAIN       Q      */
-	/* 0x00AABBCC   ==> |--------||--------|    |--------||--------| */
-	/*                0x0000, 0x00AA, 0xBBCC, 0x0000, 0x0000, 0x0000 */
-	case PEQ_PARAM_BAND_FILTER:
-		peq_oper_param[peq][offset] = (value & 0x00FFFF00) >> 8;
-		peq_oper_param[peq][offset + 1] &= 0x00FF;
-		peq_oper_param[peq][offset + 1] |=
-		    (value & 0x000000FF) << 8;
-		break;
-	case PEQ_PARAM_BAND_FC:
-		peq_oper_param[peq][offset + 1] &= 0xFF00;
-		peq_oper_param[peq][offset + 1] |=
-		    (value & 0x00FF0000) >> 16;
-		peq_oper_param[peq][offset + 2] = value & 0x0000FFFF;
-		break;
-	case PEQ_PARAM_BAND_GAIN:
-		peq_oper_param[peq][offset + 3] =
-		    (value & 0x00FFFF00) >> 8;
-		peq_oper_param[peq][offset + 4] &= 0x00FF;
-		peq_oper_param[peq][offset + 4] |=
-		    (value & 0x000000FF) << 8;
-		break;
-	case PEQ_PARAM_BAND_Q:
-		peq_oper_param[peq][offset + 4] &= 0xFF00;
-		peq_oper_param[peq][offset + 4] |=
-		    (value & 0x00FF0000) >> 16;
-		peq_oper_param[peq][offset + 5] = value & 0x0000FFFF;
-		break;
-	}
-	return 0;
 }
 
 struct component *get_data_produced_ack_component(

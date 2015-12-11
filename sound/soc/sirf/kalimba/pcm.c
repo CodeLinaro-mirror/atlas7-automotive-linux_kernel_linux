@@ -59,6 +59,8 @@ struct kas_priv_data {
 	unsigned long cvc_stream_running;
 	int pre_channel_volume[4];
 	int stream_volume[MIXER_SUPPORT_STREAMS];
+	u16 peq_switch_mode[PEQ_NUM_MAX];
+	u16 peq_params_array[PEQ_NUM_MAX][PEQ_PARAMS_ARRAY_LEN_16B];
 };
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
@@ -77,6 +79,211 @@ static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.periods_max		= 128,
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 };
+
+static int kas_playback_peq_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+static int kas_playback_peq_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+#define MIN_PEQ_GAIN_DB		-60
+/* TLV used by peq gain */
+static const DECLARE_TLV_DB_SCALE(kas_peq_gain_tlv,
+		MIN_PEQ_GAIN_DB * 100, 100, 0);
+
+/* Convenience kcontrol builders for PEQ */
+#define KAS_PEQ_PER_BAND_CONTROLS(name, base, band)			\
+	SOC_SINGLE_EXT(name " Band" #band " FC",			\
+		base + band * 0x100 + PEQ_PARAM_BAND_FC, 20, 24000, 0,	\
+		kas_playback_peq_get, kas_playback_peq_put),		\
+	SOC_SINGLE_EXT_TLV(name " Band" #band " Gain",			\
+		base + band * 0x100 + PEQ_PARAM_BAND_GAIN, 0, 80, 0,	\
+		kas_playback_peq_get, kas_playback_peq_put,		\
+		kas_peq_gain_tlv)
+
+#define KAS_PEQ_ALL_BANDS_CONTROLS(name, base)		\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 1),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 2),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 3),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 4),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 5),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 6),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 7),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 8),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 9),	\
+	KAS_PEQ_PER_BAND_CONTROLS(name, base, 10)
+
+#define KAS_PEQ_CONTROLS(name, base)					\
+	SOC_SINGLE_EXT(name " Switch Mode",				\
+		base + PEQ_CNTL_SWITCH, 0, 2, 0,			\
+		kas_playback_peq_get, kas_playback_peq_put),		\
+	SOC_SINGLE_EXT(name " Core Type",				\
+		base + PEQ_PARAM_CORE_TYPE, 0, 2, 0,			\
+		kas_playback_peq_get, kas_playback_peq_put),		\
+	SOC_SINGLE_EXT(name " Bands Num",				\
+		base + PEQ_PARAM_BANDS_NUM, 0, 10, 0,			\
+		kas_playback_peq_get, kas_playback_peq_put),		\
+	SOC_SINGLE_EXT_TLV(name " Master Gain",				\
+		base + PEQ_PARAM_MASTER_GAIN, 0, 80, 0,			\
+		kas_playback_peq_get, kas_playback_peq_put,		\
+		kas_peq_gain_tlv),					\
+	KAS_PEQ_ALL_BANDS_CONTROLS(name, base)
+
+static inline u32 get24bit(u8 *buf, u16 pos)
+{
+#ifdef __LITTLE_ENDIAN
+	if (pos % 2) {
+		return buf[3 * pos + 1] + (buf[3 * pos + 2] << 8)
+			+ (buf[3 * pos - 1] << 16);
+	} else {
+		return buf[3 * pos + 3] + (buf[3 * pos] << 8)
+			+ (buf[3 * pos + 1] << 16);
+	}
+#else
+	return buf[3 * pos] + (buf[3 * pos + 1] << 8)
+			+ (buf[3 * pos - 1] << 16);
+#endif
+}
+
+static inline void put24bit(u8 *buf, u16 pos, u32 data)
+{
+#ifdef __LITTLE_ENDIAN
+	if (pos % 2) {
+		buf[3 * pos + 1] = data;
+		buf[3 * pos + 2] = data >> 8;
+		buf[3 * pos - 1] = data >> 16;
+	} else {
+		buf[3 * pos + 3] = data;
+		buf[3 * pos] = data >> 8;
+		buf[3 * pos + 1] = data >> 16;
+	}
+#else
+	buf[3 * pos] = data;
+	buf[3 * pos + 1] = data >> 8;
+	buf[3 * pos + 2] = data >> 16;
+#endif
+}
+
+static int kas_playback_peq_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	u16 index = (mc->reg & PEQ_BASE_MASK) >> PEQ_BASE_SHIFT;
+	int band = (mc->reg & PEQ_BAND_MASK) >> PEQ_BAND_SHIFT;
+	int cntl = mc->reg & PEQ_CNTL_MASK;
+	u16 pos = 0;
+	int val = 0;
+
+	switch (cntl) {
+	case PEQ_CNTL_SWITCH:
+		ucontrol->value.integer.value[0] =
+			pdata->peq_switch_mode[index];
+		break;
+	case PEQ_PARAM_CORE_TYPE:
+	case PEQ_PARAM_BANDS_NUM:
+		pos = cntl;
+		val = get24bit((u8 *)pdata->peq_params_array[index], pos);
+		ucontrol->value.integer.value[0] = val;
+		break;
+	case PEQ_PARAM_MASTER_GAIN:
+		pos = cntl;
+		/* 0~80 <- -60~20 <- Q24:12.N */
+		val = get24bit((u8 *)pdata->peq_params_array[index], pos);
+		if (val & 0x00800000) {
+			ucontrol->value.integer.value[0] =
+				((val >> 12) | 0xFFFFF000) - MIN_PEQ_GAIN_DB;
+		} else
+			ucontrol->value.integer.value[0] =
+				(val >> 12) - MIN_PEQ_GAIN_DB;
+		break;
+	case PEQ_PARAM_BAND_FC:
+		pos = (band - 1) * 4 + cntl;
+		/* 20~24000 <- Q24:20.N */
+		val = get24bit((u8 *)pdata->peq_params_array[index], pos);
+		ucontrol->value.integer.value[0] = val >> 4;
+		break;
+	case PEQ_PARAM_BAND_GAIN:
+		pos = (band - 1) * 4 + cntl;
+		/* 0~80 <- -60~20 <- Q24:12.N */
+		val = get24bit((u8 *)pdata->peq_params_array[index], pos);
+		if (val & 0x00800000) {
+			ucontrol->value.integer.value[0] =
+				((val >> 12) | 0xFFFFF000) - MIN_PEQ_GAIN_DB;
+		} else
+			ucontrol->value.integer.value[0] =
+				(val >> 12) - MIN_PEQ_GAIN_DB;
+		break;
+	case PEQ_PARAM_CONFIG:
+	case PEQ_PARAM_BAND_FILTER:
+	case PEQ_PARAM_BAND_Q:
+		/* not support currently */
+		break;
+	}
+	return 0;
+}
+
+static int kas_playback_peq_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	u16 index = (mc->reg & PEQ_BASE_MASK) >> PEQ_BASE_SHIFT;
+	int band = (mc->reg & PEQ_BAND_MASK) >> PEQ_BAND_SHIFT;
+	int cntl = mc->reg & PEQ_CNTL_MASK;
+	u16 pos = 0;
+	int val = 0;
+
+	switch (cntl) {
+	case PEQ_CNTL_SWITCH:
+		pdata->peq_switch_mode[index] =
+			ucontrol->value.integer.value[0];
+		/* 0~2 -> 1~3 */
+		val = ucontrol->value.integer.value[0] + 1;
+		kalimba_set_peq_control(index, val);
+		break;
+	case PEQ_PARAM_CORE_TYPE:
+	case PEQ_PARAM_BANDS_NUM:
+		pos = cntl;
+		val = ucontrol->value.integer.value[0] & Q24_MASK;
+		put24bit((u8 *)pdata->peq_params_array[index], pos, val);
+		kalimba_set_peq_params(index, pos, val);
+		break;
+	case PEQ_PARAM_MASTER_GAIN:
+		pos = cntl;
+		/* 0~80 -> -60~20 -> Q24:12.N */
+		val = ((ucontrol->value.integer.value[0] + MIN_PEQ_GAIN_DB)
+			<< 12) & Q24_MASK;
+		put24bit((u8 *)pdata->peq_params_array[index], pos, val);
+		kalimba_set_peq_params(index, pos, val);
+		break;
+	case PEQ_PARAM_BAND_FC:
+		pos = (band - 1) * 4 + cntl;
+		/* 20~24000 -> Q24:20.N */
+		if (ucontrol->value.integer.value[0] < mc->shift)
+			return -EINVAL;
+		val = (ucontrol->value.integer.value[0] << 4) & Q24_MASK;
+		put24bit((u8 *)pdata->peq_params_array[index], pos, val);
+		kalimba_set_peq_params(index, pos, val);
+		break;
+	case PEQ_PARAM_BAND_GAIN:
+		pos = (band - 1) * 4 + cntl;
+		/* 0~80 -> -60~20 -> Q24:12.N */
+		val = ((ucontrol->value.integer.value[0] + MIN_PEQ_GAIN_DB)
+			<< 12) & Q24_MASK;
+		put24bit((u8 *)pdata->peq_params_array[index], pos, val);
+		kalimba_set_peq_params(index, pos, val);
+		break;
+	case PEQ_PARAM_CONFIG:
+	case PEQ_PARAM_BAND_FILTER:
+	case PEQ_PARAM_BAND_Q:
+		/* not support currently */
+		break;
+	}
+	return 0;
+}
 
 #define MIN_CHANNEL_GAIN_DB		-120
 #define MIN_STREAM_GAIN_DB		-96
@@ -129,7 +336,7 @@ static const DECLARE_TLV_DB_SCALE(kas_channel_vol_tlv,
 static const DECLARE_TLV_DB_SCALE(kas_stream_vol_tlv,
 		MIN_STREAM_GAIN_DB * 100, 100, 0);
 
-static const struct snd_kcontrol_new kas_channels_volume_controls[] = {
+static const struct snd_kcontrol_new kas_controls[] = {
 	SOC_SINGLE_EXT_TLV("Front Left Playback Volume", 0, 0, 129, 0,
 		kas_playback_volume_get, kas_playback_volume_put,
 		kas_channel_vol_tlv),
@@ -151,6 +358,12 @@ static const struct snd_kcontrol_new kas_channels_volume_controls[] = {
 	SOC_SINGLE_EXT_TLV("Alarm Stream Playback Volume", 6, 0, 96, 0,
 		kas_playback_volume_get, kas_playback_volume_put,
 		kas_stream_vol_tlv),
+	/* peq */
+	KAS_PEQ_CONTROLS("User PEQ", USER_PEQ_BASE),
+	KAS_PEQ_CONTROLS("Spk1 PEQ", SPK1_PEQ_BASE),
+	KAS_PEQ_CONTROLS("Spk2 PEQ", SPK2_PEQ_BASE),
+	KAS_PEQ_CONTROLS("Spk3 PEQ", SPK3_PEQ_BASE),
+	KAS_PEQ_CONTROLS("Spk4 PEQ", SPK4_PEQ_BASE),
 };
 
 static int kas_pcm_open(struct snd_pcm_substream *substream)
@@ -258,6 +471,8 @@ static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
 			EXEC_PHASE_HW_PARAMS);
 	if (ret < 0)
 		return ret;
+	for (i = 0; i < PEQ_NUM_MAX; i++)
+		kalimba_set_peq_params_overall(i, pdata->peq_params_array[i]);
 
 	pcm_data->kalimba_notify_ep_id =
 		get_notify_ep_id(pcm_data->components_chain);
@@ -764,6 +979,7 @@ static void kas_pcm_free(struct snd_pcm *pcm)
 static int kas_pcm_probe(struct snd_soc_platform *platform)
 {
 	struct kas_priv_data *priv_data;
+	int i;
 
 	priv_data = devm_kzalloc(platform->dev, sizeof(*priv_data), GFP_KERNEL);
 	if (priv_data == NULL)
@@ -771,6 +987,9 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 
 	snd_soc_platform_set_drvdata(platform, priv_data);
 	priv_data->kcm = kcm_init(platform->dev);
+	for (i = 0; i < PEQ_NUM_MAX; i++)
+		memcpy(priv_data->peq_params_array[i],
+			peq_params_array_def, sizeof(peq_params_array_def));
 	mutex_init(&priv_data->playback_kas_shared_exec_stream_mutex);
 	mutex_init(&priv_data->voicecall_kas_shared_exec_stream_mutex);
 	if (IS_ERR(priv_data->kcm))
@@ -891,8 +1110,8 @@ static const struct snd_soc_dapm_route graph[] = {
 
 static const struct snd_soc_component_driver kas_dai_component = {
 	.name = "kas-dai",
-	.controls = kas_channels_volume_controls,
-	.num_controls = ARRAY_SIZE(kas_channels_volume_controls),
+	.controls = kas_controls,
+	.num_controls = ARRAY_SIZE(kas_controls),
 	.dapm_widgets = widgets,
 	.num_dapm_widgets = ARRAY_SIZE(widgets),
 	.dapm_routes = graph,

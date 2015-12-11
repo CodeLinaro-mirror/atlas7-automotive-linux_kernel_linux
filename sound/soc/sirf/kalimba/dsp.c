@@ -153,6 +153,51 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 	return 0;
 }
 
+void kalimba_set_peq_control(u16 index, u16 mode)
+{
+	u16 msg[4] = {1, 1, 0, mode};
+	u16 peq_op_id;
+
+	kalimba_msg_send_lock();
+	peq_op_id = get_peq_op_id(index);
+	if (peq_op_id)
+		kalimba_operator_message(peq_op_id,
+			OPMSG_COMMON_SET_CONTROL, 4, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
+void kalimba_set_peq_params(u16 index, u16 offset, int val)
+{
+	u16 msg[6] = {1, offset, 1, (u16)((val >> 8) & 0x0000ffff),
+		(u16)((val & 0x000000ff) << 8), 0};
+	u16 peq_op_id;
+
+	kalimba_msg_send_lock();
+	peq_op_id = get_peq_op_id(index);
+	if (peq_op_id)
+		kalimba_operator_message(peq_op_id,
+			OPMSG_COMMON_SET_PARAMS, 6, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
+void kalimba_set_peq_params_overall(u16 index, u16 *data)
+{
+	u16 msg[PEQ_MSG_PARAMS_ARRAY_LEN_16B] = {1, 0, 44};
+	u16 peq_op_id;
+
+	kalimba_msg_send_lock();
+	peq_op_id = get_peq_op_id(index);
+	if (peq_op_id) {
+		memcpy(msg + 3, data, PEQ_PARAMS_ARRAY_LEN_16B * 2);
+		kalimba_operator_message(peq_op_id,
+			OPMSG_COMMON_SET_PARAMS, PEQ_MSG_PARAMS_ARRAY_LEN_16B,
+			msg, NULL, NULL, NULL);
+	}
+	kalimba_msg_send_unlock();
+}
+
 void kalimba_set_channel_volume(int channel, int vol)
 {
 	u16 channels_id[4] = {0x10, 0x11, 0x12, 0x13};
