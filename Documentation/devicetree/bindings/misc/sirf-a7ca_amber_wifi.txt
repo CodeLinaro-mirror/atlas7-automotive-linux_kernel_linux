@@ -1,0 +1,13 @@
+SIRF Soc a7ca_bt and amber wifi configuration
+
+Required properties:
+- compatible: "sirf,amber-9300" or "spidev"
+
+Example:
+
+amber_power_gpio {
+    compatible = "sirf,amber-9300";
+    amber9300_gpio_power = <&gpio_3 15 0>;
+    amber9300_gpio_reset = <&gpio_1 76 0>;
+};
+

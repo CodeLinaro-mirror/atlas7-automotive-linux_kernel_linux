@@ -1,0 +1,94 @@
+/*
+ * DTS file for CSR SiRFatlas7 SoC Internal Bluetooth IP
+ *
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	bt_sco_a2dp: bt-sco-a2dp {
+		#sound-dai-cells = <0>;
+		compatible = "bt-sco-a2dp";
+		status = "disabled";
+	};
+/*
+ * FIXME
+ * Now pcm interface is used in android while i2s interface is used in linux
+ * It is necessay to drop this workaround after i2s interface is used in android
+ */
+	sirf-bt-sco-a2dp {
+		status = "disabled";
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,cpu {
+			sound-dai = <&usp3>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco_a2dp>;
+			bitclock-master;
+			frame-master;
+		};
+	};
+	noc {
+		vdifm {
+			sdhci@14700000 {
+				status = "okay";
+			};
+			mmc2:sdhci@14300000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd3_pmx>;
+				broken-cd;
+			};
+		};
+
+		btm {
+			usp3: usp@11001000 {
+				status = "okay";
+				#sound-dai-cells = <0>;
+			};
+
+			uart6: uart@11000000 {
+				status = "okay";
+				sirf,uart-has-rtscts;
+			};
+			a7ca: a7ca_bt@11003000 {
+				compatible = "sirf,a7ca_bt";
+				clocks = <&car 135>, <&car 134>, <&car 139>,
+					<&car 85>;
+				clock-names="a7ca_btss","a7ca_btslow",
+				"a7ca_io","analogtest_xin";
+				reg = <0x11003000 0x1000>;
+			};
+			amber_power_gpio {
+				compatible = "sirf,amber-9300";
+				amber9300_gpio_power = <&gpio_3 15 0>;
+				amber9300_gpio_reset = <&gpio_1 76 0>;
+			};
+		};
+		audiom {
+			usp1: usp@10d30000 {
+				status = "okay";
+				compatible = "sirf,atlas7-usp-spi";
+				pinctrl-names = "default";
+				pinctrl-0 = <&audio_uart1_basic_pmx
+						&audio_uart1_urfs_pmx0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				spidev@0 {
+					compatible = "spidev";
+					reg = <0>;
+					spi-max-frequency = <1000000>;
+				};
+			};
+		};
+	};
+};
