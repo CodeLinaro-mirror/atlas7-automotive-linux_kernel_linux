@@ -34,6 +34,7 @@ struct atlas7_gps_info {
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	spinlock_t lock;
 	u32 base;
+	struct clk *clk;
 	int virq[4];
 };
 
@@ -193,6 +194,43 @@ static irqreturn_t atlas7_gps_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int atlas7_gps_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct atlas7_gps_info *info = platform_get_drvdata(pdev);
+	struct clk *clk = info->clk;
+
+	clk_disable_unprepare(clk);
+	return 0;
+}
+
+static int atlas7_gps_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct atlas7_gps_info *info = platform_get_drvdata(pdev);
+	struct clk *clk = info->clk;
+	int ret;
+
+	ret = clk_prepare_enable(clk);
+	if (ret) {
+		dev_err(&pdev->dev, "Error enable clock\n");
+		return ret;
+	}
+
+	ret = device_reset(&pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to reset\n");
+		return ret;
+	}
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(atlas7_gps_pm_ops,
+		atlas7_gps_suspend, atlas7_gps_resume);
+
 static int atlas7_gps_probe(struct platform_device *pdev)
 {
 
@@ -222,8 +260,7 @@ static int atlas7_gps_probe(struct platform_device *pdev)
 
 	if (!info->regmap) {
 		dev_err(&pdev->dev, "no regmap!\n");
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
 
 	clk = devm_clk_get(&pdev->dev, NULL);
@@ -232,11 +269,12 @@ static int atlas7_gps_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Error enable clock\n");
 		return ret;
 	}
+	info->clk  = clk;
 
 	ret = device_reset(&pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to reset\n");
-		return -EINVAL;
+		goto out;
 	}
 	for (i = 0; i < ARRAY_SIZE(gps_virq_name); i++) {
 
@@ -263,6 +301,7 @@ static int atlas7_gps_probe(struct platform_device *pdev)
 
 	return 0;
 out:
+	clk_disable_unprepare(clk);
 	return ret;
 }
 
@@ -272,7 +311,7 @@ static struct platform_driver atlas7_gps_driver = {
 		.name = "atlas7_gps",
 		.owner = THIS_MODULE,
 		.of_match_table = atlas7_gps_ids,
-
+		.pm = &atlas7_gps_pm_ops,
 	},
 };
 
