@@ -297,6 +297,9 @@ struct vip_dev {
 /* Camera Control register */
 #define CAM_CTRL			0x10
 #define CAM_CTRL_INIT			(1 << 31)
+#define CAM_DDR_DETECT_MODE		(1 << 30)
+#define CAM_DDR_DETECT_STATUS	(1 << 29)
+#define CAM_DDR_NEGPOS_EN		(1 << 28)
 #define CAM_CTRL_USE_OLD_SYNC		(1 << 27)
 #define CAM_CTRL_DDR_SYNC_EN		(1 << 26)
 #define CAM_CTRL_FID			(1 << 25)

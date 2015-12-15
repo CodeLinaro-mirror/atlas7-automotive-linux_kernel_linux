@@ -684,9 +684,11 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 	switch (vip->data_mode) {
 	case VIP_DATA_SAMPLE_MODE_SDR:
 		val &= ~CAM_CTRL_DDR_SYNC_EN;
+		val &= ~CAM_DDR_NEGPOS_EN;
 		break;
 	case VIP_DATA_SAMPLE_MODE_DDR:
 		val |= CAM_CTRL_DDR_SYNC_EN;
+		val |= CAM_DDR_NEGPOS_EN;
 		break;
 	default:
 		pr_err("%s(%d): unknown data mode 0x%x\n",
