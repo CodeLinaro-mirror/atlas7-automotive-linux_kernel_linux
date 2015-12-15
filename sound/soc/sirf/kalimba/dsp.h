@@ -73,9 +73,9 @@ void unregister_kalimba_msg_action(void *action_id);
 void kalimba_do_actions(u16 message, u16 *data);
 void kalimba_set_channel_volume(int channel, int vol);
 void kalimba_set_stream_volume(int stream, int vol);
+void kalimba_set_music_passthrough_volume(int vol);
 void kalimba_set_peq_control(u16 index, u16 mode);
 void kalimba_set_peq_params(u16 index, u16 offset, int val);
-void kalimba_set_peq_params_overall(u16 index, u16 *data);
 
 #define ENDPOINT_TYPE_USP			1
 #define ENDPOINT_TYPE_I2S			2
@@ -97,7 +97,7 @@ void kalimba_set_peq_params_overall(u16 index, u16 *data);
 #define MESSAGE_SEND_ADDR			0xFFAF9C
 #define MESSAGE_SEND_ACK_ADDR			0x007FA0
 
-#define CAPABILITY_ID_BASIC_PASSTHOUGH		0x0001
+#define CAPABILITY_ID_BASIC_PASSTHROUGH		0x0001
 #define CAPABILITY_ID_RESAMPLER			0x0009
 #define CAPABILITY_ID_MIXER			0x000A
 #define CAPABILITY_ID_SPLITTER			0x0013
@@ -108,7 +108,7 @@ void kalimba_set_peq_params_overall(u16 index, u16 *data);
 #define CAPABILITY_ID_PEQ			0x0049
 
 #define AEC_REF_SET_SAMPLE_RATES		0x00FE
-#define OPERATOR_MSG_SET_CVC_PARAM		0x2007
+#define OPERATOR_MSG_SET_UCID			0x2007
 #define OPERATOR_MSG_SET_CVC_SAMPLE_RATE	0x1F40
 #define MIXER_SUPPORT_STREAMS			3
 
@@ -139,6 +139,8 @@ void kalimba_set_peq_params_overall(u16 index, u16 *data);
 #define OPERATOR_MSG_SET_CHANNELS		2
 #define OPERATOR_MSG_SET_GAINS			1
 #define OPERATOR_MSG_SET_PRIMARY_STREAM		4
+
+#define OPERATOR_MSG_SET_PASSTHROUGH_GAIN	2
 
 #define GET_SOURCE_REQ				0x0008
 #define GET_SOURCE_RSP				0x1008

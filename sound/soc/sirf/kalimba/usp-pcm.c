@@ -82,7 +82,7 @@ void sirf_usp_pcm_stop(int playback)
 		sirf_usp_rx_disable(usp);
 }
 
-void sirf_usp_pcm_params(int channels, int rate)
+void sirf_usp_pcm_params(int playback, int channels, int rate)
 {
 	u32 data_len = 16;
 	u32 frame_len, shifter_len;
@@ -95,26 +95,29 @@ void sirf_usp_pcm_params(int channels, int rate)
 	frame_len = data_len * channels;
 	data_len = frame_len;
 
-	regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
+	if (playback)
+		regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
 			USP_TXC_DATA_LEN_MASK | USP_TXC_FRAME_LEN_MASK
 			| USP_TXC_SHIFTER_LEN_MASK | USP_TXC_SLAVE_CLK_SAMPLE,
 			((data_len - 1) << USP_TXC_DATA_LEN_OFFSET)
 			| ((frame_len - 1) << USP_TXC_FRAME_LEN_OFFSET)
 			| ((shifter_len - 1) << USP_TXC_SHIFTER_LEN_OFFSET)
 			| USP_TXC_SLAVE_CLK_SAMPLE);
-	regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
+	else {
+		regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
 			USP_RXC_DATA_LEN_MASK | USP_RXC_FRAME_LEN_MASK
 			| USP_RXC_SHIFTER_LEN_MASK | USP_SINGLE_SYNC_MODE,
 			((data_len - 1) << USP_RXC_DATA_LEN_OFFSET)
 			| ((frame_len - 1) << USP_RXC_FRAME_LEN_OFFSET)
 			| ((shifter_len - 1) << USP_RXC_SHIFTER_LEN_OFFSET)
 			| USP_SINGLE_SYNC_MODE);
-	/*
-	 * In single sync mode, TFS is used both as TX and RX, and is
-	 * driven by peer. So it should be set to slave mode.
-	 */
-	regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
+		/*
+		 * In single sync mode, TFS is used both as TX and RX, and is
+		 * driven by peer. So it should be set to slave mode.
+		 */
+		regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
 			USP_TXC_SLAVE_CLK_SAMPLE, USP_TXC_SLAVE_CLK_SAMPLE);
+	}
 }
 
 static void sirf_usp_i2s_init(struct sirf_usp *usp)

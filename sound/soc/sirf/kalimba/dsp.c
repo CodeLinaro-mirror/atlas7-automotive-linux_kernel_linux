@@ -158,6 +158,7 @@ void kalimba_set_peq_control(u16 index, u16 mode)
 	u16 msg[4] = {1, 1, 0, mode};
 	u16 peq_op_id;
 
+	set_default_music_peq_control(index, mode);
 	kalimba_msg_send_lock();
 	peq_op_id = get_peq_op_id(index);
 	if (peq_op_id)
@@ -173,28 +174,13 @@ void kalimba_set_peq_params(u16 index, u16 offset, int val)
 		(u16)((val & 0x000000ff) << 8), 0};
 	u16 peq_op_id;
 
+	set_default_music_peq_params(index, offset, val);
 	kalimba_msg_send_lock();
 	peq_op_id = get_peq_op_id(index);
 	if (peq_op_id)
 		kalimba_operator_message(peq_op_id,
 			OPMSG_COMMON_SET_PARAMS, 6, msg,
 			NULL, NULL, NULL);
-	kalimba_msg_send_unlock();
-}
-
-void kalimba_set_peq_params_overall(u16 index, u16 *data)
-{
-	u16 msg[PEQ_MSG_PARAMS_ARRAY_LEN_16B] = {1, 0, 44};
-	u16 peq_op_id;
-
-	kalimba_msg_send_lock();
-	peq_op_id = get_peq_op_id(index);
-	if (peq_op_id) {
-		memcpy(msg + 3, data, PEQ_PARAMS_ARRAY_LEN_16B * 2);
-		kalimba_operator_message(peq_op_id,
-			OPMSG_COMMON_SET_PARAMS, PEQ_MSG_PARAMS_ARRAY_LEN_16B,
-			msg, NULL, NULL, NULL);
-	}
 	kalimba_msg_send_unlock();
 }
 
@@ -206,6 +192,7 @@ void kalimba_set_channel_volume(int channel, int vol)
 		(u16)(volume_setting & 0xffff)};
 	u16 volume_control_op_id;
 
+	set_default_volume_ctrl_volume(channel, volume_setting);
 	kalimba_msg_send_lock();
 	volume_control_op_id = get_volume_control_op_id();
 	if (volume_control_op_id)
@@ -215,20 +202,43 @@ void kalimba_set_channel_volume(int channel, int vol)
 	kalimba_msg_send_unlock();
 }
 
+void kalimba_set_music_passthrough_volume(int vol)
+{
+	u16 passthrough_op_id;
+	u16 passthrough_volume_setting = (u16)(vol * 60);
+
+	set_default_music_passthrough_volume(passthrough_volume_setting);
+	kalimba_msg_send_lock();
+	passthrough_op_id = get_music_passthrough_op_id();
+	if (passthrough_op_id)
+		kalimba_operator_message(passthrough_op_id,
+			OPERATOR_MSG_SET_PASSTHROUGH_GAIN, 1,
+			&passthrough_volume_setting, NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
 void kalimba_set_stream_volume(int stream, int vol)
 {
 	int i;
 	u16 mixer_op_id;
-	static u16 streams_volume[MIXER_SUPPORT_STREAMS];
+	static u16 streams_volume[MIXER_SUPPORT_STREAMS * 2];
 	u16 msg[MIXER_SUPPORT_STREAMS];
 
 	streams_volume[stream] = (u16)(vol * 60);
+	set_default_mixer_stream_volume(stream, streams_volume[stream]);
 
-	for (i = 0; i < MIXER_SUPPORT_STREAMS; i++)
-		msg[i] = streams_volume[i];
+	for (i = 0; i < MIXER_SUPPORT_STREAMS; i++) {
+		if (stream < MIXER_SUPPORT_STREAMS)
+			msg[i] = streams_volume[i];
+		else
+			msg[i] = streams_volume[i + 3];
+	}
 
 	kalimba_msg_send_lock();
-	mixer_op_id = get_mixer_op_id();
+	if (stream < MIXER_SUPPORT_STREAMS)
+		mixer_op_id = get_mixer_op_id(1);
+	else
+		mixer_op_id = get_mixer_op_id(2);
 	if (mixer_op_id)
 		kalimba_operator_message(mixer_op_id, OPERATOR_MSG_SET_GAINS,
 			MIXER_SUPPORT_STREAMS, msg, NULL, NULL, NULL);
@@ -365,7 +375,6 @@ void kalimba_config_endpoint(u16 endpoint_id, u16 config_key,
 		config_key, config_value & 0xffff, config_value >> 16};
 
 	ipc_send_msg(msg, 6, MSG_NEED_ACK | MSG_NEED_RSP, resp);
-
 }
 
 void kalimba_connect_endpoints(u16 source_endpoint_id, u16 sink_endpoint_id,

@@ -18,7 +18,7 @@ struct hw_ep_handle_buff_t {
 	u32 handle_phy_addr;
 	void *buff;
 	u32 sample_rate;
-	u32 channels;
+	u16 channels;
 	u32 audio_data_format;
 	u32 packing_format;
 	u32 interleaving_format;
@@ -29,7 +29,6 @@ struct hw_ep_handle_buff_t {
 struct kcm_t {
 	struct hw_ep_handle_buff_t playback_iacc_ep;
 	struct hw_ep_handle_buff_t capture_iacc_ep;
-	struct hw_ep_handle_buff_t playback_iacc_sco_ep;
 	struct hw_ep_handle_buff_t capture_iacc_sco_ep;
 	struct hw_ep_handle_buff_t playback_usp_sco_ep;
 	struct hw_ep_handle_buff_t capture_usp_sco_ep;
@@ -38,43 +37,65 @@ struct kcm_t {
 
 struct component {
 	u32 component_id;
-	u32 execute_phase;
-	u32 extend_info;
 	u32 params[16];
 	u16 ret[16];
-	struct component *component_next;
+	int primary_stream;
+	int create_refcnt;
+	int running_refcnt;
+	int id_count;
 };
 
-struct external_params {
-	char *key;
-	u32 value;
-};
+static inline u32 get24bit(u8 *buf, u16 pos)
+{
+#ifdef __LITTLE_ENDIAN
+	if (pos % 2) {
+		return buf[3 * pos + 1] + (buf[3 * pos + 2] << 8)
+			+ (buf[3 * pos - 1] << 16);
+	} else {
+		return buf[3 * pos + 3] + (buf[3 * pos] << 8)
+			+ (buf[3 * pos + 1] << 16);
+	}
+#else
+	return buf[3 * pos] + (buf[3 * pos + 1] << 8)
+			+ (buf[3 * pos - 1] << 16);
+#endif
+}
 
-struct components_chain {
-	struct list_head node;
-	struct external_params external_params_map[64];
-	struct component components[256];
-	u16 *notify_ep_id;
-	char *stream_name;
-	struct component *component_first;
-	int stream_id;
-};
+static inline void put24bit(u8 *buf, u16 pos, u32 data)
+{
+#ifdef __LITTLE_ENDIAN
+	if (pos % 2) {
+		buf[3 * pos + 1] = data;
+		buf[3 * pos + 2] = data >> 8;
+		buf[3 * pos - 1] = data >> 16;
+	} else {
+		buf[3 * pos + 3] = data;
+		buf[3 * pos] = data >> 8;
+		buf[3 * pos + 1] = data >> 16;
+	}
+#else
+	buf[3 * pos] = data;
+	buf[3 * pos + 1] = data >> 8;
+	buf[3 * pos + 2] = data >> 16;
+#endif
+}
 
-int set_external_param(struct components_chain *components_chain,
-	char *key, u32 value);
-struct components_chain *get_components_chain(const char *stream_name);
-u16 get_notify_ep_id(struct components_chain *components_chain);
+void set_default_music_peq_params(int index, int offset, int val);
+void set_default_music_peq_control(int index, u16 mode);
+void set_default_music_passthrough_volume(u16 volume);
+void set_default_volume_ctrl_volume(int channel, u32 volume);
+void set_default_mixer_stream_volume(int stream, u16 volume);
 u16 get_volume_control_op_id(void);
-int execute_global_shared_components(u32 exec_phase);
-int execute_cvc_shared_components(u32 exec_phase);
-u16 get_mixer_op_id(void);
+u16 get_mixer_op_id(int which);
+u16 get_music_passthrough_op_id(void);
 u16 get_peq_op_id(u16 index);
-int execute_components_chain(struct components_chain *components_chain,
-	u32 exec_phase);
-struct component *get_data_produced_ack_component(
-	struct components_chain *components_chain);
-struct component *get_control_component(int ctype);
 int execute_component(struct component *component);
 struct kcm_t *kcm_init(struct device *dev);
 void kcm_deinit(struct device *dev);
+u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
+	int clock_master, int period_size);
+void start_stream(int stream, int clock_master);
+void stop_stream(int stream);
+void destroy_stream(int stream);
+void data_produced(u16 endpoint_id);
 #endif

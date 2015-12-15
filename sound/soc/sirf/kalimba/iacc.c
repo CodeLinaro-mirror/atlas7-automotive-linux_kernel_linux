@@ -19,6 +19,8 @@
 struct atlas7_iacc {
 	struct clk *clk;
 	struct regmap *regmap;
+	int tx_count;
+	int rx_count;
 };
 
 static struct atlas7_iacc *atlas7_iacc;
@@ -38,23 +40,31 @@ static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 {
 	int i;
 
-	if (channels == IACC_TX_CHANNELS)
-		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_MODE_CTRL,
-			TX_SYNC_EN | TX_START_SYNC_EN,
-			TX_SYNC_EN | TX_START_SYNC_EN);
+	if (atlas7_iacc->tx_count == 0) {
+		if (channels == IACC_TX_CHANNELS)
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_MODE_CTRL,
+				TX_SYNC_EN | TX_START_SYNC_EN,
+				TX_SYNC_EN | TX_START_SYNC_EN);
 
-	for (i = 0; i < channels; i++)
-		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
-			DAC_EN << i, DAC_EN << i);
+		for (i = 0; i < channels; i++)
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TX_RX_EN,
+				DAC_EN << i, DAC_EN << i);
+	}
+	atlas7_iacc->tx_count++;
 }
 
 static void atlas7_iacc_tx_disable(struct atlas7_iacc *atlas7_iacc)
 {
 	int i;
 
-	for (i = 0; i < IACC_TX_CHANNELS; i++)
-		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
-			DAC_EN << i, 0);
+	atlas7_iacc->tx_count--;
+	if (atlas7_iacc->tx_count == 0) {
+		for (i = 0; i < IACC_TX_CHANNELS; i++)
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TX_RX_EN, DAC_EN << i, 0);
+	}
 }
 
 static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
@@ -63,22 +73,28 @@ static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
 	int i;
 	u32 rx_dma_ctrl = 0;
 
-	for (i = 0; i < channels; i++) {
-		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
-			ADC_EN << i, ADC_EN << i);
-		rx_dma_ctrl |= (1 << i);
+	if (atlas7_iacc->rx_count == 0) {
+		for (i = 0; i < channels; i++) {
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TX_RX_EN, ADC_EN << i, ADC_EN << i);
+			rx_dma_ctrl |= (1 << i);
+		}
+		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
+			RX_DMA_CTRL_MASK, rx_dma_ctrl << RX_DMA_CTRL_SHIFT);
 	}
-	regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_RXFIFO0_OP,
-		RX_DMA_CTRL_MASK, rx_dma_ctrl << RX_DMA_CTRL_SHIFT);
+	atlas7_iacc->rx_count++;
 }
 
 static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)
 {
 	int i;
 
-	for (i = 0; i < IACC_RX_CHANNELS; i++)
-		regmap_update_bits(atlas7_iacc->regmap, INTCODECCTL_TX_RX_EN,
-			ADC_EN << i, 0);
+	atlas7_iacc->rx_count--;
+	if (atlas7_iacc->rx_count == 0) {
+		for (i = 0; i < IACC_RX_CHANNELS; i++)
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TX_RX_EN, ADC_EN << i, 0);
+	}
 }
 
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG

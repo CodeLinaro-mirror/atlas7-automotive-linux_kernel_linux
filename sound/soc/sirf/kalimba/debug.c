@@ -175,7 +175,8 @@ static int setup_audio_unit(unsigned long arg)
 			goto out;
 		break;
 	case CTRL_DEVICE_TYPE_USP:
-		sirf_usp_pcm_params(pchannels, SampleRate);
+		sirf_usp_pcm_params(0, pchannels, SampleRate);
+		sirf_usp_pcm_params(1, pchannels, SampleRate);
 		break;
 	default:
 		ret = -EINVAL;

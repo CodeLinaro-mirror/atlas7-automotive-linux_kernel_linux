@@ -22,1665 +22,1489 @@
 #include "ipc.h"
 #include "kcm.h"
 
-#define BUFF_BYTES_EACH_CHANNEL		256
+#define BUFF_BYTES_EACH_CHANNEL		192
 #define BUFF_BYTES_IACC_SCO_PLAYBACK	192
-#define BUFF_BYTES_IACC_SCO_CAPTURE	64
+#define BUFF_BYTES_IACC_SCO_CAPTURE	192
 #define BUFF_BYTES_USP_SCO_PLAYBACK	480
 #define BUFF_BYTES_USP_SCO_CAPTURE	480
 
 #define SET_PRIMARY_STREAM		0
 #define CLEAR_PRIMARY_STREAM		1
 
+#define MUSIC_STREAM			0
+#define NAVIGATION_STREAM		1
+#define ALARM_STREAM			2
+#define A2DP_STREAM			3
+#define VOICECALL_BT_TO_IACC_STREAM	4
+#define ANALOG_CAPTURE_STREAM		5
+#define VOICECALL_IACC_TO_BT_STREAM	6
+
+#define TOTAL_SUPPORT_STREAMS		8
+
 static struct kcm_t *kcm;
 
-static struct list_head components_chain_list;
+static struct component components_global[512];
+static int pipeline_link[TOTAL_SUPPORT_STREAMS][64];
+static int pipeline_link_count[TOTAL_SUPPORT_STREAMS];
+static u16 sw_endpoint_id[TOTAL_SUPPORT_STREAMS][8];
+static int sw_channels[TOTAL_SUPPORT_STREAMS];
+static u16 resample_op_id[TOTAL_SUPPORT_STREAMS];
+static u16 sw_endpoint_connect_id[TOTAL_SUPPORT_STREAMS][8];
+static int music_passthrough;
+static int music_splitter;
+static int music_resampler;
+static int music_usr_peq;
+static int music_spk_peq[4];
+static int mixer_1, mixer_2;
+static int volume_ctrl;
+static int aec_ref;
 
-static struct component components_shared[256];
-static struct component components_cvc_shared[256];
-static int shared_components_size;
-static int cvc_shared_components_size;
+static int cvc_send;
+
+static int iacc_source;
+static int iacc_sink;
+
+static int music_passthrough_to_resampler_connection[2];
+static int music_resampler_to_splitter_connection[2];
+static int music_splitter_to_usrpeq_connection[4];
+static int music_usrpeq_to_spkpeq_connection[4];
+static int music_spkpeq_to_mixer1_connection[4];
+static int mixer1_to_mixer2_connection[4];
+static int mixer2_to_volumectrl_connection[4];
+static int volumectrl_to_aecref_connection[4];
+static int aecref_to_iaccsink_connection[4];
+
+static u16 aecref_to_cvcsend_ref_connect_id;
+
 static unsigned long active_stream;
-static int curr_primary_stream;
-static u16 *volume_control_op_id;
-static u16 *mixer_op_id;
-static u16 *peq_op_id[PEQ_NUM_MAX];
 
-/* PEQ default sample rate: 48KHz, for init */
-static u16 peq_sample_rate = PEQ_SAMPLE_RATE;
-
-/* Hard code for init the components chain */
-static u32 ep_configure_key[] = {
-	ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
-	ENDPOINT_CONF_AUDIO_DATA_FORMAT,
-	ENDPOINT_CONF_DRAM_PACKING_FORMAT,
-	ENDPOINT_CONF_INTERLEAVING_MODE,
-	ENDPOINT_CONF_CLOCK_MASTER,
-	ENDPOINT_CONF_PERIOD_SIZE,
+static u16 mixer1_default_streams_volume[MIXER_SUPPORT_STREAMS];
+static u16 mixer2_default_streams_volume[MIXER_SUPPORT_STREAMS];
+static u16 volume_ctrl_default_volumes[4][4] = {
+	{1, 0x10, 0, 0},
+	{1, 0x11, 0, 0},
+	{1, 0x12, 0, 0},
+	{1, 0x13, 0, 0}
+};
+static u16 music_passthrough_default_volume;
+static u16 music_peqs_defaule_control_mode[PEQ_NUM_MAX][4] = {
+	{1, 1, 0, 2},
+	{1, 1, 0, 2},
+	{1, 1, 0, 2},
+	{1, 1, 0, 2},
+	{1, 1, 0, 2}
+};
+static u16 music_peqs_default_params[PEQ_NUM_MAX]
+	[PEQ_MSG_PARAMS_ARRAY_LEN_16B] = {
+	{1, 0, 44},
+	{1, 0, 44},
+	{1, 0, 44},
+	{1, 0, 44},
+	{1, 0, 44}
 };
 
-static char *sw_ep_configure_params_key[] = {
-	"sw_ep_conf_audio_sample_rate",
-	"sw_ep_conf_audio_data_format",
-	"sw_ep_conf_dram_packing_format",
-	"sw_ep_conf_interleaving_mode",
-	"sw_ep_conf_clock_master",
-	"sw_ep_period_size",
-	"sw_ep_channles",
-	"sw_ep_handle_addr",
-};
-
-static void init_shared_components(void)
+void set_default_music_peq_params(int index, int offset, int val)
 {
-	int i;
-	static u16 mixer_oper_conf_channels[3] = {0x4, 0x4, 0x4};
+	put24bit((u8 *)(&music_peqs_default_params[index][3]), offset, val);
+}
+
+void set_default_music_peq_control(int index, u16 mode)
+{
+	music_peqs_defaule_control_mode[index][3] = mode;
+}
+
+void set_default_music_passthrough_volume(u16 volume)
+{
+	music_passthrough_default_volume = volume;
+}
+
+void set_default_volume_ctrl_volume(int channel, u32 volume)
+{
+	volume_ctrl_default_volumes[channel][2] = (u16)(volume >> 16);
+	volume_ctrl_default_volumes[channel][3] = (u16)(volume & 0xffff);
+}
+
+void set_default_mixer_stream_volume(int stream, u16 volume)
+{
+	if (stream < MIXER_SUPPORT_STREAMS)
+		mixer1_default_streams_volume[stream] = volume;
+	else
+		mixer2_default_streams_volume[stream - MIXER_SUPPORT_STREAMS] =
+			volume;
+}
+
+static int init_music_pipeline(void)
+{
+	int i = 0, k, j = 0;
+	static u16 aec_ref_sample_rate_config[2] = {48000, 16000};
+	static u16 aec_ref_ucid = 4;
+	static u16 mixer_oper_conf_channels[MIXER_SUPPORT_STREAMS] = {
+		0x4, 0x4, 0x4};
 	/*
 	 * Mixer need set the sample rate for avoid noise.
 	 * The value is "sample rate / 25".
 	 */
 	static u16 mixer_sample_rate = 48000 / 25;
 
-	components_shared[0].component_id = CREATE_OPERATOR_REQ;
-	components_shared[0].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[0].params[0] = CAPABILITY_ID_MIXER;
+	/* Music stream pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_BASIC_PASSTHROUGH;
+	components_global[i].params[1] = 1; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_SET_PASSTHROUGH_GAIN;
+	components_global[i].params[3] = 1;
+	components_global[i].params[4] =
+		(u32)(&music_passthrough_default_volume);
+	music_passthrough = i;
+	i++;
 
-	mixer_op_id = &(components_shared[0].ret[0]);
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[MUSIC_STREAM] = i;
+	music_resampler = i;
+	i++;
 
-	components_shared[1].component_id = OPERATOR_MESSAGE_REQ;
-	components_shared[1].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[1].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[1].params[1] = OPERATOR_MSG_SET_CHANNELS;
-	components_shared[1].params[2] = 3;
-	components_shared[1].params[3] = (u32)(mixer_oper_conf_channels);
+	for (k = 0; k < 2; k++) {
+		music_passthrough_to_resampler_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_passthrough].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_resampler].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
 
-	components_shared[2].component_id = OPERATOR_MESSAGE_REQ;
-	components_shared[2].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[2].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[2].params[1] = OPMSG_COMMON_SET_SAMPLE_RATE;
-	components_shared[2].params[2] = 1;
-	components_shared[2].params[3] = (u32)(&mixer_sample_rate);
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	music_splitter = i;
+	i++;
 
-	components_shared[3].component_id = GET_SINK_REQ;
-	components_shared[3].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[3].params[0] = ENDPOINT_TYPE_IACC;
-	components_shared[3].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components_shared[3].params[2] = (u32)(&kcm->playback_iacc_ep.channels);
-	components_shared[3].params[3] =
-		(u32)(&kcm->playback_iacc_ep.handle_phy_addr);
+	for (k = 0; k < 2; k++) {
+		music_resampler_to_splitter_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_resampler].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_splitter].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
 
-	components_shared[4].component_id = CREATE_OPERATOR_REQ;
-	components_shared[4].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_shared[4].params[0] = CAPABILITY_ID_VOLUME_CONTROL;
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_PEQ;
+	components_global[i].params[1] = 2; /* Config items */
+	components_global[i].params[2] = OPMSG_COMMON_SET_CONTROL;
+	components_global[i].params[3] = 4;
+	components_global[i].params[4] =
+		(u32)(music_peqs_defaule_control_mode[0]);
+	components_global[i].params[5] = OPMSG_COMMON_SET_PARAMS;
+	components_global[i].params[6] = PEQ_MSG_PARAMS_ARRAY_LEN_16B;
+	components_global[i].params[7] = (u32)(music_peqs_default_params[0]);
+	music_usr_peq = i;
+	i++;
 
-	/* Init the volume control operator id pointer */
-	volume_control_op_id = &(components_shared[4].ret[0]);
+	music_splitter_to_usrpeq_connection[0] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[music_splitter].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[music_usr_peq].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
 
-	for (i = 0; i < 4; i++) {
-		components_shared[5 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[5 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[5 + i].params[0] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[5 + i].params[1] =
-			ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-		components_shared[5 + i].params[2] =
+	music_splitter_to_usrpeq_connection[1] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[music_splitter].ret[0]);
+	components_global[i].params[1] = 0x2001;
+	components_global[i].params[2] =
+		(u32)(&components_global[music_usr_peq].ret[0]);
+	components_global[i].params[3] = 0xA002;
+	i++;
+
+	music_splitter_to_usrpeq_connection[2] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[music_splitter].ret[0]);
+	components_global[i].params[1] = 0x2002;
+	components_global[i].params[2] =
+		(u32)(&components_global[music_usr_peq].ret[0]);
+	components_global[i].params[3] = 0xA001;
+	i++;
+
+	music_splitter_to_usrpeq_connection[3] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[music_splitter].ret[0]);
+	components_global[i].params[1] = 0x2003;
+	components_global[i].params[2] =
+		(u32)(&components_global[music_usr_peq].ret[0]);
+	components_global[i].params[3] = 0xA003;
+	i++;
+
+	/* Create spk PEQs */
+	for (k = 0; k < 4; k++) {
+		music_spk_peq[k] = i;
+		components_global[i].component_id = CREATE_OPERATOR_REQ;
+		components_global[i].params[0] = CAPABILITY_ID_PEQ;
+		components_global[i].params[1] = 2; /* Config items */
+		components_global[i].params[2] = OPMSG_COMMON_SET_CONTROL;
+		components_global[i].params[3] = 4;
+		components_global[i].params[4] =
+			(u32)(music_peqs_defaule_control_mode[k + 1]);
+		components_global[i].params[5] = OPMSG_COMMON_SET_PARAMS;
+		components_global[i].params[6] = PEQ_MSG_PARAMS_ARRAY_LEN_16B;
+		components_global[i].params[7] =
+			(u32)(music_peqs_default_params[k + 1]);
+		i++;
+	}
+
+	/* Connect PEQ with spk PEQs */
+	for (k = 0; k < 4; k++) {
+		music_usrpeq_to_spkpeq_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_usr_peq].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_spk_peq[k]].ret[0]);
+		components_global[i].params[3] = 0xA000;
+		i++;
+	}
+
+	mixer_1 = i;
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_MIXER;
+	components_global[i].params[1] = 3; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_SET_CHANNELS;
+	components_global[i].params[3] = MIXER_SUPPORT_STREAMS;
+	components_global[i].params[4] = (u32)(mixer_oper_conf_channels);
+	components_global[i].params[5] = OPMSG_COMMON_SET_SAMPLE_RATE;
+	components_global[i].params[6] = 1;
+	components_global[i].params[7] = (u32)(&mixer_sample_rate);
+	components_global[i].params[8] = OPERATOR_MSG_SET_GAINS;
+	components_global[i].params[9] = MIXER_SUPPORT_STREAMS;
+	components_global[i].params[10] = (u32)(mixer1_default_streams_volume);
+	i++;
+
+	mixer_2 = i;
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_MIXER;
+	components_global[i].params[1] = 3; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_SET_CHANNELS;
+	components_global[i].params[3] = MIXER_SUPPORT_STREAMS;
+	components_global[i].params[4] = (u32)(mixer_oper_conf_channels);
+	components_global[i].params[5] = OPMSG_COMMON_SET_SAMPLE_RATE;
+	components_global[i].params[6] = 1;
+	components_global[i].params[7] = (u32)(&mixer_sample_rate);
+	components_global[i].params[8] = OPERATOR_MSG_SET_GAINS;
+	components_global[i].params[9] = MIXER_SUPPORT_STREAMS;
+	components_global[i].params[10] = (u32)(mixer2_default_streams_volume);
+	i++;
+
+	/* Mixer first connect to mixer second */
+	for (k = 0; k < 4; k++) {
+		mixer1_to_mixer2_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[mixer_1].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[mixer_2].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	/* Connect spk PEQs with Mixer stream 1 */
+	for (k = 0; k < 4; k++) {
+		music_spkpeq_to_mixer1_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_spk_peq[k]].ret[0]);
+		components_global[i].params[1] = 0x2000;
+		components_global[i].params[2] =
+			(u32)(&components_global[mixer_1].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	volume_ctrl = i;
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_VOLUME_CONTROL;
+	components_global[i].params[1] = 4; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
+	components_global[i].params[3] = 4;
+	components_global[i].params[4] = (u32)(volume_ctrl_default_volumes[0]);
+	components_global[i].params[5] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
+	components_global[i].params[6] = 4;
+	components_global[i].params[7] = (u32)(volume_ctrl_default_volumes[1]);
+	components_global[i].params[8] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
+	components_global[i].params[9] = 4;
+	components_global[i].params[10] = (u32)(volume_ctrl_default_volumes[2]);
+	components_global[i].params[11] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
+	components_global[i].params[12] = 4;
+	components_global[i].params[13] = (u32)(volume_ctrl_default_volumes[3]);
+	i++;
+
+	/* Connect Mixer with Volume control */
+	for (k = 0; k < 4; k++) {
+		mixer2_to_volumectrl_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[mixer_2].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[volume_ctrl].ret[0]);
+		components_global[i].params[3] = 0xA000 + k * 2;
+		i++;
+	}
+
+	/* AEC-Ref */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_AEC_REF_1MIC;
+	components_global[i].params[1] = 2;
+	components_global[i].params[2] = AEC_REF_SET_SAMPLE_RATES;
+	components_global[i].params[3] = ARRAY_SIZE(aec_ref_sample_rate_config);
+	components_global[i].params[4] = (u32)(aec_ref_sample_rate_config);
+	components_global[i].params[5] = OPERATOR_MSG_SET_UCID;
+	components_global[i].params[6] = 1;
+	components_global[i].params[7] = (u32)(&aec_ref_ucid);
+	aec_ref = i;
+	i++;
+
+	/* Connect Volume control to AEC-REF */
+	volumectrl_to_aecref_connection[0] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[volume_ctrl].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	volumectrl_to_aecref_connection[1] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[volume_ctrl].ret[0]);
+	components_global[i].params[1] = 0x2001;
+	components_global[i].params[2] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[3] = 0xA001;
+	i++;
+
+	volumectrl_to_aecref_connection[2] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[volume_ctrl].ret[0]);
+	components_global[i].params[1] = 0x2002;
+	components_global[i].params[2] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[3] = 0xA006;
+	i++;
+
+	volumectrl_to_aecref_connection[3] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[volume_ctrl].ret[0]);
+	components_global[i].params[1] = 0x2003;
+	components_global[i].params[2] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[3] = 0xA007;
+	i++;
+
+	iacc_sink = i;
+	/* Get Sink */
+	components_global[i].component_id = GET_SINK_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_IACC;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components_global[i].params[2] = (u32)(&kcm->playback_iacc_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
 			(u32)(&kcm->playback_iacc_ep.sample_rate);
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[9 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[9 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[9 + i].params[0] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[9 + i].params[1] =
-			ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-		components_shared[9 + i].params[2] =
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
 			(u32)(&kcm->playback_iacc_ep.audio_data_format);
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[13 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[13 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[13 + i].params[0] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[13 + i].params[1] =
-			ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-		components_shared[13 + i].params[2] =
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
 			(u32)(&kcm->playback_iacc_ep.packing_format);
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[17 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[17 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[17 + i].params[0] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[17 + i].params[1] =
-			ENDPOINT_CONF_INTERLEAVING_MODE;
-		components_shared[17 + i].params[2] =
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
 			(u32)(&kcm->playback_iacc_ep.interleaving_format);
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[21 + i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components_shared[21 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[21 + i].params[0] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[21 + i].params[1] =
-			ENDPOINT_CONF_CLOCK_MASTER;
-		components_shared[21 + i].params[2] =
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
 			(u32)(&kcm->playback_iacc_ep.clock_master);
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[25 + i].component_id = CONNECT_REQ;
-		components_shared[25 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[25 + i].params[0] =
-			(u32)(&components_shared[4].ret[0]);
-		components_shared[25 + i].params[1] = 0x2000 + i;
-		components_shared[25 + i].params[2] =
-			(u32)(&components_shared[3].ret[i]);
-		components_shared[25 + i].params[3] = 0;
-	}
-
-	for (i = 0; i < 4; i++) {
-		components_shared[29 + i].component_id = CONNECT_REQ;
-		components_shared[29 + i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components_shared[29 + i].params[0] =
-			(u32)(&components_shared[0].ret[0]);
-		components_shared[29 + i].params[1] = 0x2000 + i;
-		components_shared[29 + i].params[2] =
-			(u32)(&components_shared[4].ret[0]);
-		components_shared[29 + i].params[3] = 0xA000 + i*2;
-	}
-
-	components_shared[33].component_id = START_OPERATOR_REQ;
-	components_shared[33].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_shared[33].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[33].params[1] = 1;
-
-	components_shared[34].component_id = START_OPERATOR_REQ;
-	components_shared[34].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_shared[34].params[0] = (u32)(&components_shared[4].ret[0]);
-	components_shared[34].params[1] = 1;
-
-	components_shared[35].component_id = STOP_OPERATOR_REQ;
-	components_shared[35].execute_phase = EXEC_PHASE_HW_FREE;
-	components_shared[35].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[35].params[1] = 1;
-
-	components_shared[36].component_id = STOP_OPERATOR_REQ;
-	components_shared[36].execute_phase = EXEC_PHASE_HW_FREE;
-	components_shared[36].params[0] = (u32)(&components_shared[4].ret[0]);
-	components_shared[36].params[1] = 1;
-
-	for (i = 0; i < 8; i++) {
-		components_shared[37 + i].component_id = DISCONNECT_REQ;
-		components_shared[37 + i].execute_phase = EXEC_PHASE_HW_FREE_1;
-		components_shared[37 + i].params[0] = 1;
-		components_shared[37 + i].params[1] =
-			(u32)(&components_shared[25 + i].ret[0]);
-	}
-
-	components_shared[45].component_id = CLOSE_SINK_REQ;
-	components_shared[45].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[45].params[0] = 4;
-	components_shared[45].params[1] = (u32)(components_shared[3].ret);
-
-	components_shared[46].component_id = DESTROY_OPERATOR_REQ;
-	components_shared[46].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[46].params[0] = (u32)(&components_shared[0].ret[0]);
-	components_shared[46].params[1] = 1;
-
-	components_shared[47].component_id = DESTROY_OPERATOR_REQ;
-	components_shared[47].execute_phase = EXEC_PHASE_HW_FREE_1;
-	components_shared[47].params[0] = (u32)(&components_shared[4].ret[0]);
-	components_shared[47].params[1] = 1;
-
-	shared_components_size = 48;
-}
-
-static void init_cvc_shared_components(void)
-{
-	static u16 cvc_aec_ref_rate[2] = {0x3E80, 0x3E80};
-	static u16 cvc_param = 0x4;
-	int i;
-
-	components_cvc_shared[0].component_id = CREATE_OPERATOR_REQ;
-	components_cvc_shared[0].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[0].params[0] = CAPABILITY_ID_AEC_REF_1MIC;
-
-	/* Send the sample rate to AEC Ref */
-	components_cvc_shared[1].component_id = OPERATOR_MESSAGE_REQ;
-	components_cvc_shared[1].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[1].params[0] =
-		(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[1].params[1] = AEC_REF_SET_SAMPLE_RATES;
-	components_cvc_shared[1].params[2] = 2;
-	components_cvc_shared[1].params[3] = (u32)(cvc_aec_ref_rate);
-
-	components_cvc_shared[2].component_id = OPERATOR_MESSAGE_REQ;
-	components_cvc_shared[2].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[2].params[0] =
-		(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[2].params[1] = OPERATOR_MSG_SET_CVC_PARAM;
-	components_cvc_shared[2].params[2] = 1;
-	components_cvc_shared[2].params[3] = (u32)(&cvc_param);
-
-	/* Create the CVC 1MIC */
-	components_cvc_shared[3].component_id = CREATE_OPERATOR_REQ;
-	components_cvc_shared[3].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[3].params[0] = CAPABILITY_ID_CVCHF1MIC_SEND_WB;
-
-	components_cvc_shared[4].component_id = OPERATOR_MESSAGE_REQ;
-	components_cvc_shared[4].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[4].params[0] =
-		(u32)(&components_cvc_shared[3].ret[0]);
-	components_cvc_shared[4].params[1] = OPERATOR_MSG_SET_CVC_PARAM;
-	components_cvc_shared[4].params[2] = 1;
-	components_cvc_shared[4].params[3] = (u32)(&cvc_param);
-
-	/* Create the CVC 1MIC */
-	components_cvc_shared[5].component_id = CREATE_OPERATOR_REQ;
-	components_cvc_shared[5].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[5].params[0] = CAPABILITY_ID_CVC_RCV_WB;
-
-	components_cvc_shared[6].component_id = OPERATOR_MESSAGE_REQ;
-	components_cvc_shared[6].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[6].params[0] =
-		(u32)(&components_cvc_shared[5].ret[0]);
-	components_cvc_shared[6].params[1] = OPERATOR_MSG_SET_CVC_PARAM;
-	components_cvc_shared[6].params[2] = 1;
-	components_cvc_shared[6].params[3] = (u32)(&cvc_param);
-
-	/* Connect CVC_RCV Source 0 to AEC_Ref Sink 0  */
-	components_cvc_shared[7].component_id = CONNECT_REQ;
-	components_cvc_shared[7].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[7].params[0] =
-		(u32)(&components_cvc_shared[5].ret[0]);
-	components_cvc_shared[7].params[1] = 0x2000;
-	components_cvc_shared[7].params[2] =
-		(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[7].params[3] = 0xA000;
-
-	/* Connect AEC_Ref Source 3 to CVC_Send Sink 1 - MIC */
-	components_cvc_shared[8].component_id = CONNECT_REQ;
-	components_cvc_shared[8].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[8].params[0] =
-			(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[8].params[1] = 0x2000 + 3;
-	components_cvc_shared[8].params[2] =
-			(u32)(&components_cvc_shared[3].ret[0]);
-	components_cvc_shared[8].params[3] = 0xA000 + 1;
-
-	/* Connect the AEC_Ref Source 0 to CVC_Send Sink 0 */
-	components_cvc_shared[9].component_id = CONNECT_REQ;
-	components_cvc_shared[9].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components_cvc_shared[9].params[0] =
-		(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[9].params[1] = 0x2000;
-	components_cvc_shared[9].params[2] =
-		(u32)(&components_cvc_shared[3].ret[0]);
-	components_cvc_shared[9].params[3] = 0xA000;
-
-	components_cvc_shared[10].component_id = START_OPERATOR_REQ;
-	components_cvc_shared[10].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_cvc_shared[10].params[0] =
-		(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[10].params[1] = 1;
-
-	components_cvc_shared[11].component_id = START_OPERATOR_REQ;
-	components_cvc_shared[11].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_cvc_shared[11].params[0] =
-		(u32)(&components_cvc_shared[3].ret[0]);
-	components_cvc_shared[11].params[1] = 1;
-
-	components_cvc_shared[12].component_id = START_OPERATOR_REQ;
-	components_cvc_shared[12].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components_cvc_shared[12].params[0] =
-		(u32)(&components_cvc_shared[5].ret[0]);
-	components_cvc_shared[12].params[1] = 1;
-
-	components_cvc_shared[13].component_id = STOP_OPERATOR_REQ;
-	components_cvc_shared[13].execute_phase = EXEC_PHASE_TRIGGER_STOP;
-	components_cvc_shared[13].params[0] =
-		(u32)(&components_cvc_shared[5].ret[0]);
-	components_cvc_shared[13].params[1] = 1;
-
-	components_cvc_shared[14].component_id = STOP_OPERATOR_REQ;
-	components_cvc_shared[14].execute_phase = EXEC_PHASE_TRIGGER_STOP;
-	components_cvc_shared[14].params[0] =
-		(u32)(&components_cvc_shared[3].ret[0]);
-	components_cvc_shared[14].params[1] = 1;
-
-	components_cvc_shared[15].component_id = STOP_OPERATOR_REQ;
-	components_cvc_shared[15].execute_phase = EXEC_PHASE_TRIGGER_STOP;
-	components_cvc_shared[15].params[0] =
-		(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[15].params[1] = 1;
-
-	for (i = 0; i < 3; i++) {
-		components_cvc_shared[16 + i].component_id = DISCONNECT_REQ;
-		components_cvc_shared[16 + i].execute_phase =
-			EXEC_PHASE_HW_FREE_1;
-		components_cvc_shared[16 + i].params[0] = 1;
-		components_cvc_shared[16 + i].params[1] =
-			(u32)(&components_cvc_shared[7 + i].ret[0]);
-	}
-
-	components_cvc_shared[19].component_id = DESTROY_OPERATOR_REQ;
-	components_cvc_shared[19].execute_phase = EXEC_PHASE_HW_FREE;
-	components_cvc_shared[19].params[0] =
-			(u32)(&components_cvc_shared[0].ret[0]);
-	components_cvc_shared[19].params[1] = 1;
-
-	components_cvc_shared[20].component_id = DESTROY_OPERATOR_REQ;
-	components_cvc_shared[20].execute_phase = EXEC_PHASE_HW_FREE;
-	components_cvc_shared[20].params[0] =
-			(u32)(&components_cvc_shared[3].ret[0]);
-	components_cvc_shared[20].params[1] = 1;
-
-	components_cvc_shared[21].component_id = DESTROY_OPERATOR_REQ;
-	components_cvc_shared[21].execute_phase = EXEC_PHASE_HW_FREE;
-	components_cvc_shared[21].params[0] =
-			(u32)(&components_cvc_shared[5].ret[0]);
-	components_cvc_shared[21].params[1] = 1;
-
-	cvc_shared_components_size = 22;
-}
-
-struct components_chain *create_components_chain(char *stream_name)
-{
-	struct components_chain *components_chain;
-
-	components_chain = kzalloc(sizeof(*components_chain), GFP_KERNEL);
-	if (components_chain == NULL)
-		return NULL;
-
-	components_chain->stream_name = kstrdup(stream_name, GFP_KERNEL);
-	if (components_chain->stream_name == NULL) {
-		kfree(components_chain);
-		return NULL;
-	}
-	list_add(&components_chain->node, &components_chain_list);
-	return components_chain;
-}
-
-int set_external_param(struct components_chain *components_chain,
-	char *key, u32 value)
-{
-	int i;
-
-	for (i = 0; i < 64; i++) {
-		if (components_chain->external_params_map[i].key == NULL)
-			continue;
-		if (!strncmp(key, components_chain->external_params_map[i].key,
-			strlen(key))) {
-			components_chain->external_params_map[i].value = value;
-			return 0;
-		}
-	}
-	pr_err("Can't find external params of key: %s\n", key);
-	return -EINVAL;
-}
-
-static int init_sw_external_param(struct components_chain *components_chain)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(sw_ep_configure_params_key); i++) {
-		components_chain->external_params_map[i].key =
-			kstrdup(sw_ep_configure_params_key[i], GFP_KERNEL);
-		if (components_chain->external_params_map[i].key == NULL)
-			return -ENOMEM;
-		components_chain->external_params_map[i].value = 0;
-	}
-	return 0;
-}
-
-int get_external_param_addr(struct components_chain *components_chain,
-	char *key, u32 **value)
-{
-	int i;
-
-	for (i = 0; i < 64; i++) {
-		if (!components_chain->external_params_map[i].key)
-			break;
-		if (strcmp(components_chain->external_params_map[i].key, key))
-			continue;
-		*value = &(components_chain->external_params_map[i].value);
-		return 0;
-	}
-	pr_err("Can't find external params of key: %s\n", key);
-	return -EINVAL;
-}
-
-struct components_chain *get_components_chain(const char *stream_name)
-{
-	struct components_chain *components_chain;
-
-	list_for_each_entry(components_chain, &components_chain_list, node) {
-		if (!strncmp(stream_name, components_chain->stream_name,
-			strlen(stream_name)))
-			return components_chain;
-	}
-	return NULL;
-}
-
-static void hard_code_init_components_chain_voicecall_iacc_to_bt(
-	struct components_chain *components_chain)
-{
-	struct component *components = components_chain->components;
-	int i = 0, k;
-
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_IACC;
-	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components[i].params[2] = (u32)(&kcm->capture_iacc_sco_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->capture_iacc_sco_ep.handle_phy_addr);
-	components_chain->component_first = &components[i];
 	i++;
 
-	components[i].component_id = GET_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_USP;
-	components[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
-	components[i].params[2] = (u32)(&kcm->playback_usp_sco_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->playback_usp_sco_ep.handle_phy_addr);
-	components[i - 1].component_next = &components[i];
+	/* Connect AEC REF with hw_sink */
+	aecref_to_iaccsink_connection[0] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[1] = 0x2001;
+	components_global[i].params[2] =
+		(u32)(&components_global[iacc_sink].ret[0]);
+	components_global[i].params[3] = 0;
 	i++;
 
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components[i].params[2] =
-		(u32)(&kcm->playback_usp_sco_ep.sample_rate);
-	components[i - 1].component_next = &components[i];
+	aecref_to_iaccsink_connection[1] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[1] = 0x2002;
+	components_global[i].params[2] =
+		(u32)(&components_global[iacc_sink].ret[1]);
+	components_global[i].params[3] = 0;
 	i++;
 
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->playback_usp_sco_ep.audio_data_format);
-	components[i - 1].component_next = &components[i];
+	aecref_to_iaccsink_connection[2] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[1] = 0x2007;
+	components_global[i].params[2] =
+		(u32)(&components_global[iacc_sink].ret[2]);
+	components_global[i].params[3] = 0;
 	i++;
 
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->playback_usp_sco_ep.packing_format);
-	components[i - 1].component_next = &components[i];
+	aecref_to_iaccsink_connection[3] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[1] = 0x2008;
+	components_global[i].params[2] =
+		(u32)(&components_global[iacc_sink].ret[3]);
+	components_global[i].params[3] = 0;
 	i++;
 
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-	components[i].params[2] =
-		(u32)(&kcm->playback_usp_sco_ep.interleaving_format);
-	components[i - 1].component_next = &components[i];
+	/* Init pipeline link */
+	pipeline_link[MUSIC_STREAM][j++] = music_passthrough;
+	pipeline_link[MUSIC_STREAM][j++] = music_resampler;
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_passthrough_to_resampler_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = music_splitter;
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_resampler_to_splitter_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = music_usr_peq;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_splitter_to_usrpeq_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] = music_spk_peq[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_usrpeq_to_spkpeq_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = mixer_1;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_spkpeq_to_mixer1_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			mixer1_to_mixer2_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link_count[MUSIC_STREAM] = j;
+	return i;
+}
+
+static int init_navigation_pipeline(int index)
+{
+	int i = index;
+	int k, j = 0;
+	int passthrough_to_mixer1_connection[4];
+	int passthrough;
+
+	/* Navigation stream pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_BASIC_PASSTHROUGH;
+	passthrough = i;
 	i++;
 
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-	components[i].params[2] =
-		(u32)(&kcm->playback_usp_sco_ep.clock_master);
-	components[i - 1].component_next = &components[i];
+	/* Connect resample with Mixer stream 1 */
+	for (k = 0; k < 4; k++) {
+		passthrough_to_mixer1_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[passthrough].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[mixer_1].ret[0]);
+		components_global[i].params[3] = 0xA004 + k;
+		i++;
+	}
+
+	pipeline_link[NAVIGATION_STREAM][j++] = passthrough;
+	pipeline_link[NAVIGATION_STREAM][j++] = mixer_1;
+	for (k = 0; k < 4; k++)
+		pipeline_link[NAVIGATION_STREAM][j++] =
+			passthrough_to_mixer1_connection[k];
+	pipeline_link[NAVIGATION_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[NAVIGATION_STREAM][j++] =
+			mixer1_to_mixer2_connection[k];
+	pipeline_link[NAVIGATION_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[NAVIGATION_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[NAVIGATION_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[NAVIGATION_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[NAVIGATION_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[NAVIGATION_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link_count[NAVIGATION_STREAM] = j;
+
+	return i;
+}
+
+static int init_alarm_pipeline(int index)
+{
+	int i = index;
+	int k, j = 0;
+	int splitter_1, splitter_2;
+	int resampler_to_splitter1_connection;
+	int splitter1_to_splitter2_connection[2];
+	int splitter2_to_mixer1_connection[4];
+
+	/* Alarm stream pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[ALARM_STREAM] = i;
 	i++;
 
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components[i].params[2] =
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	splitter_1 = i;
+	i++;
+
+	resampler_to_splitter1_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[resample_op_id[
+		ALARM_STREAM]].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[splitter_1].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	splitter_2 = i;
+	i++;
+
+	for (k = 0; k < 2; k++) {
+		splitter1_to_splitter2_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[splitter_1].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[splitter_2].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		splitter2_to_mixer1_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[splitter_2].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[mixer_1].ret[0]);
+		components_global[i].params[3] = 0xA008 + k;
+		i++;
+	}
+
+	pipeline_link[ALARM_STREAM][j++] =
+		resample_op_id[ALARM_STREAM];
+	pipeline_link[ALARM_STREAM][j++] = splitter_1;
+	pipeline_link[ALARM_STREAM][j++] = resampler_to_splitter1_connection;
+	pipeline_link[ALARM_STREAM][j++] = splitter_2;
+	for (k = 0; k < 2; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			splitter1_to_splitter2_connection[k];
+	pipeline_link[ALARM_STREAM][j++] = mixer_1;
+	for (k = 0; k < 4; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			splitter2_to_mixer1_connection[k];
+	pipeline_link[ALARM_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			mixer1_to_mixer2_connection[k];
+	pipeline_link[ALARM_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[ALARM_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[ALARM_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link_count[ALARM_STREAM] = j;
+
+	return i;
+}
+
+static int init_capture_pipeline(int index)
+{
+	int i = index;
+	int k, j = 0;
+	int source_to_resampler_connection[2];
+
+	/* Analog Capture pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[ANALOG_CAPTURE_STREAM] = i;
+	i++;
+
+	/* Get Source */
+	components_global[i].component_id = GET_SOURCE_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_IACC;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components_global[i].params[2] = (u32)(&kcm->capture_iacc_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
+			(u32)(&kcm->capture_iacc_ep.sample_rate);
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
+			(u32)(&kcm->capture_iacc_ep.audio_data_format);
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
+			(u32)(&kcm->capture_iacc_ep.packing_format);
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
+			(u32)(&kcm->capture_iacc_ep.interleaving_format);
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
+			(u32)(&kcm->capture_iacc_ep.clock_master);
+	iacc_source = i;
+	i++;
+
+	for (k = 0; k < kcm->capture_iacc_ep.channels; k++) {
+		source_to_resampler_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[iacc_source].ret[k]);
+		components_global[i].params[1] = 0;
+		components_global[i].params[2] =
+			(u32)(&components_global[resample_op_id[
+				ANALOG_CAPTURE_STREAM]].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	pipeline_link[ANALOG_CAPTURE_STREAM][j++] = resample_op_id[
+		ANALOG_CAPTURE_STREAM];
+	pipeline_link[ANALOG_CAPTURE_STREAM][j++] = iacc_source;
+	for (k = 0; k < kcm->capture_iacc_ep.channels; k++)
+		pipeline_link[ANALOG_CAPTURE_STREAM][j++] = iacc_source + 1 + k;
+
+	pipeline_link_count[ANALOG_CAPTURE_STREAM] = j;
+
+	return i;
+}
+
+static int init_voicecall_bt_to_iacc_pipeline(int index)
+{
+	int i = index;
+	int k, j = 0;
+	int usp3_source;
+	int usp3_sink;
+	int cvc_rcv;
+	int splitter_1, splitter_2;
+	int usp3source_to_cvcrcv_connection;
+	int cvcrcv_to_resampler_connection;
+	int resampler_to_splitter1_connection;
+	int splitter1_to_splitter2_connection[2];
+	int splitter2_to_mixer2_connection[4];
+	int iaccsource_to_aecref_connection;
+	int aecref_to_cvcsend_mic_connection;
+	int cvcsend_to_usp3sink_connection;
+	static u16 cvc_ucid = 4;
+
+	/* Voicecall bt to IACC pipeline */
+	/* Get Source */
+	components_global[i].component_id = GET_SOURCE_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_USP;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components_global[i].params[2] = (u32)(&kcm->capture_usp_sco_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
+			(u32)(&kcm->capture_usp_sco_ep.sample_rate);
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
+			(u32)(&kcm->capture_usp_sco_ep.audio_data_format);
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
+			(u32)(&kcm->capture_usp_sco_ep.packing_format);
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
+			(u32)(&kcm->capture_usp_sco_ep.interleaving_format);
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
+			(u32)(&kcm->capture_usp_sco_ep.clock_master);
+	usp3_source = i;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_CVC_RCV_WB;
+	components_global[i].params[1] = 1;
+	components_global[i].params[2] = OPERATOR_MSG_SET_UCID;
+	components_global[i].params[3] = 1;
+	components_global[i].params[4] = (u32)(&cvc_ucid);
+	cvc_rcv = i;
+	i++;
+
+	usp3source_to_cvcrcv_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[usp3_source].ret[0]);
+	components_global[i].params[1] = 0;
+	components_global[i].params[2] =
+		(u32)(&components_global[cvc_rcv].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[VOICECALL_BT_TO_IACC_STREAM] = i;
+	i++;
+
+	cvcrcv_to_resampler_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[cvc_rcv].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[resample_op_id[
+			VOICECALL_BT_TO_IACC_STREAM]].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	splitter_1 = i;
+	i++;
+
+	resampler_to_splitter1_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[resample_op_id[
+			VOICECALL_BT_TO_IACC_STREAM]].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[splitter_1].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	splitter_2 = i;
+	i++;
+
+	for (k = 0; k < 2; k++) {
+		splitter1_to_splitter2_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[splitter_1].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[splitter_2].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		splitter2_to_mixer2_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[splitter_2].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[mixer_2].ret[0]);
+		components_global[i].params[3] = 0xA004 + k;
+		i++;
+	}
+
+	/* Voicecall IACC to BT */
+	/* Get Source */
+	components_global[i].component_id = GET_SOURCE_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_IACC;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components_global[i].params[2] = (u32)(&kcm->capture_iacc_sco_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
 		(u32)(&kcm->capture_iacc_sco_ep.sample_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components[i].params[2] =
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
 		(u32)(&kcm->capture_iacc_sco_ep.audio_data_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components[i].params[2] =
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
 		(u32)(&kcm->capture_iacc_sco_ep.packing_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-	components[i].params[2] =
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
 		(u32)(&kcm->capture_iacc_sco_ep.interleaving_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-	components[i].params[2] =
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
 		(u32)(&kcm->capture_iacc_sco_ep.clock_master);
-	components[i - 1].component_next = &components[i];
+	iacc_source = i;
 	i++;
 
-	/* Connect USP-RX with CVC_SEND Source 0*/
-	components[i].component_id = CONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components_cvc_shared[3].ret[0]);
-	components[i].params[1] = 0x2000;
-	components[i].params[2] = (u32)(&components[1].ret[0]);
-	components[i].params[3] = 0x0;
-	components[i - 1].component_next = &components[i];
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_CVCHF1MIC_SEND_WB;
+	components_global[i].params[1] = 1;
+	components_global[i].params[2] = OPERATOR_MSG_SET_UCID;
+	components_global[i].params[3] = 1;
+	components_global[i].params[4] = (u32)(&cvc_ucid);
+	cvc_send = i;
 	i++;
 
-	/* Connect "mic" to AEC_REf Sink 2 */
-	components[i].component_id = CONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 0x0;
-	components[i].params[2] = (u32)(&components_cvc_shared[0].ret[0]);
-	components[i].params[3] = 0xA000 + 2;
-	components[i - 1].component_next = &components[i];
+	components_global[i].component_id = GET_SINK_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_USP;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components_global[i].params[2] = (u32)(&kcm->playback_usp_sco_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
+		(u32)(&kcm->playback_usp_sco_ep.sample_rate);
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
+		(u32)(&kcm->playback_usp_sco_ep.audio_data_format);
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
+		(u32)(&kcm->playback_usp_sco_ep.packing_format);
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
+		(u32)(&kcm->playback_usp_sco_ep.interleaving_format);
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
+		(u32)(&kcm->playback_usp_sco_ep.clock_master);
+	usp3_sink = i;
 	i++;
 
-	/* Disconnect*/
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = DISCONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[12 + k].ret[0]);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(components[0].ret);
-	components[i - 1].component_next = &components[i];
+	/* MIC 1 to AEC REF */
+	iaccsource_to_aecref_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[iacc_source].ret[0]);
+	components_global[i].params[1] = 0;
+	components_global[i].params[2] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[3] = 0xA002;
 	i++;
 
-	components[i].component_id = CLOSE_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(components[1].ret);
-	components[i - 1].component_next = &components[i];
+	/* AEC REF to cvc send (MIC) */
+	aecref_to_cvcsend_mic_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[aec_ref].ret[0]);
+	components_global[i].params[1] = 0x2003;
+	components_global[i].params[2] =
+		(u32)(&components_global[cvc_send].ret[0]);
+	components_global[i].params[3] = 0xA001;
 	i++;
 
-	components[i - 1].component_next = NULL;
+	cvcsend_to_usp3sink_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[cvc_send].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[usp3_sink].ret[0]);
+	components_global[i].params[3] = 0;
+	i++;
+
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = usp3_source;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = cvc_rcv;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		usp3source_to_cvcrcv_connection;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		cvcrcv_to_resampler_connection;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = splitter_1;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		resampler_to_splitter1_connection;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = splitter_2;
+	for (k = 0; k < 2; k++)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			splitter1_to_splitter2_connection[k];
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			splitter2_to_mixer2_connection[k];
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = iacc_source;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		iaccsource_to_aecref_connection;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = cvc_send;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		aecref_to_cvcsend_mic_connection;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = usp3_sink;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+		cvcsend_to_usp3sink_connection;
+
+	pipeline_link_count[VOICECALL_BT_TO_IACC_STREAM] = j;
+
+	return i;
 }
 
-static void hard_code_init_components_chain_voicecall_bt_to_iacc(
-	struct components_chain *components_chain)
+static int init_a2dp_pipeline(int index)
 {
-	struct component *components = components_chain->components;
-	int i = 0, k;
+	int i = index;
+	int k, j = 0;
+	int source_to_passthrough_connection[2];
+	int usp3_source;
 
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_USP;
-	components[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
-	components[i].params[2] = (u32)(&kcm->capture_usp_sco_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->capture_usp_sco_ep.handle_phy_addr);
-	components_chain->component_first = &components[i];
-	i++;
-
-	components[i].component_id = GET_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_IACC;
-	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components[i].params[2] = (u32)(&kcm->playback_iacc_sco_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->playback_iacc_sco_ep.handle_phy_addr);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components[i].params[2] =
-		(u32)(&kcm->playback_iacc_sco_ep.sample_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->playback_iacc_sco_ep.audio_data_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->playback_iacc_sco_ep.packing_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-	components[i].params[2] =
-		(u32)(&kcm->playback_iacc_sco_ep.interleaving_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-	components[i].params[2] =
-		(u32)(&kcm->playback_iacc_sco_ep.clock_master);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components[i].params[2] =
-		(u32)(&kcm->capture_usp_sco_ep.sample_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->capture_usp_sco_ep.audio_data_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->capture_usp_sco_ep.packing_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-	components[i].params[2] =
-		(u32)(&kcm->capture_usp_sco_ep.interleaving_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-	components[i].params[2] =
-		(u32)(&kcm->capture_usp_sco_ep.clock_master);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* Connect USP-TX to cvc rcv sink 0  */ /* i == 7 */
-	components[i].component_id = CONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 0;
-	components[i].params[2] = (u32)(&components_cvc_shared[5].ret[0]);
-	components[i].params[3] = 0xA000;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* Connect AEC_Ref Source 1 to "Speaker"  */
-	components[i].component_id = CONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components_cvc_shared[0].ret[0]);
-	components[i].params[1] = 0x2000 + 1;
-	components[i].params[2] = (u32)(&components[1].ret[0]);
-	components[i].params[3] = 0x0;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* Disconnect*/
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = DISCONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[12 + k].ret[0]);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(components[0].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = CLOSE_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(components[1].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i - 1].component_next = NULL;
-}
-
-static void hard_code_init_components_chain_a2dp_playback(
-	struct components_chain *components_chain)
-{
-	struct component *components = components_chain->components;
-	int i = 0, k;
-
-	components[i].component_id = CREATE_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_SPLITTER;
-	components_chain->component_first = &components[i];
-	i++;
-
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_USP;
-	components[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
-	components[i].params[2] = (u32)(&kcm->capture_usp_a2dp_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->capture_usp_a2dp_ep.handle_phy_addr);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = GET_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_IACC;
-	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components[i].params[2] = (u32)(&kcm->playback_iacc_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->playback_iacc_ep.handle_phy_addr);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* i == 3 */
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-		components[i].params[2] =
+	components_global[i].component_id = GET_SOURCE_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_USP;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components_global[i].params[2] = (u32)(&kcm->capture_usp_a2dp_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
 			(u32)(&kcm->capture_usp_a2dp_ep.sample_rate);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-		components[i].params[2] =
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
 			(u32)(&kcm->capture_usp_a2dp_ep.audio_data_format);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-		components[i].params[2] =
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
 			(u32)(&kcm->capture_usp_a2dp_ep.packing_format);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-		components[i].params[2] =
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
 			(u32)(&kcm->capture_usp_a2dp_ep.interleaving_format);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 2; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-		components[i].params[2] =
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
 			(u32)(&kcm->capture_usp_a2dp_ep.clock_master);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
+	usp3_source = i;
+	i++;
+	resample_op_id[A2DP_STREAM] = music_resampler;
 
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-		components[i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.sample_rate);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-		components[i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.audio_data_format);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-		components[i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.packing_format);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-		components[i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.interleaving_format);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[k]);
-		components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-		components[i].params[2] =
-			(u32)(&kcm->playback_iacc_ep.clock_master);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	/* i == 33 */
 	for (k = 0; k < 2; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[k]);
-		components[i].params[1] = 0;
-		components[i].params[2] = (u32)(&components[0].ret[0]);
-		components[i].params[3] = 0xA000 + k;
-		components[i - 1].component_next = &components[i];
+		source_to_passthrough_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[usp3_source].ret[k]);
+		components_global[i].params[1] = 0;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_passthrough].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
 		i++;
 	}
 
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[0].ret[0]);
-		components[i].params[1] = 0x2000 + k;
-		components[i].params[2] = (u32)(&components[2].ret[k]);
-		components[i].params[3] = 0;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = START_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = STOP_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	for (k = 0; k < 6; k++) {
-		components[i].component_id = DISCONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[33 + k].ret[0]);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = CLOSE_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = kcm->playback_iacc_ep.channels;
-	components[i].params[1] = (u32)(components[2].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = kcm->capture_usp_a2dp_ep.channels;
-	components[i].params[1] = (u32)(components[1].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DESTROY_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i - 1].component_next = NULL;
+	pipeline_link[A2DP_STREAM][j++] = usp3_source;
+	pipeline_link[A2DP_STREAM][j++] = music_passthrough;
+	for (k = 0; k < 2; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			source_to_passthrough_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = music_resampler;
+	for (k = 0; k < 2; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_passthrough_to_resampler_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = music_splitter;
+	for (k = 0; k < 2; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_resampler_to_splitter_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = music_usr_peq;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_splitter_to_usrpeq_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] = music_spk_peq[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_usrpeq_to_spkpeq_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = mixer_1;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_spkpeq_to_mixer1_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			mixer1_to_mixer2_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link_count[A2DP_STREAM] = j;
+	return i;
 }
 
-static void hard_code_init_components_chain_navigation_playback(
-	struct components_chain *components_chain)
+static void init_pipeline(void)
 {
-	struct component *components = components_chain->components;
-	int i, j, k;
-	u32 *value;
-	static u16 mixer_oper_conf_primary_stream = 0x2;
-	static u16 resampler_oper_conf_conversion_rate = 0x38;
+	int index;
 
-	i = 0;
+	index = init_music_pipeline();
+	index = init_navigation_pipeline(index);
+	index = init_alarm_pipeline(index);
+	index = init_capture_pipeline(index);
+	index = init_voicecall_bt_to_iacc_pipeline(index);
+	init_a2dp_pipeline(index);
+}
 
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_FILE;
-	components[i].params[1] = 0;
-	get_external_param_addr(components_chain, "sw_ep_channles", &value);
-	components[i].params[2] = (u32)value;
-	get_external_param_addr(components_chain, "sw_ep_handle_addr", &value);
-	components[i].params[3] = (u32)value;
-	components_chain->component_first = &components[i];
-	i++;
+static u16 get_rasample_conversion_conf(int input_rate, int output_rate)
+{
+	int sample_rate[] = {8000, 11025, 12000, 16000, 22050, 24000, 32000,
+		44100, 48000};
+	u16 conf = 0;
+	int i;
 
-	components[i].component_id = CREATE_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_RESAMPLER;
-	components[i - 1].component_next = &components[i];
-	i++;
+	for (i = 0; i < ARRAY_SIZE(sample_rate); i++) {
+		if (sample_rate[i] == input_rate) {
+			conf = i << 4;
+			break;
+		}
+	}
+	for (i = 0; i < ARRAY_SIZE(sample_rate); i++) {
+		if (sample_rate[i] == output_rate) {
+			conf |= i;
+			break;
+		}
+	}
+	return conf;
+}
 
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = RESAMPLER_SET_CONVERSION_RATE;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&resampler_oper_conf_conversion_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
+u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
+	int clock_master, int period_size)
+{
+	u16 resp[64];
+	int i;
+	struct component *stream_first_component =
+		&components_global[pipeline_link[stream][0]];
+	u16 resample_cfg;
 
-	/* i == 3 */
-	for (k = 0; k < 4; k++) {
-		for (j = 0; j < 6; j++) {
-			components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-			components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-			components[i].params[0] =
-				(u32)(&components[0].ret[0]);
-			components[i].params[1] = (u32)(ep_configure_key[j]);
-			get_external_param_addr(components_chain,
-					sw_ep_configure_params_key[j], &value);
-			components[i].params[2] = (u32)value;
-			components[i - 1].component_next = &components[i];
-			i++;
+	for (i = 0;  i < pipeline_link_count[stream]; i++)
+		execute_component(&components_global[
+				pipeline_link[stream][i]]);
+
+	kalimba_msg_send_lock();
+	if (stream == VOICECALL_BT_TO_IACC_STREAM) {
+		resample_cfg = get_rasample_conversion_conf(
+				kcm->capture_usp_sco_ep.sample_rate, 48000);
+		/* Set resample configration */
+		kalimba_operator_message(
+			components_global[resample_op_id[stream]].ret[0],
+				RESAMPLER_SET_CONVERSION_RATE, 1,
+				&resample_cfg, NULL, NULL, resp);
+	} else if (stream == ANALOG_CAPTURE_STREAM) {
+		sw_channels[stream] = channels;
+		resample_cfg = get_rasample_conversion_conf(sample_rate,
+				kcm->capture_iacc_ep.sample_rate);
+
+		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
+				handle_addr, sw_endpoint_id[stream], resp);
+		for (i = 0; i < channels; i++) {
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
+				sample_rate, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_AUDIO_DATA_FORMAT, 0, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_DRAM_PACKING_FORMAT, 2, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_INTERLEAVING_MODE, 1, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_CLOCK_MASTER, clock_master, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_PERIOD_SIZE, period_size, resp);
+		}
+
+		/* Set resample configration */
+		kalimba_operator_message(
+			components_global[resample_op_id[stream]].ret[0],
+				RESAMPLER_SET_CONVERSION_RATE, 1,
+				&resample_cfg, NULL, NULL, resp);
+
+		/* Connect resampler with sink*/
+		for (i = 0; i < channels; i++)
+			kalimba_connect_endpoints(
+				components_global[resample_op_id[stream]]
+					.ret[0] + 0x2000 + i,
+				sw_endpoint_id[stream][i],
+				&sw_endpoint_connect_id[stream][i], resp);
+	} else if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
+		|| stream == ALARM_STREAM) {
+		sw_channels[stream] = channels;
+		if (stream != NAVIGATION_STREAM)
+			resample_cfg = get_rasample_conversion_conf(sample_rate,
+				kcm->playback_iacc_ep.sample_rate);
+
+		kalimba_get_source(ENDPOINT_TYPE_FILE, 0, (u16)channels,
+				handle_addr, sw_endpoint_id[stream], resp);
+		for (i = 0; i < channels; i++) {
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
+				sample_rate, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_AUDIO_DATA_FORMAT, 0, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_DRAM_PACKING_FORMAT, 2, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_INTERLEAVING_MODE, 1, resp);
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_PERIOD_SIZE, period_size, resp);
+		}
+		/* Set resample configration */
+		if (stream != NAVIGATION_STREAM)
+			kalimba_operator_message(
+				components_global[
+				resample_op_id[stream]].ret[0],
+				RESAMPLER_SET_CONVERSION_RATE, 1,
+				&resample_cfg, NULL, NULL, resp);
+
+		/* Connect source with first operator */
+		for (i = 0; i < channels; i++)
+			kalimba_connect_endpoints(sw_endpoint_id[stream][i],
+				stream_first_component->ret[0] + 0xA000 + i,
+				&sw_endpoint_connect_id[stream][i], resp);
+	} else if (stream == A2DP_STREAM) {
+		resample_cfg = get_rasample_conversion_conf(
+			kcm->capture_usp_a2dp_ep.sample_rate,
+			kcm->playback_iacc_ep.sample_rate);
+		/* Set resample configration */
+		kalimba_operator_message(
+			components_global[resample_op_id[stream]].ret[0],
+			RESAMPLER_SET_CONVERSION_RATE, 1,
+			&resample_cfg, NULL, NULL, resp);
+	}
+	kalimba_msg_send_unlock();
+	return sw_endpoint_id[stream][0];
+}
+
+static void change_primary_stream(int action, int stream)
+{
+	u16 mixer1_primary_stream = 0;
+	u16 mixer2_primary_stream = 0;
+	u16 resp[64];
+
+	if (action == SET_PRIMARY_STREAM)
+		set_bit(stream, &active_stream);
+	else if (action == CLEAR_PRIMARY_STREAM &&
+		test_bit(stream, &active_stream))
+		clear_bit(stream, &active_stream);
+	else
+		return;
+
+	if (test_bit(0, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+	} else if (test_bit(1, &active_stream)) {
+		mixer1_primary_stream = 2;
+		mixer2_primary_stream = 1;
+	} else if (test_bit(2, &active_stream)) {
+		mixer1_primary_stream = 3;
+		mixer2_primary_stream = 1;
+	} else if (test_bit(3, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+	}
+	if (test_bit(4, &active_stream))
+		mixer2_primary_stream = 2;
+
+	if (mixer1_primary_stream != 0) {
+		if (components_global[mixer_1].primary_stream !=
+				mixer1_primary_stream) {
+			components_global[mixer_1].primary_stream =
+				mixer1_primary_stream;
+			kalimba_operator_message(get_mixer_op_id(1),
+				OPERATOR_MSG_SET_PRIMARY_STREAM,
+				1, &mixer1_primary_stream, NULL, NULL, resp);
+		}
+	}
+	if (mixer2_primary_stream != 0) {
+		if (components_global[mixer_2].primary_stream !=
+			mixer2_primary_stream) {
+			components_global[mixer_2].primary_stream =
+				mixer2_primary_stream;
+			kalimba_operator_message(get_mixer_op_id(2),
+				OPERATOR_MSG_SET_PRIMARY_STREAM,
+				1, &mixer2_primary_stream, NULL, NULL, resp);
+		}
+	}
+}
+
+void start_stream(int stream, int clock_master)
+{
+	int i;
+	u16 resp[64];
+	struct component *component;
+	u16 should_start_ops[64];
+	int should_start_ops_count = 0;
+
+	kalimba_msg_send_lock();
+	change_primary_stream(SET_PRIMARY_STREAM, stream);
+	if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
+		|| stream == ALARM_STREAM) {
+		for (i = 0; i < sw_channels[stream]; i++)
+			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+				ENDPOINT_CONF_CLOCK_MASTER, clock_master, resp);
+	}
+
+	for (i = 0;  i < pipeline_link_count[stream]; i++) {
+		component = &components_global[
+			pipeline_link[stream][i]];
+
+		if (component->component_id == CREATE_OPERATOR_REQ) {
+			if (component->running_refcnt == 0)
+				should_start_ops[should_start_ops_count++] =
+					component->ret[0];
+			component->running_refcnt++;
 		}
 	}
 
-	/* i == 27 */
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[0].ret[k]);
-		components[i].params[1] = 0;
-		components[i].params[2] = (u32)(&components[1].ret[0]);
-		components[i].params[3] = 0xA000 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
+	if (should_start_ops_count > 0)
+		kalimba_start_operator(should_start_ops, should_start_ops_count,
+			resp);
 
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[0]);
-		components[i].params[1] = 0x2000 + k;
-		components[i].params[2] = (u32)(&components_shared[0].ret[0]);
-		components[i].params[3] = 0xA000 + 4 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
+	if (stream == VOICECALL_BT_TO_IACC_STREAM)
+		kalimba_connect_endpoints(
+			components_global[aec_ref].ret[0] + 0x2000,
+			components_global[cvc_send].ret[0] + 0xA000,
+			&aecref_to_cvcsend_ref_connect_id, resp);
 
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
-	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
-	components[i].params[4] = SET_PRIMARY_STREAM;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = START_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_ACK;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = STOP_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
-	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
-	components[i].params[4] = CLEAR_PRIMARY_STREAM;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	for (k = 0; k < 8; k++) {
-		components[i].component_id = DISCONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[27 + k].ret[0]);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 4;
-	components[i].params[1] = (u32)(components[0].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DESTROY_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i - 1].component_next = NULL;
-
-	components_chain->notify_ep_id = &components[0].ret[0];
+	kalimba_msg_send_unlock();
 }
 
-static void hard_code_init_components_chain_alarm_playback(
-	struct components_chain *components_chain)
+void stop_stream(int stream)
 {
-	struct component *components = components_chain->components;
-	int i, j, k;
-	u32 *value;
-	static u16 mixer_oper_conf_primary_stream = 0x3;
-	static u16 resampler_oper_conf_conversion_rate = 0x38;
+	int i;
+	u16 resp[64];
+	struct component *component;
+	u16 should_stop_ops[64];
+	int should_stop_ops_count = 0;
 
-	i = 0;
+	kalimba_msg_send_lock();
+	change_primary_stream(CLEAR_PRIMARY_STREAM, stream);
+	if ((stream == VOICECALL_BT_TO_IACC_STREAM
+		|| stream == VOICECALL_IACC_TO_BT_STREAM)
+			&& aecref_to_cvcsend_ref_connect_id) {
+		kalimba_disconnect_endpoints(1,
+			&aecref_to_cvcsend_ref_connect_id, resp);
+		aecref_to_cvcsend_ref_connect_id = 0;
+	}
+	for (i = 0;  i < pipeline_link_count[stream]; i++) {
+		component = &components_global[pipeline_link[stream][i]];
 
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_FILE;
-	components[i].params[1] = 0;
-	get_external_param_addr(components_chain, "sw_ep_channles", &value);
-	components[i].params[2] = (u32)value;
-	get_external_param_addr(components_chain, "sw_ep_handle_addr", &value);
-	components[i].params[3] = (u32)value;
-	components_chain->component_first = &components[i];
-	i++;
+		if (stream == VOICECALL_IACC_TO_BT_STREAM &&
+			component->params[0] == CAPABILITY_ID_AEC_REF_1MIC)
+			continue;
+		if (component->component_id == CREATE_OPERATOR_REQ) {
+			if (component->running_refcnt == 1) {
+				should_stop_ops[should_stop_ops_count++] =
+					component->ret[0];
+			}
+			if (component->running_refcnt > 0)
+				component->running_refcnt--;
+		}
+	}
+	if (should_stop_ops_count > 0)
+		kalimba_stop_operator(should_stop_ops, should_stop_ops_count,
+			resp);
+	kalimba_msg_send_unlock();
+}
 
-	components[i].component_id = CREATE_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_RESAMPLER;
-	components[i - 1].component_next = &components[i];
-	i++;
+void destroy_stream(int stream)
+{
+	int i;
+	u16 resp[64];
+	struct component *component;
 
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = RESAMPLER_SET_CONVERSION_RATE;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&resampler_oper_conf_conversion_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
+	kalimba_msg_send_lock();
 
-	/* i == 3 */
-	for (k = 0; k < 4; k++) {
-		for (j = 0; j < 6; j++) {
-			components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-			components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-			components[i].params[0] =
-				(u32)(&components[0].ret[0]);
-			components[i].params[1] = (u32)(ep_configure_key[j]);
-			get_external_param_addr(components_chain,
-					sw_ep_configure_params_key[j], &value);
-			components[i].params[2] = (u32)value;
-			components[i - 1].component_next = &components[i];
-			i++;
+	/* Disconnect source */
+	for (i = 0; i < sw_channels[stream]; i++)
+		kalimba_disconnect_endpoints(1,
+			&sw_endpoint_connect_id[stream][i], resp);
+	/* Disconnect */
+	for (i = 0;  i < pipeline_link_count[stream]; i++) {
+		component = &components_global[pipeline_link[stream][i]];
+
+		if (component->component_id == CONNECT_REQ) {
+			if (component->create_refcnt == 1)
+				kalimba_disconnect_endpoints(1,
+					&component->ret[0], resp);
+			if (component->create_refcnt > 0)
+				component->create_refcnt--;
 		}
 	}
 
-	/* i == 27 */
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[0].ret[k]);
-		components[i].params[1] = 0;
-		components[i].params[2] = (u32)(&components[1].ret[0]);
-		components[i].params[3] = 0xA000 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
+	/* Destroy operators*/
+	for (i = 0;  i < pipeline_link_count[stream]; i++) {
+		component = &components_global[pipeline_link[stream][i]];
 
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[0]);
-		components[i].params[1] = 0x2000 + k;
-		components[i].params[2] = (u32)(&components_shared[0].ret[0]);
-		components[i].params[3] = 0xA000 + 8 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
-	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
-	components[i].params[4] = SET_PRIMARY_STREAM;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = START_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_ACK;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = STOP_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
-	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
-	components[i].params[4] = CLEAR_PRIMARY_STREAM;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	for (k = 0; k < 8; k++) {
-		components[i].component_id = DISCONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[27 + k].ret[0]);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 4;
-	components[i].params[1] = (u32)(components[0].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DESTROY_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i - 1].component_next = NULL;
-
-	components_chain->notify_ep_id = &components[0].ret[0];
-}
-
-static void hard_code_init_components_chain_music_playback(
-	struct components_chain *components_chain)
-{
-	struct component *components = components_chain->components;
-	int i, j, k;
-	u32 *value;
-	static u16 mixer_oper_conf_primary_stream = 0x1;
-
-	i = 0;
-
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_FILE;
-	components[i].params[1] = 0;
-	get_external_param_addr(components_chain, "sw_ep_channles", &value);
-	components[i].params[2] = (u32)value;
-	get_external_param_addr(components_chain, "sw_ep_handle_addr", &value);
-	components[i].params[3] = (u32)value;
-	components_chain->component_first = &components[i];
-	i++;
-
-	/* peq create */
-	for (k = 0; k < 5; k++) {
-		components[i].component_id = CREATE_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = CAPABILITY_ID_PEQ;
-		components[i - 1].component_next = &components[i];
-		/* Init the peq operator id pointer */
-		peq_op_id[k] = &(components[i].ret[0]);
-		i++;
-	}
-
-	/* i == 6 */
-	for (k = 0; k < 4; k++) {
-		for (j = 0; j < 6; j++) {
-			components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-			components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-			components[i].params[0] = (u32)(&components[0].ret[k]);
-			components[i].params[1] = (u32)(ep_configure_key[j]);
-			get_external_param_addr(components_chain,
-				sw_ep_configure_params_key[j], &value);
-			components[i].params[2] = (u32)value;
-			components[i - 1].component_next = &components[i];
-			i++;
+		if (component->component_id == CREATE_OPERATOR_REQ) {
+			if (component->create_refcnt == 1) {
+				kalimba_destroy_operator(&component->ret[0],
+					1, resp);
+				/*
+				 * Clear operator id, if this operator
+				 * is destoried.
+				 */
+				component->ret[0] = 0;
+			}
+			if (component->create_refcnt > 0)
+				component->create_refcnt--;
 		}
 	}
 
-	/* peq config */
-	for (k = 0; k < 5; k++) {
-		/* init PEQ sample rate */
-		components[i].component_id = OPERATOR_MESSAGE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = OPMSG_COMMON_SET_SAMPLE_RATE;
-		components[i].params[2] = 1;
-		components[i].params[3] = (u32)(&peq_sample_rate);
-		components[i - 1].component_next = &components[i];
-		i++;
+	/* Close Sinks */
+	for (i = 0;  i < pipeline_link_count[stream]; i++) {
+		component = &components_global[pipeline_link[stream][i]];
+
+		if (component->component_id == GET_SINK_REQ) {
+			if (component->create_refcnt == 1)
+				kalimba_close_sink(component->id_count,
+					component->ret, resp);
+			if (component->create_refcnt > 0)
+				component->create_refcnt--;
+		} else if (component->component_id == GET_SOURCE_REQ) {
+			if (component->create_refcnt == 1)
+				kalimba_close_source(component->id_count,
+					component->ret, resp);
+			if (component->create_refcnt > 0)
+				component->create_refcnt--;
+		}
 	}
 
-	/* i == 35 */
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[0].ret[k]);
-		components[i].params[1] = 0;
-		components[i].params[2] = (u32)(&components[1].ret[0]);
-		components[i].params[3] = 0xA000 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	/* peq connect */
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1].ret[0]);
-		components[i].params[1] = 0x2000 + k;
-		components[i].params[2] = (u32)(&components[2 + k].ret[0]);
-		components[i].params[3] = 0xA000;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	for (k = 0; k < 4; k++) {
-		components[i].component_id = CONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2 + k].ret[0]);
-		components[i].params[1] = 0x2000;
-		components[i].params[2] = (u32)(&components_shared[0].ret[0]);
-		components[i].params[3] = 0xA000 + k;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
-	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
-	components[i].params[4] = SET_PRIMARY_STREAM;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* peq start */
-	for (k = 0; k < 5; k++) {
-		components[i].component_id = START_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = 1;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_TRIGGER_START;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DATA_PRODUCED;
-	components[i].execute_phase = EXEC_PHASE_ACK;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* peq stop */
-	for (k = 0; k < 5; k++) {
-		components[i].component_id = STOP_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = 1;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = OPERATOR_MESSAGE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components_shared[0].ret[0]);
-	components[i].params[1] = OPERATOR_MSG_SET_PRIMARY_STREAM;
-	components[i].params[2] = 1;
-	components[i].params[3] = (u32)(&mixer_oper_conf_primary_stream);
-	components[i].params[4] = CLEAR_PRIMARY_STREAM;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	for (k = 0; k < 12; k++) {
-		components[i].component_id = DISCONNECT_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = 1;
-		components[i].params[1] = (u32)(&components[k + 35].ret[0]);
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 4;
-	components[i].params[1] = (u32)(components[0].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	/* peq stop */
-	for (k = 0; k < 5; k++) {
-		components[i].component_id = DESTROY_OPERATOR_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_FREE;
-		components[i].params[0] = (u32)(&components[1 + k].ret[0]);
-		components[i].params[1] = 1;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	components[i - 1].component_next = NULL;
-
-	components_chain->notify_ep_id = &components[0].ret[0];
+	/* Close source or sink*/
+	if (stream == ANALOG_CAPTURE_STREAM)
+		kalimba_close_sink(sw_channels[stream],
+			sw_endpoint_id[stream], resp);
+	else if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
+		|| stream == ALARM_STREAM)
+		kalimba_close_source(sw_channels[stream],
+			sw_endpoint_id[stream], resp);
+	kalimba_msg_send_unlock();
 }
 
-static void hard_code_init_components_chain_capture(
-	struct components_chain *components_chain)
+void data_produced(u16 endpoint_id)
 {
-	struct component *components = components_chain->components;
-	int i = 0, j;
-	u32 *value;
-
-	components[i].component_id = CREATE_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = CAPABILITY_ID_BASIC_PASSTHOUGH;
-	components_chain->component_first = &components[i];
-	i++;
-
-	components[i].component_id = GET_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_IACC;
-	components[i].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.channels);
-	components[i].params[3] =
-		(u32)(&kcm->capture_iacc_ep.handle_phy_addr);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = GET_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = ENDPOINT_TYPE_FILE;
-	components[i].params[1] = 0;
-	get_external_param_addr(components_chain, "sw_ep_channles", &value);
-	components[i].params[2] = (u32)value;
-	get_external_param_addr(components_chain, "sw_ep_handle_addr", &value);
-	components[i].params[3] = (u32)value;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.sample_rate);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components[i].params[2] =
-		(u32)(&kcm->capture_iacc_ep.audio_data_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.packing_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_INTERLEAVING_MODE;
-	components[i].params[2] =
-		(u32)(&kcm->capture_iacc_ep.interleaving_format);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-	components[i] .execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = ENDPOINT_CONF_CLOCK_MASTER;
-	components[i].params[2] = (u32)(&kcm->capture_iacc_ep.clock_master);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	for (j = 0; j < 6; j++) {
-		components[i].component_id = ENDPOINT_CONFIGURE_REQ;
-		components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-		components[i].params[0] = (u32)(&components[2].ret[0]);
-		components[i].params[1] = (u32)(ep_configure_key[j]);
-		get_external_param_addr(components_chain,
-				sw_ep_configure_params_key[j], &value);
-		components[i].params[2] = (u32)value;
-		components[i - 1].component_next = &components[i];
-		i++;
-	}
-
-	/* i == 14 */
-	components[i].component_id = CONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 0x2000;
-	components[i].params[2] = (u32)(&components[2].ret[0]);
-	components[i].params[3] = 0;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = CONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[1].ret[0]);
-	components[i].params[1] = 0;
-	components[i].params[2] = (u32)(&components[0].ret[0]);
-	components[i].params[3] = 0xA000;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = START_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_PARAMS;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = STOP_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DISCONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(&components[14].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DISCONNECT_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(&components[15].ret[0]);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = CLOSE_SINK_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(components[2].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-	components[i].component_id = CLOSE_SOURCE_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = 1;
-	components[i].params[1] = (u32)(components[1].ret);
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i].component_id = DESTROY_OPERATOR_REQ;
-	components[i].execute_phase = EXEC_PHASE_HW_FREE;
-	components[i].params[0] = (u32)(&components[0].ret[0]);
-	components[i].params[1] = 1;
-	components[i - 1].component_next = &components[i];
-	i++;
-
-	components[i - 1].component_next = NULL;
-	components_chain->notify_ep_id = &components[2].ret[0];
-}
-
-u16 get_notify_ep_id(struct components_chain *components_chain)
-{
-	return *(components_chain->notify_ep_id);
+	kalimba_msg_send_lock();
+	kalimba_data_produced(endpoint_id);
+	kalimba_msg_send_unlock();
 }
 
 u16 get_volume_control_op_id(void)
 {
-	return *volume_control_op_id;
+	return components_global[volume_ctrl].ret[0];
 }
 
-u16 get_mixer_op_id(void)
+u16 get_mixer_op_id(int which)
 {
-	return *mixer_op_id;
+	if (which == 1)
+		return components_global[mixer_1].ret[0];
+	else if (which == 2)
+		return components_global[mixer_2].ret[0];
+	return 0;
+}
+
+u16 get_music_passthrough_op_id(void)
+{
+	return components_global[music_passthrough].ret[0];
 }
 
 u16 get_peq_op_id(u16 index)
 {
-	return *peq_op_id[index];
+	if (index == 0)
+		return components_global[music_usr_peq].ret[0];
+	else
+		return components_global[music_spk_peq[index - 1]].ret[0];
 }
 
+static void config_operator(u16 operator_id, u16 operator_type, u32 *config)
+{
+	u32 config_items = config[0];
+	u32 i;
+	u16 resp[64];
+
+	for (i = 0; i < config_items; i++)
+		kalimba_operator_message(operator_id,
+			(u16)config[i * 3 + 1],
+			(u16)config[i * 3 + 2],
+			(u16 *)(config[i * 3 + 3]),
+			NULL, NULL, resp);
+}
+
+static void config_endpoint(u16 *endpoint_id, int endpoint_count, u32 *config)
+{
+	u32 config_items = config[0];
+	int i, c;
+	u16 resp[64];
+
+	for (c = 0; c < endpoint_count; c++) {
+		for (i = 0; i < config_items; i++)
+			kalimba_config_endpoint(endpoint_id[c],
+				config[i * 2 + 1], *((u16 *)config[i * 2 + 2]),
+				resp);
+	}
+}
 
 int execute_component(struct component *component)
 {
 	int ret = 0;
-	u16 primary_stream = 0;
 	u16 resp[64];
 
 	kalimba_msg_send_lock();
 
 	switch (component->component_id) {
 	case CREATE_OPERATOR_REQ:
-		kalimba_create_operator((u16)(component->params[0]),
-			component->ret, resp);
-		if ((u16)(component->params[0]) == CAPABILITY_ID_MIXER)
-			curr_primary_stream = 0;
-		break;
-	case CREATE_OPERATOR_EXTENDED_REQ:
-		kalimba_create_operator_extended((u16)(component->params[0]),
-			(u16)(component->params[1]),
-			(u16 *)(component->params[2]),
-			component->ret, resp);
+		if  (component->create_refcnt == 0) {
+			kalimba_create_operator((u16)(component->params[0]),
+					component->ret, resp);
+			config_operator((u16)(component->ret[0]),
+				(u16)(component->params[0]),
+				&component->params[1]);
+			if (component->params[0] == CAPABILITY_ID_MIXER)
+				component->primary_stream = 0;
+		}
+		component->create_refcnt++;
 		break;
 	case OPERATOR_MESSAGE_REQ:
 		if ((u16)(component->params[1]) !=
@@ -1693,44 +1517,46 @@ int execute_component(struct component *component)
 				NULL, NULL, resp);
 			break;
 		}
-		if ((u32)(component->params[4]) == SET_PRIMARY_STREAM)
-			set_bit(*(u16 *)(component->params[3]) - 1,
-				&active_stream);
-		else if ((u32)(component->params[4]) ==
-				CLEAR_PRIMARY_STREAM)
-			clear_bit(*(u16 *)(component->params[3]) - 1,
-				&active_stream);
-		if (test_bit(1, &active_stream))
-			primary_stream = 2;
-		else if (test_bit(0, &active_stream))
-			primary_stream = 1;
-		else if (test_bit(2, &active_stream))
-			primary_stream = 3;
-		if (curr_primary_stream == primary_stream)
-			break;
-		curr_primary_stream = primary_stream;
-		if (primary_stream == 0)
-			break;
-		ret = kalimba_operator_message(
-				*((u16 *)(component->params[0])),
-				(u16)(component->params[1]),
-				(u16)(component->params[2]),
-				&primary_stream,
-				NULL, NULL, resp);
+		change_primary_stream((u32)(component->params[4]),
+			*(u16 *)(component->params[3]) - 1);
 		break;
 	case GET_SINK_REQ:
-		kalimba_get_sink((u16)(component->params[0]),
-			(u16)(component->params[1]),
-			*((u16 *)(component->params[2])),
-			*((u32 *)(component->params[3])),
-			component->ret, resp);
+		if  (component->create_refcnt == 0) {
+			struct hw_ep_handle_buff_t *hw_ep_handle =
+				(struct hw_ep_handle_buff_t *)
+					(component->params[2]);
+
+			memset(hw_ep_handle->buff, 0, hw_ep_handle->buff_bytes);
+			kalimba_get_sink((u16)(component->params[0]),
+				(u16)(component->params[1]),
+				hw_ep_handle->channels,
+				hw_ep_handle->handle_phy_addr,
+				component->ret, resp);
+			config_endpoint(component->ret,
+				hw_ep_handle->channels,
+				&component->params[3]);
+			component->id_count = hw_ep_handle->channels;
+		}
+		component->create_refcnt++;
 		break;
 	case GET_SOURCE_REQ:
-		kalimba_get_source((u16)(component->params[0]),
-			(u16)(component->params[1]),
-			*((u16 *)(component->params[2])),
-			*((u32 *)(component->params[3])),
-			component->ret, resp);
+		if  (component->create_refcnt == 0) {
+			struct hw_ep_handle_buff_t *hw_ep_handle =
+				(struct hw_ep_handle_buff_t *)
+					(component->params[2]);
+
+			memset(hw_ep_handle->buff, 0, hw_ep_handle->buff_bytes);
+			kalimba_get_source((u16)(component->params[0]),
+					(u16)(component->params[1]),
+					hw_ep_handle->channels,
+					hw_ep_handle->handle_phy_addr,
+					component->ret, resp);
+			config_endpoint(component->ret,
+				hw_ep_handle->channels,
+				&component->params[3]);
+			component->id_count = hw_ep_handle->channels;
+		}
+		component->create_refcnt++;
 		break;
 	case ENDPOINT_CONFIGURE_REQ:
 		kalimba_config_endpoint(*((u16 *)(component->params[0])),
@@ -1738,11 +1564,14 @@ int execute_component(struct component *component)
 			*((u32 *)(component->params[2])), resp);
 		break;
 	case CONNECT_REQ:
-		kalimba_connect_endpoints(*((u16 *)(component->params[0]))
-			+ (u16)(component->params[1]),
-			*((u16 *)(component->params[2])) +
-			(u16)(component->params[3]),
-			component->ret, resp);
+		if  (component->create_refcnt == 0)
+			kalimba_connect_endpoints(
+				*((u16 *)(component->params[0]))
+				+ (u16)(component->params[1]),
+				*((u16 *)(component->params[2])) +
+				(u16)(component->params[3]),
+				component->ret, resp);
+		component->create_refcnt++;
 		break;
 	case START_OPERATOR_REQ:
 		ret = kalimba_start_operator((u16 *)(component->params[0]),
@@ -1785,71 +1614,6 @@ int execute_component(struct component *component)
 	kalimba_msg_send_unlock();
 
 	return ret;
-}
-
-struct component *get_data_produced_ack_component(
-	struct components_chain *components_chain)
-{
-	struct component *component;
-
-	if (components_chain->component_first == NULL)
-		return NULL;
-
-	for (component = components_chain->component_first;
-		component != NULL; component = component->component_next) {
-		if (component->execute_phase == EXEC_PHASE_ACK &&
-			component->component_id == DATA_PRODUCED)
-			return component;
-	}
-
-	return NULL;
-}
-
-static int __execute_shared_components(struct component *components,
-		int components_count, u32 exec_phase)
-{
-	int i;
-	int ret = 0;
-
-	for (i = 0; i < components_count; i++) {
-		if (components[i].execute_phase != exec_phase)
-			continue;
-		ret = execute_component(&components[i]);
-		if (ret < 0)
-			break;
-	}
-	return 0;
-}
-
-int execute_global_shared_components(u32 exec_phase)
-{
-	return __execute_shared_components(components_shared,
-		shared_components_size, exec_phase);
-}
-
-int execute_cvc_shared_components(u32 exec_phase)
-{
-	return __execute_shared_components(components_cvc_shared,
-		cvc_shared_components_size, exec_phase);
-}
-
-int execute_components_chain(struct components_chain *components_chain,
-	u32 exec_phase)
-{
-	struct component *component;
-	int ret = 0;
-
-	if (components_chain->component_first == NULL)
-		return -ENODEV;
-	for (component = components_chain->component_first;
-		component != NULL; component = component->component_next) {
-		if (component->execute_phase != exec_phase)
-			continue;
-		ret = execute_component(component);
-		if (ret < 0)
-			break;
-	}
-	return 0;
 }
 
 static int alloc_hw_ep_handle_and_buff(struct device *dev,
@@ -1899,10 +1663,7 @@ static void free_hw_ep_handle_and_buff(struct device *dev,
 
 struct kcm_t *kcm_init(struct device *dev)
 {
-	struct components_chain *components_chain;
 	int ret;
-
-	INIT_LIST_HEAD(&components_chain_list);
 
 	kcm = devm_kzalloc(dev, sizeof(struct kcm_t), GFP_KERNEL);
 	if (kcm == NULL)
@@ -1939,48 +1700,15 @@ struct kcm_t *kcm_init(struct device *dev)
 		goto error_alloc_capture_usp_a2dp_ep_failed;
 	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
-		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 16000);
+		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 48000);
 	if (ret) {
 		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
 		goto error_alloc_capture_iacc_sco_ep_failed;
 	}
-	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_sco_ep,
-		BUFF_BYTES_IACC_SCO_PLAYBACK, 1, 48000);
-	if (ret) {
-		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
-		goto error_alloc_playback_iacc_sco_ep_failed;
-	}
 
-	init_shared_components();
-	init_cvc_shared_components();
-	components_chain = create_components_chain("Music Playback");
-	init_sw_external_param(components_chain);
-	hard_code_init_components_chain_music_playback(components_chain);
-
-	components_chain = create_components_chain("Navigation Playback");
-	init_sw_external_param(components_chain);
-	hard_code_init_components_chain_navigation_playback(components_chain);
-
-	components_chain = create_components_chain("Alarm Playback");
-	init_sw_external_param(components_chain);
-	hard_code_init_components_chain_alarm_playback(components_chain);
-
-	components_chain = create_components_chain("A2DP Playback");
-	hard_code_init_components_chain_a2dp_playback(components_chain);
-
-	components_chain = create_components_chain("Voicecall-bt-to-iacc");
-	hard_code_init_components_chain_voicecall_bt_to_iacc(components_chain);
-
-	components_chain = create_components_chain("Voicecall-iacc-to-bt");
-	hard_code_init_components_chain_voicecall_iacc_to_bt(components_chain);
-
-	components_chain = create_components_chain("Analog Capture");
-	init_sw_external_param(components_chain);
-	hard_code_init_components_chain_capture(components_chain);
+	init_pipeline();
 
 	return kcm;
-error_alloc_playback_iacc_sco_ep_failed:
-	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
 error_alloc_capture_iacc_sco_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
 error_alloc_capture_usp_a2dp_ep_failed:
@@ -1996,7 +1724,6 @@ error_alloc_capture_iacc_ep_failed:
 
 void kcm_deinit(struct device *dev)
 {
-	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
