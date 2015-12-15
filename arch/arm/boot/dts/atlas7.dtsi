@@ -44,6 +44,7 @@
 			clocks = <&car 146>;
 			cpu0-supply = <&vdd_cpu>;
 			voltage-tolerance = <1>;
+			clock-frequency = <793000000>;
 			operating-points = <
 			/* kHz    uV */
 			793000	1127000
@@ -59,6 +60,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <1>;
+			clock-frequency = <793000000>;
 		};
 	};
 
