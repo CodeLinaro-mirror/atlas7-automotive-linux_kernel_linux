@@ -2405,6 +2405,7 @@
 				compatible = "sirf,atlas7-com-vip";
 				reg = <0x13160000 0x1000>;
 				clocks = <&car 88>;
+				resets = <&car 88>;
 				interrupts = <0 63 0>, <0 84 0>;
 				sirf,vip_cma_size = <0x1A00000>;
 			};
