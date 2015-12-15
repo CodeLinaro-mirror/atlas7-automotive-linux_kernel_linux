@@ -449,8 +449,6 @@ static int it68013_video_start(struct i2c_client *client)
 			i2c_smbus_write_byte_data(client, 0x50, 0xb2);
 			i2c_smbus_write_byte_data(client, 0x51, 0x44);
 			i2c_smbus_write_byte_data(client, 0x65, 0x52);
-			i2c_smbus_write_byte_data(client, 0x64, 0x88);
-			i2c_smbus_write_byte_data(client, 0x64, 0x08);
 		}
 	break;
 	case V4L2_MBUS_PARALLEL:
@@ -470,8 +468,6 @@ static int it68013_video_start(struct i2c_client *client)
 			i2c_smbus_write_byte_data(client, 0x50, 0xb2);
 			i2c_smbus_write_byte_data(client, 0x51, 0x44);
 			i2c_smbus_write_byte_data(client, 0x65, 0x12);
-			i2c_smbus_write_byte_data(client, 0x64, 0x88);
-			i2c_smbus_write_byte_data(client, 0x64, 0x08);
 		}
 	break;
 	}
