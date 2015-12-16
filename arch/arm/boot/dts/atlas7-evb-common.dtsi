@@ -145,16 +145,6 @@
 		};
 	};
 
-	sound-hdmi {
-		compatible = "sirf,hdmi-card-olm";
-		i2s-controller = <&i2s>;
-		audio-codec = <&cs42888>;
-		ext-rst = <&gpio_3 0 0>;
-		sw1-sel = <&gpio_3 8 0>;
-		sw2-sel = <&gpio_3 9 0>;
-		sw3-sel = <&gpio_3 14 0>;	/* Don't drive if OLM */
-	};
-
 	kalimba {
 		status = "okay";
 	};
@@ -323,16 +313,6 @@
 					reg = <0x38>;
 				};
 
-				cs42888: cs42888@4B {
-					compatible = "cirrus,cs42888";
-					reg = <0x4B>;
-					clocks = <&car 7>;
-					clock-names = "mclk";
-					VA-supply = <0>;
-					VD-supply = <0>;
-					VLS-supply = <0>;
-					VLC-supply = <0>;
-				};
 				it68013: decoder@49 {
 					compatible = "itetech,it68013";
 					reg = <0x49>;
