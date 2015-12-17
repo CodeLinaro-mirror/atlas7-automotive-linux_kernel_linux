@@ -153,6 +153,65 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 	return 0;
 }
 
+void kalimba_set_dbe_control(u16 mode)
+{
+	u16 msg[4] = {1, 1, 0, mode};
+	u16 dbe_op_id;
+
+	set_default_music_dbe_control(mode);
+	kalimba_msg_send_lock();
+	dbe_op_id = get_dbe_op_id(0);
+	if (dbe_op_id)
+		kalimba_operator_message(dbe_op_id,
+			OPMSG_COMMON_SET_CONTROL, 4, msg,
+			NULL, NULL, NULL);
+
+	dbe_op_id = get_dbe_op_id(1);
+	if (dbe_op_id)
+		kalimba_operator_message(dbe_op_id,
+			OPMSG_COMMON_SET_CONTROL, 4, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
+void kalimba_set_dbe_params(u16 offset, int val)
+{
+	u16 msg[6] = {1, offset, 1, (u16)((val >> 8) & 0x0000ffff),
+		(u16)((val & 0x000000ff) << 8), 0};
+	u16 dbe_op_id;
+
+	set_default_music_dbe_params(offset, val);
+	kalimba_msg_send_lock();
+	dbe_op_id = get_dbe_op_id(0);
+	if (dbe_op_id)
+		kalimba_operator_message(dbe_op_id,
+			OPMSG_COMMON_SET_PARAMS, 6, msg,
+			NULL, NULL, NULL);
+
+	dbe_op_id = get_dbe_op_id(1);
+	if (dbe_op_id)
+		kalimba_operator_message(dbe_op_id,
+			OPMSG_COMMON_SET_PARAMS, 6, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
+void kalimba_set_delay_params(u16 offset, int val)
+{
+	u16 msg[6] = {1, offset, 1, (u16)((val >> 8) & 0x0000ffff),
+		(u16)((val & 0x000000ff) << 8), 0};
+	u16 delay_op_id;
+
+	set_default_music_delay_params(offset, val);
+	kalimba_msg_send_lock();
+	delay_op_id = get_delay_op_id();
+	if (delay_op_id)
+		kalimba_operator_message(delay_op_id,
+			OPMSG_COMMON_SET_PARAMS, 6, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+
 void kalimba_set_peq_control(u16 index, u16 mode)
 {
 	u16 msg[4] = {1, 1, 0, mode};

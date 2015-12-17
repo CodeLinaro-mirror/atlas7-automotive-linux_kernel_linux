@@ -55,6 +55,9 @@ struct kas_priv_data {
 	u16 pre_gain;
 	u16 peq_switch_mode[PEQ_NUM_MAX];
 	u16 peq_params_array[PEQ_NUM_MAX][PEQ_PARAMS_ARRAY_LEN_16B];
+	u16 dbe_switch_mode;
+	u16 dbe_params_array[DBE_PARAMS_ARRAY_LEN_16B];
+	u16 delay_params_array[DELAY_PARAMS_ARRAY_LEN_16B];
 };
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
@@ -73,6 +76,169 @@ static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.periods_max		= 128,
 	.buffer_bytes_max	= 512 * 1024, /* 512 kbytes */
 };
+
+static int kas_playback_delay_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int cntl = mc->reg & DELAY_CNTL_MASK;
+	u16 pos = 0;
+	int val = 0;
+
+	switch (cntl) {
+	case DELAY_PARAM_CHAN1_DELAY:
+	case DELAY_PARAM_CHAN2_DELAY:
+	case DELAY_PARAM_CHAN3_DELAY:
+	case DELAY_PARAM_CHAN4_DELAY:
+		pos = cntl;
+		val = get24bit((u8 *)pdata->delay_params_array, pos);
+		ucontrol->value.integer.value[0] = val;
+		break;
+	case DELAY_PARAM_CHAN5_DELAY:
+	case DELAY_PARAM_CHAN6_DELAY:
+	case DELAY_PARAM_CHAN7_DELAY:
+	case DELAY_PARAM_CHAN8_DELAY:
+		/* not support currently */
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int kas_playback_delay_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int cntl = mc->reg & DBE_CNTL_MASK;
+	u16 pos = 0;
+	int val = 0;
+
+	switch (cntl) {
+	case DELAY_PARAM_CHAN1_DELAY:
+	case DELAY_PARAM_CHAN2_DELAY:
+	case DELAY_PARAM_CHAN3_DELAY:
+	case DELAY_PARAM_CHAN4_DELAY:
+		pos = cntl;
+		val = ucontrol->value.integer.value[0] & Q24_MASK;
+		put24bit((u8 *)pdata->delay_params_array, pos, val);
+		kalimba_set_delay_params(pos, val);
+		break;
+	case DELAY_PARAM_CHAN5_DELAY:
+	case DELAY_PARAM_CHAN6_DELAY:
+	case DELAY_PARAM_CHAN7_DELAY:
+	case DELAY_PARAM_CHAN8_DELAY:
+		/* not support currently */
+		return -EINVAL;
+	}
+	return 0;
+}
+
+#define MIN_DBE_GAIN_DB		-32
+/* TLV used by dbe gain */
+static const DECLARE_TLV_DB_SCALE(kas_dbe_gain_tlv,
+		MIN_DBE_GAIN_DB * 100, 100, 0);
+
+static int kas_playback_dbe_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int cntl = mc->reg & DBE_CNTL_MASK;
+	u16 pos = 0;
+	int val = 0;
+
+	switch (mc->reg) {
+	case DBE_CNTL_SWITCH:
+		ucontrol->value.integer.value[0] =
+			pdata->dbe_switch_mode;
+		break;
+	case DBE_PARAM_MIX_BALANCE:
+	case DBE_PARAM_EFFECT_STRENGTH:
+	case DBE_PARAM_HARM_CONTENT:
+		pos = cntl;
+		val = get24bit((u8 *)pdata->dbe_params_array, pos);
+		ucontrol->value.integer.value[0] = val;
+		break;
+	case DBE_PARAM_AMP_LIMIT:
+		pos = cntl;
+		/* 0~32 <- -32~0 <- Q24:12.N */
+		val = get24bit((u8 *)pdata->dbe_params_array, pos);
+		if (val & 0x00800000) {
+			ucontrol->value.integer.value[0] =
+				((val >> 12) | 0xFFFFF000) - MIN_DBE_GAIN_DB;
+		} else
+			ucontrol->value.integer.value[0] =
+				(val >> 12) - MIN_DBE_GAIN_DB;
+		break;
+	case DBE_PARAM_XOVER_FC:
+	case DBE_PARAM_LP_FC:
+	case DBE_PARAM_HP_FC:
+		pos = cntl;
+		/* 40~1000/50~300/30~300 <- Q24:20.N */
+		val = get24bit((u8 *)pdata->dbe_params_array, pos);
+		ucontrol->value.integer.value[0] = val >> 4;
+		break;
+	}
+	return 0;
+}
+
+static int kas_playback_dbe_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int cntl = mc->reg & DBE_CNTL_MASK;
+	u16 pos = 0;
+	int val = 0;
+
+	switch (cntl) {
+	case DBE_CNTL_SWITCH:
+		pdata->dbe_switch_mode =
+			ucontrol->value.integer.value[0];
+		/* 0~2 -> 1~3 */
+		val = ucontrol->value.integer.value[0] + 1;
+		kalimba_set_dbe_control(val);
+		break;
+	case DBE_PARAM_MIX_BALANCE:
+	case DBE_PARAM_EFFECT_STRENGTH:
+	case DBE_PARAM_HARM_CONTENT:
+		pos = cntl;
+		val = ucontrol->value.integer.value[0] & Q24_MASK;
+		put24bit((u8 *)pdata->dbe_params_array, pos, val);
+		kalimba_set_dbe_params(pos, val);
+		break;
+	case DBE_PARAM_AMP_LIMIT:
+		pos = cntl;
+		/* 0~32 -> -32~0 -> Q24:12.N */
+		val = ((ucontrol->value.integer.value[0] + MIN_DBE_GAIN_DB)
+			<< 12) & Q24_MASK;
+		put24bit((u8 *)pdata->dbe_params_array, pos, val);
+		kalimba_set_dbe_params(pos, val);
+		break;
+	case DBE_PARAM_XOVER_FC:
+	case DBE_PARAM_LP_FC:
+	case DBE_PARAM_HP_FC:
+		pos = cntl;
+		/* 40~1000/50~300/30~300 -> Q24:20.N */
+		if (ucontrol->value.integer.value[0] < mc->shift)
+			return -EINVAL;
+		val = (ucontrol->value.integer.value[0] << 4) & Q24_MASK;
+		put24bit((u8 *)pdata->dbe_params_array, pos, val);
+		kalimba_set_dbe_params(pos, val);
+		break;
+	}
+	return 0;
+}
+
 
 static int kas_playback_peq_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
@@ -177,7 +343,7 @@ static int kas_playback_peq_get(struct snd_kcontrol *kcontrol,
 	case PEQ_PARAM_BAND_FILTER:
 	case PEQ_PARAM_BAND_Q:
 		/* not support currently */
-		break;
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -239,7 +405,7 @@ static int kas_playback_peq_put(struct snd_kcontrol *kcontrol,
 	case PEQ_PARAM_BAND_FILTER:
 	case PEQ_PARAM_BAND_Q:
 		/* not support currently */
-		break;
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -343,6 +509,34 @@ static const struct snd_kcontrol_new kas_controls[] = {
 	KAS_PEQ_CONTROLS("Spk2 PEQ", SPK2_PEQ_BASE),
 	KAS_PEQ_CONTROLS("Spk3 PEQ", SPK3_PEQ_BASE),
 	KAS_PEQ_CONTROLS("Spk4 PEQ", SPK4_PEQ_BASE),
+	/* dbe */
+	SOC_SINGLE_EXT("DBE Switch Mode", DBE_CNTL_SWITCH, 0, 2, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	SOC_SINGLE_EXT("DBE Xover FC", DBE_PARAM_XOVER_FC, 40, 1000, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	SOC_SINGLE_EXT("DBE Mix Balance", DBE_PARAM_MIX_BALANCE, 0, 100, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	SOC_SINGLE_EXT("DBE Effect Strength",
+		DBE_PARAM_EFFECT_STRENGTH, 0, 100, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	SOC_SINGLE_EXT_TLV("DBE Amp Limit", DBE_PARAM_AMP_LIMIT, 0, 32, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put,
+		kas_dbe_gain_tlv),
+	SOC_SINGLE_EXT("DBE LP FC", DBE_PARAM_LP_FC, 50, 300, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	SOC_SINGLE_EXT("DBE HP FC", DBE_PARAM_HP_FC, 50, 300, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	SOC_SINGLE_EXT("DBE Harm Content", DBE_PARAM_HARM_CONTENT, 0, 100, 0,
+		kas_playback_dbe_get, kas_playback_dbe_put),
+	/* delay */
+	SOC_SINGLE_EXT("Delay Chan1 Delay", DELAY_PARAM_CHAN1_DELAY, 0, 768, 0,
+		kas_playback_delay_get, kas_playback_delay_put),
+	SOC_SINGLE_EXT("Delay Chan2 Delay", DELAY_PARAM_CHAN2_DELAY, 0, 768, 0,
+		kas_playback_delay_get, kas_playback_delay_put),
+	SOC_SINGLE_EXT("Delay Chan3 Delay", DELAY_PARAM_CHAN3_DELAY, 0, 768, 0,
+		kas_playback_delay_get, kas_playback_delay_put),
+	SOC_SINGLE_EXT("Delay Chan4 Delay", DELAY_PARAM_CHAN4_DELAY, 0, 768, 0,
+		kas_playback_delay_get, kas_playback_delay_put)
 };
 
 static int kas_pcm_open(struct snd_pcm_substream *substream)
@@ -792,9 +986,6 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 	priv_data->kcm = kcm_init(platform->dev);
 	if (IS_ERR(priv_data->kcm))
 		return PTR_ERR(priv_data->kcm);
-	for (i = 0; i < PEQ_NUM_MAX; i++)
-		memcpy(priv_data->peq_params_array[i],
-			peq_params_array_def, sizeof(peq_params_array_def));
 	return 0;
 }
 

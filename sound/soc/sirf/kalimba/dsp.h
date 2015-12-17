@@ -76,6 +76,9 @@ void kalimba_set_stream_volume(int stream, int vol);
 void kalimba_set_music_passthrough_volume(int vol);
 void kalimba_set_peq_control(u16 index, u16 mode);
 void kalimba_set_peq_params(u16 index, u16 offset, int val);
+void kalimba_set_dbe_control(u16 mode);
+void kalimba_set_dbe_params(u16 offset, int val);
+void kalimba_set_delay_params(u16 offset, int val);
 
 #define ENDPOINT_TYPE_USP			1
 #define ENDPOINT_TYPE_I2S			2
@@ -103,9 +106,13 @@ void kalimba_set_peq_params(u16 index, u16 offset, int val);
 #define CAPABILITY_ID_SPLITTER			0x0013
 #define CAPABILITY_ID_CVC_RCV_WB		0x001F
 #define CAPABILITY_ID_CVCHF1MIC_SEND_WB		0x001E
+#define CAPABILITY_ID_DBE			0x002F
+#define CAPABILITY_ID_DELAY			0x0035
 #define CAPABILITY_ID_AEC_REF_1MIC		0x0040
 #define CAPABILITY_ID_VOLUME_CONTROL		0x0048
 #define CAPABILITY_ID_PEQ			0x0049
+#define CAPABILITY_ID_DBE_FULLBAND_IN_OUT	0x0090
+#define CAPABILITY_ID_DBE_FULLBAND_IN		0x0091
 
 #define AEC_REF_SET_SAMPLE_RATES		0x00FE
 #define OPERATOR_MSG_SET_UCID			0x2007
@@ -261,8 +268,8 @@ void kalimba_set_peq_params(u16 index, u16 offset, int val);
 #define PEQ_PARAM_BAND_Q		0x0007
 #define Q24_MASK			0x00ffffff
 
-/* PEQ default parameter-set array: for init and reset */
-static const u16 peq_params_array_def[PEQ_PARAMS_ARRAY_LEN_16B] = {
+/* PEQ default parameter-set array: for init */
+static const u16 peq_params_array_def[] __initconst = {
 	/* PEQ_CONF  CORE_TYPE    NUM_BANDS MASTER_GAIN */
 	/*|--------||--------|    |--------||--------|*/
 	0x0000, 0x0000, 0x0000, 0x0000, 0x0a00, 0x0000,
@@ -280,5 +287,39 @@ static const u16 peq_params_array_def[PEQ_PARAMS_ARRAY_LEN_16B] = {
 	0x0000, 0x0D01, 0xF400, 0x0000, 0x0000, 0xB505,
 	0x0000, 0x0D03, 0xE800, 0x0000, 0x0000, 0xB505,
 };
+
+#define DBE_PARAMS_ARRAY_LEN_16B	12
+#define DBE_MSG_PARAMS_ARRAY_LEN_16B	(DBE_PARAMS_ARRAY_LEN_16B + 3)
+#define DBE_CNTL_MASK			0x00ff
+#define DBE_CNTL_SWITCH			0x00ff
+#define DBE_PARAM_XOVER_FC		0x0000
+#define DBE_PARAM_MIX_BALANCE		0x0001
+#define DBE_PARAM_EFFECT_STRENGTH	0x0002
+#define DBE_PARAM_AMP_LIMIT		0x0003
+#define DBE_PARAM_LP_FC			0x0004
+#define DBE_PARAM_HP_FC			0x0005
+#define DBE_PARAM_HARM_CONTENT		0x0006
+
+/* DBE default parameter-set array: for init */
+static const u16 dbe_params_array_def[] __initconst = {
+	/* XOVER_FC  MIX_BANL      EFFT_STR AMP_LIMIT */
+	/*|--------||--------|    |--------||--------|*/
+	0x000C, 0x8000, 0x0032, 0x0000, 0x3200, 0x0000,
+	/*   LP_FC   HP_FC         HARM_CONT  PADDING */
+	/*|--------||--------|    |--------||--------|*/
+	0x0006, 0x4000, 0x0640, 0x0000, 0x3200, 0x0000,
+};
+
+#define DELAY_PARAMS_ARRAY_LEN_16B	12
+#define DELAY_MSG_PARAMS_ARRAY_LEN_16B	(DELAY_PARAMS_ARRAY_LEN_16B + 3)
+#define DELAY_CNTL_MASK			0x00ff
+#define DELAY_PARAM_CHAN1_DELAY		0x0000
+#define DELAY_PARAM_CHAN2_DELAY		0x0001
+#define DELAY_PARAM_CHAN3_DELAY		0x0002
+#define DELAY_PARAM_CHAN4_DELAY		0x0003
+#define DELAY_PARAM_CHAN5_DELAY		0x0004
+#define DELAY_PARAM_CHAN6_DELAY		0x0005
+#define DELAY_PARAM_CHAN7_DELAY		0x0006
+#define DELAY_PARAM_CHAN8_DELAY		0x0007
 
 #endif /* _KAS_DSP_H */

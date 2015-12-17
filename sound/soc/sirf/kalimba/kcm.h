@@ -80,6 +80,9 @@ static inline void put24bit(u8 *buf, u16 pos, u32 data)
 #endif
 }
 
+void set_default_music_delay_params(int offset, int val);
+void set_default_music_dbe_params(int offset, int val);
+void set_default_music_dbe_control(u16 mode);
 void set_default_music_peq_params(int index, int offset, int val);
 void set_default_music_peq_control(int index, u16 mode);
 void set_default_music_passthrough_volume(u16 volume);
@@ -89,6 +92,8 @@ u16 get_volume_control_op_id(void);
 u16 get_mixer_op_id(int which);
 u16 get_music_passthrough_op_id(void);
 u16 get_peq_op_id(u16 index);
+u16 get_dbe_op_id(u16 index);
+u16 get_delay_op_id(void);
 int execute_component(struct component *component);
 struct kcm_t *kcm_init(struct device *dev);
 void kcm_deinit(struct device *dev);

@@ -54,6 +54,8 @@ static int music_passthrough;
 static int music_splitter;
 static int music_resampler;
 static int music_usr_peq;
+static int music_dbe[2];
+static int music_delay;
 static int music_spk_peq[4];
 static int mixer_1, mixer_2;
 static int volume_ctrl;
@@ -67,7 +69,9 @@ static int iacc_sink;
 static int music_passthrough_to_resampler_connection[2];
 static int music_resampler_to_splitter_connection[2];
 static int music_splitter_to_usrpeq_connection[4];
-static int music_usrpeq_to_spkpeq_connection[4];
+static int music_usrpeq_to_dbe_connection[4];
+static int music_dbe_to_delay_connection[4];
+static int music_delay_to_spkpeq_connection[4];
 static int music_spkpeq_to_mixer1_connection[4];
 static int mixer1_to_mixer2_connection[4];
 static int mixer2_to_volumectrl_connection[4];
@@ -102,6 +106,30 @@ static u16 music_peqs_default_params[PEQ_NUM_MAX]
 	{1, 0, 44},
 	{1, 0, 44}
 };
+static u16 music_dbe_defaule_control_mode[4] = {
+	1, 1, 0, 2
+};
+static u16 music_dbe_default_params[DBE_MSG_PARAMS_ARRAY_LEN_16B] = {
+	1, 1, 7
+};
+static u16 music_delay_default_params[DELAY_MSG_PARAMS_ARRAY_LEN_16B] = {
+	1, 0, 8
+};
+
+void set_default_music_delay_params(int offset, int val)
+{
+	put24bit((u8 *)(&music_delay_default_params[3]), offset, val);
+}
+
+void set_default_music_dbe_params(int offset, int val)
+{
+	put24bit((u8 *)(&music_dbe_default_params[3]), offset, val);
+}
+
+void set_default_music_dbe_control(u16 mode)
+{
+	music_dbe_defaule_control_mode[3] = mode;
+}
 
 void set_default_music_peq_params(int index, int offset, int val)
 {
@@ -192,16 +220,20 @@ static int init_music_pipeline(void)
 		i++;
 	}
 
+	/* Create user PEQ */
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_PEQ;
-	components_global[i].params[1] = 2; /* Config items */
-	components_global[i].params[2] = OPMSG_COMMON_SET_CONTROL;
-	components_global[i].params[3] = 4;
-	components_global[i].params[4] =
-		(u32)(music_peqs_defaule_control_mode[0]);
+	components_global[i].params[1] = 3; /* Config items */
+	components_global[i].params[2] = OPMSG_COMMON_SET_SAMPLE_RATE;
+	components_global[i].params[3] = 1;
+	components_global[i].params[4] = (u32)(&mixer_sample_rate);
 	components_global[i].params[5] = OPMSG_COMMON_SET_PARAMS;
 	components_global[i].params[6] = PEQ_MSG_PARAMS_ARRAY_LEN_16B;
 	components_global[i].params[7] = (u32)(music_peqs_default_params[0]);
+	components_global[i].params[8] = OPMSG_COMMON_SET_CONTROL;
+	components_global[i].params[9] = 4;
+	components_global[i].params[10] =
+		(u32)(music_peqs_defaule_control_mode[0]);
 	music_usr_peq = i;
 	i++;
 
@@ -245,29 +277,101 @@ static int init_music_pipeline(void)
 	components_global[i].params[3] = 0xA003;
 	i++;
 
+	/* Create DBE */
+	for (k = 0; k < 2; k++) {
+		music_dbe[k] = i;
+		components_global[i].component_id = CREATE_OPERATOR_REQ;
+		components_global[i].params[0] =
+			CAPABILITY_ID_DBE_FULLBAND_IN_OUT;
+		components_global[i].params[1] = 3; /* Config items */
+		components_global[i].params[2] = OPMSG_COMMON_SET_SAMPLE_RATE;
+		components_global[i].params[3] = 1;
+		components_global[i].params[4] = (u32)(&mixer_sample_rate);
+		components_global[i].params[5] = OPMSG_COMMON_SET_PARAMS;
+		components_global[i].params[6] = DBE_MSG_PARAMS_ARRAY_LEN_16B;
+		components_global[i].params[7] =
+			(u32)(music_dbe_default_params);
+		components_global[i].params[8] = OPMSG_COMMON_SET_CONTROL;
+		components_global[i].params[9] = 4;
+		components_global[i].params[10] =
+			(u32)(music_dbe_defaule_control_mode);
+		i++;
+	}
+
+	/* Connect User PEQ with DBE */
+	for (k = 0; k < 4; k++) {
+		music_usrpeq_to_dbe_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_usr_peq].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		if (k < 2) {
+			components_global[i].params[2] =
+				(u32)(&components_global[music_dbe[0]].ret[0]);
+			components_global[i].params[3] = 0xA000 + k;
+		} else {
+			components_global[i].params[2] =
+				(u32)(&components_global[music_dbe[1]].ret[0]);
+			components_global[i].params[3] = 0xA000 + k - 2;
+		}
+		i++;
+	}
+
+	/* Create delay */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_DELAY;
+	components_global[i].params[1] = 1; /* Config items */
+	components_global[i].params[2] = OPMSG_COMMON_SET_PARAMS;
+	components_global[i].params[3] = DELAY_MSG_PARAMS_ARRAY_LEN_16B;
+	components_global[i].params[4] = (u32)(music_delay_default_params);
+	music_delay = i;
+	i++;
+
+	/* Connect DBE with delay */
+	for (k = 0; k < 4; k++) {
+		music_dbe_to_delay_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		if (k < 2) {
+			components_global[i].params[0] =
+				(u32)(&components_global[music_dbe[0]].ret[0]);
+			components_global[i].params[1] = 0x2000 + k;
+		} else {
+			components_global[i].params[0] =
+				(u32)(&components_global[music_dbe[1]].ret[0]);
+			components_global[i].params[1] = 0x2000 + k - 2;
+		}
+		components_global[i].params[2] =
+			(u32)(&components_global[music_delay].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
 	/* Create spk PEQs */
 	for (k = 0; k < 4; k++) {
 		music_spk_peq[k] = i;
 		components_global[i].component_id = CREATE_OPERATOR_REQ;
 		components_global[i].params[0] = CAPABILITY_ID_PEQ;
-		components_global[i].params[1] = 2; /* Config items */
-		components_global[i].params[2] = OPMSG_COMMON_SET_CONTROL;
-		components_global[i].params[3] = 4;
-		components_global[i].params[4] =
-			(u32)(music_peqs_defaule_control_mode[k + 1]);
+		components_global[i].params[1] = 3; /* Config items */
+		components_global[i].params[2] = OPMSG_COMMON_SET_SAMPLE_RATE;
+		components_global[i].params[3] = 1;
+		components_global[i].params[4] = (u32)(&mixer_sample_rate);
 		components_global[i].params[5] = OPMSG_COMMON_SET_PARAMS;
 		components_global[i].params[6] = PEQ_MSG_PARAMS_ARRAY_LEN_16B;
 		components_global[i].params[7] =
 			(u32)(music_peqs_default_params[k + 1]);
+		components_global[i].params[8] = OPMSG_COMMON_SET_CONTROL;
+		components_global[i].params[9] = 4;
+		components_global[i].params[10] =
+			(u32)(music_peqs_defaule_control_mode[k + 1]);
 		i++;
 	}
 
-	/* Connect PEQ with spk PEQs */
+	/* Connect delay with spk PEQs */
 	for (k = 0; k < 4; k++) {
-		music_usrpeq_to_spkpeq_connection[k] = i;
+		music_delay_to_spkpeq_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
-			(u32)(&components_global[music_usr_peq].ret[0]);
+			(u32)(&components_global[music_delay].ret[0]);
 		components_global[i].params[1] = 0x2000 + k;
 		components_global[i].params[2] =
 			(u32)(&components_global[music_spk_peq[k]].ret[0]);
@@ -495,11 +599,20 @@ static int init_music_pipeline(void)
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_STREAM][j++] =
 			music_splitter_to_usrpeq_connection[k];
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_STREAM][j++] = music_dbe[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_usrpeq_to_dbe_connection[k];
+	pipeline_link[MUSIC_STREAM][j++] = music_delay;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STREAM][j++] =
+			music_dbe_to_delay_connection[k];
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_STREAM][j++] = music_spk_peq[k];
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_STREAM][j++] =
-			music_usrpeq_to_spkpeq_connection[k];
+			music_delay_to_spkpeq_connection[k];
 	pipeline_link[MUSIC_STREAM][j++] = mixer_1;
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_STREAM][j++] =
@@ -1048,11 +1161,20 @@ static int init_a2dp_pipeline(int index)
 	for (k = 0; k < 4; k++)
 		pipeline_link[A2DP_STREAM][j++] =
 			music_splitter_to_usrpeq_connection[k];
+	for (k = 0; k < 2; k++)
+		pipeline_link[A2DP_STREAM][j++] = music_dbe[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_usrpeq_to_dbe_connection[k];
+	pipeline_link[A2DP_STREAM][j++] = music_delay;
+	for (k = 0; k < 4; k++)
+		pipeline_link[A2DP_STREAM][j++] =
+			music_dbe_to_delay_connection[k];
 	for (k = 0; k < 4; k++)
 		pipeline_link[A2DP_STREAM][j++] = music_spk_peq[k];
 	for (k = 0; k < 4; k++)
 		pipeline_link[A2DP_STREAM][j++] =
-			music_usrpeq_to_spkpeq_connection[k];
+			music_delay_to_spkpeq_connection[k];
 	pipeline_link[A2DP_STREAM][j++] = mixer_1;
 	for (k = 0; k < 4; k++)
 		pipeline_link[A2DP_STREAM][j++] =
@@ -1458,6 +1580,16 @@ u16 get_peq_op_id(u16 index)
 		return components_global[music_spk_peq[index - 1]].ret[0];
 }
 
+u16 get_dbe_op_id(u16 index)
+{
+	return components_global[music_dbe[index]].ret[0];
+}
+
+u16 get_delay_op_id(void)
+{
+	return components_global[music_delay].ret[0];
+}
+
 static void config_operator(u16 operator_id, u16 operator_type, u32 *config)
 {
 	u32 config_items = config[0];
@@ -1664,6 +1796,7 @@ static void free_hw_ep_handle_and_buff(struct device *dev,
 struct kcm_t *kcm_init(struct device *dev)
 {
 	int ret;
+	int i;
 
 	kcm = devm_kzalloc(dev, sizeof(struct kcm_t), GFP_KERNEL);
 	if (kcm == NULL)
@@ -1706,6 +1839,11 @@ struct kcm_t *kcm_init(struct device *dev)
 		goto error_alloc_capture_iacc_sco_ep_failed;
 	}
 
+	for (i = 0; i < PEQ_NUM_MAX; i++)
+		memcpy(&music_peqs_default_params[i][3],
+			peq_params_array_def, sizeof(peq_params_array_def));
+	memcpy(music_dbe_default_params,
+		dbe_params_array_def, sizeof(dbe_params_array_def));
 	init_pipeline();
 
 	return kcm;
