@@ -45,6 +45,8 @@
 #define REG_TRANS_TIMEOUT 1000
 #define LOOPDMA_BUF_SIZE (2048 * (1 << LOOPDMA_BUF_SIZE_SHIFT))
 
+static void tunex_config_dma_on(struct csr_radio *radio);
+
 /*
  * tunex_writel write 4 registers of function 1-7 by CMD60 each time
  * the register address increased by the last CMD52 address
@@ -400,6 +402,15 @@ static void tunex_control_regs_rw(struct csr_radio *radio)
 		}
 
 		sdio_release_host(func);
+		/* FIXME: sometimes there is no response when access multi tunex
+		 * and the host will be reset
+		 * we need restart the loop dma when it happened
+		 */
+		if (msg->error == -ETIMEDOUT &&
+				radio->data_control.dma_status == START) {
+			tunex_config_dma_on(radio);
+			break;
+		}
 	}
 }
 
