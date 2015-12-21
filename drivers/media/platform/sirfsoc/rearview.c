@@ -800,6 +800,23 @@ static void rv_auxiliary_stop(struct rv_dev *rv)
 
 #endif
 
+static void rv_callback_from_vpp(void *arg,
+					enum vdss_vpp id,
+					enum vdss_vpp_op_type type)
+{
+	struct rv_dev *rv = (struct rv_dev *)arg;
+
+	/*
+	* If rearview preempts vpp passthrough case successfully,
+	* vpp will disable video layer firstly, but the background appears,
+	* so it will cause screen flash, to avoid this issue,
+	* we disable all the active layer at the beginning.
+	*/
+	if (type == VPP_OP_PASS_THROUGH)
+		sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, true);
+
+}
+
 static void rv_start(struct rv_dev *rv)
 {
 	struct vip_rv_info rv_info = {0};
@@ -844,8 +861,8 @@ static void rv_start(struct rv_dev *rv)
 	rv->d_info.l->screen->apply(rv->d_info.l->screen);
 
 	/* vpp setting */
-	vpp_dev_params.func = NULL;
-	vpp_dev_params.arg = NULL;
+	vpp_dev_params.func = rv_callback_from_vpp;
+	vpp_dev_params.arg = rv;
 	/* passthrough mode: VPP0->LCDC0, VPP1->LCDC1, default use VPP0 */
 	if (!strcmp(rv->d_info.display, "display1"))
 		rv->rv_vpp = sirfsoc_vpp_create_device(SIRFSOC_VDSS_VPP1,

@@ -1103,6 +1103,11 @@ static int __vpp_schedule(struct vpp_adapter *adapter,
 
 	if (new_dev != adapter->cur_dev) {
 		pdev = adapter->cur_dev;
+
+		/* Preempt successfully, notify the new client */
+		if (in_dev == new_dev && new_dev->func && pdev)
+			new_dev->func(new_dev->arg, new_dev->vpp_id, pdev->op);
+
 		/* High priority work will do, notify the current client */
 		if (pdev != in_dev && pdev && pdev->func)
 			pdev->func(pdev->arg, pdev->vpp_id, type);
