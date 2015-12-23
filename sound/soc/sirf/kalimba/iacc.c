@@ -19,6 +19,8 @@
 struct atlas7_iacc {
 	struct clk *clk;
 	struct regmap *regmap;
+	struct mutex tx_mutex;
+	struct mutex rx_mutex;
 	int tx_count;
 	int rx_count;
 };
@@ -40,6 +42,7 @@ static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 {
 	int i;
 
+	mutex_lock(&atlas7_iacc->tx_mutex);
 	if (atlas7_iacc->tx_count == 0) {
 		if (channels == IACC_TX_CHANNELS)
 			regmap_update_bits(atlas7_iacc->regmap,
@@ -53,18 +56,21 @@ static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 				DAC_EN << i, DAC_EN << i);
 	}
 	atlas7_iacc->tx_count++;
+	mutex_unlock(&atlas7_iacc->tx_mutex);
 }
 
 static void atlas7_iacc_tx_disable(struct atlas7_iacc *atlas7_iacc)
 {
 	int i;
 
+	mutex_lock(&atlas7_iacc->tx_mutex);
 	atlas7_iacc->tx_count--;
 	if (atlas7_iacc->tx_count == 0) {
 		for (i = 0; i < IACC_TX_CHANNELS; i++)
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_TX_RX_EN, DAC_EN << i, 0);
 	}
+	mutex_unlock(&atlas7_iacc->tx_mutex);
 }
 
 static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
@@ -73,6 +79,7 @@ static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
 	int i;
 	u32 rx_dma_ctrl = 0;
 
+	mutex_lock(&atlas7_iacc->rx_mutex);
 	if (atlas7_iacc->rx_count == 0) {
 		for (i = 0; i < channels; i++) {
 			regmap_update_bits(atlas7_iacc->regmap,
@@ -83,18 +90,21 @@ static void atlas7_iacc_rx_enable(struct atlas7_iacc *atlas7_iacc,
 			RX_DMA_CTRL_MASK, rx_dma_ctrl << RX_DMA_CTRL_SHIFT);
 	}
 	atlas7_iacc->rx_count++;
+	mutex_unlock(&atlas7_iacc->rx_mutex);
 }
 
 static void atlas7_iacc_rx_disable(struct atlas7_iacc *atlas7_iacc)
 {
 	int i;
 
+	mutex_lock(&atlas7_iacc->rx_mutex);
 	atlas7_iacc->rx_count--;
 	if (atlas7_iacc->rx_count == 0) {
 		for (i = 0; i < IACC_RX_CHANNELS; i++)
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_TX_RX_EN, ADC_EN << i, 0);
 	}
+	mutex_unlock(&atlas7_iacc->rx_mutex);
 }
 
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
@@ -304,6 +314,8 @@ static int atlas7_iacc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	mutex_init(&atlas7_iacc->tx_mutex);
+	mutex_init(&atlas7_iacc->rx_mutex);
 	platform_set_drvdata(pdev, atlas7_iacc);
 
 	return 0;
