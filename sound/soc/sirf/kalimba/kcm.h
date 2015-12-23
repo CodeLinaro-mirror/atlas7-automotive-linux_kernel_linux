@@ -94,7 +94,6 @@ u16 get_music_passthrough_op_id(void);
 u16 get_peq_op_id(u16 index);
 u16 get_dbe_op_id(u16 index);
 u16 get_delay_op_id(void);
-int execute_component(struct component *component);
 struct kcm_t *kcm_init(struct device *dev);
 void kcm_deinit(struct device *dev);
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,

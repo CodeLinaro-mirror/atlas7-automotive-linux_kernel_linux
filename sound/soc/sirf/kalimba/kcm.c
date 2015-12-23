@@ -1233,6 +1233,8 @@ static u16 get_rasample_conversion_conf(int input_rate, int output_rate)
 	return conf;
 }
 
+static int execute_component(struct component *component);
+
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 	int clock_master, int period_size)
 {
@@ -1242,11 +1244,11 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 		&components_global[pipeline_link[stream][0]];
 	u16 resample_cfg;
 
+	kalimba_msg_send_lock();
 	for (i = 0;  i < pipeline_link_count[stream]; i++)
 		execute_component(&components_global[
 				pipeline_link[stream][i]]);
 
-	kalimba_msg_send_lock();
 	if (stream == VOICECALL_BT_TO_IACC_STREAM) {
 		resample_cfg = get_rasample_conversion_conf(
 				kcm->capture_usp_sco_ep.sample_rate, 48000);
@@ -1618,12 +1620,10 @@ static void config_endpoint(u16 *endpoint_id, int endpoint_count, u32 *config)
 	}
 }
 
-int execute_component(struct component *component)
+static int execute_component(struct component *component)
 {
 	int ret = 0;
 	u16 resp[64];
-
-	kalimba_msg_send_lock();
 
 	switch (component->component_id) {
 	case CREATE_OPERATOR_REQ:
@@ -1743,7 +1743,6 @@ int execute_component(struct component *component)
 	if (ret != 0)
 		pr_err("ipc command executed failed: command id: 0x%04x\n",
 			component->component_id);
-	kalimba_msg_send_unlock();
 
 	return ret;
 }
