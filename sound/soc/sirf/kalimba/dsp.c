@@ -658,12 +658,14 @@ void *register_kalimba_msg_action(u16 message,
 {
 	struct kalimba_msg_action *action;
 
+	mutex_lock(&kalimba->action_mutex);
 	action = kmalloc(sizeof(struct kalimba_msg_action), GFP_KERNEL);
 	action->message = message;
 	action->handler = handler;
 	action->priv_data = priv_data;
 
 	list_add(&action->node, &kalimba->kalimba_msg_action_list);
+	mutex_unlock(&kalimba->action_mutex);
 	return action;
 }
 
@@ -671,33 +673,40 @@ void unregister_kalimba_msg_action(void *action_id)
 {
 	struct kalimba_msg_action *action;
 
+	mutex_lock(&kalimba->action_mutex);
 	list_for_each_entry(action, &kalimba->kalimba_msg_action_list, node) {
 		if (action == action_id) {
 			list_del(&action->node);
 			kfree(action);
-			return;
+			break;
 		}
 	}
+	mutex_unlock(&kalimba->action_mutex);
 }
 
 static void unregister_kalimba_msg_all_actions(void)
 {
 	struct kalimba_msg_action *action;
 
+	mutex_lock(&kalimba->action_mutex);
 	list_for_each_entry(action, &kalimba->kalimba_msg_action_list, node) {
 		list_del(&action->node);
 		kfree(action);
 	}
+	mutex_unlock(&kalimba->action_mutex);
 }
 
 void kalimba_do_actions(u16 message, u16 *data)
 {
 	struct kalimba_msg_action *action;
+	int ret;
 
+	mutex_lock(&kalimba->action_mutex);
 	list_for_each_entry(action, &kalimba->kalimba_msg_action_list, node) {
 		if (action->message == message)
 			action->handler(message, action->priv_data, data);
 	}
+	mutex_unlock(&kalimba->action_mutex);
 }
 
 static ssize_t firmware_version_show(struct device *dev,
@@ -764,6 +773,7 @@ static int kalimba_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&kalimba->kalimba_msg_action_list);
 	mutex_init(&kalimba->msg_send_mutex);
+	mutex_init(&kalimba->action_mutex);
 	platform_set_drvdata(pdev, kalimba);
 
 	ps_init();

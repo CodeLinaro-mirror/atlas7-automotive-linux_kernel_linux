@@ -18,6 +18,7 @@ struct kalimba {
 	/* kalimba_msg_action list */
 	struct list_head kalimba_msg_action_list;
 	struct mutex msg_send_mutex;
+	struct mutex action_mutex;
 };
 
 struct endpoint_handle {
