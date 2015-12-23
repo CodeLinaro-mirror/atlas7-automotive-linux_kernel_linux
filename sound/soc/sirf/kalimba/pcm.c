@@ -553,17 +553,16 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 		SNDRV_PCM_HW_PARAM_PERIODS);
 }
 
-static void kas_data_notify(u16 message, void *priv_data, u16 *message_data)
+static int kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 {
 	struct kas_pcm_data *pcm_data = (struct kas_pcm_data *)priv_data;
-	struct snd_pcm_runtime *runtime = pcm_data->substream->runtime;
 
-	if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
-		return;
 	if (message_data[0] == pcm_data->kalimba_notify_ep_id) {
 		pcm_data->pos = (message_data[1] << 16 | message_data[2]) * 4;
 		snd_pcm_period_elapsed(pcm_data->substream);
-	}
+		return ACTION_HANDLED;
+	} else
+		return ACTION_NONE;
 }
 
 static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
@@ -976,7 +975,6 @@ static void kas_pcm_free(struct snd_pcm *pcm)
 static int kas_pcm_probe(struct snd_soc_platform *platform)
 {
 	struct kas_priv_data *priv_data;
-	int i;
 
 	priv_data = devm_kzalloc(platform->dev, sizeof(*priv_data), GFP_KERNEL);
 	if (priv_data == NULL)

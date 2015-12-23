@@ -44,14 +44,14 @@ struct kalimba_license_data {
 	struct mutex		req_mutex;
 };
 
-static void ipc_action_handler(u16 msg, void *priv, u16 *data)
+static int ipc_action_handler(u16 msg, void *priv, u16 *data)
 {
 	struct kalimba_license_data *p_kaslic =
 			(struct kalimba_license_data *)priv;
 
 	/* exit if no listener is on kaslic */
 	if (atomic_read(&p_kaslic->open_count) == 0)
-		return;
+		return ACTION_HANDLED;
 
 	mutex_lock(&p_kaslic->req_mutex);
 
@@ -61,6 +61,7 @@ static void ipc_action_handler(u16 msg, void *priv, u16 *data)
 	mutex_unlock(&p_kaslic->req_mutex);
 
 	wake_up_interruptible(&p_kaslic->wait_qh);
+	return ACTION_HANDLED;
 }
 
 static ssize_t license_read(struct file *file, char __user *data,

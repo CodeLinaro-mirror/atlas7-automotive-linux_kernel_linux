@@ -3,11 +3,14 @@
 
 struct ipc_data;
 
+#define ACTION_HANDLED		0
+#define ACTION_NONE		1
+
 struct kalimba_msg_action {
 	struct list_head node;	/* Link to other ipc_action */
 	u32 message;
 	void *priv_data;
-	void (*handler)(u16, void *, u16 *);
+	int (*handler)(u16, void *, u16 *);
 };
 
 struct kalimba {
@@ -68,7 +71,7 @@ void kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
 void kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
 	u16 *resp);
 void *register_kalimba_msg_action(u16 message,
-		void (*handler)(u16, void *, u16 *), void *priv_data);
+		int (*handler)(u16, void *, u16 *), void *priv_data);
 void unregister_kalimba_msg_action(void *action_id);
 
 void kalimba_do_actions(u16 message, u16 *data);

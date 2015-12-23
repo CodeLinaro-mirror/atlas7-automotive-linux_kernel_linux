@@ -632,7 +632,7 @@ static void kalimba_dram_free_rsp_send(void)
 	ipc_send_msg(msg, 3, MSG_NEED_ACK, NULL);
 }
 
-static void dram_allocation_req_actions(u16 message, void *priv_data, u16 *data)
+static int dram_allocation_req_actions(u16 message, void *priv_data, u16 *data)
 {
 	struct device *dev = (struct device *)priv_data;
 	unsigned long dram_allocation_addr;
@@ -641,9 +641,10 @@ static void dram_allocation_req_actions(u16 message, void *priv_data, u16 *data)
 	kalimba_dram_allocation_rsp_send(
 		(u16)(dram_allocation_addr & 0xffff),
 		(u16)((dram_allocation_addr >> 16) & 0xffff));
+	return ACTION_HANDLED;
 }
 
-static void dram_free_req_actions(u16 message, void *priv_data, u16 *data)
+static int dram_free_req_actions(u16 message, void *priv_data, u16 *data)
 {
 	struct device *dev = (struct device *)priv_data;
 	unsigned long dram_allocation_addr;
@@ -651,10 +652,11 @@ static void dram_free_req_actions(u16 message, void *priv_data, u16 *data)
 	dram_allocation_addr = (data[0] & 0xffff) | (data[1] << 16);
 	buff_free(dev, dram_allocation_addr);
 	kalimba_dram_free_rsp_send();
+	return ACTION_HANDLED;
 }
 
 void *register_kalimba_msg_action(u16 message,
-		void (*handler)(u16, void *, u16 *), void *priv_data)
+		int (*handler)(u16, void *, u16 *), void *priv_data)
 {
 	struct kalimba_msg_action *action;
 
@@ -704,7 +706,9 @@ void kalimba_do_actions(u16 message, u16 *data)
 	mutex_lock(&kalimba->action_mutex);
 	list_for_each_entry(action, &kalimba->kalimba_msg_action_list, node) {
 		if (action->message == message)
-			action->handler(message, action->priv_data, data);
+			ret = action->handler(message, action->priv_data, data);
+			if (ret == ACTION_HANDLED)
+				break;
 	}
 	mutex_unlock(&kalimba->action_mutex);
 }

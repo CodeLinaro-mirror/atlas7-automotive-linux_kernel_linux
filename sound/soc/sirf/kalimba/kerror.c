@@ -312,23 +312,26 @@ open_err:
 /*
  * Notify for fault
  */
-static void kerror_fault_notify(u16 message, void *priv_data,
+static int kerror_fault_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	pr_alert("kalimba has produced a fault signal\n");
 	pr_alert("error code: 0x%04x, reason: 0x%04x\n",
 		message_data[0], message_data[1]);
+	return ACTION_HANDLED;
 }
 
 /*
  * Notify for panic
  */
-static void kerror_panic_notify(u16 message, void *priv_data,
+static int kerror_panic_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	/* Generate a code dump */
 	pr_alert("generated core dump in /etc/kalimba\n");
 	kcoredump();
+
+	return ACTION_HANDLED;
 }
 
 /*

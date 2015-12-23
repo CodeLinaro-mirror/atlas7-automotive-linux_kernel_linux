@@ -148,13 +148,14 @@ static int ps_write_file(struct ps_entry *pse)
 /*
  * Notify for ps flush
  */
-static void kas_ps_notify(u16 message, void *priv_data, u16 *message_data)
+static int kas_ps_notify(u16 message, void *priv_data, u16 *message_data)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(ps_area); i++)
 		ps_write_file(&ps_area[i]);
 
+	return ACTION_HANDLED;
 }
 
 /*
