@@ -1,9 +1,16 @@
 /*
  * SPI bus driver for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -950,8 +957,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 			SIRFSOC_USP_CLK_12_15_MASK) <<
 			SIRFSOC_USP_CLK_12_15_OFFSET),
 			sspi->base + sspi->regs->usp_rx_frame_ctrl);
-		writel(readl(sspi->base + sspi->regs->usp_mode2) |
-			((usp_mode2 & SIRFSOC_USP_CLK_DIVISOR_MASK) <<
+		writel(((usp_mode2 & SIRFSOC_USP_CLK_DIVISOR_MASK) <<
 			SIRFSOC_USP_CLK_DIVISOR_OFFSET) |
 			(SIRFSOC_USP_RXD_DELAY_LEN <<
 			 SIRFSOC_USP_RXD_DELAY_OFFSET) |
@@ -1225,7 +1231,4 @@ static struct platform_driver spi_sirfsoc_driver = {
 };
 module_platform_driver(spi_sirfsoc_driver);
 MODULE_DESCRIPTION("SiRF SoC SPI master driver");
-MODULE_AUTHOR("Zhiwu Song <Zhiwu.Song@csr.com>");
-MODULE_AUTHOR("Barry Song <Baohua.Song@csr.com>");
-MODULE_AUTHOR("Qipan Li <Qipan.Li@csr.com>");
 MODULE_LICENSE("GPL v2");
