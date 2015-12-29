@@ -547,6 +547,9 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 	struct kas_pcm_data *pcm_data =
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 
+	if (open_stream(rtd->cpu_dai->id) == PIPELINE_BUSY)
+		return -EBUSY;
+
 	pcm_data->substream = substream;
 	snd_soc_set_runtime_hwparams(substream, &kas_pcm_hardware);
 	return snd_pcm_hw_constraint_integer(substream->runtime,

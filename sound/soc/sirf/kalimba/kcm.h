@@ -11,6 +11,9 @@
 #define CONNECT_SINK			1
 #define CONNECT_SOURCE			2
 
+#define PIPELINE_READY	0
+#define PIPELINE_BUSY	1
+
 #include "ipc.h"
 
 struct hw_ep_handle_buff_t {
@@ -33,6 +36,7 @@ struct kcm_t {
 	struct hw_ep_handle_buff_t playback_usp_sco_ep;
 	struct hw_ep_handle_buff_t capture_usp_sco_ep;
 	struct hw_ep_handle_buff_t capture_usp_a2dp_ep;
+	unsigned long running_pipeline;
 };
 
 struct component {
@@ -96,6 +100,7 @@ u16 get_dbe_op_id(u16 index);
 u16 get_delay_op_id(void);
 struct kcm_t *kcm_init(struct device *dev);
 void kcm_deinit(struct device *dev);
+int open_stream(int stream);
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 	int clock_master, int period_size);
 void start_stream(int stream, int clock_master);

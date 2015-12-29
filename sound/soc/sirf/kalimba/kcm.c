@@ -1233,6 +1233,56 @@ static u16 get_rasample_conversion_conf(int input_rate, int output_rate)
 	return conf;
 }
 
+struct conflict_pipeline {
+	int stream_1;
+	int stream_2;
+};
+
+/*
+ * Some streams' pipeline can't work concorrency, So before prepare stream's
+ * pipeline, should check the pipeline's conflict.
+ */
+static struct conflict_pipeline conflict_pipeline_array[] = {
+	{MUSIC_STREAM, A2DP_STREAM},
+	{ANALOG_CAPTURE_STREAM, VOICECALL_BT_TO_IACC_STREAM},
+	{ANALOG_CAPTURE_STREAM, VOICECALL_IACC_TO_BT_STREAM}
+};
+
+static int check_pipeline_conflict(int stream)
+{
+	int i;
+	int ret = PIPELINE_READY;
+
+	for (i = 0; i < ARRAY_SIZE(conflict_pipeline_array); i++) {
+		if ((test_bit(conflict_pipeline_array[i].stream_1,
+			&kcm->running_pipeline)) &&
+			(stream == conflict_pipeline_array[i].stream_2)) {
+			ret = PIPELINE_BUSY;
+			goto out;
+		}
+		if ((test_bit(conflict_pipeline_array[i].stream_2,
+			&kcm->running_pipeline)) &&
+			(stream == conflict_pipeline_array[i].stream_1)) {
+			ret = PIPELINE_BUSY;
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
+int open_stream(int stream)
+{
+	int ret;
+
+	kalimba_msg_send_lock();
+	ret = check_pipeline_conflict(stream);
+	if (ret == PIPELINE_READY)
+		set_bit(stream, &kcm->running_pipeline);
+	kalimba_msg_send_unlock();
+	return ret;
+}
+
 static int execute_component(struct component *component);
 
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
@@ -1545,6 +1595,7 @@ void destroy_stream(int stream)
 		|| stream == ALARM_STREAM)
 		kalimba_close_source(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
+	clear_bit(stream, &kcm->running_pipeline);
 	kalimba_msg_send_unlock();
 }
 
