@@ -76,6 +76,7 @@ struct sirfsoc_vout_device {
 
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct vdss_vpp_colorctrl color_ctrl;
+	enum vdss_deinterlace_mode di_mode;
 };
 
 

@@ -63,6 +63,45 @@ static const struct v4l2_fract
 	fi_min = {.numerator = 1, .denominator = FPS_MAX},
 	fi_max = {.numerator = FPS_MAX, .denominator = 1};
 
+static ssize_t sirfsoc_vout_di_mode_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct sirfsoc_vout_device *vout =
+		video_get_drvdata(to_video_device(dev));
+	enum vdss_deinterlace_mode di_mode =
+		vout->di_mode;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", (int)di_mode);
+}
+
+static ssize_t sirfsoc_vout_di_mode_store(struct device *dev,
+	struct device_attribute *attr, char *buf, size_t size)
+{
+	struct sirfsoc_vout_device *vout =
+		video_get_drvdata(to_video_device(dev));
+	enum vdss_deinterlace_mode di_mode;
+	int r = 0;
+
+	r = kstrtouint(buf, 0, &di_mode);
+	if (r)
+		return r;
+
+	if (di_mode < VDSS_VPP_DI_RESERVED || di_mode > VDSS_VPP_DI_VMRI)
+		return -EINVAL;
+
+	vout->di_mode = di_mode;
+
+	return size;
+}
+
+static DEVICE_ATTR(di_mode, S_IRUGO|S_IWUSR,
+	sirfsoc_vout_di_mode_show, sirfsoc_vout_di_mode_store);
+
+static const struct attribute *sirfsoc_vout_sysfs_attrs[] = {
+	&dev_attr_di_mode.attr,
+	NULL
+};
+
 static inline u32 align_size(u32 size, u32 align)
 {
 	return (size + align - 1) & ~(align - 1);
@@ -259,7 +298,7 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 			params.op.passthrough.interlace.out_mode =
 							VDSS_P_SINGLE;
 			params.op.passthrough.interlace.di_mode =
-							VDSS_VPP_3MEDIAN;
+							vout->di_mode;
 			params.op.passthrough.interlace.input_top_first =
 				((field == V4L2_FIELD_INTERLACED_TB) ||
 				(field == V4L2_FIELD_SEQ_TB)) ? true : false;
@@ -1744,6 +1783,7 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 		vout->display =
 			vid_dev->display[i / SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY];
 
+		vout->di_mode = VDSS_VPP_3MEDIAN;
 		sirfsoc_setup_video_data(vout);
 
 		/* the internal index in each display, from 0 to 'MAX -1' */
@@ -1766,6 +1806,13 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 
 		v4l2_info(v4l2_dev, "/dev/video%d created as output device\n",
 			video_dev->num);
+
+		ret = sysfs_create_files(&video_dev->dev.kobj,
+			sirfsoc_vout_sysfs_attrs);
+		if (ret) {
+			dev_err(&video_dev->dev, "failed to create sysfs files\n");
+			goto error;
+		}
 
 		spin_lock_init(&vout->vbq_lock);
 		video_set_drvdata(video_dev, vout);
@@ -1839,6 +1886,7 @@ static void sirfsoc_vout_free_device(struct sirfsoc_vout_device *vout)
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 	vd = vout->vd;
 	if (vd) {
+		sysfs_remove_files(&vd->dev.kobj, sirfsoc_vout_sysfs_attrs);
 		if (video_is_registered(vd))
 			video_unregister_device(vd);
 		else

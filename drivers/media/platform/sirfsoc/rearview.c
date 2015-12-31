@@ -80,12 +80,12 @@ struct display_info {
 	struct sirfsoc_vdss_layer *l;		/* rearviw data layer */
 	struct sirfsoc_vdss_screen *scn;
 
-	#ifdef CONFIG_REARVIEW_AUXILIARY
+#ifdef CONFIG_REARVIEW_AUXILIARY
 	struct sirfsoc_vdss_layer *aux_l;	/* rearviw auxiliary layer */
 	/* auxiliary layer might take over from other layer, need restore */
 	struct sirfsoc_vdss_layer_info saved_l_info;
 	enum vdss_layer	saved_toplayer;
-	#endif
+#endif
 };
 
 struct rv_dev {
@@ -100,6 +100,7 @@ struct rv_dev {
 	struct mutex	hw_lock;
 
 	struct vdss_vpp_colorctrl color_ctrl;
+	enum vdss_deinterlace_mode di_mode;
 
 	bool		mirror_en;
 
@@ -116,11 +117,11 @@ struct rv_dev {
 	dma_addr_t	data_dma_addr, table_dma_addr;
 	void		*data_virt_addr, *table_virt_addr;
 
-	#ifdef CONFIG_REARVIEW_AUXILIARY
+#ifdef CONFIG_REARVIEW_AUXILIARY
 	dma_addr_t	aux_dma_addr;
 	void		*aux_virt_addr;
 	unsigned int	aux_bytesperlength, aux_size;
-	#endif
+#endif
 
 	void __iomem	*ipc_int_addr, *ipc_msg_addr;
 };
@@ -270,6 +271,33 @@ static ssize_t rv_saturation_store(struct device *dev,
 	return size;
 }
 
+static ssize_t rv_di_mode_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rv->di_mode);
+}
+
+static ssize_t rv_di_mode_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	int r, val;
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	r = kstrtoint(buf, 0, &val);
+	if (r)
+		return r;
+
+	if (val < VDSS_VPP_DI_RESERVED || val > VDSS_VPP_DI_VMRI)
+		return -EINVAL;
+
+	rv->di_mode = (enum vdss_deinterlace_mode)val;
+
+	return size;
+}
+
 static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
 				rv_enabled_show, rv_enabled_store);
 static DEVICE_ATTR(brightness, S_IRUGO|S_IWUSR,
@@ -280,6 +308,9 @@ static DEVICE_ATTR(hue, S_IRUGO|S_IWUSR,
 				rv_hue_show, rv_hue_store);
 static DEVICE_ATTR(saturation, S_IRUGO|S_IWUSR,
 				rv_saturation_show, rv_saturation_store);
+static DEVICE_ATTR(di_mode, S_IRUGO|S_IWUSR,
+				rv_di_mode_show, rv_di_mode_store);
+
 
 static const struct attribute *rv_sysfs_attrs[] = {
 	&dev_attr_enabled.attr,
@@ -287,6 +318,7 @@ static const struct attribute *rv_sysfs_attrs[] = {
 	&dev_attr_contrast.attr,
 	&dev_attr_hue.attr,
 	&dev_attr_saturation.attr,
+	&dev_attr_di_mode.attr,
 	NULL
 };
 
@@ -458,7 +490,7 @@ static int rv_setup_dma(struct rv_dev *rv)
 		return -ENOMEM;
 	}
 
-	#ifdef CONFIG_REARVIEW_AUXILIARY
+#ifdef CONFIG_REARVIEW_AUXILIARY
 	/* alloc panel resolution@ARGB8888 format buffer */
 	xres = rv->d_info.panel->timings.xres;
 	yres = rv->d_info.panel->timings.yres;
@@ -471,7 +503,7 @@ static int rv_setup_dma(struct rv_dev *rv)
 		dev_err(rv->dev, "can't alloc aux memory\n");
 		return -ENOMEM;
 	}
-	#endif
+#endif
 
 	rv->table_dma_addr = rv->data_dma_addr + DATA_DMA_SIZE;
 	rv->table_virt_addr = rv->data_virt_addr + DATA_DMA_SIZE;
@@ -881,15 +913,7 @@ static void rv_start(struct rv_dev *rv)
 	vpp_op_params.op.ibv.interlace.field_offset = FRAME_SIZE/2;
 	vpp_op_params.op.ibv.interlace.di_top = false;
 	vpp_op_params.op.ibv.interlace.out_mode = VDSS_P_SINGLE;
-	#ifdef CONFIG_VERTICAL_MEDIAN
-	vpp_op_params.op.ibv.interlace.di_mode = VDSS_VPP_DI_VMRI;
-	#elif defined(CONFIG_MEAVE)
-	vpp_op_params.op.ibv.interlace.di_mode = VDSS_VPP_DI_WEAVE;
-	#elif defined(CONFIG_CONFIG_3TAP_MEDIAN)
-	vpp_op_params.op.ibv.interlace.di_mode = VDSS_VPP_3MEDIAN;
-	#else
-	vpp_op_params.op.ibv.interlace.di_mode = VDSS_VPP_DI_VMRI;
-	#endif
+	vpp_op_params.op.ibv.interlace.di_mode = rv->di_mode;
 	vpp_op_params.op.ibv.interlace.input_top_first = true;
 	vpp_op_params.op.ibv.interlace.output_top_first = false;
 
@@ -933,16 +957,16 @@ static void rv_start(struct rv_dev *rv)
 	/* disable lcd other layers */
 	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, true);
 
-	#ifdef CONFIG_REARVIEW_AUXILIARY
+#ifdef CONFIG_REARVIEW_AUXILIARY
 	rv_auxiliary_start(rv);
-	#endif
+#endif
 }
 
 static void rv_stop(struct rv_dev *rv)
 {
-	#ifdef CONFIG_REARVIEW_AUXILIARY
+#ifdef CONFIG_REARVIEW_AUXILIARY
 	rv_auxiliary_stop(rv);
-	#endif
+#endif
 
 	/* stop lcd layer */
 	if (rv->d_info.l->is_enabled(rv->d_info.l))
@@ -1124,6 +1148,16 @@ static int rv_probe(struct platform_device *pdev)
 	rv->color_ctrl.hue = 0;
 	rv->color_ctrl.saturation = 128;
 
+#ifdef CONFIG_VERTICAL_MEDIAN
+	rv->di_mode = VDSS_VPP_DI_VMRI;
+#elif defined(CONFIG_MEAVE)
+	rv->di_mode = VDSS_VPP_DI_WEAVE;
+#elif defined(CONFIG_CONFIG_3TAP_MEDIAN)
+	rv->di_mode = VDSS_VPP_3MEDIAN;
+#else
+	rv->di_mode = VDSS_VPP_DI_VMRI;
+#endif
+
 	/* rearview might start here, must be put after default colors set */
 	rv_input_register(rv);
 
@@ -1159,10 +1193,10 @@ static int rv_remove(struct platform_device *pdev)
 	dma_free_coherent(rv->dev, DATA_DMA_SIZE + TABLE_DMA_SIZE,
 				rv->data_virt_addr, rv->data_dma_addr);
 
-	#ifdef CONFIG_REARVIEW_AUXILIARY
+#ifdef CONFIG_REARVIEW_AUXILIARY
 	dma_free_coherent(rv->dev, rv->aux_size,
 				rv->aux_virt_addr, rv->aux_dma_addr);
-	#endif
+#endif
 
 	sysfs_remove_files(&rv->dev->kobj, rv_sysfs_attrs);
 
