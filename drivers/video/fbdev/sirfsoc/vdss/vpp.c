@@ -773,6 +773,8 @@ static void  __vpp_set_dstbase(struct vpp_adapter *adapter,
 	u32 yoffset;
 
 	if (surf && surf->base) {
+		vpp_write_reg(adapter, VPP_DESBASE, surf->base);
+
 		if (surf->fmt == VDSS_PIXELFORMAT_666 ||
 		    surf->fmt == VDSS_PIXELFORMAT_RGBX_8880 ||
 		    surf->fmt == VDSS_PIXELFORMAT_BGRX_8880)
@@ -795,6 +797,7 @@ static void  __vpp_set_dstbase(struct vpp_adapter *adapter,
 						surf->height * bpp);
 		}
 	} else {
+		vpp_write_reg(adapter, VPP_DESBASE, 0);
 		vpp_write_reg(adapter, VPP_DESTBASE_BOT, 0);
 	}
 }
