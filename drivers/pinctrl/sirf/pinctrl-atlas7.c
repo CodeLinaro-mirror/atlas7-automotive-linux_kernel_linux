@@ -6149,6 +6149,9 @@ static int atlas7_gpio_suspend_noirq(struct device *dev)
 		}
 	}
 
+	if (!IS_ERR(a7gc->clk))
+		clk_disable(a7gc->clk);
+
 	return 0;
 }
 
@@ -6158,6 +6161,9 @@ static int atlas7_gpio_resume_noirq(struct device *dev)
 	struct atlas7_gpio_bank *bank;
 	void __iomem *ctrl_reg;
 	u32 idx, pin;
+
+	if (!IS_ERR(a7gc->clk))
+		clk_enable(a7gc->clk);
 
 	for (idx = 0; idx < a7gc->nbank; idx++) {
 		bank = &a7gc->banks[idx];
