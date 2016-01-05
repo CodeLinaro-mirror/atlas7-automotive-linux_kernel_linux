@@ -1,10 +1,16 @@
 /*
  * CSR sirfsoc framebuffer driver
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __G2D_OP_H__
@@ -61,10 +67,11 @@ enum g2d_format {
 	G2D_VYUY,      /* this format is not support yet */
 
 	/* the following format isn't for g2d but vpp. */
-	G2D_EX_I_YUV420 = 0x10000,
-	G2D_EX_I_YUV422,
+	G2D_EX_YUV420 = 0x10000,
+	G2D_EX_YUV422,
 	G2D_EX_O_RGBX888,
 	G2D_EX_O_BGRX888,
+	G2D_EX_YUV422_INTERLACED,
 	G2D_MAX,
 };
 
@@ -121,4 +128,3 @@ enum {
 #define SIRFSOC_G2D_WAIT _IOR(CSR_G2D_OP_BASE, G2D_BITBLT_WAIT, int)
 
 #endif /* __G2D_OP_H__ */
-

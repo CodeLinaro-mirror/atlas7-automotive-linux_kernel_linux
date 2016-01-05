@@ -62,10 +62,11 @@ static int get_vpp_in_fmt(int fmt)
 	int vpp_fmt = -1;
 
 	switch (fmt) {
-	case G2D_EX_I_YUV420:
+	case G2D_EX_YUV420:
 		vpp_fmt = VDSS_PIXELFORMAT_I420;
 		break;
-	case G2D_EX_I_YUV422:
+	case G2D_EX_YUV422_INTERLACED:
+	case G2D_EX_YUV422:
 		vpp_fmt = VDSS_PIXELFORMAT_YUYV;
 		break;
 	default:
@@ -91,6 +92,9 @@ static int get_vpp_out_fmt(int fmt)
 	case G2D_EX_O_RGBX888:
 		vpp_fmt = VDSS_PIXELFORMAT_RGBX_8880;
 		break;
+	case G2D_EX_YUV422:
+		vpp_fmt = VDSS_PIXELFORMAT_YUYV;
+		break;
 	default:
 		g2d_err("Unsupported format:%d!\n", fmt);
 		break;
@@ -113,19 +117,43 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 
 	srcrc.left = params->src_rc.x;
 	srcrc.top = params->src_rc.y;
-	srcrc.right = params->src_rc.x + params->src_rc.w;
-	srcrc.bottom = params->src_rc.y + params->src_rc.h;
+	if (params->src_rc.w > 0)
+		srcrc.right = params->src_rc.x + params->src_rc.w - 1;
+	else
+		srcrc.right = params->src_rc.x + params->src.width - 1;
+	if (params->src_rc.h > 0)
+		srcrc.bottom = params->src_rc.y + params->src_rc.h - 1;
+	else
+		srcrc.bottom = params->src_rc.y + params->src.height - 1;
 
 	dstrc.left = params->dst_rc.x;
 	dstrc.top = params->dst_rc.y;
-	dstrc.right = params->dst_rc.x + params->dst_rc.w;
-	dstrc.bottom = params->dst_rc.y + params->dst_rc.h;
+	if (params->dst_rc.w > 0)
+		dstrc.right = params->dst_rc.x + params->dst_rc.w - 1;
+	else
+		dstrc.right = params->dst_rc.x + params->dst.width - 1;
+	if (params->dst_rc.h > 0)
+		dstrc.bottom = params->dst_rc.y + params->dst_rc.h - 1;
+	else
+		dstrc.bottom = params->dst_rc.y + params->dst.height - 1;
 
 	fmt = get_vpp_in_fmt(params->src.format);
 	if (fmt <= 0)
 		return -EINVAL;
 
 	vpp_params.type = VPP_OP_BITBLT;
+	if (params->src.format == G2D_EX_YUV422_INTERLACED) {
+		struct vdss_vpp_interlace *interlace;
+
+		interlace = &vpp_params.op.blt.interlace;
+		interlace->out_mode = VDSS_P_SINGLE;
+		interlace->di_mode = VDSS_VPP_DI_WEAVE;
+		interlace->field_offset =
+			params->src.height * params->src.width;
+		interlace->output_top_first = true;
+		interlace->input_top_first = true;
+		interlace->interlaced = true;
+	}
 	vpp_params.op.blt.src_surf.fmt = fmt;
 	vpp_params.op.blt.src_surf.width = params->src.width;
 	vpp_params.op.blt.src_surf.height = params->src.height;
@@ -757,64 +785,60 @@ static int g2d_draw_with_sirfg2d(struct g2d_device_data *g2d_dev,
 	return ret;
 }
 
+#define RGB 0
+#define YUV 1
 static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 {
 	struct sirf_g2d_bltparams params;
-	int sformat = 0;  /* 0 rgb, 1 yuv, 2 no src, -1 error. */
-	int dformat = 2;  /* 0 rgb, 1 yuv, 2 no dest(error), -1 error. */
+	int sformat;
 
 	if (copy_from_user(&params, (void __user *)arg,
 			   sizeof(params)))
 		return -EFAULT;
 
-	if (params.src.paddr > 0) {
-		switch (params.src.format) {
-		case G2D_ARGB8888:
-		case G2D_ABGR8888:
-		case G2D_RGB565:
-			break;
-		case G2D_EX_I_YUV420:
-		case G2D_EX_I_YUV422:
-			sformat = 1;
-			break;
-		default:
-			sformat = -1;
-		}
-	}
-
-	if (params.dst.paddr > 0) {
-		dformat = -1;
-		if (sformat == 0) {
-			switch (params.dst.format) {
-			case G2D_ARGB8888:
-			case G2D_ABGR8888:
-				dformat = 0;
-				break;
-			}
-		} else if (sformat == 1) {
-			switch (params.dst.format) {
-			case G2D_ARGB8888:
-			case G2D_ABGR8888:
-			case G2D_RGB565:
-			case G2D_EX_O_RGBX888:
-			case G2D_EX_O_BGRX888:
-				dformat = 0;
-				break;
-			}
-		}
-	}
-
-	if (sformat < 0) {
+	switch (params.src.format) {
+	case G2D_ARGB8888:
+	case G2D_ABGR8888:
+	case G2D_RGB565:
+		sformat = RGB;
+		break;
+	case G2D_EX_YUV420:
+	case G2D_EX_YUV422:
+	case G2D_EX_YUV422_INTERLACED:
+		sformat = YUV;
+		break;
+	default:
 		g2d_err("invalid source format:%d\n", params.src.format);
 		return -EINVAL;
 	}
 
-	if (dformat != 0) {
-		g2d_err("invalid destination format:%d\n", params.dst.format);
-		return -EINVAL;
+	if (sformat == RGB) {
+		switch (params.dst.format) {
+		case G2D_ARGB8888:
+		case G2D_ABGR8888:
+			break;
+		default:
+			g2d_err("invalid destination format:%d\n",
+				params.dst.format);
+			return -EINVAL;
+		}
+	} else if (sformat == YUV) {
+		switch (params.dst.format) {
+		case G2D_ARGB8888:
+		case G2D_ABGR8888:
+		case G2D_RGB565:
+		case G2D_EX_O_RGBX888:
+		case G2D_EX_O_BGRX888:
+		case G2D_EX_YUV422:
+			break;
+		default:
+			g2d_err("invalid destination format:%d\n",
+				params.dst.format);
+			return -EINVAL;
+		}
 	}
 
-	if (sformat == 1 && dformat == 0)
+	if (sformat == YUV)
 		return g2d_draw_with_sirfvpp(&params);
 
 	return g2d_draw_with_sirfg2d(g2d_dev, &params);
@@ -977,7 +1001,8 @@ static long g2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	 *
 	 */
 	case SIRFSOC_G2D_SUBMIT_BITBLD:
-		if (g2d_bitblt(g2d_dev, arg)) {
+		ret = g2d_bitblt(g2d_dev, arg);
+		if (ret) {
 			g2d_err("bit bld error %d.\n", ret);
 			return -EFAULT;
 		}
