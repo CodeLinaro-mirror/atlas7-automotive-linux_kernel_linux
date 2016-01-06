@@ -54,6 +54,11 @@ static const s8 cos[91] = {100, 100, 100, 100, 100,
 	33, 31, 29, 28, 26, 24, 23, 21, 19, 17, 16,
 	14, 12, 10, 9, 7, 5, 3, 2, 0,};
 
+struct vpp_irq {
+	spinlock_t irq_lock;
+	struct completion comp;
+};
+
 struct vpp_adapter {
 	/* static fields */
 	unsigned char name[8];
@@ -68,6 +73,8 @@ struct vpp_adapter {
 
 	struct list_head devices;
 	struct vpp_device *cur_dev;
+
+	struct vpp_irq vpp_irq;
 };
 
 static struct vpp_adapter vpp[NUM_VPP];
@@ -485,19 +492,19 @@ static bool __vpp_setup_dst(struct vpp_adapter *adapter,
 		break;
 	case VDSS_PIXELFORMAT_YUYV:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
 		break;
 	case VDSS_PIXELFORMAT_YVYU:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
 		break;
 	case VDSS_PIXELFORMAT_UYVY:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
 		break;
 	case VDSS_PIXELFORMAT_VYUY:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
 		break;
 	default:
 		vpp_err("%s(%d): unknown dst format 0x%x\n",
@@ -823,11 +830,118 @@ static int __vpp_set_color_ctrl(struct vpp_adapter *adapter,
 	return 0;
 }
 
+static void __vpp_enable_interrupt(struct vpp_adapter *adapter,
+	u32 mask)
+{
+	u32 val = vpp_read_reg(adapter, VPP_INT_MASK);
+
+	if ((mask & val) == mask)
+		return;
+
+	val |= mask;
+	vpp_write_reg(adapter, VPP_INT_MASK, val);
+}
+
+static void __vpp_disable_interrupt(struct vpp_adapter *adapter,
+	u32 mask)
+{
+	u32 val = vpp_read_reg(adapter, VPP_INT_MASK);
+
+	if (((~val) & mask) == mask)
+		return;
+
+	val &= ~mask;
+	vpp_write_reg(adapter, VPP_INT_MASK, val);
+}
+
+static void __vpp_clear_interrupt(struct vpp_adapter *adapter,
+	u32 mask)
+{
+	vpp_write_reg(adapter, VPP_INT_STATUS, mask);
+}
+
+static int __vpp_wait_for_idle(struct vpp_adapter *adapter)
+{
+	unsigned long timeout = msecs_to_jiffies(100);
+	struct vpp_irq *vpp_irq = &adapter->vpp_irq;
+	struct completion *completion = &vpp_irq->comp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&vpp_irq->irq_lock, flags);
+
+	reinit_completion(completion);
+
+	spin_unlock_irqrestore(&vpp_irq->irq_lock, flags);
+
+	timeout = wait_for_completion_interruptible_timeout(completion,
+		timeout);
+
+	if (timeout == 0)
+		return -ETIMEDOUT;
+
+	if (timeout < 0)
+		return timeout;
+
+	return 0;
+}
+
+static irqreturn_t vpp_irq_handler(int irq, void *dev_id)
+{
+	struct vpp_adapter *adapter = (struct vpp_adapter *)dev_id;
+	u32 int_status, int_mask;
+	struct vpp_irq *vpp_irq = &adapter->vpp_irq;
+
+	spin_lock(&vpp_irq->irq_lock);
+
+	int_status = vpp_read_reg(adapter, VPP_INT_STATUS);
+	int_mask = vpp_read_reg(adapter, VPP_INT_MASK);
+
+	__vpp_clear_interrupt(adapter, int_status);
+
+	if (int_status & VPP_INT_SINGLE_STATUS)
+		complete(&vpp_irq->comp);
+
+	spin_unlock(&vpp_irq->irq_lock);
+
+	return IRQ_HANDLED;
+}
+
+static int __vpp_request_irq(struct vpp_adapter *adapter)
+{
+	int r;
+
+	r = devm_request_irq(&adapter->pdev->dev, adapter->irq, vpp_irq_handler,
+		IRQF_SHARED, "SIRFSOC VPP", adapter);
+
+	return r;
+}
+
+static int vpp_init_irq(struct vpp_adapter *adapter)
+{
+	int r;
+	struct vpp_irq *vpp_irq = &adapter->vpp_irq;
+
+	spin_lock_init(&vpp_irq->irq_lock);
+	init_completion(&vpp_irq->comp);
+
+	r = __vpp_request_irq(adapter);
+	if (r) {
+		VDSSERR("__vpp_request_irq failed, ret = %x\n", r);
+		return r;
+	}
+
+	return 0;
+}
+
 static int __vpp_blt(struct vpp_adapter *adapter,
 		struct vdss_vpp_blt_params *params)
 {
 	if (adapter == NULL || params == NULL)
 		return -EINVAL;
+
+	/* using interrupt to check frame complete*/
+	__vpp_enable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
+	__vpp_clear_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 
 	/* src setting */
 	__vpp_setup_src(adapter, &params->src_surf, &params->interlace);
@@ -847,6 +961,7 @@ static int __vpp_blt(struct vpp_adapter *adapter,
 
 	/* vpp blt start */
 	__vpp_blt_start(adapter);
+
 	return 0;
 }
 
@@ -855,6 +970,8 @@ static int __vpp_passthrough(struct vpp_adapter *adapter,
 {
 	if (adapter == NULL || params == NULL)
 		return -EINVAL;
+
+	__vpp_disable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 
 	if (params->flip) {
 		__vpp_set_srcbase(adapter, &params->src_surf, 1,
@@ -892,6 +1009,7 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 	if (params->color_update_only)
 		return 0;
 
+	__vpp_disable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 	/* src setting */
 	__vpp_setup_src(adapter, &params->src_surf[0], &params->interlace);
 	__vpp_set_srcbase(adapter, &params->src_surf[0], params->src_size,
@@ -1207,6 +1325,9 @@ static int vpp_blt(struct vpp_device *pdev,
 
 	spin_unlock_irqrestore(&data_lock, flags);
 
+	if (!ret)
+		ret = __vpp_wait_for_idle(adapter);
+
 	return ret;
 }
 
@@ -1447,6 +1568,8 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&adapter->devices);
 	adapter->cur_dev = NULL;
+
+	vpp_init_irq(adapter);
 	vpp_init(adapter);
 
 	platform_set_drvdata(pdev, adapter);
