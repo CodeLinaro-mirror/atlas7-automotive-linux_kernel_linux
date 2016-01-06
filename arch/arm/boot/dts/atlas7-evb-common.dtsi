@@ -472,7 +472,7 @@
 
 			ns_kal_rproc@0 {
 				memory-region = <&ipc_mem1>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			ns_kal_rproc@1 {
