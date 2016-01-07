@@ -215,11 +215,26 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	struct sirfsoc_vdss_layer_info info;
 	enum vdss_pixelformat pixfmt;
 	enum v4l2_field field = buf->v4l2_buf.field;
+	struct vdss_rect src_rect, dst_rect;
 
 	pixfmt  = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(
 		vout->pix_fmt.pixelformat);
 
 	l = vout->layer;
+
+	src_rect.left = vout->src_rect.left;
+	src_rect.top = vout->src_rect.top;
+	src_rect.right = vout->src_rect.left + vout->src_rect.width - 1;
+	src_rect.bottom = vout->src_rect.top + vout->src_rect.height - 1;
+
+	dst_rect.left = vout->dst_rect.left;
+	dst_rect.top = vout->dst_rect.top;
+	dst_rect.right = vout->dst_rect.left + vout->dst_rect.width - 1;
+	dst_rect.bottom = vout->dst_rect.top + vout->dst_rect.height - 1;
+
+	if (!sirfsoc_vdss_check_size(vout->surf_width, vout->surf_height,
+		&src_rect, l, &dst_rect))
+		return;
 
 	/* VPP setting */
 	if (vout->passthrough) {
@@ -233,19 +248,8 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 		params.op.passthrough.src_surf.base =
 			vb2_dma_contig_plane_dma_addr(buf, 0);
 
-		params.op.passthrough.src_rect.left = vout->src_rect.left;
-		params.op.passthrough.src_rect.top = vout->src_rect.top;
-		params.op.passthrough.src_rect.right =
-			vout->src_rect.left + vout->src_rect.width - 1;
-		params.op.passthrough.src_rect.bottom =
-			vout->src_rect.top + vout->src_rect.height - 1;
-
-		params.op.passthrough.dst_rect.left = vout->dst_rect.left;
-		params.op.passthrough.dst_rect.top = vout->dst_rect.top;
-		params.op.passthrough.dst_rect.right =
-			vout->dst_rect.left + vout->dst_rect.width - 1;
-		params.op.passthrough.dst_rect.bottom =
-			vout->dst_rect.top + vout->dst_rect.height - 1;
+		params.op.passthrough.src_rect = src_rect;
+		params.op.passthrough.dst_rect = dst_rect;
 
 		if ((field == V4L2_FIELD_SEQ_TB) ||
 			(field == V4L2_FIELD_SEQ_BT) ||
@@ -289,15 +293,9 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	info.base = vb2_dma_contig_plane_dma_addr(buf, 0);
 	info.passthrough = vout->passthrough;
 
-	info.src_rect.left = vout->src_rect.left;
-	info.src_rect.top = vout->src_rect.top;
-	info.src_rect.right = vout->src_rect.left + vout->src_rect.width - 1;
-	info.src_rect.bottom = vout->src_rect.top + vout->src_rect.height - 1;
+	info.src_rect = src_rect;
+	info.dst_rect = dst_rect;
 
-	info.dst_rect.left = vout->dst_rect.left;
-	info.dst_rect.top = vout->dst_rect.top;
-	info.dst_rect.right =  vout->dst_rect.left + vout->dst_rect.width - 1;
-	info.dst_rect.bottom = vout->dst_rect.top + vout->dst_rect.height - 1;
 	info.fmt = pixfmt;
 
 	info.surf_width = vout->surf_width;

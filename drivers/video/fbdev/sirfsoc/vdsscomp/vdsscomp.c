@@ -47,6 +47,21 @@ static bool vdsscomp_layer_enable(
 {
 	struct sirfsoc_vdss_layer *layer = l->layer;
 	struct sirfsoc_vdss_layer_info layer_info;
+	struct vdss_rect src_rect, dst_rect;
+
+	src_rect.left = info->src_rect.left;
+	src_rect.top = info->src_rect.top;
+	src_rect.right = info->src_rect.right;
+	src_rect.bottom = info->src_rect.bottom;
+
+	dst_rect.left = info->dst_rect.left;
+	dst_rect.top = info->dst_rect.top;
+	dst_rect.right = info->dst_rect.right;
+	dst_rect.bottom = info->dst_rect.bottom;
+
+	if (!sirfsoc_vdss_check_size(info->width, info->height,
+		&src_rect, layer, &dst_rect))
+		return false;
 
 	l->passthrough = sirfsoc_vpp_is_passthrough_support(info->fmt);
 	if (l->passthrough) {
@@ -80,15 +95,9 @@ static bool vdsscomp_layer_enable(
 		params.op.passthrough.src_surf.width = info->width;
 		params.op.passthrough.src_surf.height = info->height;
 		params.op.passthrough.src_surf.base = phys_addr;
-		params.op.passthrough.src_rect.left = info->src_rect.left;
-		params.op.passthrough.src_rect.top = info->src_rect.top;
-		params.op.passthrough.src_rect.right = info->src_rect.right;
-		params.op.passthrough.src_rect.bottom = info->src_rect.bottom;
 
-		params.op.passthrough.dst_rect.left = info->dst_rect.left;
-		params.op.passthrough.dst_rect.top = info->dst_rect.top;
-		params.op.passthrough.dst_rect.right = info->dst_rect.right;
-		params.op.passthrough.dst_rect.bottom = info->dst_rect.bottom;
+		params.op.passthrough.src_rect = src_rect;
+		params.op.passthrough.dst_rect = dst_rect;
 
 		/*vpp color ctrl*/
 		params.op.passthrough.color_ctrl.brightness = 0;
@@ -105,14 +114,10 @@ static bool vdsscomp_layer_enable(
 	layer_info.fmt = info->fmt;
 	layer_info.surf_width = info->width;
 	layer_info.surf_height = info->height;
-	layer_info.src_rect.left = info->src_rect.left;
-	layer_info.src_rect.top = info->src_rect.top;
-	layer_info.src_rect.right = info->src_rect.right;
-	layer_info.src_rect.bottom = info->src_rect.bottom;
-	layer_info.dst_rect.left = info->dst_rect.left;
-	layer_info.dst_rect.top = info->dst_rect.top;
-	layer_info.dst_rect.right = info->dst_rect.right;
-	layer_info.dst_rect.bottom = info->dst_rect.bottom;
+
+	layer_info.src_rect = src_rect;
+	layer_info.dst_rect = dst_rect;
+
 	layer_info.pre_mult_alpha = info->pre_mult_alpha;
 	layer_info.passthrough = l->passthrough;
 

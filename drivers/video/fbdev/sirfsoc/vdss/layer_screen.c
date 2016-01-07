@@ -1,9 +1,16 @@
 /*
  * CSR sirfsoc vdss core file
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc
- * group company.
- * Licensed under GPLv2 or later.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/kernel.h>
@@ -602,6 +609,107 @@ void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **pLayers,
 	spin_unlock_irqrestore(&data_lock, flags);
 }
 EXPORT_SYMBOL(sirfsoc_vdss_set_exclusive_layers);
+
+bool sirfsoc_vdss_check_size(int src_surf_width,
+	int src_surf_height,
+	struct vdss_rect *src_rect,
+	struct sirfsoc_vdss_layer *l,
+	struct vdss_rect *dst_rect)
+{
+	int scn_width, scn_height;
+	struct screen_priv_data *sdata;
+	int src_rect_width, src_rect_height;
+	int dst_rect_width, dst_rect_height;
+
+	sdata = get_screen_data(l->screen);
+	scn_width = sdata->timings.xres;
+	scn_height = sdata->timings.yres;
+
+	src_rect_width = src_rect->right - src_rect->left + 1;
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	dst_rect_width = dst_rect->right - dst_rect->left + 1;
+	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+	/*
+	 * Invalid rectangle, skip the operation
+	 * */
+	if (src_rect->right < 0 || src_rect->bottom < 0 ||
+		dst_rect->right < 0 || dst_rect->bottom < 0) {
+		VDSSWARN("source or destination rect is out of range\n");
+		return false;
+	}
+
+	if (src_rect->left >= src_surf_width ||
+		src_rect->top >= src_surf_height ||
+		dst_rect->left >= scn_width ||
+		dst_rect->top >= scn_height) {
+		VDSSWARN("source or destination rect is out of range\n");
+		return false;
+	}
+
+	/* check and update the source rect */
+	if (src_rect->left < 0) {
+		dst_rect->left = dst_rect->left +
+			(dst_rect_width * (-src_rect->left) /
+			src_rect_width);
+		src_rect->left = 0;
+	}
+
+	if (src_rect->top < 0) {
+		dst_rect->top = dst_rect->top +
+			(dst_rect_height * (-src_rect->top) /
+			src_rect_height);
+		src_rect->top = 0;
+	}
+
+	if (src_rect->right >= src_surf_width) {
+		dst_rect->right = dst_rect->right -
+			(dst_rect_width *
+			(src_rect->right - src_surf_width + 1) /
+			src_rect_width);
+		src_rect->right = src_surf_width - 1;
+	}
+
+	if (src_rect->bottom >= src_surf_height) {
+		dst_rect->bottom = dst_rect->bottom -
+			(dst_rect_height *
+			(src_rect->bottom - src_surf_height + 1) /
+			src_rect_height);
+		src_rect->bottom = src_surf_height - 1;
+	}
+
+	/* check and update the destination rect */
+	if (dst_rect->left < 0) {
+		src_rect->left = src_rect->left +
+			(src_rect_width * (-dst_rect->left) /
+			dst_rect_width);
+		dst_rect->left = 0;
+	}
+
+	if (dst_rect->top < 0) {
+		src_rect->top = src_rect->top +
+			(src_rect_height * (-dst_rect->top) /
+			dst_rect_height);
+		dst_rect->top = 0;
+	}
+
+	if (dst_rect->right >= scn_width) {
+		src_rect->right = src_rect->right -
+			(src_rect_width * (dst_rect->right - scn_width + 1) /
+			dst_rect_width);
+		dst_rect->right = scn_width - 1;
+	}
+
+	if (dst_rect->bottom >= scn_height) {
+		src_rect->bottom = src_rect->bottom -
+			(src_rect_height * (dst_rect->bottom - scn_height + 1) /
+			dst_rect_height);
+		dst_rect->bottom = scn_height - 1;
+	}
+
+	return true;
+}
+EXPORT_SYMBOL(sirfsoc_vdss_check_size);
 
 static void vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
 {
