@@ -72,10 +72,21 @@
 						&audio_uart1_urfs_pmx0>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+				cs-gpios = <&gpio_1 97 0
+						&gpio_1 122 0>;
 				spidev@0 {
 					compatible = "spidev";
 					reg = <0>;
 					spi-max-frequency = <1000000>;
+					spi-cpha;
+					spi-cpol;
+				};
+				spidev@1 {
+					compatible = "spidev";
+					reg = <1>;
+					spi-max-frequency = <1000000>;
+					spi-cpha;
+					spi-cpol;
 				};
 			};
 		};
