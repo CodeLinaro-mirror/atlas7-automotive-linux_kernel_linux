@@ -1,26 +1,15 @@
-/************************************************************************/
-/*                                                                      */
-/*            Zoran Corporation Confidential and Proprietary            */
-/*              Copyright (c) 2001-2010 Zoran Corporation               */
-/*                         ALL RIGHTS RESERVED                          */
-/*                                                                      */
-/*  NOTICE:                                                             */
-/*                                                                      */
-/*  This material may be used ONLY for the purpose of developing  code  */
-/*  for  Zoran Corporation  VLSI  products  and for running  on  Zoran  */
-/*  Corporation VLSI products.                                          */
-/*                                                                      */
-/*  This  material  contains  information  that  is  confidential  and  */
-/*  proprietary to Zoran Corporation.                                   */
-/*                                                                      */
-/*  No  part of  this  publication  may  be  reproduced  in  any  form  */
-/*  whatsoever without written prior approval by Zoran Corporation.     */
-/*                                                                      */
-/*  Zoran  Corporation reserves the  right to revise this  publication  */
-/*  and make changes without  obligation  to notify any person of such  */
-/*  revisions or changes.                                               */
-/*                                                                      */
-/************************************************************************/
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #ifndef __TYPES_H
 #define __TYPES_H
@@ -59,6 +48,16 @@ struct jpg_hw_buf {
 	unsigned long size;
 	unsigned long real_size;
 };
+
+/* Jpeg buffer addresses
+ * @vaddr virtual address
+ * @paddr phy address correspond to @vaddr
+ */
+struct jpg_buf_addrs {
+	unsigned int vaddr;
+	unsigned int paddr;
+};
+
 
 /*/ An enum for describing possible frame width unit types. */
 enum EFrameWidthType {
@@ -280,6 +279,7 @@ enum jpeg_status {
 	JPEG_GO,
 	JPEG_WAIT,
 	JPEG_FREEBUFFER,
+	JPEG_GET_PADDR,
 	JPEG_FINISH
 };
 
@@ -451,5 +451,6 @@ enum jpeg_status {
 #define IOCTL_JPEG_WAIT		_IOW('J', 1008, struct jpeg_codec_param*)
 #define IOCTL_JPEG_SETCLIENTS	_IOW('J', 1009, struct jpeg_codec_param*)
 #define IOCTL_JPEG_ALIGN	_IOW('J', 1010, struct jpeg_codec_param*)
+#define IOCTL_JPEG_GET_PADDR	_IOWR('J', 1011, struct jpg_hw_buf*)
 
 #endif

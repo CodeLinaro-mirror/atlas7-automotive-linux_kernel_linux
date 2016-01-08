@@ -23,6 +23,10 @@
 
 static struct jpeg_data jpeg;
 
+#define INVALID_PHYSICAL_ADDRESS 0xffffffff
+
+static unsigned long CpuUmAddrToCpuPAddr(void *pvCpuUmAddr);
+
 static int jpeg_get_hw_pool(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -550,8 +554,6 @@ static long jpeg_go(struct jpeg_codec_param *param)
 	return 0;
 }
 
-
-
 static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
@@ -597,7 +599,8 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_JPEG_GETBUFFER: {
 		struct jpg_hw_buf buf_info = {0};
 		struct jpg_hw_buf *phwbuf;
-		if (*status != JPEG_START && *status != JPEG_GETBUFFER)
+		if (*status != JPEG_START && *status != JPEG_GETBUFFER
+				&& *status != JPEG_GET_PADDR)
 			return -EPERM;
 		*status = JPEG_GETBUFFER;
 		pr_debug("IOCTL_JPEG_GETBUFFER\r\n");
@@ -638,6 +641,35 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		jpeg_free_buf(phwbuf);
 		kfree(phwbuf);
 		/*unmap the viradd in user mode. */
+		break;
+	}
+	case IOCTL_JPEG_GET_PADDR: {
+		pr_debug("IOCTL_JPEG_GET_PADDR\r\n");
+
+		struct jpg_buf_addrs *pBufAddrs;
+		void *vaddr;
+
+		if (*status == JPEG_FINISH)
+			return -EPERM;
+		*status = JPEG_GET_PADDR;
+
+		pBufAddrs = kzalloc(sizeof(*pBufAddrs), GFP_KERNEL);
+		if (NULL == pBufAddrs)
+			return -ENOMEM;
+
+		ret = copy_from_user(pBufAddrs, (void __user *)arg,
+				sizeof(*pBufAddrs));
+		if (ret) {
+			kfree(pBufAddrs);
+			return ret;
+		}
+
+		vaddr = pBufAddrs->vaddr;
+		pBufAddrs->paddr = CpuUmAddrToCpuPAddr(vaddr);
+		ret = copy_to_user((void __user *)arg, pBufAddrs,
+				sizeof(*pBufAddrs));
+
+		kfree(pBufAddrs);
 		break;
 	}
 	case IOCTL_JPEG_GO: {
@@ -712,6 +744,78 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 
 	return ret;
+}
+
+/*----------------------------------------------------------------------------
+
+	Function:  ARMVAtoPA
+	For ARM 1176 and greater
+	The PA register format depends on the value of bit [0], which signals
+	whether or not there is an error during the VA to PA translation
+	bit[0]: 1 - failed, 0 - succedded
+	bit[1~11]: flags
+*/
+static int _ARMVAtoPA(void *pvAddr)
+{
+__asm__ __volatile__(
+	/* ; INTERRUPTS_OFF" */
+	" mrs            r2, CPSR;\n" /* r2 saves current status */
+	"CPSID  iaf;\n" /* Disable interrupts */
+
+	/*In order to handle PAGE OUT scenario, we need do the same operation
+	  twice. In the first time, if PAGE OUT happens for the input address,
+	  translation abort will happen and OS will do PAGE IN operation
+	  Then the second time will succeed.
+	*/
+
+	"mcr    p15, 0, r0, c7, c8, 0;\n "
+	/*  ; get VA = <Rn> and run nonsecure translation
+		; with nonsecure privileged read permission.
+		; if the selected translation table has privileged
+		; read permission, the PA is loaded in the PA
+		; Register, otherwise abort information is loaded
+		; in the PA Register.
+	*/
+
+	/* read in <Rd> the PA value */
+	 "mrc    p15, 0, r1, c7, c4, 0;\n"
+	/* get VA = <Rn> and run nonsecure translation */
+	" mcr    p15, 0, r0, c7, c8, 0;\n"
+
+	/*  ; with nonsecure privileged read permission.
+		; if the selected translation table has privileged
+		; read permission, the PA is loaded in the PA
+		; Register, otherwise abort information is loaded
+		; in the PA Register.
+	*/
+	"mrc    p15, 0, r0, c7, c4, 0;\n" /* read in <Rd> the PA value */
+
+	/* restore INTERRUPTS_ON/OFF status*/
+	"msr            cpsr, r2;\n" /* re-enable interrupts */
+
+	"tst    r0, #0x1;\n"
+	"ldr    r2, =0xffffffff;\n"
+
+	/* if error happens,return INVALID_PHYSICAL_ADDRESS */
+	"movne   r0, r2;\n"
+	"biceq  r0, r0, #0xff;\n"
+	"biceq  r0, r0, #0xf00;" /* if ok, clear the flag bits */
+);
+}
+
+static unsigned long CpuUmAddrToCpuPAddr(void *pvCpuUmAddr)
+{
+	int phyAdrs;
+	int mask = 0xFFF;  /* low 12bit */
+	int offset = (int)pvCpuUmAddr & mask;
+	int phyAdrsReg = _ARMVAtoPA((void *)pvCpuUmAddr);
+
+	if (INVALID_PHYSICAL_ADDRESS != phyAdrsReg)
+		phyAdrs = (phyAdrsReg & (~mask)) + offset;
+	else
+		phyAdrs = INVALID_PHYSICAL_ADDRESS;
+
+	return phyAdrs;
 }
 
 static int jpeg_mmap(struct file *filp, struct vm_area_struct *vma)
@@ -891,6 +995,4 @@ static struct platform_driver jpeg_driver = {
 module_platform_driver(jpeg_driver);
 
 MODULE_DESCRIPTION("JPEG base driver module");
-MODULE_AUTHOR("Lily Li <Lily.Li@csr.com>");
 MODULE_LICENSE("GPL v2");
-
