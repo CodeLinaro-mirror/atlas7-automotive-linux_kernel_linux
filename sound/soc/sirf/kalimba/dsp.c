@@ -276,12 +276,17 @@ void kalimba_set_music_passthrough_volume(int vol)
 	kalimba_msg_send_unlock();
 }
 
-void kalimba_set_stream_volume(int stream, int vol)
+void kalimba_set_stream_volume(int stream, int vol, int samples)
 {
 	int i;
 	u16 mixer_op_id;
 	static u16 streams_volume[MIXER_SUPPORT_STREAMS * 2];
 	u16 msg[MIXER_SUPPORT_STREAMS];
+	u16 msg_ramp[2];
+
+	/* <MS_8bits> <LS_16bits> */
+	msg_ramp[0] = samples >> 16;
+	msg_ramp[1] = samples & 0xffff;
 
 	streams_volume[stream] = (u16)(vol * 60);
 	set_default_mixer_stream_volume(stream, streams_volume[stream]);
@@ -298,9 +303,13 @@ void kalimba_set_stream_volume(int stream, int vol)
 		mixer_op_id = get_mixer_op_id(1);
 	else
 		mixer_op_id = get_mixer_op_id(2);
-	if (mixer_op_id)
+	if (mixer_op_id) {
+		kalimba_operator_message(mixer_op_id,
+			OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
+			2, msg_ramp, NULL, NULL, NULL);
 		kalimba_operator_message(mixer_op_id, OPERATOR_MSG_SET_GAINS,
 			MIXER_SUPPORT_STREAMS, msg, NULL, NULL, NULL);
+	}
 	kalimba_msg_send_unlock();
 }
 

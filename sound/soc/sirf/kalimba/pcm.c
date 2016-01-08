@@ -52,6 +52,8 @@ struct kas_priv_data {
 	struct kcm_t *kcm;
 	int pre_channel_volume[4];
 	int stream_volume[MIXER_SUPPORT_STREAMS * 2];
+	int stream_ramp[2][MIXER_SUPPORT_STREAMS * 2];
+	int stream_mute[MIXER_SUPPORT_STREAMS * 2];
 	u16 pre_gain;
 	u16 peq_switch_mode[PEQ_NUM_MAX];
 	u16 peq_params_array[PEQ_NUM_MAX][PEQ_PARAMS_ARRAY_LEN_16B];
@@ -415,6 +417,75 @@ static int kas_playback_peq_put(struct snd_kcontrol *kcontrol,
 #define MIN_STREAM_GAIN_DB		-96
 #define MIXER_GAIN_REG			4
 #define PREGAIN_REG			9
+#define MIXER_MUTE_REG			10
+#define MIXER_RAMP_REG			15
+#define MAX_RAMP_NUM_SAMPLES		0x00ffffff
+
+static int kas_playback_ramp_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+
+	ucontrol->value.integer.value[0] =
+		pdata->stream_ramp[0][mc->reg - MIXER_RAMP_REG];
+	ucontrol->value.integer.value[1] =
+		pdata->stream_ramp[1][mc->reg - MIXER_RAMP_REG];
+	return 0;
+}
+
+static int kas_playback_ramp_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+
+	pdata->stream_ramp[0][mc->reg - MIXER_RAMP_REG] =
+		ucontrol->value.integer.value[0];
+	pdata->stream_ramp[1][mc->reg - MIXER_RAMP_REG] =
+		ucontrol->value.integer.value[1];
+	return 0;
+}
+
+static int kas_playback_mute_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+
+	ucontrol->value.integer.value[0] =
+		pdata->stream_mute[mc->reg - MIXER_MUTE_REG];
+	return 0;
+}
+
+static int kas_playback_mute_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int mute = ucontrol->value.integer.value[0];
+
+	pdata->stream_mute[mc->reg - MIXER_MUTE_REG] = mute;
+
+	if (mute)
+		kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
+			MIN_STREAM_GAIN_DB,
+			pdata->stream_ramp[1][mc->reg - MIXER_MUTE_REG]);
+	else
+		kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
+			MIN_STREAM_GAIN_DB +
+			pdata->stream_volume[mc->reg - MIXER_MUTE_REG],
+			pdata->stream_ramp[1][mc->reg - MIXER_MUTE_REG]);
+	return 0;
+}
 
 static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -442,6 +513,7 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
+	int mute = 0;
 
 	if (mc->reg < MIXER_GAIN_REG) {
 		pdata->pre_channel_volume[mc->reg] =
@@ -455,9 +527,13 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 	} else {
 		pdata->stream_volume[mc->reg - MIXER_GAIN_REG] =
 			ucontrol->value.integer.value[0];
-		kalimba_set_stream_volume(mc->reg - MIXER_GAIN_REG,
-			MIN_STREAM_GAIN_DB +
-			pdata->stream_volume[mc->reg - MIXER_GAIN_REG]);
+		mute = pdata->stream_mute[mc->reg - MIXER_GAIN_REG];
+		if (mute == 0)
+			kalimba_set_stream_volume(mc->reg - MIXER_GAIN_REG,
+				MIN_STREAM_GAIN_DB +
+				pdata->stream_volume[mc->reg - MIXER_GAIN_REG],
+				pdata->stream_ramp[0][mc->reg - MIXER_GAIN_REG]
+				);
 	}
 	return 0;
 }
@@ -503,6 +579,31 @@ static const struct snd_kcontrol_new kas_controls[] = {
 	SOC_SINGLE_EXT_TLV("Music pregain Volume", 9, 0, 60, 0,
 		kas_playback_volume_get, kas_playback_volume_put,
 		kas_music_pregain_tlv),
+	SOC_SINGLE_EXT("Music Stream Mute", 10, 0, 1, 0,
+		kas_playback_mute_get, kas_playback_mute_put),
+	SOC_SINGLE_EXT("Navigation Stream Mute", 11, 0, 1, 0,
+		kas_playback_mute_get, kas_playback_mute_put),
+	SOC_SINGLE_EXT("Alarm Stream Mute", 12, 0, 1, 0,
+		kas_playback_mute_get, kas_playback_mute_put),
+	SOC_SINGLE_EXT("Multimedia Mute", 13, 0, 1, 0,
+		kas_playback_mute_get, kas_playback_mute_put),
+	SOC_SINGLE_EXT("Voicecall Mute", 14, 0, 1, 0,
+		kas_playback_mute_get, kas_playback_mute_put),
+	SOC_DOUBLE_EXT("Music Stream Ramp",
+		15, 0, 1, MAX_RAMP_NUM_SAMPLES, 0,
+		kas_playback_ramp_get, kas_playback_ramp_put),
+	SOC_DOUBLE_EXT("Navigation Stream Ramp",
+		16, 0, 1, MAX_RAMP_NUM_SAMPLES, 0,
+		kas_playback_ramp_get, kas_playback_ramp_put),
+	SOC_DOUBLE_EXT("Alarm Stream Ramp",
+		17, 0, 1, MAX_RAMP_NUM_SAMPLES, 0,
+		kas_playback_ramp_get, kas_playback_ramp_put),
+	SOC_DOUBLE_EXT("Multimedia Ramp",
+		18, 0, 1, MAX_RAMP_NUM_SAMPLES, 0,
+		kas_playback_ramp_get, kas_playback_ramp_put),
+	SOC_DOUBLE_EXT("Voicecall Ramp",
+		19, 0, 1, MAX_RAMP_NUM_SAMPLES, 0,
+		kas_playback_ramp_get, kas_playback_ramp_put),
 	/* peq */
 	KAS_PEQ_CONTROLS("User PEQ", USER_PEQ_BASE),
 	KAS_PEQ_CONTROLS("Spk1 PEQ", SPK1_PEQ_BASE),
