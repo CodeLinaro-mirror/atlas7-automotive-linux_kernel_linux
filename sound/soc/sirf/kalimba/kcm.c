@@ -1309,8 +1309,8 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 				&resample_cfg, NULL, NULL, resp);
 	} else if (stream == ANALOG_CAPTURE_STREAM) {
 		sw_channels[stream] = channels;
-		resample_cfg = get_rasample_conversion_conf(sample_rate,
-				kcm->capture_iacc_ep.sample_rate);
+		resample_cfg = get_rasample_conversion_conf(
+				kcm->capture_iacc_ep.sample_rate, sample_rate);
 
 		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
 				handle_addr, sw_endpoint_id[stream], resp);
@@ -1859,7 +1859,7 @@ struct kcm_t *kcm_init(struct device *dev)
 		return ERR_PTR(ret);
 	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep,
-		BUFF_BYTES_EACH_CHANNEL, 1, 16000);
+		BUFF_BYTES_EACH_CHANNEL, 1, 48000);
 	if (ret) {
 		pr_err("Allocate IACC capture endpoint buffer failed.\n");
 		goto error_alloc_capture_iacc_ep_failed;
