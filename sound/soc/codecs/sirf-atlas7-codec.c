@@ -73,6 +73,14 @@ struct rate_reg_values_t {
 	u32 value;
 };
 
+struct rate_reg_values_t rate_dac_reg_values[] = {
+	{32000, DAC_BASE_SMAPLE_RATE_32K0},
+	{44100, DAC_BASE_SMAPLE_RATE_44K1},
+	{48000, DAC_BASE_SMAPLE_RATE_48K0},
+	{96000, DAC_BASE_SMAPLE_RATE_96K0},
+	{192000, DAC_BASE_SMAPLE_RATE_192K0},
+};
+
 struct rate_reg_values_t rate_adc_reg_values[] = {
 	{8000, ADC_SAMPLE_RATE_08K},
 	{11025, ADC_SAMPLE_RATE_11K},
@@ -84,17 +92,20 @@ struct rate_reg_values_t rate_adc_reg_values[] = {
 	{96000, ADC_SAMPLE_RATE_96K},
 };
 
-static u32 rate_reg_value(struct snd_pcm_substream *substream)
+static u32 rate_reg_value(int stream, int rate)
 {
 	int i;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		return KCODEC_DAC_SELECT_EXT | (DAC_BASE_SMAPLE_RATE_48K0
-			<< KCODEC_DAC_EXT_BASE_SAMP_RATE_SHIFT);
-	else {
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		for (i = 0; i < ARRAY_SIZE(rate_dac_reg_values); i++) {
+			if (rate_dac_reg_values[i].rate == rate)
+				return KCODEC_DAC_SELECT_EXT
+					| rate_dac_reg_values[i].value
+					<< KCODEC_DAC_EXT_BASE_SAMP_RATE_SHIFT;
+		}
+	} else {
 		for (i = 0; i < ARRAY_SIZE(rate_adc_reg_values); i++) {
-			if (rate_adc_reg_values[i].rate ==
-				substream->runtime->rate)
+			if (rate_adc_reg_values[i].rate == rate)
 				return rate_adc_reg_values[i].value;
 		}
 	}
@@ -122,64 +133,63 @@ static u32 adc_gain_regs[] = {
 
 static const int input_path_val[];
 
-static int sirf_atlas7_codec_trigger(struct snd_pcm_substream *substream,
-		int cmd, struct snd_soc_dai *dai)
+/*
+ * This codec can support some sample rate, if the DSP wants fix sample rate,
+ * Use be_hw_params_fixup interface to modify the rate_min and rate_max values.
+ */
+static int sirf_atlas7_codec_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct sirf_atlas7_codec *atlas7_codec = dev_get_drvdata(codec->dev);
-	int channels = substream->runtime->channels;
 	int i;
 	u32 volume_level;
+	int stream = substream->stream;
+	int rate = params_rate(params);
 
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			volume_level = atlas7_codec->playback_volume;
-			/*
-			 * The codec uses the fixed 4 channels.
-			 * Because this codec is used by the backend.
-			 * The kalimba DSP should upmix or downmix
-			 * any channels to fixed 4 channels.
-			 */
-			for (i = 0; i < PLAYBACK_FIX_CHANNELS; i++) {
-				snd_soc_update_bits(codec, dac_gain_regs[i],
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		volume_level = atlas7_codec->playback_volume;
+		/*
+		 * The codec uses the fixed 4 channels.
+		 * Because this codec is used by the backend.
+		 * The kalimba DSP should upmix or downmix
+		 * any channels to fixed 4 channels.
+		 */
+		for (i = 0; i < PLAYBACK_FIX_CHANNELS; i++) {
+			snd_soc_update_bits(codec, dac_gain_regs[i],
 					AUDIO_GAIN_MASK,
 					volume_reg_values[volume_level]);
-				snd_soc_write(codec, dac_sample_rate_regs[i],
-					rate_reg_value(substream));
-			}
-		} else {
-			volume_level = atlas7_codec->capture_volume;
-			if (atlas7_codec->input_path == MIC_MONO_IN
+			snd_soc_write(codec, dac_sample_rate_regs[i],
+					rate_reg_value(stream, rate));
+		}
+	} else {
+		volume_level = atlas7_codec->capture_volume;
+		if (atlas7_codec->input_path == MIC_MONO_IN
 				|| atlas7_codec->input_path == MIC_STEREO_IN)
-				snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
+			snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL2,
 					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
 					AUDIO_ANA_ADC_MICAMP_GAIN);
-			if (atlas7_codec->input_path == MIC_STEREO_IN)
-				snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
+		if (atlas7_codec->input_path == MIC_STEREO_IN)
+			snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL3,
 					AUDIO_ANA_ADC_MICAMP_GAIN_SEL_MASK,
 					AUDIO_ANA_ADC_MICAMP_GAIN);
-			snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL0, 0xFFFF,
+		snd_soc_update_bits(codec, AUDIO_ANA_ADC_CTRL0, 0xFFFF,
 				input_path_val[atlas7_codec->input_path]);
 
-			for (i = 0; i < channels; i++) {
-				snd_soc_update_bits(codec, adc_gain_regs[i],
+		for (i = 0; i < params_channels(params); i++) {
+			snd_soc_update_bits(codec, adc_gain_regs[i],
 					AUDIO_GAIN_MASK,
 					volume_reg_values[volume_level]);
-				snd_soc_write(codec, KCODEC_ADC_A_SAMP_RATE
+			snd_soc_write(codec, KCODEC_ADC_A_SAMP_RATE
 					+ (i * 0x20),
-					rate_reg_value(substream));
-			}
+					rate_reg_value(stream, rate));
 		}
-		break;
 	}
 	return 0;
 }
 
 struct snd_soc_dai_ops sirf_atlas7_codec_dai_ops = {
-	.trigger = sirf_atlas7_codec_trigger,
+	.hw_params = sirf_atlas7_codec_hw_params,
 };
 
 #define ATLAS7_CODEC_DAC_RATES	(SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 \
