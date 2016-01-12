@@ -28,6 +28,16 @@
 			enable-active-high;
 			gpio = <&gpio_0 46 0>;
 		};
+
+		reg_usb1_otg_vbus: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "usb1_otg_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+			gpio = <&gpio_0 49 0>;
+		};
 	};
 
 	noc {
@@ -66,6 +76,15 @@
 			};
 
 			usbphy0: usbphy@0 {
+				status = "okay";
+			};
+
+			usb1: usb@17070000 {
+				vbus-supply = <&reg_usb1_otg_vbus>;
+				status = "okay";
+			};
+
+			usbphy1: usbphy@1 {
 				status = "okay";
 			};
 		};
