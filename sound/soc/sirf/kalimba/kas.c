@@ -36,6 +36,18 @@ static const struct snd_soc_dapm_route kas_audio_map[] = {
 	{"Codec IN", NULL, "AIF Capture"},
 };
 
+static int kas_iacc_fixup(struct snd_soc_pcm_runtime *rtd,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_RATE);
+
+	/* The kalimba DSP will covert the FE rate to 48k, stereo */
+	rate->min = rate->max = 48000;
+
+	return 0;
+}
+
 static struct snd_soc_dai_link kas_audio_dais[] = {
 	/* Front End DAI links */
 	{
@@ -132,6 +144,7 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 		.no_pcm = 1,
 		.codec_name = "10e30000.atlas7_codec",
 		.codec_dai_name = "atlas7-codec-hifi",
+		.be_hw_params_fixup = kas_iacc_fixup,
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 		.dpcm_playback = 1,
