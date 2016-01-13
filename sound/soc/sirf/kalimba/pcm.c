@@ -29,7 +29,7 @@
 #include "kcm.h"
 #include "usp-pcm.h"
 
-#define KAS_PCM_COUNT	7
+#define KAS_PCM_COUNT	9
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -1033,8 +1033,8 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		pcm_data->sw_ep_handle = dma_alloc_coherent(rtd->platform->dev,
 				sizeof(struct endpoint_handle),
 				&pcm_data->sw_ep_handle_phy_addr, GFP_KERNEL);
-		if (!strncmp(rtd->dai_link->stream_name, "Voicecall",
-			strlen("Voicecall"))) {
+		if (!strncmp(rtd->dai_link->stream_name, "Voicecall-bt-to-iacc",
+			strlen("Voicecall-iacc-to-bt"))) {
 			pcm_data->hw_params = kas_pcm_voicecall_hw_params;
 			pcm_data->hw_free = kas_pcm_voicecall_hw_free;
 			pcm_data->trigger = kas_pcm_voicecall_trigger;
@@ -1161,6 +1161,16 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
+		.name = "Voicecall-playback Pin",
+		.playback = {
+			.stream_name = "Voicecall-playback",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
 		.name = "Capture Pin",
 		.capture = {
 			.stream_name = "Analog Capture",
@@ -1174,6 +1184,16 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		.name = "Voicecall-iacc-to-bt Pin",
 		.capture = {
 			.stream_name = "Voicecall-iacc-to-bt",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
+		.name = "Voicecall-capture Pin",
+		.capture = {
+			.stream_name = "Voicecall-capture",
 			.channels_min = 1,
 			.channels_max = 1,
 			.rates = KAS_RATES,
@@ -1197,9 +1217,11 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"Playback VMixer", NULL, "Alarm Playback"},
 	{"Playback VMixer", NULL, "A2DP Playback"},
 	{"Playback VMixer", NULL, "Voicecall-bt-to-iacc"},
+	{"Playback VMixer", NULL, "Voicecall-playback"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
 	{"Voicecall-iacc-to-bt", NULL, "Codec IN"},
+	{"Voicecall-capture", NULL, "Codec IN"},
 };
 
 static const struct snd_soc_component_driver kas_dai_component = {

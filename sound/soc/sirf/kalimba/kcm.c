@@ -36,10 +36,12 @@
 #define ALARM_STREAM			2
 #define A2DP_STREAM			3
 #define VOICECALL_BT_TO_IACC_STREAM	4
-#define ANALOG_CAPTURE_STREAM		5
-#define VOICECALL_IACC_TO_BT_STREAM	6
+#define VOICECALL_PLAYBACK_STREAM	5
+#define ANALOG_CAPTURE_STREAM		6
+#define VOICECALL_IACC_TO_BT_STREAM	7
+#define VOICECALL_CAPTURE_STREAM	8
 
-#define TOTAL_SUPPORT_STREAMS		8
+#define TOTAL_SUPPORT_STREAMS		16
 
 static struct kcm_t *kcm;
 
@@ -61,9 +63,11 @@ static int mixer_1, mixer_2;
 static int volume_ctrl;
 static int aec_ref;
 
+static int cvc_rcv;
 static int cvc_send;
 
 static int iacc_source;
+static int iacc_voicecall_source;
 static int iacc_sink;
 
 static int music_passthrough_to_resampler_connection[2];
@@ -79,6 +83,14 @@ static int volumectrl_to_aecref_connection[4];
 static int aecref_to_iaccsink_connection[4];
 
 static u16 aecref_to_cvcsend_ref_connect_id;
+
+static int voicecall_splitter_1, voicecall_splitter_2;
+static int cvcrcv_to_resampler_connection;
+static int resampler_to_voicecall_splitter1_connection;
+static int voicecall_splitter1_to_voicecall_splitter2_connection[2];
+static int voicecall_splitter2_to_mixer2_connection[4];
+static int iaccsource_to_aecref_connection;
+static int aecref_to_cvcsend_mic_connection;
 
 static unsigned long active_stream;
 
@@ -835,7 +847,8 @@ static int init_capture_pipeline(int index)
 		ANALOG_CAPTURE_STREAM];
 	pipeline_link[ANALOG_CAPTURE_STREAM][j++] = iacc_source;
 	for (k = 0; k < kcm->capture_iacc_ep.channels; k++)
-		pipeline_link[ANALOG_CAPTURE_STREAM][j++] = iacc_source + 1 + k;
+		pipeline_link[ANALOG_CAPTURE_STREAM][j++] =
+			source_to_resampler_connection[k];
 
 	pipeline_link_count[ANALOG_CAPTURE_STREAM] = j;
 
@@ -848,15 +861,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 	int k, j = 0;
 	int usp3_source;
 	int usp3_sink;
-	int cvc_rcv;
-	int splitter_1, splitter_2;
 	int usp3source_to_cvcrcv_connection;
-	int cvcrcv_to_resampler_connection;
-	int resampler_to_splitter1_connection;
-	int splitter1_to_splitter2_connection[2];
-	int splitter2_to_mixer2_connection[4];
-	int iaccsource_to_aecref_connection;
-	int aecref_to_cvcsend_mic_connection;
 	int cvcsend_to_usp3sink_connection;
 	static u16 cvc_ucid = 4;
 
@@ -922,42 +927,42 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
-	splitter_1 = i;
+	voicecall_splitter_1 = i;
 	i++;
 
-	resampler_to_splitter1_connection = i;
+	resampler_to_voicecall_splitter1_connection = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
 		(u32)(&components_global[resample_op_id[
 			VOICECALL_BT_TO_IACC_STREAM]].ret[0]);
 	components_global[i].params[1] = 0x2000;
 	components_global[i].params[2] =
-		(u32)(&components_global[splitter_1].ret[0]);
+		(u32)(&components_global[voicecall_splitter_1].ret[0]);
 	components_global[i].params[3] = 0xA000;
 	i++;
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
-	splitter_2 = i;
+	voicecall_splitter_2 = i;
 	i++;
 
 	for (k = 0; k < 2; k++) {
-		splitter1_to_splitter2_connection[k] = i;
+		voicecall_splitter1_to_voicecall_splitter2_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
-			(u32)(&components_global[splitter_1].ret[0]);
+			(u32)(&components_global[voicecall_splitter_1].ret[0]);
 		components_global[i].params[1] = 0x2000 + k;
 		components_global[i].params[2] =
-			(u32)(&components_global[splitter_2].ret[0]);
+			(u32)(&components_global[voicecall_splitter_2].ret[0]);
 		components_global[i].params[3] = 0xA000 + k;
 		i++;
 	}
 
 	for (k = 0; k < 4; k++) {
-		splitter2_to_mixer2_connection[k] = i;
+		voicecall_splitter2_to_mixer2_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
-			(u32)(&components_global[splitter_2].ret[0]);
+			(u32)(&components_global[voicecall_splitter_2].ret[0]);
 		components_global[i].params[1] = 0x2000 + k;
 		components_global[i].params[2] =
 			(u32)(&components_global[mixer_2].ret[0]);
@@ -987,7 +992,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
 	components_global[i].params[13] =
 		(u32)(&kcm->capture_iacc_sco_ep.clock_master);
-	iacc_source = i;
+	iacc_voicecall_source = i;
 	i++;
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
@@ -1026,7 +1031,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 	iaccsource_to_aecref_connection = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
-		(u32)(&components_global[iacc_source].ret[0]);
+		(u32)(&components_global[iacc_voicecall_source].ret[0]);
 	components_global[i].params[1] = 0;
 	components_global[i].params[2] =
 		(u32)(&components_global[aec_ref].ret[0]);
@@ -1062,17 +1067,17 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 		cvcrcv_to_resampler_connection;
-	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = splitter_1;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = voicecall_splitter_1;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
-		resampler_to_splitter1_connection;
-	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = splitter_2;
+		resampler_to_voicecall_splitter1_connection;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = voicecall_splitter_2;
 	for (k = 0; k < 2; k++)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
-			splitter1_to_splitter2_connection[k];
+		voicecall_splitter1_to_voicecall_splitter2_connection[k];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = mixer_2;
 	for (k = 0; k < 4; k++)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
-			splitter2_to_mixer2_connection[k];
+			voicecall_splitter2_to_mixer2_connection[k];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = volume_ctrl;
 	for (k = 0; k < 4; k++)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
@@ -1086,7 +1091,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
 
-	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = iacc_source;
+	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = iacc_voicecall_source;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 		iaccsource_to_aecref_connection;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = cvc_send;
@@ -1199,6 +1204,64 @@ static int init_a2dp_pipeline(int index)
 	return i;
 }
 
+static int init_voicecall_playback_pipeline(int index)
+{
+	int i = index;
+	int k, j = 0;
+
+	resample_op_id[VOICECALL_PLAYBACK_STREAM] =
+		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
+
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_rcv;
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		cvcrcv_to_resampler_connection;
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = voicecall_splitter_1;
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		resampler_to_voicecall_splitter1_connection;
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = voicecall_splitter_2;
+	for (k = 0; k < 2; k++)
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		voicecall_splitter1_to_voicecall_splitter2_connection[k];
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			voicecall_splitter2_to_mixer2_connection[k];
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_send;
+
+	pipeline_link_count[VOICECALL_PLAYBACK_STREAM] = j;
+	return i;
+}
+
+static int init_voicecall_capture_pipeline(int index)
+{
+	int j = 0, k;
+
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = cvc_send;
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = iacc_sink;
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = iacc_voicecall_source;
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+		iaccsource_to_aecref_connection;
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+		aecref_to_cvcsend_mic_connection;
+
+	pipeline_link_count[VOICECALL_CAPTURE_STREAM] = j;
+	return index;
+}
+
 static void init_pipeline(void)
 {
 	int index;
@@ -1208,7 +1271,9 @@ static void init_pipeline(void)
 	index = init_alarm_pipeline(index);
 	index = init_capture_pipeline(index);
 	index = init_voicecall_bt_to_iacc_pipeline(index);
-	init_a2dp_pipeline(index);
+	index = init_a2dp_pipeline(index);
+	index = init_voicecall_playback_pipeline(index);
+	init_voicecall_capture_pipeline(index);
 }
 
 static u16 get_rasample_conversion_conf(int input_rate, int output_rate)
@@ -1245,7 +1310,13 @@ struct conflict_pipeline {
 static struct conflict_pipeline conflict_pipeline_array[] = {
 	{MUSIC_STREAM, A2DP_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_BT_TO_IACC_STREAM},
-	{ANALOG_CAPTURE_STREAM, VOICECALL_IACC_TO_BT_STREAM}
+	{ANALOG_CAPTURE_STREAM, VOICECALL_IACC_TO_BT_STREAM},
+	{ANALOG_CAPTURE_STREAM, VOICECALL_PLAYBACK_STREAM},
+	{ANALOG_CAPTURE_STREAM, VOICECALL_CAPTURE_STREAM},
+	{VOICECALL_PLAYBACK_STREAM, VOICECALL_BT_TO_IACC_STREAM},
+	{VOICECALL_PLAYBACK_STREAM, VOICECALL_IACC_TO_BT_STREAM},
+	{VOICECALL_CAPTURE_STREAM, VOICECALL_BT_TO_IACC_STREAM},
+	{VOICECALL_CAPTURE_STREAM, VOICECALL_IACC_TO_BT_STREAM}
 };
 
 static int check_pipeline_conflict(int stream)
@@ -1307,9 +1378,11 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			components_global[resample_op_id[stream]].ret[0],
 				RESAMPLER_SET_CONVERSION_RATE, 1,
 				&resample_cfg, NULL, NULL, resp);
-	} else if (stream == ANALOG_CAPTURE_STREAM) {
+	} else if (stream == ANALOG_CAPTURE_STREAM
+		|| stream == VOICECALL_CAPTURE_STREAM) {
 		sw_channels[stream] = channels;
-		resample_cfg = get_rasample_conversion_conf(
+		if (stream != VOICECALL_CAPTURE_STREAM)
+			resample_cfg = get_rasample_conversion_conf(
 				kcm->capture_iacc_ep.sample_rate, sample_rate);
 
 		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
@@ -1330,21 +1403,34 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 				ENDPOINT_CONF_PERIOD_SIZE, period_size, resp);
 		}
 
-		/* Set resample configration */
-		kalimba_operator_message(
-			components_global[resample_op_id[stream]].ret[0],
+		if (stream != VOICECALL_CAPTURE_STREAM) {
+			/* Set resample configration */
+			kalimba_operator_message(components_global[
+				resample_op_id[stream]].ret[0],
 				RESAMPLER_SET_CONVERSION_RATE, 1,
 				&resample_cfg, NULL, NULL, resp);
 
-		/* Connect resampler with sink*/
-		for (i = 0; i < channels; i++)
-			kalimba_connect_endpoints(
-				components_global[resample_op_id[stream]]
+			/* Connect resampler with sink*/
+			for (i = 0; i < channels; i++)
+				kalimba_connect_endpoints(components_global[
+					resample_op_id[stream]]
 					.ret[0] + 0x2000 + i,
-				sw_endpoint_id[stream][i],
-				&sw_endpoint_connect_id[stream][i], resp);
+					sw_endpoint_id[stream][i],
+					&sw_endpoint_connect_id[stream][i],
+					resp);
+		} else {
+			/* Connect source with first operator */
+			for (i = 0; i < channels; i++)
+				kalimba_connect_endpoints(
+					stream_first_component->ret[0]
+					+ 0x2000 + i,
+					sw_endpoint_id[stream][i],
+					&sw_endpoint_connect_id[stream][i],
+					resp);
+		}
 	} else if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
-		|| stream == ALARM_STREAM) {
+		|| stream == ALARM_STREAM
+		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		sw_channels[stream] = channels;
 		if (stream != NAVIGATION_STREAM)
 			resample_cfg = get_rasample_conversion_conf(sample_rate,
@@ -1398,6 +1484,12 @@ static void change_primary_stream(int action, int stream)
 	u16 mixer2_primary_stream = 0;
 	u16 resp[64];
 
+	/*
+	 * The VOICECALL_PLAYBACK_STREAM and VOICECALL_BT_TO_IACC_STREAM
+	 * share same port of mixer operator.
+	 */
+	if (stream == VOICECALL_PLAYBACK_STREAM)
+		stream = VOICECALL_BT_TO_IACC_STREAM;
 	if (action == SET_PRIMARY_STREAM)
 		set_bit(stream, &active_stream);
 	else if (action == CLEAR_PRIMARY_STREAM &&
@@ -1452,10 +1544,18 @@ void start_stream(int stream, int clock_master)
 	u16 should_start_ops[64];
 	int should_start_ops_count = 0;
 
+	/*
+	 * The VOICECALL_CAPTURE_STREAM does not start any operators, config
+	 * and connect, these actions should  be done when start
+	 * VOICECALL_PLAYBACK_STREAM
+	 */
+	if (stream == VOICECALL_CAPTURE_STREAM)
+		return;
 	kalimba_msg_send_lock();
 	change_primary_stream(SET_PRIMARY_STREAM, stream);
 	if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
-		|| stream == ALARM_STREAM) {
+		|| stream == ALARM_STREAM
+		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		for (i = 0; i < sw_channels[stream]; i++)
 			kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_CLOCK_MASTER, clock_master, resp);
@@ -1477,7 +1577,8 @@ void start_stream(int stream, int clock_master)
 		kalimba_start_operator(should_start_ops, should_start_ops_count,
 			resp);
 
-	if (stream == VOICECALL_BT_TO_IACC_STREAM)
+	if (stream == VOICECALL_BT_TO_IACC_STREAM ||
+		stream == VOICECALL_PLAYBACK_STREAM)
 		kalimba_connect_endpoints(
 			components_global[aec_ref].ret[0] + 0x2000,
 			components_global[cvc_send].ret[0] + 0xA000,
@@ -1494,10 +1595,18 @@ void stop_stream(int stream)
 	u16 should_stop_ops[64];
 	int should_stop_ops_count = 0;
 
+	/*
+	 * The VOICECALL_CAPTURE_STREAM does not stop any operators,
+	 * and disconnect, these actions should  be done when stop
+	 * VOICECALL_PLAYBACK_STREAM
+	 */
+	if (stream == VOICECALL_CAPTURE_STREAM)
+		return;
 	kalimba_msg_send_lock();
 	change_primary_stream(CLEAR_PRIMARY_STREAM, stream);
 	if ((stream == VOICECALL_BT_TO_IACC_STREAM
-		|| stream == VOICECALL_IACC_TO_BT_STREAM)
+		|| stream == VOICECALL_IACC_TO_BT_STREAM
+		|| stream == VOICECALL_PLAYBACK_STREAM)
 			&& aecref_to_cvcsend_ref_connect_id) {
 		kalimba_disconnect_endpoints(1,
 			&aecref_to_cvcsend_ref_connect_id, resp);
