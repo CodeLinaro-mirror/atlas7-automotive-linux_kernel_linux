@@ -18,4 +18,3 @@
 /include/ "atlas7.dtsi"
 #include "atlas7-a7ca.dtsi"
 #include "atlas7-evb-common.dtsi"
-#include "atlas7-entry-common.dtsi"
