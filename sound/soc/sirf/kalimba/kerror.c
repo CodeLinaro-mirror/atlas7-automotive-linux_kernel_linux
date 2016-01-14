@@ -18,6 +18,7 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/regmap.h>
+#include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 
 #include "kerror.h"
@@ -27,6 +28,8 @@
 #include "firmware.h"
 
 #define HEADER_SIZE   1024
+
+struct delayed_work kdump_dwork;
 
 static struct {
 	char *text;
@@ -260,7 +263,7 @@ static u32 kerror_buf_size_calc(void)
 /*
  * kas generate a core dump
  */
-int kcoredump(void)
+static int do_kcoredump(void)
 {
 	struct file *cdfile;
 	int ret;
@@ -281,7 +284,7 @@ int kcoredump(void)
 		return -ENOMEM;
 	}
 
-	cdfile = filp_open("/etc/kalimba/coredump.xcd",
+	cdfile = filp_open("/coredump.xcd",
 			O_RDWR | O_CREAT | O_TRUNC | O_DSYNC, 0600);
 	if (IS_ERR(cdfile)) {
 		ret = PTR_ERR(cdfile);
@@ -312,7 +315,7 @@ open_err:
 /*
  * Notify for fault
  */
-static int kerror_fault_notify(u16 message, void *priv_data,
+static void kerror_fault_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	pr_alert("kalimba has produced a fault signal\n");
@@ -324,14 +327,32 @@ static int kerror_fault_notify(u16 message, void *priv_data,
 /*
  * Notify for panic
  */
-static int kerror_panic_notify(u16 message, void *priv_data,
+static void kerror_panic_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	/* Generate a code dump */
-	pr_alert("generated core dump in /etc/kalimba\n");
-	kcoredump();
+	pr_alert("generated coredump in / directory\n");
+	queue_delayed_work(system_wq, &kdump_dwork, 10);
 
 	return ACTION_HANDLED;
+}
+
+/*
+ * A coredump work function that is pushed to
+ * the system working queue
+ */
+static void kcoredump_work(struct work_struct *work)
+{
+	do_kcoredump();
+}
+
+/*
+ * The call to the kcoredump will schedule a work
+ * that is because the application may be "zombie"
+ */
+void kcoredump(void)
+{
+	queue_delayed_work(system_wq, &kdump_dwork, 10);
 }
 
 /*
@@ -339,6 +360,9 @@ static int kerror_panic_notify(u16 message, void *priv_data,
  */
 int kcoredump_init(void)
 {
+
+	INIT_DELAYED_WORK(&kdump_dwork, kcoredump_work);
+
 	/*
 	 * Register the callback for kas panic
 	 */

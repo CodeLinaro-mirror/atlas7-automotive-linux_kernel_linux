@@ -14,5 +14,5 @@
 
 const char *kerror_str(u16 status);
 int kcoredump_init(void);
-int kcoredump(void);
+void kcoredump(void);
 #endif /* _KERROR_H */
