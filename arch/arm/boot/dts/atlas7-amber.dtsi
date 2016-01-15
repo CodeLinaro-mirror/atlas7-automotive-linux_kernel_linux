@@ -17,7 +17,7 @@
 	bt_sco_a2dp: bt-sco-a2dp {
 		#sound-dai-cells = <0>;
 		compatible = "bt-sco-a2dp";
-		status = "okay";
+		status = "disabled";
 	};
 /*
  * FIXME
@@ -25,6 +25,7 @@
  * It is necessay to drop this workaround after i2s interface is used in android
  */
 	sirf-bt-sco-a2dp {
+		status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,cpu {
