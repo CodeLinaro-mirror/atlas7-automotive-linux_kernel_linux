@@ -182,16 +182,17 @@ static u32 __lcdc_ckey_val(enum vdss_pixelformat fmt,
 		return value;
 	} else if (fmt == VDSS_PIXELFORMAT_565) {
 		u32 ckval;
+		u8 r, g, b;
 
-		ckval = LX_CKEY_R(((value >> 11) & 0x1F) << 3) |
-			LX_CKEY_G(((value >> 5) & 0x3F) << 2) |
-			LX_CKEY_B((value & 0x1F) << 3);
-
+		r = ((value >> 11) & 0x1F) << 3;
+		g = ((value >> 5) & 0x3F) << 2;
+		b = (value & 0x1F) << 3;
 		if (duplicate) {
-			ckval |= ((ckval & LX_CKEY_R_MASK) >> 5) |
-				((ckval & LX_CKEY_G_MASK) >> 6) |
-				((ckval & LX_CKEY_B_MASK) >> 5);
+			r |= r >> 5;
+			g |= g >> 6;
+			b |= b >> 5;
 		}
+		ckval = LX_CKEY_R(r) | LX_CKEY_G(g) | LX_CKEY_B(b);
 		return ckval;
 	} else if (fmt >= VDSS_PIXELFORMAT_UYVY)
 		return value;
