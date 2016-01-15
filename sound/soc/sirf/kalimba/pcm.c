@@ -1026,6 +1026,8 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	for (stream = 0; stream < 2; stream++) {
+		const char *stream_name = rtd->dai_link->stream_name;
+
 		substream = pcm->streams[stream].substream;
 		if (!substream)
 			continue;
@@ -1033,13 +1035,12 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		pcm_data->sw_ep_handle = dma_alloc_coherent(rtd->platform->dev,
 				sizeof(struct endpoint_handle),
 				&pcm_data->sw_ep_handle_phy_addr, GFP_KERNEL);
-		if (!strncmp(rtd->dai_link->stream_name, "Voicecall-bt-to-iacc",
-			strlen("Voicecall-iacc-to-bt"))) {
+		if (!(strcmp(stream_name, "Voicecall-bt-to-iacc") &&
+			strcmp(stream_name, "Voicecall-iacc-to-bt"))) {
 			pcm_data->hw_params = kas_pcm_voicecall_hw_params;
 			pcm_data->hw_free = kas_pcm_voicecall_hw_free;
 			pcm_data->trigger = kas_pcm_voicecall_trigger;
-		} else if (!strncmp(rtd->dai_link->stream_name, "A2DP Playback",
-			strlen("A2DP Playback"))) {
+		} else if (!strcmp(stream_name, "A2DP Playback")) {
 			pcm_data->hw_params = kas_pcm_a2dp_hw_params;
 			pcm_data->hw_free = kas_pcm_a2dp_hw_free;
 			pcm_data->trigger = kas_pcm_a2dp_trigger;
