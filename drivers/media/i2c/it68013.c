@@ -65,6 +65,8 @@ struct it68013_priv {
 	unsigned char		data_bus_mode;
 	unsigned char		data_bus_width;
 	bool				is_start;
+	int					hotplug_gpio;
+	bool                is_connected;
 };
 struct it68013_reg_ini {
 	unsigned char ucaddr;
@@ -115,9 +117,15 @@ static const struct it68013_reg_ini it68013_hdmi_init_table[] = {
 	{0xB6, 0x07, 0x00}, {0x0F, 0x03, 0x00}, {0x22, 0xFF, 0x00},
 	{0x3A, 0xFF, 0x00}, {0x26, 0xFF, 0x00}, {0x3E, 0xFF, 0x00},
 	{0x63, 0xFF, 0x3F}, {0x73, 0x08, 0x00}, {0x64, 0x08, 0x08},
-	{0x05, 0xFF, 0xFF}, /*{0x5D, 0xFF, 0xFE},*//* enable 5v detect INT */
+	{0x05, 0xFF, 0xFF},
+	/* disable all interrupts temporarily  */
+	{0x5D, 0xFF, 0}, {0x5E, 0xFF, 0}, {0x5F, 0xFF, 0},
+	{0x60, 0xFF, 0}, {0x61, 0xFF, 0}, {0x62, 0xFF, 0},
 	{0xFF, 0xFF, 0xFF}
 };
+
+static void it68013_hotplug_notify(struct v4l2_subdev *sd, bool is_connected);
+
 
 /*
  * general function
@@ -127,6 +135,23 @@ static struct it68013_priv *to_it68013(const struct i2c_client *client)
 	return container_of(i2c_get_clientdata(client), struct it68013_priv,
 			    subdev);
 }
+
+
+static ssize_t hotplug_status_show(struct device *dev,
+			 struct device_attribute *attr, char *buf)
+{
+	struct it68013_priv *priv;
+
+	priv = to_it68013(container_of(dev, struct i2c_client, dev));
+
+	if (!priv)
+		return -ENODEV;
+
+	return sprintf(buf, "%d\n", priv->is_connected);
+}
+
+static DEVICE_ATTR_RO(hotplug_status);
+
 
 /*
  * it68013 function
@@ -574,12 +599,20 @@ static int it68013_try_fmt(struct v4l2_subdev *sd,
 
 static int it68013_video_probe(struct i2c_client *client)
 {
+	u8 value;
 	/*must be initialized firtly */
 	it68013_hdmi_init(client, it68013_hdmi_init_table);
 	/*set the edid             */
 	it68013_edid_init(client);
-	/*place the it68013 in the stop mode*/
-	it68013_video_stop(client);
+
+	/* set HPD to high */
+	i2c_smbus_write_byte_data(client, 0x0F, 0x01);
+	value = i2c_smbus_read_byte_data(client, 0xB0);
+	i2c_smbus_write_byte_data(client, 0xB0, value | 0x3);
+	i2c_smbus_write_byte_data(client, 0x0F, 0x00);
+
+	/* enable the 5V detect interrupt     */
+	i2c_smbus_write_byte_data(client, 0x5D, 0x01);
 
 	return 0;
 }
@@ -635,6 +668,60 @@ static struct v4l2_subdev_ops it68013_subdev_ops = {
 	.core	= &it68013_subdev_core_ops,
 	.video	= &it68013_subdev_video_ops,
 };
+
+static void it68013_hotplug_notify(struct v4l2_subdev *sd, bool is_connected)
+{
+	unsigned int event;
+
+	if (is_connected)
+		event = KOBJ_ONLINE;
+	else
+		event = KOBJ_OFFLINE;
+
+	v4l2_subdev_notify(sd, event, NULL);
+}
+
+
+static irqreturn_t it68013_intr_handler(int irq, void *data)
+{
+	struct i2c_client *client = data;
+	struct it68013_priv *priv;
+	u8	reg05;
+	u8	reg06;
+	u8	reg07;
+	u8	reg08;
+	u8	reg09;
+	u8  reg0a;
+	u8	regd0;
+
+	priv = to_it68013(client);
+
+	reg05 = i2c_smbus_read_byte_data(client, 0x05);
+	reg06 = i2c_smbus_read_byte_data(client, 0x06);
+	reg07 = i2c_smbus_read_byte_data(client, 0x07);
+	reg08 = i2c_smbus_read_byte_data(client, 0x08);
+	reg09 = i2c_smbus_read_byte_data(client, 0x09);
+	reg0a = i2c_smbus_read_byte_data(client, 0x0a);
+	regd0 = i2c_smbus_read_byte_data(client, 0xd0);
+
+	/*clear all the interrupt flag   */
+	i2c_smbus_write_byte_data(client, 0x05, reg05);
+	i2c_smbus_write_byte_data(client, 0x06, reg06);
+	i2c_smbus_write_byte_data(client, 0x07, reg07);
+	i2c_smbus_write_byte_data(client, 0x08, reg08);
+	i2c_smbus_write_byte_data(client, 0x09, reg09);
+	i2c_smbus_write_byte_data(client, 0x0a, reg0a);
+	i2c_smbus_write_byte_data(client, 0xd0, regd0);
+
+	/* 5V detect interrupt */
+	priv->is_connected = !!(reg0a & 0x01);
+
+	it68013_hotplug_notify(&priv->subdev, priv->is_connected);
+
+	return IRQ_HANDLED;
+}
+
+
 
 static int it68013_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
@@ -694,6 +781,33 @@ static int it68013_probe(struct i2c_client *client,
 	if (!strcmp(mode, "DDR"))
 		priv->data_bus_mode = DDR;
 
+
+	priv->hotplug_gpio = of_get_named_gpio(it68013_np,
+		"hp-hdmiinput-gpios", 0);
+
+	if (gpio_is_valid(priv->hotplug_gpio)) {
+
+		ret = devm_gpio_request_one(&client->dev, priv->hotplug_gpio,
+			GPIOF_IN, client->name);
+		if (ret)
+			dev_err(&client->dev, "request gpio failed!\n");
+
+		ret = gpio_direction_input(priv->hotplug_gpio);
+		if (ret)
+			dev_err(&client->dev, "set gpio input failed\n");
+
+		ret = devm_request_threaded_irq(&client->dev,
+					gpio_to_irq(priv->hotplug_gpio),
+					NULL, it68013_intr_handler,
+					IRQF_TRIGGER_FALLING,
+					client->name, client);
+
+		if (ret)
+			dev_err(&client->dev,
+			"irq requested failed, %d\n", ret);
+	}
+
+
 	v4l2_of_parse_endpoint(endpoint_np, &priv->endpoint);
 
 	of_node_put(endpoint_np);
@@ -703,12 +817,30 @@ static int it68013_probe(struct i2c_client *client,
 		"it68013 Vendor ID:0x%0x,Device ID:0x%x\n",
 		vendor_id, device_id);
 
-	return it68013_video_probe(client);
+	ret = it68013_video_probe(client);
+	if (ret)
+		dev_err(&client->dev, "it68013_video_probe failed, %d\n", ret);
+
+
+	/*check the connect status, send notification when plug-in  */
+	priv->is_connected = !!(i2c_smbus_read_byte_data(client, 0x0a) & 0x01);
+
+	ret = sysfs_create_file(&client->dev.kobj,
+			&dev_attr_hotplug_status.attr);
+
+	if (ret)
+		dev_err(&client->dev,
+	"it68013_video_probe sysfs_create_file failed, %d\n", ret);
+
+
+	return 0;
 }
 
 static int it68013_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+
+	sysfs_remove_file(&client->dev.kobj, &dev_attr_hotplug_status.attr);
 
 	v4l2_device_unregister_subdev(sd);
 

@@ -323,7 +323,7 @@
 				it68013: decoder@49 {
 					compatible = "itetech,it68013";
 					reg = <0x49>;
-					/*hp-hdmiinput-gpios = <&gpio_3 5 0>;*/
+					hp-hdmiinput-gpios = <&gpio_3 5 2>;
 					input-number = <1>;
 					inputs = <&hdmi0>;
 					hdmi0: hdmi@0 {

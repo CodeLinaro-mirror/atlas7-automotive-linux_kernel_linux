@@ -30,6 +30,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
 #include <linux/reset.h>
@@ -100,6 +101,7 @@ static const struct v4l2_pix_format vip_def_pix_format = {
 };
 static const enum v4l2_mbus_pixelcode vip_def_mbus_code =
 						V4L2_MBUS_FMT_UYVY8_2X8;
+
 
 
 /*
@@ -291,9 +293,7 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 	if (list_empty(&vip->capture))
 		goto out;
 
-	if (is_cvd_vip(vip) || is_com_vip(vip))
-		vip_hw_wait_dma_idle(vip);
-	else
+	if (is_cvd_vip(vip))
 		dmaengine_terminate_all(vip->dma_chan);
 
 	vip_hw_stop(vip);
@@ -871,7 +871,7 @@ static void vip_hw_clear_interrupts(struct vip_dev *vip, u32 status)
 
 static void dma_hw_wait_first_table_done(struct vip_dev *vip)
 {
-	int ret, value, old_value;
+	int value, old_value;
 
 	/* clear table finish interrupt flag firstly */
 	dma_hw_clear_interrupts(vip, DMAN_FINI_INT);
@@ -2158,6 +2158,14 @@ static int vip_get_data_mode(struct vip_dev *vip, struct device_node *np)
 	return 0;
 }
 
+static void vip_subdev_notify(struct v4l2_subdev *sd, unsigned int notification,
+			void *arg)
+{
+	kobject_uevent(&sd->dev->kobj, notification);
+}
+
+
+
 static int vip_subdevs_register(struct vip_dev *vip)
 {
 	struct device_node *parent = vip->dev->of_node;
@@ -2638,6 +2646,10 @@ static int vip_probe(struct platform_device *pdev)
 			goto exit;
 		}
 	}
+
+	if (is_com_vip(vip))
+		vip->v4l2_dev.notify = vip_subdev_notify;
+
 
 	ret = v4l2_device_register(dev, &vip->v4l2_dev);
 	if (ret)
