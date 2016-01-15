@@ -44,7 +44,7 @@ MODULE_PARM_DESC(debug, "debug level (0-2)");
 #define VIDEO_MIN_WIDTH	1
 
 #define VIDEO_MAX_WIDTH  1920
-#define VIDEO_MAX_HEIGHT 1080
+#define VIDEO_MAX_HEIGHT 2048
 #define FPS_MAX 60
 
 #define VIDEO_BRIGHTNESS_MAX 128
