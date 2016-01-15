@@ -232,8 +232,8 @@ static inline bool offset_is_oscio(struct sx150x_chip *chip, unsigned offset)
  *
  * For multi-bit configurations, the pattern gets wider:
  * REGISTER N-3 [ f f e e d d c c ]
- *          N-2 [ b b a a 9 9 8 8 ]
- *          N-1 [ 7 7 6 6 5 5 4 4 ]
+ *          N-2 [ 7 7 6 6 5 5 4 4 ]
+ *          N-1 [ b b a a 9 9 8 8 ]
  *          N   [ 3 3 2 2 1 1 0 0 ]
  *
  * Given the address of the starting register 'N', the index of the gpio
@@ -244,7 +244,11 @@ static inline bool offset_is_oscio(struct sx150x_chip *chip, unsigned offset)
 static inline void sx150x_find_cfg(u8 offset, u8 width,
 				u8 *reg, u8 *mask, u8 *shift)
 {
-	*reg   -= offset * width / 8;
+	if (width == 1)
+		*reg -= offset / 8;
+	else
+		*reg -= (offset / 8 + ((offset % 8) / 4) * 2);
+
 	*mask   = (1 << width) - 1;
 	*shift  = (offset * width) % 8;
 	*mask <<= *shift;
