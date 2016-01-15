@@ -755,7 +755,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	bit[0]: 1 - failed, 0 - succedded
 	bit[1~11]: flags
 */
-static int _ARMVAtoPA(void *pvAddr)
+int _ARMVAtoPA(void *pvAddr)
 {
 __asm__ __volatile__(
 	/* ; INTERRUPTS_OFF" */
