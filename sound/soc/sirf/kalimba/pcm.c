@@ -29,7 +29,7 @@
 #include "kcm.h"
 #include "usp-pcm.h"
 
-#define KAS_PCM_COUNT	9
+#define KAS_PCM_COUNT	11
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -741,6 +741,27 @@ static int kas_pcm_a2dp_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int kas_pcm_iacc_loopback_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kcm_t *kcm = pdata->kcm;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		memset(kcm->playback_iacc_ep.buff, 0,
+				kcm->playback_iacc_ep.buff_bytes);
+		prepare_stream(rtd->cpu_dai->id, params_channels(params), 0,
+			params_rate(params), 1,
+			params_period_bytes(params) / 4);
+	} else
+		memset(kcm->capture_iacc_stereo_ep.buff, 0,
+			kcm->capture_iacc_stereo_ep.buff_bytes);
+
+	return 0;
+}
+
 static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
@@ -803,6 +824,18 @@ static int kas_pcm_a2dp_hw_free(struct snd_pcm_substream *substream)
 
 	stop_stream(rtd->cpu_dai->id);
 	destroy_stream(rtd->cpu_dai->id);
+	return 0;
+}
+
+static int kas_pcm_iacc_loopback_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		stop_stream(rtd->cpu_dai->id);
+		destroy_stream(rtd->cpu_dai->id);
+	}
+
 	return 0;
 }
 
@@ -930,6 +963,38 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int kas_pcm_iacc_loopback_trigger(struct snd_pcm_substream *substream,
+	int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kcm_t *kcm = pdata->kcm;
+	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	int channels;
+
+	if (playback)
+		channels = kcm->playback_iacc_ep.channels;
+	else
+		channels = kcm->capture_iacc_stereo_ep.channels;
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		iacc_start(playback, channels);
+		if (playback)
+			start_stream(rtd->cpu_dai->id, 1);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		iacc_stop(playback);
+		break;
+	}
+	return 0;
+}
+
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1044,6 +1109,11 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 			pcm_data->hw_params = kas_pcm_a2dp_hw_params;
 			pcm_data->hw_free = kas_pcm_a2dp_hw_free;
 			pcm_data->trigger = kas_pcm_a2dp_trigger;
+		} else if (!(strcmp(stream_name, "Iacc-loopback-playback") &&
+			strcmp(stream_name, "Iacc-loopback-capture"))) {
+			pcm_data->hw_params = kas_pcm_iacc_loopback_hw_params;
+			pcm_data->hw_free = kas_pcm_iacc_loopback_hw_free;
+			pcm_data->trigger = kas_pcm_iacc_loopback_trigger;
 		} else {
 			pcm_data->hw_params = kas_pcm_generic_hw_params;
 			pcm_data->hw_free = kas_pcm_generic_hw_free;
@@ -1172,6 +1242,16 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
+		.name = "Iacc-loopback-playback Pin",
+		.playback = {
+			.stream_name = "Iacc-loopback-playback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
 		.name = "Capture Pin",
 		.capture = {
 			.stream_name = "Analog Capture",
@@ -1200,6 +1280,16 @@ static struct snd_soc_dai_driver kas_dais[] = {
 			.rates = KAS_RATES,
 			.formats = KAS_FORMATS,
 		},
+	},
+	{
+		.name = "Iacc-loopback-capture Pin",
+		.capture = {
+			.stream_name = "Iacc-loopback-capture",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
 	}
 };
 
@@ -1219,10 +1309,12 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"Playback VMixer", NULL, "A2DP Playback"},
 	{"Playback VMixer", NULL, "Voicecall-bt-to-iacc"},
 	{"Playback VMixer", NULL, "Voicecall-playback"},
+	{"Playback VMixer", NULL, "Iacc-loopback-playback"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
 	{"Voicecall-iacc-to-bt", NULL, "Codec IN"},
 	{"Voicecall-capture", NULL, "Codec IN"},
+	{"Iacc-loopback-capture", NULL, "Codec IN"},
 };
 
 static const struct snd_soc_component_driver kas_dai_component = {
