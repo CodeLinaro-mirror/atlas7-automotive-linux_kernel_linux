@@ -290,6 +290,7 @@ static void __vpp_set_dst_rect(struct vpp_adapter *adapter,
 
 static bool __vpp_setup_src(struct vpp_adapter *adapter,
 			struct vdss_surface *surf,
+			bool inline_mode,
 			struct vdss_vpp_interlace *interlace)
 {
 	u32 reg_ctrl = 0;
@@ -304,6 +305,8 @@ static bool __vpp_setup_src(struct vpp_adapter *adapter,
 			VPP_CTRL_TOP_FIELD_FIRST |
 			VPP_CTRL_DI_FIELD_BOT |
 			VPP_CTRL_DOUBLE_FRATE |
+			VPP_CTRL_INLINE_EN |
+			VPP_CTRL_INLINE_3LINE |
 			VPP_CTRL_UVUV_MODE;
 
 	switch (surf->fmt) {
@@ -328,34 +331,29 @@ static bool __vpp_setup_src(struct vpp_adapter *adapter,
 		break;
 	case VDSS_PIXELFORMAT_UYVY:
 		reg_ctrl &= ~VPP_CTRL_YUV420_FORMAT;
-		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;
 		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
 		reg_stride0 |= VPP_Y_STRIDE(surf->width * 2);
 		break;
 	case VDSS_PIXELFORMAT_UYNV:
 		reg_ctrl &= ~VPP_CTRL_YUV420_FORMAT;
-		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;
-		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
 		reg_stride0 |= VPP_Y_STRIDE(surf->width * 2);
 		break;
 	case VDSS_PIXELFORMAT_YUY2:
 	case VDSS_PIXELFORMAT_YUYV:
 	case VDSS_PIXELFORMAT_YUNV:
 		reg_ctrl &= ~VPP_CTRL_YUV420_FORMAT;
-		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;
-		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
 		reg_stride0 |= VPP_Y_STRIDE(surf->width * 2);
 		break;
 	case VDSS_PIXELFORMAT_YVYU:
 		reg_ctrl &= ~VPP_CTRL_YUV420_FORMAT;
-		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;
-		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
 		reg_stride0 |= VPP_Y_STRIDE(surf->width * 2);
 		break;
 	case VDSS_PIXELFORMAT_VYUY:
 		reg_ctrl &= ~VPP_CTRL_YUV420_FORMAT;
-		reg_ctrl &= ~VPP_CTRL_ENDIAN_MODE;
-		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
+		reg_ctrl |= VPP_CTRL_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
 		reg_stride0 |= VPP_Y_STRIDE(surf->width * 2);
 		break;
 	default:
@@ -378,7 +376,11 @@ static bool __vpp_setup_src(struct vpp_adapter *adapter,
 		}
 	}
 
-	if (interlace->interlaced) {
+	if (inline_mode)
+		reg_ctrl |= (VPP_CTRL_INLINE_EN |
+			VPP_CTRL_INLINE_3LINE | VPP_CTRL_ENDIAN_MODE);
+
+	if (interlace && interlace->interlaced) {
 		if (interlace->field_offset == 0) {
 			reg_stride0 = (reg_stride0 * 2) &
 					(VPP_Y_STRIDE_MASK | VPP_U_STRIDE_MASK);
@@ -411,7 +413,7 @@ static bool __vpp_setup_src(struct vpp_adapter *adapter,
 			reg_ctrl |= VPP_CTRL_HW_DI_MODE(interlace->di_mode);
 		}
 	} else {
-		if (interlace->out_mode == VDSS_INTERLACE) {
+		if (interlace && interlace->out_mode == VDSS_INTERLACE) {
 			reg_ctrl |= VPP_CTRL_SEQ_TYPE(VPP_SEQ_TYPE_PIIO);
 			reg_ctrl |= VPP_CTRL_HW_DI_MODE(0);
 
@@ -492,19 +494,19 @@ static bool __vpp_setup_dst(struct vpp_adapter *adapter,
 		break;
 	case VDSS_PIXELFORMAT_YUYV:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
 		break;
 	case VDSS_PIXELFORMAT_YVYU:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_VYUY);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_UYVY);
 		break;
 	case VDSS_PIXELFORMAT_UYVY:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
 		break;
 	case VDSS_PIXELFORMAT_VYUY:
 		reg_ctrl |= VPP_CTRL_OUT_FORMAT(VPP_OUT_FORMAT_YUV422);
-		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YVYU);
+		reg_ctrl |= VPP_CTRL_OUT_YUV422_FORMAT(VPP_YUV422_FORMAT_YUYV);
 		break;
 	default:
 		vpp_err("%s(%d): unknown dst format 0x%x\n",
@@ -585,6 +587,7 @@ static void __vpp_blt_start(struct vpp_adapter *adapter)
 static bool __vpp_set_srcbase(struct vpp_adapter *adapter,
 				struct vdss_surface *surf,
 				u32 size,
+				bool inline_mode,
 				struct vdss_rect *rect,
 				struct vdss_vpp_interlace *interlace)
 {
@@ -592,6 +595,15 @@ static bool __vpp_set_srcbase(struct vpp_adapter *adapter,
 	u32 ybase_bot = 0, ubase_bot = 0, vbase_bot = 0;
 	u32 yoffset, uoffset, voffset;
 	u32 i = 0;
+
+	if (inline_mode) {
+		/* Inline address is fixed */
+		vpp_write_reg(adapter, VPP_INLINE_ADDR,
+			INLINE_NOCFIFO_ADDR);
+		return true;
+	}
+
+	vpp_write_reg(adapter, VPP_INLINE_ADDR, 0);
 
 	yoffset = surf->width * rect->top + rect->left;
 	if (surf->fmt == VDSS_PIXELFORMAT_YV12 ||
@@ -673,7 +685,7 @@ static bool __vpp_set_srcbase(struct vpp_adapter *adapter,
 		return false;
 	}
 
-	if (interlace->interlaced) {
+	if (interlace && interlace->interlaced) {
 		if (interlace->field_offset) {
 			ybase_bot = ybase + interlace->field_offset;
 			ubase_bot = ubase + interlace->field_offset;
@@ -737,7 +749,8 @@ static bool __vpp_set_srcbase(struct vpp_adapter *adapter,
 	if (size > 1) {
 		for (i = 1; i < size; i++) {
 			ybase = surf[i].base + (2 * yoffset);
-			if (interlace->interlaced && interlace->field_offset) {
+			if (interlace && interlace->interlaced
+			    && interlace->field_offset) {
 				ybase_bot = ybase + interlace->field_offset;
 				if (interlace->input_top_first) {
 					vpp_write_reg(adapter,
@@ -792,7 +805,7 @@ static void  __vpp_set_dstbase(struct vpp_adapter *adapter,
 		yoffset = surf->width * rect->top + rect->left;
 		dstbase = (surf->base + yoffset * bpp) & (~7);
 
-		if (interlace->interlaced) {
+		if (interlace && interlace->interlaced) {
 			if (interlace->out_mode == VDSS_INTERLACE)
 				vpp_write_reg(adapter, VPP_DESTBASE_BOT,
 						dstbase +
@@ -944,8 +957,8 @@ static int __vpp_blt(struct vpp_adapter *adapter,
 	__vpp_clear_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 
 	/* src setting */
-	__vpp_setup_src(adapter, &params->src_surf, &params->interlace);
-	__vpp_set_srcbase(adapter, &params->src_surf, 1,
+	__vpp_setup_src(adapter, &params->src_surf, false, &params->interlace);
+	__vpp_set_srcbase(adapter, &params->src_surf, 1, false,
 			&params->src_rect, &params->interlace);
 	__vpp_set_src_rect(adapter, &params->src_rect);
 	__vpp_ibv_disable(adapter);
@@ -965,6 +978,30 @@ static int __vpp_blt(struct vpp_adapter *adapter,
 	return 0;
 }
 
+static int __vpp_inline(struct vpp_adapter *adapter,
+		struct vdss_vpp_inline_params *params)
+{
+	if (adapter == NULL || params == NULL)
+		return -EINVAL;
+
+	/* src setting */
+	__vpp_setup_src(adapter, &params->src_surf, true, NULL);
+	__vpp_set_srcbase(adapter, &params->src_surf, 1, true,
+			&params->src_rect, NULL);
+	__vpp_set_src_rect(adapter, &params->src_rect);
+	__vpp_ibv_disable(adapter);
+
+	/* dst setting */
+	__vpp_setup_dst(adapter, NULL);
+	__vpp_set_dstbase(adapter, NULL,
+			&params->dst_rect, NULL);
+	__vpp_set_dst_rect(adapter, &params->dst_rect);
+
+	/* color ctrl setting */
+	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
+}
+
+
 static int __vpp_passthrough(struct vpp_adapter *adapter,
 		struct vdss_vpp_passthrough_params *params)
 {
@@ -974,12 +1011,13 @@ static int __vpp_passthrough(struct vpp_adapter *adapter,
 	__vpp_disable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 
 	if (params->flip) {
-		__vpp_set_srcbase(adapter, &params->src_surf, 1,
+		__vpp_set_srcbase(adapter, &params->src_surf, 1, false,
 			&params->src_rect, &params->interlace);
 	} else {
 		/* src setting */
-		__vpp_setup_src(adapter, &params->src_surf, &params->interlace);
-		__vpp_set_srcbase(adapter, &params->src_surf, 1,
+		__vpp_setup_src(adapter, &params->src_surf,
+				false, &params->interlace);
+		__vpp_set_srcbase(adapter, &params->src_surf, 1, false,
 				&params->src_rect, &params->interlace);
 		__vpp_set_src_rect(adapter, &params->src_rect);
 		__vpp_ibv_disable(adapter);
@@ -1011,8 +1049,10 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 
 	__vpp_disable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 	/* src setting */
-	__vpp_setup_src(adapter, &params->src_surf[0], &params->interlace);
-	__vpp_set_srcbase(adapter, &params->src_surf[0], params->src_size,
+	__vpp_setup_src(adapter, &params->src_surf[0],
+			false, &params->interlace);
+	__vpp_set_srcbase(adapter, &params->src_surf[0],
+			params->src_size, false,
 			&params->src_rect, &params->interlace);
 	__vpp_set_src_rect(adapter, &params->src_rect);
 	__vpp_ibv_enable(adapter, params->src_id, params->src_size);
@@ -1157,6 +1197,8 @@ static void vpp_dump_regs(struct seq_file *s, struct vpp_adapter *adapter)
 	VPP_DUMP("VBASE_BOT=0x%08x\n", vpp_read_reg(adapter, VPP_VBASE_BOT));
 	VPP_DUMP("DESBASE_BOT=0x%08x\n",
 		vpp_read_reg(adapter, VPP_DESTBASE_BOT));
+	VPP_DUMP("INLINE_ADDR=0x%08x\n",
+		vpp_read_reg(adapter, VPP_INLINE_ADDR));
 }
 
 static void vpp0_dump_regs(struct seq_file *s)
@@ -1240,6 +1282,8 @@ static int __vpp_schedule(struct vpp_adapter *adapter,
 		if (new_dev->op == VPP_OP_PASS_THROUGH) {
 			new_dev->info.params.op.passthrough.flip = false;
 			new_dev->info.is_dirty = true;
+		} else if (new_dev->op == VPP_OP_INLINE) {
+			new_dev->info.is_dirty = true;
 		}
 
 		adapter->cur_dev = new_dev;
@@ -1251,6 +1295,10 @@ static int __vpp_schedule(struct vpp_adapter *adapter,
 		switch (pdev->op) {
 		case VPP_OP_BITBLT:
 			__vpp_blt(adapter, &pdev->info.params.op.blt);
+			break;
+		case VPP_OP_INLINE:
+			__vpp_inline(adapter,
+				&pdev->info.params.op.inline_mode);
 			break;
 		case VPP_OP_PASS_THROUGH:
 			__vpp_passthrough(adapter,
@@ -1327,6 +1375,28 @@ static int vpp_blt(struct vpp_device *pdev,
 
 	if (!ret)
 		ret = __vpp_wait_for_idle(adapter);
+
+	return ret;
+}
+
+static int vpp_inline(struct vpp_device *pdev,
+		struct vdss_vpp_inline_params *params)
+{
+	int ret = 0;
+	unsigned long flags;
+
+	if (pdev == NULL || params == NULL)
+		return -EINVAL;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	pdev->op = VPP_OP_INLINE;
+	pdev->info.params.op.inline_mode = *params;
+	pdev->info.is_dirty = true;
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	__vpp_schedule(&vpp[pdev->vpp_id], pdev);
 
 	return ret;
 }
@@ -1460,6 +1530,9 @@ int sirfsoc_vpp_present(void *handle, struct vdss_vpp_op_params *params)
 	switch (params->type) {
 	case VPP_OP_BITBLT:
 		ret = vpp_blt(handle, &params->op.blt);
+		break;
+	case VPP_OP_INLINE:
+		ret = vpp_inline(handle, &params->op.inline_mode);
 		break;
 	case VPP_OP_PASS_THROUGH:
 		ret = vpp_passthrough(handle, &params->op.passthrough);

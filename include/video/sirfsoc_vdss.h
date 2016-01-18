@@ -177,6 +177,16 @@ enum vdss_vpp_output_mode {
 	VDSS_P_DOUBLE,
 };
 
+enum vdss_field {
+	VDSS_FIELD_NONE = 0,
+	VDSS_FIELD_TOP,
+	VDSS_FIELD_BOTTOM,
+	VDSS_FIELD_SEQ_TB,
+	VDSS_FIELD_SEQ_BT,
+	VDSS_FIELD_INTERLACED_TB,
+	VDSS_FIELD_INTERLACED_BT,
+};
+
 struct vdss_vpp_interlace {
 	u32 field_offset;
 	bool interlaced;
@@ -189,6 +199,7 @@ struct vdss_vpp_interlace {
 
 struct vdss_surface {
 	enum vdss_pixelformat fmt;
+	enum vdss_field field;
 	u32 width;
 	u32 height;
 	u32 base;
@@ -214,6 +225,7 @@ enum vdss_vip_ext {
 enum vdss_vpp_op_type {
 	VPP_OP_IDEL = 0,
 	VPP_OP_BITBLT,
+	VPP_OP_INLINE,
 	VPP_OP_PASS_THROUGH,
 	VPP_OP_IBV,
 };
@@ -223,6 +235,13 @@ struct vdss_vpp_blt_params {
 	struct vdss_rect src_rect;
 	struct vdss_vpp_interlace interlace;
 	struct vdss_surface dst_surf;
+	struct vdss_rect dst_rect;
+	struct vdss_vpp_colorctrl color_ctrl;
+};
+
+struct vdss_vpp_inline_params {
+	struct vdss_surface src_surf;
+	struct vdss_rect src_rect;
 	struct vdss_rect dst_rect;
 	struct vdss_vpp_colorctrl color_ctrl;
 };
@@ -251,6 +270,7 @@ struct vdss_vpp_op_params {
 	enum vdss_vpp_op_type type;
 	union {
 		struct vdss_vpp_blt_params blt;
+		struct vdss_vpp_inline_params inline_mode;
 		struct vdss_vpp_passthrough_params passthrough;
 		struct vdss_vpp_ibv_params ibv;
 	} op;

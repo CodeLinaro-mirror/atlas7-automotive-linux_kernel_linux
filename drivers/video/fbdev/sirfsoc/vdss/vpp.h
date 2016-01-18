@@ -1,10 +1,16 @@
 /*
  * CSR sirfsoc VPP driver header file
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __SIRFSOC_VPP_H
@@ -150,11 +156,13 @@ enum vpp_hw_di_mode {
 #define VPP_CTRL_YUV422_FORMAT(x)	(((x) & 0x3) << 2)
 #define VPP_CTRL_OUT_YUV422_FORMAT_MASK	(0x3 << 4)
 #define VPP_CTRL_OUT_YUV422_FORMAT(x)	(((x) & 0x3) << 4)
+#define VPP_CTRL_INLINE_3LINE	(1 << 6)
 #define VPP_CTRL_DEST			(1 << 7)
 #define VPP_CTRL_OUT_FORMAT_MASK	(0x3 << 8)
 #define VPP_CTRL_OUT_FORMAT(x)		(((x) & 0x3) << 8)
 #define VPP_CTRL_OUT_ENDIAN_MODE	(1 << 10)
 #define VPP_CTRL_CLK_OFF_ENABLE		(1 << 11)
+#define VPP_CTRL_INLINE_EN		(1 << 12)
 #define VPP_CTRL_UVUV_MODE		(1 << 13)
 #define VPP_CTRL_UV_INTERLEAVE_EN	(1 << 14)
 #define VPP_CTRL_HW_DI_MODE_MASK	(0x3 << 15)
