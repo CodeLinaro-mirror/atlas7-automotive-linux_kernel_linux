@@ -753,12 +753,6 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	vout->next_frm = NULL;
 
 	spin_unlock_irqrestore(&vout->vbq_lock, flags);
-
-	if (l->is_enabled(l)) {
-		/*disable the overlay*/
-		l->disable(l);
-	}
-
 }
 /*
  * sirfsoc_vout_buf_queue()
@@ -999,6 +993,7 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 	struct vb2_queue *vb2_q = &vout->vb2_q;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	int ret = 0;
+	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
@@ -1048,6 +1043,13 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 	INIT_LIST_HEAD(&vout->dma_queue);
 
 	ret = vb2_reqbufs(vb2_q, req_buf);
+
+	if (!ret && req_buf->count == 0) {
+		if (l->is_enabled(l)) {
+			/*disable the overlay*/
+			l->disable(l);
+		}
+	}
 
 reqbuf_err:
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s: ret = %d\n", __func__, ret);
