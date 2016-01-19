@@ -610,8 +610,7 @@ void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **pLayers,
 }
 EXPORT_SYMBOL(sirfsoc_vdss_set_exclusive_layers);
 
-bool sirfsoc_vdss_check_size(int src_surf_width,
-	int src_surf_height,
+bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	struct vdss_rect *src_rect,
 	struct sirfsoc_vdss_layer *l,
 	struct vdss_rect *dst_rect)
@@ -620,6 +619,45 @@ bool sirfsoc_vdss_check_size(int src_surf_width,
 	struct screen_priv_data *sdata;
 	int src_rect_width, src_rect_height;
 	int dst_rect_width, dst_rect_height;
+	int pixel_aligned;
+	int src_left;
+
+	/*
+	 * DMA address must be 8 bytes aligned, so
+	 * we must shift the src address
+	 * */
+	switch (src_surf->fmt) {
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		pixel_aligned = 8;
+	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_YV12:
+		pixel_aligned = 16;
+		break;
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC2:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_IMC4:
+		pixel_aligned = 16;
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_UYNV:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_YUNV:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_VYUY:
+	case VDSS_PIXELFORMAT_565:
+		pixel_aligned = 4;
+		break;
+	case VDSS_PIXELFORMAT_8888:
+	case VDSS_PIXELFORMAT_BGRX_8880:
+	case VDSS_PIXELFORMAT_RGBX_8880:
+		pixel_aligned = 2;
+		break;
+	default:
+		pixel_aligned = 16;
+	}
 
 	sdata = get_screen_data(l->screen);
 	scn_width = sdata->timings.xres;
@@ -639,8 +677,8 @@ bool sirfsoc_vdss_check_size(int src_surf_width,
 		return false;
 	}
 
-	if (src_rect->left >= src_surf_width ||
-		src_rect->top >= src_surf_height ||
+	if (src_rect->left >= src_surf->width ||
+		src_rect->top >= src_surf->height ||
 		dst_rect->left >= scn_width ||
 		dst_rect->top >= scn_height) {
 		VDSSWARN("source or destination rect is out of range\n");
@@ -662,20 +700,20 @@ bool sirfsoc_vdss_check_size(int src_surf_width,
 		src_rect->top = 0;
 	}
 
-	if (src_rect->right >= src_surf_width) {
+	if (src_rect->right >= src_surf->width) {
 		dst_rect->right = dst_rect->right -
 			(dst_rect_width *
-			(src_rect->right - src_surf_width + 1) /
+			(src_rect->right - src_surf->width + 1) /
 			src_rect_width);
-		src_rect->right = src_surf_width - 1;
+		src_rect->right = src_surf->width - 1;
 	}
 
-	if (src_rect->bottom >= src_surf_height) {
+	if (src_rect->bottom >= src_surf->height) {
 		dst_rect->bottom = dst_rect->bottom -
 			(dst_rect_height *
-			(src_rect->bottom - src_surf_height + 1) /
+			(src_rect->bottom - src_surf->height + 1) /
 			src_rect_height);
-		src_rect->bottom = src_surf_height - 1;
+		src_rect->bottom = src_surf->height - 1;
 	}
 
 	/* check and update the destination rect */
@@ -705,6 +743,15 @@ bool sirfsoc_vdss_check_size(int src_surf_width,
 			(src_rect_height * (dst_rect->bottom - scn_height + 1) /
 			dst_rect_height);
 		dst_rect->bottom = scn_height - 1;
+	}
+
+	src_left = (src_rect->left + pixel_aligned - 1) &
+		~(pixel_aligned - 1);
+	if (src_left != src_rect->left) {
+		dst_rect->left = dst_rect->left +
+			(dst_rect_width * (src_left - src_rect->left) /
+			src_rect_width);
+		src_rect->left = src_left;
 	}
 
 	return true;

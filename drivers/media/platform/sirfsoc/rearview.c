@@ -855,6 +855,7 @@ static void rv_start(struct rv_dev *rv)
 	struct vdss_vpp_op_params vpp_op_params = {0};
 	struct vdss_vpp_create_device_params vpp_dev_params = {0};
 	struct sirfsoc_vdss_layer_info info;
+	struct vdss_surface src_surf;
 
 	/* vip setting */
 	rv_info.std		= rv->source_std;
@@ -869,25 +870,36 @@ static void rv_start(struct rv_dev *rv)
 	/* start vip dma */
 	rv_set_dma_table_run(rv);
 
+	/* if mirror enabled, line buffer will disorder the pixel data */
+	if (rv->mirror_en)
+		src_surf.fmt = VDSS_PIXELFORMAT_YVYU;
+	else
+		src_surf.fmt = VDSS_PIXELFORMAT_YUYV;
+
+	src_surf.width = rv->width;
+	src_surf.height = rv->height;
+	src_surf.base = 0;
+
+	if (!sirfsoc_vdss_check_size(&src_surf,
+	    &rv->d_info.src_rect, rv->d_info.l, &rv->d_info.sca_rect)) {
+		dev_err(rv->dev, "vdss check size failed");
+		return;
+	}
+
 	/* lcd layer setting */
 	rv->d_info.l->get_info(rv->d_info.l, &info);
 
 	info.base = 0;
 	info.passthrough = true;
 
-	info.src_rect.left	= rv->d_info.sca_rect.left;
-	info.src_rect.top	= rv->d_info.sca_rect.top;
-	info.src_rect.right	= rv->d_info.sca_rect.right;
-	info.src_rect.bottom	= rv->d_info.sca_rect.bottom;
-
-	info.dst_rect.left	= rv->d_info.dst_rect.left;
-	info.dst_rect.top	= rv->d_info.dst_rect.top;
-	info.dst_rect.right	= rv->d_info.dst_rect.right;
-	info.dst_rect.bottom	= rv->d_info.dst_rect.bottom;
+	info.src_rect = rv->d_info.sca_rect;
+	info.dst_rect = rv->d_info.dst_rect;
 
 	info.fmt = VPP_TO_LCD_PIXELFORMAT;
-	info.surf_width = info.src_rect.right - info.src_rect.left + 1;
-	info.surf_height = info.src_rect.bottom - info.src_rect.top + 1;
+	info.surf_width = rv->d_info.sca_rect.right -
+		rv->d_info.sca_rect.left + 1;
+	info.surf_height = rv->d_info.sca_rect.bottom -
+		rv->d_info.sca_rect.top + 1;
 
 	rv->d_info.l->set_info(rv->d_info.l, &info);
 	rv->d_info.l->screen->apply(rv->d_info.l->screen);
@@ -917,26 +929,15 @@ static void rv_start(struct rv_dev *rv)
 	vpp_op_params.op.ibv.interlace.input_top_first = true;
 	vpp_op_params.op.ibv.interlace.output_top_first = false;
 
-	vpp_op_params.op.ibv.src_rect.left	= rv->d_info.src_rect.left;
-	vpp_op_params.op.ibv.src_rect.top	= rv->d_info.src_rect.top;
-	vpp_op_params.op.ibv.src_rect.right	= rv->d_info.src_rect.right;
-	vpp_op_params.op.ibv.src_rect.bottom	= rv->d_info.src_rect.bottom;
+	vpp_op_params.op.ibv.src_rect = rv->d_info.src_rect;
+	vpp_op_params.op.ibv.dst_rect = rv->d_info.sca_rect;
 
-	vpp_op_params.op.ibv.dst_rect.left	= rv->d_info.sca_rect.left;
-	vpp_op_params.op.ibv.dst_rect.top	= rv->d_info.sca_rect.top;
-	vpp_op_params.op.ibv.dst_rect.right	= rv->d_info.sca_rect.right;
-	vpp_op_params.op.ibv.dst_rect.bottom	= rv->d_info.sca_rect.bottom;
-
-	/* if mirror enabled, line buffer will disorder the pixel data */
-	if (rv->mirror_en)
-		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YVYU;
-	else
-		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YUYV;
-	vpp_op_params.op.ibv.src_surf[0].width = rv->width;
-	vpp_op_params.op.ibv.src_surf[0].height = rv->height;
+	vpp_op_params.op.ibv.src_surf[0] = src_surf;
 	vpp_op_params.op.ibv.src_surf[0].base = rv->data_dma_addr;
+	vpp_op_params.op.ibv.src_surf[1] = src_surf;
 	vpp_op_params.op.ibv.src_surf[1].base = rv->data_dma_addr
 								+ 1*FRAME_SIZE;
+	vpp_op_params.op.ibv.src_surf[2] = src_surf;
 	vpp_op_params.op.ibv.src_surf[2].base = rv->data_dma_addr
 								+ 2*FRAME_SIZE;
 

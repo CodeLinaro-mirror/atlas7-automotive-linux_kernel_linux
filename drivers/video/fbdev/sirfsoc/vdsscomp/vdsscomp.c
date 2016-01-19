@@ -48,6 +48,7 @@ static bool vdsscomp_layer_enable(
 	struct sirfsoc_vdss_layer *layer = l->layer;
 	struct sirfsoc_vdss_layer_info layer_info;
 	struct vdss_rect src_rect, dst_rect;
+	struct vdss_surface src_surf;
 
 	src_rect.left = info->src_rect.left;
 	src_rect.top = info->src_rect.top;
@@ -59,8 +60,13 @@ static bool vdsscomp_layer_enable(
 	dst_rect.right = info->dst_rect.right;
 	dst_rect.bottom = info->dst_rect.bottom;
 
-	if (!sirfsoc_vdss_check_size(info->width, info->height,
-		&src_rect, layer, &dst_rect))
+	src_surf.fmt = info->fmt;
+	src_surf.width = info->width;
+	src_surf.height = info->height;
+	src_surf.base = phys_addr;
+
+	if (!sirfsoc_vdss_check_size(&src_surf,
+	    &src_rect, layer, &dst_rect))
 		return false;
 
 	l->passthrough = sirfsoc_vpp_is_passthrough_support(info->fmt);
@@ -91,11 +97,7 @@ static bool vdsscomp_layer_enable(
 		params.op.passthrough.interlace.di_mode = info->interlace.mode;
 		params.op.passthrough.interlace.input_top_first = true;
 		params.op.passthrough.interlace.output_top_first = false;
-		params.op.passthrough.src_surf.fmt = info->fmt;
-		params.op.passthrough.src_surf.width = info->width;
-		params.op.passthrough.src_surf.height = info->height;
-		params.op.passthrough.src_surf.base = phys_addr;
-
+		params.op.passthrough.src_surf = src_surf;
 		params.op.passthrough.src_rect = src_rect;
 		params.op.passthrough.dst_rect = dst_rect;
 

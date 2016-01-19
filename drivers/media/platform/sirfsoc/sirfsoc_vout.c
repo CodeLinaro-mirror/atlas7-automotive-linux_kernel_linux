@@ -222,10 +222,10 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 		break;
 	case VDSS_PIXELFORMAT_IMC1:
 	case VDSS_PIXELFORMAT_IMC3:
-	case VDSS_PIXELFORMAT_VYUY:
 		*hor_stride = align_size(width, 8);
 		*ver_stride = height;
 		break;
+	case VDSS_PIXELFORMAT_VYUY:
 	case VDSS_PIXELFORMAT_UYVY:
 	case VDSS_PIXELFORMAT_YUY2:
 	case VDSS_PIXELFORMAT_YVYU:
@@ -234,10 +234,13 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 		*ver_stride = height;
 		break;
 	case VDSS_PIXELFORMAT_565:
+		*hor_stride = align_size(width * 2, 8) / 2;
+		*ver_stride = height;
+		break;
 	case VDSS_PIXELFORMAT_8888:
 	case VDSS_PIXELFORMAT_BGRX_8880:
 	case VDSS_PIXELFORMAT_RGBX_8880:
-		*hor_stride = width;
+		*hor_stride = align_size(width * 4, 8) / 4;
 		*ver_stride = height;
 		break;
 	default:
@@ -255,6 +258,7 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	enum vdss_pixelformat pixfmt;
 	enum v4l2_field field = buf->v4l2_buf.field;
 	struct vdss_rect src_rect, dst_rect;
+	struct vdss_surface src_surf;
 
 	pixfmt  = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(
 		vout->pix_fmt.pixelformat);
@@ -271,8 +275,12 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	dst_rect.right = vout->dst_rect.left + vout->dst_rect.width - 1;
 	dst_rect.bottom = vout->dst_rect.top + vout->dst_rect.height - 1;
 
-	if (!sirfsoc_vdss_check_size(vout->surf_width, vout->surf_height,
-		&src_rect, l, &dst_rect))
+	src_surf.fmt = pixfmt;
+	src_surf.width = vout->surf_width;
+	src_surf.height = vout->surf_height;
+	src_surf.base = vb2_dma_contig_plane_dma_addr(buf, 0);
+
+	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, l, &dst_rect))
 		return;
 
 	/* VPP setting */
@@ -281,12 +289,7 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 
 		params.type = VPP_OP_PASS_THROUGH;
 
-		params.op.passthrough.src_surf.fmt = pixfmt;
-		params.op.passthrough.src_surf.width = vout->surf_width;
-		params.op.passthrough.src_surf.height = vout->surf_height;
-		params.op.passthrough.src_surf.base =
-			vb2_dma_contig_plane_dma_addr(buf, 0);
-
+		params.op.passthrough.src_surf = src_surf;
 		params.op.passthrough.src_rect = src_rect;
 		params.op.passthrough.dst_rect = dst_rect;
 
