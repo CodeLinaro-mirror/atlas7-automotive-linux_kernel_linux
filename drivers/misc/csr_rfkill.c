@@ -58,13 +58,6 @@ struct csr_connectivity_register {
 
 static void csr_9300_power_on(struct rfkill_gpio_data *rfkill)
 {
-	if (gpio_is_valid(rfkill->power_gpio)) {
-		gpio_direction_output(rfkill->power_gpio, 0);
-		gpio_set_value_cansleep(rfkill->power_gpio, 1);
-	}
-
-	msleep(rfkill->power_delay);
-
 	if (gpio_is_valid(rfkill->reset_gpio))
 		gpio_direction_output(rfkill->reset_gpio, 1);
 
@@ -95,11 +88,16 @@ static void csr_8311_power_on(struct rfkill_gpio_data *rfkill)
 
 static void csr_9300_power_off(struct rfkill_gpio_data *rfkill)
 {
-	if (gpio_is_valid(rfkill->power_gpio)) {
-		gpio_direction_output(rfkill->power_gpio, 0);
-		gpio_set_value_cansleep(rfkill->power_gpio, 0);
-		rfkill->power_number--;
-	}
+	/*
+	 * In a7da+amber platform(qualcomm), power gpio is dropped due to
+	 * hardware desgin. Instead, reset gpio is used to control the power
+	 * of amber chip. BTW, following code is still right even if power
+	 * gpio is enabled in the new hardware design.
+	 */
+	if (gpio_is_valid(rfkill->reset_gpio))
+		gpio_direction_output(rfkill->reset_gpio, 0);
+
+	rfkill->power_number--;
 }
 
 static void csr_8311_power_off(struct rfkill_gpio_data *rfkill)
