@@ -25,11 +25,12 @@
 #include <sound/tlv.h>
 
 #include "dsp.h"
+#include "i2s.h"
 #include "iacc.h"
 #include "kcm.h"
 #include "usp-pcm.h"
 
-#define KAS_PCM_COUNT	11
+#define KAS_PCM_COUNT	12
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -61,6 +62,8 @@ struct kas_priv_data {
 	u16 dbe_params_array[DBE_PARAMS_ARRAY_LEN_16B];
 	u16 delay_params_array[DELAY_PARAMS_ARRAY_LEN_16B];
 };
+
+static int i2s_master;
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_MMAP |
@@ -762,6 +765,27 @@ static int kas_pcm_iacc_loopback_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int kas_pcm_i2s_to_iacc_loopback_hw_params(
+	struct snd_pcm_substream *substream, struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kcm_t *kcm = pdata->kcm;
+
+	memset(kcm->playback_iacc_ep.buff, 0,
+		kcm->playback_iacc_ep.buff_bytes);
+	memset(kcm->capture_i2s_stereo_ep.buff, 0,
+		kcm->capture_i2s_stereo_ep.buff_bytes);
+	sirf_i2s_params(params_channels(params), params_rate(params),
+		!i2s_master);
+	prepare_stream(rtd->cpu_dai->id, params_channels(params), 0,
+		params_rate(params), i2s_master,
+		params_period_bytes(params) / 4);
+
+	return 0;
+}
+
 static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
@@ -835,6 +859,17 @@ static int kas_pcm_iacc_loopback_hw_free(struct snd_pcm_substream *substream)
 		stop_stream(rtd->cpu_dai->id);
 		destroy_stream(rtd->cpu_dai->id);
 	}
+
+	return 0;
+}
+
+static int kas_pcm_i2s_to_iacc_loopback_hw_free(
+	struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	stop_stream(rtd->cpu_dai->id);
+	destroy_stream(rtd->cpu_dai->id);
 
 	return 0;
 }
@@ -995,6 +1030,30 @@ static int kas_pcm_iacc_loopback_trigger(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int kas_pcm_i2s_to_iacc_loopback_trigger(
+	struct snd_pcm_substream *substream, int cmd)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_priv_data *pdata =
+		snd_soc_platform_get_drvdata(rtd->platform);
+	struct kcm_t *kcm = pdata->kcm;
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		iacc_start(1, kcm->playback_iacc_ep.channels);
+		sirf_i2s_start(0);
+		start_stream(rtd->cpu_dai->id, i2s_master);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		iacc_stop(0);
+		sirf_i2s_stop(0);
+	}
+	return 0;
+}
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1114,6 +1173,13 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 			pcm_data->hw_params = kas_pcm_iacc_loopback_hw_params;
 			pcm_data->hw_free = kas_pcm_iacc_loopback_hw_free;
 			pcm_data->trigger = kas_pcm_iacc_loopback_trigger;
+		} else if (!strcmp(stream_name, "I2S-to-iacc-loopback")) {
+			pcm_data->hw_params =
+				kas_pcm_i2s_to_iacc_loopback_hw_params;
+			pcm_data->hw_free =
+				kas_pcm_i2s_to_iacc_loopback_hw_free;
+			pcm_data->trigger =
+				kas_pcm_i2s_to_iacc_loopback_trigger;
 		} else {
 			pcm_data->hw_params = kas_pcm_generic_hw_params;
 			pcm_data->hw_free = kas_pcm_generic_hw_free;
@@ -1252,6 +1318,16 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		},
 	},
 	{
+		.name = "I2S-to-iacc-loopback Pin",
+		.playback = {
+			.stream_name = "I2S-to-iacc-loopback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
 		.name = "Capture Pin",
 		.capture = {
 			.stream_name = "Analog Capture",
@@ -1310,6 +1386,7 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"Playback VMixer", NULL, "Voicecall-bt-to-iacc"},
 	{"Playback VMixer", NULL, "Voicecall-playback"},
 	{"Playback VMixer", NULL, "Iacc-loopback-playback"},
+	{"Playback VMixer", NULL, "I2S-to-iacc-loopback"},
 	{"Codec OUT", NULL, "Playback VMixer"},
 	{"Analog Capture", NULL, "Codec IN"},
 	{"Voicecall-iacc-to-bt", NULL, "Codec IN"},
@@ -1330,6 +1407,10 @@ static const struct snd_soc_component_driver kas_dai_component = {
 static int kas_pcm_dev_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device_node *np = pdev->dev.of_node;
+
+	if (of_get_property(np, "i2s-master", NULL))
+		i2s_master = 1;
 
 	ret = devm_snd_soc_register_platform(&pdev->dev, &kas_soc_platform);
 	if (ret < 0)

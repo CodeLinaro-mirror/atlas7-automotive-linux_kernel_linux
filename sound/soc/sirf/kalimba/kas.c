@@ -135,6 +135,18 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 		.dpcm_playback = 1,
 	},
 	{
+		.name = "I2S-to-iacc-loopback",
+		.stream_name = "I2S-to-iacc-loopback",
+		.cpu_dai_name = "I2S-to-iacc-loopback Pin",
+		.platform_name = "kas-pcm-audio",
+		.dynamic = 1,
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.dpcm_playback = 1,
+	},
+	{
 		.name = "Analog Capture",
 		.stream_name = "Analog Capture",
 		.cpu_dai_name = "Capture Pin",
