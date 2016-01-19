@@ -54,7 +54,7 @@ static struct kas_mem {
 	{ KAS_PM,  "DC", KAS_PM_SRAM_START_ADDR,  0x10000},
 	{ KAS_DM1, "DD", KAS_DM1_SRAM_START_ADDR, 0x8000},
 	{ KAS_DM2, "DD", KAS_DM2_SRAM_START_ADDR, 0x8000},
-	{ KAS_RM,  "DR", 0x00FFFE00, 0x00100},
+	{ KAS_RM,  "DR", 0x00FFFE00, 0x00200},
 };
 
 char *kregs[] = {
@@ -284,7 +284,7 @@ static int do_kcoredump(void)
 		return -ENOMEM;
 	}
 
-	cdfile = filp_open("/coredump.xcd",
+	cdfile = filp_open("/var/lib/kalimba/coredump.xcd",
 			O_RDWR | O_CREAT | O_TRUNC | O_DSYNC, 0600);
 	if (IS_ERR(cdfile)) {
 		ret = PTR_ERR(cdfile);
@@ -331,7 +331,7 @@ static void kerror_panic_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	/* Generate a code dump */
-	pr_alert("generated coredump in / directory\n");
+	pr_alert("generated coredump in /var/lib/kalimba directory\n");
 	queue_delayed_work(system_wq, &kdump_dwork, 10);
 
 	return ACTION_HANDLED;
