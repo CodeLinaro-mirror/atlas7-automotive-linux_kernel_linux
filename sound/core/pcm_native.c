@@ -954,12 +954,10 @@ static int snd_pcm_action_nonatomic(struct action_ops *ops,
 {
 	int res;
 
-	down_read(&snd_pcm_link_rwsem);
 	if (snd_pcm_stream_linked(substream))
 		res = snd_pcm_action_group(ops, substream, state, 0);
 	else
 		res = snd_pcm_action_single(ops, substream, state);
-	up_read(&snd_pcm_link_rwsem);
 	return res;
 }
 
@@ -1399,14 +1397,20 @@ static int snd_pcm_pre_reset(struct snd_pcm_substream *substream, int state)
 static int snd_pcm_do_reset(struct snd_pcm_substream *substream, int state)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	int err = substream->ops->ioctl(substream, SNDRV_PCM_IOCTL1_RESET, NULL);
-	if (err < 0)
+	int err;
+
+	down_read(&snd_pcm_link_rwsem);
+	err = substream->ops->ioctl(substream, SNDRV_PCM_IOCTL1_RESET, NULL);
+	if (err < 0) {
+		up_read(&snd_pcm_link_rwsem);
 		return err;
+	}
 	runtime->hw_ptr_base = 0;
 	runtime->hw_ptr_interrupt = runtime->status->hw_ptr -
 		runtime->status->hw_ptr % runtime->period_size;
 	runtime->silence_start = runtime->status->hw_ptr;
 	runtime->silence_filled = 0;
+	up_read(&snd_pcm_link_rwsem);
 	return 0;
 }
 
@@ -1443,7 +1447,9 @@ static int snd_pcm_pre_prepare(struct snd_pcm_substream *substream,
 		return -EBADFD;
 	if (snd_pcm_running(substream))
 		return -EBUSY;
+	down_read(&snd_pcm_link_rwsem);
 	substream->f_flags = f_flags;
+	up_read(&snd_pcm_link_rwsem);
 	return 0;
 }
 
@@ -1459,8 +1465,10 @@ static int snd_pcm_do_prepare(struct snd_pcm_substream *substream, int state)
 static void snd_pcm_post_prepare(struct snd_pcm_substream *substream, int state)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	down_read(&snd_pcm_link_rwsem);
 	runtime->control->appl_ptr = runtime->status->hw_ptr;
 	snd_pcm_set_state(substream, SNDRV_PCM_STATE_PREPARED);
+	up_read(&snd_pcm_link_rwsem);
 }
 
 static struct action_ops snd_pcm_action_prepare = {
