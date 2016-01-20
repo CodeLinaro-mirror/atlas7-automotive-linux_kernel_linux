@@ -85,10 +85,6 @@ static int get_vpp_out_fmt(int fmt)
 	case G2D_RGB565:
 		vpp_fmt = VDSS_PIXELFORMAT_565;
 		break;
-	case G2D_ARGB8888:
-	case G2D_ABGR8888:
-		vpp_fmt = VDSS_PIXELFORMAT_RGBX_8880;
-		break;
 	case G2D_EX_O_RGBX888:
 		vpp_fmt = VDSS_PIXELFORMAT_RGBX_8880;
 		break;
