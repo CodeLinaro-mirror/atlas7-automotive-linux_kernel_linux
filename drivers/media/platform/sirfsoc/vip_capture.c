@@ -69,8 +69,6 @@
 #define VIP_VERSION_CODE KERNEL_VERSION(1, 0, 0)
 #define VIP_DRV_NAME "sirfsoc-vip"
 
-static int brestart;
-
 
 static void vip_dma_count_done(void *pdata);
 static int vip_start_dma(struct vip_dev *vip);
@@ -1042,13 +1040,23 @@ static void vip_vip_isr(struct vip_dev *vip)
 	status = vip_hw_get_interrupts(vip);
 	vip_hw_clear_interrupts(vip, status);
 
+	/*under the error condition, we should stop the vip firstly,
+	 *and then schedule a work to restart the vip again to recovery.
+	 *if we don't stop the vip here, this isr will be called
+	 *again and again	since the data transfer is running,
+	 *and the restart work won't get run
+	 */
+	if (status & (VIP_INTMASK_FIFO_OFLOW | VIP_INTMASK_FIFO_UFLOW |
+		VIP_INTMASK_656_INCOMP | VIP_INTMASK_BAD_FIELD)){
+		vip_hw_stop(vip);
+		schedule_work(&vip->restart_work);
+	}
+
 	if (status & VIP_INTMASK_SENSOR)
 		dev_dbg(vip->dev, "sensor interrupt happens\n");
 
-	if (status & VIP_INTMASK_FIFO_OFLOW) {
+	if (status & VIP_INTMASK_FIFO_OFLOW)
 		dev_err(vip->dev, "FIFO overflow interrupt happens\n");
-		brestart = 1;
-	}
 
 	if (status & VIP_INTMASK_FIFO_UFLOW)
 		dev_err(vip->dev, "FIFO underflow interrupt happens\n");
@@ -1214,17 +1222,6 @@ static void vip_dma_count_done(void *pdata)
 		goto out;
 
 	buf = container_of(vb, struct vip_buffer, vb);
-
-	if (brestart) {
-		brestart = 0;
-		vip_hw_stop(vip);
-		spin_unlock_irqrestore(&vip->lock, flags);
-
-		schedule_work(&vip->restart_work);
-
-		return;
-	}
-
 
 	list_del_init(&buf->list);
 	v4l2_get_timestamp(&vb->v4l2_buf.timestamp);
@@ -2366,9 +2363,6 @@ static void vip_rv_post_preempt(struct vip_dev *vip)
 	if (vip->task)
 		send_sig(SIGCONT, vip->task, 0);
 
-	/* now restart pipe line, clear it no matter it was */
-	brestart = 0;
-
 	/* restore VIP hardware configuration */
 	vip_config_subdev(subdev);
 	vip_config_host(subdev);
@@ -2751,9 +2745,6 @@ static int vip_pm_resume(struct device *dev)
 
 	/* Before suspend it's active, so we should restore the pipe line */
 	if (vip->vb2_active) {
-
-		/* now restart pipe line, clear it no matter it was */
-		brestart = 0;
 
 		/* restore VIP hardware configuration */
 		vip_config_host(subdev);
