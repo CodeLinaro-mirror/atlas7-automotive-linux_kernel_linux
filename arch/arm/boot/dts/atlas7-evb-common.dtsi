@@ -150,6 +150,12 @@
 		status = "okay";
 	};
 
+	ext-amp {
+		compatible = "sirf,ext-amp";
+		status = "okay";
+		cd-gpio = <&gpio_1 81 0>;
+	};
+
 	noc {
 		kalimba_ipc@10C10000 {
 			status = "okay";

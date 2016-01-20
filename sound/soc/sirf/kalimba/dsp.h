@@ -83,6 +83,7 @@ void kalimba_set_peq_params(u16 index, u16 offset, int val);
 void kalimba_set_dbe_control(u16 mode);
 void kalimba_set_dbe_params(u16 offset, int val);
 void kalimba_set_delay_params(u16 offset, int val);
+void kalimba_set_master_gain(int vol);
 
 #define ENDPOINT_TYPE_USP			1
 #define ENDPOINT_TYPE_I2S			2

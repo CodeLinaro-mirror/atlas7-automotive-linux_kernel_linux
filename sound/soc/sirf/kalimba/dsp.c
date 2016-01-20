@@ -276,6 +276,22 @@ void kalimba_set_music_passthrough_volume(int vol)
 	kalimba_msg_send_unlock();
 }
 
+void kalimba_set_master_gain(int vol)
+{
+	u32 volume_setting = (u32)(vol * 60);
+	u16 msg[4] = {1, 0x21, (u16)(volume_setting >> 16),
+		(u16)(volume_setting & 0xffff)};
+	u16 volume_control_op_id;
+
+	kalimba_msg_send_lock();
+	volume_control_op_id = get_volume_control_op_id();
+	if (volume_control_op_id)
+		kalimba_operator_message(volume_control_op_id,
+			OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL, 4, msg,
+			NULL, NULL, NULL);
+	kalimba_msg_send_unlock();
+}
+EXPORT_SYMBOL(kalimba_set_master_gain);
 void kalimba_set_stream_volume(int stream, int vol, int samples)
 {
 	int i;
