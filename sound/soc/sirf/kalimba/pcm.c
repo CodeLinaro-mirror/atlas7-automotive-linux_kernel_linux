@@ -682,6 +682,23 @@ static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct snd_dma_buffer *dmab;
+	int stream = rtd->cpu_dai->id;
+
+	if (stream == MUSIC_STREAM) {
+		switch (params_channels(params)) {
+		case 1:
+			stream = MUSIC_MONO_STREAM;
+			break;
+		case 2:
+			stream = MUSIC_STEREO_STREAM;
+			break;
+		case 4:
+			stream = MUSIC_4CHANNELS_STREAM;
+			break;
+		default:
+			break;
+		}
+	}
 
 	dmab = snd_pcm_get_dma_buf(substream);
 
@@ -689,7 +706,7 @@ static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
 	pcm_data->sw_ep_handle->buff_length =
 		params_buffer_bytes(params) / 4;
 
-	pcm_data->kalimba_notify_ep_id = prepare_stream(rtd->cpu_dai->id,
+	pcm_data->kalimba_notify_ep_id = prepare_stream(stream,
 		params_channels(params),
 		pcm_data->sw_ep_handle_phy_addr, params_rate(params),
 		1, params_period_bytes(params) / 4);
@@ -825,9 +842,26 @@ static int kas_pcm_generic_hw_free(struct snd_pcm_substream *substream)
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kas_pcm_data *pcm_data =
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+	int stream = rtd->cpu_dai->id;
 
-	stop_stream(rtd->cpu_dai->id);
-	destroy_stream(rtd->cpu_dai->id);
+	if (stream == MUSIC_STREAM) {
+		switch (substream->runtime->channels) {
+		case 1:
+			stream = MUSIC_MONO_STREAM;
+			break;
+		case 2:
+			stream = MUSIC_STEREO_STREAM;
+			break;
+		case 4:
+			stream = MUSIC_4CHANNELS_STREAM;
+			break;
+		default:
+			break;
+		}
+	}
+
+	stop_stream(stream);
+	destroy_stream(stream);
 	unregister_kalimba_msg_action(pcm_data->action_id);
 
 	return 0;
@@ -902,6 +936,23 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct kcm_t *kcm = pdata->kcm;
+	int stream = rtd->cpu_dai->id;
+
+	if (stream == MUSIC_STREAM) {
+		switch (substream->runtime->channels) {
+		case 1:
+			stream = MUSIC_MONO_STREAM;
+			break;
+		case 2:
+			stream = MUSIC_STEREO_STREAM;
+			break;
+		case 4:
+			stream = MUSIC_4CHANNELS_STREAM;
+			break;
+		default:
+			break;
+		}
+	}
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -911,7 +962,7 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 			iacc_start(playback, kcm->playback_iacc_ep.channels);
 		else
 			iacc_start(playback, kcm->capture_iacc_ep.channels);
-		start_stream(rtd->cpu_dai->id,
+		start_stream(stream,
 			!!atomic_read(&substream->mmap_count));
 		if (playback)
 			data_produced(pcm_data->kalimba_notify_ep_id);
@@ -1252,7 +1303,7 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		.playback = {
 			.stream_name = "Music Playback",
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 4,
 			.rates = KAS_RATES,
 			.formats = KAS_FORMATS,
 		},

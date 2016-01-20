@@ -14,6 +14,27 @@
 #define PIPELINE_READY	0
 #define PIPELINE_BUSY	1
 
+#define MUSIC_STREAM		0
+#define NAVIGATION_STREAM		1
+#define ALARM_STREAM			2
+#define A2DP_STREAM			3
+#define VOICECALL_BT_TO_IACC_STREAM	4
+#define VOICECALL_PLAYBACK_STREAM	5
+#define IACC_LOOPBACK_PLAYBACK_STREAM	6
+#define I2S_TO_IACC_LOOPBACK_STREAM	7
+#define ANALOG_CAPTURE_STREAM		8
+#define VOICECALL_IACC_TO_BT_STREAM	9
+#define VOICECALL_CAPTURE_STREAM	10
+#define IACC_LOOPBACK_CAPTURE_STREAM	11
+
+/* Virtual streams which are used mono and 4 channels music playback */
+#define MUSIC_MONO_STREAM		16
+#define MUSIC_STEREO_STREAM		17
+#define MUSIC_4CHANNELS_STREAM		18
+
+#define TOTAL_SUPPORT_STREAMS		32
+
+
 #include "ipc.h"
 
 struct hw_ep_handle_buff_t {

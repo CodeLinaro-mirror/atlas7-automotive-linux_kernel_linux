@@ -31,21 +31,6 @@
 #define SET_PRIMARY_STREAM		0
 #define CLEAR_PRIMARY_STREAM		1
 
-#define MUSIC_STREAM			0
-#define NAVIGATION_STREAM		1
-#define ALARM_STREAM			2
-#define A2DP_STREAM			3
-#define VOICECALL_BT_TO_IACC_STREAM	4
-#define VOICECALL_PLAYBACK_STREAM	5
-#define IACC_LOOPBACK_PLAYBACK_STREAM	6
-#define I2S_TO_IACC_LOOPBACK_STREAM	7
-#define ANALOG_CAPTURE_STREAM		8
-#define VOICECALL_IACC_TO_BT_STREAM	9
-#define VOICECALL_CAPTURE_STREAM	10
-#define IACC_LOOPBACK_CAPTURE_STREAM	11
-
-#define TOTAL_SUPPORT_STREAMS		16
-
 static struct kcm_t *kcm;
 
 static struct component components_global[512];
@@ -176,7 +161,243 @@ void set_default_mixer_stream_volume(int stream, u16 volume)
 			volume;
 }
 
-static int init_music_pipeline(void)
+static int init_music_mono_pipeline(int index)
+{
+	int i = index, k, j = 0;
+	int music_mono_passthrough;
+	int music_mono_resampler;
+	int music_mono_passthrough_to_resampler_connection;
+	int music_splitter_1_to_2, music_splitter_2_to_4;
+	int music_mono_resampler_to_splitter_1_to_2_connection;
+	int music_mono_resampler_to_splitter_2_to_4_connection[2];
+	int music_mono_splitter_to_usrpeq_connection[4];
+
+	/* Music stream pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_BASIC_PASSTHROUGH;
+	components_global[i].params[1] = 1; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_SET_PASSTHROUGH_GAIN;
+	components_global[i].params[3] = 1;
+	components_global[i].params[4] =
+		(u32)(&music_passthrough_default_volume);
+	music_mono_passthrough = i;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[MUSIC_MONO_STREAM] = i;
+	music_mono_resampler = i;
+	i++;
+
+	music_mono_passthrough_to_resampler_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[music_mono_passthrough].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[music_mono_resampler].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	music_splitter_1_to_2 = i;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_SPLITTER;
+	music_splitter_2_to_4 = i;
+	i++;
+
+	music_mono_resampler_to_splitter_1_to_2_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[music_mono_resampler].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[music_splitter_1_to_2].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	for (k = 0; k < 2; k++) {
+		music_mono_resampler_to_splitter_2_to_4_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_splitter_1_to_2].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_splitter_2_to_4].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		music_mono_splitter_to_usrpeq_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[music_splitter_2_to_4].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_usr_peq].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	/* Init pipeline link */
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_mono_passthrough;
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_mono_resampler;
+	pipeline_link[MUSIC_MONO_STREAM][j++] =
+		music_mono_passthrough_to_resampler_connection;
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_splitter_1_to_2;
+	pipeline_link[MUSIC_MONO_STREAM][j++] =
+		music_mono_resampler_to_splitter_1_to_2_connection;
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_splitter_2_to_4;
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			music_mono_resampler_to_splitter_2_to_4_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_usr_peq;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			music_mono_splitter_to_usrpeq_connection[k];
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] = music_dbe[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			music_usrpeq_to_dbe_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_delay;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			music_dbe_to_delay_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] = music_spk_peq[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			music_delay_to_spkpeq_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = mixer_1;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			music_spkpeq_to_mixer1_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			mixer1_to_mixer2_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[MUSIC_MONO_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link_count[MUSIC_MONO_STREAM] = j;
+	return i;
+}
+
+static int init_music_4channels_pipeline(int index)
+{
+	int i = index, k, j = 0;
+	int music_4channels_passthrough;
+	int music_4channels_resampler;
+	int music_4channels_passthrough_to_resampler_connection[4];
+	int music_4channels_resampler_to_usrpeq_connection[4];
+
+	/* Music stream pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_BASIC_PASSTHROUGH;
+	components_global[i].params[1] = 1; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_SET_PASSTHROUGH_GAIN;
+	components_global[i].params[3] = 1;
+	components_global[i].params[4] =
+		(u32)(&music_passthrough_default_volume);
+	music_4channels_passthrough = i;
+	i++;
+
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[MUSIC_4CHANNELS_STREAM] = i;
+	music_4channels_resampler = i;
+	i++;
+
+	for (k = 0; k < 4; k++) {
+		music_4channels_passthrough_to_resampler_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[
+				music_4channels_passthrough].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[
+				music_4channels_resampler].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	for (k = 0; k < 4; k++) {
+		music_4channels_resampler_to_usrpeq_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[
+			music_4channels_resampler].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_usr_peq].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+	}
+
+	/* Init pipeline link */
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+		music_4channels_passthrough;
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_4channels_resampler;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			music_4channels_passthrough_to_resampler_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_usr_peq;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			music_4channels_resampler_to_usrpeq_connection[k];
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_dbe[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			music_usrpeq_to_dbe_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_delay;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			music_dbe_to_delay_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_spk_peq[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			music_delay_to_spkpeq_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = mixer_1;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			music_spkpeq_to_mixer1_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = mixer_2;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			mixer1_to_mixer2_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = volume_ctrl;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			mixer2_to_volumectrl_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = aec_ref;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = iacc_sink;
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			aecref_to_iaccsink_connection[k];
+	pipeline_link_count[MUSIC_4CHANNELS_STREAM] = j;
+	return i;
+}
+static int init_music_stereo_pipeline(void)
 {
 	int i = 0, k, j = 0;
 	static u16 aec_ref_sample_rate_config[2] = {48000, 16000};
@@ -202,7 +423,7 @@ static int init_music_pipeline(void)
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
-	resample_op_id[MUSIC_STREAM] = i;
+	resample_op_id[MUSIC_STEREO_STREAM] = i;
 	music_resampler = i;
 	i++;
 
@@ -601,54 +822,54 @@ static int init_music_pipeline(void)
 	i++;
 
 	/* Init pipeline link */
-	pipeline_link[MUSIC_STREAM][j++] = music_passthrough;
-	pipeline_link[MUSIC_STREAM][j++] = music_resampler;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_passthrough;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_resampler;
 	for (k = 0; k < 2; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_passthrough_to_resampler_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = music_splitter;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_splitter;
 	for (k = 0; k < 2; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_resampler_to_splitter_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = music_usr_peq;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_usr_peq;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_splitter_to_usrpeq_connection[k];
 	for (k = 0; k < 2; k++)
-		pipeline_link[MUSIC_STREAM][j++] = music_dbe[k];
+		pipeline_link[MUSIC_STEREO_STREAM][j++] = music_dbe[k];
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_usrpeq_to_dbe_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = music_delay;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_delay;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_dbe_to_delay_connection[k];
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] = music_spk_peq[k];
+		pipeline_link[MUSIC_STEREO_STREAM][j++] = music_spk_peq[k];
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_delay_to_spkpeq_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = mixer_1;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = mixer_1;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			music_spkpeq_to_mixer1_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = mixer_2;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = mixer_2;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			mixer1_to_mixer2_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = volume_ctrl;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = volume_ctrl;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = aec_ref;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = aec_ref;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			volumectrl_to_aecref_connection[k];
-	pipeline_link[MUSIC_STREAM][j++] = iacc_sink;
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STREAM][j++] =
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
-	pipeline_link_count[MUSIC_STREAM] = j;
+	pipeline_link_count[MUSIC_STEREO_STREAM] = j;
 	return i;
 }
 
@@ -1480,7 +1701,9 @@ static void init_pipeline(void)
 {
 	int index;
 
-	index = init_music_pipeline();
+	index = init_music_stereo_pipeline();
+	index = init_music_mono_pipeline(index);
+	index = init_music_4channels_pipeline(index);
 	index = init_navigation_pipeline(index);
 	index = init_alarm_pipeline(index);
 	index = init_capture_pipeline(index);
@@ -1524,9 +1747,9 @@ struct conflict_pipeline {
  * pipeline, should check the pipeline's conflict.
  */
 static struct conflict_pipeline conflict_pipeline_array[] = {
-	{MUSIC_STREAM, A2DP_STREAM},
-	{MUSIC_STREAM, IACC_LOOPBACK_PLAYBACK_STREAM},
-	{MUSIC_STREAM, I2S_TO_IACC_LOOPBACK_STREAM},
+	{MUSIC_STEREO_STREAM, A2DP_STREAM},
+	{MUSIC_STEREO_STREAM, IACC_LOOPBACK_PLAYBACK_STREAM},
+	{MUSIC_STEREO_STREAM, I2S_TO_IACC_LOOPBACK_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_BT_TO_IACC_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_IACC_TO_BT_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_CAPTURE_STREAM},
@@ -1649,7 +1872,9 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 					&sw_endpoint_connect_id[stream][i],
 					resp);
 		}
-	} else if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
+	} else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
+		|| stream == MUSIC_MONO_STREAM
+		|| stream == MUSIC_4CHANNELS_STREAM
 		|| stream == ALARM_STREAM
 		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		sw_channels[stream] = channels;
@@ -1723,13 +1948,16 @@ static void change_primary_stream(int action, int stream)
 		stream = VOICECALL_BT_TO_IACC_STREAM;
 	/*
 	 * The IACC_LOOPBACK_PLAYBACK_STREAM,
-	 * I2S_TO_IACC_LOOPBACK_STREAM and MUSIC_STREAM
+	 * I2S_TO_IACC_LOOPBACK_STREAM and MUSIC_STEREO_STREAM
 	 * share same port of mixer operator.
 	 * And the IACC_LOOPBACK_CAPTURE_STREAM don't need change the
 	 * primary stream, so bypass it.
 	 */
 	if (stream == IACC_LOOPBACK_PLAYBACK_STREAM
-		|| stream == I2S_TO_IACC_LOOPBACK_STREAM)
+		|| stream == I2S_TO_IACC_LOOPBACK_STREAM
+		|| stream == MUSIC_MONO_STREAM
+		|| stream == MUSIC_4CHANNELS_STREAM
+		|| stream == MUSIC_STEREO_STREAM)
 		stream = MUSIC_STREAM;
 	if (stream == IACC_LOOPBACK_CAPTURE_STREAM)
 		return;
@@ -1797,7 +2025,9 @@ void start_stream(int stream, int clock_master)
 		return;
 	kalimba_msg_send_lock();
 	change_primary_stream(SET_PRIMARY_STREAM, stream);
-	if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
+	if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
+		|| stream == MUSIC_MONO_STREAM
+		|| stream == MUSIC_4CHANNELS_STREAM
 		|| stream == ALARM_STREAM
 		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		for (i = 0; i < sw_channels[stream]; i++)
@@ -1944,7 +2174,9 @@ void destroy_stream(int stream)
 	if (stream == ANALOG_CAPTURE_STREAM)
 		kalimba_close_sink(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
-	else if (stream == MUSIC_STREAM || stream == NAVIGATION_STREAM
+	else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
+		|| stream == MUSIC_MONO_STREAM
+		|| stream == MUSIC_4CHANNELS_STREAM
 		|| stream == ALARM_STREAM)
 		kalimba_close_source(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
