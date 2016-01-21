@@ -1,11 +1,16 @@
 /*
  * Nanddisk driver for PRIMA/ATLAS series
  *
- * Copyright 2011 (C) CSR plc.
- *	Peiyu Li <peiyu.li@csr.com>
- *	Huayi Li <huayi.li@csr.com>
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under the GPL-2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -629,7 +634,7 @@ static int nd_blk_cmd(struct block_device *bdev,
 	struct nanddisk_device *nd = bdev->bd_disk->private_data;
 	struct nanddisk_ioctl nctl;
 	unsigned char *in_buf, *out_buf;
-	unsigned int page_size;
+	unsigned int page_size, sector_size;
 	struct NANDDBG_IO usr_p_io, *fw_p_io = NULL;
 	struct NAND_IO usr_l_io, *fw_l_io = NULL;
 	unsigned char *data_buf, *si_buf;
@@ -637,6 +642,7 @@ static int nd_blk_cmd(struct block_device *bdev,
 	int ret = 0;
 
 	page_size = nd->nand_chip_info.phy_bdev_info.byte_per_sector;
+	sector_size = nd->nand_chip_info.io_bdev_info.byte_per_sector;
 
 	/* Copy the user command info to our buffer */
 	if (copy_from_user(&nctl, user_ctl, sizeof(nctl))) {
@@ -719,7 +725,7 @@ static int nd_blk_cmd(struct block_device *bdev,
 		if (NDISK_CMD_L_WR(nctl.op)) {
 			if (copy_from_user(fw_l_io->sector_buf,
 						usr_l_io.sector_buf,
-						page_size * 2)) {
+						sector_size)) {
 				ret = -EFAULT;
 				goto wt_data_err;
 			}
@@ -756,7 +762,7 @@ static int nd_blk_cmd(struct block_device *bdev,
 
 	if (NDISK_CMD_L_RD(nctl.op)) {
 		if (copy_to_user(usr_l_io.sector_buf, fw_l_io->sector_buf,
-					page_size * 2)) {
+					sector_size)) {
 			ret = -EFAULT;
 			goto rd_data_err;
 		}
@@ -1288,7 +1294,5 @@ static struct platform_driver sirfsoc_nand_driver = {
 };
 module_platform_driver(sirfsoc_nand_driver);
 
-MODULE_AUTHOR("Peiyu Li <peiyu.li@csr.com>");
-MODULE_AUTHOR("Huayi Li <huayi.li@csr.com>");
 MODULE_DESCRIPTION("SiRF SOC NANDDisk Driver");
 MODULE_LICENSE("GPL");
