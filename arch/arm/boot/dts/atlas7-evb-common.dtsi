@@ -152,7 +152,7 @@
 
 	ext-amp {
 		compatible = "sirf,ext-amp";
-		status = "okay";
+		status = "disabled";
 		cd-gpio = <&gpio_1 81 0>;
 	};
 
