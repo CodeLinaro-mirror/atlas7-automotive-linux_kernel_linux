@@ -699,6 +699,18 @@ static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
 			break;
 		}
 	}
+	if (stream == ANALOG_CAPTURE_STREAM) {
+		switch (params_channels(params)) {
+		case 1:
+			stream = CAPTURE_MONO_STREAM;
+			break;
+		case 2:
+			stream = CAPTURE_STEREO_STREAM;
+			break;
+		default:
+			break;
+		}
+	}
 
 	dmab = snd_pcm_get_dma_buf(substream);
 
@@ -859,6 +871,18 @@ static int kas_pcm_generic_hw_free(struct snd_pcm_substream *substream)
 			break;
 		}
 	}
+	if (stream == ANALOG_CAPTURE_STREAM) {
+		switch (substream->runtime->channels) {
+		case 1:
+			stream = CAPTURE_MONO_STREAM;
+			break;
+		case 2:
+			stream = CAPTURE_STEREO_STREAM;
+			break;
+		default:
+			break;
+		}
+	}
 
 	stop_stream(stream);
 	destroy_stream(stream);
@@ -953,6 +977,18 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 			break;
 		}
 	}
+	if (stream == ANALOG_CAPTURE_STREAM) {
+		switch (substream->runtime->channels) {
+		case 1:
+			stream = CAPTURE_MONO_STREAM;
+			break;
+		case 2:
+			stream = CAPTURE_STEREO_STREAM;
+			break;
+		default:
+			break;
+		}
+	}
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -961,7 +997,7 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 		if (playback)
 			iacc_start(playback, kcm->playback_iacc_ep.channels);
 		else
-			iacc_start(playback, kcm->capture_iacc_ep.channels);
+			iacc_start(playback, substream->runtime->channels);
 		start_stream(stream,
 			!!atomic_read(&substream->mmap_count));
 		if (playback)
@@ -1383,7 +1419,7 @@ static struct snd_soc_dai_driver kas_dais[] = {
 		.capture = {
 			.stream_name = "Analog Capture",
 			.channels_min = 1,
-			.channels_max = 1,
+			.channels_max = 2,
 			.rates = KAS_RATES,
 			.formats = KAS_FORMATS,
 		},

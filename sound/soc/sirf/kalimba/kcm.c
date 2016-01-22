@@ -1018,7 +1018,65 @@ static int init_alarm_pipeline(int index)
 	return i;
 }
 
-static int init_capture_pipeline(int index)
+static int init_capture_mono_pipeline(int index)
+{
+	int i = index;
+	int j = 0;
+	int source_to_resampler_connection[2];
+
+	/* Analog Capture pipeline */
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[CAPTURE_MONO_STREAM] = i;
+	i++;
+
+	/* Get Source */
+	components_global[i].component_id = GET_SOURCE_REQ;
+	components_global[i].params[0] = ENDPOINT_TYPE_IACC;
+	components_global[i].params[1] = ENDPOINT_PHY_DEV_IACC;
+	components_global[i].params[2] = (u32)(&kcm->capture_iacc_mono_ep);
+	components_global[i].params[3] = 5; /* Config items */
+	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
+	components_global[i].params[5] =
+			(u32)(&kcm->capture_iacc_mono_ep.sample_rate);
+	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
+	components_global[i].params[7] =
+			(u32)(&kcm->capture_iacc_mono_ep.audio_data_format);
+	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
+	components_global[i].params[9] =
+			(u32)(&kcm->capture_iacc_mono_ep.packing_format);
+	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
+	components_global[i].params[11] =
+			(u32)(&kcm->capture_iacc_mono_ep.interleaving_format);
+	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
+	components_global[i].params[13] =
+			(u32)(&kcm->capture_iacc_mono_ep.clock_master);
+	iacc_source = i;
+	i++;
+
+	source_to_resampler_connection[0] = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[iacc_source].ret[0]);
+	components_global[i].params[1] = 0;
+	components_global[i].params[2] =
+		(u32)(&components_global[resample_op_id[
+				CAPTURE_MONO_STREAM]].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	pipeline_link[CAPTURE_MONO_STREAM][j++] = resample_op_id[
+		CAPTURE_MONO_STREAM];
+	pipeline_link[CAPTURE_MONO_STREAM][j++] = iacc_source;
+	pipeline_link[CAPTURE_MONO_STREAM][j++] =
+		source_to_resampler_connection[0];
+
+	pipeline_link_count[CAPTURE_MONO_STREAM] = j;
+
+	return i;
+}
+
+static int init_capture_stereo_pipeline(int index)
 {
 	int i = index;
 	int k, j = 0;
@@ -1027,34 +1085,34 @@ static int init_capture_pipeline(int index)
 	/* Analog Capture pipeline */
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
-	resample_op_id[ANALOG_CAPTURE_STREAM] = i;
+	resample_op_id[CAPTURE_STEREO_STREAM] = i;
 	i++;
 
 	/* Get Source */
 	components_global[i].component_id = GET_SOURCE_REQ;
 	components_global[i].params[0] = ENDPOINT_TYPE_IACC;
 	components_global[i].params[1] = ENDPOINT_PHY_DEV_IACC;
-	components_global[i].params[2] = (u32)(&kcm->capture_iacc_ep);
+	components_global[i].params[2] = (u32)(&kcm->capture_iacc_stereo_ep);
 	components_global[i].params[3] = 5; /* Config items */
 	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
 	components_global[i].params[5] =
-			(u32)(&kcm->capture_iacc_ep.sample_rate);
+			(u32)(&kcm->capture_iacc_stereo_ep.sample_rate);
 	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
 	components_global[i].params[7] =
-			(u32)(&kcm->capture_iacc_ep.audio_data_format);
+			(u32)(&kcm->capture_iacc_stereo_ep.audio_data_format);
 	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
 	components_global[i].params[9] =
-			(u32)(&kcm->capture_iacc_ep.packing_format);
+			(u32)(&kcm->capture_iacc_stereo_ep.packing_format);
 	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
 	components_global[i].params[11] =
-			(u32)(&kcm->capture_iacc_ep.interleaving_format);
+			(u32)(&kcm->capture_iacc_stereo_ep.interleaving_format);
 	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
 	components_global[i].params[13] =
-			(u32)(&kcm->capture_iacc_ep.clock_master);
+			(u32)(&kcm->capture_iacc_stereo_ep.clock_master);
 	iacc_source = i;
 	i++;
 
-	for (k = 0; k < kcm->capture_iacc_ep.channels; k++) {
+	for (k = 0; k < 2; k++) {
 		source_to_resampler_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
@@ -1062,23 +1120,22 @@ static int init_capture_pipeline(int index)
 		components_global[i].params[1] = 0;
 		components_global[i].params[2] =
 			(u32)(&components_global[resample_op_id[
-				ANALOG_CAPTURE_STREAM]].ret[0]);
+				CAPTURE_STEREO_STREAM]].ret[0]);
 		components_global[i].params[3] = 0xA000 + k;
 		i++;
 	}
 
-	pipeline_link[ANALOG_CAPTURE_STREAM][j++] = resample_op_id[
-		ANALOG_CAPTURE_STREAM];
-	pipeline_link[ANALOG_CAPTURE_STREAM][j++] = iacc_source;
-	for (k = 0; k < kcm->capture_iacc_ep.channels; k++)
-		pipeline_link[ANALOG_CAPTURE_STREAM][j++] =
+	pipeline_link[CAPTURE_STEREO_STREAM][j++] = resample_op_id[
+		CAPTURE_STEREO_STREAM];
+	pipeline_link[CAPTURE_STEREO_STREAM][j++] = iacc_source;
+	for (k = 0; k < 2; k++)
+		pipeline_link[CAPTURE_STEREO_STREAM][j++] =
 			source_to_resampler_connection[k];
 
-	pipeline_link_count[ANALOG_CAPTURE_STREAM] = j;
+	pipeline_link_count[CAPTURE_STEREO_STREAM] = j;
 
 	return i;
 }
-
 static int init_voicecall_bt_to_iacc_pipeline(int index)
 {
 	int i = index;
@@ -1262,7 +1319,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 	components_global[i].params[3] = 0xA002;
 	i++;
 
-	/* AEC REF to cvc send (MIC) */
+	/* AEC REF to cvc send (MIC1) */
 	aecref_to_cvcsend_mic_connection = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
@@ -1706,7 +1763,8 @@ static void init_pipeline(void)
 	index = init_music_4channels_pipeline(index);
 	index = init_navigation_pipeline(index);
 	index = init_alarm_pipeline(index);
-	index = init_capture_pipeline(index);
+	index = init_capture_mono_pipeline(index);
+	index = init_capture_stereo_pipeline(index);
 	index = init_voicecall_bt_to_iacc_pipeline(index);
 	index = init_a2dp_pipeline(index);
 	index = init_voicecall_playback_pipeline(index);
@@ -1822,12 +1880,18 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			components_global[resample_op_id[stream]].ret[0],
 				RESAMPLER_SET_CONVERSION_RATE, 1,
 				&resample_cfg, NULL, NULL, resp);
-	} else if (stream == ANALOG_CAPTURE_STREAM
+	} else if (stream == CAPTURE_MONO_STREAM
+		|| stream == CAPTURE_STEREO_STREAM
 		|| stream == VOICECALL_CAPTURE_STREAM) {
 		sw_channels[stream] = channels;
-		if (stream != VOICECALL_CAPTURE_STREAM)
+		if (stream == CAPTURE_MONO_STREAM)
 			resample_cfg = get_rasample_conversion_conf(
-				kcm->capture_iacc_ep.sample_rate, sample_rate);
+					kcm->capture_iacc_mono_ep.sample_rate,
+					sample_rate);
+		else if (stream == CAPTURE_STEREO_STREAM)
+			resample_cfg = get_rasample_conversion_conf(
+					kcm->capture_iacc_stereo_ep.sample_rate,
+					sample_rate);
 
 		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
 				handle_addr, sw_endpoint_id[stream], resp);
@@ -2171,7 +2235,8 @@ void destroy_stream(int stream)
 	}
 
 	/* Close source or sink*/
-	if (stream == ANALOG_CAPTURE_STREAM)
+	if (stream == CAPTURE_MONO_STREAM
+		|| stream == CAPTURE_STEREO_STREAM)
 		kalimba_close_sink(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
 	else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
@@ -2443,12 +2508,14 @@ struct kcm_t *kcm_init(struct device *dev)
 		pr_err("Allocate IACC playback endpoint buffer failed.\n");
 		return ERR_PTR(ret);
 	}
-	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep,
+
+	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_mono_ep,
 		BUFF_BYTES_EACH_CHANNEL, 1, 48000);
 	if (ret) {
-		pr_err("Allocate IACC capture endpoint buffer failed.\n");
-		goto error_alloc_capture_iacc_ep_failed;
+		pr_err("Allocate IACC capture mono endpoint buffer failed.\n");
+		goto error_alloc_capture_iacc_mono_ep_failed;
 	}
+
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep,
 		BUFF_BYTES_USP_SCO_PLAYBACK, 1, 16000);
 	if (ret) {
@@ -2468,7 +2535,7 @@ struct kcm_t *kcm_init(struct device *dev)
 		goto error_alloc_capture_usp_a2dp_ep_failed;
 	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
-		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 48000);
+		BUFF_BYTES_IACC_SCO_CAPTURE, 2, 48000);
 	if (ret) {
 		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
 		goto error_alloc_capture_iacc_sco_ep_failed;
@@ -2506,8 +2573,8 @@ error_alloc_capture_usp_a2dp_ep_failed:
 error_alloc_capture_usp_sco_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
 error_alloc_playback_usp_sco_ep_failed:
-	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep);
-error_alloc_capture_iacc_ep_failed:
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_mono_ep);
+error_alloc_capture_iacc_mono_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
 	return ERR_PTR(ret);
 }
@@ -2516,10 +2583,10 @@ void kcm_deinit(struct device *dev)
 {
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_i2s_stereo_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_stereo_ep);
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_mono_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
-	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
 }

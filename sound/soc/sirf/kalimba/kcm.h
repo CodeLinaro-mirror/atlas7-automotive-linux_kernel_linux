@@ -31,6 +31,8 @@
 #define MUSIC_MONO_STREAM		16
 #define MUSIC_STEREO_STREAM		17
 #define MUSIC_4CHANNELS_STREAM		18
+#define CAPTURE_MONO_STREAM		19
+#define CAPTURE_STEREO_STREAM		20
 
 #define TOTAL_SUPPORT_STREAMS		32
 
@@ -52,7 +54,7 @@ struct hw_ep_handle_buff_t {
 
 struct kcm_t {
 	struct hw_ep_handle_buff_t playback_iacc_ep;
-	struct hw_ep_handle_buff_t capture_iacc_ep;
+	struct hw_ep_handle_buff_t capture_iacc_mono_ep;
 	struct hw_ep_handle_buff_t capture_iacc_sco_ep;
 	struct hw_ep_handle_buff_t playback_usp_sco_ep;
 	struct hw_ep_handle_buff_t capture_usp_sco_ep;
