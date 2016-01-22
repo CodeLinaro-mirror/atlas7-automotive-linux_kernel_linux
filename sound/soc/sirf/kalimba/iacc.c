@@ -50,10 +50,23 @@ static void atlas7_iacc_tx_enable(struct atlas7_iacc *atlas7_iacc,
 				TX_SYNC_EN | TX_START_SYNC_EN,
 				TX_SYNC_EN | TX_START_SYNC_EN);
 
-		for (i = 0; i < channels; i++)
+		for (i = 0; i < channels; i++) {
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_TX_RX_EN,
 				DAC_EN << i, DAC_EN << i);
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TXFIFO0_OP + (i * 20),
+				FIFO_RESET, FIFO_RESET);
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TXFIFO0_OP + (i * 20),
+				FIFO_RESET, ~FIFO_RESET);
+
+			regmap_write(atlas7_iacc->regmap,
+				INTCODECCTL_TXFIFO0_INT_MSK + (i * 20), 0);
+			regmap_update_bits(atlas7_iacc->regmap,
+				INTCODECCTL_TXFIFO0_OP + (i * 20),
+				FIFO_START, FIFO_START);
+		}
 	}
 	atlas7_iacc->tx_count++;
 	mutex_unlock(&atlas7_iacc->tx_mutex);
@@ -67,6 +80,8 @@ static void atlas7_iacc_tx_disable(struct atlas7_iacc *atlas7_iacc)
 	atlas7_iacc->tx_count--;
 	if (atlas7_iacc->tx_count == 0) {
 		for (i = 0; i < IACC_TX_CHANNELS; i++)
+			regmap_write(atlas7_iacc->regmap,
+				INTCODECCTL_TXFIFO0_OP + (i * 20), 0);
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_TX_RX_EN, DAC_EN << i, 0);
 	}
