@@ -166,7 +166,7 @@ static u32 kerror_coredump_header(char *pos)
 
 	p += sprintf(p, "XCD2\n");
 	p += sprintf(p, "P DSP\n");
-	p += sprintf(p, "AT KALIMBA3\n");
+	p += sprintf(p, "AT KALIMBA5\n");
 	p += sprintf(p, "AV %04x\n", dsp_ver);
 
 	return (u32)(p - pos);
