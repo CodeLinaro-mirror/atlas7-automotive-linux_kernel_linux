@@ -66,6 +66,7 @@ struct sirfsoc_vout_device {
 	u32 src_ckey;
 	u32 dst_ckey;
 	u32 global_alpha;
+	bool pre_mult_alpha;
 
 	struct sirfsoc_vdss_panel *display;
 	struct sirfsoc_vdss_layer *layer;

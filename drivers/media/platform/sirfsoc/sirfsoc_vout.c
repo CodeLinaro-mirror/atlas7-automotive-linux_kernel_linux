@@ -343,6 +343,8 @@ static void __sirfsoc_vout_set_display_info(struct sirfsoc_vout_device *vout,
 	info.surf_width = vout->surf_width;
 	info.surf_height = vout->surf_height;
 
+	info.pre_mult_alpha = vout->pre_mult_alpha;
+
 	if (vout->fbuf.flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) {
 		info.global_alpha = true;
 		info.alpha = vout->global_alpha;
@@ -917,6 +919,9 @@ static int sirfsoc_vout_s_fmt_vid_out(struct file *file, void *priv,
 	}
 
 	vout->pix_fmt = fmt->fmt.pix;
+	vout->pre_mult_alpha = (fmt->fmt.pix.flags &
+			V4L2_PIX_FMT_FLAG_PREMUL_ALPHA) ? true : false;
+
 	vout->surf_width = hor_stride;
 	vout->surf_height = ver_stride;
 	/* set new crop and window according to the new format?*/
