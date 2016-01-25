@@ -161,13 +161,13 @@ const char *kerror_str(u16 err_id)
  */
 static u32 kerror_coredump_header(char *pos)
 {
-	u16 dsp_ver = 0x00C9;
+	u32 dsp_ver = 0x00600019;
 	char *p = pos;
 
 	p += sprintf(p, "XCD2\n");
+	p += sprintf(p, "AV %08x\n", dsp_ver);
 	p += sprintf(p, "P DSP\n");
 	p += sprintf(p, "AT KALIMBA5\n");
-	p += sprintf(p, "AV %04x\n", dsp_ver);
 
 	return (u32)(p - pos);
 }
@@ -315,7 +315,7 @@ open_err:
 /*
  * Notify for fault
  */
-static void kerror_fault_notify(u16 message, void *priv_data,
+static int kerror_fault_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	pr_alert("kalimba has produced a fault signal\n");
@@ -327,7 +327,7 @@ static void kerror_fault_notify(u16 message, void *priv_data,
 /*
  * Notify for panic
  */
-static void kerror_panic_notify(u16 message, void *priv_data,
+static int kerror_panic_notify(u16 message, void *priv_data,
 			u16 *message_data)
 {
 	/* Generate a code dump */
