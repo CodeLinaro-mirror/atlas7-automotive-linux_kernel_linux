@@ -982,7 +982,7 @@ static int sirfsocfb_alloc_fbmem_display(struct fb_info *fbi,
 		}
 
 		panel->driver->get_resolution(panel, &w, &h);
-		size = w * h * bytespp * 2;
+		size = w * h * bytespp * 3;
 	}
 
 	if (!size)
