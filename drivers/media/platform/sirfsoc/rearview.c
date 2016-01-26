@@ -905,9 +905,9 @@ static void rv_start(struct rv_dev *rv)
 
 	/* if mirror enabled, line buffer will disorder the pixel data */
 	if (rv->mirror_en)
-		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YUYV;
-	else
 		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YVYU;
+	else
+		vpp_op_params.op.ibv.src_surf[0].fmt = VDSS_PIXELFORMAT_YUYV;
 	vpp_op_params.op.ibv.src_surf[0].width = rv->width;
 	vpp_op_params.op.ibv.src_surf[0].height = rv->height;
 	vpp_op_params.op.ibv.src_surf[0].base = rv->data_dma_addr;
