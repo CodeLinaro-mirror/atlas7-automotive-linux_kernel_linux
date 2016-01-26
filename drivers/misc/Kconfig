@@ -560,6 +560,7 @@ config VEXPRESS_SYSCFG
 
 config A7CA_BT
 	bool "Character-device access CSR A7CA_BT"
+	depends on ARCH_SIRF
 	default y
 	---help---
 	  This device provides character-level read-write and ioctrl access to CSR A7CA BT in /dev/a7ca_bt/
