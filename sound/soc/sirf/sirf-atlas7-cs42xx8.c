@@ -117,11 +117,9 @@ static int sirf_hdmi_hw_params(struct snd_pcm_substream *substream,
 	if (channels == 8) {
 		unsigned int tx_mask, rx_mask;
 
-		tx_mask = I2S_TDM_WORD_ALIGN_TX_LEFT_J |
+		tx_mask = I2S_TDM_WORD_ALIGN_TX_I2S0 |
 			I2S_TDM_WORD_SIZE_TX(32);
-		tx_mask |= I2S_TDM_WORD_ALIGN_TX_I2S0;
-		rx_mask = I2S_TDM_WORD_ALIGN_RX_LEFT_J |
-			I2S_TDM_DATA_ALIGN_RX_LEFT_J |
+		rx_mask = I2S_TDM_WORD_ALIGN_RX_I2S0 |
 			I2S_TDM_WORD_SIZE_RX(32);
 		snd_soc_dai_set_tdm_slot(cpu_dai, tx_mask, rx_mask, 0, 0);
 
