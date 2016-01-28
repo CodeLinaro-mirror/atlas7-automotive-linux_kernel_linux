@@ -113,4 +113,7 @@ int lvdsc_setup(enum vdss_lvdsc_fmt fmt);
 int lvdsc_select_src(u32 lcdc_index);
 bool lvdsc_is_syn_mode(void);
 
+void dcu_enable(void);
+void dcu_disable(void);
+
 #endif

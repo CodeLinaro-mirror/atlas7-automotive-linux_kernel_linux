@@ -285,6 +285,33 @@ struct vdss_vpp_create_device_params {
 	void *arg;
 };
 
+enum vdss_dcu_op_type {
+	DCU_OP_BITBLT = 0,
+	DCU_OP_INLINE,
+};
+
+struct vdss_dcu_inline_params {
+	struct vdss_surface src_surf[2];
+	struct vdss_rect src_rect;
+	struct vdss_rect dst_rect;
+	bool flip;
+};
+
+struct vdss_dcu_blt_params {
+	struct vdss_surface src_surf[2];
+	struct vdss_surface dst_surf;
+	struct vdss_rect src_rect;
+	struct vdss_rect dst_rect;
+};
+
+struct vdss_dcu_op_params {
+	enum vdss_dcu_op_type type;
+	union {
+		struct vdss_dcu_blt_params blt;
+		struct vdss_dcu_inline_params inline_mode;
+	} op;
+};
+
 struct sirfsoc_vdss_screen;
 struct sirfsoc_vdss_panel;
 struct sirfsoc_vdss_output;
@@ -623,13 +650,18 @@ int sirfsoc_lcdc_register_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
 int sirfsoc_lcdc_unregister_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,
 	void *arg, u32 mask);
 
-
 /* vpp functions*/
 bool sirfsoc_vpp_is_passthrough_support(enum vdss_pixelformat fmt);
 void *sirfsoc_vpp_create_device(enum vdss_vpp id,
 				struct vdss_vpp_create_device_params *params);
 int sirfsoc_vpp_destroy_device(void *handle);
 int sirfsoc_vpp_present(void *handle, struct vdss_vpp_op_params *params);
+
+/* dcu functions*/
+int sirfsoc_dcu_reset(void);
+int sirfsoc_dcu_prresent(struct vdss_dcu_op_params *params);
+bool sirfsoc_dcu_is_inline_support(enum vdss_pixelformat fmt,
+	enum vdss_field field);
 
 static inline bool sirfsoc_vdss_panel_is_connected(
 		struct sirfsoc_vdss_panel *panel)
