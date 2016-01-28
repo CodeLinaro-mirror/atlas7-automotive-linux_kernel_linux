@@ -1856,6 +1856,13 @@ int open_stream(int stream)
 	return ret;
 }
 
+void close_stream(int stream)
+{
+	kalimba_msg_send_lock();
+	clear_bit(stream, &kcm->running_pipeline);
+	kalimba_msg_send_unlock();
+}
+
 static int execute_component(struct component *component);
 
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
@@ -2245,7 +2252,6 @@ void destroy_stream(int stream)
 		|| stream == ALARM_STREAM)
 		kalimba_close_source(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
-	clear_bit(stream, &kcm->running_pipeline);
 	kalimba_msg_send_unlock();
 }
 

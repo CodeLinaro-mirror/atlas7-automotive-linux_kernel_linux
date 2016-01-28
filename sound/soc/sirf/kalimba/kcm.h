@@ -126,6 +126,7 @@ u16 get_delay_op_id(void);
 struct kcm_t *kcm_init(struct device *dev);
 void kcm_deinit(struct device *dev);
 int open_stream(int stream);
+void close_stream(int stream);
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 	int clock_master, int period_size);
 void start_stream(int stream, int clock_master);

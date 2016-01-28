@@ -660,6 +660,15 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 		SNDRV_PCM_HW_PARAM_PERIODS);
 }
 
+static int kas_pcm_close(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	close_stream(rtd->cpu_dai->id);
+
+	return 0;
+}
+
 static int kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 {
 	struct kas_pcm_data *pcm_data = (struct kas_pcm_data *)priv_data;
@@ -1195,6 +1204,7 @@ static int kas_pcm_ack(struct snd_pcm_substream *substream)
 
 static struct snd_pcm_ops kas_pcm_ops = {
 	.open = kas_pcm_open,
+	.close = kas_pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
 	.hw_params = kas_pcm_hw_params,
 	.hw_free = kas_pcm_hw_free,
