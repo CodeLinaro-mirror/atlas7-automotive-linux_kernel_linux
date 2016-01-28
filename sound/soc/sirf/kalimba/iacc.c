@@ -79,11 +79,12 @@ static void atlas7_iacc_tx_disable(struct atlas7_iacc *atlas7_iacc)
 	mutex_lock(&atlas7_iacc->tx_mutex);
 	atlas7_iacc->tx_count--;
 	if (atlas7_iacc->tx_count == 0) {
-		for (i = 0; i < IACC_TX_CHANNELS; i++)
+		for (i = 0; i < IACC_TX_CHANNELS; i++) {
 			regmap_write(atlas7_iacc->regmap,
 				INTCODECCTL_TXFIFO0_OP + (i * 20), 0);
 			regmap_update_bits(atlas7_iacc->regmap,
 				INTCODECCTL_TX_RX_EN, DAC_EN << i, 0);
+		}
 	}
 	mutex_unlock(&atlas7_iacc->tx_mutex);
 }
