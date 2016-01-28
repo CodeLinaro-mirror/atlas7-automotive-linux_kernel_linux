@@ -794,6 +794,18 @@ static int kalimba_probe(struct platform_device *pdev)
 		goto clk_get_gpum_failed;
 	}
 
+	kalimba->clk_dmac2 = devm_clk_get(&pdev->dev, "dmac2");
+	if (IS_ERR(kalimba->clk_dmac2)) {
+		dev_err(&pdev->dev, "Get clock(dmac2) failed.\n");
+		ret = PTR_ERR(kalimba->clk_dmac2);
+		goto clk_get_dmac2_failed;
+	}
+	ret = clk_prepare_enable(kalimba->clk_dmac2);
+	if (ret) {
+		dev_err(&pdev->dev, "Enable clock(dmac2) failed.\n");
+		goto clk_get_dmac2_failed;
+	}
+
 	ret = device_reset(&pdev->dev);
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Reset kalimba failed: %d\n", ret);
@@ -841,6 +853,8 @@ static int kalimba_probe(struct platform_device *pdev)
 register_dma_free_req_action_failed:
 	unregister_kalimba_msg_all_actions();
 kalimba_reset_failed:
+	clk_disable_unprepare(kalimba->clk_dmac2);
+clk_get_dmac2_failed:
 	clk_disable_unprepare(kalimba->clk_gpum);
 clk_get_gpum_failed:
 	clk_disable_unprepare(kalimba->clk_audmscm);
@@ -855,6 +869,7 @@ static int kalimba_remove(struct platform_device *pdev)
 
 	device_remove_file(&pdev->dev, &dev_attr_firmware_version);
 	unregister_kalimba_msg_all_actions();
+	clk_disable_unprepare(kalimba->clk_dmac2);
 	clk_disable_unprepare(kalimba->clk_gpum);
 	clk_disable_unprepare(kalimba->clk_audmscm);
 	clk_disable_unprepare(kalimba->clk_kas);

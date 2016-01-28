@@ -17,6 +17,7 @@ struct kalimba {
 	struct clk *clk_kas;
 	struct clk *clk_audmscm;
 	struct clk *clk_gpum;
+	struct clk *clk_dmac2;
 	struct ipc_data *ipc_data;
 	/* kalimba_msg_action list */
 	struct list_head kalimba_msg_action_list;

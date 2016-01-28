@@ -67,9 +67,9 @@
 	kalimba {
 		compatible = "csr,kalimba-dsp";
 		status = "disabled";
-		clocks = <&car 82>, <&car 26>, <&car 31>;
+		clocks = <&car 82>, <&car 26>, <&car 31>, <&car 74>;
 		clock-names = "kas_kas",
-			"audmscm_nocd", "gpum_nocd";
+			"audmscm_nocd", "gpum_nocd", "dmac2";
 		resets = <&car 82>;
 	};
 
