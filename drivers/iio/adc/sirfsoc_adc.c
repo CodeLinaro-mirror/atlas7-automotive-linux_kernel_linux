@@ -1,10 +1,17 @@
 /*
-* ADC Driver for CSR SiRFSoC
-*
-* Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
-*
-* Licensed under GPLv2.
-*/
+ * ADC Driver for CSR SiRFSoC
+ *
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -455,14 +462,18 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_status);
+		writel(ctrl_set->poll | req->mode | req->delay_bits |
+			ctrl_set->quant_en | ctrl_set->reset |
+			ctrl_set->resolution,
+			adc->base + adc_reg->ctrl1);
 	} else {
 		writel(SIRFSOC_ADC_DATA_INTR_EN | SIRFSOC_ADC_DATA_INTR,
 			adc->base + adc_reg->intr_status);
+		writel(ctrl_set->poll | req->mode | req->extcm |
+			req->delay_bits | ctrl_set->quant_en |
+			ctrl_set->reset | ctrl_set->resolution,
+			adc->base + adc_reg->ctrl1);
 	}
-
-	writel(ctrl_set->poll | req->mode | req->extcm | req->delay_bits |
-		ctrl_set->quant_en | ctrl_set->reset | ctrl_set->resolution,
-		adc->base + adc_reg->ctrl1);
 
 	if (!wait_for_completion_timeout(&adc->done, msecs_to_jiffies(50))) {
 		ret = -EIO;
@@ -1227,6 +1238,5 @@ static struct platform_driver sirfsoc_adc_driver = {
 
 module_platform_driver(sirfsoc_adc_driver);
 
-MODULE_AUTHOR("Guoying Zhang <Guoying.Zhang@csr.com>");
 MODULE_DESCRIPTION("SiRF SoC On-chip ADC driver");
 MODULE_LICENSE("GPL v2");
