@@ -89,6 +89,7 @@
 	kas-pcm-audio {
 		compatible = "csr,kas-pcm";
 		i2s-master;
+		bt-usp-port = <3>;
 	};
 
 	sound-kas-audio-card {

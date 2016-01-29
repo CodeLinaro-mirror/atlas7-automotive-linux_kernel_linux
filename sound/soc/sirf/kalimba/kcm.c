@@ -1136,7 +1136,7 @@ static int init_capture_stereo_pipeline(int index)
 
 	return i;
 }
-static int init_voicecall_bt_to_iacc_pipeline(int index)
+static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 {
 	int i = index;
 	int k, j = 0;
@@ -1145,12 +1145,31 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 	int usp3source_to_cvcrcv_connection;
 	int cvcsend_to_usp3sink_connection;
 	static u16 cvc_ucid = 4;
+	u32 device_instance_id;
+
+	switch (bt_usp_port) {
+	case 0:
+		device_instance_id = ENDPOINT_PHY_DEV_PCM0;
+		break;
+	case 1:
+		device_instance_id = ENDPOINT_PHY_DEV_PCM1;
+		break;
+	case 2:
+		device_instance_id = ENDPOINT_PHY_DEV_PCM2;
+		break;
+	case 3:
+		device_instance_id = ENDPOINT_PHY_DEV_A7CA;
+		break;
+	default:
+		pr_err("Only support usp 0,1,2,3 for bluetooth\n");
+		BUG();
+	}
 
 	/* Voicecall bt to IACC pipeline */
 	/* Get Source */
 	components_global[i].component_id = GET_SOURCE_REQ;
 	components_global[i].params[0] = ENDPOINT_TYPE_USP;
-	components_global[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components_global[i].params[1] = device_instance_id;
 	components_global[i].params[2] = (u32)(&kcm->capture_usp_sco_ep);
 	components_global[i].params[3] = 5; /* Config items */
 	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
@@ -1287,7 +1306,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 
 	components_global[i].component_id = GET_SINK_REQ;
 	components_global[i].params[0] = ENDPOINT_TYPE_USP;
-	components_global[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components_global[i].params[1] = device_instance_id;
 	components_global[i].params[2] = (u32)(&kcm->playback_usp_sco_ep);
 	components_global[i].params[3] = 5; /* Config items */
 	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
@@ -1387,16 +1406,35 @@ static int init_voicecall_bt_to_iacc_pipeline(int index)
 	return i;
 }
 
-static int init_a2dp_pipeline(int index)
+static int init_a2dp_pipeline(int bt_usp_port, int index)
 {
 	int i = index;
 	int k, j = 0;
 	int source_to_passthrough_connection[2];
 	int usp3_source;
+	u32 device_instance_id;
+
+	switch (bt_usp_port) {
+	case 0:
+		device_instance_id = ENDPOINT_PHY_DEV_PCM0;
+		break;
+	case 1:
+		device_instance_id = ENDPOINT_PHY_DEV_PCM1;
+		break;
+	case 2:
+		device_instance_id = ENDPOINT_PHY_DEV_PCM2;
+		break;
+	case 3:
+		device_instance_id = ENDPOINT_PHY_DEV_A7CA;
+		break;
+	default:
+		pr_err("Only support usp 0,1,2,3 for bluetooth\n");
+		BUG();
+	}
 
 	components_global[i].component_id = GET_SOURCE_REQ;
 	components_global[i].params[0] = ENDPOINT_TYPE_USP;
-	components_global[i].params[1] = ENDPOINT_PHY_DEV_A7CA;
+	components_global[i].params[1] = device_instance_id;
 	components_global[i].params[2] = (u32)(&kcm->capture_usp_a2dp_ep);
 	components_global[i].params[3] = 5; /* Config items */
 	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
@@ -1754,7 +1792,7 @@ static int init_i2s_to_iacc_loopback_pipeline(int index)
 	return i;
 }
 
-static void init_pipeline(void)
+static void init_pipeline(int bt_usp_port)
 {
 	int index;
 
@@ -1765,8 +1803,8 @@ static void init_pipeline(void)
 	index = init_alarm_pipeline(index);
 	index = init_capture_mono_pipeline(index);
 	index = init_capture_stereo_pipeline(index);
-	index = init_voicecall_bt_to_iacc_pipeline(index);
-	index = init_a2dp_pipeline(index);
+	index = init_voicecall_bt_to_iacc_pipeline(bt_usp_port, index);
+	index = init_a2dp_pipeline(bt_usp_port, index);
 	index = init_voicecall_playback_pipeline(index);
 	index = init_voicecall_capture_pipeline(index);
 	index = init_iacc_loopback_playback_pipeline(index);
@@ -2499,7 +2537,7 @@ static void free_hw_ep_handle_and_buff(struct device *dev,
 		hw_ep_handle_buff->handle, hw_ep_handle_buff->handle_phy_addr);
 }
 
-struct kcm_t *kcm_init(struct device *dev)
+struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 {
 	int ret;
 	int i;
@@ -2565,7 +2603,7 @@ struct kcm_t *kcm_init(struct device *dev)
 			peq_params_array_def, sizeof(peq_params_array_def));
 	memcpy(music_dbe_default_params,
 		dbe_params_array_def, sizeof(dbe_params_array_def));
-	init_pipeline();
+	init_pipeline(bt_usp_port);
 
 	return kcm;
 error_alloc_capture_i2s_stereo_ep_failed:

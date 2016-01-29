@@ -123,7 +123,7 @@ u16 get_music_passthrough_op_id(void);
 u16 get_peq_op_id(u16 index);
 u16 get_dbe_op_id(u16 index);
 u16 get_delay_op_id(void);
-struct kcm_t *kcm_init(struct device *dev);
+struct kcm_t *kcm_init(int bt_usp_port, struct device *dev);
 void kcm_deinit(struct device *dev);
 int open_stream(int stream);
 void close_stream(int stream);

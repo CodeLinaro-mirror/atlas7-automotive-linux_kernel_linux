@@ -40,6 +40,7 @@ struct audio_unit {
 	int pchannels;
 	int rchannels;
 	u32 type;
+	int usp_port;
 };
 
 struct kalimba_debug_data {
@@ -54,7 +55,8 @@ struct kalimba_debug_data {
 static struct kalimba_debug_data *debug_data;
 
 static int insert_audio_unit_into_list(unsigned long addr, u32 type,
-		unsigned long buff_length, int pchannels, int rchannels)
+		unsigned long buff_length, int pchannels, int rchannels,
+		int usp_port)
 {
 	struct audio_unit *audio_unit;
 
@@ -70,6 +72,7 @@ static int insert_audio_unit_into_list(unsigned long addr, u32 type,
 	audio_unit->buff_length = buff_length;
 	audio_unit->pchannels = pchannels;
 	audio_unit->rchannels = rchannels;
+	audio_unit->usp_port = usp_port;
 	list_add(&audio_unit->node, &debug_data->audio_unit_list);
 	return debug_data->audio_unit_id;
 }
@@ -87,6 +90,7 @@ static int setup_audio_unit(unsigned long arg)
 	int pchannels = 2;
 	int rchannels = 1;
 	int i2s_slave_mode = 0;
+	int usp_port = 0;
 	enum iacc_input_path path = NO_USED;
 
 	get_user(Type, (u32 __user *)arg);
@@ -109,6 +113,15 @@ static int setup_audio_unit(unsigned long arg)
 			pchannels = channels * 2;
 		/* The record channels must same as playback channels */
 		rchannels = pchannels;
+
+		if (TypeConf & 1)
+			usp_port = 0;
+		else if (TypeConf & 2)
+			usp_port = 1;
+		else if (TypeConf & 4)
+			usp_port = 2;
+		else if (TypeConf & 8)
+			usp_port = 3;
 	}
 
 	if (Type == CTRL_DEVICE_TYPE_IACC) {
@@ -175,8 +188,8 @@ static int setup_audio_unit(unsigned long arg)
 			goto out;
 		break;
 	case CTRL_DEVICE_TYPE_USP:
-		sirf_usp_pcm_params(0, pchannels, SampleRate);
-		sirf_usp_pcm_params(1, pchannels, SampleRate);
+		sirf_usp_pcm_params(usp_port, 0, pchannels, SampleRate);
+		sirf_usp_pcm_params(usp_port, 1, pchannels, SampleRate);
 		break;
 	default:
 		ret = -EINVAL;
@@ -184,7 +197,7 @@ static int setup_audio_unit(unsigned long arg)
 	}
 
 	ret = insert_audio_unit_into_list(buff_addr, Type,
-			BufferLength, pchannels, rchannels);
+			BufferLength, pchannels, rchannels, usp_port);
 	if (ret < 0)
 		buff_free(debug_data->dev, (u32)buff_addr);
 out:
@@ -225,7 +238,8 @@ static void start_audio_unit(unsigned long arg)
 				ret = 0;
 				break;
 			case CTRL_DEVICE_TYPE_USP:
-				sirf_usp_pcm_start(playback);
+				sirf_usp_pcm_start(audio_unit->usp_port,
+					playback);
 				ret = 0;
 				break;
 			default:
@@ -258,7 +272,8 @@ static void stop_audio_unit(unsigned long arg)
 				ret = 0;
 				break;
 			case CTRL_DEVICE_TYPE_USP:
-				sirf_usp_pcm_stop(playback);
+				sirf_usp_pcm_stop(audio_unit->usp_port,
+					playback);
 				ret = 0;
 				break;
 			default:

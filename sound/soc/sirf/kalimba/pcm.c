@@ -64,6 +64,7 @@ struct kas_priv_data {
 };
 
 static int i2s_master;
+static int bt_usp_port;
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_MMAP |
@@ -752,13 +753,15 @@ static int kas_pcm_voicecall_hw_params(struct snd_pcm_substream *substream,
 	if (playback) {
 		memset(kcm->playback_usp_sco_ep.buff, 0,
 			kcm->playback_usp_sco_ep.buff_bytes);
-		sirf_usp_pcm_params(playback, kcm->playback_usp_sco_ep.channels,
-				kcm->playback_usp_sco_ep.sample_rate);
+		sirf_usp_pcm_params(bt_usp_port, playback,
+			kcm->playback_usp_sco_ep.channels,
+			kcm->playback_usp_sco_ep.sample_rate);
 	} else {
 		memset(kcm->capture_usp_sco_ep.buff, 0,
 			kcm->capture_usp_sco_ep.buff_bytes);
-		sirf_usp_pcm_params(playback, kcm->capture_usp_sco_ep.channels,
-				kcm->capture_usp_sco_ep.sample_rate);
+		sirf_usp_pcm_params(bt_usp_port, playback,
+			kcm->capture_usp_sco_ep.channels,
+			kcm->capture_usp_sco_ep.sample_rate);
 	}
 	prepare_stream(rtd->cpu_dai->id, params_channels(params), 0,
 		params_rate(params), 1, params_period_bytes(params) / 4);
@@ -775,7 +778,7 @@ static int kas_pcm_a2dp_hw_params(struct snd_pcm_substream *substream,
 
 	memset(kcm->capture_usp_a2dp_ep.buff, 0,
 		kcm->capture_usp_a2dp_ep.buff_bytes);
-	sirf_usp_pcm_params(0, kcm->capture_usp_a2dp_ep.channels,
+	sirf_usp_pcm_params(bt_usp_port, 0, kcm->capture_usp_a2dp_ep.channels,
 		kcm->capture_usp_a2dp_ep.sample_rate);
 	prepare_stream(rtd->cpu_dai->id, params_channels(params), 0,
 		params_rate(params), 1, params_period_bytes(params) / 4);
@@ -1042,11 +1045,11 @@ static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (playback) {
-			sirf_usp_pcm_start(0);
+			sirf_usp_pcm_start(bt_usp_port, 0);
 			iacc_start(playback, kcm->playback_iacc_ep.channels);
 		} else {
 			iacc_start(playback, kcm->capture_iacc_sco_ep.channels);
-			sirf_usp_pcm_start(1);
+			sirf_usp_pcm_start(bt_usp_port, 1);
 		}
 		start_stream(rtd->cpu_dai->id, 1);
 		break;
@@ -1054,11 +1057,11 @@ static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (playback) {
-			sirf_usp_pcm_stop(0);
+			sirf_usp_pcm_stop(bt_usp_port, 0);
 			iacc_stop(1);
 		} else {
 			iacc_stop(0);
-			sirf_usp_pcm_stop(1);
+			sirf_usp_pcm_stop(bt_usp_port, 1);
 		}
 		break;
 	}
@@ -1081,14 +1084,14 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		iacc_start(1, kcm->playback_iacc_ep.channels);
-		sirf_usp_pcm_start(0);
+		sirf_usp_pcm_start(bt_usp_port, 0);
 		start_stream(rtd->cpu_dai->id, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		iacc_stop(1);
-		sirf_usp_pcm_stop(0);
+		sirf_usp_pcm_stop(bt_usp_port, 0);
 		break;
 	}
 	return 0;
@@ -1319,7 +1322,7 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 		return -ENOMEM;
 
 	snd_soc_platform_set_drvdata(platform, priv_data);
-	priv_data->kcm = kcm_init(platform->dev);
+	priv_data->kcm = kcm_init(bt_usp_port, platform->dev);
 	if (IS_ERR(priv_data->kcm))
 		return PTR_ERR(priv_data->kcm);
 	return 0;
@@ -1508,6 +1511,8 @@ static int kas_pcm_dev_probe(struct platform_device *pdev)
 
 	if (of_get_property(np, "i2s-master", NULL))
 		i2s_master = 1;
+
+	of_property_read_u32(pdev->dev.of_node, "bt-usp-port", &bt_usp_port);
 
 	ret = devm_snd_soc_register_platform(&pdev->dev, &kas_soc_platform);
 	if (ret < 0)

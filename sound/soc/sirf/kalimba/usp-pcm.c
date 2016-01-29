@@ -23,6 +23,7 @@
 
 #include "../sirf-usp.h"
 
+#define SUPPORT_USP_PORT		4
 /* Extra clocks required by Atlas7 USP3 */
 static const char *const a7_exclks[] = {
 	"a7ca_btss", "a7ca_io",
@@ -40,7 +41,7 @@ struct sirf_usp {
 	u32 fifo_size;
 };
 
-static struct sirf_usp *usp;
+static struct sirf_usp *usp[SUPPORT_USP_PORT];
 
 static void sirf_usp_tx_enable(struct sirf_usp *usp)
 {
@@ -66,23 +67,23 @@ static void sirf_usp_rx_disable(struct sirf_usp *usp)
 		USP_RX_ENA, ~USP_RX_ENA);
 }
 
-void sirf_usp_pcm_start(int playback)
+void sirf_usp_pcm_start(int port, int playback)
 {
 	if (playback)
-		sirf_usp_tx_enable(usp);
+		sirf_usp_tx_enable(usp[port]);
 	else
-		sirf_usp_rx_enable(usp);
+		sirf_usp_rx_enable(usp[port]);
 }
 
-void sirf_usp_pcm_stop(int playback)
+void sirf_usp_pcm_stop(int port, int playback)
 {
 	if (playback)
-		sirf_usp_tx_disable(usp);
+		sirf_usp_tx_disable(usp[port]);
 	else
-		sirf_usp_rx_disable(usp);
+		sirf_usp_rx_disable(usp[port]);
 }
 
-void sirf_usp_pcm_params(int playback, int channels, int rate)
+void sirf_usp_pcm_params(int port, int playback, int channels, int rate)
 {
 	u32 data_len = 16;
 	u32 frame_len, shifter_len;
@@ -90,13 +91,13 @@ void sirf_usp_pcm_params(int playback, int channels, int rate)
 	shifter_len = data_len;
 
 	/* DSP_A mode */
-	regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
+	regmap_update_bits(usp[port]->regmap, USP_RX_FRAME_CTRL,
 			USP_I2S_SYNC_CHG, 0);
 	frame_len = data_len * channels;
 	data_len = frame_len;
 
 	if (playback)
-		regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
+		regmap_update_bits(usp[port]->regmap, USP_TX_FRAME_CTRL,
 			USP_TXC_DATA_LEN_MASK | USP_TXC_FRAME_LEN_MASK
 			| USP_TXC_SHIFTER_LEN_MASK | USP_TXC_SLAVE_CLK_SAMPLE,
 			((data_len - 1) << USP_TXC_DATA_LEN_OFFSET)
@@ -104,7 +105,7 @@ void sirf_usp_pcm_params(int playback, int channels, int rate)
 			| ((shifter_len - 1) << USP_TXC_SHIFTER_LEN_OFFSET)
 			| USP_TXC_SLAVE_CLK_SAMPLE);
 	else {
-		regmap_update_bits(usp->regmap, USP_RX_FRAME_CTRL,
+		regmap_update_bits(usp[port]->regmap, USP_RX_FRAME_CTRL,
 			USP_RXC_DATA_LEN_MASK | USP_RXC_FRAME_LEN_MASK
 			| USP_RXC_SHIFTER_LEN_MASK | USP_SINGLE_SYNC_MODE,
 			((data_len - 1) << USP_RXC_DATA_LEN_OFFSET)
@@ -115,7 +116,7 @@ void sirf_usp_pcm_params(int playback, int channels, int rate)
 		 * In single sync mode, TFS is used both as TX and RX, and is
 		 * driven by peer. So it should be set to slave mode.
 		 */
-		regmap_update_bits(usp->regmap, USP_TX_FRAME_CTRL,
+		regmap_update_bits(usp[port]->regmap, USP_TX_FRAME_CTRL,
 			USP_TXC_SLAVE_CLK_SAMPLE, USP_TXC_SLAVE_CLK_SAMPLE);
 	}
 }
@@ -188,76 +189,90 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	void __iomem *base;
 	struct resource *mem_res;
 	int i;
+	int port;
+	bool is_atlas7_bt_usp = false;
 
-	usp = devm_kzalloc(&pdev->dev, sizeof(struct sirf_usp),
+	if (of_property_read_u32(pdev->dev.of_node, "cell-index", &port)) {
+		dev_err(&pdev->dev, "Fail to get USP index\n");
+		return -ENODEV;
+	}
+
+	usp[port] = devm_kzalloc(&pdev->dev, sizeof(struct sirf_usp),
 			GFP_KERNEL);
-	if (!usp)
+	if (!(usp[port]))
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, usp);
+	platform_set_drvdata(pdev, usp[port]);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap(&pdev->dev, mem_res->start,
 		resource_size(mem_res));
 	if (base == NULL)
 		return -ENOMEM;
-	usp->regmap = devm_regmap_init_mmio(&pdev->dev, base,
+	usp[port]->regmap = devm_regmap_init_mmio(&pdev->dev, base,
 					    &sirf_usp_regmap_config);
-	if (IS_ERR(usp->regmap))
-		return PTR_ERR(usp->regmap);
+	if (IS_ERR(usp[port]->regmap))
+		return PTR_ERR(usp[port]->regmap);
 
-	usp->fifo_size = -1;
+	usp[port]->fifo_size = -1;
 	if (of_property_read_u32(pdev->dev.of_node, "fifosize",
-				&usp->fifo_size))
-		usp->fifo_size = USP_FIFO_SIZE;
+				&usp[port]->fifo_size))
+		usp[port]->fifo_size = USP_FIFO_SIZE;
 
-	usp->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(usp->clk)) {
+	usp[port]->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(usp[port]->clk)) {
 		dev_err(&pdev->dev, "Get clock failed.\n");
-		return PTR_ERR(usp->clk);
+		return PTR_ERR(usp[port]->clk);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
-		usp->exclks[i] = devm_clk_get(&pdev->dev, a7_exclks[i]);
-		if (IS_ERR(usp->exclks[i])) {
-			dev_err(&pdev->dev, "Get clock failed.\n");
-			return PTR_ERR(usp->exclks[i]);
+	if (of_device_is_compatible(pdev->dev.of_node, "sirf,atlas7-bt-usp")) {
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
+			usp[port]->exclks[i] = devm_clk_get(&pdev->dev,
+				a7_exclks[i]);
+			if (IS_ERR(usp[port]->exclks[i])) {
+				dev_err(&pdev->dev, "Get clock failed.\n");
+				return PTR_ERR(usp[port]->exclks[i]);
+			}
 		}
+		is_atlas7_bt_usp = true;
 	}
 
-	ret = clk_prepare_enable(usp->clk);
+	ret = clk_prepare_enable(usp[port]->clk);
 	if (ret) {
 		dev_err(&pdev->dev, "clk_enable failed: %d\n", ret);
 		return ret;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
-		ret = clk_prepare_enable(usp->exclks[i]);
-		if (ret) {
-			dev_err(&pdev->dev, "%s exclk enable failed: %d\n",
-				a7_exclks[i], ret);
-			goto enable_exclk_failed;
+	if (is_atlas7_bt_usp) {
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
+			ret = clk_prepare_enable(usp[port]->exclks[i]);
+			if (ret) {
+				dev_err(&pdev->dev, "%s exclk enable failed: %d\n",
+						a7_exclks[i], ret);
+				goto enable_exclk_failed;
+			}
 		}
 	}
-	sirf_usp_i2s_init(usp);
+	sirf_usp_i2s_init(usp[port]);
 
 	return 0;
 enable_exclk_failed:
 	for (i -= 1; i >= 0; i--)
-		clk_disable_unprepare(usp->exclks[i]);
-	clk_disable_unprepare(usp->clk);
+		clk_disable_unprepare(usp[port]->exclks[i]);
+	clk_disable_unprepare(usp[port]->clk);
 	return ret;
 }
 
 static const struct of_device_id sirf_usp_pcm_of_match[] = {
 	{ .compatible = "sirf,atlas7-bt-usp", },
+	{ .compatible = "sirf,prima2-usp-pcm", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sirf_usp_pcm_of_match);
 
 static struct platform_driver sirf_usp_pcm_driver = {
 	.driver = {
-		.name = "sirf-atlas7-bt-usp",
+		.name = "sirf-usp-pcm",
 		.of_match_table = sirf_usp_pcm_of_match,
 	},
 	.probe = sirf_usp_pcm_probe,
