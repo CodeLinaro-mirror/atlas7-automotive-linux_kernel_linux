@@ -76,6 +76,24 @@ Example:
 	  resets = <&rstc 6>;
   };
 
+SirfSoc DCU:
+
+Required properties:
+- compatible : "sirf,atlas7-dcu" for atlas7 platform
+- reg : should contain 2 register ranges(address and length).
+- interrupts : dcu interrupt.
+Required nodes:
+- clock: dcu clock index in the SOC clock system.
+
+Example:
+  dcu@13220000 {
+	  compatible = "sirf,atlas7-dcu";
+	  reg = <0x13220000 0x10000>,
+	      <0x132c0000 0x10000>;
+	  interrupts = <0 96 0>;
+	  clocks = <&car 93>;
+  };
+
 SirfSoc Panel Control:
 
 Required properties:
