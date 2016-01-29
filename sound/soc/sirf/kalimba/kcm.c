@@ -2541,7 +2541,7 @@ struct kcm_t *kcm_init(struct device *dev)
 		goto error_alloc_capture_usp_a2dp_ep_failed;
 	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
-		BUFF_BYTES_IACC_SCO_CAPTURE, 2, 48000);
+		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 48000);
 	if (ret) {
 		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
 		goto error_alloc_capture_iacc_sco_ep_failed;
