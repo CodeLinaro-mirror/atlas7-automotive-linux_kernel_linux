@@ -293,7 +293,9 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 	if (list_empty(&vip->capture))
 		goto out;
 
-	if (is_cvd_vip(vip))
+	if (is_cvd_vip(vip) || is_com_vip(vip))
+		vip_hw_wait_dma_idle(vip);
+	else
 		dmaengine_terminate_all(vip->dma_chan);
 
 	vip_hw_stop(vip);
@@ -465,13 +467,17 @@ static void vip_hw_start_dma(struct vip_dev *vip, struct vip_buffer *buf)
 /* single dma mode */
 static void vip_hw_wait_dma_idle(struct vip_dev *vip)
 {
+	uint32_t times = 200000;
 	/*
 	* Currently we have no workable way to abort an active DMA,
 	* so we have to wait for its finishing.
-	* It can finish in 1ms the fastest, and it runs atomic.
+	* add ~40ms timeout in case hang up.
+	* this solution is just a workround, it will make the interrupt
+	* datency bigger than 40ms. we will discard it later.
 	*/
-	while (vip_read(DMAN_VALID) & 0x1)
+	while ((vip_read(DMAN_VALID) & 0x1) && times--)
 		cpu_relax();
+
 }
 
 /* set vip fifo level stop check/low check/high check length */
@@ -1157,13 +1163,7 @@ static int vip_start_dma(struct vip_dev *vip)
 	BUG_ON(size == 0);
 	BUG_ON(height == 0);
 
-	/* maybe it can be removed */
 	if (vb == NULL) {
-		if (is_cvd_vip(vip) || is_com_vip(vip))
-			vip_hw_wait_dma_idle(vip);
-		else
-			dmaengine_terminate_all(vip->dma_chan);
-
 		vip_hw_stop(vip);
 		return -EINVAL;
 	}
