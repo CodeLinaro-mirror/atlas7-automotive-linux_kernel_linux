@@ -1234,6 +1234,23 @@ static int cvd_s_routing(struct v4l2_subdev *sd, u32 input,
 	return 0;
 }
 
+static int cvd_enum_framesizes(struct v4l2_subdev *sd,
+					struct v4l2_frmsizeenum *fsize)
+{
+	if (fsize->index != 0)
+			return -EINVAL;
+
+	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->stepwise.min_width = 2;
+	fsize->stepwise.min_height = 1;
+	fsize->stepwise.max_width = 720;
+	fsize->stepwise.max_height = 576;
+	fsize->stepwise.step_width = 2;
+	fsize->stepwise.step_height = 1;
+
+	return 0;
+}
+
 static int cvd_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct cvd_dev *dec = container_of(ctrl->handler, struct cvd_dev, hdl);
@@ -1322,6 +1339,7 @@ static struct v4l2_subdev_video_ops cvd_video_ops = {
 	.g_crop		= cvd_g_crop,
 	.enum_mbus_fmt	= cvd_enum_fmt,
 	.s_routing	= cvd_s_routing,
+	.enum_framesizes = cvd_enum_framesizes,
 };
 
 static struct v4l2_subdev_ops cvd_ops = {

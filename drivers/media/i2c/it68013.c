@@ -651,6 +651,23 @@ static int it68013_g_timings(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int it68013_enum_framesizes(struct v4l2_subdev *sd,
+					struct v4l2_frmsizeenum *fsize)
+{
+	if (fsize->index != 0)
+			return -EINVAL;
+
+	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->stepwise.min_width = 2;
+	fsize->stepwise.min_height = 1;
+	fsize->stepwise.max_width = 1920;
+	fsize->stepwise.max_height = 1080;
+	fsize->stepwise.step_width = 2;
+	fsize->stepwise.step_height = 1;
+
+	return 0;
+}
+
 static struct v4l2_subdev_core_ops it68013_subdev_core_ops = {
 
 };
@@ -661,7 +678,7 @@ static struct v4l2_subdev_video_ops it68013_subdev_video_ops = {
 	.try_mbus_fmt	= it68013_try_fmt,
 	.enum_mbus_fmt	= it68013_enum_fmt,
 	.g_dv_timings = it68013_g_timings,
-
+	.enum_framesizes = it68013_enum_framesizes,
 };
 
 static struct v4l2_subdev_ops it68013_subdev_ops = {
