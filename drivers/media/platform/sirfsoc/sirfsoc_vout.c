@@ -113,7 +113,15 @@ static const struct v4l2_fmtdesc sirfsoc_vout_formats[] = {
 	.pixelformat = V4L2_PIX_FMT_RGB565,
 	},
 	{
-	.description = "RGB8888",
+	.description = "RGB888",
+	.pixelformat = V4L2_PIX_FMT_XBGR32,
+	},
+	{
+	.description = "ARGB8888",
+	.pixelformat = V4L2_PIX_FMT_ABGR32,
+	},
+	{
+	.description = "ARGB32",
 	.pixelformat = V4L2_PIX_FMT_RGB32,
 	},
 	{
@@ -185,6 +193,16 @@ static int __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(__u32 pix_fmt)
 		vdss_pixfmt = VDSS_PIXELFORMAT_565;
 		break;
 
+	case V4L2_PIX_FMT_XBGR32:
+		vdss_pixfmt = VDSS_PIXELFORMAT_BGRX_8880;
+		break;
+
+	case V4L2_PIX_FMT_ABGR32:
+		/*
+		 * V4L2_PIX_FMT_RGB32 is ill-defined and has been
+		 * deprecated, but we still support it for compatibility,
+		 * it is treated as V4L2_PIX_FMT_ABGR32 here
+		 */
 	case V4L2_PIX_FMT_RGB32:
 		vdss_pixfmt = VDSS_PIXELFORMAT_8888;
 		break;
@@ -239,7 +257,6 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 		break;
 	case VDSS_PIXELFORMAT_8888:
 	case VDSS_PIXELFORMAT_BGRX_8880:
-	case VDSS_PIXELFORMAT_RGBX_8880:
 		*hor_stride = align_size(width * 4, 8) / 4;
 		*ver_stride = height;
 		break;
@@ -383,6 +400,8 @@ static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout,
 	if ((l->is_enabled(l)) && !vout->vout_info_dirty) {
 		if ((vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB565) &&
 			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_RGB32) &&
+			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_ABGR32) &&
+			(vout->pix_fmt.pixelformat != V4L2_PIX_FMT_XBGR32) &&
 			(vout->v4l2buf_field == buf->v4l2_buf.field)) {
 			struct sirfsoc_vdss_layer *l = vout->layer;
 
@@ -534,6 +553,13 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
 		bpp = 2;
 		break;
+	case V4L2_PIX_FMT_ABGR32:
+	case V4L2_PIX_FMT_XBGR32:
+		/*
+		 * V4L2_PIX_FMT_RGB32 is ill-defined and has been
+		 * deprecated, but we still support it for compatibility,
+		 * it is treated as V4L2_PIX_FMT_ABGR32 here
+		 */
 	case V4L2_PIX_FMT_RGB32:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
 		bpp = 4;
