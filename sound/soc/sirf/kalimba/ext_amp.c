@@ -46,7 +46,8 @@ static irqreturn_t cdgpio_handler(int irq, void *data)
 	mutex_lock(&info->lock);
 
 	cancel_delayed_work(&info->work);
-	kalimba_set_master_gain(info->gain + MGAIN_DB_DOWN);
+	info->gain += MGAIN_DB_DOWN;
+	kalimba_set_master_gain(info->gain);
 	schedule_delayed_work(&info->work,
 				msecs_to_jiffies(info->t1));
 
@@ -96,7 +97,8 @@ static void cdgpio_delay_work(struct work_struct *work)
 		return;
 
 	mutex_lock(&info->lock);
-	kalimba_set_master_gain(info->gain + MGAIN_DB_UP);
+	info->gain += MGAIN_DB_UP;
+	kalimba_set_master_gain(info->gain);
 	mutex_unlock(&info->lock);
 	schedule_delayed_work(&info->work,
 				msecs_to_jiffies(info->t2));
