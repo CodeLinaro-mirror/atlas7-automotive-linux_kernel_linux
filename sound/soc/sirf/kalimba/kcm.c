@@ -77,8 +77,8 @@ static int cvcrcv_to_resampler_connection;
 static int resampler_to_voicecall_splitter1_connection;
 static int voicecall_splitter1_to_voicecall_splitter2_connection[2];
 static int voicecall_splitter2_to_mixer2_connection[4];
-static int iaccsource_to_aecref_connection;
-static int aecref_to_cvcsend_mic_connection;
+static int iaccsource_to_aecref_connection[2];
+static int aecref_to_cvcsend_mic_connection[2];
 
 static unsigned long active_stream;
 
@@ -704,7 +704,10 @@ static int init_music_stereo_pipeline(void)
 
 	/* AEC-Ref */
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
-	components_global[i].params[0] = CAPABILITY_ID_AEC_REF_1MIC;
+	if (enable_2mic_cvc)
+		components_global[i].params[0] = CAPABILITY_ID_AEC_REF_2MIC;
+	else
+		components_global[i].params[0] = CAPABILITY_ID_AEC_REF_1MIC;
 	components_global[i].params[1] = 2;
 	components_global[i].params[2] = AEC_REF_SET_SAMPLE_RATES;
 	components_global[i].params[3] = ARRAY_SIZE(aec_ref_sample_rate_config);
@@ -1296,7 +1299,12 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 	i++;
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
-	components_global[i].params[0] = CAPABILITY_ID_CVCHF1MIC_SEND_WB;
+	if (enable_2mic_cvc)
+		components_global[i].params[0] =
+			CAPABILITY_ID_CVCHF2MIC_SEND_WB;
+	else
+		components_global[i].params[0] =
+			CAPABILITY_ID_CVCHF1MIC_SEND_WB;
 	components_global[i].params[1] = 1;
 	components_global[i].params[2] = OPERATOR_MSG_SET_UCID;
 	components_global[i].params[3] = 1;
@@ -1328,7 +1336,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 	i++;
 
 	/* MIC 1 to AEC REF */
-	iaccsource_to_aecref_connection = i;
+	iaccsource_to_aecref_connection[0] = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
 		(u32)(&components_global[iacc_voicecall_source].ret[0]);
@@ -1338,8 +1346,21 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 	components_global[i].params[3] = 0xA002;
 	i++;
 
+	if (enable_2mic_cvc) {
+		/* MIC 2 to AEC REF */
+		iaccsource_to_aecref_connection[1] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[iacc_voicecall_source].ret[1]);
+		components_global[i].params[1] = 0;
+		components_global[i].params[2] =
+			(u32)(&components_global[aec_ref].ret[0]);
+		components_global[i].params[3] = 0xA003;
+		i++;
+	}
+
 	/* AEC REF to cvc send (MIC1) */
-	aecref_to_cvcsend_mic_connection = i;
+	aecref_to_cvcsend_mic_connection[0] = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
 		(u32)(&components_global[aec_ref].ret[0]);
@@ -1348,6 +1369,19 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 		(u32)(&components_global[cvc_send].ret[0]);
 	components_global[i].params[3] = 0xA001;
 	i++;
+
+	if (enable_2mic_cvc) {
+		/* AEC REF to cvc send (MIC2) */
+		aecref_to_cvcsend_mic_connection[1] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[aec_ref].ret[0]);
+		components_global[i].params[1] = 0x2004;
+		components_global[i].params[2] =
+			(u32)(&components_global[cvc_send].ret[0]);
+		components_global[i].params[3] = 0xA002;
+		i++;
+	}
 
 	cvcsend_to_usp3sink_connection = i;
 	components_global[i].component_id = CONNECT_REQ;
@@ -1393,10 +1427,16 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = iacc_voicecall_source;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
-		iaccsource_to_aecref_connection;
+		iaccsource_to_aecref_connection[0];
+	if (enable_2mic_cvc)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			iaccsource_to_aecref_connection[1];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = cvc_send;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
-		aecref_to_cvcsend_mic_connection;
+		aecref_to_cvcsend_mic_connection[0];
+	if (enable_2mic_cvc)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			aecref_to_cvcsend_mic_connection[1];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = usp3_sink;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 		cvcsend_to_usp3sink_connection;
@@ -1573,9 +1613,15 @@ static int init_voicecall_capture_pipeline(int index)
 			aecref_to_iaccsink_connection[k];
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = iacc_voicecall_source;
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
-		iaccsource_to_aecref_connection;
+		iaccsource_to_aecref_connection[0];
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
-		aecref_to_cvcsend_mic_connection;
+		aecref_to_cvcsend_mic_connection[0];
+	if (enable_2mic_cvc) {
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+			iaccsource_to_aecref_connection[1];
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+			aecref_to_cvcsend_mic_connection[1];
+	}
 
 	pipeline_link_count[VOICECALL_CAPTURE_STREAM] = j;
 	return index;
@@ -2199,7 +2245,9 @@ void stop_stream(int stream)
 		component = &components_global[pipeline_link[stream][i]];
 
 		if (stream == VOICECALL_IACC_TO_BT_STREAM &&
-			component->params[0] == CAPABILITY_ID_AEC_REF_1MIC)
+			component->params[0] == (enable_2mic_cvc ?
+			CAPABILITY_ID_AEC_REF_2MIC :
+			CAPABILITY_ID_AEC_REF_1MIC))
 			continue;
 		if (component->component_id == CREATE_OPERATOR_REQ) {
 			if (component->running_refcnt == 1) {
@@ -2579,7 +2627,8 @@ struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 		goto error_alloc_capture_usp_a2dp_ep_failed;
 	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
-		BUFF_BYTES_IACC_SCO_CAPTURE, 1, 48000);
+		BUFF_BYTES_IACC_SCO_CAPTURE, enable_2mic_cvc ? 2 : 1,
+		48000);
 	if (ret) {
 		pr_err("Allocate IACC-SCO capture endpoint buffer failed.\n");
 		goto error_alloc_capture_iacc_sco_ep_failed;

@@ -30,6 +30,8 @@
 #include "kcm.h"
 #include "usp-pcm.h"
 
+bool enable_2mic_cvc = false;
+module_param(enable_2mic_cvc, bool, 0);
 #define KAS_PCM_COUNT	12
 
 struct kas_pcm_data {
