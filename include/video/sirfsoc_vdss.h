@@ -629,6 +629,10 @@ struct sirfsoc_vdss_output *sirfsoc_vdss_find_output_from_panel(
 struct sirfsoc_vdss_screen *sirfsoc_vdss_find_screen_from_panel
 	(struct sirfsoc_vdss_panel *panel);
 
+int sirfsoc_vdss_panel_enable_encoder(void);
+int sirfsoc_vdss_panel_disable_encoder(void);
+bool sirfsoc_vdss_panel_find_encoder(void);
+
 int sirfsoc_vdss_get_num_lcdc(void);
 int sirfsoc_vdss_get_num_screens(u32 lcdc_index);
 struct sirfsoc_vdss_screen *sirfsoc_vdss_get_screen(u32 lcdc_index, int num);

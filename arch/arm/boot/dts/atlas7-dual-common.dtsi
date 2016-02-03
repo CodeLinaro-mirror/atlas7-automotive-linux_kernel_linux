@@ -159,5 +159,36 @@
 				};
 			};
 		};
+
+		hdmi: display@2 {
+			compatible = "hdmi-panel";
+			source = "rgb.0";
+			/*status = "okay";*/
+			status = "disabled";
+			pinctrl-names = "default";
+			pinctrl-0 = <&ld_ldd_16bit_pmx &ld_ldd_fck_pmx
+				&ld_ldd_lck_pmx>;
+
+			data-lines  = <16>;
+
+			display-timings {
+				native-mode = <&timing2>;
+				timing2: timing2 {
+					clock-frequency = <74250000>;
+					hactive = <1280>;
+					vactive = <720>;
+					hfront-porch = <110>;
+					hback-porch = <220>;
+					hsync-len = <40>;
+					vback-porch = <19>;
+					vfront-porch = <5>;
+					vsync-len = <6>;
+					hsync-active = <0>;
+					vsync-active = <0>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+			};
+		};
 	};
 };

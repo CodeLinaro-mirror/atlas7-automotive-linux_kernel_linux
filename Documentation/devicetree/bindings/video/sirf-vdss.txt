@@ -162,6 +162,13 @@ display0: display@0 {
 };
 
 An example of vdss panel(rgb interface, but the output is HDMI) control parameters and the display timing properties:
+while one requirement is one HDMI transmitter node(itetech,it661x) in i2c section is needed:
+
+it661x: it661x_transmitter_chip@4d {
+	compatible = "itetech,it661x";
+	reg = <0x4D>;
+};
+
 display0: display@0 {
 	compatible = "tm,WSVGA-panel", "hdmi-panel";
 	source = "rgb.0";

@@ -321,6 +321,27 @@
 					reg = <0x38>;
 				};
 
+				it661x: it661x_transmitter_chip@4d {
+					compatible = "itetech,it661x";
+					reg = <0x4D>;
+					/*
+					 * video-resolution:
+					 *      1: 480P@60
+					 *      2: 720P@60(by default)
+					 *      3: 1080P@60
+					 */
+					video-resolution = <2>;
+					/*
+					 * video-in-pixel-format &
+					 * video-out-pixel-format:
+					 *      0: RGB888
+					 *      1: YUV422
+					 *      2: YUV444
+					 */
+					video-in-pixel-format = <1>;
+					video-out-pixel-format = <0>;
+				};
+
 				it68013: decoder@49 {
 					compatible = "itetech,it68013";
 					reg = <0x49>;
