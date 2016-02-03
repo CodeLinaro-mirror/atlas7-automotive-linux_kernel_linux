@@ -430,6 +430,8 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
 		data = kmalloc(length, GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 		if (copy_from_user(data, (void __user *)(arg + 8),
 				length)) {
 			dev_err(dev, "Get PM code failed.\n");

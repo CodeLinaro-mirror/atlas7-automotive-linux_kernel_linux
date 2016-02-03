@@ -593,6 +593,8 @@ static long debug_ioctl(struct file *filp,
 	case IOCTL_KALIMBA_API:
 		get_user(api_cmd_length, (u16 __user *)(arg + 2));
 		api_cmd = kmalloc(api_cmd_length * 2 + 4, GFP_KERNEL);
+		if (!api_cmd)
+			return -ENOMEM;
 		if (copy_from_user(api_cmd, (u32 __user *)arg,
 			api_cmd_length * 2 + 4)) {
 			kfree(api_cmd);
@@ -634,6 +636,8 @@ static long debug_ioctl(struct file *filp,
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(size, (u32 __user *)(arg + 4));
 		data = kmalloc(size, GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 		if (!copy_from_user(data, (u32 __user *)(arg + 8),
 				size)) {
 			ret = buff_fill(debug_data->dev, start_addr,
@@ -647,6 +651,8 @@ static long debug_ioctl(struct file *filp,
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(size, (u32 __user *)(arg + 4));
 		data = kmalloc(size, GFP_KERNEL);
+		if (!data)
+			return -ENOMEM;
 		ret = buff_read(debug_data->dev, start_addr, size, data);
 		if (!ret) {
 			if (copy_to_user((u32 __user *)(arg + 8), data,
