@@ -591,8 +591,8 @@ static long debug_ioctl(struct file *filp,
 	case IOCTL_KALIMBA_DOWNLOAD_BOOTCODE:
 		return firmware_ioctl(debug_data->dev, cmd, arg);
 	case IOCTL_KALIMBA_API:
-		api_cmd = kmalloc(256, GFP_KERNEL);
 		get_user(api_cmd_length, (u16 __user *)(arg + 2));
+		api_cmd = kmalloc(api_cmd_length * 2 + 4, GFP_KERNEL);
 		if (copy_from_user(api_cmd, (u32 __user *)arg,
 			api_cmd_length * 2 + 4)) {
 			kfree(api_cmd);
