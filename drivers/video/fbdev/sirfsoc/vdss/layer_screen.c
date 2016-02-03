@@ -104,14 +104,20 @@ struct layer_priv_data {
 	bool shadow_extra_info_dirty;
 
 	bool enabled;
+	bool preempted;
+
+	/*
+	 * when this layer is preempted, vdss will notify the owner with
+	 * the following callback
+	 */
+	sirfsoc_layer_notify_t func;
+	void *arg;
 
 	/*
 	 * True if overlay is to be enabled. Used to check and calculate configs
 	 * for the overlay before it is enabled in the HW.
 	 */
 	bool enabling;
-
-	bool skipped;
 };
 
 struct screen_priv_data {
@@ -209,6 +215,26 @@ static void vdss_layer_update_regs(struct sirfsoc_vdss_layer *l)
 		ldata->shadow_info_dirty = true;
 }
 
+static void vdss_set_layer_status(struct sirfsoc_vdss_layer *l,
+	bool enable)
+{
+	struct layer_priv_data *ldata = get_layer_data(l);
+	/*
+	 * When inline mode, dcu and layer must be enabled or
+	 * disabled together. If we only disable layer, dcu will
+	 * hang
+	 */
+	if (ldata->info.disp_mode == VDSS_DISP_INLINE) {
+		if (enable == false)
+			dcu_disable();
+		else
+			dcu_enable();
+	}
+
+	lcdc_layer_enable(l->lcdc_id, l->id, enable,
+		ldata->info.disp_mode != VDSS_DISP_NORMAL);
+}
+
 static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)
 {
 	struct layer_priv_data *ldata = get_layer_data(l);
@@ -216,14 +242,10 @@ static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)
 
 	VDSSDBG("writing layer %d regs extra", l->id);
 
-	if (!ldata->extra_info_dirty || ldata->skipped)
+	if (!ldata->extra_info_dirty || ldata->preempted)
 		return;
 
-	/* note: write also when op->enabled == false, so that the ovl gets
-	 * disabled */
-
-	lcdc_layer_enable(l->lcdc_id, l->id, ldata->enabled,
-		ldata->info.passthrough);
+	vdss_set_layer_status(l, ldata->enabled);
 
 	sdata = get_screen_data(l->screen);
 
@@ -362,8 +384,8 @@ void vdss_restore_screen_layer(u32 lcdc_index)
 						 linfo,
 						 &sdata->timings);
 			}
-			lcdc_layer_enable(l->lcdc_id, l->id, ldata->enabled,
-				ldata->info.passthrough);
+
+			vdss_set_layer_status(l, ldata->enabled);
 		}
 	}
 }
@@ -509,6 +531,39 @@ static bool vdss_layer_is_enabled(struct sirfsoc_vdss_layer *layer)
 	return e;
 }
 
+static bool vdss_layer_is_preempted(struct sirfsoc_vdss_layer *layer)
+{
+	struct layer_priv_data *ldata = get_layer_data(layer);
+	unsigned long flags;
+	bool e;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	e = ldata->preempted;
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	return e;
+}
+
+static int vdss_layer_register_notify(
+	struct sirfsoc_vdss_layer *layer,
+	sirfsoc_layer_notify_t func,
+	void *arg)
+{
+	struct layer_priv_data *ldata = get_layer_data(layer);
+	unsigned long flags;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	ldata->func = func;
+	ldata->arg = arg;
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	return 0;
+}
+
 static int vdss_layer_enable(struct sirfsoc_vdss_layer *layer)
 {
 	struct layer_priv_data *ldata = get_layer_data(layer);
@@ -579,34 +634,52 @@ void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **pLayers,
 	struct sirfsoc_vdss_layer *l;
 	unsigned long flags;
 	struct layer_priv_data *ldata;
+	struct sirfsoc_vdss_layer_info *info;
 	bool skip;
 	enum vdss_lcdc lcdc_id;
 
 	if (pLayers == NULL || size == 0)
 		return;
 
-	spin_lock_irqsave(&data_lock, flags);
-
 	lcdc_id = pLayers[0]->lcdc_id;
-	for (i = 0; i < num_layers[lcdc_id]; i++) {
-		l = &layers[lcdc_id][i];
 
-		skip = true;
+	for (i = 0; i < num_layers[lcdc_id]; i++) {
+		int ret = 0;
+
+		l = &layers[lcdc_id][i];
+		skip = false;
+
 		for (j = 0; j < size; j++) {
 			if (pLayers[j] == l)
-				skip = false;
+				skip = true;
 		}
-		if (!skip)
+
+		if (skip)
 			continue;
 
 		ldata = get_layer_data(l);
-		ldata->skipped = enable;
-		if (ldata->enabled)
-			lcdc_layer_enable(l->lcdc_id, l->id, !enable,
-				ldata->info.passthrough);
-	}
+		info = &ldata->info;
 
-	spin_unlock_irqrestore(&data_lock, flags);
+		spin_lock_irqsave(&data_lock, flags);
+
+		if (enable)
+			ldata->preempted = true;
+
+		spin_unlock_irqrestore(&data_lock, flags);
+
+		if (ldata->func)
+			ret = ldata->func(ldata->arg, !enable);
+
+		spin_lock_irqsave(&data_lock, flags);
+
+		if (ldata->enabled && !ret)
+			vdss_set_layer_status(l, !enable);
+
+		if (!enable)
+			ldata->preempted = false;
+
+		spin_unlock_irqrestore(&data_lock, flags);
+	}
 }
 EXPORT_SYMBOL(sirfsoc_vdss_set_exclusive_layers);
 
@@ -766,7 +839,7 @@ static void vdss_layer_flip(struct sirfsoc_vdss_layer *l, u32 srcbase)
 
 	spin_lock_irqsave(&data_lock, flags);
 
-	info->base = srcbase;
+	info->src_surf.base = srcbase;
 	lcdc_flip(l->lcdc_id, l->id, info);
 
 	spin_unlock_irqrestore(&data_lock, flags);
@@ -1238,8 +1311,10 @@ void vdss_init_layers(u32 lcdc_index)
 		l->caps = 0;
 		l->supported_fmts = 0;
 		l->is_enabled = vdss_layer_is_enabled;
+		l->is_preempted = vdss_layer_is_preempted;
 		l->enable = vdss_layer_enable;
 		l->disable = vdss_layer_disable;
+		l->register_notify = vdss_layer_register_notify;
 		l->set_screen = vdss_layer_set_screen;
 		l->unset_screen = vdss_layer_unset_screen;
 		l->set_info = vdss_layer_set_info;

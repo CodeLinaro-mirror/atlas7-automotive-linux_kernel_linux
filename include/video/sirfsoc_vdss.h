@@ -280,6 +280,8 @@ typedef void (*sirfsoc_vpp_notify_t)(void *arg,
 				enum vdss_vpp id,
 				enum vdss_vpp_op_type type);
 
+typedef int (*sirfsoc_layer_notify_t)(void *arg, bool enable);
+
 struct vdss_vpp_create_device_params {
 	sirfsoc_vpp_notify_t func;
 	void *arg;
@@ -310,6 +312,13 @@ struct vdss_dcu_op_params {
 		struct vdss_dcu_blt_params blt;
 		struct vdss_dcu_inline_params inline_mode;
 	} op;
+};
+
+enum vdss_disp_mode {
+	VDSS_DISP_NORMAL = 0,
+	VDSS_DISP_INLINE,
+	VDSS_DISP_PASS_THROUGH,
+	VDSS_DISP_IBV,
 };
 
 struct sirfsoc_vdss_screen;
@@ -349,15 +358,11 @@ struct sirfsoc_video_timings {
 };
 
 struct sirfsoc_vdss_layer_info {
-	enum vdss_pixelformat fmt;
-	u32 base;
+	struct vdss_surface src_surf;
 	struct vdss_rect src_rect;	/* source rect offset */
 	struct vdss_rect dst_rect;	/* destination rect offset */
 	struct vdss_rect src_rect_on;
 	struct vdss_rect dst_rect_on;
-
-	int surf_width;			/* surface width/stride */
-	int surf_height;		/* surface height */
 
 	bool ckey_on;
 	u32 ckey;
@@ -369,7 +374,7 @@ struct sirfsoc_vdss_layer_info {
 	u8 alpha;
 	bool pre_mult_alpha;
 	bool source_alpha;
-	bool passthrough;
+	enum vdss_disp_mode disp_mode;
 };
 
 struct sirfsoc_vdss_layer {
@@ -401,6 +406,10 @@ struct sirfsoc_vdss_layer {
 	int (*enable)(struct sirfsoc_vdss_layer *layer);
 	int (*disable)(struct sirfsoc_vdss_layer *layer);
 	bool (*is_enabled)(struct sirfsoc_vdss_layer *layer);
+	int (*register_notify)(struct sirfsoc_vdss_layer *layer,
+		sirfsoc_layer_notify_t func, void *arg);
+
+	bool (*is_preempted)(struct sirfsoc_vdss_layer *layer);
 
 	int (*set_screen)(struct sirfsoc_vdss_layer *layer,
 		struct sirfsoc_vdss_screen *screen);
@@ -660,9 +669,9 @@ void *sirfsoc_vpp_create_device(enum vdss_vpp id,
 int sirfsoc_vpp_destroy_device(void *handle);
 int sirfsoc_vpp_present(void *handle, struct vdss_vpp_op_params *params);
 
-/* dcu functions*/
+/* dcu functions */
 int sirfsoc_dcu_reset(void);
-int sirfsoc_dcu_prresent(struct vdss_dcu_op_params *params);
+int sirfsoc_dcu_present(struct vdss_dcu_op_params *params);
 bool sirfsoc_dcu_is_inline_support(enum vdss_pixelformat fmt,
 	enum vdss_field field);
 

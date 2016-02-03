@@ -765,8 +765,8 @@ static int rv_auxiliary_start(struct rv_dev *rv)
 	rv->d_info.saved_l_info = info;
 
 	/* apply rearview auxiliary layer setting */
-	info.base = rv->aux_dma_addr;
-	info.passthrough = false;
+	info.src_surf.base = rv->aux_dma_addr;
+	info.disp_mode = VDSS_DISP_NORMAL;
 
 	info.src_rect.left = 0;
 	info.src_rect.top = 0;
@@ -777,10 +777,10 @@ static int rv_auxiliary_start(struct rv_dev *rv)
 	info.dst_rect.top = 0;
 	info.dst_rect.right =  rv->d_info.panel->timings.xres - 1;
 	info.dst_rect.bottom = rv->d_info.panel->timings.yres - 1;
-	info.fmt = VDSS_PIXELFORMAT_8888;
+	info.src_surf.fmt = VDSS_PIXELFORMAT_8888;
 
-	info.surf_width = rv->d_info.panel->timings.xres;
-	info.surf_height = rv->d_info.panel->timings.yres;
+	info.src_surf.width = rv->d_info.panel->timings.xres;
+	info.src_surf.height = rv->d_info.panel->timings.yres;
 
 	info.global_alpha	= false;
 	info.ckey_on		= false;
@@ -844,7 +844,7 @@ static void rv_callback_from_vpp(void *arg,
 	* so it will cause screen flash, to avoid this issue,
 	* we disable all the active layer at the beginning.
 	*/
-	if (type == VPP_OP_PASS_THROUGH)
+	if (type != VPP_OP_IBV)
 		sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, true);
 
 }
@@ -889,16 +889,16 @@ static void rv_start(struct rv_dev *rv)
 	/* lcd layer setting */
 	rv->d_info.l->get_info(rv->d_info.l, &info);
 
-	info.base = 0;
-	info.passthrough = true;
+	info.src_surf.base = 0;
+	info.disp_mode = VDSS_DISP_IBV;
 
 	info.src_rect = rv->d_info.sca_rect;
 	info.dst_rect = rv->d_info.dst_rect;
 
-	info.fmt = VPP_TO_LCD_PIXELFORMAT;
-	info.surf_width = rv->d_info.sca_rect.right -
+	info.src_surf.fmt = VPP_TO_LCD_PIXELFORMAT;
+	info.src_surf.width = rv->d_info.sca_rect.right -
 		rv->d_info.sca_rect.left + 1;
-	info.surf_height = rv->d_info.sca_rect.bottom -
+	info.src_surf.height = rv->d_info.sca_rect.bottom -
 		rv->d_info.sca_rect.top + 1;
 
 	rv->d_info.l->set_info(rv->d_info.l, &info);
@@ -976,6 +976,7 @@ static void rv_stop(struct rv_dev *rv)
 	/* stop vpp */
 	sirfsoc_vpp_destroy_device(rv->rv_vpp);
 	rv->rv_vpp = NULL;
+	rv->d_info.l->screen->wait_for_vsync(rv->d_info.l->screen);
 
 	/* enable all other layers */
 	sirfsoc_vdss_set_exclusive_layers(&rv->d_info.l, 1, false);

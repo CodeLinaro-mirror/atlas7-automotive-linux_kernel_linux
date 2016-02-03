@@ -542,8 +542,8 @@ void lcdc_layer_set_passthrough(u32 lcdc_index, enum vdss_layer layer,
 {
 	u32 src_skip, dst_skip;
 
-	if ((info->fmt >= VDSS_PIXELFORMAT_UYVY) &&
-		(info->fmt <= VDSS_PIXELFORMAT_VYUY))
+	if ((info->src_surf.fmt >= VDSS_PIXELFORMAT_UYVY) &&
+		(info->src_surf.fmt <= VDSS_PIXELFORMAT_VYUY))
 		src_skip = (info->src_rect_on.left & 3);
 	else
 		src_skip = (info->src_rect_on.left & 15);
@@ -569,31 +569,32 @@ static void lcdc_layer_set_size(u32 lcdc_index, enum vdss_layer layer,
 {
 	lcdc_layer_check_size(&info->src_rect, &info->dst_rect,
 		&info->src_rect_on, &info->dst_rect_on,
-		scn_width, scn_height, info->passthrough);
+		scn_width, scn_height, info->disp_mode != VDSS_DISP_NORMAL);
 
 	lcdc_layer_set_dst(lcdc_index, layer, &info->dst_rect_on);
 
-	if (info->passthrough)
+	if (info->disp_mode != VDSS_DISP_NORMAL)
 		lcdc_layer_set_passthrough(lcdc_index, layer, info);
 	else
 		lcdc_layer_set_dma(lcdc_index, layer, &info->src_rect_on,
-			info->surf_width, info->surf_height,
-			info->fmt, info->base);
+			info->src_surf.width, info->src_surf.height,
+			info->src_surf.fmt, info->src_surf.base);
 }
 
 void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info,
 	struct sirfsoc_video_timings *timings)
 {
-	lcdc_layer_set_fmt(lcdc_index, layer, info->fmt, info->passthrough);
+	lcdc_layer_set_fmt(lcdc_index, layer, info->src_surf.fmt,
+		info->disp_mode != VDSS_DISP_NORMAL);
 	lcdc_layer_set_size(lcdc_index, layer, info, timings->xres,
 		timings->yres);
 
 	lcdc_layer_set_ckey(lcdc_index, layer, info->ckey_on, info->ckey,
-		info->dst_ckey_on, info->dst_ckey, info->fmt);
+		info->dst_ckey_on, info->dst_ckey, info->src_surf.fmt);
 
-	lcdc_layer_set_alpha(lcdc_index, layer, info->fmt, info->pre_mult_alpha,
-		info->source_alpha, info->global_alpha,
+	lcdc_layer_set_alpha(lcdc_index, layer, info->src_surf.fmt,
+		info->pre_mult_alpha, info->source_alpha, info->global_alpha,
 		info->alpha);
 
 	lcdc_layer_confirm_setting(lcdc_index, layer);
@@ -602,10 +603,10 @@ void lcdc_layer_setup(u32 lcdc_index, enum vdss_layer layer,
 void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info)
 {
-	if (info->passthrough == false)
+	if (info->disp_mode == VDSS_DISP_NORMAL)
 		lcdc_layer_set_base(lcdc_index, layer, &info->src_rect,
-				info->surf_width, info->surf_height, info->fmt,
-				info->base);
+			info->src_surf.width, info->src_surf.height,
+			info->src_surf.fmt, info->src_surf.base);
 	lcdc_layer_confirm_setting(lcdc_index, layer);
 }
 

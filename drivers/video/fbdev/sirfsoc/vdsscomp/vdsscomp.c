@@ -69,8 +69,12 @@ static bool vdsscomp_layer_enable(
 	    &src_rect, layer, &dst_rect))
 		return false;
 
-	l->passthrough = sirfsoc_vpp_is_passthrough_support(info->fmt);
-	if (l->passthrough) {
+	if (sirfsoc_vpp_is_passthrough_support(info->fmt))
+		l->disp_mode = VDSS_DISP_PASS_THROUGH;
+	else
+		l->disp_mode = VDSS_DISP_NORMAL;
+
+	if (l->disp_mode == VDSS_DISP_PASS_THROUGH) {
 		struct vdss_vpp_op_params params;
 
 		/* Create VPP device */
@@ -112,18 +116,23 @@ static bool vdsscomp_layer_enable(
 
 	memset(&layer_info, 0, sizeof(layer_info));
 	layer->get_info(layer, &layer_info);
-	layer_info.base = phys_addr;
-	layer_info.fmt = info->fmt;
-	layer_info.surf_width = info->width;
-	layer_info.surf_height = info->height;
 
-	layer_info.src_rect = src_rect;
+	if (l->disp_mode == VDSS_DISP_NORMAL) {
+		layer_info.src_surf = src_surf;
+		layer_info.src_rect = src_rect;
+	} else {
+		layer_info.src_surf.base = 0;
+		layer_info.src_surf.fmt = info->fmt;
+		layer_info.src_surf.width = dst_rect.right - dst_rect.left + 1;
+		layer_info.src_surf.height = dst_rect.bottom - dst_rect.top + 1;
+		layer_info.src_rect = dst_rect;
+	}
 	layer_info.dst_rect = dst_rect;
 
 	layer_info.pre_mult_alpha = info->pre_mult_alpha;
-	layer_info.passthrough = l->passthrough;
+	layer_info.disp_mode = l->disp_mode;
 
-	if (layer_info.fmt == VDSS_PIXELFORMAT_8888)
+	if (layer_info.src_surf.fmt == VDSS_PIXELFORMAT_8888)
 		layer_info.source_alpha = 1;
 
 	print_vdss_layer_info(&layer_info);
@@ -140,7 +149,7 @@ static void vdsscomp_layer_disable(struct vdsscomp_layer_data *l)
 	if (l->vpp) {
 		sirfsoc_vpp_destroy_device(l->vpp);
 		l->vpp = NULL;
-		l->passthrough = false;
+		l->disp_mode = VDSS_DISP_NORMAL;
 	}
 }
 
@@ -148,7 +157,7 @@ static void vdsscomp_layer_flip(struct vdsscomp_layer_data *l, u32 base)
 {
 	struct sirfsoc_vdss_layer *layer = l->layer;
 
-	if (l->passthrough) {
+	if (l->disp_mode == VDSS_DISP_PASS_THROUGH) {
 		struct vdss_vpp_op_params vpp_op = {0};
 
 		vpp_op.type = VPP_OP_PASS_THROUGH;
@@ -224,7 +233,8 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 			/* If the fmt is changed, disable the layer */
 			if (disp->layers[layer].enabled) {
 				l->layer->get_info(l->layer, &layer_info);
-				if (layer_info.fmt != disp->layers[layer].fmt)
+				if (layer_info.src_surf.fmt !=
+				    disp->layers[layer].fmt)
 					vdsscomp_layer_disable(l);
 			} else
 				vdsscomp_layer_disable(l);

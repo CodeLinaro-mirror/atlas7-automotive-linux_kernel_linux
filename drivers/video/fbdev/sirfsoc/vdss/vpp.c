@@ -1260,6 +1260,9 @@ static int __vpp_schedule(struct vpp_adapter *adapter,
 		}
 	}
 
+	if (new_dev == NULL)
+		goto pro_end;
+
 	/* High priority work is doing, notify the client */
 	if (new_dev != in_dev && in_dev && in_dev->func)
 		in_dev->func(in_dev->arg, in_dev->vpp_id, type);
@@ -1281,8 +1284,6 @@ static int __vpp_schedule(struct vpp_adapter *adapter,
 		 * */
 		if (new_dev->op == VPP_OP_PASS_THROUGH) {
 			new_dev->info.params.op.passthrough.flip = false;
-			new_dev->info.is_dirty = true;
-		} else if (new_dev->op == VPP_OP_INLINE) {
 			new_dev->info.is_dirty = true;
 		}
 

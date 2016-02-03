@@ -38,6 +38,40 @@ struct sirfsoc_video_device {
 	struct sirfsoc_vdss_panel *display[SIRFSOC_MAX_DISPLAY];
 };
 
+enum sirfsoc_vout_work_mode {
+	VOUT_IDLE = 0,
+	VOUT_NORMAL,
+	VOUT_PASSTHROUGH,
+	VOUT_INLINE,
+};
+
+struct vout_normal_mode {
+	struct vb2_buffer *active_frm;
+	struct vb2_buffer *next_frm;
+};
+
+struct vout_passthrough_mode {
+	struct vb2_buffer *active_frm;
+	struct vb2_buffer *next_frm;
+};
+
+struct vout_inline_mode {
+	struct vb2_buffer *active_frm;
+	struct vb2_buffer *next_frm[2];
+	bool indicator;
+};
+
+struct sirfsoc_vout_worker {
+	enum sirfsoc_vout_work_mode mode;
+	void *vpp_handle;
+	bool active;
+	union {
+		struct vout_normal_mode normal;
+		struct vout_passthrough_mode passthrough;
+		struct vout_inline_mode inline_mode;
+	} op;
+};
+
 struct sirfsoc_vout_device {
 	struct video_device *vd;
 	struct sirfsoc_video_device *vid_dev;
@@ -53,7 +87,6 @@ struct sirfsoc_vout_device {
 	enum v4l2_field v4l2buf_field;
 	enum v4l2_buf_type type;
 	struct vb2_queue vb2_q;
-	struct vb2_buffer *active_frm, *next_frm;
 	/* allocator-specific contexts for each plane */
 	struct vb2_alloc_ctx *alloc_ctx;
 	struct list_head dma_queue;
@@ -70,9 +103,7 @@ struct sirfsoc_vout_device {
 
 	struct sirfsoc_vdss_panel *display;
 	struct sirfsoc_vdss_layer *layer;
-	void *vpp_handle;
-	bool passthrough;
-	bool preempted;
+	struct sirfsoc_vout_worker worker;
 	bool vout_info_dirty;
 
 	struct v4l2_ctrl_handler ctrl_handler;

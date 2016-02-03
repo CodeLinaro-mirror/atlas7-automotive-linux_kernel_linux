@@ -416,7 +416,6 @@ int sirfsocfb_setup_layer(struct fb_info *fbi, struct sirfsoc_vdss_layer *l,
 	u32 data_start_p = 0;
 	struct sirfsoc_vdss_layer_info info;
 	int xres, yres;
-	int surf_width, surf_height;
 	int i;
 
 	WARN_ON(!atomic_read(&sfbi->region->lock_count));
@@ -443,19 +442,19 @@ int sirfsocfb_setup_layer(struct fb_info *fbi, struct sirfsoc_vdss_layer *l,
 		goto err;
 	}
 
-	surf_width = fix->line_length / (var->bits_per_pixel >> 3);
-	surf_height = var->yres;
-
 	l->get_info(l, &info);
 
-	info.base = data_start_p;
-	info.surf_width = surf_width;
-	info.surf_height = surf_height;
+	info.src_surf.fmt = fmt;
+	info.src_surf.width = fix->line_length / (var->bits_per_pixel >> 3);
+	info.src_surf.height = var->yres;
+	info.src_surf.base = data_start_p;
+
+	info.disp_mode = VDSS_DISP_NORMAL;
+
 	info.src_rect.left = 0;
 	info.src_rect.right = info.src_rect.left + xres - 1;
 	info.src_rect.top = 0;
 	info.src_rect.bottom = info.src_rect.top + yres - 1;
-	info.fmt = fmt;
 
 	info.dst_rect.left = posx;
 	info.dst_rect.right = info.dst_rect.left + outw - 1;

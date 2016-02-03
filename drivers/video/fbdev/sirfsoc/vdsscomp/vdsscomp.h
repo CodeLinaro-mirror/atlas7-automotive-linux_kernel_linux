@@ -35,7 +35,7 @@ struct vdsscomp_sync {
 struct vdsscomp_layer_data {
 	struct sirfsoc_vdss_layer *layer;
 	void *vpp;
-	bool passthrough;
+	enum vdss_disp_mode disp_mode;
 	bool preempted;
 };
 
@@ -79,14 +79,15 @@ struct vdsscomp_dev {
 #ifdef CONFIG_VDSSCOMP_DEBUG
 static void print_vdss_layer_info(struct sirfsoc_vdss_layer_info *info)
 {
-	pr_info("fmt %d\n", info->fmt);
+	pr_info("fmt %d\n", info->src_surf.fmt);
 	pr_info("src_rect (%d, %d, %d, %d)\n",
 		info->src_rect.left, info->src_rect.top,
 		info->src_rect.right, info->src_rect.bottom);
 	pr_info("dst_rect (%d, %d, %d, %d)\n",
 		info->dst_rect.left, info->dst_rect.top,
 		info->dst_rect.right, info->dst_rect.bottom);
-	pr_info("width %d, height %d\n", info->surf_width, info->surf_height);
+	pr_info("width %d, height %d\n", info->src_surf.width,
+		info->src_surf.height);
 	pr_info("pre_mult_alpha %d, source_alpha %d\n", info->pre_mult_alpha,
 		info->source_alpha);
 }

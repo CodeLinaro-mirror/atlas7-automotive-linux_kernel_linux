@@ -1,11 +1,18 @@
 /*
  * linux/drivers/video/fbdev/sirfsoc/vdss/core.c
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc
- * group company.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
+
 #define VDSS_SUBSYS_NAME "CORE"
 
 #include <linux/kernel.h>
@@ -202,9 +209,18 @@ static int __init sirfsoc_vdss_init(void)
 		goto err_lvdsc;
 	}
 
+	ret = dcu_init_platform_driver();
+	if (ret) {
+		VDSSERR("Failed to initialize dcu platform driver\n");
+		goto err_dcu;
+	}
+
 	vdss_initialized = true;
 
 	return 0;
+
+err_dcu:
+	lvdsc_uninit_platform_driver();
 
 err_lvdsc:
 	vpp_uninit_platform_driver();
@@ -231,6 +247,5 @@ static void __exit sirfsoc_vdss_exit(void)
 subsys_initcall(sirfsoc_vdss_init);
 module_exit(sirfsoc_vdss_exit);
 
-MODULE_AUTHOR("Jiansong Chen <Jiansong.Chen@csr.com>");
 MODULE_DESCRIPTION("SIRF Soc Video Display Subsystem");
 MODULE_LICENSE("GPL v2");
