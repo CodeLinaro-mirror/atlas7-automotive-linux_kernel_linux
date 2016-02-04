@@ -51,6 +51,7 @@ static int mixer_1, mixer_2;
 static int volume_ctrl;
 static int aec_ref;
 
+static int cvc_post_resampler;
 static int cvc_rcv;
 static int cvc_send;
 
@@ -1215,6 +1216,7 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
 	resample_op_id[VOICECALL_BT_TO_IACC_STREAM] = i;
+	cvc_post_resampler = i;
 	i++;
 
 	cvcrcv_to_resampler_connection = i;
@@ -1567,11 +1569,29 @@ static int init_voicecall_playback_pipeline(int index)
 {
 	int i = index;
 	int k, j = 0;
+	int resampler_to_cvcrcv_connection;
 
-	resample_op_id[VOICECALL_PLAYBACK_STREAM] =
-		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[VOICECALL_PLAYBACK_STREAM] = i;
+	i++;
 
+	resampler_to_cvcrcv_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[resample_op_id[
+			VOICECALL_PLAYBACK_STREAM]].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[cvc_rcv].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		resample_op_id[VOICECALL_PLAYBACK_STREAM];
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_rcv;
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		resampler_to_cvcrcv_connection;
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
 		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
@@ -1603,9 +1623,31 @@ static int init_voicecall_playback_pipeline(int index)
 
 static int init_voicecall_capture_pipeline(int index)
 {
+	int i = index;
 	int j = 0, k;
+	int cvcsend_to_resampler_to_connection;
 
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
+	resample_op_id[VOICECALL_CAPTURE_STREAM] = i;
+	i++;
+
+	cvcsend_to_resampler_to_connection = i;
+	components_global[i].component_id = CONNECT_REQ;
+	components_global[i].params[0] =
+		(u32)(&components_global[cvc_send].ret[0]);
+	components_global[i].params[1] = 0x2000;
+	components_global[i].params[2] =
+		(u32)(&components_global[resample_op_id[
+			VOICECALL_CAPTURE_STREAM]].ret[0]);
+	components_global[i].params[3] = 0xA000;
+	i++;
+
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+		resample_op_id[VOICECALL_CAPTURE_STREAM];
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = cvc_send;
+	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+		cvcsend_to_resampler_to_connection;
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = iacc_sink;
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = aec_ref;
 	for (k = 0; k < 4; k++)
@@ -1983,6 +2025,9 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			resample_cfg = get_rasample_conversion_conf(
 					kcm->capture_iacc_stereo_ep.sample_rate,
 					sample_rate);
+		else if (stream == VOICECALL_CAPTURE_STREAM)
+			resample_cfg = get_rasample_conversion_conf(
+					16000, sample_rate);
 
 		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
 				handle_addr, sw_endpoint_id[stream], resp);
@@ -2002,38 +2047,37 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 				ENDPOINT_CONF_PERIOD_SIZE, period_size, resp);
 		}
 
-		if (stream != VOICECALL_CAPTURE_STREAM) {
-			/* Set resample configration */
-			kalimba_operator_message(components_global[
-				resample_op_id[stream]].ret[0],
-				RESAMPLER_SET_CONVERSION_RATE, 1,
-				&resample_cfg, NULL, NULL, resp);
+		/* Set resample configration */
+		kalimba_operator_message(components_global[
+			resample_op_id[stream]].ret[0],
+			RESAMPLER_SET_CONVERSION_RATE, 1,
+			&resample_cfg, NULL, NULL, resp);
 
-			/* Connect resampler with sink*/
-			for (i = 0; i < channels; i++)
-				kalimba_connect_endpoints(components_global[
-					resample_op_id[stream]]
-					.ret[0] + 0x2000 + i,
-					sw_endpoint_id[stream][i],
-					&sw_endpoint_connect_id[stream][i],
-					resp);
-		} else {
-			/* Connect source with first operator */
-			for (i = 0; i < channels; i++)
-				kalimba_connect_endpoints(
-					stream_first_component->ret[0]
-					+ 0x2000 + i,
-					sw_endpoint_id[stream][i],
-					&sw_endpoint_connect_id[stream][i],
-					resp);
-		}
+		/* Connect resampler with sink*/
+		for (i = 0; i < channels; i++)
+			kalimba_connect_endpoints(components_global[
+				resample_op_id[stream]]
+				.ret[0] + 0x2000 + i,
+				sw_endpoint_id[stream][i],
+				&sw_endpoint_connect_id[stream][i],
+				resp);
 	} else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
 		|| stream == MUSIC_MONO_STREAM
 		|| stream == MUSIC_4CHANNELS_STREAM
 		|| stream == ALARM_STREAM
 		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		sw_channels[stream] = channels;
-		if (stream != NAVIGATION_STREAM)
+		if (stream == VOICECALL_PLAYBACK_STREAM) {
+			resample_cfg = get_rasample_conversion_conf(16000,
+				48000);
+			/* Set resample configration */
+			kalimba_operator_message(
+			components_global[cvc_post_resampler].ret[0],
+				RESAMPLER_SET_CONVERSION_RATE, 1,
+				&resample_cfg, NULL, NULL, resp);
+			resample_cfg = get_rasample_conversion_conf(sample_rate,
+				16000);
+		} else if (stream != NAVIGATION_STREAM)
 			resample_cfg = get_rasample_conversion_conf(sample_rate,
 				kcm->playback_iacc_ep.sample_rate);
 

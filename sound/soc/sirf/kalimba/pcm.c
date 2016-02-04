@@ -1344,7 +1344,8 @@ static struct snd_soc_platform_driver kas_soc_platform = {
 	.pcm_free = kas_pcm_free,
 };
 
-#define KAS_RATES		SNDRV_PCM_RATE_8000_192000
+#define KAS_RATES		(SNDRV_PCM_RATE_CONTINUOUS | \
+				SNDRV_PCM_RATE_8000_192000)
 #define KAS_FORMATS		(SNDRV_PCM_FMTBIT_S16_LE | \
 				SNDRV_PCM_FMTBIT_S24_LE)
 
