@@ -70,6 +70,8 @@
 #define VIDEO_SATURATION_MAX 1026
 #define VIDEO_SATURATION_MIN 0
 
+#define REARVIEW_LAYER		SIRFSOC_VDSS_LAYER3
+#define REARVIEW_AUXILIARY_LAYER SIRFSOC_VDSS_LAYER2
 
 struct display_info {
 	char		display[16];
@@ -544,7 +546,7 @@ static int rv_get_display_info(struct rv_dev *rv)
 	}
 
 	rv->d_info.l = sirfsoc_vdss_get_layer_from_screen(rv->d_info.scn,
-									true);
+				REARVIEW_LAYER, true);
 
 	if (!rv->d_info.l) {
 		dev_err(rv->dev, "no layer for rearview");
@@ -744,7 +746,7 @@ static int rv_auxiliary_start(struct rv_dev *rv)
 	struct sirfsoc_vdss_screen_info sinfo;
 
 	rv->d_info.aux_l = sirfsoc_vdss_get_layer_from_screen(rv->d_info.scn,
-									false);
+				REARVIEW_AUXILIARY_LAYER, false);
 	if (!rv->d_info.aux_l) {
 		dev_err(rv->dev, "no layer for rearview auxiliary");
 		return -EBUSY;

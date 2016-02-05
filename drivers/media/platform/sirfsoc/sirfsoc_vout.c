@@ -2008,6 +2008,7 @@ static int sirfsoc_vout_open(struct file *file)
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct sirfsoc_vdss_layer *l;
 	struct sirfsoc_vdss_screen *scn;
+	enum vdss_layer id;
 
 	if (vout == NULL)
 		return -ENODEV;
@@ -2031,10 +2032,17 @@ static int sirfsoc_vout_open(struct file *file)
 		return -ENODEV;
 	}
 
-	l = sirfsoc_vdss_get_layer_from_screen(scn, false);
+	/*
+	 * Layer ID depends on the index of vout in each display
+	 * eg. layer index for /dev/sirf-display*-vouti is (i + 1)
+	 */
+	id = vout->vd->index % SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY + 1;
+
+	l = sirfsoc_vdss_get_layer_from_screen(scn, id, false);
 
 	if (!l) {
-		v4l2_err(v4l2_dev, "no free layer for video output");
+		v4l2_err(v4l2_dev, "no free layer for %s\n",
+			vout->vd->name);
 		return -EBUSY;
 	}
 
