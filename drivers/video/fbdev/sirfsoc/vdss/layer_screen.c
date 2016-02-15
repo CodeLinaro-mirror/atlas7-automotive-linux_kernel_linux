@@ -103,7 +103,18 @@ struct layer_priv_data {
 	bool extra_info_dirty;
 	bool shadow_extra_info_dirty;
 
+	/*
+	 * it's used to remember the client op, isn't the
+	 * real hw status. And to check hw status, should
+	 * use both "enabled" and "preempted" flags
+	 * */
 	bool enabled;
+	/*
+	 * if there is a task with high priority to do, sometimes
+	 * some layer should be disabled forcedly, and "preempted"
+	 * flag will be set as true. Notes that at preset
+	 * the value of the "enabled" flag is unchanged
+	 * */
 	bool preempted;
 
 	/*
@@ -171,6 +182,165 @@ static struct screen_priv_data *get_screen_data(struct sirfsoc_vdss_screen *scn)
 	 * screen with one lcdc, this logic need refine.*/
 
 	return &vdss_data.screen_datas[scn->lcdc_id][0];
+}
+
+static void vdss_set_layer_status(struct sirfsoc_vdss_layer *l,
+	bool enable);
+
+static ssize_t layer_enable_show(struct sirfsoc_vdss_layer *l,
+	char *buf)
+{
+	struct layer_priv_data *ldata = get_layer_data(l);
+	unsigned long flags;
+	bool e;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	e = ldata->enabled && !ldata->preempted;
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", e);
+}
+
+static ssize_t layer_enable_store(struct sirfsoc_vdss_layer *l,
+	const char *buf, size_t size)
+{
+	int r;
+	bool e;
+	struct layer_priv_data *ldata = get_layer_data(l);
+	unsigned long flags;
+
+	r = strtobool(buf, &e);
+	if (r)
+		return r;
+
+	spin_lock_irqsave(&data_lock, flags);
+
+	/*
+	 * If the layer has been preempted, enable/disable operation
+	 * will be skipped
+	 * */
+	if (ldata->preempted) {
+		spin_unlock_irqrestore(&data_lock, flags);
+		return size;
+	}
+
+	/*
+	 * If there is no client to enable this layer, it is invalid to
+	 * enable it, because the display pipeline hasn't been setup.
+	 * */
+	if (!ldata->enabled && e) {
+		spin_unlock_irqrestore(&data_lock, flags);
+		return size;
+	}
+
+	vdss_set_layer_status(l, e);
+
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	return size;
+}
+
+struct layer_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct sirfsoc_vdss_layer *, char *);
+	ssize_t (*store)(struct sirfsoc_vdss_layer *, const char *, size_t);
+};
+
+#define LAYER_ATTR(_name, _mode, _show, _store) \
+	struct layer_attribute layer_attr_##_name = \
+	__ATTR(_name, _mode, _show, _store)
+
+static LAYER_ATTR(layer_enable, S_IRUGO|S_IWUSR,
+	layer_enable_show, layer_enable_store);
+
+static struct attribute *layer_sysfs_attrs[] = {
+	&layer_attr_layer_enable.attr,
+	NULL
+};
+
+static ssize_t layer_attr_show(struct kobject *kobj, struct attribute *attr,
+		char *buf)
+{
+	struct sirfsoc_vdss_layer *l;
+	struct layer_attribute *layer_attr;
+
+	l = container_of(kobj, struct sirfsoc_vdss_layer, kobj);
+	layer_attr = container_of(attr, struct layer_attribute, attr);
+
+	if (!layer_attr->show)
+		return -ENOENT;
+
+	return layer_attr->show(l, buf);
+}
+
+static ssize_t layer_attr_store(struct kobject *kobj, struct attribute *attr,
+		const char *buf, size_t size)
+{
+	struct sirfsoc_vdss_layer *l;
+	struct layer_attribute *layer_attr;
+
+	l = container_of(kobj, struct sirfsoc_vdss_layer, kobj);
+	layer_attr = container_of(attr, struct layer_attribute, attr);
+
+	if (!layer_attr->store)
+		return -ENOENT;
+
+	return layer_attr->store(l, buf, size);
+}
+
+static const struct sysfs_ops layer_sysfs_ops = {
+	.show = layer_attr_show,
+	.store = layer_attr_store,
+};
+
+static struct kobj_type layer_ktype = {
+	.sysfs_ops = &layer_sysfs_ops,
+	.default_attrs = layer_sysfs_attrs,
+};
+
+int vdss_init_layers_sysfs(u32 lcdc_index)
+{
+	int i;
+	int r;
+	int num_layer = sirfsoc_vdss_get_num_layers(lcdc_index);
+	struct platform_device *pdev = vdss_get_core_pdev();
+
+	for (i = 0; i < num_layer; ++i) {
+		struct sirfsoc_vdss_layer *l =
+			sirfsoc_vdss_get_layer(lcdc_index, i);
+
+		r = kobject_init_and_add(&l->kobj, &layer_ktype,
+				&pdev->dev.kobj, "lcd%d-%s",
+				lcdc_index, l->name);
+
+		if (r) {
+			VDSSERR("failed to create layer sysfs files\n");
+			goto err;
+		}
+	}
+
+	return 0;
+
+err:
+	vdss_uninit_layers_sysfs(lcdc_index);
+
+	return r;
+}
+
+void vdss_uninit_layers_sysfs(u32 lcdc_index)
+{
+	int i;
+	const int num_layer = sirfsoc_vdss_get_num_layers(lcdc_index);
+
+	for (i = 0; i < num_layer; ++i) {
+		struct sirfsoc_vdss_layer *l =
+			sirfsoc_vdss_get_layer(lcdc_index, i);
+
+		kobject_del(&l->kobj);
+		kobject_put(&l->kobj);
+	}
 }
 
 /*
@@ -385,7 +555,8 @@ void vdss_restore_screen_layer(u32 lcdc_index)
 						 &sdata->timings);
 			}
 
-			vdss_set_layer_status(l, ldata->enabled);
+			if (!ldata->preempted)
+				vdss_set_layer_status(l, ldata->enabled);
 		}
 	}
 }
