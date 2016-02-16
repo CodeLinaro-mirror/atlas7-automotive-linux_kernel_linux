@@ -845,6 +845,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	int bpp = 0; /* byte per pixel */
 	int vdss_pixfmt;
 	bool interlaced = false;
+	bool pre_multi_alpha;
 
 	pix->width = clamp(pix->width, (u32)VIDEO_MIN_WIDTH,
 			(u32)VIDEO_MAX_WIDTH);
@@ -862,6 +863,10 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 
 	pix->pixelformat = sirfsoc_vout_formats[index].pixelformat;
 	pix->priv = 0;
+
+	pre_multi_alpha = (pix->flags &
+				V4L2_PIX_FMT_FLAG_PREMUL_ALPHA) ? true : false;
+	pix->flags |= V4L2_PIX_FMT_FLAG_PREMUL_ALPHA;
 
 	switch (pix->field) {
 	case V4L2_FIELD_ANY:
@@ -913,6 +918,12 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	case V4L2_PIX_FMT_RGB32:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
 		bpp = 4;
+
+		if (pre_multi_alpha)
+			pix->flags |= V4L2_PIX_FMT_FLAG_PREMUL_ALPHA;
+		else
+			pix->flags &= ~V4L2_PIX_FMT_FLAG_PREMUL_ALPHA;
+
 		break;
 	default:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
@@ -986,6 +997,8 @@ static int __sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 	fmt->sizeimage = fmt->bytesperline * fmt->height;
 	fmt->priv = 0;
 	fmt->colorspace = V4L2_COLORSPACE_SRGB;
+	/* pre multi alpha is enabled by default*/
+	fmt->flags |= V4L2_PIX_FMT_FLAG_PREMUL_ALPHA;
 
 	vout->src_rect.left = 0;
 	vout->src_rect.top = 0;
@@ -1013,6 +1026,8 @@ static int __sirfsoc_setup_video_data(struct sirfsoc_vout_device *vout)
 	vout->fbuf.capability = V4L2_FBUF_CAP_LOCAL_ALPHA |
 		V4L2_FBUF_CAP_GLOBAL_ALPHA | V4L2_FBUF_CAP_SRC_CHROMAKEY |
 		V4L2_FBUF_CAP_CHROMAKEY;
+
+	vout->pre_mult_alpha = true;
 
 	vout->vout_info_dirty = true;
 
@@ -1385,7 +1400,6 @@ static int sirfsoc_vout_s_fmt_vid_out(struct file *file, void *priv,
 	u32 hor_stride = 0;
 	u32 ver_stride = 0;
 
-
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
 	if (vout->vb2_q.streaming) {
@@ -1411,8 +1425,9 @@ static int sirfsoc_vout_s_fmt_vid_out(struct file *file, void *priv,
 	}
 
 	vout->pix_fmt = fmt->fmt.pix;
+
 	vout->pre_mult_alpha = (fmt->fmt.pix.flags &
-			V4L2_PIX_FMT_FLAG_PREMUL_ALPHA) ? true : false;
+				V4L2_PIX_FMT_FLAG_PREMUL_ALPHA) ? true : false;
 
 	vout->surf_width = hor_stride;
 	vout->surf_height = ver_stride;
