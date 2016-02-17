@@ -41,12 +41,7 @@
 #define RTC_CLOCK_SWITCH	0x1c
 #define SIRFSOC_RTC_CLK		0x03	/* others are reserved */
 
-/* Refer to RTC DIV switch */
-#define RTC_HZ			16
-
 /* This macro is also defined in arch/arm/plat-sirfsoc/cpu.c */
-#define RTC_SHIFT		4
-
 #define INTR_SYSRTC_CN		0x48
 
 struct sirfsoc_rtc_drv {
@@ -54,14 +49,10 @@ struct sirfsoc_rtc_drv {
 	u32			rtc_base;
 	u32			irq;
 	unsigned		irq_wake;
-	/* Overflow for every 8 years extra time */
-	u32			overflow_rtc;
 	spinlock_t		lock;
 	struct regmap *regmap;
-	void __iomem *retain_base;
 #ifdef CONFIG_PM
 	u32		saved_counter;
-	u32		saved_overflow_rtc;
 #endif
 };
 static u32 sirfsoc_rtc_readreg(struct sirfsoc_rtc_drv *rtcdrv, u32 offset)
@@ -93,19 +84,8 @@ static int sirfsoc_rtc_read_alarm(struct device *dev,
 	rtc_alarm = sirfsoc_rtc_readreg(rtcdrv, RTC_ALARM0);
 	memset(alrm, 0, sizeof(struct rtc_wkalrm));
 
-	/*
-	 * assume alarm interval not beyond one round counter overflow_rtc:
-	 * 0->0xffffffff
-	 */
-	/* if alarm is in next overflow cycle */
-	if (rtc_count > rtc_alarm)
-		rtc_time_to_tm((rtcdrv->overflow_rtc + 1)
-				<< (BITS_PER_LONG - RTC_SHIFT)
-				| rtc_alarm >> RTC_SHIFT, &(alrm->time));
-	else
-		rtc_time_to_tm(rtcdrv->overflow_rtc
-				<< (BITS_PER_LONG - RTC_SHIFT)
-				| rtc_alarm >> RTC_SHIFT, &(alrm->time));
+	rtc_time_to_tm(rtc_alarm, &alrm->time);
+
 	if (sirfsoc_rtc_readreg(rtcdrv, RTC_STATUS) & SIRFSOC_RTC_AL0E)
 		alrm->enabled = 1;
 
@@ -136,7 +116,7 @@ static int sirfsoc_rtc_set_alarm(struct device *dev,
 		}
 
 		sirfsoc_rtc_writereg(rtcdrv, RTC_ALARM0,
-				rtc_alarm << RTC_SHIFT);
+				rtc_alarm);
 		rtc_status_reg &= ~0x07; /* mask out the lower status bits */
 		/*
 		 * This bit RTC_AL sets it as a wake-up source for Sleep Mode
@@ -191,33 +171,8 @@ static int sirfsoc_rtc_read_time(struct device *dev,
 		cpu_relax();
 	} while (tmp_rtc != sirfsoc_rtc_readreg(rtcdrv, RTC_CN));
 
-	rtc_time_to_tm(rtcdrv->overflow_rtc << (BITS_PER_LONG - RTC_SHIFT) |
-					tmp_rtc >> RTC_SHIFT, tm);
+	rtc_time_to_tm(tmp_rtc, tm);
 	return 0;
-}
-
-#define RTC_SCRATCHPAD_PRIMA2_OFS            0x40
-#define RTC_SCRATCHPAD_ATLAS7_OFS            0x2c
-
-static void sirfsoc_rtc_set_overflow(struct sirfsoc_rtc_drv *rtcdrv)
-{
-
-	if (of_machine_is_compatible("sirf,atlas7"))
-		writel(rtcdrv->overflow_rtc, rtcdrv->retain_base +
-			RTC_SCRATCHPAD_ATLAS7_OFS);
-	else
-		sirfsoc_rtc_writereg(rtcdrv, RTC_SCRATCHPAD_PRIMA2_OFS,
-			rtcdrv->overflow_rtc);
-}
-
-static u32 sirfsoc_rtc_get_overflow(struct sirfsoc_rtc_drv *rtcdrv)
-{
-	if (of_machine_is_compatible("sirf,atlas7"))
-		return readl(rtcdrv->retain_base +
-			RTC_SCRATCHPAD_ATLAS7_OFS);
-	else
-		return sirfsoc_rtc_readreg(rtcdrv,
-			RTC_SCRATCHPAD_PRIMA2_OFS);
 }
 
 static int sirfsoc_rtc_set_time(struct device *dev,
@@ -228,11 +183,7 @@ static int sirfsoc_rtc_set_time(struct device *dev,
 	rtcdrv = dev_get_drvdata(dev);
 
 	rtc_tm_to_time(tm, &rtc_time);
-
-	rtcdrv->overflow_rtc = rtc_time >> (BITS_PER_LONG - RTC_SHIFT);
-	sirfsoc_rtc_set_overflow(rtcdrv);
-	sirfsoc_rtc_writereg(rtcdrv, RTC_CN,
-			rtc_time << RTC_SHIFT);
+	sirfsoc_rtc_writereg(rtcdrv, RTC_CN, rtc_time);
 
 	return 0;
 }
@@ -409,15 +360,14 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"failed to create spram firewall attribute, %d\n",
 				err);
-
 #endif
 
 	/*
-	 * Set SYS_RTC counter in RTC_HZ HZ Units
-	 * We are using 32K RTC crystal (32768 / RTC_HZ / 2) -1
-	 * If 16HZ, therefore RTC_DIV = 1023;
+	 * Set SYS_RTC counter in 1 HZ Units
+	 * We are using 32K RTC crystal (32768 /2) -1
 	 */
-	rtc_div = ((32768 / RTC_HZ) / 2) - 1;
+	rtc_div = (32768 / 2) - 1;
+
 	sirfsoc_rtc_writereg(rtcdrv, RTC_DIV, rtc_div);
 
 	/* 0x3 -> RTC_CLK */
@@ -428,18 +378,6 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 
 	/* reset SYS RTC ALARM1 */
 	sirfsoc_rtc_writereg(rtcdrv, RTC_ALARM1, 0x0);
-
-	/* Restore RTC Overflow From Register After Command Reboot */
-	np = of_find_compatible_node(NULL, NULL, "sirf,atlas7-retain");
-	if (np) {
-		rtcdrv->retain_base = of_iomap(np, 0);
-		if (!rtcdrv->retain_base) {
-			pr_err("err: %s: of_iomap error\n",
-					rtcdrv->retain_base);
-			return -ENOMEM;
-		}
-	}
-	rtcdrv->overflow_rtc = sirfsoc_rtc_get_overflow(rtcdrv);
 
 	rtcdrv->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
 			&sirfsoc_rtc_ops, THIS_MODULE);
@@ -467,14 +405,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 
 static int sirfsoc_rtc_remove(struct platform_device *pdev)
 {
-	struct sirfsoc_rtc_drv *rtcdrv = platform_get_drvdata(pdev);
-	struct device_node *np;
-
 	device_init_wakeup(&pdev->dev, 0);
-	np = of_find_compatible_node(NULL, NULL, "sirf,atlas7-retain");
-	if (np)
-		iounmap(rtcdrv->retain_base);
-
 	return 0;
 }
 
@@ -483,11 +414,8 @@ static int sirfsoc_rtc_remove(struct platform_device *pdev)
 static int sirfsoc_rtc_suspend(struct device *dev)
 {
 	struct sirfsoc_rtc_drv *rtcdrv = dev_get_drvdata(dev);
-
-	rtcdrv->overflow_rtc = sirfsoc_rtc_get_overflow(rtcdrv);
 	rtcdrv->saved_counter =
 		sirfsoc_rtc_readreg(rtcdrv, RTC_CN);
-	rtcdrv->saved_overflow_rtc = rtcdrv->overflow_rtc;
 	if (device_may_wakeup(dev) && !enable_irq_wake(rtcdrv->irq))
 		rtcdrv->irq_wake = 1;
 
@@ -508,11 +436,10 @@ static int sirfsoc_rtc_resume(struct device *dev)
 		/* 0x3 -> RTC_CLK */
 		sirfsoc_rtc_writereg(rtcdrv, RTC_CLOCK_SWITCH, SIRFSOC_RTC_CLK);
 		/*
-		 * Set SYS_RTC counter in RTC_HZ HZ Units
-		 * We are using 32K RTC crystal (32768 / RTC_HZ / 2) -1
-		 * If 16HZ, therefore RTC_DIV = 1023;
+		 * Set SYS_RTC counter in 1 HZ Units
+		 * We are using 32K RTC crystal (32768 /2) -1
 		 */
-		rtc_div = ((32768 / RTC_HZ) / 2) - 1;
+		rtc_div = (32768 / 2) - 1;
 
 		sirfsoc_rtc_writereg(rtcdrv, RTC_DIV, rtc_div);
 
@@ -522,20 +449,11 @@ static int sirfsoc_rtc_resume(struct device *dev)
 		/* reset SYS RTC ALARM1 */
 		sirfsoc_rtc_writereg(rtcdrv, RTC_ALARM1, 0x0);
 	}
-	rtcdrv->overflow_rtc = rtcdrv->saved_overflow_rtc;
 
-	/*
-	 * if current counter is small than previous,
-	 * it means overflow in sleep
-	 */
-	tmp = sirfsoc_rtc_readreg(rtcdrv, RTC_CN);
-	if (tmp <= rtcdrv->saved_counter)
-		rtcdrv->overflow_rtc++;
 	/*
 	 *PWRC Value Be Changed When Suspend, Restore Overflow
 	 * In Memory To Register
 	 */
-	sirfsoc_rtc_set_overflow(rtcdrv);
 	if (device_may_wakeup(dev) && rtcdrv->irq_wake) {
 		disable_irq_wake(rtcdrv->irq);
 		rtcdrv->irq_wake = 0;
