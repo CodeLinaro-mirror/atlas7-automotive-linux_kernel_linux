@@ -361,8 +361,6 @@ struct sirfsoc_vdss_layer_info {
 	struct vdss_surface src_surf;
 	struct vdss_rect src_rect;	/* source rect offset */
 	struct vdss_rect dst_rect;	/* destination rect offset */
-	struct vdss_rect src_rect_on;
-	struct vdss_rect dst_rect_on;
 
 	bool ckey_on;
 	u32 ckey;

@@ -202,119 +202,6 @@ static u32 __lcdc_ckey_val(enum vdss_pixelformat fmt,
 	return 0;
 }
 
-static void lcdc_layer_check_size(
-	struct vdss_rect *src_rect_orig,
-	struct vdss_rect *dst_rect_orig,
-	struct vdss_rect *src_rect,
-	struct vdss_rect *dst_rect,
-	int scn_width,
-	int scn_height,
-	bool need_vpp)
-{
-
-	int src_width_orig, src_height_orig;
-	int dst_width_orig, dst_height_orig;
-	int src_width, src_height;
-	int dst_width, dst_height;
-
-	src_width_orig = src_rect_orig->right - src_rect_orig->left;
-	dst_width_orig = dst_rect_orig->right - dst_rect_orig->left;
-	src_height_orig = src_rect_orig->bottom - src_rect_orig->top;
-	dst_height_orig = dst_rect_orig->bottom - dst_rect_orig->top;
-
-	if (dst_rect_orig->left < 0) {
-		dst_rect->left = 0;
-		src_rect->left = src_rect_orig->left +
-			(src_width_orig / dst_width_orig *
-			(-dst_rect_orig->left));
-	} else if (dst_rect_orig->left > (scn_width - 1)) {
-		dst_rect->left = scn_width - 1;
-		dst_rect->right = scn_width;
-
-		src_rect->left = src_rect_orig->left;
-		src_rect->right = src_rect_orig->left + 1;
-	} else {
-		dst_rect->left = dst_rect_orig->left;
-		src_rect->left = src_rect_orig->left;
-	}
-
-	if (dst_rect_orig->right < 0) {
-		dst_rect->left = -1;
-		dst_rect->right = 0;
-		src_rect->left = src_rect_orig->right - 1;
-		src_rect->right = src_rect_orig->right;
-	} else if (dst_rect_orig->right > scn_width) {
-		dst_rect->right = scn_width;
-		src_rect->right = src_rect_orig->right -
-			(src_width_orig / dst_width_orig *
-			(dst_rect_orig->right - scn_width));
-	} else {
-		dst_rect->right = dst_rect_orig->right;
-		src_rect->right = src_rect_orig->right;
-	}
-
-
-	if (dst_rect_orig->top < 0) {
-		dst_rect->top = 0;
-		src_rect->top = src_rect_orig->top +
-			(src_height_orig / dst_height_orig *
-			(-dst_rect_orig->top));
-	} else if (dst_rect_orig->top > (scn_height - 1)) {
-		dst_rect->top = scn_height - 1;
-		dst_rect->bottom = scn_height;
-
-		src_rect->top = src_rect_orig->top;
-		src_rect->bottom = src_rect_orig->top + 1;
-	} else {
-		dst_rect->top = dst_rect_orig->top;
-		src_rect->top = src_rect_orig->top;
-	}
-
-	if (dst_rect_orig->bottom < 0) {
-		dst_rect->top = -1;
-		dst_rect->bottom = 0;
-		src_rect->top = src_rect_orig->bottom - 1;
-		src_rect->bottom = src_rect_orig->bottom;
-	} else if (dst_rect_orig->bottom > scn_height) {
-		dst_rect->bottom = scn_height;
-		src_rect->bottom = src_rect_orig->bottom -
-			(src_height_orig / dst_height_orig *
-			(dst_rect_orig->bottom - scn_height));
-	} else {
-		dst_rect->bottom = dst_rect_orig->bottom;
-		src_rect->bottom = src_rect_orig->bottom;
-	}
-
-	/* workaround LCD don't support 1 line display */
-	if ((dst_rect->bottom - dst_rect->top) == 1) {
-		dst_rect->top = scn_height;
-		dst_rect->bottom = scn_height + 2;
-
-		src_rect->top = 0;
-		src_rect->bottom = 2;
-	}
-
-	/* workaround RGB overlay stretch, we don't support it, so
-	 * show it as the smaller rect.
-	 */
-	if (!need_vpp) {
-		src_width = src_rect->right - src_rect->left;
-		src_height = src_rect->bottom - src_rect->top;
-		dst_width = dst_rect->right - dst_rect->left;
-		dst_height = dst_rect->bottom - dst_rect->top;
-
-		if (src_width > dst_width)
-			src_rect->right = src_rect->left + dst_width;
-		else if (src_width < dst_width)
-			dst_rect->right = dst_rect->left + src_width;
-
-		if (src_height > dst_height)
-			src_rect->bottom = src_rect->top + dst_height;
-		else if (src_height < dst_height)
-			dst_rect->bottom = dst_rect->top + src_height;
-	}
-}
-
 u32 lcdc_read_intstatus(u32 lcdc_index)
 {
 	return lcdc_read_reg(lcdc_index, INT_CTRL_STATUS);
@@ -537,46 +424,21 @@ static void lcdc_layer_set_dma(u32 lcdc_index, enum vdss_layer layer,
 	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_DMA_CTRL), lx_dma_ctrl);
 }
 
-void lcdc_layer_set_passthrough(u32 lcdc_index, enum vdss_layer layer,
-	struct sirfsoc_vdss_layer_info *info)
+void lcdc_layer_set_passthrough(u32 lcdc_index, enum vdss_layer layer)
 {
-	u32 src_skip, dst_skip;
-
-	if ((info->src_surf.fmt >= VDSS_PIXELFORMAT_UYVY) &&
-		(info->src_surf.fmt <= VDSS_PIXELFORMAT_VYUY))
-		src_skip = (info->src_rect_on.left & 3);
-	else
-		src_skip = (info->src_rect_on.left & 15);
-
-	if (src_skip && (info->src_rect_on.right - info->src_rect_on.left))
-		dst_skip = src_skip *
-			(info->dst_rect_on.right - info->dst_rect_on.left) /
-			(info->src_rect_on.right - info->src_rect_on.left);
-	else
-		dst_skip = 0;
-
-	info->src_rect_on.left -= src_skip;
-	info->dst_rect_on.left -= dst_skip;
-
-	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE0),
-		VPP_TO_LCD_BPP * dst_skip);
-	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE1),
-		VPP_TO_LCD_BPP * dst_skip);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE0), 0);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE1), 0);
 }
 
 static void lcdc_layer_set_size(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info, int scn_width, int scn_height)
 {
-	lcdc_layer_check_size(&info->src_rect, &info->dst_rect,
-		&info->src_rect_on, &info->dst_rect_on,
-		scn_width, scn_height, info->disp_mode != VDSS_DISP_NORMAL);
-
-	lcdc_layer_set_dst(lcdc_index, layer, &info->dst_rect_on);
+	lcdc_layer_set_dst(lcdc_index, layer, &info->dst_rect);
 
 	if (info->disp_mode != VDSS_DISP_NORMAL)
-		lcdc_layer_set_passthrough(lcdc_index, layer, info);
+		lcdc_layer_set_passthrough(lcdc_index, layer);
 	else
-		lcdc_layer_set_dma(lcdc_index, layer, &info->src_rect_on,
+		lcdc_layer_set_dma(lcdc_index, layer, &info->src_rect,
 			info->src_surf.width, info->src_surf.height,
 			info->src_surf.fmt, info->src_surf.base);
 }
