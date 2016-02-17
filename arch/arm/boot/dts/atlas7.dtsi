@@ -41,14 +41,26 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a7";
 			reg = <0>;
-			clocks = <&car 146>;
+			clocks = <&car 20>;
 			cpu0-supply = <&vdd_cpu>;
 			voltage-tolerance = <1>;
 			clock-frequency = <793000000>;
 			operating-points = <
 			/* kHz    uV */
-			793000	1127000
-			26000	1058000
+			1001000	1237542
+			897000	1210038
+			793000	1182534
+			702000	1155030
+			598000	1127526
+			494000	1100022
+			299000	1072518
+			195000	1045014
+			117000	1017510
+			91000	990006
+			78000	962502
+			65000	934998
+			39000	907494
+			26000	879990
 			>;
 			clock-latency = <150000>;
 			/* cooling options */

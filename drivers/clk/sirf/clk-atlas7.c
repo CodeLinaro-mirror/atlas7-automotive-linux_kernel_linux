@@ -408,7 +408,77 @@ static unsigned long pll_clk_recalc_rate(struct clk_hw *hw,
 	return rate;
 }
 
+static long pll_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+	unsigned long *parent_rate)
+{
+	unsigned long fin, nf;
+	u64 dividend;
+
+	/*
+	*  CPUPLL
+	*  integer mode: Fvco = Fin * 2 * NF / NR
+	*  NR=1, rate = Fvco
+	*  NF = rate / Fin / 2
+	*/
+	fin = *parent_rate;
+	nf = rate / (fin * 2);
+	if (nf > BIT(9))
+		nf = BIT(9);
+	if (nf < 1)
+		nf = 1;
+
+	dividend = (u64)fin * nf * 2;
+
+	return (long)dividend;
+}
+
+static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
+	unsigned long parent_rate)
+{
+	struct clk_pll *clk = to_pllclk(hw);
+	unsigned long fin, nf, reg, val;
+
+	/*
+	*  CPUPLL
+	*  integer mode: Fvco = Fin * 2 * NF / NR
+	*  NR=1, rate = Fvco
+	*  NF = rate / Fin / 2
+	*/
+	fin = parent_rate;
+	nf = rate / (fin * 2);
+	if (nf > BIT(9) || nf < 1 || rate % (fin * 2))
+		return -EINVAL;
+
+	/* switch to sys1pll source */
+	clkc_writel(3, clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL - SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+	/* configure freq */
+	val = clkc_readl(reg) & ~0x1FF;
+	val |= (nf - 1);
+	clkc_writel(val, clk->regofs);
+	/* reset PLL */
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL0 - SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	clkc_writel(clkc_readl(reg) & ~0x1, reg);
+
+	/* power on */
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL0 - SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	clkc_writel(clkc_readl(reg) | 0x1, reg);
+	/*locked */
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_STATUS - SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	while (!(clkc_readl(reg) & BIT(0)))
+		cpu_relax();
+	/* switch back to cpupll source */
+	clkc_writel(4, clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL - SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+
+	return 0;
+}
+
 static const struct clk_ops ab_pll_ops = {
+	.recalc_rate = pll_clk_recalc_rate,
+};
+
+static struct clk_ops cpu_pll_ops = {
+	.set_rate = pll_clk_set_rate,
+	.round_rate = pll_clk_round_rate,
 	.recalc_rate = pll_clk_recalc_rate,
 };
 
@@ -418,7 +488,7 @@ static const char * const pll_clk_parents[] = {
 
 static struct clk_init_data clk_cpupll_init = {
 	.name = "cpupll_vco",
-	.ops = &ab_pll_ops,
+	.ops = &cpu_pll_ops,
 	.parent_names = pll_clk_parents,
 	.num_parents = ARRAY_SIZE(pll_clk_parents),
 };
@@ -761,7 +831,7 @@ static struct atlas7_div_init_data divider_list[] __initdata = {
 	{ "sys3pll_div1", "sys3pll_vco", "sys3pll_clk1", 1, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 12, &sys3pll_ctrl1_lock },
 	{ "sys3pll_div2", "sys3pll_vco", "sys3pll_clk2", 1, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 13, &sys3pll_ctrl1_lock },
 	{ "sys3pll_div3", "sys3pll_vco", "sys3pll_clk3", 1, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 14, &sys3pll_ctrl1_lock },
-	{ "cpupll_div1", "cpupll_vco", "cpupll_clk1", 1, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 12, &cpupll_ctrl1_lock },
+	{ "cpupll_div1", "cpupll_vco", "cpupll_clk1", 1, CLK_SET_RATE_PARENT, CLK_SET_RATE_PARENT, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 12, &cpupll_ctrl1_lock },
 	{ "cpupll_div2", "cpupll_vco", "cpupll_clk2", 1, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 13, &cpupll_ctrl1_lock },
 	{ "cpupll_div3", "cpupll_vco", "cpupll_clk3", 1, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 14, &cpupll_ctrl1_lock },
 	{ "mempll_div1", "mempll_vco", "mempll_clk1", 1, 0, 0, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 12, &mempll_ctrl1_lock },
@@ -1136,7 +1206,7 @@ static struct atlas7_unit_init_data unit_list[] = {
 	{ 17, "audmscm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 22, 0, 0, &root0_gate_lock },
 	{ 18, "nand", "nand_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 27, 0, 0, &root0_gate_lock },
 	{ 19, "gnssm_sec", "sec_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 28, 0, 0, &root0_gate_lock },
-	{ 20, "cpum_cpu", "cpu_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 29, 0, 0, &root0_gate_lock },
+	{ 20, "cpum_cpu", "cpupll_clk1", CLK_SET_RATE_PARENT, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 29, 0, 0, &root0_gate_lock },
 	{ 21, "gnssm_xin", "xin", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 30, 0, 0, &root0_gate_lock },
 	{ 22, "vdifm_vip", "vip_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 31, 0, 0, &root0_gate_lock },
 	{ 23, "btm_btss", "btss_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN1_SET, 0, 0, 0, &root1_gate_lock },
