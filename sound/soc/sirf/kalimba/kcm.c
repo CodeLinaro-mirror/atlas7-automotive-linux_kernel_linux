@@ -1616,6 +1616,8 @@ static int init_voicecall_playback_pipeline(int index)
 		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
 			volumectrl_to_aecref_connection[k];
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_send;
+	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+		resample_op_id[VOICECALL_CAPTURE_STREAM];
 
 	pipeline_link_count[VOICECALL_PLAYBACK_STREAM] = j;
 	return i;
@@ -1666,7 +1668,7 @@ static int init_voicecall_capture_pipeline(int index)
 	}
 
 	pipeline_link_count[VOICECALL_CAPTURE_STREAM] = j;
-	return index;
+	return i;
 }
 
 static int init_iacc_loopback_playback_pipeline(int index)
@@ -1893,8 +1895,8 @@ static void init_pipeline(int bt_usp_port)
 	index = init_capture_stereo_pipeline(index);
 	index = init_voicecall_bt_to_iacc_pipeline(bt_usp_port, index);
 	index = init_a2dp_pipeline(bt_usp_port, index);
-	index = init_voicecall_playback_pipeline(index);
 	index = init_voicecall_capture_pipeline(index);
+	index = init_voicecall_playback_pipeline(index);
 	index = init_iacc_loopback_playback_pipeline(index);
 	init_i2s_to_iacc_loopback_pipeline(index);
 }
@@ -2373,12 +2375,14 @@ void destroy_stream(int stream)
 
 	/* Close source or sink*/
 	if (stream == CAPTURE_MONO_STREAM
+		|| stream == VOICECALL_CAPTURE_STREAM
 		|| stream == CAPTURE_STEREO_STREAM)
 		kalimba_close_sink(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
 	else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
 		|| stream == MUSIC_MONO_STREAM
 		|| stream == MUSIC_4CHANNELS_STREAM
+		|| stream == VOICECALL_PLAYBACK_STREAM
 		|| stream == ALARM_STREAM)
 		kalimba_close_source(sw_channels[stream],
 			sw_endpoint_id[stream], resp);
