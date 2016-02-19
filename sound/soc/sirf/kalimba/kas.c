@@ -46,7 +46,8 @@ static int kas_iacc_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	/* The kalimba DSP will covert the FE rate to 48k, stereo */
 	rate->min = rate->max = 48000;
-	channels->min = channels->max = 2;
+	if (enable_2mic_cvc)
+		channels->min = channels->max = 2;
 
 	return 0;
 }
