@@ -186,6 +186,12 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 	/* map input buffer if there are */
 	if (src_param->in_buf && src_param->in_len) {
 		offset = sizeof(*xfer_param);
+		if (param_size < offset ||
+		    param_size - offset < src_param->in_len) {
+			ret = -EINVAL;
+			goto __free_and_exit;
+		}
+
 		if (from_user)
 			ret = copy_from_user((char *)xfer_param + offset,
 				src_param->in_buf, src_param->in_len);
@@ -221,6 +227,12 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 
 	if (xfer_param->out_buf) {
 		offset = sizeof(*xfer_param) + src_param->in_len;
+		if (param_size < offset ||
+		    param_size - offset < src_param->in_len) {
+			ret = -EINVAL;
+			goto __free_and_exit;
+		}
+
 		if (from_user)
 			ret = copy_to_user(src_param->out_buf,
 				(char *)xfer_param + offset,
