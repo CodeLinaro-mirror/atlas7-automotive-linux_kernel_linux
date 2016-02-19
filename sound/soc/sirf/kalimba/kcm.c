@@ -165,38 +165,21 @@ void set_default_mixer_stream_volume(int stream, u16 volume)
 static int init_music_mono_pipeline(int index)
 {
 	int i = index, k, j = 0;
-	int music_mono_passthrough;
-	int music_mono_resampler;
 	int music_mono_passthrough_to_resampler_connection;
 	int music_splitter_1_to_2, music_splitter_2_to_4;
 	int music_mono_resampler_to_splitter_1_to_2_connection;
 	int music_mono_resampler_to_splitter_2_to_4_connection[2];
 	int music_mono_splitter_to_usrpeq_connection[4];
 
-	/* Music stream pipeline */
-	components_global[i].component_id = CREATE_OPERATOR_REQ;
-	components_global[i].params[0] = CAPABILITY_ID_BASIC_PASSTHROUGH;
-	components_global[i].params[1] = 1; /* Config items */
-	components_global[i].params[2] = OPERATOR_MSG_SET_PASSTHROUGH_GAIN;
-	components_global[i].params[3] = 1;
-	components_global[i].params[4] =
-		(u32)(&music_passthrough_default_volume);
-	music_mono_passthrough = i;
-	i++;
-
-	components_global[i].component_id = CREATE_OPERATOR_REQ;
-	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
-	resample_op_id[MUSIC_MONO_STREAM] = i;
-	music_mono_resampler = i;
-	i++;
+	resample_op_id[MUSIC_MONO_STREAM] = music_resampler;
 
 	music_mono_passthrough_to_resampler_connection = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
-		(u32)(&components_global[music_mono_passthrough].ret[0]);
+		(u32)(&components_global[music_passthrough].ret[0]);
 	components_global[i].params[1] = 0x2000;
 	components_global[i].params[2] =
-		(u32)(&components_global[music_mono_resampler].ret[0]);
+		(u32)(&components_global[music_resampler].ret[0]);
 	components_global[i].params[3] = 0xA000;
 	i++;
 
@@ -213,7 +196,7 @@ static int init_music_mono_pipeline(int index)
 	music_mono_resampler_to_splitter_1_to_2_connection = i;
 	components_global[i].component_id = CONNECT_REQ;
 	components_global[i].params[0] =
-		(u32)(&components_global[music_mono_resampler].ret[0]);
+		(u32)(&components_global[music_resampler].ret[0]);
 	components_global[i].params[1] = 0x2000;
 	components_global[i].params[2] =
 		(u32)(&components_global[music_splitter_1_to_2].ret[0]);
@@ -245,8 +228,8 @@ static int init_music_mono_pipeline(int index)
 	}
 
 	/* Init pipeline link */
-	pipeline_link[MUSIC_MONO_STREAM][j++] = music_mono_passthrough;
-	pipeline_link[MUSIC_MONO_STREAM][j++] = music_mono_resampler;
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_passthrough;
+	pipeline_link[MUSIC_MONO_STREAM][j++] = music_resampler;
 	pipeline_link[MUSIC_MONO_STREAM][j++] =
 		music_mono_passthrough_to_resampler_connection;
 	pipeline_link[MUSIC_MONO_STREAM][j++] = music_splitter_1_to_2;
@@ -301,38 +284,20 @@ static int init_music_mono_pipeline(int index)
 static int init_music_4channels_pipeline(int index)
 {
 	int i = index, k, j = 0;
-	int music_4channels_passthrough;
-	int music_4channels_resampler;
 	int music_4channels_passthrough_to_resampler_connection[4];
 	int music_4channels_resampler_to_usrpeq_connection[4];
 
-	/* Music stream pipeline */
-	components_global[i].component_id = CREATE_OPERATOR_REQ;
-	components_global[i].params[0] = CAPABILITY_ID_BASIC_PASSTHROUGH;
-	components_global[i].params[1] = 1; /* Config items */
-	components_global[i].params[2] = OPERATOR_MSG_SET_PASSTHROUGH_GAIN;
-	components_global[i].params[3] = 1;
-	components_global[i].params[4] =
-		(u32)(&music_passthrough_default_volume);
-	music_4channels_passthrough = i;
-	i++;
-
-	components_global[i].component_id = CREATE_OPERATOR_REQ;
-	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
-	resample_op_id[MUSIC_4CHANNELS_STREAM] = i;
-	music_4channels_resampler = i;
-	i++;
-
+	resample_op_id[MUSIC_4CHANNELS_STREAM] = music_resampler;
 	for (k = 0; k < 4; k++) {
 		music_4channels_passthrough_to_resampler_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
 			(u32)(&components_global[
-				music_4channels_passthrough].ret[0]);
+				music_passthrough].ret[0]);
 		components_global[i].params[1] = 0x2000 + k;
 		components_global[i].params[2] =
 			(u32)(&components_global[
-				music_4channels_resampler].ret[0]);
+				music_resampler].ret[0]);
 		components_global[i].params[3] = 0xA000 + k;
 		i++;
 	}
@@ -342,7 +307,7 @@ static int init_music_4channels_pipeline(int index)
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
 			(u32)(&components_global[
-			music_4channels_resampler].ret[0]);
+			music_resampler].ret[0]);
 		components_global[i].params[1] = 0x2000 + k;
 		components_global[i].params[2] =
 			(u32)(&components_global[music_usr_peq].ret[0]);
@@ -351,9 +316,8 @@ static int init_music_4channels_pipeline(int index)
 	}
 
 	/* Init pipeline link */
-	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
-		music_4channels_passthrough;
-	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_4channels_resampler;
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_passthrough;
+	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = music_resampler;
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
 			music_4channels_passthrough_to_resampler_connection[k];
