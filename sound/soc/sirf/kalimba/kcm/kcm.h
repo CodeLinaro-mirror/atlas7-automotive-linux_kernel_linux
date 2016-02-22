@@ -1,0 +1,54 @@
+#ifndef _KCM_KCM_H
+#define _KCM_KCM_H
+
+#define __KCM_DEBUG	2	/* 0 - disable, 1 - enable, 2 - verbose */
+
+#if __KCM_DEBUG
+#define kcm_debug(...)	pr_err(__VA_ARGS__)
+#else
+#define kcm_debug(...)	do {}  while (0)
+#endif
+
+struct kcm_chain;
+struct kasobj_fe;
+struct kasobj_param;
+struct kasop_impl;
+
+int kcm_drv_status(void);
+void kcm_set_dev(void *dev);
+struct device *kcm_get_dev(void);
+
+struct snd_soc_dai_driver *kcm_alloc_dai(void);
+struct snd_soc_dai_driver *kcm_get_dai(int *cnt);
+
+struct snd_soc_dapm_route *kcm_alloc_route(void);
+struct snd_soc_dapm_route *kcm_get_route(int *cnt);
+
+struct snd_soc_dai_link *kcm_alloc_dai_link(void);
+struct snd_soc_dai_link *kcm_get_dai_link(int *cnt, int *free_cnt);
+
+void kcm_register_ctrl(void *ctrl);
+struct snd_kcontrol_new *kcm_ctrl_first(void);
+struct snd_kcontrol_new *kcm_ctrl_next(void);
+
+struct kasop_impl *kcm_find_cap(int cap_id);
+int kcm_register_cap(int cap_id, struct kasop_impl *impl);
+
+struct kasobj_fe *kcm_find_fe(const char *dai_name, int playback);
+struct kcm_chain *kcm_prepare_chain(const struct kasobj_fe *fe,
+		int playback, int channels);
+void kcm_unprepare_chain(struct kcm_chain *chain);
+int kcm_get_chain(struct kcm_chain *chain, const struct kasobj_param *param);
+int kcm_put_chain(struct kcm_chain *chain);
+int kcm_start_chain(struct kcm_chain *chain);
+int kcm_stop_chain(struct kcm_chain *chain);
+int __kcm_start_chain_op(struct kcm_chain *chain);
+int __kcm_stop_chain_op(struct kcm_chain *chain);
+int __kcm_start_chain_hw(struct kcm_chain *chain);
+int __kcm_stop_chain_hw(struct kcm_chain *chain);
+
+void kcm_lock(void);
+void kcm_unlock(void);
+char *kcm_strcasestr(const char *s1, const char *s2);
+
+#endif

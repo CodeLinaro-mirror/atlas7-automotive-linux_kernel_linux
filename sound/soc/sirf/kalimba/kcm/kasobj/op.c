@@ -1,0 +1,185 @@
+#include "../kasop.h"
+#include "../../dsp.h"
+
+static struct kasop_impl *op_find_cap(int cap_id)
+{
+	struct kasop_impl *impl = kcm_find_cap(cap_id);
+
+	if (!impl) {
+		pr_err("KASOP: unsupported capability %d!\n", cap_id);
+		return ERR_PTR(-EINVAL);
+	}
+	return impl;
+}
+
+static int op_init(struct kasobj *obj)
+{
+	struct kasobj_op *op = kasobj_to_op(obj);
+	struct kasop_impl *impl = op_find_cap(op->db->cap_id);
+
+	if (op->impl) {
+		pr_err("KASOP(%s): double initialization?\n", obj->name);
+		return -EINVAL;
+	}
+
+	op->op_id = KCM_INVALID_EP_ID;
+	if (IS_ERR(impl))
+		return PTR_ERR(impl);
+
+	op->impl = impl;
+	if (impl->init)
+		return impl->init(op);
+	return 0;
+}
+
+static int op_get(struct kasobj *obj, const struct kasobj_param *param)
+{
+	int ret = 0;
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	if (obj->life_cnt++ == 0) {
+		kalimba_create_operator(op->db->cap_id, &op->op_id, __kcm_resp);
+		if (op->impl->create)
+			ret = op->impl->create(op, param);
+		kcm_debug("OP '%s' created, id = 0x%X\n", obj->name, op->op_id);
+	} else if (op->impl->reconfig) {
+		/* Some OP(resampler) depends on stream property and requires
+		 * re-configuration even it's already created.
+		 */
+		ret = op->impl->reconfig(op, param);
+		kcm_debug("OP '%s' refcnt++: %d\n", obj->name, obj->life_cnt);
+	}
+	return ret;
+}
+
+static int op_put(struct kasobj *obj)
+{
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(!obj->life_cnt);
+	if (--obj->life_cnt == 0) {
+		BUG_ON(obj->start_cnt);
+		kalimba_destroy_operator(&op->op_id, 1, __kcm_resp);
+		op->op_id = KCM_INVALID_EP_ID;
+		op->sink_pin_mask = op->source_pin_mask = 0;
+		kcm_debug("OP '%s' destroyed\n", obj->name);
+	} else {
+		kcm_debug("OP '%s' refcnt--: %d\n", obj->name, obj->life_cnt);
+	}
+	return 0;
+}
+
+static int op_start(struct kasobj *obj)
+{
+	int ret;
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(!obj->life_cnt);
+	if (obj->start_cnt++)
+		return 0;
+
+	if (op->impl->trigger) {
+		ret = op->impl->trigger(op, kasop_event_pre_start);
+		if (ret)
+			return ret;
+	}
+
+	kalimba_start_operator(&op->op_id, 1, __kcm_resp);
+	kcm_debug("OP '%s' started\n", obj->name);
+
+	if (op->impl->trigger) {
+		ret = op->impl->trigger(op, kasop_event_post_start);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int op_stop(struct kasobj *obj)
+{
+	int ret;
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(!obj->life_cnt);
+	if (obj->start_cnt && --obj->start_cnt)
+		return 0;
+
+	if (op->impl->trigger) {
+		ret = op->impl->trigger(op, kasop_event_pre_stop);
+		if (ret)
+			return ret;
+	}
+
+	kalimba_stop_operator(&op->op_id, 1, __kcm_resp);
+	kcm_debug("OP '%s' stopped\n", obj->name);
+
+	if (op->impl->trigger) {
+		ret = op->impl->trigger(op, kasop_event_post_stop);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static u16 op_get_ep(struct kasobj *obj, unsigned pin, int is_sink)
+{
+	u16 ep_id;
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(op->op_id == KCM_INVALID_EP_ID);
+	BUG_ON(pin >= 32);
+
+	if (is_sink) {
+		if (op->sink_pin_mask & BIT(pin)) {
+			pr_err("KASOP: %s sink pin %d occupied!\n",
+					obj->name, pin);
+			return KCM_INVALID_EP_ID;
+		}
+		op->sink_pin_mask |= BIT(pin);
+		ep_id = op->op_id + pin + 0xA000;
+	} else {
+		if (op->source_pin_mask & BIT(pin)) {
+			pr_err("KASOP: %s source pin %d occupied!\n",
+					obj->name, pin);
+			return KCM_INVALID_EP_ID;
+		}
+		op->source_pin_mask |= BIT(pin);
+		ep_id = op->op_id + pin + 0x2000;
+	}
+
+	is_sink = !!is_sink;
+	if (op->impl->trigger)
+		op->impl->trigger(op, KASOP_MAKE_EVENT(kasop_event_get_ep,
+				(is_sink << 8) | pin));
+	return ep_id;
+}
+
+static void op_put_ep(struct kasobj *obj, unsigned pin, int is_sink)
+{
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(op->op_id == KCM_INVALID_EP_ID);
+	BUG_ON(pin >= 32);
+
+	if (is_sink)
+		op->sink_pin_mask &= ~BIT(pin);
+	else
+		op->source_pin_mask &= ~BIT(pin);
+
+	is_sink = !!is_sink;
+	if (op->impl->trigger)
+		op->impl->trigger(op, KASOP_MAKE_EVENT(kasop_event_put_ep,
+				(is_sink << 8) | pin));
+}
+
+static struct kasobj_ops op_ops = {
+	.init = op_init,
+	.get = op_get,
+	.put = op_put,
+	.start = op_start,
+	.stop = op_stop,
+	.get_ep = op_get_ep,
+	.put_ep = op_put_ep,
+};

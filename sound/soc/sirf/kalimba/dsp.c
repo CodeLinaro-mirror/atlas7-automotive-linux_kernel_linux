@@ -153,6 +153,12 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_KCM
+void kalimba_set_master_gain(int vol)
+{
+	/* TODO: It's used by the "anti-clipping" driver */
+}
+#else
 void kalimba_set_dbe_control(u16 mode)
 {
 	u16 msg[4] = {1, 1, 0, mode};
@@ -328,6 +334,7 @@ void kalimba_set_stream_volume(int stream, int vol, int samples)
 	}
 	kalimba_msg_send_unlock();
 }
+#endif
 
 int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 {

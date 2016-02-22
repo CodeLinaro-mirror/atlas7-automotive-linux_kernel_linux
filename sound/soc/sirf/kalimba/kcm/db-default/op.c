@@ -1,0 +1,38 @@
+static const struct kasdb_op op[] = {
+	{
+		.name = __S("op_pass_music"),
+		.ctrl_base = __S("Music Stream"),
+		.ctrl_names = __S("Playback Volume;Mute"),
+		.cap_id = CAPABILITY_ID_BASIC_PASSTHROUGH,
+		.pre_create = 0,
+		.rate = 0,
+		.param.dummy = 0,
+	},
+	{
+		.name = __S("op_src_music"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_RESAMPLER,
+		.pre_create = 0,
+		.rate = 48000,
+		.param.dummy = 0,
+	},
+	{
+		.name = __S("op_split_music"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_SPLITTER,
+		.pre_create = 0,
+		.rate = 0,
+		.param.dummy = 0,
+	},
+	{
+		.name = __S("op_pass_cap"),
+		.ctrl_base = __S("Capture Stream"),
+		.ctrl_names = __S("Capture Volume;Mute"),
+		.cap_id = CAPABILITY_ID_BASIC_PASSTHROUGH,
+		.pre_create = 0,
+		.rate = 0,
+		.param.dummy = 0,
+	},
+};
