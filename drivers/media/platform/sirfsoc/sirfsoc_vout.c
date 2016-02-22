@@ -1253,7 +1253,9 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 			   vout->worker.op.normal.next_frm,
 			   VB2_BUF_STATE_ERROR);
 
-		if (vout->worker.op.normal.active_frm)
+		if (vout->worker.op.normal.active_frm &&
+			(vout->worker.op.normal.active_frm !=
+				vout->worker.op.normal.next_frm))
 			vb2_buffer_done(
 			   vout->worker.op.normal.active_frm,
 			   VB2_BUF_STATE_ERROR);
@@ -1266,7 +1268,9 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 			    vout->worker.op.passthrough.next_frm,
 			    VB2_BUF_STATE_ERROR);
 
-		if (vout->worker.op.passthrough.active_frm)
+		if (vout->worker.op.passthrough.active_frm &&
+			(vout->worker.op.passthrough.active_frm !=
+				vout->worker.op.passthrough.next_frm))
 			vb2_buffer_done(
 			    vout->worker.op.passthrough.active_frm,
 			    VB2_BUF_STATE_ERROR);
@@ -1279,12 +1283,16 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 			    vout->worker.op.inline_mode.next_frm[0],
 			    VB2_BUF_STATE_ERROR);
 
-		if (vout->worker.op.inline_mode.next_frm[1])
+		if (vout->worker.op.inline_mode.next_frm[1] &&
+			(vout->worker.op.inline_mode.next_frm[1] !=
+				vout->worker.op.inline_mode.next_frm[0]))
 			vb2_buffer_done(
 			    vout->worker.op.inline_mode.next_frm[1],
 			    VB2_BUF_STATE_ERROR);
 
-		if (vout->worker.op.inline_mode.active_frm)
+		if (vout->worker.op.inline_mode.active_frm &&
+			(vout->worker.op.inline_mode.active_frm !=
+				vout->worker.op.inline_mode.next_frm[0]))
 			vb2_buffer_done(
 			    vout->worker.op.inline_mode.active_frm,
 			    VB2_BUF_STATE_ERROR);
