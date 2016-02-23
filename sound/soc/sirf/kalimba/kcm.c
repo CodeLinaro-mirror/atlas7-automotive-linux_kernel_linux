@@ -21,6 +21,7 @@
 #include "dsp.h"
 #include "ipc.h"
 #include "kcm.h"
+#include "kerror.h"
 
 #define BUFF_BYTES_EACH_CHANNEL		192
 #define BUFF_BYTES_IACC_SCO_PLAYBACK	192
@@ -1129,8 +1130,9 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 		device_instance_id = ENDPOINT_PHY_DEV_A7CA;
 		break;
 	default:
+		WARN_ON(1);
 		pr_err("Only support usp 0,1,2,3 for bluetooth\n");
-		BUG();
+		return -EINVAL;
 	}
 
 	/* Voicecall bt to IACC pipeline */
@@ -1434,8 +1436,9 @@ static int init_a2dp_pipeline(int bt_usp_port, int index)
 		device_instance_id = ENDPOINT_PHY_DEV_A7CA;
 		break;
 	default:
+		WARN_ON(1);
 		pr_err("Only support usp 0,1,2,3 for bluetooth\n");
-		BUG();
+		return -EINVAL;
 	}
 
 	components_global[i].component_id = GET_SOURCE_REQ;
@@ -1962,23 +1965,27 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 {
 	u16 resp[64];
 	int i;
+	int ret;
 	struct component *stream_first_component =
 		&components_global[pipeline_link[stream][0]];
 	u16 resample_cfg;
 
 	kalimba_msg_send_lock();
 	for (i = 0;  i < pipeline_link_count[stream]; i++)
-		execute_component(&components_global[
+		ret = execute_component(&components_global[
 				pipeline_link[stream][i]]);
-
+		if (ret < 0)
+			goto out;
 	if (stream == VOICECALL_BT_TO_IACC_STREAM) {
 		resample_cfg = get_rasample_conversion_conf(
 				kcm->capture_usp_sco_ep.sample_rate, 48000);
 		/* Set resample configration */
-		kalimba_operator_message(
+		ret = kalimba_operator_message(
 			components_global[resample_op_id[stream]].ret[0],
 				RESAMPLER_SET_CONVERSION_RATE, 1,
 				&resample_cfg, NULL, NULL, resp);
+		if (ret < 0)
+			goto out;
 	} else if (stream == CAPTURE_MONO_STREAM
 		|| stream == CAPTURE_STEREO_STREAM
 		|| stream == VOICECALL_CAPTURE_STREAM) {
@@ -1995,38 +2002,56 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			resample_cfg = get_rasample_conversion_conf(
 					16000, sample_rate);
 
-		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
+		ret = kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
 				handle_addr, sw_endpoint_id[stream], resp);
+		if (ret < 0)
+			goto out;
 		for (i = 0; i < channels; i++) {
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
 				sample_rate, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_AUDIO_DATA_FORMAT, 0, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_DRAM_PACKING_FORMAT, 2, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_INTERLEAVING_MODE, 1, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_CLOCK_MASTER, clock_master, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_PERIOD_SIZE, period_size, resp);
+			if (ret < 0)
+				goto out;
 		}
 
 		/* Set resample configration */
-		kalimba_operator_message(components_global[
+		ret = kalimba_operator_message(components_global[
 			resample_op_id[stream]].ret[0],
 			RESAMPLER_SET_CONVERSION_RATE, 1,
 			&resample_cfg, NULL, NULL, resp);
+		if (ret < 0)
+			goto out;
 
 		/* Connect resampler with sink*/
 		for (i = 0; i < channels; i++)
-			kalimba_connect_endpoints(components_global[
+			ret = kalimba_connect_endpoints(components_global[
 				resample_op_id[stream]]
 				.ret[0] + 0x2000 + i,
 				sw_endpoint_id[stream][i],
 				&sw_endpoint_connect_id[stream][i],
 				resp);
+			if (ret < 0)
+				goto out;
 	} else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
 		|| stream == MUSIC_MONO_STREAM
 		|| stream == MUSIC_4CHANNELS_STREAM
@@ -2037,10 +2062,12 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			resample_cfg = get_rasample_conversion_conf(16000,
 				48000);
 			/* Set resample configration */
-			kalimba_operator_message(
+			ret = kalimba_operator_message(
 			components_global[cvc_post_resampler].ret[0],
 				RESAMPLER_SET_CONVERSION_RATE, 1,
 				&resample_cfg, NULL, NULL, resp);
+			if (ret < 0)
+				goto out;
 			resample_cfg = get_rasample_conversion_conf(sample_rate,
 				16000);
 		} else if (stream != NAVIGATION_STREAM)
@@ -2050,60 +2077,82 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 		kalimba_get_source(ENDPOINT_TYPE_FILE, 0, (u16)channels,
 				handle_addr, sw_endpoint_id[stream], resp);
 		for (i = 0; i < channels; i++) {
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
 				sample_rate, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_AUDIO_DATA_FORMAT, 0, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_DRAM_PACKING_FORMAT, 2, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_INTERLEAVING_MODE, 1, resp);
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			if (ret < 0)
+				goto out;
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_PERIOD_SIZE, period_size, resp);
+			if (ret < 0)
+				goto out;
 		}
 		/* Set resample configration */
 		if (stream != NAVIGATION_STREAM)
-			kalimba_operator_message(
+			ret = kalimba_operator_message(
 				components_global[
 				resample_op_id[stream]].ret[0],
 				RESAMPLER_SET_CONVERSION_RATE, 1,
 				&resample_cfg, NULL, NULL, resp);
+			if (ret < 0)
+				goto out;
 
 		/* Connect source with first operator */
 		for (i = 0; i < channels; i++)
-			kalimba_connect_endpoints(sw_endpoint_id[stream][i],
+			ret = kalimba_connect_endpoints(
+				sw_endpoint_id[stream][i],
 				stream_first_component->ret[0] + 0xA000 + i,
 				&sw_endpoint_connect_id[stream][i], resp);
+			if (ret < 0)
+				goto out;
 	} else if (stream == A2DP_STREAM) {
 		resample_cfg = get_rasample_conversion_conf(
 			kcm->capture_usp_a2dp_ep.sample_rate,
 			kcm->playback_iacc_ep.sample_rate);
 		/* Set resample configration */
-		kalimba_operator_message(
+		ret = kalimba_operator_message(
 			components_global[resample_op_id[stream]].ret[0],
 			RESAMPLER_SET_CONVERSION_RATE, 1,
 			&resample_cfg, NULL, NULL, resp);
+		if (ret < 0)
+			goto out;
 	} else if (stream == IACC_LOOPBACK_PLAYBACK_STREAM
 		|| stream == I2S_TO_IACC_LOOPBACK_STREAM) {
 		resample_cfg = get_rasample_conversion_conf(
 			kcm->capture_iacc_stereo_ep.sample_rate,
 			kcm->playback_iacc_ep.sample_rate);
 		/* Set resample configration */
-		kalimba_operator_message(
+		ret = kalimba_operator_message(
 			components_global[resample_op_id[stream]].ret[0],
 			RESAMPLER_SET_CONVERSION_RATE, 1,
 			&resample_cfg, NULL, NULL, resp);
+		if (ret < 0)
+			goto out;
 	}
+	ret = sw_endpoint_id[stream][0];
+out:
 	kalimba_msg_send_unlock();
-	return sw_endpoint_id[stream][0];
+	return ret;
 }
 
-static void change_primary_stream(int action, int stream)
+static int change_primary_stream(int action, int stream)
 {
 	u16 mixer1_primary_stream = 0;
 	u16 mixer2_primary_stream = 0;
 	u16 resp[64];
+	int ret;
 
 	/*
 	 * The VOICECALL_PLAYBACK_STREAM and VOICECALL_BT_TO_IACC_STREAM
@@ -2125,7 +2174,7 @@ static void change_primary_stream(int action, int stream)
 		|| stream == MUSIC_STEREO_STREAM)
 		stream = MUSIC_STREAM;
 	if (stream == IACC_LOOPBACK_CAPTURE_STREAM)
-		return;
+		return 0;
 
 	if (action == SET_PRIMARY_STREAM)
 		set_bit(stream, &active_stream);
@@ -2133,7 +2182,7 @@ static void change_primary_stream(int action, int stream)
 		test_bit(stream, &active_stream))
 		clear_bit(stream, &active_stream);
 	else
-		return;
+		return 0;
 
 	if (test_bit(0, &active_stream)) {
 		mixer1_primary_stream = 1;
@@ -2156,9 +2205,11 @@ static void change_primary_stream(int action, int stream)
 				mixer1_primary_stream) {
 			components_global[mixer_1].primary_stream =
 				mixer1_primary_stream;
-			kalimba_operator_message(get_mixer_op_id(1),
+			ret = kalimba_operator_message(get_mixer_op_id(1),
 				OPERATOR_MSG_SET_PRIMARY_STREAM,
 				1, &mixer1_primary_stream, NULL, NULL, resp);
+			if (ret < 0)
+				return ret;
 		}
 	}
 	if (mixer2_primary_stream != 0) {
@@ -2166,20 +2217,24 @@ static void change_primary_stream(int action, int stream)
 			mixer2_primary_stream) {
 			components_global[mixer_2].primary_stream =
 				mixer2_primary_stream;
-			kalimba_operator_message(get_mixer_op_id(2),
+			ret = kalimba_operator_message(get_mixer_op_id(2),
 				OPERATOR_MSG_SET_PRIMARY_STREAM,
 				1, &mixer2_primary_stream, NULL, NULL, resp);
+			if (ret < 0)
+				return ret;
 		}
 	}
+	return 0;
 }
 
-void start_stream(int stream, int clock_master)
+int start_stream(int stream, int clock_master)
 {
 	int i;
 	u16 resp[64];
 	struct component *component;
 	u16 should_start_ops[64];
 	int should_start_ops_count = 0;
+	int ret = 0;
 
 	/*
 	 * The VOICECALL_CAPTURE_STREAM does not start any operators, config
@@ -2187,7 +2242,7 @@ void start_stream(int stream, int clock_master)
 	 * VOICECALL_PLAYBACK_STREAM
 	 */
 	if (stream == VOICECALL_CAPTURE_STREAM)
-		return;
+		return 0;
 	kalimba_msg_send_lock();
 	change_primary_stream(SET_PRIMARY_STREAM, stream);
 	if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
@@ -2196,8 +2251,10 @@ void start_stream(int stream, int clock_master)
 		|| stream == ALARM_STREAM
 		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		for (i = 0; i < sw_channels[stream]; i++)
-			kalimba_config_endpoint(sw_endpoint_id[stream][i],
+			ret = kalimba_config_endpoint(sw_endpoint_id[stream][i],
 				ENDPOINT_CONF_CLOCK_MASTER, clock_master, resp);
+			if (ret < 0)
+				goto out;
 	}
 
 	for (i = 0;  i < pipeline_link_count[stream]; i++) {
@@ -2213,17 +2270,24 @@ void start_stream(int stream, int clock_master)
 	}
 
 	if (should_start_ops_count > 0)
-		kalimba_start_operator(should_start_ops, should_start_ops_count,
-			resp);
+		ret = kalimba_start_operator(should_start_ops,
+				should_start_ops_count,
+				resp);
+		if (ret < 0)
+			goto out;
 
 	if (stream == VOICECALL_BT_TO_IACC_STREAM ||
 		stream == VOICECALL_PLAYBACK_STREAM)
-		kalimba_connect_endpoints(
+		ret = kalimba_connect_endpoints(
 			components_global[aec_ref].ret[0] + 0x2000,
 			components_global[cvc_send].ret[0] + 0xA000,
 			&aecref_to_cvcsend_ref_connect_id, resp);
+		if (ret < 0)
+			goto out;
 
+out:
 	kalimba_msg_send_unlock();
+	return ret;
 }
 
 void stop_stream(int stream)
@@ -2268,7 +2332,7 @@ void stop_stream(int stream)
 				component->running_refcnt--;
 		}
 	}
-	if (should_stop_ops_count > 0)
+	if (should_stop_ops_count > 0 && !kaschk_crash())
 		kalimba_stop_operator(should_stop_ops, should_stop_ops_count,
 			resp);
 	kalimba_msg_send_unlock();
@@ -2284,16 +2348,18 @@ void destroy_stream(int stream)
 
 	/* Disconnect source */
 	for (i = 0; i < sw_channels[stream]; i++)
-		kalimba_disconnect_endpoints(1,
-			&sw_endpoint_connect_id[stream][i], resp);
+		if (!kaschk_crash())
+			kalimba_disconnect_endpoints(1,
+				&sw_endpoint_connect_id[stream][i], resp);
 	/* Disconnect */
 	for (i = 0;  i < pipeline_link_count[stream]; i++) {
 		component = &components_global[pipeline_link[stream][i]];
 
 		if (component->component_id == CONNECT_REQ) {
 			if (component->create_refcnt == 1)
-				kalimba_disconnect_endpoints(1,
-					&component->ret[0], resp);
+				if (!kaschk_crash())
+					kalimba_disconnect_endpoints(1,
+						&component->ret[0], resp);
 			if (component->create_refcnt > 0)
 				component->create_refcnt--;
 		}
@@ -2305,8 +2371,10 @@ void destroy_stream(int stream)
 
 		if (component->component_id == CREATE_OPERATOR_REQ) {
 			if (component->create_refcnt == 1) {
-				kalimba_destroy_operator(&component->ret[0],
-					1, resp);
+				if (!kaschk_crash())
+					kalimba_destroy_operator(
+						&component->ret[0],
+						1, resp);
 				/*
 				 * Clear operator id, if this operator
 				 * is destoried.
@@ -2324,14 +2392,19 @@ void destroy_stream(int stream)
 
 		if (component->component_id == GET_SINK_REQ) {
 			if (component->create_refcnt == 1)
-				kalimba_close_sink(component->id_count,
-					component->ret, resp);
+				if (!kaschk_crash())
+					kalimba_close_sink(
+						component->id_count,
+						component->ret, resp);
 			if (component->create_refcnt > 0)
 				component->create_refcnt--;
 		} else if (component->component_id == GET_SOURCE_REQ) {
 			if (component->create_refcnt == 1)
-				kalimba_close_source(component->id_count,
-					component->ret, resp);
+				if (!kaschk_crash())
+					kalimba_close_source(
+						component->id_count,
+						component->ret,
+						resp);
 			if (component->create_refcnt > 0)
 				component->create_refcnt--;
 		}
@@ -2340,24 +2413,30 @@ void destroy_stream(int stream)
 	/* Close source or sink*/
 	if (stream == CAPTURE_MONO_STREAM
 		|| stream == VOICECALL_CAPTURE_STREAM
-		|| stream == CAPTURE_STEREO_STREAM)
-		kalimba_close_sink(sw_channels[stream],
-			sw_endpoint_id[stream], resp);
-	else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
+		|| stream == CAPTURE_STEREO_STREAM) {
+		if (!kaschk_crash())
+				kalimba_close_sink(sw_channels[stream],
+					sw_endpoint_id[stream], resp);
+	} else if (stream == MUSIC_STEREO_STREAM || stream == NAVIGATION_STREAM
 		|| stream == MUSIC_MONO_STREAM
 		|| stream == MUSIC_4CHANNELS_STREAM
 		|| stream == VOICECALL_PLAYBACK_STREAM
 		|| stream == ALARM_STREAM)
-		kalimba_close_source(sw_channels[stream],
-			sw_endpoint_id[stream], resp);
+		if (!kaschk_crash())
+			kalimba_close_source(sw_channels[stream],
+				sw_endpoint_id[stream], resp);
 	kalimba_msg_send_unlock();
 }
 
-void data_produced(u16 endpoint_id)
+int data_produced(u16 endpoint_id)
 {
+	int ret;
+
 	kalimba_msg_send_lock();
-	kalimba_data_produced(endpoint_id);
+	ret = kalimba_data_produced(endpoint_id);
 	kalimba_msg_send_unlock();
+
+	return ret;
 }
 
 u16 get_volume_control_op_id(void)
@@ -2397,32 +2476,42 @@ u16 get_delay_op_id(void)
 	return components_global[music_delay].ret[0];
 }
 
-static void config_operator(u16 operator_id, u16 operator_type, u32 *config)
+static int config_operator(u16 operator_id, u16 operator_type, u32 *config)
 {
 	u32 config_items = config[0];
 	u32 i;
 	u16 resp[64];
+	int ret;
 
-	for (i = 0; i < config_items; i++)
-		kalimba_operator_message(operator_id,
+	for (i = 0; i < config_items; i++) {
+		ret = kalimba_operator_message(operator_id,
 			(u16)config[i * 3 + 1],
 			(u16)config[i * 3 + 2],
 			(u16 *)(config[i * 3 + 3]),
 			NULL, NULL, resp);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
 }
 
-static void config_endpoint(u16 *endpoint_id, int endpoint_count, u32 *config)
+static int config_endpoint(u16 *endpoint_id, int endpoint_count, u32 *config)
 {
 	u32 config_items = config[0];
-	int i, c;
+	int i, c, ret;
 	u16 resp[64];
 
 	for (c = 0; c < endpoint_count; c++) {
 		for (i = 0; i < config_items; i++)
-			kalimba_config_endpoint(endpoint_id[c],
+			ret = kalimba_config_endpoint(endpoint_id[c],
 				config[i * 2 + 1], *((u16 *)config[i * 2 + 2]),
 				resp);
+			if (ret < 0)
+				return ret;
 	}
+
+	return 0;
 }
 
 static int execute_component(struct component *component)
@@ -2433,11 +2522,16 @@ static int execute_component(struct component *component)
 	switch (component->component_id) {
 	case CREATE_OPERATOR_REQ:
 		if  (component->create_refcnt == 0) {
-			kalimba_create_operator((u16)(component->params[0]),
+			ret = kalimba_create_operator(
+					(u16)(component->params[0]),
 					component->ret, resp);
-			config_operator((u16)(component->ret[0]),
+			if (ret < 0)
+				return ret;
+			ret = config_operator((u16)(component->ret[0]),
 				(u16)(component->params[0]),
 				&component->params[1]);
+			if (ret < 0)
+				return ret;
 			if (component->params[0] == CAPABILITY_ID_MIXER)
 				component->primary_stream = 0;
 		}
@@ -2452,6 +2546,8 @@ static int execute_component(struct component *component)
 				(u16)(component->params[2]),
 				(u16 *)(component->params[3]),
 				NULL, NULL, resp);
+			if (ret < 0)
+				return ret;
 			break;
 		}
 		change_primary_stream((u32)(component->params[4]),
@@ -2464,12 +2560,12 @@ static int execute_component(struct component *component)
 					(component->params[2]);
 
 			memset(hw_ep_handle->buff, 0, hw_ep_handle->buff_bytes);
-			kalimba_get_sink((u16)(component->params[0]),
+			ret = kalimba_get_sink((u16)(component->params[0]),
 				(u16)(component->params[1]),
 				hw_ep_handle->channels,
 				hw_ep_handle->handle_phy_addr,
 				component->ret, resp);
-			config_endpoint(component->ret,
+			ret = config_endpoint(component->ret,
 				hw_ep_handle->channels,
 				&component->params[3]);
 			component->id_count = hw_ep_handle->channels;
@@ -2483,12 +2579,12 @@ static int execute_component(struct component *component)
 					(component->params[2]);
 
 			memset(hw_ep_handle->buff, 0, hw_ep_handle->buff_bytes);
-			kalimba_get_source((u16)(component->params[0]),
+			ret = kalimba_get_source((u16)(component->params[0]),
 					(u16)(component->params[1]),
 					hw_ep_handle->channels,
 					hw_ep_handle->handle_phy_addr,
 					component->ret, resp);
-			config_endpoint(component->ret,
+			ret = config_endpoint(component->ret,
 				hw_ep_handle->channels,
 				&component->params[3]);
 			component->id_count = hw_ep_handle->channels;
@@ -2496,18 +2592,20 @@ static int execute_component(struct component *component)
 		component->create_refcnt++;
 		break;
 	case ENDPOINT_CONFIGURE_REQ:
-		kalimba_config_endpoint(*((u16 *)(component->params[0])),
+		ret = kalimba_config_endpoint(*((u16 *)(component->params[0])),
 			(u16)(component->params[1]),
 			*((u32 *)(component->params[2])), resp);
 		break;
 	case CONNECT_REQ:
 		if  (component->create_refcnt == 0)
-			kalimba_connect_endpoints(
+			ret = kalimba_connect_endpoints(
 				*((u16 *)(component->params[0]))
 				+ (u16)(component->params[1]),
 				*((u16 *)(component->params[2])) +
 				(u16)(component->params[3]),
 				component->ret, resp);
+			if (ret < 0)
+				return ret;
 		component->create_refcnt++;
 		break;
 	case START_OPERATOR_REQ:

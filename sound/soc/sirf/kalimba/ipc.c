@@ -102,7 +102,7 @@ static struct {
 	{"Stop op", STOP_OPERATOR_REQ},
 	{"Reset op", RESET_OPERATOR_REQ},
 	{"Destroy op", DESTROY_OPERATOR_REQ},
-	{"op msg", OPERATOR_MESSAGE_REQ},
+	{"Op msg", OPERATOR_MESSAGE_REQ},
 	{"Get source", GET_SOURCE_REQ},
 	{"Get sink", GET_SINK_REQ},
 	{"Close source", CLOSE_SOURCE_REQ},
@@ -229,7 +229,9 @@ static u32 read_msg_payload(void)
 		ipc_data->cur_offs += FRAME_MAX_CONTINUE_END_DATA_SIZE;
 		break;
 	default:
-		BUG();
+		WARN_ON(1);
+		msg_type = -EKASMSGTYPE;
+		break;
 	}
 	return msg_type;
 }
@@ -254,7 +256,9 @@ static int process_ipc_payload(u32 msg_type)
 		ret = IPC_SEND_NO_COMPLETE;
 		break;
 	default:
-		BUG();
+		WARN_ON(1);
+		ret = -EKASPLD;
+		break;
 	}
 	return ret;
 }
@@ -292,17 +296,24 @@ int ipc_recv_msg_payload_handler(u16 *resp)
 	 */
 	if (arm_ack_count != dsp_send_count) {
 		msg_type = read_msg_payload();
+		if (msg_type < 0) {
+			ret = msg_type;
+			pr_info("Error msg_type\n");
+			goto out;
+		}
+
 		ret = process_ipc_payload(msg_type);
 		if (ret	== IPC_SEND_MSG_TO_ARM) {
 			memcpy(resp, ipc_data->payload, 64);
 			ipc_clear_raised_and_send_ack();
 		}
 	}
+out:
 	mutex_unlock(&ipc_data->ipc_comm_mutex);
 	return ret;
 }
 
-static void check_response(u16 msg_id, u16 resp_id, u16 status)
+static int check_response(u16 msg_id, u16 resp_id, u16 status)
 {
 	/*
 	 * If the response id is not correct or the status is error code,
@@ -312,14 +323,19 @@ static void check_response(u16 msg_id, u16 resp_id, u16 status)
 		pr_err("kas response: %s\n", kerror_str(status));
 		pr_err("msg id: 0x%04x, resp id: 0x%04x, status: 0x%04x\n",
 			msg_id, resp_id, status);
-		BUG();
+		WARN_ON(1);
+		dump_stack();
+		return -EKASMSGRSP;
 	}
+
+	return 0;
 }
 
-static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
+static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 	int total_len, u32 need_ack_rsp)
 {
 	int i;
+	int ret = 0;
 
 	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
 	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
@@ -335,31 +351,40 @@ static void ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, msg[i]);
 	increment_counter(ARM_SEND_COUNT_ADDR);
 	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT1_1);
+	kwatchdog_start();
 	if (need_ack_rsp & MSG_NEED_ACK) {
 		/* Try to check the ACK for 10 times */
 		for (i = 0; i < 10; i++) {
-			if (is_ipc_ack())
+			if (is_ipc_ack()) {
+				kwatchdog_clear();
 				break;
+			}
 			usleep_range(50, 60);
 		}
 		if (i == 10) {
 			kcoredump();
 			pr_err("Ack from DSP timeout: Maybe Kalimba is down\n");
-			BUG();
+			WARN_ON(1);
+			dump_stack();
+			ret = -EKASCRASH;
+			goto out;
 		}
 		/* Notify the kalimba, the ACK has received.*/
 		write_sram(DSP_INTR_RAISED_ADDR, 0);
 	}
+out:
+	return ret;
+
 }
 
-void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
+int ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 {
 	u16 msg_id;
+	int ret = 0;
 #ifdef CONFIG_TRACING
 	int i;
 	char trace_info[512];
 #endif
-
 	mutex_lock(&ipc_data->ipc_send_mutex);
 	mutex_lock(&ipc_data->ipc_comm_mutex);
 	msg_id = msg[0];
@@ -374,23 +399,36 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 
 	dump_req_or_rsp(msg_id);
 
-	if (size <= FRAME_MAX_START_COMPLETE_DATA_SIZE)
-		ipc_send_msg_package(msg, size,
-			MESSAGING_SHORT_COMPLETE, size, need_ack_rsp);
-	else {
-		ipc_send_msg_package(msg, FRAME_MAX_START_COMPLETE_DATA_SIZE,
-			MESSAGING_SHORT_START, size, need_ack_rsp);
+	if (size <= FRAME_MAX_START_COMPLETE_DATA_SIZE) {
+		ret = ipc_send_msg_package(msg, size,
+				MESSAGING_SHORT_COMPLETE,
+				size, need_ack_rsp);
+		if (ret < 0)
+			goto error;
+	} else {
+		ret = ipc_send_msg_package(msg,
+				FRAME_MAX_START_COMPLETE_DATA_SIZE,
+				MESSAGING_SHORT_START,
+				size, need_ack_rsp);
+		if (ret < 0)
+			goto error;
 		msg += FRAME_MAX_START_COMPLETE_DATA_SIZE;
 		size -= FRAME_MAX_START_COMPLETE_DATA_SIZE;
 		while (size > FRAME_MAX_CONTINUE_END_DATA_SIZE) {
-			ipc_send_msg_package(
-				msg, FRAME_MAX_CONTINUE_END_DATA_SIZE,
-				MESSAGING_SHORT_CONTINUE, 0, need_ack_rsp);
+			ret = ipc_send_msg_package(
+					msg, FRAME_MAX_CONTINUE_END_DATA_SIZE,
+					MESSAGING_SHORT_CONTINUE,
+					0, need_ack_rsp);
+			if (ret < 0)
+				goto error;
 			msg += FRAME_MAX_CONTINUE_END_DATA_SIZE;
 			size -= FRAME_MAX_CONTINUE_END_DATA_SIZE;
 		}
-		ipc_send_msg_package(msg, size, MESSAGING_SHORT_END,
-			0, need_ack_rsp);
+		ret = ipc_send_msg_package(msg, size,
+				MESSAGING_SHORT_END,
+				0, need_ack_rsp);
+		if (ret < 0)
+			goto error;
 	}
 
 	if (need_ack_rsp & MSG_NEED_RSP) {
@@ -400,7 +438,8 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 			msecs_to_jiffies(IPC_COMM_TIMEOUT))) {
 			kcoredump();
 			pr_err("RSP from DSP timeout: Maybe Kalimba is down\n");
-			BUG();
+			ret = -EKASCRASH;
+			goto out;
 		}
 		check_response(msg_id, ipc_data->payload[0],
 			ipc_data->payload[2]);
@@ -410,8 +449,12 @@ void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 	}
 	if (resp)
 		memcpy(resp, ipc_data->payload, 64);
+
+error:
 	mutex_unlock(&ipc_data->ipc_comm_mutex);
+out:
 	mutex_unlock(&ipc_data->ipc_send_mutex);
+	return ret;
 }
 
 static irqreturn_t ipc_irq_handler(int irq, void *pdata)

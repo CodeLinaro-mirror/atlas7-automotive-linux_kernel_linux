@@ -29,6 +29,7 @@
 #include "iacc.h"
 #include "kcm.h"
 #include "usp-pcm.h"
+#include "kerror.h"
 
 bool enable_2mic_cvc = false;
 module_param(enable_2mic_cvc, bool, 0);
@@ -246,7 +247,6 @@ static int kas_playback_dbe_put(struct snd_kcontrol *kcontrol,
 	}
 	return 0;
 }
-
 
 static int kas_playback_peq_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
@@ -654,6 +654,9 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 	struct kas_pcm_data *pcm_data =
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 
+	if (kaschk_crash())
+		return -EPIPE;
+
 	if (open_stream(rtd->cpu_dai->id) == PIPELINE_BUSY)
 		return -EBUSY;
 
@@ -669,6 +672,8 @@ static int kas_pcm_close(struct snd_pcm_substream *substream)
 
 	close_stream(rtd->cpu_dai->id);
 
+	kwatchdog_stop();
+
 	return 0;
 }
 
@@ -679,6 +684,8 @@ static int kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 	if (message_data[0] == pcm_data->kalimba_notify_ep_id) {
 		pcm_data->pos = (message_data[1] << 16 | message_data[2]) * 4;
 		snd_pcm_period_elapsed(pcm_data->substream);
+		/* Move the watchdog forward */
+		kwatchdog_clear();
 		return ACTION_HANDLED;
 	} else
 		return ACTION_NONE;
@@ -962,6 +969,7 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 
 	snd_pcm_lib_free_pages(substream);
 	pcm_data->kas_started = false;
+
 	return 0;
 }
 
@@ -975,6 +983,7 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct kcm_t *kcm = pdata->kcm;
 	int stream = rtd->cpu_dai->id;
+	int ret;
 
 	if (stream == MUSIC_STREAM) {
 		switch (substream->runtime->channels) {
@@ -988,7 +997,7 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 			stream = MUSIC_4CHANNELS_STREAM;
 			break;
 		default:
-			break;
+			return -EINVAL;
 		}
 	}
 	if (stream == ANALOG_CAPTURE_STREAM) {
@@ -1000,7 +1009,7 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 			stream = CAPTURE_STEREO_STREAM;
 			break;
 		default:
-			break;
+			return -EINVAL;
 		}
 	}
 
@@ -1012,8 +1021,10 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 			iacc_start(playback, kcm->playback_iacc_ep.channels);
 		else
 			iacc_start(playback, substream->runtime->channels);
-		start_stream(stream,
+		ret = start_stream(stream,
 			!!atomic_read(&substream->mmap_count));
+		if (ret < 0)
+			goto error;
 		if (playback)
 			data_produced(pcm_data->kalimba_notify_ep_id);
 		break;
@@ -1034,6 +1045,16 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 		return -EINVAL;
 	}
 	return 0;
+
+error:
+	if (playback) {
+		iacc_stop(playback);
+		/* Buffer pointer must be reset */
+		pcm_data->pos = 0;
+	} else
+		iacc_stop(playback);
+
+	return -EPIPE;
 }
 
 static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
@@ -1044,6 +1065,7 @@ static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
 		snd_soc_platform_get_drvdata(rtd->platform);
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct kcm_t *kcm = pdata->kcm;
+	int ret;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -1056,7 +1078,9 @@ static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
 			iacc_start(playback, kcm->capture_iacc_sco_ep.channels);
 			sirf_usp_pcm_start(bt_usp_port, 1);
 		}
-		start_stream(rtd->cpu_dai->id, 1);
+		ret = start_stream(rtd->cpu_dai->id, 1);
+		if (ret < 0)
+			goto error;
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -1071,6 +1095,17 @@ static int kas_pcm_voicecall_trigger(struct snd_pcm_substream *substream,
 		break;
 	}
 	return 0;
+
+error:
+	if (playback) {
+		sirf_usp_pcm_stop(bt_usp_port, 0);
+		iacc_stop(1);
+	} else {
+		iacc_stop(0);
+		sirf_usp_pcm_stop(bt_usp_port, 1);
+	}
+
+	return -EPIPE;
 }
 
 static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
@@ -1080,6 +1115,7 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 	struct kas_priv_data *pdata =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kcm_t *kcm = pdata->kcm;
+	int ret;
 
 	memset(kcm->capture_usp_a2dp_ep.buff, 0,
 			kcm->capture_usp_a2dp_ep.buff_bytes);
@@ -1090,7 +1126,9 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		iacc_start(1, kcm->playback_iacc_ep.channels);
 		sirf_usp_pcm_start(bt_usp_port, 0);
-		start_stream(rtd->cpu_dai->id, 1);
+		ret = start_stream(rtd->cpu_dai->id, 1);
+		if (ret < 0)
+			goto error;
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -1100,6 +1138,12 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 		break;
 	}
 	return 0;
+
+error:
+	iacc_stop(1);
+	sirf_usp_pcm_stop(bt_usp_port, 0);
+	return -EPIPE;
+
 }
 
 static int kas_pcm_iacc_loopback_trigger(struct snd_pcm_substream *substream,
@@ -1111,6 +1155,7 @@ static int kas_pcm_iacc_loopback_trigger(struct snd_pcm_substream *substream,
 	struct kcm_t *kcm = pdata->kcm;
 	int playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int channels;
+	int ret;
 
 	if (playback)
 		channels = kcm->playback_iacc_ep.channels;
@@ -1122,8 +1167,11 @@ static int kas_pcm_iacc_loopback_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		iacc_start(playback, channels);
-		if (playback)
-			start_stream(rtd->cpu_dai->id, 1);
+		if (playback) {
+			ret = start_stream(rtd->cpu_dai->id, 1);
+			if (ret < 0)
+				goto error;
+		}
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -1132,6 +1180,11 @@ static int kas_pcm_iacc_loopback_trigger(struct snd_pcm_substream *substream,
 		break;
 	}
 	return 0;
+
+error:
+	iacc_stop(playback);
+	return -EPIPE;
+
 }
 
 static int kas_pcm_i2s_to_iacc_loopback_trigger(
@@ -1141,6 +1194,7 @@ static int kas_pcm_i2s_to_iacc_loopback_trigger(
 	struct kas_priv_data *pdata =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kcm_t *kcm = pdata->kcm;
+	int ret;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -1148,7 +1202,9 @@ static int kas_pcm_i2s_to_iacc_loopback_trigger(
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		iacc_start(1, kcm->playback_iacc_ep.channels);
 		sirf_i2s_start(0);
-		start_stream(rtd->cpu_dai->id, i2s_master);
+		ret = start_stream(rtd->cpu_dai->id, i2s_master);
+		if (ret < 0)
+			goto error;
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -1157,7 +1213,12 @@ static int kas_pcm_i2s_to_iacc_loopback_trigger(
 		sirf_i2s_stop(0);
 	}
 	return 0;
+error:
+	iacc_stop(0);
+	sirf_i2s_stop(0);
+	return -EPIPE;
 }
+
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1166,6 +1227,9 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct kas_pcm_data *pcm_data =
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
 	int ret = 0;
+
+	if (kaschk_crash())
+		return -EPIPE;
 
 	if (pcm_data->trigger)
 		ret = pcm_data->trigger(substream, cmd);
@@ -1179,6 +1243,9 @@ static snd_pcm_uframes_t kas_pcm_pointer(struct snd_pcm_substream *substream)
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kas_pcm_data *pcm_data =
 		&pdata->pcm[rtd->cpu_dai->id][substream->stream];
+
+	if (kaschk_crash())
+		return SNDRV_PCM_POS_XRUN;
 
 	return bytes_to_frames(substream->runtime, pcm_data->pos);
 }

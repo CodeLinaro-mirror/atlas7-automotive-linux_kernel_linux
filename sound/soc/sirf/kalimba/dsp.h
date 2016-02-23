@@ -38,7 +38,7 @@ void kalimba_update_bits_reg(u32 reg_addr, u32 mask, u32 val);
 void kalimba_msg_send_lock(void);
 void kalimba_msg_send_unlock(void);
 
-void kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp);
+int kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp);
 int kalimba_create_operator_extended(u16 capability_id, u16 num_of_keys,
 	u16 *msg_data, u16 *operator_id, u16 *resp);
 int kalimba_destroy_operator(u16 *operators_id, u16 operator_count, u16 *resp);
@@ -47,29 +47,29 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp);
 int kalimba_stop_operator(u16 *operators_id, u16 operator_count, u16 *resp);
 int kalimba_reset_operator(u16 *operators_id, u16 operator_count, u16 *resp);
-void kalimba_get_source(u16 endpoint_type, u16 instance_id, u16 channels,
+int kalimba_get_source(u16 endpoint_type, u16 instance_id, u16 channels,
 	u32 handle_addr, u16 *endpoint_id, u16 *resp);
-void kalimba_get_sink(u16 endpoint_type, u16 instance_id, u16 channels,
+int kalimba_get_sink(u16 endpoint_type, u16 instance_id, u16 channels,
 	u32 handle_addr, u16 *endpoint_id, u16 *resp);
-void kalimba_config_endpoint(u16 endpoint_id, u16 config_key,
+int kalimba_config_endpoint(u16 endpoint_id, u16 config_key,
 	u32 config_value, u16 *resp);
-void kalimba_connect_endpoints(u16 source_endpoint_id, u16 sink_endpoint_id,
+int kalimba_connect_endpoints(u16 source_endpoint_id, u16 sink_endpoint_id,
 	u16 *connect_id, u16 *resp);
 int kalimba_close_source(u16 endpoint_count, u16 *endpoint_id, u16 *resp);
 int kalimba_close_sink(u16 endpoint_count, u16 *endpoint_id, u16 *resp);
 int kalimba_disconnect_endpoints(u16 connect_count, u16 *connect_id, u16 *resp);
-void kalimba_data_produced(u16 endpoint_id);
-void kalimba_data_consumed(u16 endpoint_id);
-void kalimba_get_version_id(u32 *version_id, u16 *resp);
-void kalimba_get_capid_list(u16 *capids, u16 *resp);
-void kalimba_get_opid_list(u16 filter, u16 *opids, u16 *capids, u16 *resp);
-void kalimba_get_connection_list(u16 source_filter, u16 sink_filter,
+int kalimba_data_produced(u16 endpoint_id);
+int kalimba_data_consumed(u16 endpoint_id);
+int kalimba_get_version_id(u32 *version_id, u16 *resp);
+int kalimba_get_capid_list(u16 *capids, u16 *resp);
+int kalimba_get_opid_list(u16 filter, u16 *opids, u16 *capids, u16 *resp);
+int kalimba_get_connection_list(u16 source_filter, u16 sink_filter,
 	u16 *connection_ids, u16 *source_ids, u16 *sink_ids, u16 *resp);
-void kalimba_sync_endpoint(u16 endpoint1, u16 endpoint2, u16 *resp);
-void kalimba_get_endpoint_info(u16 endpoint_id, u16 configure_key, u16 *resp);
-void kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
+int kalimba_sync_endpoint(u16 endpoint1, u16 endpoint2, u16 *resp);
+int kalimba_get_endpoint_info(u16 endpoint_id, u16 configure_key, u16 *resp);
+int kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
 	u16 *capids, u16 *resp);
-void kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
+int kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
 	u16 *resp);
 void *register_kalimba_msg_action(u16 message,
 		int (*handler)(u16, void *, u16 *), void *priv_data);

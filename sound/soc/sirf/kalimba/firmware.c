@@ -193,6 +193,7 @@ static void firmware_load_pm_though_dma(struct firmware_code *code,
 static void firmware_init_dma(u32 transfer_mode)
 {
 	/* Reset DMA client */
+	write_kalimba_reg(KAS_DMAC_DMA_VALID, 1);
 	update_bits_kalimba_reg(KAS_DMA_MODE, KAS_RESET_DMA_CLIENT,
 		KAS_RESET_DMA_CLIENT);
 	update_bits_kalimba_reg(KAS_DMA_MODE, KAS_RESET_DMA_CLIENT, 0);
@@ -398,6 +399,7 @@ static int firmware_download_const(struct firmware_code *code,
 static void firmware_download_code(struct firmware_code *code)
 {
 	firmware_download_pm(code);
+
 	firmware_download_dm(code, code->code + code->head.dm1_offset);
 	firmware_download_dm(code, code->code + code->head.dm2_offset);
 	firmware_download_const(code, code->code + code->head.const16_offset,

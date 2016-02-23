@@ -20,6 +20,8 @@
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
+#include <linux/firmware.h>
+#include <linux/timer.h>
 
 #include "kerror.h"
 #include "dsp.h"
@@ -29,7 +31,16 @@
 
 #define HEADER_SIZE   1024
 
-struct delayed_work kdump_dwork;
+#define WAIT_TIMEOUT	msecs_to_jiffies(1000)
+#define WDOG_TIMEOUT	msecs_to_jiffies(1000)
+
+static struct delayed_work kdump_dwork;
+static struct delayed_work kreset_dwork;
+static bool kas_crashed;
+static struct workqueue_struct *reset_workq;
+static struct completion kdump_done;
+static struct timer_list wd_timer;
+
 
 static struct {
 	char *text;
@@ -271,6 +282,7 @@ static int do_kcoredump(void)
 	u32 pos = 0, fsize;
 	void *dp;
 
+	kas_crashed = true;
 	/* stop the dsp */
 	kerror_stopdsp();
 
@@ -305,10 +317,11 @@ static int do_kcoredump(void)
 
 	vfs_fsync(cdfile, 0);
 	filp_close(cdfile, NULL);
-
+	pr_info("kcoredump completed:\n");
 open_err:
 	dma_free_coherent(NULL, fsize, dp, phy_addr);
 
+	complete(&kdump_done);
 	return ret;
 }
 
@@ -352,7 +365,78 @@ static void kcoredump_work(struct work_struct *work)
  */
 void kcoredump(void)
 {
-	queue_delayed_work(system_wq, &kdump_dwork, 10);
+	queue_delayed_work(system_wq,
+			&kdump_dwork, msecs_to_jiffies(10));
+}
+
+/*
+ * Performs a firmware reload, and DSP reset
+ */
+static void do_kreset(void)
+{
+	u32 fw_version;
+	u16 resp[64];
+
+	if (kalimba_get_version_id(&fw_version, resp) < 0) {
+		pr_err("Failed to communicate with kas\n");
+		/*
+		 * Before we reload the DSP firmware,
+		 * need to wait coredump to complete
+		 */
+		if (wait_for_completion_timeout(&kdump_done,
+				WAIT_TIMEOUT) == 0)
+				pr_err("kcoredump timed out\n");
+			pr_err("kalimba fatal error, need reload firmware\n");
+	}
+}
+
+static void kreset_work(struct work_struct *work)
+{
+	do_kreset();
+}
+
+void kwatchdog_clear(void)
+{
+	mod_timer(&wd_timer, jiffies + WDOG_TIMEOUT);
+}
+
+/*
+ * Check if DSP has crashed
+ */
+bool kaschk_crash(void)
+{
+	return kas_crashed;
+}
+
+static void kwatchdog_timeout(unsigned long data)
+{
+	queue_delayed_work(reset_workq,
+			&kreset_dwork, 0);
+}
+
+/*
+ * Initialise the watchdog
+ */
+static void kwatchdog_init(void)
+{
+	init_timer(&wd_timer);
+	wd_timer.function = kwatchdog_timeout;
+}
+
+void kwatchdog_start(void)
+{
+
+	wd_timer.expires = jiffies + WDOG_TIMEOUT;
+	wd_timer.function = kwatchdog_timeout;
+	if (!timer_pending(&wd_timer))
+		add_timer(&wd_timer);
+	else
+		mod_timer(&wd_timer, jiffies + WDOG_TIMEOUT);
+}
+
+void kwatchdog_stop(void)
+{
+	del_timer(&wd_timer);
 }
 
 /*
@@ -362,6 +446,16 @@ int kcoredump_init(void)
 {
 
 	INIT_DELAYED_WORK(&kdump_dwork, kcoredump_work);
+	INIT_DELAYED_WORK(&kreset_dwork, kreset_work);
+
+	kas_crashed = false;
+	init_completion(&kdump_done);
+	reset_workq = create_singlethread_workqueue("kasreset");
+
+	/*
+	 * At this point init the watchdog
+	 */
+	kwatchdog_init();
 
 	/*
 	 * Register the callback for kas panic

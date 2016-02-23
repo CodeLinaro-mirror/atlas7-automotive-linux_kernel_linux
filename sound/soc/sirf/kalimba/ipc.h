@@ -1,7 +1,7 @@
 #ifndef _KAS_IPC_H
 #define _KAS_IPC_H
 
-void ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp);
+int ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp);
 void ipc_clear_raised_and_send_ack(void);
 u32 read_kalimba_reg(u32 reg_addr);
 void write_kalimba_reg(u32 reg_addr, u32 val);

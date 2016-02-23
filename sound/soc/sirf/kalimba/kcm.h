@@ -131,8 +131,8 @@ int open_stream(int stream);
 void close_stream(int stream);
 u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 	int clock_master, int period_size);
-void start_stream(int stream, int clock_master);
+int start_stream(int stream, int clock_master);
 void stop_stream(int stream);
 void destroy_stream(int stream);
-void data_produced(u16 endpoint_id);
+int data_produced(u16 endpoint_id);
 #endif

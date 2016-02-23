@@ -12,7 +12,17 @@
 #define KAS_CMD_INVALID_LENGTH		0x1004
 #define KAS_CMD_INVALID_CONN_ID		0x1005
 
+#define EKASMSGTYPE			20
+#define EKASPLD				21
+#define EKASMSGRSP			22
+#define EKASCRASH			23
+#define EKASIPC				24
+
 const char *kerror_str(u16 status);
 int kcoredump_init(void);
 void kcoredump(void);
+bool kaschk_crash(void);
+void kwatchdog_start(void);
+void kwatchdog_clear(void);
+void kwatchdog_stop(void);
 #endif /* _KERROR_H */

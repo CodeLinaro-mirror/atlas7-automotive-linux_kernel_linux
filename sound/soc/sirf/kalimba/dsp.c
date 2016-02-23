@@ -31,6 +31,7 @@
 #include "ps.h"
 #include "kerror.h"
 #include "regs.h"
+#include "firmware.h"
 
 struct kalimba *kalimba;
 
@@ -44,12 +45,17 @@ void kalimba_msg_send_unlock(void)
 	mutex_unlock(&kalimba->msg_send_mutex);
 }
 
-void kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp)
+int kalimba_create_operator(u16 capability_id, u16 *operator_id, u16 *resp)
 {
 	u16 msg[3] = {CREATE_OPERATOR_REQ, 1, capability_id};
+	int ret;
 
-	ipc_send_msg(msg, 3, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 3, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	if (ret < 0)
+		return ret;
 	*operator_id = resp[3];
+
+	return 0;
 }
 
 int kalimba_create_operator_extended(u16 capability_id, u16 num_of_keys,
@@ -59,7 +65,7 @@ int kalimba_create_operator_extended(u16 capability_id, u16 num_of_keys,
 	int vec_size = 3 * num_of_keys;
 	int msg_size = 2 + 2 + vec_size;
 	u16 *msg;
-	int i, j;
+	int i, j, ret;
 
 	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
 	if (msg == NULL)
@@ -81,8 +87,12 @@ int kalimba_create_operator_extended(u16 capability_id, u16 num_of_keys,
 		msg[6 + j] = msg_data[1 + j];
 	}
 
-	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, msg_size,
+			MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
+	if (ret < 0)
+		return ret;
+
 	*operator_id = resp[3];
 
 	return 0;
@@ -93,11 +103,12 @@ int kalimba_destroy_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 	int msg_size = 2 + operator_count;
 	u16 *msg;
 	int i;
+	int ret;
 
-	if (operator_count < 1) {
+	if (WARN_ON(operator_count < 1)) {
 		pr_err("%s: The operator numbers must great than zero: %d\n",
 			__func__, operator_count);
-		BUG();
+		return -EINVAL;
 	}
 
 	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
@@ -109,14 +120,15 @@ int kalimba_destroy_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 	for (i = 0; i < operator_count; i++)
 		msg[2 + i] = operators_id[i];
 
-	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, msg_size,
+			MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
-	if (resp[3] != operator_count) {
+	if (WARN_ON(resp[3] != operator_count || ret < 0)) {
 		pr_err("Operator destroy failed: %d %d\n", operator_count,
 			resp[3]);
 		pr_err("First failure reason: %x\n", resp[4]);
-		BUG();
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -127,6 +139,7 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 	int msg_size = 2 + 2 + message_data_len;
 	u16 *msg;
 	int i;
+	int ret;
 
 	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
 	if (msg == NULL)
@@ -140,17 +153,19 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 	for (i = 0; i < message_data_len; i++)
 		msg[4 + i] = msg_data[i];
 
-	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, msg_size,
+			MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
-	if (res_msg_data != NULL) {
+	if (res_msg_data != NULL && ret == 0) {
 		*rsp_msg_len = resp[1] - 3;
 		*res_msg_data = kmalloc_array(*rsp_msg_len,
 			sizeof(u16), GFP_KERNEL);
 		for (i = 0; i < *rsp_msg_len; i++)
 			*res_msg_data[i] = resp[5 + i];
 	}
-	return 0;
+
+	return ret;
 }
 
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_KCM
@@ -340,12 +355,12 @@ int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 {
 	int msg_size = 2 + operator_count;
 	u16 *msg;
-	int i;
+	int i, ret;
 
-	if (operator_count < 1) {
+	if (WARN_ON(operator_count < 1)) {
 		pr_err("%s: The operator numbers must great than zero: %d\n",
 			__func__, operator_count);
-		BUG();
+		return -EINVAL;
 	}
 
 	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
@@ -357,22 +372,22 @@ int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 	for (i = 0; i < msg[1]; i++)
 		msg[2 + i] = operators_id[i];
 
-	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
-	return 0;
+	return ret;
 }
 
 int kalimba_stop_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 {
 	int msg_size = 2 + operator_count;
 	u16 *msg;
-	int i;
+	int i, ret;
 
-	if (operator_count < 1) {
+	if (WARN_ON(operator_count < 1)) {
 		pr_err("%s: The operator numbers must great than zero: %d\n",
 			__func__, operator_count);
-		BUG();
+		return -EINVAL;
 	}
 
 	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
@@ -384,28 +399,28 @@ int kalimba_stop_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 	for (i = 0; i < msg[1]; i++)
 		msg[2 + i] = operators_id[i];
 
-	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
-	if (resp[3] != operator_count) {
+	if (WARN_ON(resp[3] != operator_count || ret < 0)) {
 		pr_err("Operator stop failed: %d %d\n",
 				operator_count, resp[3]);
 		pr_err("First failure reason: %x\n", resp[4]);
-		BUG();
+		return -EINVAL;
 	}
-	return 0;
+	return ret;
 }
 
 int kalimba_reset_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 {
 	int msg_size = 2 + operator_count;
 	u16 *msg;
-	int i;
+	int i, ret;
 
-	if (operator_count < 1) {
+	if (WARN_ON(operator_count < 1)) {
 		pr_err("%s: The operator numbers must great than zero: %d\n",
 			__func__, operator_count);
-		BUG();
+		return -EINVAL;
 	}
 
 	msg = kmalloc_array(msg_size, sizeof(u16), GFP_KERNEL);
@@ -417,71 +432,76 @@ int kalimba_reset_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 	for (i = 0; i < msg[1]; i++)
 		msg[2 + i] = operators_id[i];
 
-	ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
-	if (resp[3] != operator_count) {
+	if (WARN_ON(resp[3] != operator_count || ret < 0)) {
 		pr_err("Operator reset failed: %d %d\n",
 				operator_count, resp[3]);
 		pr_err("First failure reason: %x\n", resp[4]);
-		BUG();
+		return -EINVAL;
 	}
-	return 0;
+	return ret;
 }
 
-void kalimba_get_source(u16 endpoint_type, u16 instance_id, u16 channels,
+int kalimba_get_source(u16 endpoint_type, u16 instance_id, u16 channels,
 	u32 handle_addr, u16 *endpoint_id, u16 *resp)
 {
-	int i;
+	int i, ret;
 	u16 msg[7] = {GET_SOURCE_REQ, 5, endpoint_type,	instance_id, channels,
 		handle_addr & 0xffff, handle_addr >> 16};
 
-	ipc_send_msg(msg, 7, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 7, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
-	if (endpoint_id) {
+	if (endpoint_id && ret == 0) {
 		for (i = 0; i < channels; i++)
 			endpoint_id[i] = resp[3 + i];
 	}
+	return ret;
 }
 
-void kalimba_get_sink(u16 endpoint_type, u16 instance_id, u16 channels,
+int kalimba_get_sink(u16 endpoint_type, u16 instance_id, u16 channels,
 		u32 handle_addr, u16 *endpoint_id, u16 *resp)
 {
-	int i;
+	int i, ret;
 	u16 msg[7] = {GET_SINK_REQ, 5, endpoint_type,
 		instance_id, channels, handle_addr & 0xffff, handle_addr >> 16};
 
-	ipc_send_msg(msg, 7, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 7, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
-	if (endpoint_id) {
+	if (endpoint_id && ret == 0) {
 		for (i = 0; i < channels; i++)
 			endpoint_id[i] = resp[3 + i];
 	}
+	return ret;
 }
 
-void kalimba_config_endpoint(u16 endpoint_id, u16 config_key,
+int kalimba_config_endpoint(u16 endpoint_id, u16 config_key,
 		u32 config_value, u16 *resp)
 {
 	u16 msg[6] = {ENDPOINT_CONFIGURE_REQ, 4, endpoint_id,
 		config_key, config_value & 0xffff, config_value >> 16};
 
-	ipc_send_msg(msg, 6, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	return ipc_send_msg(msg, 6, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 }
 
-void kalimba_connect_endpoints(u16 source_endpoint_id, u16 sink_endpoint_id,
+int kalimba_connect_endpoints(u16 source_endpoint_id, u16 sink_endpoint_id,
 		u16 *connect_id, u16 *resp)
 {
 	u16 msg[4] = {CONNECT_REQ, 2, source_endpoint_id, sink_endpoint_id};
+	int ret;
 
-	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
-	if (connect_id)
+	if (connect_id && ret == 0)
 		*connect_id = resp[3];
+	return ret;
 }
 
 int kalimba_close_source(u16 endpoint_count, u16 *endpoint_id, u16 *resp)
 {
 	u16 *msg;
+	int ret;
 
 	msg = kmalloc(4 + endpoint_count * 2, GFP_KERNEL);
 	if (msg == NULL)
@@ -491,16 +511,17 @@ int kalimba_close_source(u16 endpoint_count, u16 *endpoint_id, u16 *resp)
 	msg[1] = endpoint_count;
 	memcpy(&msg[2], endpoint_id, endpoint_count * 2);
 
-	ipc_send_msg(msg, 2 + endpoint_count, MSG_NEED_ACK | MSG_NEED_RSP,
+	ret = ipc_send_msg(msg, 2 + endpoint_count, MSG_NEED_ACK | MSG_NEED_RSP,
 		resp);
 	kfree(msg);
 
-	return 0;
+	return ret;
 }
 
 int kalimba_close_sink(u16 endpoint_count, u16 *endpoint_id, u16 *resp)
 {
 	u16 *msg;
+	int ret;
 
 	msg = kmalloc(4 + endpoint_count * 2, GFP_KERNEL);
 	if (msg == NULL)
@@ -510,16 +531,18 @@ int kalimba_close_sink(u16 endpoint_count, u16 *endpoint_id, u16 *resp)
 	msg[1] = endpoint_count;
 	memcpy(&msg[2], endpoint_id, endpoint_count * 2);
 
-	ipc_send_msg(msg, 2 + endpoint_count, MSG_NEED_ACK | MSG_NEED_RSP,
-		resp);
+	ret = ipc_send_msg(msg, 2 + endpoint_count,
+			MSG_NEED_ACK | MSG_NEED_RSP,
+			resp);
 	kfree(msg);
 
-	return 0;
+	return ret;
 }
 
 int kalimba_disconnect_endpoints(u16 connect_count, u16 *connect_id, u16 *resp)
 {
 	u16 *msg;
+	int ret;
 
 	msg = kmalloc(4 + connect_count * 2, GFP_KERNEL);
 	if (msg == NULL)
@@ -529,148 +552,172 @@ int kalimba_disconnect_endpoints(u16 connect_count, u16 *connect_id, u16 *resp)
 	msg[1] = connect_count;
 	memcpy(&msg[2], connect_id, connect_count * 2);
 
-	ipc_send_msg(msg, 2 + connect_count, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 2 + connect_count,
+			MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
 
-	return 0;
+	return ret;
 }
 
-void kalimba_data_produced(u16 endpoint_id)
+int kalimba_data_produced(u16 endpoint_id)
 {
 	u16 msg[3] = {DATA_PRODUCED, 1, endpoint_id};
+	int ret;
 
-	ipc_send_msg(msg, 3, 0, NULL);
+	ret = ipc_send_msg(msg, 3, 0, NULL);
+	if (ret < 0)
+		return -EKASIPC;
+
+	return ret;
 }
 
-void kalimba_data_consumed(u16 endpoint_id)
+int kalimba_data_consumed(u16 endpoint_id)
 {
 	u16 msg[3] = {DATA_CONSUMED, 1, endpoint_id};
+	int ret;
 
-	ipc_send_msg(msg, 3, 0, NULL);
+	ret = ipc_send_msg(msg, 3, 0, NULL);
+	if (ret < 0)
+		return -EKASIPC;
+
+	return ret;
 }
 
-void kalimba_get_version_id(u32 *version_id, u16 *resp)
+int kalimba_get_version_id(u32 *version_id, u16 *resp)
 {
 	u16 msg[2] = {GET_VERSION_ID_REQ, 0};
+	int ret;
 
-	ipc_send_msg(msg, 2, MSG_NEED_ACK | MSG_NEED_RSP, resp);
-
-	if (version_id)
+	BUG_ON(!version_id);
+	ret = ipc_send_msg(msg, 2,
+		MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	if (ret < 0)
+		*version_id = -1;
+	else
 		*version_id = resp[3] | (resp[4] << 16);
+
+	return ret;
 }
 
-void kalimba_get_capid_list(u16 *capids, u16 *resp)
+int kalimba_get_capid_list(u16 *capids, u16 *resp)
 {
 	int capid_num = 0;
 	int i;
 	u16 msg[2] = {GET_CAPID_LIST_REQ, 0};
+	int ret;
 
-	ipc_send_msg(msg, 2, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 2, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
 	capid_num = resp[1] - 1;
-	if (capids) {
+	if (capids && ret == 0) {
 		for (i = 0; i < capid_num; i++)
 			capids[i] = resp[3 + i];
 	}
+	return ret;
 }
 
-void kalimba_get_opid_list(u16 filter, u16 *opids, u16 *capids, u16 *resp)
+int kalimba_get_opid_list(u16 filter, u16 *opids, u16 *capids, u16 *resp)
 {
 	int num = 0;
-	int i;
+	int i, ret;
 	u16 msg[3] = {GET_OPID_LIST_REQ, 1, filter};
 
-	ipc_send_msg(msg, 3, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 3, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
 	num = resp[1] - 1;
-	if (opids && capids) {
+	if (opids && capids && ret == 0) {
 		for (i = 0; i < num / 2; i++) {
 			opids[i] = resp[3 + i * 2];
 			capids[i] = resp[3 + i * 2 + 1];
 		}
 	}
+	return ret;
 }
 
-void kalimba_get_connection_list(u16 source_filter, u16 sink_filter,
+int kalimba_get_connection_list(u16 source_filter, u16 sink_filter,
 		u16 *connection_ids, u16 *source_ids, u16 *sink_ids, u16 *resp)
 {
 	int num = 0;
-	int i;
+	int i, ret;
 	u16 msg[4] = {GET_CONNECTION_LIST_REQ, 2, source_filter, sink_filter};
 
-	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
 	num = resp[1] - 1;
-	if (connection_ids && source_ids && sink_ids) {
+	if (connection_ids && source_ids && sink_ids && ret == 0) {
 		for (i = 0; i < num / 3; i++) {
 			connection_ids[i] = resp[3 + i * 3];
 			source_ids[i] = resp[3 + i * 3 + 1];
 			sink_ids[i] = resp[3 + i * 3 + 2];
 		}
 	}
+	return ret;
 }
 
-void kalimba_sync_endpoint(u16 endpoint1, u16 endpoint2, u16 *resp)
+int kalimba_sync_endpoint(u16 endpoint1, u16 endpoint2, u16 *resp)
 {
 	u16 msg[4] = {SYNC_ENDPOINTS_REQ, 2, endpoint1, endpoint2};
 
-	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	return ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 }
 
-void kalimba_get_endpoint_info(u16 endpoint_id, u16 configure_key, u16 *resp)
+int kalimba_get_endpoint_info(u16 endpoint_id, u16 configure_key, u16 *resp)
 {
 	u16 msg[4] = {ENDPOINT_GET_INFO_REQ, 2, endpoint_id, configure_key};
 
-	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	return ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 }
 
-void kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
+int kalimba_capability_code_dram_addr_clear(u16 addr_low, u16 addr_high,
 	u16 *resp)
 {
 	u16 msg[4] = {CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ, 2,
 		addr_low, addr_high};
 
-	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	return ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 }
 
-void kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
+int kalimba_capability_code_dram_addr_set(u16 addr_low, u16 addr_high,
 	u16 *capids, u16 *resp)
 {
 	int i;
 	int capid_num;
+	int ret;
 	u16 msg[4] = {CAPABILITY_CODE_DRAM_ADDR_CLEAR_REQ, 2,
 		addr_low, addr_high};
 
-	ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
+	ret = ipc_send_msg(msg, 4, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 
 	capid_num = resp[1] - 1;
-	if (capids) {
+	if (capids && ret == 0) {
 		for (i = 0; i < capid_num; i++)
 			capids[i] = resp[3 + i];
 	}
+	return ret;
 }
 
-static void kalimba_dram_allocation_rsp_send(u16 addr_low, u16 addr_high)
+static int kalimba_dram_allocation_rsp_send(u16 addr_low, u16 addr_high)
 {
 	u16 msg[5] = {DRAM_ALLOCATION_RSP, 3, 0, addr_low, addr_high};
 
-	ipc_send_msg(msg, 5, MSG_NEED_ACK, NULL);
+	return ipc_send_msg(msg, 5, MSG_NEED_ACK, NULL);
 }
 
-static void kalimba_dram_free_rsp_send(void)
+static int kalimba_dram_free_rsp_send(void)
 {
 	u16 msg[3] = {DRAM_FREE_RSP, 1, 0};
 
-	ipc_send_msg(msg, 3, MSG_NEED_ACK, NULL);
+	return ipc_send_msg(msg, 3, MSG_NEED_ACK, NULL);
 }
 
 static int dram_allocation_req_actions(u16 message, void *priv_data, u16 *data)
 {
 	struct device *dev = (struct device *)priv_data;
 	unsigned long dram_allocation_addr;
+	int ret;
 
 	dram_allocation_addr = buff_alloc(dev, data[0] * sizeof(u32));
-	kalimba_dram_allocation_rsp_send(
+	ret = kalimba_dram_allocation_rsp_send(
 		(u16)(dram_allocation_addr & 0xffff),
 		(u16)((dram_allocation_addr >> 16) & 0xffff));
 	return ACTION_HANDLED;
