@@ -71,10 +71,11 @@ static int fifo_write(struct fifo_buffer *fifo,
 	fifo->w_pos = (fifo->w_pos + len) % fifo->size;
 	*fifo->count = count + len;
 
-	hwspin_unlock_irqrestore(fifo->lock, &flags);
 	err = 0;
 
 err_exit:
+	hwspin_unlock_irqrestore(fifo->lock, &flags);
+
 	return err;
 }
 
