@@ -98,7 +98,6 @@ struct cvd_reg {
 static const struct cvd_reg config_ntsc[] = {
 	{CVBSD_AFEPWR_EN,		0x3}, /* must PWR on before setting */
 	{CVBSD_AGC_GATE_THRE_ADC_SWAP,	0x80},
-	{CVBSD_LBADRGEN_INIT,		0x1},
 	{CVBSD_CVD1_CONTROL0,		0x0},	/* NTSC format */
 	{CVBSD_CVD1_CONTROL1,		0x1},
 	{CVBSD_YC_SEPARATION,		0x7000},
@@ -136,7 +135,6 @@ static const struct cvd_reg config_ntsc[] = {
 static const struct cvd_reg config_pal[] = {
 	{CVBSD_AFEPWR_EN,		0x3}, /* must PWR on before setting */
 	{CVBSD_AGC_GATE_THRE_ADC_SWAP,	0x80},
-	{CVBSD_LBADRGEN_INIT,		0x1},
 	{CVBSD_CVD1_CONTROL0,		0x32},	/* PAL (I,B,G,H,D,N) */
 	{CVBSD_CVD1_CONTROL1,		0x0},
 	{CVBSD_YC_SEPARATION,		0x7000},
@@ -201,8 +199,6 @@ static const struct cvd_reg initial_registers[] = {
 	/* Initialize analog NTSC */
 	/* swap the DC clamp up/down controls to the analog front-end */
 	{CVBSD_AGC_GATE_THRE_ADC_SWAP,	0x80},
-	/* starts line buffer initialization process */
-	{CVBSD_LBADRGEN_INIT,		0x1},
 	/* 2D mode, fully adaptive comb */
 	{CVBSD_YC_SEPARATION,		0x7000},
 	/* CCIR601 UYVY output, auto blue screen mode */
@@ -1052,9 +1048,15 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 	} else {
 		cvd_write(CVBSD_AFEPWR_EN, 0x3, sd);	/* CVBSAFE enable */
 
+		/* start line buffer initialization process */
+		cvd_write(CVBSD_LBADRGEN_INIT, 0x1, sd);
+
 		/* line buffer initialization status busy(0x1) or idle(0x0) */
 		while (cvd_read(CVBSD_LBADRGEN_STATUS, sd) & 0x1)
 			cpu_relax();
+
+		/* stop line buffer initialization process */
+		cvd_write(CVBSD_LBADRGEN_INIT, 0x0, sd);
 
 		/* soft reset CVD logic, register values are not reseted */
 		cvd_write(CVBSD_CVD1_RESET_REGISTER, 0x1, sd);
