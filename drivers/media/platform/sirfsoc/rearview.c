@@ -858,6 +858,7 @@ static void rv_start(struct rv_dev *rv)
 	struct vdss_vpp_create_device_params vpp_dev_params = {0};
 	struct sirfsoc_vdss_layer_info info;
 	struct vdss_surface src_surf;
+	int src_skip, dst_skip;
 
 	/* vip setting */
 	rv_info.std		= rv->source_std;
@@ -883,7 +884,8 @@ static void rv_start(struct rv_dev *rv)
 	src_surf.base = 0;
 
 	if (!sirfsoc_vdss_check_size(&src_surf,
-	    &rv->d_info.src_rect, rv->d_info.l, &rv->d_info.sca_rect)) {
+	    &rv->d_info.src_rect, &src_skip, rv->d_info.l,
+	    &rv->d_info.sca_rect, &dst_skip)) {
 		dev_err(rv->dev, "vdss check size failed");
 		return;
 	}
@@ -896,6 +898,7 @@ static void rv_start(struct rv_dev *rv)
 
 	info.src_rect = rv->d_info.sca_rect;
 	info.dst_rect = rv->d_info.dst_rect;
+	info.line_skip = dst_skip;
 
 	info.src_surf.fmt = VPP_TO_LCD_PIXELFORMAT;
 	info.src_surf.width = rv->d_info.sca_rect.right -

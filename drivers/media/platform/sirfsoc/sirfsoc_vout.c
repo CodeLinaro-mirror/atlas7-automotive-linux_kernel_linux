@@ -107,7 +107,7 @@ static inline u32 align_size(u32 size, u32 align)
 	return (size + align - 1) & ~(align - 1);
 }
 
-static void __sirfsoc_vout_set_display(struct sirfsoc_vout_device *vout,
+static int __sirfsoc_vout_set_display(struct sirfsoc_vout_device *vout,
 					bool flip);
 
 static const struct v4l2_fmtdesc sirfsoc_vout_formats[] = {
@@ -304,7 +304,7 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 	return 0;
 }
 
-static void __vout_set_normal_mode(
+static int __vout_set_normal_mode(
 	struct sirfsoc_vout_device *vout,
 	struct vb2_buffer *buf,
 	bool flip)
@@ -315,6 +315,7 @@ static void __vout_set_normal_mode(
 	enum v4l2_field field = buf->v4l2_buf.field;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct vdss_rect src_rect, dst_rect;
+	int src_skip, dst_skip;
 	struct vdss_surface src_surf;
 
 	if (buf == NULL) {
@@ -322,15 +323,18 @@ static void __vout_set_normal_mode(
 		return;
 	}
 
-	pixfmt  = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(
-		vout->pix_fmt.pixelformat);
-
 	l = vout->layer;
 
 	if (flip) {
-		l->flip(l, vb2_dma_contig_plane_dma_addr(buf, 0));
-		return;
+		if (vout->worker.active)
+			l->flip(l, vb2_dma_contig_plane_dma_addr(buf, 0));
+		return 0;
 	}
+
+	vout->worker.active = false;
+
+	pixfmt  = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(
+		vout->pix_fmt.pixelformat);
 
 	src_rect.left = vout->src_rect.left;
 	src_rect.top = vout->src_rect.top;
@@ -347,8 +351,9 @@ static void __vout_set_normal_mode(
 	src_surf.height = vout->surf_height;
 	src_surf.base = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, l, &dst_rect))
-		return;
+	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, &src_skip,
+		l, &dst_rect, &dst_skip))
+		return -EINVAL;
 
 	l->get_info(l, &info);
 
@@ -356,6 +361,7 @@ static void __vout_set_normal_mode(
 	info.disp_mode = VDSS_DISP_NORMAL;
 	info.src_rect = src_rect;
 	info.dst_rect = dst_rect;
+	info.line_skip = src_skip;
 
 	info.pre_mult_alpha = vout->pre_mult_alpha;
 	if (vout->fbuf.flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) {
@@ -387,9 +393,11 @@ static void __vout_set_normal_mode(
 	vout->vout_info_dirty = false;
 	vout->v4l2buf_field = field;
 	vout->worker.active = true;
+
+	return 0;
 }
 
-static void __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
+static int __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	struct vb2_buffer *buf,
 	bool flip)
 {
@@ -401,31 +409,35 @@ static void __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct vdss_rect src_rect, dst_rect;
 	struct vdss_surface src_surf;
+	int src_skip, dst_skip;
 
 	if (buf == NULL) {
 		v4l2_warn(v4l2_dev, "%s: buf == NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
 
 	l = vout->layer;
 
 	if (flip) {
-		params.type = VPP_OP_PASS_THROUGH;
-		params.op.passthrough.src_surf.base =
-			vb2_dma_contig_plane_dma_addr(buf, 0);
-		params.op.passthrough.flip = true;
+		if (vout->worker.active) {
+			params.type = VPP_OP_PASS_THROUGH;
+			params.op.passthrough.src_surf.base =
+				vb2_dma_contig_plane_dma_addr(buf, 0);
+			params.op.passthrough.flip = true;
 
-		sirfsoc_vpp_present(vout->worker.vpp_handle, &params);
-		/*
-		 * In passthrough mode, we found that if only
-		 * VPP registers are changed, we should also
-		 * set LX_CTRL_CONFIRM, otherwise VPP shadow
-		 * registers won't take effect in next vsync
-		 * */
-		l->flip(l, 0);
-		return;
+			sirfsoc_vpp_present(vout->worker.vpp_handle, &params);
+			/*
+			 * In passthrough mode, we found that if only
+			 * VPP registers are changed, we should also
+			 * set LX_CTRL_CONFIRM, otherwise VPP shadow
+			 * registers won't take effect in next vsync
+			 * */
+			l->flip(l, 0);
+		}
+		return 0;
 	}
 
+	vout->worker.active = false;
 	src_rect.left = vout->src_rect.left;
 	src_rect.top = vout->src_rect.top;
 	src_rect.right = vout->src_rect.left + vout->src_rect.width - 1;
@@ -444,8 +456,9 @@ static void __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	src_surf.height = vout->surf_height;
 	src_surf.base = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, l, &dst_rect))
-		return;
+	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, &src_skip,
+	    l, &dst_rect, &dst_skip))
+		return -EINVAL;
 
 	/* 1. VPP setting */
 	params.type = VPP_OP_PASS_THROUGH;
@@ -500,6 +513,7 @@ static void __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 
 	info.src_rect = dst_rect;
 	info.dst_rect = dst_rect;
+	info.line_skip = dst_skip;
 
 	info.pre_mult_alpha = vout->pre_mult_alpha;
 	if (vout->fbuf.flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) {
@@ -531,9 +545,11 @@ static void __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	vout->vout_info_dirty = false;
 	vout->v4l2buf_field = field;
 	vout->worker.active = true;
+
+	return 0;
 }
 
-static void __vout_set_inline_mode(
+static int __vout_set_inline_mode(
 	struct sirfsoc_vout_device *vout,
 	struct vb2_buffer *first_frm,
 	struct vb2_buffer *second_frm,
@@ -548,10 +564,11 @@ static void __vout_set_inline_mode(
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct vdss_rect src_rect, dst_rect;
 	struct vdss_surface src_surf;
+	int src_skip, dst_skip;
 
 	if (first_frm == NULL || second_frm == NULL) {
 		v4l2_warn(v4l2_dev, "%s: input frame is NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
 
 	pixfmt = __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(
@@ -573,18 +590,22 @@ static void __vout_set_inline_mode(
 	l = vout->layer;
 
 	if (flip) {
-		dcu_params.type = DCU_OP_INLINE;
-		dcu_params.op.inline_mode.flip = true;
-		dcu_params.op.inline_mode.src_surf[0].base =
-			vb2_dma_contig_plane_dma_addr(first_frm, 0);
-		if (vout->worker.op.inline_mode.next_frm[1]) {
-			dcu_params.op.inline_mode.src_surf[1].base =
-				vb2_dma_contig_plane_dma_addr(second_frm, 0);
+		if (vout->worker.active) {
+			dcu_params.type = DCU_OP_INLINE;
+			dcu_params.op.inline_mode.flip = true;
+			dcu_params.op.inline_mode.src_surf[0].base =
+				vb2_dma_contig_plane_dma_addr(first_frm, 0);
+			if (vout->worker.op.inline_mode.next_frm[1]) {
+				dcu_params.op.inline_mode.src_surf[1].base =
+					vb2_dma_contig_plane_dma_addr(
+						second_frm, 0);
+			}
+			sirfsoc_dcu_present(&dcu_params);
 		}
-		sirfsoc_dcu_present(&dcu_params);
-		return;
+		return 0;
 	}
 
+	vout->worker.active = false;
 	src_rect.left = vout->src_rect.left;
 	src_rect.top = vout->src_rect.top;
 	src_rect.right = vout->src_rect.left + vout->src_rect.width - 1;
@@ -600,8 +621,9 @@ static void __vout_set_inline_mode(
 	src_surf.height = vout->surf_height;
 	src_surf.base = 0;
 
-	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, l, &dst_rect))
-		return;
+	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, &src_skip,
+	    l, &dst_rect, &dst_skip))
+		return -EINVAL;
 
 	sirfsoc_dcu_reset();
 
@@ -670,6 +692,7 @@ static void __vout_set_inline_mode(
 
 	info.src_rect = dst_rect;
 	info.dst_rect = dst_rect;
+	info.line_skip = dst_skip;
 
 	if (vout->fbuf.flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) {
 		info.global_alpha = true;
@@ -700,22 +723,24 @@ static void __vout_set_inline_mode(
 	vout->vout_info_dirty = false;
 	vout->v4l2buf_field = second_frm_field;
 	vout->worker.active = true;
+
+	return 0;
 }
 
-static void __sirfsoc_vout_set_display(struct sirfsoc_vout_device *vout,
+static int __sirfsoc_vout_set_display(struct sirfsoc_vout_device *vout,
 					bool flip)
 {
 	if (vout->worker.mode == VOUT_PASSTHROUGH)
-		__vout_set_passthrough_mode(vout,
+		return __vout_set_passthrough_mode(vout,
 			vout->worker.op.passthrough.next_frm,
 			flip);
 	else if (vout->worker.mode == VOUT_INLINE)
-		__vout_set_inline_mode(vout,
+		return __vout_set_inline_mode(vout,
 			vout->worker.op.inline_mode.next_frm[0],
 			vout->worker.op.inline_mode.next_frm[1],
 			flip);
 	else if (vout->worker.mode == VOUT_NORMAL)
-		__vout_set_normal_mode(vout,
+		return __vout_set_normal_mode(vout,
 			vout->worker.op.normal.next_frm,
 			flip);
 }
@@ -789,6 +814,7 @@ static int __sirfsoc_vout_start_streaming(struct sirfsoc_vout_device *vout)
 	struct sirfsoc_vout_buf *buf;
 	struct sirfsoc_vdss_layer *l = vout->layer;
 	struct vb2_buffer *vbuf = NULL;
+	int ret = 0;
 
 	buf = list_entry(vout->dma_queue.next, struct sirfsoc_vout_buf, list);
 	list_del_init(&buf->list);
@@ -828,7 +854,9 @@ static int __sirfsoc_vout_start_streaming(struct sirfsoc_vout_device *vout)
 			sirfsoc_vpp_create_device(l->lcdc_id, &params);
 	}
 
-	__sirfsoc_vout_display(vout);
+	ret = __sirfsoc_vout_set_display(vout, false);
+	if (ret < 0)
+		return ret;
 
 	l->register_notify(l, layer_callback, vout);
 
@@ -1240,7 +1268,6 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	struct sirfsoc_vout_buf *buf = NULL;
 	unsigned long flags;
 	struct sirfsoc_vdss_layer *l = vout->layer;
-	enum sirfsoc_vout_work_mode mode = vout->worker.mode;
 
 	if (!vb2_is_streaming(vq))
 		return;
@@ -1480,8 +1507,8 @@ static int sirfsoc_vout_try_fmt_vid_out_overlay(struct file *file, void *priv,
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
-	ret = __sirfsoc_vout_try_rect(&win->w, vout->dst_rect.width,
-		vout->dst_rect.height);
+	ret = __sirfsoc_vout_try_rect(&win->w, vout->display->timings.xres,
+		vout->display->timings.yres);
 
 	win->global_alpha = fmt->fmt.win.global_alpha;
 
@@ -1789,6 +1816,7 @@ static int sirfsoc_vout_s_crop(struct file *file, void *priv,
 	struct sirfsoc_video_device *vid_dev = vout->vid_dev;
 	struct v4l2_device *v4l2_dev = &vid_dev->v4l2_dev;
 	struct v4l2_rect rect = crop->c;
+	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
@@ -1806,6 +1834,9 @@ static int sirfsoc_vout_s_crop(struct file *file, void *priv,
 	}
 
 	vout->src_rect = rect;
+
+	if (l->is_enabled(l))
+		vout->vout_info_dirty = true;
 
 	v4l2_info(v4l2_dev, "src rect(l:%x,t:%x,w:%x,h:%x)\n",
 		rect.left, rect.top, rect.width, rect.height);

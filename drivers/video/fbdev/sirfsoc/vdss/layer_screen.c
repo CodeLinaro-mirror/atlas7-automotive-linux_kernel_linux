@@ -854,15 +854,18 @@ EXPORT_SYMBOL(sirfsoc_vdss_set_exclusive_layers);
 
 bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	struct vdss_rect *src_rect,
+	int *psrc_skip,
 	struct sirfsoc_vdss_layer *l,
-	struct vdss_rect *dst_rect)
+	struct vdss_rect *dst_rect,
+	int *pdst_skip)
 {
 	int scn_width, scn_height;
 	struct screen_priv_data *sdata;
 	int src_rect_width, src_rect_height;
 	int dst_rect_width, dst_rect_height;
 	int pixel_aligned;
-	int src_left;
+	int src_skip = 0;
+	int dst_skip = 0;
 
 	/*
 	 * DMA address must be 8 bytes aligned, so
@@ -872,6 +875,7 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
 		pixel_aligned = 8;
+		break;
 	case VDSS_PIXELFORMAT_I420:
 	case VDSS_PIXELFORMAT_YV12:
 		pixel_aligned = 16;
@@ -899,6 +903,7 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 		break;
 	default:
 		pixel_aligned = 16;
+		break;
 	}
 
 	sdata = get_screen_data(l->screen);
@@ -909,6 +914,37 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	src_rect_height = src_rect->bottom - src_rect->top + 1;
 	dst_rect_width = dst_rect->right - dst_rect->left + 1;
 	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+#ifdef CONFIG_SIRF_VDSS_DEBUG
+	VDSSINFO("In: fmt = %d, src(%d,%d,%d,%d), dst(%d,%d,%d,%d)\n",
+	  src_surf->fmt,
+	  src_rect->left, src_rect->top, src_rect->right, src_rect->bottom,
+	  dst_rect->left, dst_rect->top, dst_rect->right, dst_rect->bottom);
+#endif
+
+	if (src_rect_width / dst_rect_width > 8) {
+		src_rect_width = dst_rect_width * 8;
+		src_rect->right = src_rect->left +
+			src_rect_width - 1;
+	}
+
+	if (src_rect_height / dst_rect_height > 8) {
+		src_rect_height = dst_rect_height * 8;
+		src_rect->bottom = src_rect->top +
+			src_rect_height - 1;
+	}
+
+	if (dst_rect_width / src_rect_width > 8) {
+		dst_rect_width = src_rect_width * 8;
+		dst_rect->right = dst_rect->left +
+			dst_rect_width - 1;
+	}
+
+	if (dst_rect_height / src_rect_height > 8) {
+		dst_rect_height = src_rect_height * 8;
+		dst_rect->bottom = dst_rect->top +
+			dst_rect_height - 1;
+	}
 
 	/*
 	 * Invalid rectangle, skip the operation
@@ -987,15 +1023,67 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 		dst_rect->bottom = scn_height - 1;
 	}
 
-	src_left = (src_rect->left + pixel_aligned - 1) &
-		~(pixel_aligned - 1);
-	if (src_left != src_rect->left) {
-		dst_rect->left = dst_rect->left +
-			(dst_rect_width * (src_left - src_rect->left) /
-			src_rect_width);
-		src_rect->left = src_left;
+	if ((dst_rect->bottom - dst_rect->top + 1) < 2) {
+		VDSSWARN("The height of dst rect is less than 2!\n");
+		return false;
 	}
 
+	src_skip = src_rect->left & (pixel_aligned - 1);
+	if (src_skip) {
+		dst_skip = src_skip * dst_rect_width /
+			src_rect_width;
+	}
+
+	src_rect->left -= src_skip;
+	dst_rect->left -= dst_skip;
+
+	if (dst_rect->left < 0) {
+		dst_rect->left = 0;
+		dst_skip = 0;
+	}
+
+	/*
+	 * workaround RGB overlay stretch, we don't support it, so
+	 * show it as the smaller rect.
+	 * */
+	if (!sirfsoc_vpp_is_passthrough_support(src_surf->fmt)) {
+		src_rect_width = src_rect->right - src_rect->left + 1;
+		src_rect_height = src_rect->bottom - src_rect->top + 1;
+		dst_rect_width = dst_rect->right - dst_rect->left + 1;
+		dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+		if (src_rect_width > dst_rect_width)
+			src_rect->right = src_rect->left + dst_rect_width - 1;
+		else if (src_rect_width < dst_rect_width)
+			dst_rect->right = dst_rect->left + src_rect_width - 1;
+
+		if (src_rect_height > dst_rect_height)
+			src_rect->bottom = src_rect->top + dst_rect_height - 1;
+		else if (src_rect_height < dst_rect_height)
+			dst_rect->bottom = dst_rect->top + src_rect_height - 1;
+	}
+
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	/* the src height must be integer multiples of 2 */
+	if (src_rect_height < 2) {
+		VDSSWARN("The height of src rect is less than 2!\n");
+		return false;
+	}
+
+	if (src_rect_height & 0x01) {
+		src_rect->bottom = src_rect->top + src_rect_height - 2;
+		dst_rect->bottom = dst_rect->top + dst_rect_height - 1 -
+			dst_rect_height/src_rect_height;
+	}
+
+#ifdef CONFIG_SIRF_VDSS_DEBUG
+	VDSSINFO("Out: src(%d,%d,%d,%d), dst(%d,%d,%d,%d)\n",
+	   src_rect->left, src_rect->top, src_rect->right, src_rect->bottom,
+	   dst_rect->left, dst_rect->top, dst_rect->right, dst_rect->bottom);
+#endif
+
+	*psrc_skip = src_skip;
+	*pdst_skip = dst_skip;
 	return true;
 }
 EXPORT_SYMBOL(sirfsoc_vdss_check_size);

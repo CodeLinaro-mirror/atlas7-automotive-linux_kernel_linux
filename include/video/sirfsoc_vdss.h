@@ -359,6 +359,7 @@ struct sirfsoc_vdss_layer_info {
 	struct vdss_surface src_surf;
 	struct vdss_rect src_rect;	/* source rect offset */
 	struct vdss_rect dst_rect;	/* destination rect offset */
+	u32 line_skip;
 
 	bool ckey_on;
 	u32 ckey;
@@ -649,8 +650,10 @@ void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **layers,
 				u32 size, bool enable);
 bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	struct vdss_rect *src_rect,
+	int *psrc_skip,
 	struct sirfsoc_vdss_layer *l,
-	struct vdss_rect *dst_rect);
+	struct vdss_rect *dst_rect,
+	int *pdst_skip);
 
 typedef void (*sirfsoc_lcdc_isr_t) (void *arg, u32 mask);
 int sirfsoc_lcdc_register_isr(u32 lcdc_index, sirfsoc_lcdc_isr_t isr,

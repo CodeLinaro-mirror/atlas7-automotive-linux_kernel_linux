@@ -49,6 +49,7 @@ static bool vdsscomp_layer_enable(
 	struct sirfsoc_vdss_layer_info layer_info;
 	struct vdss_rect src_rect, dst_rect;
 	struct vdss_surface src_surf;
+	int src_skip, dst_skip;
 
 	src_rect.left = info->src_rect.left;
 	src_rect.top = info->src_rect.top;
@@ -66,7 +67,7 @@ static bool vdsscomp_layer_enable(
 	src_surf.base = phys_addr;
 
 	if (!sirfsoc_vdss_check_size(&src_surf,
-	    &src_rect, layer, &dst_rect))
+	    &src_rect, &src_skip, layer, &dst_rect, &dst_skip))
 		return false;
 
 	if (sirfsoc_vpp_is_passthrough_support(info->fmt))
@@ -120,12 +121,14 @@ static bool vdsscomp_layer_enable(
 	if (l->disp_mode == VDSS_DISP_NORMAL) {
 		layer_info.src_surf = src_surf;
 		layer_info.src_rect = src_rect;
+		layer_info.line_skip = src_skip;
 	} else {
 		layer_info.src_surf.base = 0;
 		layer_info.src_surf.fmt = info->fmt;
 		layer_info.src_surf.width = dst_rect.right - dst_rect.left + 1;
 		layer_info.src_surf.height = dst_rect.bottom - dst_rect.top + 1;
 		layer_info.src_rect = dst_rect;
+		layer_info.line_skip = dst_skip;
 	}
 	layer_info.dst_rect = dst_rect;
 

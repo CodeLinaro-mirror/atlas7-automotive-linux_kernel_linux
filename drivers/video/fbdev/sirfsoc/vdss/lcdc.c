@@ -346,7 +346,7 @@ static void lcdc_layer_set_base(u32 lcdc_index, enum vdss_layer layer,
 }
 
 static void lcdc_layer_set_dst(u32 lcdc_index, enum vdss_layer layer,
-	struct vdss_rect *dst_rect)
+	struct sirfsoc_vdss_layer_info *info)
 {
 	u32 s0_hstart;
 	u32 s0_vstart;
@@ -355,18 +355,18 @@ static void lcdc_layer_set_dst(u32 lcdc_index, enum vdss_layer layer,
 	s0_vstart = lcdc_read_reg(lcdc_index, S0_ACT_VSTART);
 
 	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_HSTART),
-		dst_rect->left + s0_hstart);
+		info->dst_rect.left + info->line_skip + s0_hstart);
 	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_HEND),
-		dst_rect->right + s0_hstart);
+		info->dst_rect.right + s0_hstart);
 
 	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_VSTART),
-		dst_rect->top + s0_vstart);
+		info->dst_rect.top + s0_vstart);
 	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_VEND),
-		dst_rect->bottom + s0_vstart);
+		info->dst_rect.bottom + s0_vstart);
 }
 
 static void lcdc_layer_set_dma(u32 lcdc_index, enum vdss_layer layer,
-	struct vdss_rect *src_rect,
+	struct sirfsoc_vdss_layer_info *info,
 	int surf_width, int surf_height,
 	int fmt, u32 base)
 {
@@ -374,13 +374,13 @@ static void lcdc_layer_set_dma(u32 lcdc_index, enum vdss_layer layer,
 	u32 lx_fifo_chk = 0x0;
 	unsigned int bpp = hwfmt_to_bpp[__lcdc_fmt_to_hwfmt(fmt)];
 	/*Set DMA register configuration*/
-	unsigned int width = src_rect->right - src_rect->left + 1;
-	unsigned int height = src_rect->bottom - src_rect->top + 1;
+	unsigned int width = info->src_rect.right - info->src_rect.left + 1;
+	unsigned int height = info->src_rect.bottom - info->src_rect.top + 1;
 
 	bool tv_mode = false;
 	unsigned int dma_unit = __lcdc_dma_unit(tv_mode);
 	unsigned int offset =
-		(src_rect->top * surf_width + src_rect->left) * bpp;
+		(info->src_rect.top * surf_width + info->src_rect.left) * bpp;
 
 	unsigned int xsize = (((offset & 7) + width * bpp  + dma_unit - 1) /
 		dma_unit) - 1;
@@ -424,21 +424,24 @@ static void lcdc_layer_set_dma(u32 lcdc_index, enum vdss_layer layer,
 	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_DMA_CTRL), lx_dma_ctrl);
 }
 
-void lcdc_layer_set_passthrough(u32 lcdc_index, enum vdss_layer layer)
+void lcdc_layer_set_passthrough(u32 lcdc_index, enum vdss_layer layer,
+	struct sirfsoc_vdss_layer_info *info)
 {
-	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE0), 0);
-	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE1), 0);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE0),
+		VPP_TO_LCD_BPP * info->line_skip);
+	lcdc_write_reg(lcdc_index, reg_offset(layer, L0_BASE1),
+		VPP_TO_LCD_BPP * info->line_skip);
 }
 
 static void lcdc_layer_set_size(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info, int scn_width, int scn_height)
 {
-	lcdc_layer_set_dst(lcdc_index, layer, &info->dst_rect);
+	lcdc_layer_set_dst(lcdc_index, layer, info);
 
 	if (info->disp_mode != VDSS_DISP_NORMAL)
-		lcdc_layer_set_passthrough(lcdc_index, layer);
+		lcdc_layer_set_passthrough(lcdc_index, layer, info);
 	else
-		lcdc_layer_set_dma(lcdc_index, layer, &info->src_rect,
+		lcdc_layer_set_dma(lcdc_index, layer, info,
 			info->src_surf.width, info->src_surf.height,
 			info->src_surf.fmt, info->src_surf.base);
 }
