@@ -228,7 +228,7 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 	if (xfer_param->out_buf) {
 		offset = sizeof(*xfer_param) + src_param->in_len;
 		if (param_size < offset ||
-		    param_size - offset < src_param->in_len) {
+		    param_size - offset < src_param->out_len) {
 			ret = -EINVAL;
 			goto __free_and_exit;
 		}
