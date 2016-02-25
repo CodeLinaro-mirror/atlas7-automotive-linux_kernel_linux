@@ -605,7 +605,13 @@ static bool __vpp_set_srcbase(struct vpp_adapter *adapter,
 
 	vpp_write_reg(adapter, VPP_INLINE_ADDR, 0);
 
-	yoffset = surf->width * rect->top + rect->left;
+	if (interlace && interlace->interlaced &&
+	    interlace->field_offset) {
+		yoffset = surf->width * (rect->top / 2) + rect->left;
+	} else {
+		yoffset = surf->width * rect->top + rect->left;
+	}
+
 	if (surf->fmt == VDSS_PIXELFORMAT_YV12 ||
 		surf->fmt == VDSS_PIXELFORMAT_I420) {
 		uoffset = (surf->width / 2) *
