@@ -1202,7 +1202,9 @@ static void sirfsoc_vout_isr_inline(struct sirfsoc_vout_device *vout)
 		__sirfsoc_vout_display(vout);
 	} else {
 		if (mode_info->active_frm != mode_info->next_frm[1]) {
-			if (mode_info->active_frm != NULL) {
+			if (mode_info->active_frm != NULL &&
+				(mode_info->active_frm->state ==
+					VB2_BUF_STATE_ACTIVE)) {
 				v4l2_get_timestamp(&mode_info->active_frm->
 						v4l2_buf.timestamp);
 				vb2_buffer_done(mode_info->active_frm,
@@ -1275,14 +1277,16 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	spin_lock_irqsave(&vout->vbq_lock, flags);
 
 	if (vout->worker.mode == VOUT_NORMAL) {
-		if (vout->worker.op.normal.next_frm)
+		if (vout->worker.op.normal.next_frm &&
+		   (vout->worker.op.normal.next_frm->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			   vout->worker.op.normal.next_frm,
 			   VB2_BUF_STATE_ERROR);
 
 		if (vout->worker.op.normal.active_frm &&
-			(vout->worker.op.normal.active_frm !=
-				vout->worker.op.normal.next_frm))
+		   (vout->worker.op.normal.active_frm->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			   vout->worker.op.normal.active_frm,
 			   VB2_BUF_STATE_ERROR);
@@ -1290,14 +1294,16 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 		memset(&vout->worker.op.normal, 0,
 		   sizeof(vout->worker.op.normal));
 	} else if (vout->worker.mode == VOUT_PASSTHROUGH) {
-		if (vout->worker.op.passthrough.next_frm)
+		if (vout->worker.op.passthrough.next_frm &&
+		   (vout->worker.op.passthrough.next_frm->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			    vout->worker.op.passthrough.next_frm,
 			    VB2_BUF_STATE_ERROR);
 
 		if (vout->worker.op.passthrough.active_frm &&
-			(vout->worker.op.passthrough.active_frm !=
-				vout->worker.op.passthrough.next_frm))
+		    (vout->worker.op.passthrough.active_frm->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			    vout->worker.op.passthrough.active_frm,
 			    VB2_BUF_STATE_ERROR);
@@ -1305,21 +1311,23 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 		memset(&vout->worker.op.passthrough, 0,
 		   sizeof(vout->worker.op.passthrough));
 	} else if (vout->worker.mode == VOUT_INLINE) {
-		if (vout->worker.op.inline_mode.next_frm[0])
+		if (vout->worker.op.inline_mode.next_frm[0] &&
+		   (vout->worker.op.inline_mode.next_frm[0]->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			    vout->worker.op.inline_mode.next_frm[0],
 			    VB2_BUF_STATE_ERROR);
 
 		if (vout->worker.op.inline_mode.next_frm[1] &&
-			(vout->worker.op.inline_mode.next_frm[1] !=
-				vout->worker.op.inline_mode.next_frm[0]))
+		    (vout->worker.op.inline_mode.next_frm[1]->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			    vout->worker.op.inline_mode.next_frm[1],
 			    VB2_BUF_STATE_ERROR);
 
 		if (vout->worker.op.inline_mode.active_frm &&
-			(vout->worker.op.inline_mode.active_frm !=
-				vout->worker.op.inline_mode.next_frm[0]))
+		   (vout->worker.op.inline_mode.active_frm->state !=
+		    VB2_BUF_STATE_ERROR))
 			vb2_buffer_done(
 			    vout->worker.op.inline_mode.active_frm,
 			    VB2_BUF_STATE_ERROR);
