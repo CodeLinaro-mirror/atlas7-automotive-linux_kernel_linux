@@ -1021,7 +1021,10 @@ static int kas_pcm_generic_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (playback) {
-			iacc_stop(playback);
+			/* Currently work around via DAC enable always on for
+			 * pop noise issue fix, which will introduce the side
+			 * effect of baseline noise. */
+			/* iacc_stop(playback); */
 			/* Buffer pointer must be reset */
 			pcm_data->pos = 0;
 		} else
