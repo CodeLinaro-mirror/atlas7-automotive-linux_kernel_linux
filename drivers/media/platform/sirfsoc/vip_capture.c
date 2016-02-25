@@ -1118,6 +1118,10 @@ static irqreturn_t vip_irq(int irq, void *data)
 		v4l2_subdev_call(sd, core, interrupt_service_routine,
 								status, &hd);
 
+	/* VIP interrupt */
+	if (status & VIP_INT_MASK)
+		vip_vip_isr(vip);
+
 	/* DMA interrupt */
 	if (status & DMAC_INT_MASK) {
 		dma_status = dma_hw_get_interrupts(vip);
@@ -1131,10 +1135,6 @@ static irqreturn_t vip_irq(int irq, void *data)
 		if (dma_status & DMAN_INTMASK_FINI)
 				complete(&vip->rv.done);
 	}
-
-	/* VIP interrupt */
-	if (status & VIP_INT_MASK)
-		vip_vip_isr(vip);
 
 	return IRQ_HANDLED;
 }
