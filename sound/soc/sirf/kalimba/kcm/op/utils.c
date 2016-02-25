@@ -7,7 +7,7 @@
 /* SOC_SINGLE_EXT_TLV(name, reg, shift, max, invert, get, put, tlv) */
 struct snd_kcontrol_new *kasop_ctrl_single_ext_tlv(const char *name,
 		struct kasobj_op *op, int max, snd_kcontrol_get_t get,
-		snd_kcontrol_put_t put, const unsigned int *tlv)
+		snd_kcontrol_put_t put, const unsigned int *tlv, int param)
 {
 	/* Allocate snd_control_new and soc_mixer_control altogether */
 	struct snd_kcontrol_new *ctrl = kzalloc((sizeof(struct snd_kcontrol_new)
@@ -26,7 +26,7 @@ struct snd_kcontrol_new *kasop_ctrl_single_ext_tlv(const char *name,
 	ctrl->private_value = (unsigned long)mixer;
 
 	mixer->max = mixer->platform_max = max;
-	kasobj_ctrl_set_op(ctrl, op);
+	kasobj_ctrl_set_op(ctrl, op, param);
 
 	return ctrl;
 }

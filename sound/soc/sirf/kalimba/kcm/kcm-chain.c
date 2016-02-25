@@ -397,10 +397,31 @@ int __kcm_stop_chain_hw(struct kcm_chain *chain)
 }
 EXPORT_SYMBOL(__kcm_stop_chain_hw);
 
+int __kcm_start_chain_link(struct kcm_chain *chain)
+{
+	struct kcm_chain_obj *chain_obj;
+
+	list_for_each_entry(chain_obj, &chain->lk_list, link)
+		chain_obj->obj->ops->start(chain_obj->obj);
+	return 0;
+}
+EXPORT_SYMBOL(__kcm_start_chain_link);
+
+int __kcm_stop_chain_link(struct kcm_chain *chain)
+{
+	struct kcm_chain_obj *chain_obj;
+
+	list_for_each_entry(chain_obj, &chain->lk_list, link)
+		chain_obj->obj->ops->stop(chain_obj->obj);
+	return 0;
+}
+EXPORT_SYMBOL(__kcm_stop_chain_link);
+
 int kcm_start_chain(struct kcm_chain *chain)
 {
 	kcm_lock();
 	__kcm_start_chain_hw(chain);
+	__kcm_start_chain_link(chain);
 	__kcm_start_chain_op(chain);
 	kcm_unlock();
 	return 0;
@@ -411,6 +432,7 @@ int kcm_stop_chain(struct kcm_chain *chain)
 {
 	kcm_lock();
 	__kcm_stop_chain_op(chain);
+	__kcm_stop_chain_link(chain);
 	__kcm_stop_chain_hw(chain);
 	kcm_unlock();
 	return 0;

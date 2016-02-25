@@ -46,6 +46,8 @@ int __kcm_start_chain_op(struct kcm_chain *chain);
 int __kcm_stop_chain_op(struct kcm_chain *chain);
 int __kcm_start_chain_hw(struct kcm_chain *chain);
 int __kcm_stop_chain_hw(struct kcm_chain *chain);
+int __kcm_start_chain_link(struct kcm_chain *chain);
+int __kcm_stop_chain_link(struct kcm_chain *chain);
 
 void kcm_lock(void);
 void kcm_unlock(void);

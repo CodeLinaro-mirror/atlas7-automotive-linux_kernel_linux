@@ -64,6 +64,8 @@ struct kasobj_ops {
         int (*stop)(struct kasobj *obj);
         u16 (*get_ep)(struct kasobj *obj, unsigned pin, int is_sink);
         void (*put_ep)(struct kasobj *obj, unsigned pin, int is_sink);
+        void (*start_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
+        void (*stop_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
 };
 
 - init() is called on system startup, when database is parsed and according
@@ -76,6 +78,8 @@ struct kasobj_ops {
   Every object in the chain will be "started" and "stopped" in sequence.
 - get_ep()/put_ep() is to abstract the pin to endpoint number mapping. Also,
   operators can keep track of pin activity in these callbacks.
+- start_ep()/stop_ep() is called when endpoint status changes, which is useful
+  for objects to keep track of its endpoin activity.
 
 
 Hardware Sink/Source Object: obj-hw.c
@@ -205,9 +209,7 @@ TODO
 - kalimba_set_master_gain() by "anti-clippping" driver. This should be a
   general solution to handle all asynchronous system events.
 - Develop cases:
-  * mixer
   * internal loop
   * i2s
 - Corner cases:
   * exclusive chains
-  * concurrency

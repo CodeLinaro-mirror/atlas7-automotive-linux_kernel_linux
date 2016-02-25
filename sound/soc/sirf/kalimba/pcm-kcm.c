@@ -204,7 +204,12 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (!pcm_data->kas_started)
 		return 0;
 
-	kcm_stop_chain(pcm_data->chain);	/* TODO: move to trigger */
+	/* TODO: move to trigger/stop and combine to kcm_stop_chain() */
+	kcm_lock();
+	__kcm_stop_chain_op(pcm_data->chain);
+	__kcm_stop_chain_link(pcm_data->chain);
+	kcm_unlock();
+
 	kcm_put_chain(pcm_data->chain);
 	if (pcm_data->fe->db->internal)
 		unregister_kalimba_msg_action(pcm_data->action_id);
@@ -242,6 +247,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		__kcm_start_chain_hw(pcm_data->chain);
 		/* Operators are not stopped in TRIGGER_STOP */
 		if (!pcm_data->op_started) {
+			__kcm_start_chain_link(pcm_data->chain);
 			__kcm_start_chain_op(pcm_data->chain);
 			pcm_data->op_started = true;
 		}

@@ -1,5 +1,4 @@
 static const struct kasdb_link link[] = {
-	/* Music -2-> passthrough -2-> resampler -2-> splitter -4-> IACC */
 	{
 		/* Music -> Passthrough, 2ch */
 		.name = __S("lk_music_pass_2"),
@@ -28,16 +27,15 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 	{
-		/* Splitter -> IACC */
-		.name = __S("lk_split_iacc"),
+		/* Splitter -> Mixer, 4ch */
+		.name = __S("lk_split_mixer"),
 		.source_name = __S("op_split_music"),
-		.sink_name = __S("si_iacc"),
+		.sink_name = __S("op_mixer"),
 		.source_pins_mask = 0xF,
 		.sink_pins_mask = 0xF,
 		.channels = 4,
 	},
 
-	/* Music -4-> Passthrough -4-> Resampler -4-> IACC */
 	{
 		/* Music -> Passthrough, 4ch */
 		.name = __S("lk_music_pass_4"),
@@ -57,16 +55,15 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 	{
-		/* Resampler -> IACC */
-		.name = __S("lk_src_iacc"),
+		/* Resampler -> Mixer, 4ch */
+		.name = __S("lk_src_mixer"),
 		.source_name = __S("op_src_music"),
-		.sink_name = __S("si_iacc"),
+		.sink_name = __S("op_mixer"),
 		.source_pins_mask = 0xF,
 		.sink_pins_mask = 0xF,
 		.channels = 4,
 	},
 
-	/* IACC -1-> Passthrough -1-> Analog Capture */
 	{
 		/* IACC -> Passthrough */
 		.name = __S("lk_iacc_pass"),
@@ -84,5 +81,25 @@ static const struct kasdb_link link[] = {
 		.source_pins_mask = 0x1,
 		.sink_pins_mask = 0x1,
 		.channels = 1,
+	},
+
+	{
+		/* Navigation -> Mixer, 4ch */
+		.name = __S("lk_navi_mixer"),
+		.source_name = __S("Navigation"),
+		.sink_name = __S("op_mixer"),
+		.source_pins_mask = 0xF,
+		.sink_pins_mask = 0xF0,
+		.channels = 4,
+	},
+
+	{
+		/* Mixer -> IACC, 4ch */
+		.name = __S("lk_mixer_iacc"),
+		.source_name = __S("op_mixer"),
+		.sink_name = __S("si_iacc"),
+		.source_pins_mask = 0xF,
+		.sink_pins_mask = 0xF,
+		.channels = 4,
 	},
 };

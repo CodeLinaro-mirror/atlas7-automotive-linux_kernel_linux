@@ -47,13 +47,13 @@ static void set_gain(struct kasobj_op *op)
 	else
 		db = (ctx->gain - MAXV) * 60;
 	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_PASSTHROUGH_GAIN,
-			1, &db, NULL, NULL, NULL);
+			1, &db, NULL, NULL, __kcm_resp);
 }
 
 static int vol_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol);
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
 	struct passthr_ctx *ctx = op->context;
 
 	ucontrol->value.integer.value[0] = ctx->gain;
@@ -63,7 +63,7 @@ static int vol_get(struct snd_kcontrol *kcontrol,
 static int vol_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol);
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
 	struct passthr_ctx *ctx = op->context;
 	int gain = ucontrol->value.integer.value[0];
 
@@ -84,7 +84,7 @@ static int vol_put(struct snd_kcontrol *kcontrol,
 static int mute_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol);
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
 	struct passthr_ctx *ctx = op->context;
 
 	ucontrol->value.integer.value[0] = ctx->muted;
@@ -94,7 +94,7 @@ static int mute_get(struct snd_kcontrol *kcontrol,
 static int mute_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol);
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
 	struct passthr_ctx *ctx = op->context;
 	int tomute = ucontrol->value.integer.value[0];
 
@@ -111,9 +111,11 @@ static int mute_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/* Create control interfaces */
 static int passthr_init(struct kasobj_op *op)
 {
 	char name_buf[128], names_buf[256], *names = names_buf, *name;
+	const char *space;
 	struct passthr_ctx *ctx =
 		kzalloc(sizeof(struct passthr_ctx), GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
@@ -121,7 +123,6 @@ static int passthr_init(struct kasobj_op *op)
 	ctx->gain = MAXV;	/* default 0dB */
 	op->context = ctx;
 
-	/* Create control interfaces */
 	if (!op->db->ctrl_base.s || !op->db->ctrl_names.s)
 		return 0;
 
@@ -130,21 +131,27 @@ static int passthr_init(struct kasobj_op *op)
 		return -EINVAL;
 	}
 
+	/* Add space after base name */
+	if (op->db->ctrl_base.s[0])
+		space = " ";
+	else
+		space = "";
+
 	while ((name = strsep(&names, ":;"))) {
-		if (snprintf(name_buf, 128, "%s %s",
-				op->db->ctrl_base.s, name) >= 128)
+		if (snprintf(name_buf, 128, "%s%s%s",
+				op->db->ctrl_base.s, space, name) >= 128)
 			pr_err("KASOP(%s): control name truncated!\n",
 					op->obj.name);
 
 		if (kcm_strcasestr(name, "Volume")) {
 			/* Volume control */
 			ctrl = kasop_ctrl_single_ext_tlv(name_buf, op, MAXV,
-					vol_get, vol_put, vol_tlv);
+					vol_get, vol_put, vol_tlv, 0);
 			kcm_register_ctrl(ctrl);
 		} else if (kcm_strcasestr(name, "Mute")) {
 			/* Mute control */
 			ctrl = kasop_ctrl_single_ext_tlv(name_buf, op, 1,
-					mute_get, mute_put, NULL);
+					mute_get, mute_put, NULL, 0);
 			kcm_register_ctrl(ctrl);
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",

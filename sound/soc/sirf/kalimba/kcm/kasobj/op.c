@@ -61,7 +61,8 @@ static int op_put(struct kasobj *obj)
 		BUG_ON(obj->start_cnt);
 		kalimba_destroy_operator(&op->op_id, 1, __kcm_resp);
 		op->op_id = KCM_INVALID_EP_ID;
-		op->sink_pin_mask = op->source_pin_mask = 0;
+		op->used_sink_pins = op->used_source_pins = 0;
+		op->active_sink_pins = op->active_source_pins = 0;
 		kcm_debug("OP '%s' destroyed\n", obj->name);
 	} else {
 		kcm_debug("OP '%s' refcnt--: %d\n", obj->name, obj->life_cnt);
@@ -132,27 +133,23 @@ static u16 op_get_ep(struct kasobj *obj, unsigned pin, int is_sink)
 	BUG_ON(pin >= 32);
 
 	if (is_sink) {
-		if (op->sink_pin_mask & BIT(pin)) {
-			pr_err("KASOP: %s sink pin %d occupied!\n",
+		if (op->used_sink_pins & BIT(pin)) {
+			pr_err("KASOP(%s): sink pin %d occupied!\n",
 					obj->name, pin);
 			return KCM_INVALID_EP_ID;
 		}
-		op->sink_pin_mask |= BIT(pin);
+		op->used_sink_pins |= BIT(pin);
 		ep_id = op->op_id + pin + 0xA000;
 	} else {
-		if (op->source_pin_mask & BIT(pin)) {
-			pr_err("KASOP: %s source pin %d occupied!\n",
+		if (op->used_source_pins & BIT(pin)) {
+			pr_err("KASOP(%s): source pin %d occupied!\n",
 					obj->name, pin);
 			return KCM_INVALID_EP_ID;
 		}
-		op->source_pin_mask |= BIT(pin);
+		op->used_source_pins |= BIT(pin);
 		ep_id = op->op_id + pin + 0x2000;
 	}
 
-	is_sink = !!is_sink;
-	if (op->impl->trigger)
-		op->impl->trigger(op, KASOP_MAKE_EVENT(kasop_event_get_ep,
-				(is_sink << 8) | pin));
 	return ep_id;
 }
 
@@ -164,14 +161,44 @@ static void op_put_ep(struct kasobj *obj, unsigned pin, int is_sink)
 	BUG_ON(pin >= 32);
 
 	if (is_sink)
-		op->sink_pin_mask &= ~BIT(pin);
+		op->used_sink_pins &= ~BIT(pin);
 	else
-		op->source_pin_mask &= ~BIT(pin);
+		op->used_source_pins &= ~BIT(pin);
+}
 
-	is_sink = !!is_sink;
+static void op_start_ep(struct kasobj *obj, unsigned pin_mask, int is_sink)
+{
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(op->op_id == KCM_INVALID_EP_ID);
+	if (is_sink) {
+		op->active_sink_pins |= pin_mask;
+		if ((op->used_sink_pins & pin_mask) != pin_mask)
+			pr_err("KASOP(%s): sink pins error!\n", obj->name);
+	} else {
+		op->active_source_pins |= pin_mask;
+		if ((op->used_source_pins & pin_mask) != pin_mask)
+			pr_err("KASOP(%s): source pins error!\n", obj->name);
+	}
+
 	if (op->impl->trigger)
-		op->impl->trigger(op, KASOP_MAKE_EVENT(kasop_event_put_ep,
-				(is_sink << 8) | pin));
+		op->impl->trigger(op,
+			KASOP_MAKE_EVENT(kasop_event_start_ep, is_sink));
+}
+
+static void op_stop_ep(struct kasobj *obj, unsigned pin_mask, int is_sink)
+{
+	struct kasobj_op *op = kasobj_to_op(obj);
+
+	BUG_ON(op->op_id == KCM_INVALID_EP_ID);
+	if (is_sink)
+		op->active_sink_pins &= ~pin_mask;
+	else
+		op->active_source_pins &= ~pin_mask;
+
+	if (op->impl->trigger)
+		op->impl->trigger(op,
+			KASOP_MAKE_EVENT(kasop_event_stop_ep, is_sink));
 }
 
 static struct kasobj_ops op_ops = {
@@ -182,4 +209,6 @@ static struct kasobj_ops op_ops = {
 	.stop = op_stop,
 	.get_ep = op_get_ep,
 	.put_ep = op_put_ep,
+	.start_ep = op_start_ep,
+	.stop_ep = op_stop_ep,
 };

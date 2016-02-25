@@ -116,10 +116,11 @@ struct kasdb_op {
 	short cap_id;
 	short pre_create;
 	int rate;	/* Most operators need configure sample rate */
-	union {		/* Operator specific parameter, must <= 4 bytes */
+	union {
 		int dummy;
 		int resampler_custom_output;	/* 1: capture, 0: playback */
-	} param;
+		int mixer_streams;		/* 2, 3 */
+	} param;	/* Operator specific parameter */
 };
 
 struct kasdb_link {

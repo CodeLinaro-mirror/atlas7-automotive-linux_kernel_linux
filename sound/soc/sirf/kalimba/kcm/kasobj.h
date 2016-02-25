@@ -15,6 +15,8 @@ struct kasobj_ops {
 	int (*stop)(struct kasobj *obj);
 	u16 (*get_ep)(struct kasobj *obj, unsigned pin, int is_sink);
 	void (*put_ep)(struct kasobj *obj, unsigned pin, int is_sink);
+	void (*start_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
+	void (*stop_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
 };
 
 /* Only for stream dependent objects (FE, resampler, etc) */
@@ -97,8 +99,10 @@ struct kasobj_op {
 	struct kasop_impl *impl;	/* Operator specific implementation */
 	void *context;			/* Operator specific context */
 	u16 op_id;
-	u32 sink_pin_mask;		/* Occupied sink pins */
-	u32 source_pin_mask;		/* Occupied source pins */
+	u32 used_sink_pins;		/* Occupied pins mask */
+	u32 used_source_pins;
+	u32 active_sink_pins;		/* Running pins mask */
+	u32 active_source_pins;
 };
 #define kasobj_to_op(pobj)	container_of((pobj), struct kasobj_op, obj)
 

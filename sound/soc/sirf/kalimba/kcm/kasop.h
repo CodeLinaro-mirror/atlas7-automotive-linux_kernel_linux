@@ -6,9 +6,9 @@ enum {
 	kasop_event_post_start,
 	kasop_event_pre_stop,
 	kasop_event_post_stop,
-	kasop_event_get_ep,
-	kasop_event_put_ep,
-	/* Cannot exceed 16 events, see KASOP_MAKE_EVENT macro */
+	kasop_event_start_ep,
+	kasop_event_stop_ep,
+	/* Cannot exceed 16 events, see following macro */
 };
 
 #define KASOP_MAKE_EVENT(event, param)	((event) | ((param) << 4))

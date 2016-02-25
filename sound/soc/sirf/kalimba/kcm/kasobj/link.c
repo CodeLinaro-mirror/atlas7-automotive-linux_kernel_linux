@@ -108,6 +108,7 @@ static int link_put(struct kasobj *obj)
 		kcm_debug("OP '%s' refcnt--: %d\n", obj->name, obj->life_cnt);
 		return 0;
 	}
+	BUG_ON(obj->start_cnt);
 
 	kalimba_disconnect_endpoints(db->channels, link->conn_id, __kcm_resp);
 	for (i = 0; i < db->channels; i++)
@@ -139,8 +140,44 @@ static int link_put(struct kasobj *obj)
 	return 0;
 }
 
+static int link_start(struct kasobj *obj)
+{
+	struct kasobj_link *link = kasobj_to_link(obj);
+	const struct kasdb_link *db = link->db;
+	struct kasobj *source = link->source, *sink = link->sink;
+
+	BUG_ON(!obj->life_cnt);
+	if (obj->start_cnt++)
+		return 0;
+
+	if (source->ops->start_ep)
+		source->ops->start_ep(source, db->source_pins_mask, 0);
+	if (sink->ops->start_ep)
+		sink->ops->start_ep(sink, db->sink_pins_mask, 1);
+	return 0;
+}
+
+static int link_stop(struct kasobj *obj)
+{
+	struct kasobj_link *link = kasobj_to_link(obj);
+	const struct kasdb_link *db = link->db;
+	struct kasobj *source = link->source, *sink = link->sink;
+
+	BUG_ON(!obj->life_cnt);
+	if (obj->start_cnt && --obj->start_cnt)
+		return 0;
+
+	if (source->ops->stop_ep)
+		source->ops->stop_ep(source, db->source_pins_mask, 0);
+	if (sink->ops->stop_ep)
+		sink->ops->stop_ep(sink, db->sink_pins_mask, 1);
+	return 0;
+}
+
 static struct kasobj_ops link_ops = {
 	.init = link_init,
 	.get = link_get,
 	.put = link_put,
+	.start = link_start,
+	.stop = link_stop,
 };
