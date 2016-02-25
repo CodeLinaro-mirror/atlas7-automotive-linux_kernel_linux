@@ -748,9 +748,10 @@ static int __dcu_set_srcbase(struct dcu_param_set *dcu_param,
 	case VDSS_FIELD_SEQ_BT:
 		if (surf[0].fmt > VDSS_PIXELFORMAT_32BPPGENERIC &&
 			surf[0].fmt < VDSS_PIXELFORMAT_IMC2)
-			field_offset = surf[0].width * surf[0].height * 2;
-		else
 			field_offset = surf[0].width * surf[0].height;
+		else
+			field_offset = surf[0].width *
+				(surf[0].height / 2) * 3 / 2;
 		break;
 	case VDSS_FIELD_INTERLACED_TB:
 	case VDSS_FIELD_INTERLACED_BT:
