@@ -466,17 +466,17 @@ static bool __dcu_setup_src(struct dcu_param_set *dcu_param,
 	case VDSS_PIXELFORMAT_YUNV:
 		input_format |= INPUT_FORMAT_YUV422;
 		vpp_ctrl |= (YUV422_FORMAT |
-				YUV422_FORMAT_UYVY);
+				YUV422_FORMAT_VYUY);
 		break;
 	case VDSS_PIXELFORMAT_YVYU:
 		input_format |= INPUT_FORMAT_YUV422;
 		vpp_ctrl |= (YUV422_FORMAT |
-				YUV422_FORMAT_VYUY);
+				YUV422_FORMAT_UYVY);
 		break;
 	case VDSS_PIXELFORMAT_VYUY:
 		input_format |= INPUT_FORMAT_YUV422;
 		vpp_ctrl |= (YUV422_FORMAT |
-				YUV422_FORMAT_YVYU);
+				YUV422_FORMAT_YUYV);
 		break;
 	default:
 		dcu_err("%s(%d): unkonwn src format 0x%x\n",
