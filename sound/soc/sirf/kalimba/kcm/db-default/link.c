@@ -144,4 +144,24 @@ static const struct kasdb_link link[] = {
 		.sink_pins_mask = 0x1,
 		.channels = 1,
 	},
+
+	/* Line-In */
+	{
+		/* Line-In -> Passthrough, 1ch */
+		.name = __S("lk_lin_pass_1"),
+		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins_mask = 0x1,
+		.sink_pins_mask = 0x1,
+		.channels = 1,
+	},
+	{
+		/* Line-In -> Passthrough, 2ch */
+		.name = __S("lk_lin_pass_2"),
+		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins_mask = 0x3,
+		.sink_pins_mask = 0x3,
+		.channels = 2,
+	},
 };

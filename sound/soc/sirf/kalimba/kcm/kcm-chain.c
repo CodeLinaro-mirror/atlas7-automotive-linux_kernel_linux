@@ -128,10 +128,13 @@ static int __init kcm_init_chain1(struct kcm_chain *chain)
 	}
 	chain->trg_fe = kasobj_to_fe(obj);
 
-	/* Bail early */
-	BUG_ON(strlen(chain->db->links.s) >= 256);
-	strncpy(lkbuf, chain->db->links.s, 256);
-	lkbuf[255] = '\0';
+	if (!chain->db->links.s)
+		return 0;	/* Dummy chain only to trigger codec */
+
+	if (snprintf(lkbuf, 256, "%s", chain->db->links.s) >= 256) {
+		pr_err("KASCHAIN(%s): links too long!\n", chain->name);
+		return -EINVAL;
+	}
 
 	/* Setup Link object lists */
 	while ((lk_name = strsep(&lkbuf_ptr, ":;"))) {
@@ -166,17 +169,17 @@ static int __init kcm_init_chain1_ex(struct kcm_chain *chain)
 	if (!chain->db->mutexs.s)
 		return 0;	/* No exclusive list */
 
-	/* Bail early */
-	BUG_ON(strlen(chain->db->mutexs.s) >= 256);
-	strncpy(exbuf, chain->db->mutexs.s, 256);
-	exbuf[255] = '\0';
+	if (snprintf(exbuf, 256, "%s", chain->db->mutexs.s) >= 256) {
+		pr_err("KASCHAIN(%s): mutexs too long!\n", chain->name);
+		return -EINVAL;
+	}
 
 	while ((ex_name = strsep(&exbuf_ptr, ":;"))) {
 		struct kcm_chain *exchain = kcm_find_chain(ex_name);
 
 		if (!exchain) {
 			pr_err("KASCHAIN: cannot find ex-chain '%s'!\n",
-					exchain->name);
+					ex_name);
 			return -EINVAL;
 		}
 
@@ -236,7 +239,8 @@ struct kcm_chain *kcm_prepare_chain(const struct kasobj_fe *fe,
 	/* Find chain by FE */
 	list_for_each_entry(chain, &chain_list, link) {
 		if (chain->trg_fe == fe &&
-				chain->db->trg_channels == channels) {
+				(chain->db->trg_channels == channels ||
+				 chain->db->trg_channels == 0)) {
 			okay = 1;
 			break;
 		}

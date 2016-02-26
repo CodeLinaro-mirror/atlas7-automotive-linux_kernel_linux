@@ -209,7 +209,4 @@ TODO
 - kalimba_set_master_gain() by "anti-clippping" driver. This should be a
   general solution to handle all asynchronous system events.
 - Develop cases:
-  * internal loop
   * i2s
-- Corner cases:
-  * exclusive chains
