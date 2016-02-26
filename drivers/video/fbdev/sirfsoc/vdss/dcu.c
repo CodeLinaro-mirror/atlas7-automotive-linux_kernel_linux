@@ -31,7 +31,6 @@ struct dcu_device {
 	struct platform_device *pdev;
 	void __iomem *core_base;
 	void __iomem *nocfifo_base;
-	struct kobject kobj;
 
 	int irq;
 	bool inline_en;
@@ -47,19 +46,23 @@ static struct dcu_ipp_setting dcu_ipp_setting[2] = {
 	{2,	2,	2,	2}, /* light */
 };
 
-static ssize_t dcu_inline_enable_show(struct dcu_device *ddev,
-	char *buf)
+static ssize_t dcu_inline_enable_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
 {
-	bool e = ddev->dcu_params.is_inline;
+	struct dcu_device *ddev = dev_get_drvdata(dev);
+
+	bool e = ddev->inline_en;
 
 	return snprintf(buf, PAGE_SIZE, "%d\n", e);
 }
 
-static ssize_t dcu_inline_enable_store(struct dcu_device *ddev,
+static ssize_t dcu_inline_enable_store(struct device *dev,
+	struct device_attribute *attr,
 	const char *buf, size_t size)
 {
 	int r;
 	bool e;
+	struct dcu_device *ddev = dev_get_drvdata(dev);
 
 	r = strtobool(buf, &e);
 	if (r)
@@ -73,87 +76,74 @@ static ssize_t dcu_inline_enable_store(struct dcu_device *ddev,
 	return size;
 }
 
-struct dcu_attribute {
-	struct attribute attr;
-	ssize_t (*show)(struct dcu_device *, char *);
-	ssize_t (*store)(struct dcu_device *, const char *, size_t);
-};
+static ssize_t dcu_status_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dcu_device *ddev = dev_get_drvdata(dev);
+	int val = dcu_read_reg(ddev->core_base, DCU_LLU_DONE_SEL);
 
-#define DCU_ATTR(_name, _mode, _show, _store) \
-	struct dcu_attribute dcu_attr_##_name = \
-	__ATTR(_name, _mode, _show, _store)
+	if (val & DCU_START)
+		if (val & INLINE_DONE)
+			return snprintf(buf, PAGE_SIZE,
+				"%s\n", "INLINE MODE");
+		else
+			return snprintf(buf, PAGE_SIZE,
+				"%s\n", "BLT MODE");
+	else
+		return snprintf(buf, PAGE_SIZE, "%s\n", "IDLE");
+}
 
-static DCU_ATTR(dcu_inline_enable, S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(dcu_inline_enable, S_IRUGO|S_IWUSR,
 	dcu_inline_enable_show, dcu_inline_enable_store);
 
-static struct attribute *dcu_sysfs_attrs[] = {
-	&dcu_attr_dcu_inline_enable.attr,
+static DEVICE_ATTR(dcu_status, S_IRUGO,
+	dcu_status_show, NULL);
+
+static const struct attribute *dcu_sysfs_attrs[] = {
+	&dev_attr_dcu_inline_enable.attr,
+	&dev_attr_dcu_status.attr,
 	NULL
-};
-
-static ssize_t dcu_attr_show(struct kobject *kobj, struct attribute *attr,
-		char *buf)
-{
-	struct dcu_device *ddev;
-	struct dcu_attribute *dcu_attr;
-
-	ddev = container_of(kobj, struct dcu_device, kobj);
-	dcu_attr = container_of(attr, struct dcu_attribute, attr);
-
-	if (!dcu_attr->show)
-		return -ENOENT;
-
-	return dcu_attr->show(ddev, buf);
-}
-
-static ssize_t dcu_attr_store(struct kobject *kobj, struct attribute *attr,
-		const char *buf, size_t size)
-{
-	struct dcu_device *ddev;
-	struct dcu_attribute *dcu_attr;
-
-	ddev = container_of(kobj, struct dcu_device, kobj);
-	dcu_attr = container_of(attr, struct dcu_attribute, attr);
-
-	if (!dcu_attr->store)
-		return -ENOENT;
-
-	return dcu_attr->store(ddev, buf, size);
-}
-
-static const struct sysfs_ops dcu_sysfs_ops = {
-	.show = dcu_attr_show,
-	.store = dcu_attr_store,
-};
-
-static struct kobj_type dcu_ktype = {
-	.sysfs_ops = &dcu_sysfs_ops,
-	.default_attrs = dcu_sysfs_attrs,
 };
 
 static int dcu_init_sysfs(struct dcu_device *ddev)
 {
-	int r;
+	int ret = 0;
 	struct platform_device *pdev = vdss_get_core_pdev();
 
 	if (ddev == NULL || pdev == NULL)
-		return -1;
+		return -EINVAL;
 
-	r = kobject_init_and_add(&ddev->kobj, &dcu_ktype,
-				&pdev->dev.kobj, "dcu");
+	ret = sysfs_create_files(&ddev->pdev->dev.kobj,
+			dcu_sysfs_attrs);
+	if (ret) {
+		VDSSERR("failed to create sysfs files!\n");
+		return ret;
+	}
 
-	if (r)
-		VDSSERR("failed to create layer sysfs files\n");
+	ret = sysfs_create_link(&pdev->dev.kobj,
+			&ddev->pdev->dev.kobj, "dcu");
+	if (ret) {
+		sysfs_remove_files(&ddev->pdev->dev.kobj,
+			dcu_sysfs_attrs);
+		VDSSERR("failed to create sysfs display link\n");
+		return ret;
+	}
 
-	return r;
+	return ret;
 }
 
-void dcu_uninit_sysfs(struct dcu_device *ddev)
+static int dcu_uninit_sysfs(struct dcu_device *ddev)
 {
-	if (ddev) {
-		kobject_del(&ddev->kobj);
-		kobject_put(&ddev->kobj);
-	}
+	struct platform_device *pdev = vdss_get_core_pdev();
+
+	if (ddev == NULL || pdev == NULL)
+		return -EINVAL;
+
+	sysfs_remove_link(&pdev->dev.kobj, "dcu");
+	sysfs_remove_files(&ddev->pdev->dev.kobj,
+				dcu_sysfs_attrs);
+
+	return 0;
 }
 
 unsigned int dcu_read_reg(void __iomem *iomem,
@@ -1937,6 +1927,7 @@ static int sirfsoc_dcu_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct dcu_device *dcu_dev;
+	int ret = 0;
 
 	memset(&dcu, 0x0, sizeof(dcu));
 	dcu.inline_en = false;
@@ -1989,9 +1980,11 @@ static int sirfsoc_dcu_probe(struct platform_device *pdev)
 
 	__dcu_alloc_mot_buf(&dcu_dev->dcu_params);
 
-	dcu_init_sysfs(dcu_dev);
-
 	platform_set_drvdata(pdev, dcu_dev);
+
+	ret = dcu_init_sysfs(dcu_dev);
+	if (ret)
+		return ret;
 
 	vdss_debugfs_create_file("dcu_regs", dcu_dump_regs);
 
@@ -2005,6 +1998,7 @@ static int sirfsoc_dcu_remove(struct platform_device *pdev)
 
 	dcu_dev = dev_get_drvdata(dev);
 	__dcu_free_mot_buf(&dcu_dev->dcu_params);
+	dcu_uninit_sysfs(dcu_dev);
 
 	return 0;
 }

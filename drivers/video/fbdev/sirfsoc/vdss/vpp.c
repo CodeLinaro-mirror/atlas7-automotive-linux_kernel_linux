@@ -1584,12 +1584,87 @@ static const struct dev_pm_ops sirfsoc_vpp_pm_ops = {
 				     sirfsoc_vpp_pm_resume)
 };
 
+static ssize_t vpp_status_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int ctrl;
+	unsigned long flags;
+	struct vpp_adapter *ddev = dev_get_drvdata(dev);
+
+	spin_lock_irqsave(&data_lock, flags);
+	ctrl = vpp_read_reg(ddev, VPP_CTRL);
+	spin_unlock_irqrestore(&data_lock, flags);
+
+	if (ctrl & VPP_CTRL_INLINE_EN)
+		return snprintf(buf, PAGE_SIZE,
+				"%s\n", "INLINE MODE");
+	else if (ctrl & VPP_CTRL_DEST)
+		return snprintf(buf, PAGE_SIZE,
+				"%s\n", "PASSTHROUGH MODE");
+	else if (ctrl & VPP_CTRL_BUSY_STATUS)
+		return snprintf(buf, PAGE_SIZE,
+				"%s\n", "BLT MODE");
+	else
+		return snprintf(buf, PAGE_SIZE,
+				"%s\n", "IDLE");
+}
+
+static DEVICE_ATTR(vpp_status, S_IRUGO,
+	vpp_status_show, NULL);
+
+static const struct attribute *vpp_sysfs_attrs[] = {
+	&dev_attr_vpp_status.attr,
+	NULL
+};
+
+static int vpp_init_sysfs(struct vpp_adapter *adapter)
+{
+	int ret = 0;
+	struct platform_device *pdev = vdss_get_core_pdev();
+
+	if (adapter == NULL || pdev == NULL)
+		return -EINVAL;
+
+	ret = sysfs_create_files(&adapter->pdev->dev.kobj,
+			vpp_sysfs_attrs);
+	if (ret) {
+		VDSSERR("failed to create sysfs files!\n");
+		return ret;
+	}
+
+	ret = sysfs_create_link(&pdev->dev.kobj,
+			&adapter->pdev->dev.kobj, adapter->name);
+	if (ret) {
+		sysfs_remove_files(&adapter->pdev->dev.kobj,
+			vpp_sysfs_attrs);
+		VDSSERR("failed to create sysfs display link\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int vpp_uninit_sysfs(struct vpp_adapter *adapter)
+{
+	struct platform_device *pdev = vdss_get_core_pdev();
+
+	if (adapter == NULL || pdev == NULL)
+		return -EINVAL;
+
+	sysfs_remove_link(&pdev->dev.kobj, adapter->name);
+	sysfs_remove_files(&adapter->pdev->dev.kobj,
+				vpp_sysfs_attrs);
+
+	return 0;
+}
+
 static int sirfsoc_vpp_probe(struct platform_device *pdev)
 {
 	struct device_node *dn = pdev->dev.of_node;
 	struct resource *res;
 	struct vpp_adapter *adapter;
 	u32 index;
+	int ret = 0;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -1654,6 +1729,18 @@ static int sirfsoc_vpp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, adapter);
 
+	ret = vpp_init_sysfs(adapter);
+
+	return ret;
+}
+
+static int __exit sirfsoc_vpp_remove(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct vpp_adapter *adapter = dev_get_drvdata(dev);
+
+	vpp_uninit_sysfs(adapter);
+
 	return 0;
 }
 
@@ -1664,6 +1751,7 @@ static const struct of_device_id vpp_of_match[] = {
 };
 
 static struct platform_driver sirfsoc_vpp_driver = {
+	.remove         = sirfsoc_vpp_remove,
 	.driver         = {
 		.name   = "sirfsoc_vpp",
 		.pm	= &sirfsoc_vpp_pm_ops,
