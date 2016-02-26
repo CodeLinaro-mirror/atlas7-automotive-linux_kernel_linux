@@ -1,5 +1,14 @@
 static const struct kasdb_chain chain[] = {
 	{
+		.name = __S("chain_music_1"),
+		.trg_fe_name = __S("Music"),
+		.trg_channels = 1,
+		.links = __S("lk_music_pass_1;lk_pass_src_1;lk_src_split1x2;"
+				"lk_split1x2_split;lk_split_mixer;"
+				"lk_mixer_iacc"),
+		.mutexs = __S(NULL),
+	},
+	{
 		.name = __S("chain_music_2"),
 		.trg_fe_name = __S("Music"),
 		.trg_channels = 2,

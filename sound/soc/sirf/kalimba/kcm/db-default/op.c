@@ -27,6 +27,16 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
+		/* Only used if mono stream */
+		.name = __S("op_split_music_1x2"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_SPLITTER,
+		.pre_create = 0,
+		.rate = 0,
+		.param.dummy = 0,
+	},
+	{
 		.name = __S("op_pass_cap"),
 		.ctrl_base = __S("Analog Capture"),
 		.ctrl_names = __S("Capture Volume;Mute"),
