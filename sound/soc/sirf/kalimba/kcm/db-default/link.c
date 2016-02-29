@@ -95,10 +95,39 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 
-	/* Mixer input: Music, Navigation */
+	/* Alarm, 1ch */
+	{
+		/* Alarm -> Resampler, 1ch */
+		.name = __S("lk_alarm_src"),
+		.source_name = __S("Alarm"),
+		.sink_name = __S("op_src_alarm"),
+		.source_pins_mask = 0x1,
+		.sink_pins_mask = 0x1,
+		.channels = 1,
+	},
+	{
+		/* Resampler -> Splitter_1x2, 1ch */
+		.name = __S("lk_alarm_split_1x2"),
+		.source_name = __S("op_src_alarm"),
+		.sink_name = __S("op_split_alarm_1x2"),
+		.source_pins_mask = 0x1,
+		.sink_pins_mask = 0x1,
+		.channels = 1,
+	},
+	{
+		/* Splitter_1x2 -> Splitter_2x4, 2ch */
+		.name = __S("lk_alarm_split"),
+		.source_name = __S("op_split_alarm_1x2"),
+		.sink_name = __S("op_split_alarm"),
+		.source_pins_mask = 0x3,
+		.sink_pins_mask = 0x3,
+		.channels = 2,
+	},
+
+	/* Mixer input: Music, Navigation, Alarm */
 	{
 		/* Music splitter -> Mixer, 4ch (1-4) */
-		.name = __S("lk_split_mixer"),
+		.name = __S("lk_music_mixer"),
 		.source_name = __S("op_split_music"),
 		.sink_name = __S("op_mixer"),
 		.source_pins_mask = 0xF,
@@ -112,6 +141,15 @@ static const struct kasdb_link link[] = {
 		.sink_name = __S("op_mixer"),
 		.source_pins_mask = 0xF,
 		.sink_pins_mask = 0xF0,
+		.channels = 4,
+	},
+	{
+		/* Alarm splitter -> Mixer, 4ch (9-12) */
+		.name = __S("lk_alarm_mixer"),
+		.source_name = __S("op_split_alarm"),
+		.sink_name = __S("op_mixer"),
+		.source_pins_mask = 0xF,
+		.sink_pins_mask = 0xF00,
 		.channels = 4,
 	},
 	/* Mixer output */
