@@ -50,7 +50,7 @@ config AUXILIARY_TRANSPARENT_VALUE
 
 choice
 	prompt "Rearview De-Interlace Methods"
-	default VERTICAL_MEDIAN
+	default MEAVE
 	help
 	  This option indicates the HW de-interlace method for interlaced
 	  video sequence.
