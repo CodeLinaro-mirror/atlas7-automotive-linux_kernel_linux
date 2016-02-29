@@ -109,7 +109,7 @@ static const struct cvd_reg config_ntsc[] = {
 	{CVBSD_SECAM_DB_FREQ_OFFSET,	0xEFC},
 	{CVBSD_CHROMA_BURST_GATE_START,	0x46},
 	{CVBSD_CHROMA_BURST_GATE_END,	0x5A},
-	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x48},
+	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x58},
 	{CVBSD_CVD2_CHROMA_EDGE_ENHANC,	0x23},
 	{CVBSD_ACTIVE_VIDEO_VSTART,	0x24},
 	{CVBSD_ACTIVE_VIDEO_VHEIGHT,	0x63},
@@ -149,7 +149,7 @@ static const struct cvd_reg config_pal[] = {
 	{CVBSD_ACTIVE_VIDEO_VSTART,	0x2E}, /* skip 23 line blanking data */
 	{CVBSD_ACTIVE_VIDEO_VHEIGHT,	0xC0},
 	{CVBSD_DIFF_GAIN,		0x1A},
-	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x48},
+	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x58},
 	{CVBSD_CVD2_CHROMA_EDGE_ENHANC,	0x23},
 	{CVBSD_CAGC_TIME_CONSTANT,	0x5},
 	{CVBSD_CORDIC_GATE_START,	0x46},
@@ -212,7 +212,7 @@ static const struct cvd_reg initial_registers[] = {
 	/*  secam black level adjustment on the DB color compenent */
 	{CVBSD_SECAM_DB_FREQ_OFFSET,	0xEFC},
 	/* 2D YC separation mode, no frame buffer is required */
-	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x48},
+	{CVBSD_CVD2_2D_COMB_ADAP_CTRL2,	0x58},
 	/*  peak gain for the primary&secondary chroma edge enhancement */
 	{CVBSD_CVD2_CHROMA_EDGE_ENHANC,	0x23},
 	/*  the first active video line in a field, the number of half-lines */
@@ -227,6 +227,12 @@ static const struct cvd_reg initial_registers[] = {
 
 	{CVBSD_VDETCET_IMPROVEMENT,	0x303},	/* vfield hoffset fixed mode */
 	{CVBSD_VFIELD_HOFFSET_LSB,	0x50},
+
+	/* full ADC range, chroma & luma AGC enable */
+	{CVBSD_CVD1_CONTROL2,		0x143},
+
+	/* enlarge the sharpness of the picture */
+	{CVBSD_CVD1_COMB_FILTER_THRE1,	0x15},
 
 	{CVBSD_AFEPWR_EN,		0x1} /* PWR off after setting */
 };
