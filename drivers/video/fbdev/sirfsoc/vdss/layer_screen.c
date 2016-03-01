@@ -158,6 +158,11 @@ struct screen_priv_data {
 	bool error_diffusion;
 };
 
+struct layer_wait {
+	struct completion comp;
+	struct sirfsoc_vdss_layer *l;
+};
+
 static struct {
 	struct layer_priv_data layer_datas[NUM_LCDC][NUM_LAYERS_PER_LCDC];
 	struct screen_priv_data screen_datas[NUM_LCDC][NUM_SCREENS_PER_LCDC];
@@ -770,13 +775,13 @@ err:
 	return r;
 }
 
-static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
+/*
+ * Must call with lock held
+ * */
+static int vdss_layer_disable_l(struct sirfsoc_vdss_layer *layer)
 {
 	struct layer_priv_data *ldata = get_layer_data(layer);
-	unsigned long flags;
 	int r = 0;
-
-	spin_lock_irqsave(&data_lock, flags);
 
 	if (!ldata->enabled) {
 		r = 0;
@@ -792,7 +797,70 @@ static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
 	vdss_update_regs(layer->lcdc_id);
 
 err:
-	spin_unlock_irqrestore(&data_lock, flags);
+	return r;
+}
+
+static void layer_disable_in_vsync(void *data, u32 mask)
+{
+	struct layer_wait *wait = (struct layer_wait *)data;
+
+	spin_lock(&data_lock);
+	vdss_layer_disable_l(wait->l);
+	complete(&wait->comp);
+	spin_unlock(&data_lock);
+}
+
+static int vdss_layer_wait_for_vsync(struct sirfsoc_vdss_layer *layer,
+	void (*callback)(void*, u32))
+{
+	struct layer_priv_data *ldata = get_layer_data(layer);
+	unsigned long timeout = msecs_to_jiffies(100);
+	int r;
+	unsigned long flags;
+	struct layer_wait wait =  {
+		.comp = COMPLETION_INITIALIZER_ONSTACK(wait.comp),
+		.l = layer,
+	};
+
+	r = sirfsoc_lcdc_register_isr(layer->lcdc_id, callback, &wait,
+		LCDC_INT_VSYNC);
+
+	if (r)
+		return r;
+
+	timeout = wait_for_completion_interruptible_timeout(&wait.comp,
+		timeout);
+
+	sirfsoc_lcdc_unregister_isr(layer->lcdc_id, callback, &wait,
+		LCDC_INT_VSYNC);
+
+	if (timeout == 0)
+		return -ETIMEDOUT;
+
+	if (timeout == -ERESTARTSYS)
+		return -ERESTARTSYS;
+
+	return r;
+}
+
+static int vdss_layer_disable(struct sirfsoc_vdss_layer *layer)
+{
+	unsigned long flags;
+	int r = 0;
+	struct sirfsoc_vdss_layer_info *info;
+	struct layer_priv_data *ldata;
+
+	ldata = get_layer_data(layer);
+	info = &ldata->info;
+
+	if (info->disp_mode != VDSS_DISP_INLINE) {
+		spin_lock_irqsave(&data_lock, flags);
+		r = vdss_layer_disable_l(layer);
+		spin_unlock_irqrestore(&data_lock, flags);
+	} else
+		r = vdss_layer_wait_for_vsync(layer,
+			layer_disable_in_vsync);
+
 	return r;
 }
 
