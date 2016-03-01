@@ -2117,6 +2117,10 @@ static int sirfsoc_vout_open(struct file *file)
 
 	file->private_data = vout;
 	vout->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+
+	/* make internal data structures and the hardware are in sync.*/
+	v4l2_ctrl_handler_setup(&vout->ctrl_handler);
+
 	mutex_unlock(&vout->lock);
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
@@ -2321,10 +2325,7 @@ static int sirfsoc_setup_video_ctrl(struct sirfsoc_vout_device *vout)
 	if (ctrl_handler->error) {
 		ret = ctrl_handler->error;
 		v4l2_ctrl_handler_free(ctrl_handler);
-		return ret;
 	}
-
-	v4l2_ctrl_handler_setup(ctrl_handler);
 
 	return ret;
 }
