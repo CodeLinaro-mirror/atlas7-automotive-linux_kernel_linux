@@ -922,6 +922,12 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	  dst_rect->left, dst_rect->top, dst_rect->right, dst_rect->bottom);
 #endif
 
+	/*
+	 * Because downscaling in horizontal/vertical direction should
+	 * be no less than 1/8 and upscaling in horizontal/vertical
+	 * direction should be no greater than 8, driver update ratio of
+	 * scaling for this hardware(VPP) limitatin.
+	 * */
 	if (src_rect_width / dst_rect_width > 8) {
 		src_rect_width = dst_rect_width * 8;
 		src_rect->right = src_rect->left +
@@ -947,7 +953,9 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	}
 
 	/*
-	 * Invalid rectangle, skip the operation
+	 * If the src rect is out the range of src surface
+	 * or the dst rect is out the range of the screen,
+	 * they are invalid inputs, return false
 	 * */
 	if (src_rect->right < 0 || src_rect->bottom < 0 ||
 		dst_rect->right < 0 || dst_rect->bottom < 0) {
@@ -1028,20 +1036,6 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 		return false;
 	}
 
-	src_skip = src_rect->left & (pixel_aligned - 1);
-	if (src_skip) {
-		dst_skip = src_skip * dst_rect_width /
-			src_rect_width;
-	}
-
-	src_rect->left -= src_skip;
-	dst_rect->left -= dst_skip;
-
-	if (dst_rect->left < 0) {
-		dst_rect->left = 0;
-		dst_skip = 0;
-	}
-
 	/*
 	 * workaround RGB overlay stretch, we don't support it, so
 	 * show it as the smaller rect.
@@ -1061,9 +1055,33 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 			src_rect->bottom = src_rect->top + dst_rect_height - 1;
 		else if (src_rect_height < dst_rect_height)
 			dst_rect->bottom = dst_rect->top + src_rect_height - 1;
+	} else {
+		/*
+		 * In the passthrough mode, the start address of source need
+		 * 8 bytes aligned, so driver should update the src rect for
+		 * request. dst_skip size will be used by LCDC to skip data
+		 * from VPP which pixels will not be shown on the screen
+		 * */
+		src_rect_width = src_rect->right - src_rect->left + 1;
+		dst_rect_width = dst_rect->right - dst_rect->left + 1;
+		src_skip = src_rect->left & (pixel_aligned - 1);
+		if (src_skip) {
+			dst_skip = src_skip * dst_rect_width /
+				src_rect_width;
+		}
+
+		src_rect->left -= src_skip;
+		dst_rect->left -= dst_skip;
+
+		if (dst_rect->left < 0) {
+			dst_rect->left = 0;
+			dst_skip = 0;
+		}
 	}
 
 	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
 	/* the src height must be integer multiples of 2 */
 	if (src_rect_height < 2) {
 		VDSSWARN("The height of src rect is less than 2!\n");
@@ -1077,9 +1095,12 @@ bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
 	}
 
 #ifdef CONFIG_SIRF_VDSS_DEBUG
-	VDSSINFO("Out: src(%d,%d,%d,%d), dst(%d,%d,%d,%d)\n",
+	VDSSINFO("Out: src(%d,%d,%d,%d), src_skip(%d)\n",
 	   src_rect->left, src_rect->top, src_rect->right, src_rect->bottom,
-	   dst_rect->left, dst_rect->top, dst_rect->right, dst_rect->bottom);
+	   src_skip);
+	VDSSINFO("     dst(%d,%d,%d,%d), dst_skip(%d)\n",
+	   dst_rect->left, dst_rect->top, dst_rect->right, dst_rect->bottom,
+	   dst_skip);
 #endif
 
 	*psrc_skip = src_skip;
