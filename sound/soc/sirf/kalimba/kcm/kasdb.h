@@ -105,8 +105,8 @@ struct kasdb_fe {
 	short channels_max;
 	int rates;		/* kasdb_rate_alsa(48000) | ... */
 	int formats;		/* SND_PCM_FORMAT_S16_LE | ... */
-	union kasdb_str sink_name;
-	union kasdb_str source_name;
+	union kasdb_str sink_codec;
+	union kasdb_str source_codec;
 };
 
 struct kasdb_op {

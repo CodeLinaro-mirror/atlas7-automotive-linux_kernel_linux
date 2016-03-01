@@ -84,8 +84,8 @@ static void fe_init_route(struct kasobj *obj, const char *stream_name)
 	struct snd_soc_dapm_route *route;
 	const struct snd_soc_dapm_route *route_template;
 
-	if (fe->db->sink_name.s) {
-		route_template = find_route_template(fe->db->sink_name.s, 1);
+	if (fe->db->sink_codec.s) {
+		route_template = find_route_template(fe->db->sink_codec.s, 1);
 		if (route_template) {
 			route = kcm_alloc_route();
 			*route = *route_template;
@@ -93,8 +93,8 @@ static void fe_init_route(struct kasobj *obj, const char *stream_name)
 		}
 	}
 
-	if (fe->db->source_name.s) {
-		route_template = find_route_template(fe->db->source_name.s, 0);
+	if (fe->db->source_codec.s) {
+		route_template = find_route_template(fe->db->source_codec.s, 0);
 		if (route_template) {
 			route = kcm_alloc_route();
 			*route = *route_template;
