@@ -1,9 +1,16 @@
 /*
  * System timer for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/kernel.h>
@@ -37,7 +44,8 @@
 #define SIRFSOC_TIMER_64COUNTER_RLATCHED_HI		0x0080
 
 #define SIRFSOC_TIMER_REG_CNT 6
-
+static int is_suspended;
+static u32 last_timer_cnt;
 static unsigned long atlas7_timer_rate;
 static const u32 sirfsoc_timer_reg_list[SIRFSOC_TIMER_REG_CNT] = {
 	SIRFSOC_TIMER_WATCHDOG_EN,
@@ -101,6 +109,14 @@ static cycle_t sirfsoc_timer_read(struct clocksource *cs)
 	return cycles;
 }
 
+static u64 notrace sirfsoc_read_sched_clock(void)
+{
+	if (unlikely(is_suspended))
+		return last_timer_cnt & 0xffffffff;
+	else
+		return (sirfsoc_timer_read(NULL) & 0xffffffff);
+}
+
 static int sirfsoc_timer_set_next_event(unsigned long delta,
 	struct clock_event_device *ce)
 {
@@ -140,6 +156,8 @@ static void sirfsoc_clocksource_suspend(struct clocksource *cs)
 
 	for (i = 0; i < SIRFSOC_TIMER_REG_CNT; i++)
 		sirfsoc_timer_reg_val[i] = readl_relaxed(sirfsoc_timer_base + sirfsoc_timer_reg_list[i]);
+	last_timer_cnt = sirfsoc_timer_read(NULL);
+	is_suspended = 1;
 }
 
 static void sirfsoc_clocksource_resume(struct clocksource *cs)
@@ -156,6 +174,7 @@ static void sirfsoc_clocksource_resume(struct clocksource *cs)
 
 	writel_relaxed(readl_relaxed(sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_CTRL) |
 		BIT(1) | BIT(0), sirfsoc_timer_base + SIRFSOC_TIMER_64COUNTER_CTRL);
+	is_suspended = 0;
 }
 
 static struct clock_event_device __percpu *sirfsoc_clockevent;
@@ -287,6 +306,7 @@ static void __init sirfsoc_atlas7_timer_init(struct device_node *np)
 	writel_relaxed(0xFFFF, sirfsoc_timer_base + SIRFSOC_TIMER_INTR_STATUS);
 
 	BUG_ON(clocksource_register_hz(&sirfsoc_clocksource, atlas7_timer_rate));
+	sched_clock_register(sirfsoc_read_sched_clock, 64, atlas7_timer_rate);
 
 	sirfsoc_clockevent_init();
 }
