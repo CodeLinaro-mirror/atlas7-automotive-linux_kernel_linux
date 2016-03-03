@@ -44,6 +44,7 @@ struct kas_pcm_data {
 	const struct kasobj_fe *fe;
 	struct kcm_chain *chain;
 	bool op_started;		/* TODO: remove it */
+	struct mutex pcm_free_lock;
 };
 
 struct kas_priv_data {
@@ -106,15 +107,23 @@ static int kas_pcm_open(struct snd_pcm_substream *substream)
 
 static int kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 {
+	int ret;
 	struct kas_pcm_data *pcm_data = (struct kas_pcm_data *)priv_data;
 
-	if (message_data[0] == pcm_data->kalimba_notify_ep_id) {
+	/* Prevent stream from being freed by kas_pcm_hw_free() */
+	mutex_lock(&pcm_data->pcm_free_lock);
+
+	if (pcm_data->kas_started &&
+			message_data[0] == pcm_data->kalimba_notify_ep_id) {
 		pcm_data->pos = (message_data[1] << 16 | message_data[2]) * 4;
 		snd_pcm_period_elapsed(pcm_data->substream);
-		return ACTION_HANDLED;
+		ret = ACTION_HANDLED;
 	} else {
-		return ACTION_NONE;
+		ret = ACTION_NONE;
 	}
+
+	mutex_unlock(&pcm_data->pcm_free_lock);
+	return ret;
 }
 
 static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
@@ -204,6 +213,15 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (!pcm_data->kas_started)
 		return 0;
 
+	if (pcm_data->fe->db->internal)
+		unregister_kalimba_msg_action(pcm_data->action_id);
+
+	/* Wait if kas_data_notify() is running */
+	mutex_lock(&pcm_data->pcm_free_lock);
+
+	pcm_data->kas_started = false;
+	pcm_data->op_started = false;
+
 	/* TODO: move to trigger/stop and combine to kcm_stop_chain() */
 	kcm_lock();
 	__kcm_stop_chain_op(pcm_data->chain);
@@ -211,12 +229,10 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	kcm_unlock();
 
 	kcm_put_chain(pcm_data->chain);
-	if (pcm_data->fe->db->internal)
-		unregister_kalimba_msg_action(pcm_data->action_id);
 
 	snd_pcm_lib_free_pages(substream);
-	pcm_data->kas_started = false;
-	pcm_data->op_started = false;
+
+	mutex_unlock(&pcm_data->pcm_free_lock);
 	return 0;
 }
 
@@ -363,6 +379,7 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		pcm_data->fe = kcm_find_fe(rtd->cpu_dai->driver->name,
 				substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 		BUG_ON(!pcm_data->fe);
+		mutex_init(&pcm_data->pcm_free_lock);
 	}
 
 	return ret;
