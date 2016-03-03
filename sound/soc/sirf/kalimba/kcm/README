@@ -203,7 +203,6 @@ Limitations
 
 TODO
 ====
-- Operators are started/stopped in sequence, "batch" mode not supported now.
 - Precreated operators and links not supported now.
 - Suspend/Resume.
 - kalimba_set_master_gain() by "anti-clippping" driver. This should be a

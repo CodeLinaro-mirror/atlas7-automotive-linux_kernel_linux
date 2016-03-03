@@ -3,6 +3,7 @@
 #include "kasobj.h"
 #include "kasop.h"
 #include "kcm.h"
+#include "../dsp.h"
 
 struct kcm_chain {
 	const struct kasdb_chain *db;
@@ -361,12 +362,30 @@ int kcm_put_chain(struct kcm_chain *chain)
 }
 EXPORT_SYMBOL(kcm_put_chain);
 
+/* Start/stop operators in batch mode
+ * XXX: Following code breaks encapsulation
+ */
+#define KCM_CHAIN_MAX_OPS	32	/* Maximum operators in a chain */
+
 int __kcm_start_chain_op(struct kcm_chain *chain)
 {
 	struct kcm_chain_obj *chain_obj;
+	int op_cnt = 0;
+	u16 op_ids[KCM_CHAIN_MAX_OPS];
 
-	list_for_each_entry(chain_obj, &chain->op_list, link)
-		chain_obj->obj->ops->start(chain_obj->obj);
+	list_for_each_entry(chain_obj, &chain->op_list, link) {
+		struct kasobj_op *op = kasobj_to_op(chain_obj->obj);
+
+		BUG_ON(!op->obj.life_cnt);
+		if (op->obj.start_cnt++ == 0) {
+			BUG_ON(op_cnt >= KCM_CHAIN_MAX_OPS ||
+					op->op_id == KCM_INVALID_EP_ID);
+			op_ids[op_cnt++] = op->op_id;
+			kcm_debug("OP '%s' started\n", op->obj.name);
+		}
+	}
+	if (op_cnt)
+		kalimba_start_operator(op_ids, op_cnt, __kcm_resp);
 	return 0;
 }
 EXPORT_SYMBOL(__kcm_start_chain_op);
@@ -374,9 +393,22 @@ EXPORT_SYMBOL(__kcm_start_chain_op);
 int __kcm_stop_chain_op(struct kcm_chain *chain)
 {
 	struct kcm_chain_obj *chain_obj;
+	int op_cnt = 0;
+	u16 op_ids[KCM_CHAIN_MAX_OPS];
 
-	list_for_each_entry(chain_obj, &chain->op_list, link)
-		chain_obj->obj->ops->stop(chain_obj->obj);
+	list_for_each_entry(chain_obj, &chain->op_list, link) {
+		struct kasobj_op *op = kasobj_to_op(chain_obj->obj);
+
+		BUG_ON(!op->obj.life_cnt);
+		if (op->obj.start_cnt && --op->obj.start_cnt == 0) {
+			BUG_ON(op_cnt >= KCM_CHAIN_MAX_OPS ||
+					op->op_id == KCM_INVALID_EP_ID);
+			op_ids[op_cnt++] = op->op_id;
+			kcm_debug("OP '%s' stopped\n", op->obj.name);
+		}
+	}
+	if (op_cnt)
+		kalimba_stop_operator(op_ids, op_cnt, __kcm_resp);
 	return 0;
 }
 EXPORT_SYMBOL(__kcm_stop_chain_op);

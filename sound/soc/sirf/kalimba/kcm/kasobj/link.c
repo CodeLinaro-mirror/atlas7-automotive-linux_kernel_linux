@@ -164,13 +164,12 @@ static int link_stop(struct kasobj *obj)
 	struct kasobj *source = link->source, *sink = link->sink;
 
 	BUG_ON(!obj->life_cnt);
-	if (obj->start_cnt && --obj->start_cnt)
-		return 0;
-
-	if (source->ops->stop_ep)
-		source->ops->stop_ep(source, db->source_pins_mask, 0);
-	if (sink->ops->stop_ep)
-		sink->ops->stop_ep(sink, db->sink_pins_mask, 1);
+	if (obj->start_cnt && --obj->start_cnt == 0) {
+		if (source->ops->stop_ep)
+			source->ops->stop_ep(source, db->source_pins_mask, 0);
+		if (sink->ops->stop_ep)
+			sink->ops->stop_ep(sink, db->sink_pins_mask, 1);
+	}
 	return 0;
 }
 

@@ -70,60 +70,6 @@ static int op_put(struct kasobj *obj)
 	return 0;
 }
 
-static int op_start(struct kasobj *obj)
-{
-	int ret;
-	struct kasobj_op *op = kasobj_to_op(obj);
-
-	BUG_ON(!obj->life_cnt);
-	if (obj->start_cnt++)
-		return 0;
-
-	if (op->impl->trigger) {
-		ret = op->impl->trigger(op, kasop_event_pre_start);
-		if (ret)
-			return ret;
-	}
-
-	kalimba_start_operator(&op->op_id, 1, __kcm_resp);
-	kcm_debug("OP '%s' started\n", obj->name);
-
-	if (op->impl->trigger) {
-		ret = op->impl->trigger(op, kasop_event_post_start);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-static int op_stop(struct kasobj *obj)
-{
-	int ret;
-	struct kasobj_op *op = kasobj_to_op(obj);
-
-	BUG_ON(!obj->life_cnt);
-	if (obj->start_cnt && --obj->start_cnt)
-		return 0;
-
-	if (op->impl->trigger) {
-		ret = op->impl->trigger(op, kasop_event_pre_stop);
-		if (ret)
-			return ret;
-	}
-
-	kalimba_stop_operator(&op->op_id, 1, __kcm_resp);
-	kcm_debug("OP '%s' stopped\n", obj->name);
-
-	if (op->impl->trigger) {
-		ret = op->impl->trigger(op, kasop_event_post_stop);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
 static u16 op_get_ep(struct kasobj *obj, unsigned pin, int is_sink)
 {
 	u16 ep_id;
@@ -205,8 +151,6 @@ static struct kasobj_ops op_ops = {
 	.init = op_init,
 	.get = op_get,
 	.put = op_put,
-	.start = op_start,
-	.stop = op_stop,
 	.get_ep = op_get_ep,
 	.put_ep = op_put_ep,
 	.start_ep = op_start_ep,
