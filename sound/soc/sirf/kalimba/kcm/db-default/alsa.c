@@ -106,7 +106,7 @@ static const struct kasdb_fe fe[] = {
 		.rates = SNDRV_PCM_RATE_8000_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		.sink_codec = __S("iacc"),
-		.source_codec = __S("NULL"),
+		.source_codec = __S(NULL),
 	},
 	{
 		.name = __S("Voicecall-bt-to-iacc"),
