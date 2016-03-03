@@ -104,8 +104,16 @@ void lcdc_flip(u32 lcdc_index, enum vdss_layer layer,
 	struct sirfsoc_vdss_layer_info *info);
 struct lcdc_prop *lcdc_get_prop(u32 lcdc_index);
 
+bool lcdc_check_size(struct vdss_rect *src_rect,
+	struct vdss_rect *dst_rect);
+
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);
+bool vpp_passthrough_check_size(struct vdss_surface *src_surf,
+	struct vdss_rect *src_rect,
+	int *psrc_skip,
+	struct vdss_rect *dst_rect,
+	int *pdst_skip);
 
 int lvdsc_init_platform_driver(void) __init;
 void lvdsc_uninit_platform_driver(void) __init;
@@ -117,5 +125,10 @@ int dcu_init_platform_driver(void) __init;
 void dcu_uninit_platform_driver(void);
 void dcu_enable(void);
 void dcu_disable(void);
+bool dcu_inline_check_size(struct vdss_surface *src_surf,
+	struct vdss_rect *src_rect,
+	int *psrc_skip,
+	struct vdss_rect *dst_rect,
+	int *pdst_skip);
 
 #endif

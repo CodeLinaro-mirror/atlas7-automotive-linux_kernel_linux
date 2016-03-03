@@ -351,7 +351,8 @@ static int __vout_set_normal_mode(
 	src_surf.height = vout->surf_height;
 	src_surf.base = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, &src_skip,
+	if (!sirfsoc_vdss_check_size(VDSS_DISP_NORMAL,
+		&src_surf, &src_rect, &src_skip,
 		l, &dst_rect, &dst_skip))
 		return -EINVAL;
 
@@ -456,7 +457,8 @@ static int __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	src_surf.height = vout->surf_height;
 	src_surf.base = vb2_dma_contig_plane_dma_addr(buf, 0);
 
-	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, &src_skip,
+	if (!sirfsoc_vdss_check_size(VDSS_DISP_PASS_THROUGH,
+	    &src_surf, &src_rect, &src_skip,
 	    l, &dst_rect, &dst_skip))
 		return -EINVAL;
 
@@ -621,7 +623,8 @@ static int __vout_set_inline_mode(
 	src_surf.height = vout->surf_height;
 	src_surf.base = 0;
 
-	if (!sirfsoc_vdss_check_size(&src_surf, &src_rect, &src_skip,
+	if (!sirfsoc_vdss_check_size(VDSS_DISP_INLINE,
+	    &src_surf, &src_rect, &src_skip,
 	    l, &dst_rect, &dst_skip))
 		return -EINVAL;
 

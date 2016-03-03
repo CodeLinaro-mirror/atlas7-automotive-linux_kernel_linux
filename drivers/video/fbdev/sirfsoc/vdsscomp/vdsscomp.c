@@ -66,14 +66,15 @@ static bool vdsscomp_layer_enable(
 	src_surf.height = info->height;
 	src_surf.base = phys_addr;
 
-	if (!sirfsoc_vdss_check_size(&src_surf,
-	    &src_rect, &src_skip, layer, &dst_rect, &dst_skip))
-		return false;
-
 	if (sirfsoc_vpp_is_passthrough_support(info->fmt))
 		l->disp_mode = VDSS_DISP_PASS_THROUGH;
 	else
 		l->disp_mode = VDSS_DISP_NORMAL;
+
+	if (!sirfsoc_vdss_check_size(l->disp_mode,
+	    &src_surf, &src_rect, &src_skip,
+	    layer, &dst_rect, &dst_skip))
+		return false;
 
 	if (l->disp_mode == VDSS_DISP_PASS_THROUGH) {
 		struct vdss_vpp_op_params params;

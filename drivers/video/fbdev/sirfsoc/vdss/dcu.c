@@ -146,6 +146,139 @@ static int dcu_uninit_sysfs(struct dcu_device *ddev)
 	return 0;
 }
 
+bool dcu_inline_check_size(struct vdss_surface *src_surf,
+	struct vdss_rect *src_rect,
+	int *psrc_skip,
+	struct vdss_rect *dst_rect,
+	int *pdst_skip)
+{
+	int src_rect_width, src_rect_height;
+	int dst_rect_width, dst_rect_height;
+	int pixel_aligned = 0;
+	int src_skip = 0;
+	int dst_skip = 0;
+
+	/*
+	 * DMA address must be 8 bytes aligned, so
+	 * we must shift the src address
+	 * */
+	switch (src_surf->fmt) {
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		pixel_aligned = 8;
+		break;
+	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_YV12:
+		pixel_aligned = 16;
+		break;
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC2:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_IMC4:
+		pixel_aligned = 16;
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_UYNV:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_YUNV:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_VYUY:
+	case VDSS_PIXELFORMAT_565:
+		pixel_aligned = 4;
+		break;
+	case VDSS_PIXELFORMAT_8888:
+	case VDSS_PIXELFORMAT_BGRX_8880:
+	case VDSS_PIXELFORMAT_RGBX_8880:
+		pixel_aligned = 2;
+		break;
+	default:
+		pixel_aligned = 16;
+		break;
+	}
+
+	src_rect_width = src_rect->right - src_rect->left + 1;
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	dst_rect_width = dst_rect->right - dst_rect->left + 1;
+	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+	/*
+	 * Because downscaling in horizontal/vertical direction should
+	 * be no less than 1/8 and upscaling in horizontal/vertical
+	 * direction should be no greater than 8, driver update ratio of
+	 * scaling for this hardware limitatin.
+	 * */
+	if (src_rect_width > (dst_rect_width << 3)) {
+		src_rect_width = (dst_rect_width << 3);
+		src_rect->right = src_rect->left +
+			src_rect_width - 1;
+	}
+
+	if (src_rect_height > (dst_rect_height << 3)) {
+		src_rect_height = (dst_rect_height << 3);
+		src_rect->bottom = src_rect->top +
+			src_rect_height - 1;
+	}
+
+	if (dst_rect_width > (src_rect_width << 3)) {
+		dst_rect_width = (src_rect_width << 3);
+		dst_rect->right = dst_rect->left +
+			dst_rect_width - 1;
+	}
+
+	if (dst_rect_height > (src_rect_height << 3)) {
+		dst_rect_height = (src_rect_height << 3);
+		dst_rect->bottom = dst_rect->top +
+			dst_rect_height - 1;
+	}
+
+	/*
+	 * The width and height of VPP source surface must be
+	 * integer multiples of 2. And in inline mode, the height of
+	 * dst_rect and the width of src_rect are the height and the
+	 * width of VPP input surface.
+	 * */
+	if (dst_rect_height < 2) {
+		VDSSWARN("The height of dst rect is less than 2!\n");
+		return false;
+	}
+
+	if (dst_rect_height & 0x01) {
+		if (src_rect_height > ((dst_rect_height - 1) << 3))
+			dst_rect->bottom = dst_rect->top + dst_rect_height;
+		else
+			dst_rect->bottom = dst_rect->top + dst_rect_height - 2;
+	}
+
+	src_rect_width = src_rect->right - src_rect->left + 1;
+	dst_rect_width = dst_rect->right - dst_rect->left + 1;
+
+	if (src_rect_width < 2) {
+		VDSSWARN("The width of src rect is less than 2!\n");
+		return false;
+	}
+
+	if (src_rect_width & 0x01) {
+		src_rect->right = src_rect->left + src_rect_width - 2;
+		dst_rect->right = dst_rect->left + dst_rect_width - 1 -
+			dst_rect_width/src_rect_width;
+		src_rect_width = src_rect->right - src_rect->left + 1;
+		dst_rect_width = dst_rect->right - dst_rect->left + 1;
+	}
+
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	/*
+	 * At present, DCU driver doesn't support source clip
+	 * */
+	if (src_rect_width < src_surf->width ||
+	    src_rect_height < src_surf->height) {
+		VDSSWARN("Source clip isn't supported\n");
+		return false;
+	}
+
+	return true;
+}
+
 unsigned int dcu_read_reg(void __iomem *iomem,
 		unsigned int offset)
 {

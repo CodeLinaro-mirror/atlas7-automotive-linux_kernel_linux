@@ -883,7 +883,7 @@ static void rv_start(struct rv_dev *rv)
 	src_surf.height = rv->height;
 	src_surf.base = 0;
 
-	if (!sirfsoc_vdss_check_size(&src_surf,
+	if (!sirfsoc_vdss_check_size(VDSS_DISP_IBV, &src_surf,
 	    &rv->d_info.src_rect, &src_skip, rv->d_info.l,
 	    &rv->d_info.sca_rect, &dst_skip)) {
 		dev_err(rv->dev, "vdss check size failed");

@@ -202,6 +202,44 @@ static u32 __lcdc_ckey_val(enum vdss_pixelformat fmt,
 	return 0;
 }
 
+bool lcdc_check_size(struct vdss_rect *src_rect,
+	struct vdss_rect *dst_rect)
+{
+	int src_rect_width, src_rect_height;
+	int dst_rect_width, dst_rect_height;
+
+	src_rect_width = src_rect->right - src_rect->left + 1;
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	dst_rect_width = dst_rect->right - dst_rect->left + 1;
+	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+	if (src_rect_width > dst_rect_width)
+		src_rect->right = src_rect->left + dst_rect_width - 1;
+	else if (src_rect_width < dst_rect_width)
+		dst_rect->right = dst_rect->left + src_rect_width - 1;
+
+	if (src_rect_height > dst_rect_height)
+		src_rect->bottom = src_rect->top + dst_rect_height - 1;
+	else if (src_rect_height < dst_rect_height)
+		dst_rect->bottom = dst_rect->top + src_rect_height - 1;
+
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+	/* the src height must be integer multiples of 2 */
+	if (src_rect_height < 2) {
+		VDSSWARN("The height of src rect is less than 2!\n");
+		return false;
+	}
+
+	if (src_rect_height & 0x01) {
+		src_rect->bottom = src_rect->top + src_rect_height - 2;
+		dst_rect->bottom = dst_rect->top + dst_rect_height - 2;
+	}
+
+	return true;
+}
+
 u32 lcdc_read_intstatus(u32 lcdc_index)
 {
 	return lcdc_read_reg(lcdc_index, INT_CTRL_STATUS);

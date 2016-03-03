@@ -648,7 +648,9 @@ struct sirfsoc_vdss_layer *sirfsoc_vdss_get_layer_from_screen(
 	struct sirfsoc_vdss_screen *scn, enum vdss_layer id, bool rearview);
 void sirfsoc_vdss_set_exclusive_layers(struct sirfsoc_vdss_layer **layers,
 				u32 size, bool enable);
-bool sirfsoc_vdss_check_size(struct vdss_surface *src_surf,
+bool sirfsoc_vdss_check_size(
+	enum vdss_disp_mode disp_mode,
+	struct vdss_surface *src_surf,
 	struct vdss_rect *src_rect,
 	int *psrc_skip,
 	struct sirfsoc_vdss_layer *l,

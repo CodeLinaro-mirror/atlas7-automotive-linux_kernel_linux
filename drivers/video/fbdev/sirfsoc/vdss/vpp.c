@@ -229,6 +229,118 @@ static s32 vpp_cal_uc(u32 hue, u32 saturation)
 	return uc;
 }
 
+bool vpp_passthrough_check_size(struct vdss_surface *src_surf,
+	struct vdss_rect *src_rect,
+	int *psrc_skip,
+	struct vdss_rect *dst_rect,
+	int *pdst_skip)
+{
+	int src_rect_width, src_rect_height;
+	int dst_rect_width, dst_rect_height;
+	int pixel_aligned = 0;
+	int src_skip = 0;
+	int dst_skip = 0;
+
+	/*
+	 * DMA address must be 8 bytes aligned, so
+	 * we must shift the src address
+	 * */
+	switch (src_surf->fmt) {
+	case VDSS_PIXELFORMAT_NV12:
+	case VDSS_PIXELFORMAT_NV21:
+		pixel_aligned = 8;
+		break;
+	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_YV12:
+		pixel_aligned = 16;
+		break;
+	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_IMC2:
+	case VDSS_PIXELFORMAT_IMC3:
+	case VDSS_PIXELFORMAT_IMC4:
+		pixel_aligned = 16;
+		break;
+	case VDSS_PIXELFORMAT_UYVY:
+	case VDSS_PIXELFORMAT_UYNV:
+	case VDSS_PIXELFORMAT_YUY2:
+	case VDSS_PIXELFORMAT_YUYV:
+	case VDSS_PIXELFORMAT_YUNV:
+	case VDSS_PIXELFORMAT_YVYU:
+	case VDSS_PIXELFORMAT_VYUY:
+	case VDSS_PIXELFORMAT_565:
+		pixel_aligned = 4;
+		break;
+	case VDSS_PIXELFORMAT_8888:
+	case VDSS_PIXELFORMAT_BGRX_8880:
+	case VDSS_PIXELFORMAT_RGBX_8880:
+		pixel_aligned = 2;
+		break;
+	default:
+		pixel_aligned = 16;
+		break;
+	}
+
+	src_rect_width = src_rect->right - src_rect->left + 1;
+	src_rect_height = src_rect->bottom - src_rect->top + 1;
+	dst_rect_width = dst_rect->right - dst_rect->left + 1;
+	dst_rect_height = dst_rect->bottom - dst_rect->top + 1;
+
+	/*
+	 * Because downscaling in horizontal/vertical direction should
+	 * be no less than 1/8 and upscaling in horizontal/vertical
+	 * direction should be no greater than 8, driver update ratio of
+	 * scaling for this hardware(VPP) limitatin.
+	 * */
+	if (src_rect_width > (dst_rect_width << 3)) {
+		src_rect_width = (dst_rect_width << 3);
+		src_rect->right = src_rect->left +
+			src_rect_width - 1;
+	}
+
+	if (src_rect_height > (dst_rect_height << 3)) {
+		src_rect_height = (dst_rect_height << 3);
+		src_rect->bottom = src_rect->top +
+			src_rect_height - 1;
+	}
+
+	if (dst_rect_width > (src_rect_width << 3)) {
+		dst_rect_width = (src_rect_width << 3);
+		dst_rect->right = dst_rect->left +
+			dst_rect_width - 1;
+	}
+
+	if (dst_rect_height > (src_rect_height << 3)) {
+		dst_rect_height = (src_rect_height << 3);
+		dst_rect->bottom = dst_rect->top +
+			dst_rect_height - 1;
+	}
+
+	/*
+	 * In the passthrough mode, the start address of source need
+	 * 8 bytes aligned, so driver should update the src rect for
+	 * request. dst_skip size will be used by LCDC to skip data
+	 * from VPP which pixels will not be shown on the screen
+	 * */
+	src_skip = src_rect->left & (pixel_aligned - 1);
+	if (src_skip) {
+		dst_skip = src_skip * dst_rect_width /
+			src_rect_width;
+	}
+
+	src_rect->left -= src_skip;
+	dst_rect->left -= dst_skip;
+
+	if (dst_rect->left < 0) {
+		dst_rect->left = 0;
+		dst_skip = 0;
+	}
+
+	*psrc_skip = src_skip;
+	*pdst_skip = dst_skip;
+
+	return true;
+}
+
 static void __vpp_setup(struct vpp_adapter *adapter)
 {
 	u32 offset, val;
