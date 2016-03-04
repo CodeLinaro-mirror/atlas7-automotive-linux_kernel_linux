@@ -349,6 +349,42 @@ void kalimba_set_stream_volume(int stream, int vol, int samples)
 	}
 	kalimba_msg_send_unlock();
 }
+
+void kalimba_set_stream_channel_volume(int stream, int channel, int vol,
+	int samples)
+{
+	int i;
+	u16 mixer_op_id;
+	static u16 streams_channel_volume[MIXER_SUPPORT_STREAMS * 2][4];
+	u16 msg[3] = {1, 0, (u16)(vol * 60)};
+	u16 msg_ramp[2];
+
+	/* <MS_8bits> <LS_16bits> */
+	msg_ramp[0] = samples >> 16;
+	msg_ramp[1] = samples & 0xffff;
+
+	set_default_mixer_stream_channel_volume(stream, channel, msg[2]);
+
+	if (stream < MIXER_SUPPORT_STREAMS)
+		msg[1] = stream * 4 + channel;
+	else
+		msg[1] = (stream - MIXER_SUPPORT_STREAMS) * 4 + channel;
+
+	kalimba_msg_send_lock();
+	if (stream < MIXER_SUPPORT_STREAMS)
+		mixer_op_id = get_mixer_op_id(1);
+	else
+		mixer_op_id = get_mixer_op_id(2);
+	if (mixer_op_id) {
+		kalimba_operator_message(mixer_op_id,
+			OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
+			2, msg_ramp, NULL, NULL, NULL);
+		kalimba_operator_message(mixer_op_id,
+			OPERATOR_MSG_SET_CHANNEL_GAINS,
+			3, msg, NULL, NULL, NULL);
+	}
+	kalimba_msg_send_unlock();
+}
 #endif
 
 int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)

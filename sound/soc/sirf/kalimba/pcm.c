@@ -55,6 +55,7 @@ struct kas_priv_data {
 	struct kas_pcm_data pcm[KAS_PCM_COUNT][2];
 	struct kcm_t *kcm;
 	int pre_channel_volume[4];
+	int stream_channel_volume[MIXER_SUPPORT_STREAMS * 2][4];
 	int stream_volume[MIXER_SUPPORT_STREAMS * 2];
 	int stream_ramp[2][MIXER_SUPPORT_STREAMS * 2];
 	int stream_mute[MIXER_SUPPORT_STREAMS * 2];
@@ -425,6 +426,7 @@ static int kas_playback_peq_put(struct snd_kcontrol *kcontrol,
 #define PREGAIN_REG			9
 #define MIXER_MUTE_REG			10
 #define MIXER_RAMP_REG			15
+#define MIXER_CHAN_REG                  20
 #define MAX_RAMP_NUM_SAMPLES		0x00ffffff
 
 static int kas_playback_ramp_get(struct snd_kcontrol *kcontrol,
@@ -500,13 +502,20 @@ static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
 	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
+	u16 stream = 0;
+	u16 channel = 0;
 
-	if (mc->reg < MIXER_GAIN_REG)
+	if (mc->reg < MIXER_GAIN_REG) /* Volume-Control: Per Spk Volume */
 		ucontrol->value.integer.value[0] =
 			pdata->pre_channel_volume[mc->reg];
-	else if (mc->reg == PREGAIN_REG)
+	else if (mc->reg == PREGAIN_REG) /* Pass-Through: Pre Gain */
 		ucontrol->value.integer.value[0] = pdata->pre_gain;
-	else
+	else if (mc->reg >= MIXER_CHAN_REG) { /* Mixer: Stream Channel Volume */
+		stream = (mc->reg - MIXER_CHAN_REG) / 4;
+		channel = (mc->reg - MIXER_CHAN_REG) - 4 * stream;
+		ucontrol->value.integer.value[0] =
+			pdata->stream_channel_volume[stream][channel];
+	} else /* Mixer: Stream Volume */
 		ucontrol->value.integer.value[0] =
 			pdata->stream_volume[mc->reg - MIXER_GAIN_REG];
 	return 0;
@@ -520,17 +529,29 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	int mute = 0;
+	u16 stream = 0;
+	u16 channel = 0;
 
-	if (mc->reg < MIXER_GAIN_REG) {
+	if (mc->reg < MIXER_GAIN_REG) { /* Volume-Control: Per Spk Volume */
 		pdata->pre_channel_volume[mc->reg] =
 			ucontrol->value.integer.value[0];
 		kalimba_set_channel_volume(mc->reg, MIN_CHANNEL_GAIN_DB +
 			pdata->pre_channel_volume[mc->reg]);
-	} else if (mc->reg == PREGAIN_REG) {
+	} else if (mc->reg == PREGAIN_REG) { /* Pass-Through: Pre Gain */
 		pdata->pre_gain = ucontrol->value.integer.value[0];
 		kalimba_set_music_passthrough_volume(
 			MIN_MUSIC_PREGAIN_DB + pdata->pre_gain);
-	} else {
+	} else if (mc->reg >= MIXER_CHAN_REG) {
+		/* Mixer: Stream Channel Volume */
+		stream = (mc->reg - MIXER_CHAN_REG) / 4;
+		channel = (mc->reg - MIXER_CHAN_REG) - 4 * stream;
+		pdata->stream_channel_volume[stream][channel] =
+			ucontrol->value.integer.value[0];
+		kalimba_set_stream_channel_volume(stream, channel,
+			MIN_STREAM_GAIN_DB +
+			pdata->stream_channel_volume[stream][channel],
+			pdata->stream_ramp[0][stream]);
+	} else { /* Mixer: Stream Volume */
 		pdata->stream_volume[mc->reg - MIXER_GAIN_REG] =
 			ucontrol->value.integer.value[0];
 		mute = pdata->stream_mute[mc->reg - MIXER_GAIN_REG];
@@ -610,6 +631,87 @@ static const struct snd_kcontrol_new kas_controls[] = {
 	SOC_DOUBLE_EXT("Voicecall Ramp",
 		19, 0, 1, MAX_RAMP_NUM_SAMPLES, 0,
 		kas_playback_ramp_get, kas_playback_ramp_put),
+	SOC_SINGLE_EXT_TLV("Music Stream Front Left",
+		20, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Music Stream Front Right",
+		21, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Music Stream Rear Left",
+		22, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Music Stream Rear Right",
+		23, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Navigation Stream Front Left",
+		24, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Navigation Stream Front Right",
+		25, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Navigation Stream Rear Left",
+		26, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Navigation Stream Rear Right",
+		27, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Alarm Stream Front Left",
+		28, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Alarm Stream Front Right",
+		29, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Alarm Stream Rear Left",
+		30, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Alarm Stream Rear Right",
+		31, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Multimedia Front Left",
+		32, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Multimedia Front Right",
+		33, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Multimedia Rear Left",
+		34, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Multimedia Rear Right",
+		35, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Voicecall Front Left",
+		36, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Voicecall Front Right",
+		37, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Voicecall Rear Left",
+		38, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+	SOC_SINGLE_EXT_TLV("Voicecall Rear Right",
+		39, 0, 96, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_stream_vol_tlv),
+
 	/* peq */
 	KAS_PEQ_CONTROLS("User PEQ", USER_PEQ_BASE),
 	KAS_PEQ_CONTROLS("Spk1 PEQ", SPK1_PEQ_BASE),

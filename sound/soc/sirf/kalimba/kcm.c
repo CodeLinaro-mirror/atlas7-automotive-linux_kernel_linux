@@ -86,6 +86,20 @@ static unsigned long active_stream;
 
 static u16 mixer1_default_streams_volume[MIXER_SUPPORT_STREAMS];
 static u16 mixer2_default_streams_volume[MIXER_SUPPORT_STREAMS];
+static u16 mixer1_default_streams_channel_volume
+	[1 + MIXER_SUPPORT_CHANNELS * 2] = {
+	12, /* total channels */
+	0, 0, 1, 0, 2, 0, 3, 0,  /* stream1 channels */
+	4, 0, 5, 0, 6, 0, 7, 0,  /* stream2 channels */
+	8, 0, 9, 0, 10, 0, 11, 0 /* stream3 channels */
+};
+static u16 mixer2_default_streams_channel_volume
+	[1 + MIXER_SUPPORT_CHANNELS * 2] = {
+	12, /* total channels */
+	0, 0, 1, 0, 2, 0, 3, 0,  /* stream1 channels */
+	4, 0, 5, 0, 6, 0, 7, 0,  /* stream2 channels */
+	8, 0, 9, 0, 10, 0, 11, 0 /* stream3 channels */
+};
 static u16 volume_ctrl_default_volumes[4][4] = {
 	{1, 0x10, 0, 0},
 	{1, 0x11, 0, 0},
@@ -161,6 +175,21 @@ void set_default_mixer_stream_volume(int stream, u16 volume)
 	else
 		mixer2_default_streams_volume[stream - MIXER_SUPPORT_STREAMS] =
 			volume;
+}
+
+void set_default_mixer_stream_channel_volume(int stream, int channel,
+	u16 volume)
+{
+	int i = 0;
+	u16 index = 0;
+
+	if (stream < MIXER_SUPPORT_STREAMS) {
+		index = 2 + stream * 8 + channel * 2;
+		mixer1_default_streams_channel_volume[index] = volume;
+	} else {
+		index = 2 + (stream - MIXER_SUPPORT_STREAMS) * 8 + channel * 2;
+		mixer2_default_streams_channel_volume[index] = volume;
+	}
 }
 
 static int init_music_mono_pipeline(int index)
@@ -584,7 +613,7 @@ static int init_music_stereo_pipeline(void)
 	mixer_1 = i;
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_MIXER;
-	components_global[i].params[1] = 3; /* Config items */
+	components_global[i].params[1] = 4; /* Config items */
 	components_global[i].params[2] = OPERATOR_MSG_SET_CHANNELS;
 	components_global[i].params[3] = MIXER_SUPPORT_STREAMS;
 	components_global[i].params[4] = (u32)(mixer_oper_conf_channels);
@@ -594,12 +623,16 @@ static int init_music_stereo_pipeline(void)
 	components_global[i].params[8] = OPERATOR_MSG_SET_GAINS;
 	components_global[i].params[9] = MIXER_SUPPORT_STREAMS;
 	components_global[i].params[10] = (u32)(mixer1_default_streams_volume);
+	components_global[i].params[11] = OPERATOR_MSG_SET_CHANNEL_GAINS;
+	components_global[i].params[12] = 1 + MIXER_SUPPORT_CHANNELS * 2;
+	components_global[i].params[13] =
+		(u32)(mixer1_default_streams_channel_volume);
 	i++;
 
 	mixer_2 = i;
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_MIXER;
-	components_global[i].params[1] = 3; /* Config items */
+	components_global[i].params[1] = 4; /* Config items */
 	components_global[i].params[2] = OPERATOR_MSG_SET_CHANNELS;
 	components_global[i].params[3] = MIXER_SUPPORT_STREAMS;
 	components_global[i].params[4] = (u32)(mixer_oper_conf_channels);
@@ -609,6 +642,10 @@ static int init_music_stereo_pipeline(void)
 	components_global[i].params[8] = OPERATOR_MSG_SET_GAINS;
 	components_global[i].params[9] = MIXER_SUPPORT_STREAMS;
 	components_global[i].params[10] = (u32)(mixer2_default_streams_volume);
+	components_global[i].params[11] = OPERATOR_MSG_SET_CHANNEL_GAINS;
+	components_global[i].params[12] = 1 + MIXER_SUPPORT_CHANNELS * 2;
+	components_global[i].params[13] =
+		(u32)(mixer2_default_streams_channel_volume);
 	i++;
 
 	/* Mixer first connect to mixer second */

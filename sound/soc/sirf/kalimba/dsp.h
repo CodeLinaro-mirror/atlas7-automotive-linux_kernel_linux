@@ -78,6 +78,8 @@ void unregister_kalimba_msg_action(void *action_id);
 void kalimba_do_actions(u16 message, u16 *data);
 void kalimba_set_channel_volume(int channel, int vol);
 void kalimba_set_stream_volume(int stream, int vol, int samples);
+void kalimba_set_stream_channel_volume(int stream, int channel, int vol,
+	int samples);
 void kalimba_set_music_passthrough_volume(int vol);
 void kalimba_set_peq_control(u16 index, u16 mode);
 void kalimba_set_peq_params(u16 index, u16 offset, int val);
@@ -126,6 +128,7 @@ void kalimba_set_master_gain(int vol);
 #define OPERATOR_MSG_SET_UCID			0x2007
 #define OPERATOR_MSG_SET_CVC_SAMPLE_RATE	0x1F40
 #define MIXER_SUPPORT_STREAMS			3
+#define MIXER_SUPPORT_CHANNELS			12
 
 #define RESAMPLER_SET_CONVERSION_RATE		0x0002
 #define RESAMPLER_SET_CUSTOM_RATE		0x0003
@@ -155,6 +158,7 @@ void kalimba_set_master_gain(int vol);
 #define OPERATOR_MSG_SET_GAINS			1
 #define OPERATOR_MSG_SET_RAMP_NUM_SAMPLES	3
 #define OPERATOR_MSG_SET_PRIMARY_STREAM		4
+#define OPERATOR_MSG_SET_CHANNEL_GAINS		5
 
 #define OPERATOR_MSG_SET_PASSTHROUGH_GAIN	2
 

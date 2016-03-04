@@ -119,6 +119,8 @@ void set_default_music_peq_control(int index, u16 mode);
 void set_default_music_passthrough_volume(u16 volume);
 void set_default_volume_ctrl_volume(int channel, u32 volume);
 void set_default_mixer_stream_volume(int stream, u16 volume);
+void set_default_mixer_stream_channel_volume(int stream, int channel,
+	u16 volume);
 u16 get_volume_control_op_id(void);
 u16 get_mixer_op_id(int which);
 u16 get_music_passthrough_op_id(void);
