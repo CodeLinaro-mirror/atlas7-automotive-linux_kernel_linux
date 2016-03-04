@@ -6,7 +6,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_channels = 1,
 		.links = __S("lk_music_pass_1;lk_pass_src_1;lk_src_split1x2;"
 				"lk_split1x2_split;lk_music_mixer;"
-				"lk_mixer_iacc"),
+				"lk_mixer_mixer2;lk_mixer2_iacc"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2"),
 	},
 	{
@@ -14,7 +14,8 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Music"),
 		.trg_channels = 2,
 		.links = __S("lk_music_pass_2;lk_pass_src_2;lk_src_split;"
-				"lk_music_mixer;lk_mixer_iacc"),
+				"lk_music_mixer;lk_mixer_mixer2;"
+				"lk_mixer2_iacc"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2"),
 	},
 	{
@@ -22,7 +23,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Music"),
 		.trg_channels = 4,
 		.links = __S("lk_music_pass_4;lk_pass_src_4;lk_src_mixer;"
-				"lk_mixer_iacc"),
+				"lk_mixer_mixer2;lk_mixer2_iacc"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2"),
 	},
 
@@ -31,7 +32,7 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_navi"),
 		.trg_fe_name = __S("Navigation"),
 		.trg_channels = 4,
-		.links = __S("lk_navi_mixer;lk_mixer_iacc"),
+		.links = __S("lk_navi_mixer;lk_mixer_mixer2;lk_mixer2_iacc"),
 		.mutexs = __S(NULL),
 	},
 
@@ -41,7 +42,8 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Alarm"),
 		.trg_channels = 1,
 		.links = __S("lk_alarm_src;lk_alarm_split_1x2;lk_alarm_split;"
-				"lk_alarm_mixer:lk_mixer_iacc"),
+				"lk_alarm_mixer;lk_mixer_mixer2;"
+				"lk_mixer2_iacc"),
 		.mutexs = __S(NULL),
 	},
 
@@ -61,7 +63,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_channels = 1,
 		.links = __S("lk_lin_pass_1;lk_pass_src_1;lk_src_split1x2;"
 				"lk_split1x2_split;lk_music_mixer;"
-				"lk_mixer_iacc"),
+				"lk_mixer_mixer2;lk_mixer2_iacc"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 				"chain_cap"),
 	},
@@ -70,7 +72,8 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("IACC-loopback-playback"),
 		.trg_channels = 2,
 		.links = __S("lk_lin_pass_2;lk_pass_src_2;lk_src_split;"
-				"lk_music_mixer;lk_mixer_iacc"),
+				"lk_music_mixer;lk_mixer_mixer2;"
+				"lk_mixer2_iacc"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 				"chain_cap"),
 	},

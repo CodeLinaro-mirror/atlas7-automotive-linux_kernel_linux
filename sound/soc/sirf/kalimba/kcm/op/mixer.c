@@ -54,23 +54,16 @@ static void set_primary_stream(struct kasobj_op *op)
 				&ctx->primary_stream, NULL, NULL, __kcm_resp);
 }
 
-/* Find primary stream
- * - Return old stream if it's active or there's no active streams
- * - Return first active stream otherwise
- */
+/* Find primary stream (last active stream) */
 static int select_primary_stream(struct kasobj_op *op)
 {
+	int i;
 	struct mixer_ctx *ctx = op->context;
-	int i, stream_is_active[MAX_STREAMS];
 
-	for (i = 0; i < ctx->streams; i++)
-		stream_is_active[i] = !!(op->active_sink_pins &
-			BIT(i * 12 / ctx->streams));	/* (0,4,8), (0,6) */
-
-	if (!stream_is_active[ctx->primary_stream - 1])
-		for (i = 0; i < ctx->streams; i++)
-			if (stream_is_active[i])
-				return i + 1;
+	/* Check pin (0,4,8) if 3x4 or (0,6) if 2x6 */
+	for (i = ctx->streams - 1; i >= 0; i--)
+		if (op->active_sink_pins & BIT(i * 12 / ctx->streams))
+			return i + 1;
 
 	return ctx->primary_stream;
 }

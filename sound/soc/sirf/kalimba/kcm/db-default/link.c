@@ -36,6 +36,15 @@ static const struct kasdb_link link[] = {
 		.sink_pins_mask = 0x3,
 		.channels = 2,
 	},
+	{
+		/* Splitter -> Mixer1, 4ch (1-4) */
+		.name = __S("lk_music_mixer"),
+		.source_name = __S("op_split_music"),
+		.sink_name = __S("op_mixer"),
+		.source_pins_mask = 0xF,
+		.sink_pins_mask = 0xF,
+		.channels = 4,
+	},
 
 	/* Music, 2ch */
 	{
@@ -86,12 +95,23 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 	{
-		/* Resampler -> Mixer, 4ch */
+		/* Resampler -> Mixer1, 4ch */
 		.name = __S("lk_src_mixer"),
 		.source_name = __S("op_src_music"),
 		.sink_name = __S("op_mixer"),
 		.source_pins_mask = 0xF,
 		.sink_pins_mask = 0xF,
+		.channels = 4,
+	},
+
+	/* Navigation, 4ch */
+	{
+		/* Navigation -> Mixer1, 4ch (5-8) */
+		.name = __S("lk_navi_mixer"),
+		.source_name = __S("Navigation"),
+		.sink_name = __S("op_mixer"),
+		.source_pins_mask = 0xF,
+		.sink_pins_mask = 0xF0,
 		.channels = 4,
 	},
 
@@ -123,28 +143,8 @@ static const struct kasdb_link link[] = {
 		.sink_pins_mask = 0x3,
 		.channels = 2,
 	},
-
-	/* Mixer input: Music, Navigation, Alarm */
 	{
-		/* Music splitter -> Mixer, 4ch (1-4) */
-		.name = __S("lk_music_mixer"),
-		.source_name = __S("op_split_music"),
-		.sink_name = __S("op_mixer"),
-		.source_pins_mask = 0xF,
-		.sink_pins_mask = 0xF,
-		.channels = 4,
-	},
-	{
-		/* Navigation -> Mixer, 4ch (5-8) */
-		.name = __S("lk_navi_mixer"),
-		.source_name = __S("Navigation"),
-		.sink_name = __S("op_mixer"),
-		.source_pins_mask = 0xF,
-		.sink_pins_mask = 0xF0,
-		.channels = 4,
-	},
-	{
-		/* Alarm splitter -> Mixer, 4ch (9-12) */
+		/* Splitter -> Mixer1, 4ch (9-12) */
 		.name = __S("lk_alarm_mixer"),
 		.source_name = __S("op_split_alarm"),
 		.sink_name = __S("op_mixer"),
@@ -152,11 +152,21 @@ static const struct kasdb_link link[] = {
 		.sink_pins_mask = 0xF00,
 		.channels = 4,
 	},
-	/* Mixer output */
+
+	/* Mixer -> IACC, 4ch */
 	{
-		/* Mixer -> IACC, 4ch */
-		.name = __S("lk_mixer_iacc"),
+		/* Mixer1 -> Mixer2, 4ch */
+		.name = __S("lk_mixer_mixer2"),
 		.source_name = __S("op_mixer"),
+		.sink_name = __S("op_mixer2"),
+		.source_pins_mask = 0xF,
+		.sink_pins_mask = 0xF,
+		.channels = 4,
+	},
+	{
+		/* Mixer2 -> IACC, 4ch */
+		.name = __S("lk_mixer2_iacc"),
+		.source_name = __S("op_mixer2"),
 		.sink_name = __S("si_iacc"),
 		.source_pins_mask = 0xF,
 		.sink_pins_mask = 0xF,

@@ -59,6 +59,15 @@ static const struct kasdb_op op[] = {
 		.param.mixer_streams = 3,
 	},
 	{
+		/* Mixer: mixer1, voice */
+		.name = __S("op_mixer2"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_MIXER,
+		.rate = 48000,
+		.param.mixer_streams = 3,
+	},
+	{
 		/* Alaram resampler */
 		.name = __S("op_src_alarm"),
 		.ctrl_base = __S(NULL),
