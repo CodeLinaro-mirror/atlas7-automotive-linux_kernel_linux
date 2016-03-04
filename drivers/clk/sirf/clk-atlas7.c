@@ -229,6 +229,7 @@
 #define SIRFSOC_NOC_CLK_IDLE_STATUS		0x04a0
 
 #define SIRFSOC_DIVIDOR_TYPE_TABLE	0x1
+#define SIRFSOC_DIVIDOR_TYPE_FIXED	0x2
 
 struct clk_pll {
 	struct clk_hw hw;
@@ -831,7 +832,7 @@ static struct atlas7_div_init_data divider_list[] __initdata = {
 	{ "sys3pll_div1", "sys3pll_vco", "sys3pll_clk1", 1, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 12, &sys3pll_ctrl1_lock },
 	{ "sys3pll_div2", "sys3pll_vco", "sys3pll_clk2", 1, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 13, &sys3pll_ctrl1_lock },
 	{ "sys3pll_div3", "sys3pll_vco", "sys3pll_clk3", 1, 0, 0, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_SYS3PLL_AB_CTRL1, 14, &sys3pll_ctrl1_lock },
-	{ "cpupll_div1", "cpupll_vco", "cpupll_clk1", 1, CLK_SET_RATE_PARENT, CLK_SET_RATE_PARENT, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 12, &cpupll_ctrl1_lock },
+	{ "cpupll_div1", "cpupll_vco", "cpupll_clk1", 2, CLK_SET_RATE_PARENT, CLK_SET_RATE_PARENT, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 12, &cpupll_ctrl1_lock },
 	{ "cpupll_div2", "cpupll_vco", "cpupll_clk2", 1, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 4, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 13, &cpupll_ctrl1_lock },
 	{ "cpupll_div3", "cpupll_vco", "cpupll_clk3", 1, 0, 0, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 8, 3, SIRFSOC_CLKC_CPUPLL_AB_CTRL1, 14, &cpupll_ctrl1_lock },
 	{ "mempll_div1", "mempll_vco", "mempll_clk1", 1, 0, 0, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 0, 3, SIRFSOC_CLKC_MEMPLL_AB_CTRL1, 12, &mempll_ctrl1_lock },
@@ -1560,6 +1561,9 @@ static void __init atlas7_clk_init(struct device_node *np)
 			clk = clk_register_divider_table(NULL, div->div_name,
 				div->parent_name, div->divider_flags, sirfsoc_clk_vbase + div->div_offset,
 				div->shift, div->width, 0, pll_div_table, div->lock);
+		else if (div->flags == SIRFSOC_DIVIDOR_TYPE_FIXED)
+			clk = clk_register_fixed_factor(NULL, div->div_name,
+				div->parent_name, CLK_SET_RATE_PARENT, 1, 4);
 		else
 			clk = clk_register_divider(NULL, div->div_name,
 				div->parent_name, div->divider_flags, sirfsoc_clk_vbase + div->div_offset,
