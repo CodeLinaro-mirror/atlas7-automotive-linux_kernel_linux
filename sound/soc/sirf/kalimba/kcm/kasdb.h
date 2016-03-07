@@ -114,7 +114,6 @@ struct kasdb_op {
 	union kasdb_str ctrl_base;	/* Base control name */
 	union kasdb_str ctrl_names;	/* Control names, separated by ":" */
 	short cap_id;
-	short pre_create;
 	int rate;	/* Most operators need configure sample rate */
 	union {
 		int dummy;

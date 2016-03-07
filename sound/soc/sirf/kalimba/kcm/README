@@ -203,7 +203,6 @@ Limitations
 
 TODO
 ====
-- Precreated operators and links not supported now.
 - Suspend/Resume.
 - kalimba_set_master_gain() by "anti-clippping" driver. This should be a
   general solution to handle all asynchronous system events.
