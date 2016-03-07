@@ -326,18 +326,30 @@ static ssize_t chip_uid_show(struct device *dev,
 
 static DEVICE_ATTR_RO(chip_uid);
 
+int atlas7_otp_get_svm(unsigned int *svm)
+{
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	int ret = -1;
+
+	if (!svm)
+		goto err;
+
+	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_SVMVALUE,
+				svm, sizeof(svm));
+
+	ret = csrvisor_fastcall(&param, 0, cw_data);
+err:
+	return ret;
+}
+EXPORT_SYMBOL(atlas7_otp_get_svm);
+
 static ssize_t svm_value_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	unsigned int svm_val[SVM_VALUE_WORD_LENGTH];
-	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_SVMVALUE,
-				svm_val, sizeof(svm_val));
+	unsigned int svm_val;
 
-	if (!csrvisor_fastcall(&param, 0, cw_data))
-		return sprintf(buf, "%08x\n", svm_val[0]);
-	else
-		return 0;
+	atlas7_otp_get_svm(&svm_val);
+	return sprintf(buf, "%08x\n", svm_val);
 }
 
 static DEVICE_ATTR_RO(svm_value);

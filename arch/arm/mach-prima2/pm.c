@@ -27,7 +27,11 @@
 #include <linux/io.h>
 #include <linux/rtc/sirfsoc_rtciobrg.h>
 #include <linux/mfd/sirfsoc_pwrc.h>
+#include <linux/regulator/consumer.h>
 #include <linux/proc_fs.h>
+#include <linux/cpu.h>
+#include <linux/cpufreq.h>
+#include <linux/pm_opp.h>
 #include <asm/suspend.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/uaccess.h>
@@ -40,9 +44,18 @@ struct sirfsoc_sysctl_info {
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	u32 ver;
 	u32 base;
+	u32 svm;
+	struct regulator *core_reg;
 	void __iomem *retain_base;
 	void __iomem *clkc_base;
 	void __iomem *timer_base;
+};
+
+struct private_data {
+	struct device *cpu_dev;
+	struct regulator *cpu_reg;
+	struct thermal_cooling_device *cdev;
+	unsigned int voltage_tolerance; /* in percentage */
 };
 
 enum SIRFSOC_SYSCTL_IDX {
@@ -401,16 +414,118 @@ static int atlas7_pm_tick_init(struct sirfsoc_pm_init_t *pinit)
 	sinfo->timer_base =  pinit->base;
 	return 0;
 }
+
+static int atlas7_svm_core_idx(u32 svm_config)
+{
+	u32 svm_index;
+
+#define	CORE_REDUNDANCY 0
+#define	CORE_REDUNDANCY_1 8
+#define	VCORE_LEVEL 4
+#define	VCORE_LEVEL_1 12
+
+	/*
+	* 0: Use primary core SVM fields,
+	* 1: Use secondary core SVM fields
+	*/
+	if (!(svm_config & BIT(CORE_REDUNDANCY)))
+		svm_index = svm_config>>VCORE_LEVEL & 0xf;
+	else if (svm_config & BIT(CORE_REDUNDANCY_1))
+		svm_index = 0;
+	else
+		/*
+		* Only valid if Core_redundancy = 1
+		* 0: Use secondary core SVM fields
+		* 1: Do not use secondary core SVM fields (disable
+		* core SVM)
+		*/
+		svm_index = svm_config>>VCORE_LEVEL_1 & 0xf;
+	return svm_index;
+}
+
+
+static int atlas7_svm_cpu_idx(u32 svm_config)
+{
+	u32 svm_index;
+
+#define	CPU_REDUNDANCY 16
+#define	CPU_REDUNDANCY_1 24
+#define	VCPU_LEVEL 20
+#define	VCPU_LEVEL_1 28
+
+	/*
+	*0: Use primary CPU SVM fields
+	*1: Use secondary CPU SVM fields
+	*/
+	if (!(svm_config & BIT(CPU_REDUNDANCY)))
+		svm_index = svm_config>>VCPU_LEVEL & 0xf;
+	else if (svm_config & BIT(CPU_REDUNDANCY_1))
+		svm_index = 0;
+	else
+		/*
+		*Only valid if CPU_redundancy = 1
+		*0: Use secondary CPU SVM fields
+		*1: Do not use secondary CPU SVM fields (disable
+		*CPU SVM)
+		*/
+		svm_index = svm_config>>VCPU_LEVEL_1 & 0xf;
+	return svm_index;
+}
+
+
+#define SVM_CPU 0
+#define SVM_CORE 1
+static void atlas7_pm_svm(int dev_type)
+{
+	struct dev_pm_opp *opp;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+	struct cpufreq_frequency_table *freq_table = policy->freq_table;
+	struct private_data *priv = policy->driver_data;
+	struct device *cpu_dev;
+	struct regulator *reg;
+	unsigned long volt = 0;
+	long freq_Hz;
+	int ret, index;
+
+	if (dev_type == SVM_CORE) {
+		reg = sinfo->core_reg;
+		index = atlas7_svm_core_idx(sinfo->svm);
+	} else if (dev_type == SVM_CPU) {
+		reg = priv->cpu_reg;
+		index = atlas7_svm_cpu_idx(sinfo->svm);
+	} else
+		goto out;
+
+	freq_Hz = freq_table[15-index].frequency * 1000;
+	if (!index)
+		goto out;
+
+	if (!IS_ERR(reg)) {
+		/* vdd_core share same voltage table as vdd_cpu*/
+		cpu_dev = get_cpu_device(policy->cpu);
+		opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_Hz);
+		volt = dev_pm_opp_get_voltage(opp);
+		regulator_set_voltage(reg, volt, volt);
+		ret = regulator_enable(reg);
+		if (ret)
+			goto out;
+	}
+
+out:
+	return;
+}
+
 static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 {
 
 	struct sirfsoc_pwrc_info *pwrcinfo = dev_get_drvdata(pdev->dev.parent);
 	struct sirfsoc_sysctl_info *info;
-	int ret;
 	struct device_node *np;
 	const struct of_device_id *match;
 	void __iomem *base;
 	struct sirfsoc_pm_init_t *pinit;
+	struct regulator *core_reg;
+	int ret;
 
 	info = kzalloc(sizeof(struct sirfsoc_sysctl_info), GFP_KERNEL);
 	if (!info)
@@ -461,6 +576,17 @@ static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 			pinit->init_pm(pinit);
 	}
 
+	core_reg = regulator_get_optional(&pdev->dev, "core");
+	if (IS_ERR(core_reg)) {
+		dev_err(&pdev->dev, "no regulator for core: %ld\n",
+			PTR_ERR(core_reg));
+		goto out;
+	}
+
+	info->core_reg = core_reg;
+	atlas7_otp_get_svm(&info->svm);
+	atlas7_pm_svm(SVM_CORE);
+	atlas7_pm_svm(SVM_CPU);
 
 	return 0;
 out:
@@ -485,10 +611,10 @@ static struct platform_driver sirfsoc_sysctl_driver = {
 int __init sirfsoc_pm_init(void)
 {
 	struct platform_device_info devinfo = { .name = "cpufreq-dt", };
+	platform_device_register_full(&devinfo);
 
 	platform_driver_register(&sirfsoc_sysctl_driver);
 	pm_power_off = sirfsoc_pm_power_off;
 	suspend_set_ops(&sirfsoc_pm_ops);
-	platform_device_register_full(&devinfo);
 	return 0;
 }
