@@ -123,11 +123,12 @@ struct kasdb_op {
 };
 
 struct kasdb_link {
+#define KASDB_CH_MAX	8
 	union kasdb_str name;
 	union kasdb_str source_name;
 	union kasdb_str sink_name;
-	int source_pins_mask;	/* Each bit per pin */
-	int sink_pins_mask;	/* Must be consisten with source pins */
+	char source_pins[KASDB_CH_MAX];	/* Pin number start from 1 */
+	char sink_pins[KASDB_CH_MAX];	/* " */
 	int channels;
 };
 
