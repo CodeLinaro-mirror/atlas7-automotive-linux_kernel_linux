@@ -46,15 +46,50 @@
 			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
 			pwms = <&pwm 2 60>;
 			voltage-table = <1265000 0>,
-				<1196000 10>,
-				<1127000 20>,
-				<1058000 30>,
-				<990000 40>,
-				<900000 50>;
-			regulator-min-microvolt = <900000>;
+				<1237542 4>,
+				<1210038 8>,
+				<1182534 12>,
+				<1155030 16>,
+				<1127526 20>,
+				<1100022 24>,
+				<1072518 28>,
+				<1045014 32>,
+				<1017510 36>,
+				<990006 40>,
+				<962502 44>,
+				<934998 48>,
+				<907494 52>,
+				<879990 56>;
+			regulator-min-microvolt = <879990>;
 			regulator-max-microvolt = <1265000>;
 			regulator-name = "vdd_cpu";
 		};
+
+		vdd_core: vdd_core {
+			compatible = "pwm-regulator";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pw_cko0_pmx0>;
+			pwms = <&pwm 4 60>;
+			voltage-table = <1265000 0>,
+				<1237542 4>,
+				<1210038 8>,
+				<1182534 12>,
+				<1155030 16>,
+				<1127526 20>,
+				<1100022 24>,
+				<1072518 28>,
+				<1045014 32>,
+				<1017510 36>,
+				<990006 40>,
+				<962502 44>,
+				<934998 48>,
+				<907494 52>,
+				<879990 56>;
+			regulator-min-microvolt = <879990>;
+			regulator-max-microvolt = <1265000>;
+			regulator-name = "vdd_core";
+		};
+
 	};
 
 	reserved-memory {

@@ -47,6 +47,7 @@
 			clock-frequency = <793000000>;
 			operating-points = <
 			/* kHz    uV */
+			1014000	1265000
 			1001000	1237542
 			897000	1210038
 			793000	1182534
@@ -2795,6 +2796,7 @@
 
 					sysctl {
 						compatible = "sirf,sirf-sysctl";
+						core-supply = <&vdd_core>;
 					};
 
 					onkey {
