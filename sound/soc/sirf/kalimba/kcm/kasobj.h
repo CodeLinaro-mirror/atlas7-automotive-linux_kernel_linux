@@ -1,3 +1,5 @@
+/* Copyright (c) [2016], The Linux Foundation. All rights reserved. */
+
 #ifndef _KCM_OBJ_H
 #define _KCM_OBJ_H
 

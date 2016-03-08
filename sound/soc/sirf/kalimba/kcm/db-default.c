@@ -1,3 +1,5 @@
+/* Copyright (c) [2016], The Linux Foundation. All rights reserved. */
+
 #include <linux/module.h>
 #include <sound/pcm_params.h>
 #include "kasobj.h"

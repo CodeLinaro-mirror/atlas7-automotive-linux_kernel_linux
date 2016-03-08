@@ -1,3 +1,5 @@
+/* Copyright (c) [2016], The Linux Foundation. All rights reserved. */
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include "kcm.h"
