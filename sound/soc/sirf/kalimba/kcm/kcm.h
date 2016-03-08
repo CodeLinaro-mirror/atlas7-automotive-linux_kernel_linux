@@ -1,10 +1,10 @@
 #ifndef _KCM_KCM_H
 #define _KCM_KCM_H
 
-#define __KCM_DEBUG	2	/* 0 - disable, 1 - enable, 2 - verbose */
+#define __KCM_DEBUG	1	/* 0 - disable, 1 - enable, 2 - verbose */
 
 #if __KCM_DEBUG
-#define kcm_debug(...)	pr_debug(__VA_ARGS__)
+#define kcm_debug(...)	pr_info(__VA_ARGS__)
 #else
 #define kcm_debug(...)	do {}  while (0)
 #endif
