@@ -53,14 +53,6 @@ config A7DA_FPGA
         bool "CSR A7DA FPGA with clock workaround"
         default n
 
-config ATLAS7DA_NOC
-        bool "CSR A7DA NOC"
-        default y
-	help
-          Support CSR SiRFSoC A7DA Platform NOC bus, with security dram/reg
-          firewall and related configure for validation, with errlog shown
-          on data abort or interrupt handler when bus transaction failed.
-
 config ATLAS7DA_CSRVISOR_TEST
         bool "CSR A7DA CSRVISOR tester"
         default n

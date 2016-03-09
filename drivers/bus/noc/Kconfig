@@ -1,0 +1,33 @@
+if ARCH_SIRF
+
+config ATLAS7_NOC
+	bool "CSR A7DA NOC"
+	default y
+	help
+	  Support CSR SiRFSoC A7DA Platform NOC bus, with security dram/reg
+	  firewall and related configure for validation, with errlog shown
+	  on data abort or interrupt handler when bus transaction failed,
+	  with bandwidth probe functionality.
+
+config ATLAS7_NOC_TRACING
+	bool "NOC trace points"
+	depends on ATLAS7_NOC
+	default y
+	help
+	  Support NOC trace points for bandwidth consumption of interested
+	  masters. by record trace data of bytes for certain period of
+	  interval, can gather bandwidth consumption data for each period
+	  thus, can provide upper layer to draw bw consumption graph.
+
+config ATLAS7_NOC_FW
+	bool "NOC firewall feature"
+	depends on ATLAS7_NOC
+	default n
+	help
+	  Support NOC firewall configure. support spram firewall locking and also
+	  register firewall locking, customer could adopt this feature to block
+	  non-secure state master to access secure spram range or secure register
+	  range.
+
+endif
+

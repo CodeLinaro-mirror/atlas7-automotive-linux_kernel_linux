@@ -1878,25 +1878,23 @@
 			};
 		};
 
-		dramfw {
-			compatible = "arteris, flexnoc", "simple-bus";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges = <0x10830000 0x10830000 0x18000>;
-			dramfw@10820000 {
-				compatible = "sirf,nocfw-dramfw";
-				reg = <0x10830000 0x18000>;
-			};
-		};
-
-		spramfw {
+		ramfw {
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x10250000 0x10250000 0x4000>;
-			spramfw@10820000 {
-				compatible = "sirf,nocfw-spramfw";
+			spramfw@0x10250000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x10250000 0x4000>;
+			};
+		};
+
+		/* common noc-macro parameters*/
+		noc-macro-common {
+			bw_probe {
+				period = <0x1a>;
+				freq_ref = <400>;
+				max = <0>;
 			};
 		};
 
@@ -1907,12 +1905,45 @@
 			ranges = <0x00000000 0x00000000 0x00014000>,
 			       <0x04000000 0x04000000 0x00030000>,
 			       <0x10200000 0x10200000 0x3000>;
-			cpum@10200000 {
-				compatible = "sirf,nocfw-cpum";
+			cpum:cpum@10200000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x10200000 0x3000>;
 				interrupts = <0 104 0>;
 				clocks = <&car 20>, <&car 128>;
 				clock-names = "cpum_cpu", "coresight_cpudiv2";
+				regofs = <&cpum 0x800 0x900 0x1050 0>;
+
+				qos {
+					a7 {
+						reg_offset = <0x000>;
+						enabled = <1>;
+						bw = <400>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "cpum_cpu";
+						divider = <1>;
+					};
+
+					cssi_etr_axi {
+						reg_offset = <0x080>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name =
+							"coresight_cpudiv2";
+						divider = <1>;
+					};
+				};
+
+				bw_probe {
+					a7 {
+						reg_offset = <0x400>;
+						freq = <400>;
+					};
+				};
 			};
 
 			sdrsram@0401F000 {
@@ -1929,9 +1960,10 @@
 					 <0x18620000 0x18620000 0x1000>,
 					<0x18630000 0x18630000 0x10000>;
 
-			cgum@18641000 {
-				compatible = "sirf,nocfw-cgum";
+			cgum:cgum@18641000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x18641000 0x3000>;
+				regofs = <&cgum 0 0 0x50 0>;
 			};
 
 			car: clock-controller@18620000 {
@@ -1978,12 +2010,68 @@
 				#dma-cells = <1>;
 			};
 
-			gnssmfw@0x18100000 {
-				compatible = "sirf,nocfw-gnssm";
+			gnssm:gnssm@0x18100000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x18100000 0x3000>;
 				interrupts = <0 106 0>;
 				clocks = <&car 122>, <&car 113>, <&car 112>, <&car 111>, <&car 121>;
 				clock-names = "gmac_gmac", "dmac0_io", "ccpub_sec", "ccsec_sec", "gmac_rgmii";
+				regofs = <&gnssm 0 0x600 0x1050 0x4000>;
+
+				qos {
+					dmac0 {
+						reg_offset = <0x000>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "dmac0_io";
+					};
+
+					eth_avb {
+						reg_offset = <0x080>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "gmac_gmac";
+					};
+
+					sec_public {
+						reg_offset = <0x100>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "ccpub_sec";
+					};
+
+					sec_secure {
+						reg_offset = <0x180>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "ccsec_sec";
+					};
+				};
+
+				bw_probe {
+					eth0 {
+						reg_offset = <0x800>;
+						freq = <260>;
+						clock_name = "gmac_gmac";
+					};
+
+					dmac0 {
+						reg_offset = <0x2000>;
+						freq = <150>;
+					};
+				};
 			};
 
 			uart0: uart@18010000 {
@@ -2098,12 +2186,49 @@
 				<0x13010000 0x13010000 0x1400>,
 				<0x13010800 0x13010800 0x100>,
 				<0x13011000 0x13011000 0x100>;
-			gpum@0x13000000 {
-				compatible = "sirf,nocfw-gpum";
+			gpum:gpum@0x13000000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x13000000 0x3000>;
 				interrupts = <0 107 0>;
 				clocks = <&car 130>, <&car 70>;
 				clock-names = "graphic_gpu", "vss_sdr";
+				regofs = <&gpum 0 0x800 0x1050 0x8000>;
+
+				qos {
+					sgx {
+						reg_offset = <0x000>;
+						enabled = <1>;
+						bw = <600>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "graphic_gpu";
+					};
+
+					sdr {
+						reg_offset = <0x080>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "vss_sdr";
+					};
+				};
+
+				bw_probe {
+					sgx {
+						reg_offset = <0x400>;
+						freq = <300>;
+						clock_name = "graphic_gpu";
+					};
+
+					sdr {
+						reg_offset = <0x2000>;
+						freq = <200>;
+						clock_name = "vss_sdr";
+					};
+				};
 			};
 			dmacsdrr: dma-controller@13010800 {
 				cell-index = <5>;
@@ -2160,12 +2285,100 @@
 				clocks = <&car 131>;
 			};
 
-			mediam@170A0000 {
-				compatible = "sirf,nocfw-mediam";
+			mediam:mediam@170A0000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x170A0000 0x3000>;
 				interrupts = <0 108 0>;
 				clocks = <&car 131>, <&car 133>, <&car 132>, <&car 57>, <&car 60>, <&car 61>, <&car 58>;
 				clock-names = "media_vdec", "g2d_g2d", "media_jpenc", "nand_io", "usb0_usb", "usb1_usb", "sys2pci2_io";
+				regofs = <&mediam 0 0x900 0x1050 0x4000>;
+
+				qos {
+					g2d {
+						reg_offset = <0x000>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "g2d_g2d";
+					};
+
+					jpeg {
+						reg_offset = <0x080>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "media_jpenc";
+					};
+
+					nand {
+						reg_offset = <0x200>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "nand_io";
+					};
+
+					vxd {
+						reg_offset = <0x280>;
+						enabled = <1>;
+						bw = <600>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "media_vdec";
+					};
+
+					usb0 {
+						reg_offset = <0x300>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "usb0_usb";
+					};
+
+					usb1 {
+						reg_offset = <0x380>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "usb1_usb";
+					};
+
+					mediam_sys2pci {
+						reg_offset = <0x400>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "sys2pci2_io";
+					};
+
+				};
+
+				bw_probe {
+					g2d {
+						reg_offset = <0xc00>;
+						freq = <150>;
+						clock_name = "g2d_g2d";
+					};
+
+					vxd {
+						reg_offset = <0x2000>;
+						freq = <150>;
+						clock_name = "media_vdec";
+					};
+				};
 			};
 
 			gpio_0: gpio_mediam@17040000 {
@@ -2300,8 +2513,8 @@
 				reg = <0x131e0000 0x100>;
 			};
 
-			vdifm@13290000 {
-				compatible = "sirf,nocfw-vdifm";
+			vdifm:vdifm@13290000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x13290000 0x10000>;
 				interrupts = <0 110 0>;
 				clocks = <&car 88>, <&car 93>, <&car 54>,
@@ -2313,6 +2526,135 @@
 					"lcd0_disp0", "lcd1_disp1",
 					"sys2pci_io", "vpp0_disp0",
 					"vpp1_disp1", "dmac1_hsi2s";
+				regofs = <&vdifm 0 0x400 0x2050 0xC000>;
+
+				qos {
+					dcu {
+						reg_offset = <0x500>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000505>;
+						mode = <0>;
+						clock_name = "dcu_deint";
+					};
+
+					lcd0 {
+						reg_offset = <0x600>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "lcd0_disp0";
+					};
+
+					lcd1 {
+						reg_offset = <0x700>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "lcd1_disp1";
+					};
+
+					sys2pci {
+						reg_offset = <0x800>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000505>;
+						mode = <0>;
+						clock_name = "sys2pci_io";
+					};
+
+					vip1 {
+						reg_offset = <0xa00>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000505>;
+						mode = <0>;
+						clock_name = "vip1_vip";
+					};
+
+					vpp0 {
+						reg_offset = <0xa80>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000606>;
+						mode = <0>;
+						clock_name = "vpp0_disp0";
+					};
+
+					vpp1 {
+						reg_offset = <0xb80>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000606>;
+						mode = <0>;
+						clock_name = "vpp1_disp1";
+					};
+
+					dmac1 {
+						reg_offset = <0xc80>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000505>;
+						mode = <0>;
+						clock_name = "dmac1_hsi2s";
+					};
+				};
+
+				bw_probe {
+					syspci {
+						reg_offset = <0x5000>;
+						freq = <150>;
+						clock_name = "sys2pci_io";
+					};
+
+					lcd0 {
+						reg_offset = <0x3000>;
+						port = <0>;
+						freq = <300>;
+					};
+
+					vpp0 {
+						reg_offset = <0x3000>;
+						port = <1>;
+						disabled = <1>;
+						freq = <300>;
+					};
+
+					lcd1 {
+						reg_offset = <0x4000>;
+						port = <1>;
+						disabled = <1>;
+						freq = <300>;
+					};
+
+					vpp1 {
+						reg_offset = <0x4000>;
+						port = <0>;
+						freq = <300>;
+					};
+
+					vip1 {
+						reg_offset = <0x6000>;
+						freq = <300>;
+						clock_name = "vip1_vip";
+					};
+
+					dcu {
+						reg_offset = <0>;
+						freq = <300>;
+						clock_name = "dcu_deint";
+					};
+				};
 			};
 
 			gpio_1: gpio_vdifm@13300000 {
@@ -2581,12 +2923,109 @@
 				clocks = <&car 96>;
 			};
 
-			audiom@10ED0000 {
-				compatible = "sirf,nocfw-audiom";
+			audiom:audiom@10ED0000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x10ED0000 0x4000>;
 				interrupts = <0 102 0>;
 				clocks = <&car 74>, <&car 80>, <&car 95>, <&car 0>, <&car 82>, <&car 75>;
 				clock-names = "dmac2_kas", "dmac3_kas", "cvd_io", "audmscm_kas", "kas_kas", "usp0_kas";
+				regofs = <&audiom 0xc00 0x400 0x2050 0x8000>;
+
+				qos {
+					dmac2 {
+						reg_offset = <0x500>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "dmac2_kas";
+					};
+
+					dmac3 {
+						reg_offset = <0x580>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "dmac3_kas";
+					};
+
+					audio_afe_cvd_vip0 {
+						reg_offset = <0x700>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "cvd_io";
+					};
+
+					kas_apb {
+						reg_offset = <0x780>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "kas_kas";
+					};
+
+					kas_axi {
+						reg_offset = <0xa00>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "kas_kas";
+					};
+
+					usp0_axi {
+						reg_offset = <0xa80>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "usp0_kas";
+					};
+				};
+
+				bw_probe {
+					vip0 {
+						reg_offset = <0>;
+						freq = <200>;
+					};
+
+					dmac2 {
+						reg_offset = <0x3000>;
+						port = <1>;
+						disabled = <1>;
+						freq = <200>;
+					};
+
+					dmac3 {
+						reg_offset = <0x3000>;
+						port = <0>;
+						disabled = <1>;
+						freq = <200>;
+					};
+
+					kas {
+						reg_offset = <0x3000>;
+						port = <3>;
+						disabled = <1>;
+						freq = <200>;
+					};
+
+					usp0 {
+						reg_offset = <0x3000>;
+						port = <2>;
+						freq = <200>;
+					};
+				};
 			};
 
 			usp1: usp@10d30000 {
@@ -2670,12 +3109,37 @@
 			#size-cells = <1>;
 			ranges = <0x10820000 0x10820000 0x3000>,
 					<0x10800000 0x10800000 0x2000>;
-			ddrm@10820000 {
-				compatible = "sirf,nocfw-ddrm";
+			ddrm:ddrm@10820000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x10820000 0x3000>;
 				interrupts = <0 105 0>;
 				clocks = <&car 123>;
 				clock-names = "memc_mem";
+				regofs = <&ddrm 0x180 0x800 0x2050 0>;
+
+				qos {
+					ddr_bist {
+						reg_offset = <0x200>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clock_name = "memc_mem";
+					};
+				};
+
+				bw_probe {
+					ddrm {
+						reg_offset = <0x400>;
+						freq = <400>;
+						extra_probe_cnt = <7>;
+						extra_probe_events =
+							<1 2 3 4 5>;
+						filter_cnt = <4>;
+						filter_offset = <0x444>;
+					};
+				};
 			};
 
 			memory-controller@0x10800000 {
@@ -2729,12 +3193,32 @@
 				dma-names = "rx", "tx";
 			};
 
-			btm@11010000 {
-				compatible = "sirf,nocfw-btm";
+			btm:btm@11010000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x11010000 0x3000>;
 				interrupts = <0 103 0>;
 				clocks = <&car 140>,  <&car 136>;
 				clock-names = "nocm", "dmac4_io";
+				regofs = <&btm 0 0x200 0x1050 0x8000>;
+
+				qos {
+					dmac4 {
+						reg_offset = <0x000>;
+						enabled = <1>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000707>;
+						mode = <0>;
+						clock_name = "dmac4_io";
+					};
+				};
+
+				bw_probe {
+					dmac4 {
+						reg_offset = <0x400>;
+						freq = <150>;
+					};
+				};
 			};
 		};
 
@@ -2747,10 +3231,53 @@
 				<0x18890000 0x18890000 0x1000>,
 				<0x188B0000 0x188B0000 0x10000>,
 				<0x188D0000 0x188D0000 0x1000>;
-			rtcm@18810000 {
-				compatible = "sirf,nocfw-rtcm";
+			rtcm:rtcm@18810000 {
+				compatible = "sirf,noc-macro";
 				reg = <0x18810000 0x3000>;
 				interrupts = <0 109 0>;
+				regofs = <&rtcm 0xa00 0x900 0x2050 0x4000>;
+
+				qos {
+					armm3_axi {
+						reg_offset = <0x000>;
+						enabled = <0>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clkfreqMhz = <160>;
+					};
+
+					hash {
+						reg_offset = <0x080>;
+						enabled = <0>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clkfreqMhz = <160>;
+					};
+
+					qspi {
+						reg_offset = <0x100>;
+						enabled = <0>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clkfreqMhz = <160>;
+					};
+
+					cssi_system_axi {
+						reg_offset = <0x180>;
+						enabled = <0>;
+						bw = <0>;
+						saturation = <0x40>;
+						priority = <0x00000404>;
+						mode = <0>;
+						clkfreqMhz = <160>;
+					};
+				};
 			};
 
 			gpio_2: gpio_rtcm@18890000 {

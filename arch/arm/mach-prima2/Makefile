@@ -3,7 +3,6 @@ obj-y += common.o
 obj-y += rtciobrg.o
 
 obj-$(CONFIG_ATLAS7DA_CSRVISOR_TEST) += csrvisor_test.o
-obj-$(CONFIG_ATLAS7DA_NOC) += noc.o
 obj-$(CONFIG_SUSPEND) += pm.o sleep-prima2.o sleep-atlas7.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_HOTPLUG_CPU)  += hotplug.o

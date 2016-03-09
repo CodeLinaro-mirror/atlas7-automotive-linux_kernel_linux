@@ -2,6 +2,7 @@
 # Makefile for the bus drivers.
 #
 
+obj-$(CONFIG_ATLAS7_NOC)	+= noc/
 obj-$(CONFIG_BRCMSTB_GISB_ARB)	+= brcmstb_gisb.o
 obj-$(CONFIG_IMX_WEIM)	+= imx-weim.o
 obj-$(CONFIG_MVEBU_MBUS) += mvebu-mbus.o
