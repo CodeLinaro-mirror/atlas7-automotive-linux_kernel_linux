@@ -504,7 +504,12 @@ static int it68013_video_start(struct i2c_client *client)
 
 	priv->is_start = true;
 
-	/*get the actual video timing here   */
+	/*
+	* get the actual video timing here
+	* workaround:
+	* have to wait 2s, otherwise interlaced indicator might be wrong.
+	*/
+	ssleep(2);
 	it68013_get_vid_info(client, &priv->info);
 
 	return 0;
