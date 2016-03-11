@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2006 Intel Corporation
  * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
- * Copyright (C) 2008 Cambridge Silicon Radio Ltd.
+ * Copyright (c) 2008 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version

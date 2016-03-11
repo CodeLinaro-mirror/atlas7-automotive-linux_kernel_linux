@@ -1,10 +1,16 @@
 /*
  * UIO driver for CSR sirfsoc BLE module
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/io.h>
@@ -162,5 +168,4 @@ module_init(uio_ble_init);
 module_exit(uio_ble_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Chun Chen <cc19@csr.com>");
 MODULE_DESCRIPTION("UIO BLE module driver");

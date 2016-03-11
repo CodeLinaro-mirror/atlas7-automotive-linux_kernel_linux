@@ -1,7 +1,7 @@
 /*
 * CSR Synergy for Linux Bluetooth and WLAN Enable Driver
 *
-* Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) [2014-2016] The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 as

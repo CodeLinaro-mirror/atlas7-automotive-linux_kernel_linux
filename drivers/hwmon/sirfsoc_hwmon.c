@@ -1,9 +1,16 @@
 /*
  * sirfsoc temperature sensor driver
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/err.h>
@@ -140,4 +147,3 @@ static struct platform_driver sirfsoc_sensor_driver = {
 	.remove = sirfsoc_sensor_remove,
 };
 module_platform_driver(sirfsoc_sensor_driver);
-

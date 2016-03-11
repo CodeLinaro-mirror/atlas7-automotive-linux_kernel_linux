@@ -1,9 +1,16 @@
 /*
  * SIRF serial SoC PWM device core driver
  *
- * Copyright (c) 2014 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/clk.h>
@@ -458,6 +465,4 @@ static struct platform_driver sirf_pwm_driver = {
 module_platform_driver(sirf_pwm_driver);
 
 MODULE_DESCRIPTION("SIRF serial SoC PWM device core driver");
-MODULE_AUTHOR("RongJun Ying <Rongjun.Ying@csr.com>");
-MODULE_AUTHOR("Huayi Li <huayi.li@csr.com>");
 MODULE_LICENSE("GPL v2");

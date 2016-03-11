@@ -1,12 +1,16 @@
 /*
  * CSR SiRF RTC alarm1 Driver
  *
- * Copyright (c) 2013 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
  *
- * This driver is specially used for sirfsoc's minigps running. It uses the
- * function of alarm1 belongs to SYSRTC.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
- * Licensed under GPLv2 or later.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -292,6 +296,5 @@ static struct platform_driver sirf_minigpsrtc_driver = {
 module_platform_driver(sirf_minigpsrtc_driver);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Bin Shi <Bin.Shi@csr.com>,Xianglong Du <Xianglong.Du@csr.com>");
 MODULE_DESCRIPTION("RTC Alarm1 Driver Module For MINIGPS");
 MODULE_ALIAS("RTC Alarm1 Module");
