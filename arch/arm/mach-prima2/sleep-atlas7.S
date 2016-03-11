@@ -1,5 +1,5 @@
 /*
- * sleep mode for CSR SiRFprimaII
+ * sleep mode for Atlas7
  *
  * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
