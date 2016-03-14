@@ -37,7 +37,7 @@
 		vdd_cpu: pwm_regulator  {
 			compatible = "pwm-regulator";
 			pinctrl-names = "default";
-			pinctrl-0 = <&pw_pwm_cpu_vol_pmx0>;
+			pinctrl-0 = <&pw_pwm_cpu_vol_pmx2>;
 			pwms = <&pwm 2 60>;
 			voltage-table = <1265000 0>,
 				<1237542 4>,
