@@ -369,8 +369,6 @@ static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 			ret = -EKASCRASH;
 			goto out;
 		}
-		/* Notify the kalimba, the ACK has received.*/
-		write_sram(DSP_INTR_RAISED_ADDR, 0);
 	}
 out:
 	return ret;
