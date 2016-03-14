@@ -86,6 +86,8 @@ struct ipc_data {
 	wait_queue_head_t waitq_dsp_rsp;
 	bool msg_dsp_rsp;
 	u16 payload[64];
+	u16 msg_payload[64];
+	u16 rsp_payload[64];
 	u16 *cur_offs;	/*Current the payload fill offset */
 };
 
@@ -244,11 +246,17 @@ static int process_ipc_payload(u32 msg_type)
 	case MESSAGING_SHORT_COMPLETE:
 	case MESSAGING_SHORT_END:
 		if (ipc_data->payload[0] & 0x1000) {
+			memcpy(ipc_data->rsp_payload, ipc_data->payload,
+				64 * sizeof(u16));
 			ipc_data->msg_dsp_rsp = true;
+			ipc_clear_raised_and_send_ack();
 			wake_up(&ipc_data->waitq_dsp_rsp);
 			ret = IPC_SEND_RSP_TO_ARM;
-		} else
+		} else {
+			memcpy(ipc_data->msg_payload, ipc_data->payload,
+				64 * sizeof(u16));
 			ret = IPC_SEND_MSG_TO_ARM;
+		}
 		break;
 	case MESSAGING_SHORT_CONTINUE:
 	case MESSAGING_SHORT_START:
@@ -280,7 +288,7 @@ static bool is_ipc_ack(void)
 	return false;
 }
 
-int ipc_recv_msg_payload_handler(u16 *resp)
+static int ipc_recv_msg_payload_handler(void)
 {
 	u32 msg_type;
 	u32 arm_ack_count;
@@ -303,10 +311,8 @@ int ipc_recv_msg_payload_handler(u16 *resp)
 		}
 
 		ret = process_ipc_payload(msg_type);
-		if (ret	== IPC_SEND_MSG_TO_ARM) {
-			memcpy(resp, ipc_data->payload, 64);
+		if (ret	== IPC_SEND_MSG_TO_ARM)
 			ipc_clear_raised_and_send_ack();
-		}
 	}
 out:
 	mutex_unlock(&ipc_data->ipc_comm_mutex);
@@ -439,14 +445,13 @@ int ipc_send_msg(u16 *msg, int size, u32 need_ack_rsp, u16 *resp)
 			ret = -EKASCRASH;
 			goto out;
 		}
-		check_response(msg_id, ipc_data->payload[0],
-			ipc_data->payload[2]);
+		check_response(msg_id, ipc_data->rsp_payload[0],
+			ipc_data->rsp_payload[2]);
+		if (resp)
+			memcpy(resp, ipc_data->rsp_payload, 64 * sizeof(u16));
 		mutex_lock(&ipc_data->ipc_comm_mutex);
-		ipc_clear_raised_and_send_ack();
-		dump_req_or_rsp(ipc_data->payload[0]);
+		dump_req_or_rsp(ipc_data->rsp_payload[0]);
 	}
-	if (resp)
-		memcpy(resp, ipc_data->payload, 64);
 
 error:
 	mutex_unlock(&ipc_data->ipc_comm_mutex);
@@ -457,13 +462,12 @@ out:
 
 static irqreturn_t ipc_irq_handler(int irq, void *pdata)
 {
-	u16 resp[64];
-
 	/* Read from IPC interrupt register will clear the interrupt */
 	readl(ipc_data->ipc_base + IPC_TRGT1_INIT3_1);
 
-	if (ipc_recv_msg_payload_handler(resp) == IPC_SEND_MSG_TO_ARM)
-		kalimba_do_actions(resp[0], &resp[2]);
+	if (ipc_recv_msg_payload_handler() == IPC_SEND_MSG_TO_ARM)
+		kalimba_do_actions(ipc_data->msg_payload[0],
+			&ipc_data->msg_payload[2]);
 
 	return IRQ_HANDLED;
 }
