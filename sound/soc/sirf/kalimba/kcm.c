@@ -106,6 +106,9 @@ static u16 volume_ctrl_default_volumes[4][4] = {
 	{1, 0x12, 0, 0},
 	{1, 0x13, 0, 0}
 };
+static u16 volume_ctrl_default_master_volume[4] = {
+	1, 0x21, 0, 0
+};
 static u16 music_passthrough_default_volume;
 static u16 music_peqs_defaule_control_mode[PEQ_NUM_MAX][4] = {
 	{1, 1, 0, 2},
@@ -166,6 +169,12 @@ void set_default_volume_ctrl_volume(int channel, u32 volume)
 {
 	volume_ctrl_default_volumes[channel][2] = (u16)(volume >> 16);
 	volume_ctrl_default_volumes[channel][3] = (u16)(volume & 0xffff);
+}
+
+void set_default_master_volume(u32 volume)
+{
+	volume_ctrl_default_master_volume[2] = (u16)(volume >> 16);
+	volume_ctrl_default_master_volume[3] = (u16)(volume & 0xffff);
 }
 
 void set_default_mixer_stream_volume(int stream, u16 volume)
@@ -677,7 +686,7 @@ static int init_music_stereo_pipeline(void)
 	volume_ctrl = i;
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_VOLUME_CONTROL;
-	components_global[i].params[1] = 4; /* Config items */
+	components_global[i].params[1] = 5; /* Config items */
 	components_global[i].params[2] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
 	components_global[i].params[3] = 4;
 	components_global[i].params[4] = (u32)(volume_ctrl_default_volumes[0]);
@@ -690,6 +699,10 @@ static int init_music_stereo_pipeline(void)
 	components_global[i].params[11] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
 	components_global[i].params[12] = 4;
 	components_global[i].params[13] = (u32)(volume_ctrl_default_volumes[3]);
+	components_global[i].params[14] = OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL;
+	components_global[i].params[15] = 4;
+	components_global[i].params[16] =
+		(u32)(volume_ctrl_default_master_volume);
 	i++;
 
 	/* Connect Mixer with Volume control */

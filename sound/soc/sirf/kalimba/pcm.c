@@ -60,6 +60,8 @@ struct kas_priv_data {
 	int stream_ramp[2][MIXER_SUPPORT_STREAMS * 2];
 	int stream_mute[MIXER_SUPPORT_STREAMS * 2];
 	u16 pre_gain;
+	u16 master_gain;
+	u16 master_mute;
 	u16 peq_switch_mode[PEQ_NUM_MAX];
 	u16 peq_params_array[PEQ_NUM_MAX][PEQ_PARAMS_ARRAY_LEN_16B];
 	u16 dbe_switch_mode;
@@ -427,6 +429,8 @@ static int kas_playback_peq_put(struct snd_kcontrol *kcontrol,
 #define MIXER_MUTE_REG			10
 #define MIXER_RAMP_REG			15
 #define MIXER_CHAN_REG                  20
+#define MASTER_GAIN_REG			40
+#define MASTER_MUTE_REG			41
 #define MAX_RAMP_NUM_SAMPLES		0x00ffffff
 
 static int kas_playback_ramp_get(struct snd_kcontrol *kcontrol,
@@ -467,8 +471,12 @@ static int kas_playback_mute_get(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	ucontrol->value.integer.value[0] =
-		pdata->stream_mute[mc->reg - MIXER_MUTE_REG];
+	if (mc->reg == MASTER_MUTE_REG) /* Volume-Control: Master Mute */
+		ucontrol->value.integer.value[0] =
+			pdata->master_mute;
+	else /* Mixer: Per-Stream Mute */
+		ucontrol->value.integer.value[0] =
+			pdata->stream_mute[mc->reg - MIXER_MUTE_REG];
 	return 0;
 }
 
@@ -481,17 +489,28 @@ static int kas_playback_mute_put(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	int mute = ucontrol->value.integer.value[0];
 
-	pdata->stream_mute[mc->reg - MIXER_MUTE_REG] = mute;
+	if (mc->reg == MASTER_MUTE_REG) { /* Volume-Control: Master Mute */
+		pdata->master_mute = ucontrol->value.integer.value[0];
+		if (mute)
+			kalimba_set_master_gain(MIN_CHANNEL_GAIN_DB);
+		else
+			kalimba_set_master_gain(MIN_CHANNEL_GAIN_DB +
+				pdata->master_gain);
+	} else { /* Mixer: Per-Stream Mute */
+		pdata->stream_mute[mc->reg - MIXER_MUTE_REG] = mute;
 
-	if (mute)
-		kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
-			MIN_STREAM_GAIN_DB,
-			pdata->stream_ramp[1][mc->reg - MIXER_MUTE_REG]);
-	else
-		kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
-			MIN_STREAM_GAIN_DB +
-			pdata->stream_volume[mc->reg - MIXER_MUTE_REG],
-			pdata->stream_ramp[1][mc->reg - MIXER_MUTE_REG]);
+		if (mute)
+			kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
+				MIN_STREAM_GAIN_DB,
+				pdata->stream_ramp[1]
+					[mc->reg - MIXER_MUTE_REG]);
+		else
+			kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
+				MIN_STREAM_GAIN_DB +
+				pdata->stream_volume[mc->reg - MIXER_MUTE_REG],
+				pdata->stream_ramp[1]
+					[mc->reg - MIXER_MUTE_REG]);
+	}
 	return 0;
 }
 
@@ -510,6 +529,8 @@ static int kas_playback_volume_get(struct snd_kcontrol *kcontrol,
 			pdata->pre_channel_volume[mc->reg];
 	else if (mc->reg == PREGAIN_REG) /* Pass-Through: Pre Gain */
 		ucontrol->value.integer.value[0] = pdata->pre_gain;
+	else if (mc->reg == MASTER_GAIN_REG) /* Volume-Control: Master Gain */
+		ucontrol->value.integer.value[0] = pdata->master_gain;
 	else if (mc->reg >= MIXER_CHAN_REG) { /* Mixer: Stream Channel Volume */
 		stream = (mc->reg - MIXER_CHAN_REG) / 4;
 		channel = (mc->reg - MIXER_CHAN_REG) - 4 * stream;
@@ -541,6 +562,11 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 		pdata->pre_gain = ucontrol->value.integer.value[0];
 		kalimba_set_music_passthrough_volume(
 			MIN_MUSIC_PREGAIN_DB + pdata->pre_gain);
+	} else if (mc->reg == MASTER_GAIN_REG) {
+		/* Volume-Control: Master Gain */
+		pdata->master_gain = ucontrol->value.integer.value[0];
+		kalimba_set_master_gain(MIN_CHANNEL_GAIN_DB +
+			pdata->master_gain);
 	} else if (mc->reg >= MIXER_CHAN_REG) {
 		/* Mixer: Stream Channel Volume */
 		stream = (mc->reg - MIXER_CHAN_REG) / 4;
@@ -711,7 +737,11 @@ static const struct snd_kcontrol_new kas_controls[] = {
 		39, 0, 96, 0,
 		kas_playback_volume_get, kas_playback_volume_put,
 		kas_stream_vol_tlv),
-
+	SOC_SINGLE_EXT_TLV("Master Gain", 40, 0, 129, 0,
+		kas_playback_volume_get, kas_playback_volume_put,
+		kas_channel_vol_tlv),
+	SOC_SINGLE_EXT("Master Mute", 41, 0, 1, 0,
+		kas_playback_mute_get, kas_playback_mute_put),
 	/* peq */
 	KAS_PEQ_CONTROLS("User PEQ", USER_PEQ_BASE),
 	KAS_PEQ_CONTROLS("Spk1 PEQ", SPK1_PEQ_BASE),

@@ -304,6 +304,7 @@ void kalimba_set_master_gain(int vol)
 		(u16)(volume_setting & 0xffff)};
 	u16 volume_control_op_id;
 
+	set_default_master_volume(volume_setting);
 	kalimba_msg_send_lock();
 	volume_control_op_id = get_volume_control_op_id();
 	if (volume_control_op_id)

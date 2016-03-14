@@ -66,7 +66,7 @@ struct kcm_t {
 
 struct component {
 	u32 component_id;
-	u32 params[16];
+	u32 params[32];
 	u16 ret[16];
 	int primary_stream;
 	int create_refcnt;
@@ -118,6 +118,7 @@ void set_default_music_peq_params(int index, int offset, int val);
 void set_default_music_peq_control(int index, u16 mode);
 void set_default_music_passthrough_volume(u16 volume);
 void set_default_volume_ctrl_volume(int channel, u32 volume);
+void set_default_master_volume(u32 volume);
 void set_default_mixer_stream_volume(int stream, u16 volume);
 void set_default_mixer_stream_channel_volume(int stream, int channel,
 	u16 volume);
