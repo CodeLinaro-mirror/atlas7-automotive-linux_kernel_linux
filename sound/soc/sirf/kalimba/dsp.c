@@ -600,7 +600,7 @@ int kalimba_data_produced(u16 endpoint_id)
 	u16 msg[3] = {DATA_PRODUCED, 1, endpoint_id};
 	int ret;
 
-	ret = ipc_send_msg(msg, 3, 0, NULL);
+	ret = ipc_send_msg(msg, 3, MSG_NEED_ACK, NULL);
 	if (ret < 0)
 		return -EKASIPC;
 
@@ -612,7 +612,7 @@ int kalimba_data_consumed(u16 endpoint_id)
 	u16 msg[3] = {DATA_CONSUMED, 1, endpoint_id};
 	int ret;
 
-	ret = ipc_send_msg(msg, 3, 0, NULL);
+	ret = ipc_send_msg(msg, 3, MSG_NEED_ACK, NULL);
 	if (ret < 0)
 		return -EKASIPC;
 
