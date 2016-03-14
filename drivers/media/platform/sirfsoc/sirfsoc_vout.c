@@ -236,6 +236,15 @@ static int __sirfsoc_vout_v4l2_field_to_vdss_field(enum v4l2_field field)
 	case V4L2_FIELD_SEQ_BT:
 		vdss_fid = VDSS_FIELD_SEQ_BT;
 		break;
+	/*
+	 * In some stream, the feild format is changed at any time,
+	 * to support this case, gstream set the feild as
+	 * V4L2_FIELD_INTERLACED when VIDIOC_S_FMT, but the real
+	 * feild is set when VIDIOC_QBUF.
+	 * */
+	case V4L2_FIELD_INTERLACED:
+		vdss_fid = VDSS_FIELD_INTERLACED;
+		break;
 	case V4L2_FIELD_INTERLACED_TB:
 		vdss_fid = VDSS_FIELD_INTERLACED_TB;
 		break;

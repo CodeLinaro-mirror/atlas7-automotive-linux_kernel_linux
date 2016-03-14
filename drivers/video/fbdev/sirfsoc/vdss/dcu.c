@@ -271,7 +271,7 @@ bool dcu_inline_check_size(struct vdss_surface *src_surf,
 	 * At present, DCU driver doesn't support source clip
 	 * */
 	if (src_rect_width < src_surf->width ||
-	    src_rect_height < src_surf->height) {
+	    src_rect->top != 0) {
 		VDSSWARN("Source clip isn't supported\n");
 		return false;
 	}
@@ -1994,6 +1994,7 @@ bool sirfsoc_dcu_is_inline_support(enum vdss_pixelformat fmt,
 	case VDSS_FIELD_SEQ_BT:
 	case VDSS_FIELD_INTERLACED_TB:
 	case VDSS_FIELD_INTERLACED_BT:
+	case VDSS_FIELD_INTERLACED:
 		break;
 	default:
 		return false;
