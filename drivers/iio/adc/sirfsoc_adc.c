@@ -46,7 +46,13 @@
 #define REF_CTRL0			0x64
 #define REF_CTRL2			0x3c
 #define TEMPSENSOR_CTRL			0x2c
+#define ANA_TSADCCTL5_TSADC_OFFSET	0x14
 
+
+#define OFFSET_ERR_BITS_MASK		0x3fff
+#define GAIN_ERR_BITS_MASK			0xfff
+#define ATLAS7_ADC_1V2_IDEAL0		1064
+#define ATLAS7_ADC_1V2_IDEAL2		2757
 
 
 #define AUDIO_ANA_REF_AUDBIAS_IREF_EN			BIT(0)
@@ -125,7 +131,8 @@ struct sirfsoc_adc_ctrl_set {
 	u32		resolution;
 	u32		sbat_en;
 	u32		poll;
-	u32		sgain;
+	u32		sgain_shift;
+	u32		sgain_mask;
 	u32		freq;
 	u32		thold;
 	/* ctrl2 set bits */
@@ -182,7 +189,8 @@ static struct sirfsoc_adc_register prima2_adc_reg = {
 		.resolution	= BIT(22),
 		.sbat_en	= BIT(21),
 		.poll		= BIT(15),
-		.sgain		= BIT(16),
+		.sgain_shift		= 16,
+		.sgain_mask = 0x7,
 		.freq		= BIT(8),
 		.thold		= 0x4 << 4,
 		.prp_mode	= 0x3 << 14,
@@ -230,6 +238,8 @@ static struct sirfsoc_adc_register atlas6_adc_reg = {
 		.resolution	= BIT(22),
 		.sbat_en	= BIT(21),
 		.poll		= BIT(15),
+		.sgain_shift		= 16,
+		.sgain_mask = 0x7,
 		.freq		= BIT(8),
 		.thold		= 0x4 << 4,
 		.prp_mode	= 0x3 << 14,
@@ -282,6 +292,8 @@ static struct sirfsoc_adc_register atlas7_adc_reg = {
 		.resolution	= BIT(22),
 		.sbat_en	= BIT(21),
 		.poll		= BIT(15),
+		.sgain_shift		= 16,
+		.sgain_mask = 0x7,
 		.freq		= BIT(8),
 		.thold		= 0x4 << 4,
 		.prp_mode	= 0x3 << 14,
@@ -316,6 +328,7 @@ struct sirfsoc_adc_chip_info {
 	const struct iio_info *iio_info;
 	u32 (*calculate_volt)(u32, u32, u32);
 	const u32 *channel_sel;
+	const u32 *sgain_sel;
 };
 
 struct sirfsoc_adc_request {
@@ -333,6 +346,7 @@ struct sirfsoc_adc {
 	/* atlas7 need enable extra 2 clock to enable adc */
 	struct clk			*clk_io;
 	struct clk			*clk_analog;
+	struct clk			*clk_ds;
 
 	void __iomem			*base;
 	/*
@@ -343,6 +357,10 @@ struct sirfsoc_adc {
 	void __iomem			*ana_base;
 	struct sirfsoc_adc_request	req;
 	struct completion		done;
+	unsigned int			offset_cali0;
+	unsigned int			offset_cali2;
+	unsigned int			gain_cali0;
+	unsigned int			gain_cali2;
 };
 
 /* Dual touch samples read registers*/
@@ -461,10 +479,20 @@ static int sirfsoc_adc_send_request(struct sirfsoc_adc_request *req)
 		return -EBUSY;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		/* some channels have sgain set to 2, and some have set to 0.
+		 * they need to be applied with different cali data.
+		 */
+		if (((req->s_gain_bits >> ctrl_set->sgain_shift) &
+					ctrl_set->sgain_mask) == 2)
+			writel(adc->offset_cali2, adc->ana_base +
+						 ANA_TSADCCTL5_TSADC_OFFSET);
+		else
+			writel(adc->offset_cali0, adc->ana_base +
+						 ANA_TSADCCTL5_TSADC_OFFSET);
 		writel(SIRFSOC_ADC_DATA_INTR, adc->base + adc_reg->intr_status);
 		writel(ctrl_set->poll | req->mode | req->delay_bits |
-			ctrl_set->quant_en | ctrl_set->reset |
-			ctrl_set->resolution,
+			req->s_gain_bits | ctrl_set->quant_en |
+			ctrl_set->reset | ctrl_set->resolution,
 			adc->base + adc_reg->ctrl1);
 	} else {
 		writel(SIRFSOC_ADC_DATA_INTR_EN | SIRFSOC_ADC_DATA_INTR,
@@ -515,6 +543,7 @@ out:
 struct sirfsoc_adc_cali_data {
 	u32 digital_offset;
 	u32 digital_again;
+	u32 sgain;
 	bool is_calibration;
 };
 
@@ -530,7 +559,6 @@ static u32 sirfsoc_adc_offset_cali(struct sirfsoc_adc_request *req)
 	/* To set the registers in order to get the ADC offset */
 	req->mode = (mode_sel->offset_cali_sel &
 		ctrl_set->mode_mask) << ctrl_set->mode_shift;
-	req->s_gain_bits = ctrl_set->sgain;
 	req->delay_bits = ctrl_set->thold;
 
 	for (i = 0; i < 10; i++) {
@@ -560,7 +588,6 @@ static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 	/* To set the registers in order to get the ADC gain */
 	req->mode = (mode_sel->gain_cali_sel &
 		ctrl_set->mode_mask) << ctrl_set->mode_shift;
-	req->s_gain_bits = ctrl_set->sgain;
 	req->delay_bits = ctrl_set->thold;
 
 	for (i = 0; i < 10; i++) {
@@ -582,12 +609,31 @@ static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 				struct sirfsoc_adc_cali_data *cali_data)
 {
-	cali_data->digital_offset = sirfsoc_adc_offset_cali(req);
-	if (!cali_data->digital_offset)
-		return -EINVAL;
-	cali_data->digital_again = sirfsoc_adc_gain_cali(req);
-	if (!cali_data->digital_again)
-		return -EINVAL;
+	struct sirfsoc_adc *adc = container_of(req, struct sirfsoc_adc, req);
+	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
+	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
+	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
+	struct device_node *np = indio_dev->dev.parent->of_node;
+	u32 sgain;
+
+	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		cali_data->digital_offset = 0;
+		sgain = (req->s_gain_bits >> 16) & 0x7;
+		if (sgain == 2)
+			cali_data->digital_again = adc->gain_cali2 ?
+				adc->gain_cali2 : ATLAS7_ADC_1V2_IDEAL2;
+		else
+			cali_data->digital_again = adc->gain_cali0 ?
+				adc->gain_cali0 : ATLAS7_ADC_1V2_IDEAL0;
+	} else {
+		cali_data->digital_offset = sirfsoc_adc_offset_cali(req);
+		if (!cali_data->digital_offset)
+			return -EINVAL;
+		cali_data->digital_again = sirfsoc_adc_gain_cali(req);
+		if (!cali_data->digital_again)
+			return -EINVAL;
+	}
 
 	return 0;
 }
@@ -599,6 +645,8 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 	struct sirfsoc_adc_request *req = &adc->req;
 	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
 	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
+	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
+	struct device_node *np = indio_dev->dev.parent->of_node;
 	u32 digital_out, volt;
 
 	req->delay_bits = ctrl_set->thold;
@@ -617,9 +665,15 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 			cali_data->is_calibration = true;
 		}
 
-		volt = adc->chip_info->calculate_volt(digital_out,
-			cali_data->digital_offset,
-			cali_data->digital_again);
+		if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+			volt = adc->chip_info->calculate_volt(digital_out,
+				cali_data->sgain,
+				cali_data->digital_again);
+		} else {
+			volt = adc->chip_info->calculate_volt(digital_out,
+				cali_data->digital_offset,
+				cali_data->digital_again);
+		}
 	} else {
 		return 0;
 	}
@@ -677,26 +731,28 @@ static u32 atlas6_adc_calculate_volt(u32 digital_out,
 
 /* FIXME: the formula to calculate voltage will be update */
 static u32 atlas7_adc_calculate_volt(u32 digital_out,
-				u32 digital_offset, u32 digital_again)
+				u32 sgain, u32 digital_again)
 {
 	u32 volt, digital_ideal, digital_convert;
 
-	digital_ideal = (3986 * 12100) / (7 * 3333);
-	digital_offset &= 0xfff;
-	digital_convert = abs(digital_out - 2 * digital_offset)
-		* digital_ideal / (digital_again
-		- digital_offset * 2);
-	volt = 14 * 333 * digital_convert / 3986;
-	volt = volt / 2;
-	if (volt > 1500)
-		volt = volt - (volt - 1500) / 15;
-	else
-		volt = volt + (1500 - volt) / 28;
+	pr_info("cal volt: out: %x  sgain: %x gain: %x\n",
+			 digital_out, sgain, digital_again);
+	/* Vin=(Codeout * 0.001128/Gain), where Gain is 1 for SGAIN[2..0]=0
+	 * Gain is 2.59 for SGAIN[2..0]=2 */
 
-	/*
-	 * Direct return value from register, which will be
-	 * replaced if there have the right formula
-	 */
+	switch (sgain) {
+	case 2:
+		digital_out = digital_out * 141 * ATLAS7_ADC_1V2_IDEAL2;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 259;
+		break;
+
+	default:
+		digital_out = digital_out * 141 * ATLAS7_ADC_1V2_IDEAL0;
+		digital_out = digital_out / (125 * digital_again);
+		break;
+	}
+
 	return digital_out;
 }
 
@@ -788,6 +844,8 @@ static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
 	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
 	struct device_node *np = indio_dev->dev.parent->of_node;
 	struct sirfsoc_adc_cali_data cali_data;
+	u32 sgain = 0;
+	u32 msel;
 	int ret;
 
 	/* check if analog enabled, if not enable it */
@@ -806,8 +864,14 @@ static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
-		adc->req.mode = (adc->chip_info->channel_sel[chan->channel] &
-			ctrl_set->mode_mask) << ctrl_set->mode_shift;
+		msel = adc->chip_info->channel_sel[chan->channel];
+		if (of_device_is_compatible(np, "sirf,atlas7-adc"))
+			sgain = adc->chip_info->sgain_sel[chan->channel];
+		adc->req.mode = (msel & ctrl_set->mode_mask) <<
+				ctrl_set->mode_shift;
+		adc->req.s_gain_bits = (sgain & ctrl_set->sgain_mask)<<
+				ctrl_set->sgain_shift;
+		cali_data.sgain = sgain;
 		*val = sirfsoc_adc_get_adc_volt(adc, &cali_data);
 		return IIO_VAL_INT;
 	default:
@@ -981,6 +1045,20 @@ static u32 atlas7_adc_channel_sel[] = {
 	0x13  /* temp2 */
 };
 
+static u32 atlas7_adc_sgain_sel[] = {
+	0, 0,
+	2, /* aux1 */
+	2, /* aux2 */
+	0, /* aux3 */
+	0, /* aux4 */
+	0, /* aux5 */
+	0, /* aux6 */
+	0, /* aux7 */
+	0, /* aux8 */
+	0, /* temp1 */
+	0  /* temp2 */
+};
+
 static const struct iio_info sirfsoc_adc_info = {
 	.read_raw = &sirfsoc_adc_read_raw,
 	.driver_module = THIS_MODULE,
@@ -1010,6 +1088,7 @@ static const struct sirfsoc_adc_chip_info sirfsoc_adc_chip_info_tbl[] = {
 		.iio_info	= &sirfsoc_adc_info,
 		.calculate_volt	= atlas7_adc_calculate_volt,
 		.channel_sel	= atlas7_adc_channel_sel,
+		.sgain_sel = atlas7_adc_sgain_sel,
 	},
 };
 
@@ -1102,7 +1181,6 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 			return PTR_ERR(ad_regulator);
 		}
 
-
 		clk_prepare_enable(adc->clk);
 		clk_prepare_enable(adc->clk_io);
 
@@ -1128,6 +1206,31 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 		adc->ana_base = ioremap(SIRFSOC_ANA_BASE, SZ_64K);
 		sirfsoc_adc_enable_analog(adc);
+
+		ret = of_property_read_u32(np, "cali-gain0", &adc->gain_cali0);
+		if (ret)
+			adc->gain_cali0 = 0;
+		ret = of_property_read_u32(np, "cali-gain2", &adc->gain_cali2);
+		if (ret)
+			adc->gain_cali2 = 0;
+		ret = of_property_read_u32(np, "cali-offset0",
+			&adc->offset_cali0);
+		if (ret)
+			adc->offset_cali0 = 0;
+		ret = of_property_read_u32(np, "cali-offset2",
+					&adc->offset_cali2);
+		if (ret)
+			adc->offset_cali2 = 0;
+		/* fixup cali value according to ATE bug */
+		if (adc->offset_cali0 > 0x2400)
+			adc->offset_cali0 = (((~(adc->offset_cali0 & 0x1FFF)) +
+					      1) & 0x1FFF) | 0x2000;
+		if (adc->offset_cali2 > 0x2400)
+			adc->offset_cali2 = (((~(adc->offset_cali2 & 0x1FFF)) +
+					      1) & 0x1FFF) | 0x2000;
+		dev_info(&pdev->dev, "cali offset: %x - %x, cali gain: %x - %x\n",
+					adc->offset_cali0, adc->offset_cali2,
+					adc->gain_cali0, adc->gain_cali2);
 	} else {
 		adc->clk = devm_clk_get(&pdev->dev, NULL);
 		if (IS_ERR(adc->clk)) {
@@ -1201,6 +1304,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 err:
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+		iounmap(adc->ana_base);
 		clk_disable_unprepare(adc->clk_analog);
 		clk_disable_unprepare(adc->clk_io);
 	}
@@ -1220,6 +1324,7 @@ static int sirfsoc_adc_remove(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		clk_disable_unprepare(adc->clk_analog);
 		clk_disable_unprepare(adc->clk_io);
+		iounmap(adc->ana_base);
 	}
 	clk_disable_unprepare(adc->clk);
 
