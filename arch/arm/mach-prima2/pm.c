@@ -594,6 +594,29 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int sirfsoc_sysctl_resume(struct device *dev)
+{
+
+	atlas7_pm_svm(SVM_CORE);
+	atlas7_pm_svm(SVM_CPU);
+
+	return 0;
+}
+
+
+static int sirfsoc_sysctl_supend(struct device *dev)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops sirfsoc_sysctl_pm_ops = {
+	.suspend_noirq = sirfsoc_sysctl_supend,
+	.resume_noirq = sirfsoc_sysctl_resume,
+};
+
+#endif
+
 static const struct of_device_id sysctl_ids[] = {
 	{ .compatible = "sirf,sirf-sysctl"},
 	{}
@@ -604,6 +627,9 @@ static struct platform_driver sirfsoc_sysctl_driver = {
 		   .name = "sirf-sysctl",
 		   .owner = THIS_MODULE,
 		   .of_match_table = sysctl_ids,
+#ifdef CONFIG_PM_SLEEP
+		   .pm = &sirfsoc_sysctl_pm_ops,
+#endif
 		   },
 	.probe = sirfsoc_sysctl_probe,
 };
