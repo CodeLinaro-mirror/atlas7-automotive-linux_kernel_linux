@@ -451,27 +451,56 @@ static int pll_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		return -EINVAL;
 
 	/* switch to sys1pll source */
-	clkc_writel(3, clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL - SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+	clkc_writel(3, clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL
+		- SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+
+	/* wait for stable */
+	while (!(clkc_readl(clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL_STAT
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ) & BIT(0)))
+		cpu_relax();
+
+	/* turn off div1 */
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL1
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	clkc_writel(0, clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL1
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+	/* power off */
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL0
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	clkc_writel(clkc_readl(reg) & ~0x1, reg);
+
 	/* configure freq */
 	val = clkc_readl(reg) & ~0x1FF;
 	val |= (nf - 1);
 	clkc_writel(val, clk->regofs);
-	/* reset PLL */
-	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL0 - SIRFSOC_CLKC_CPUPLL_AB_FREQ;
-	clkc_writel(clkc_readl(reg) & ~0x1, reg);
-
 	/* power on */
-	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL0 - SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL0
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ;
 	clkc_writel(clkc_readl(reg) | 0x1, reg);
-	/*locked */
-	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_STATUS - SIRFSOC_CLKC_CPUPLL_AB_FREQ;
+	/*wait for locked */
+	reg = clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_STATUS
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ;
 	while (!(clkc_readl(reg) & BIT(0)))
 		cpu_relax();
+
+	/* turn on div1 by sequence: first div, then enable*/
+	clkc_writel(0x2, clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL1
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+	clkc_writel(BIT(12) | 0x2, clk->regofs + SIRFSOC_CLKC_CPUPLL_AB_CTRL1
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+
 	/* switch back to cpupll source */
-	clkc_writel(4, clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL - SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+	clkc_writel(4, clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ);
+
+	/* wait for stable */
+	while (!(clkc_readl(clk->regofs + SIRFSOC_CLKC_CPU_CLK_SEL_STAT
+			- SIRFSOC_CLKC_CPUPLL_AB_FREQ) & BIT(0)))
+		cpu_relax();
 
 	return 0;
 }
+
 
 static const struct clk_ops ab_pll_ops = {
 	.recalc_rate = pll_clk_recalc_rate,
