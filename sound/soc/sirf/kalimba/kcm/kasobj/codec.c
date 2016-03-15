@@ -1,6 +1,4 @@
 /*
- * do need to change a codec, the coding is easy and focused. The interface is
- *
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
