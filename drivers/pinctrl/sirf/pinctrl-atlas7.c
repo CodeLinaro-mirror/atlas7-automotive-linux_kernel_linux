@@ -731,8 +731,8 @@ struct atlas7_pad_config atlas7_ioc_pad_confs[] = {
 };
 
 /* pin list of each pin group */
-static const unsigned int gnss_gpio_pins[] = { 119, 120, 121, 122, 123, 124,
-		125, 126, 127, 128, 22, 23, 24, 25, 26, 27, 28, 29, 30, };
+static const unsigned int gnss_gpio_pins[] = { 119, 120, 30, 122, 123, 124,
+		125, 126, 127, 128, 22, 23, 24, 25, 26, 27, 28, 29,};
 static const unsigned int lcd_vip_gpio_pins[] = { 74, 75, 76, 77, 78, 79, 80,
 		81, 82, 83, 84, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
 		64, 65, 66, 67, 68, 69, 70, 71, 72, 73, };
