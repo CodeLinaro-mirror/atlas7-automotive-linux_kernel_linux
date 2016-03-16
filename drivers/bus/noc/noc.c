@@ -96,9 +96,6 @@ static int noc_macro_init(struct noc_macro *nocm)
 		pr_info("%s: clk_prepare_enable %d!\n", __func__, ret);
 	}
 
-	if (!(nocm->errlogoff || nocm->probe_enable))
-		return 0;
-
 	/* ignore qos on pxp for lack some modules*/
 	if (!of_machine_is_compatible("sirf,atlas7-pxp")) {
 		ret = noc_qos_init(nocm);
@@ -109,6 +106,12 @@ static int noc_macro_init(struct noc_macro *nocm)
 	ret = noc_probe_init(nocm);
 	if (ret)
 		goto err;
+
+	if (!(nocm->errlogoff || nocm->probe_enable))
+		return 0;
+
+	/*enable errlog trigger, thus irq/abort could come*/
+	noc_errlog_enable(nocm);
 
 	ret = of_irq_get(pdev->dev.of_node, 0);
 	if (ret <= 0) {
@@ -127,9 +130,6 @@ static int noc_macro_init(struct noc_macro *nocm)
 		pr_err("err: devm_request_irq %s: ret=%d\n", nocm->name, ret);
 		goto err;
 	}
-
-	/*enable errlog trigger, thus irq/abort could come*/
-	noc_errlog_enable(nocm);
 
 	return 0;
 err:
