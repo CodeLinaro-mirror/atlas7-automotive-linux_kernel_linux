@@ -2814,6 +2814,7 @@
 					<0x10db0000 0x10db0000 0x4000>,
 					<0x10d40000 0x10d40000 0x1000>,
 					<0x10d30000 0x10d30000 0x1000>,
+					<0x10d20000 0x10d20000 0x1000>,
 					<0x10d02000 0x10d02000 0x1000>,
 					<0x10e30000 0x10e30000 0x1000>,
 					<0x10d01000 0x10d01000 0x100>;
@@ -2872,6 +2873,7 @@
 			};
 
 			dmac2: dma-controller@10d50000 {
+				status = "disabled";
 				cell-index = <2>;
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d50000 0xffff>;
@@ -3026,6 +3028,20 @@
 						freq = <200>;
 					};
 				};
+			};
+
+			usp0: usp@10d20000 {
+				status = "disabled";
+				#sound-dai-cells = <0>;
+				cell-index = <0>;
+				reg = <0x10d20000 0x1000>;
+				fifosize = <512>;
+				interrupts = <0 20 0>;
+				clocks = <&car 75>;
+				dmas = <&dmac2 10>, <&dmac2 11>;
+				dma-names = "rx", "tx";
+				pinctrl-names = "default";
+				pinctrl-0 = <&audio_uart0_basic_pmx>;
 			};
 
 			usp1: usp@10d30000 {

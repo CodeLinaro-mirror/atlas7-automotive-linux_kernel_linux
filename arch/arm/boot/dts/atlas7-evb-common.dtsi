@@ -306,6 +306,11 @@
 			atlas7_iacc: atlas7_iacc@10D01000 {
 				status = "okay";
 			};
+			usp0: usp@10d20000 {
+				status = "okay";
+				compatible = "sirf,prima2-usp-pcm";
+				frame-syn-mode = "i2s";
+			};
 
 		};
 
