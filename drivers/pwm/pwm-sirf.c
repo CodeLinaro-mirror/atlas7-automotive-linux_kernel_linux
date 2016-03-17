@@ -402,9 +402,9 @@ static int sirf_pwm_resume(struct device *dev)
 
 		if (test_bit(PWMF_REQUESTED, &pwm->flags) &&
 				test_bit(PWMF_ENABLED, &pwm->flags)) {
+			sirf_pwm_enable(&spwmc->chip, pwm);
 			sirf_pwm_config(&spwmc->chip, pwm, spwm->duty_ns,
 					pwm_get_period(pwm));
-			sirf_pwm_enable(&spwmc->chip, pwm);
 		}
 	}
 
