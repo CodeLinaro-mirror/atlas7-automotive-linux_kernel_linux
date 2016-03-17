@@ -45,7 +45,7 @@
 
 #define SIRFSOC_TIMER_REG_CNT 6
 static int is_suspended;
-static u32 last_timer_cnt;
+static u64 last_timer_cnt;
 static unsigned long atlas7_timer_rate;
 static const u32 sirfsoc_timer_reg_list[SIRFSOC_TIMER_REG_CNT] = {
 	SIRFSOC_TIMER_WATCHDOG_EN,
@@ -112,9 +112,9 @@ static cycle_t sirfsoc_timer_read(struct clocksource *cs)
 static u64 notrace sirfsoc_read_sched_clock(void)
 {
 	if (unlikely(is_suspended))
-		return last_timer_cnt & 0xffffffff;
+		return last_timer_cnt;
 	else
-		return (sirfsoc_timer_read(NULL) & 0xffffffff);
+		return sirfsoc_timer_read(NULL);
 }
 
 static int sirfsoc_timer_set_next_event(unsigned long delta,
