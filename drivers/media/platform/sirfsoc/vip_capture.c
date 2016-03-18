@@ -87,6 +87,18 @@ static const struct vip_format vip_formats[] = {
 		.mbus_code	= V4L2_MBUS_FMT_UYVY8_2X8,
 		.bpp		= 2,
 	},
+	{
+		.desc		= "YUYV 4:2:2",
+		.pixelformat	= V4L2_PIX_FMT_YUYV,
+		.mbus_code	= V4L2_MBUS_FMT_YUYV8_2X8,
+		.bpp		= 2,
+	},
+	{
+		.desc		= "YVYU 4:2:2",
+		.pixelformat	= V4L2_PIX_FMT_YVYU,
+		.mbus_code	= V4L2_MBUS_FMT_YVYU8_2X8,
+		.bpp		= 2,
+	},
 };
 #define N_VIP_FMTS	ARRAY_SIZE(vip_formats)
 
@@ -594,6 +606,8 @@ static void vip_hw_set_control(struct vip_dev *vip, struct vip_control control)
 	val &= ~CAM_CTRL_OUT_FORMAT_MASK;
 	switch (control.output_fmt) {
 	case VIP_PIXELFORMAT_UYVY:
+	case VIP_PIXELFORMAT_YUYV:
+	case VIP_PIXELFORMAT_YVYU:
 		yuv2rgb = false;
 		break;
 	case VIP_PIXELFORMAT_565:
@@ -1039,6 +1053,18 @@ static const struct vip_format *vip_find_format(u32 pixelformat)
 	return vip_formats;
 }
 
+static const struct vip_format *vip_find_format_with_code
+						(enum v4l2_mbus_pixelcode code)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_VIP_FMTS; i++)
+		if (vip_formats[i].mbus_code == code)
+			return vip_formats + i;
+	/* Not found? Then return the first format. */
+	return vip_formats;
+}
+
 static void vip_vip_isr(struct vip_dev *vip)
 {
 	u32 status;
@@ -1273,6 +1299,10 @@ static int vip_pix_fmt_xlate(u32 pix_fmt)
 	switch (pix_fmt) {
 	case V4L2_PIX_FMT_UYVY:
 		return VIP_PIXELFORMAT_UYVY;
+	case V4L2_PIX_FMT_YUYV:
+		return VIP_PIXELFORMAT_YUYV;
+	case V4L2_PIX_FMT_YVYU:
+		return VIP_PIXELFORMAT_YVYU;
 	default:
 		pr_warn("%s: input fmt error !\n", __func__);
 		return VIP_PIXELFORMAT_UYVY;
@@ -1536,17 +1566,24 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	return ret;
 }
 
-static int vidioc_enum_fmt_vid_cap(struct file *file, void  *priv,
+static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 				       struct v4l2_fmtdesc *f)
 {
+	int ret;
+	enum v4l2_mbus_pixelcode code;
+	struct vip_subdev_info *subdev = file->private_data;
+	struct v4l2_subdev *sd = subdev->sd;
+	struct vip_format *vip_fmt;
+
 	WARN_ON(priv != file->private_data);
 
-	if (f->index >= N_VIP_FMTS)
-		return -EINVAL;
+	ret = v4l2_subdev_call(sd, video, enum_mbus_fmt, f->index, &code);
+	if (ret)
+		return ret;
 
-	strlcpy(f->description, vip_formats[f->index].desc,
-			sizeof(f->description));
-	f->pixelformat = vip_formats[f->index].pixelformat;
+	vip_fmt = vip_find_format_with_code(code);
+	f->pixelformat = vip_fmt->pixelformat;
+	strlcpy(f->description, vip_fmt->desc, sizeof(f->description));
 
 	return 0;
 }
