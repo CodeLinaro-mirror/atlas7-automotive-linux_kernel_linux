@@ -568,21 +568,6 @@ static int it68013_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
-static int it68013_g_fmt(struct v4l2_subdev *sd,
-			struct v4l2_mbus_framefmt *mf)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct it68013_priv *priv = to_it68013(client);
-
-	mf->width	= priv->info.hactive;
-	mf->height	= priv->info.vactive;
-	mf->code	= V4L2_MBUS_FMT_UYVY8_2X8;
-	mf->colorspace	= V4L2_COLORSPACE_JPEG;
-	mf->field	= V4L2_FIELD_NONE;
-
-	return 0;
-}
-
 static int it68013_try_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_mbus_framefmt *mf)
 {
@@ -690,7 +675,6 @@ static struct v4l2_subdev_core_ops it68013_subdev_core_ops = {
 
 static struct v4l2_subdev_video_ops it68013_subdev_video_ops = {
 	.s_stream	= it68013_s_stream,
-	.g_mbus_fmt	= it68013_g_fmt,
 	.try_mbus_fmt	= it68013_try_fmt,
 	.enum_mbus_fmt	= it68013_enum_fmt,
 	.g_dv_timings = it68013_g_timings,
