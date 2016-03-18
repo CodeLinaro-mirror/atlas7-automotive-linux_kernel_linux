@@ -1983,23 +1983,6 @@ static int sirfsoc_camera_close(struct file *file)
 	return 0;
 }
 
-static ssize_t sirfsoc_camera_read(struct file *file, char __user *buf,
-			       size_t count, loff_t *ppos)
-{
-	struct vip_subdev_info *subdev = file->private_data;
-	struct vip_dev *vip = subdev->host;
-
-	dev_dbg(vip->dev, "read called, buf %p\n", buf);
-
-	if (vip->vb2_vidq.io_modes & VB2_READ)
-		return vb2_read(&vip->vb2_vidq, buf, count, ppos,
-				file->f_flags & O_NONBLOCK);
-
-	dev_err(vip->dev, "camera device read not implemented\n");
-
-	return -EINVAL;
-}
-
 static int sirfsoc_camera_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct vip_subdev_info *subdev = file->private_data;
@@ -2041,7 +2024,6 @@ static struct v4l2_file_operations sirfsoc_camera_fops = {
 	.open		= sirfsoc_camera_open,
 	.release	= sirfsoc_camera_close,
 	.unlocked_ioctl	= video_ioctl2,
-	.read		= sirfsoc_camera_read,
 	.mmap		= sirfsoc_camera_mmap,
 	.poll		= sirfsoc_camera_poll,
 };
