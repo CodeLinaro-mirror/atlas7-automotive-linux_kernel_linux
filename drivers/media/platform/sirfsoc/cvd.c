@@ -1175,7 +1175,7 @@ static int cvd_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	if (index)
 		return -EINVAL;
 
-	*code = V4L2_MBUS_FMT_UYVY8_2X8;
+	*code = V4L2_MBUS_FMT_YUYV8_2X8;
 	return 0;
 }
 
