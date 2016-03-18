@@ -2384,7 +2384,7 @@ static void vip_rv_pre_preempt(struct vip_dev *vip)
 		send_sig(SIGSTOP, vip->task, 0);
 
 		while (!task_is_stopped(vip->task))
-			cpu_relax();
+			usleep_range(250, 350);
 	}
 }
 
