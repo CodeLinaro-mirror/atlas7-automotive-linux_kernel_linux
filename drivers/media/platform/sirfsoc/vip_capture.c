@@ -246,7 +246,11 @@ static void vip_buffer_queue(struct vb2_buffer *vb)
 	if (list_empty(&vip->capture) && vb2_is_streaming(vb->vb2_queue)) {
 		list_add_tail(&buf->list, &vip->capture);
 		spin_unlock_irqrestore(&vip->lock, flags);
-		vip_start_dma(vip);
+
+		/* this callback has been protected by host_lock mutex */
+		if (!vip->rv.preemption)
+			vip_start_dma(vip);
+
 		return;
 	}
 
@@ -1229,7 +1233,11 @@ static void vip_restart_worker(struct work_struct *work)
 {
 	struct vip_dev *vip = container_of(work, struct vip_dev, restart_work);
 
-	vip_start_dma(vip);
+	/* if current vip was preempted by rearview, should do nothing */
+	mutex_lock(&vip->host_lock);
+	if (!vip->rv.preemption)
+		vip_start_dma(vip);
+	mutex_unlock(&vip->host_lock);
 }
 
 static void vip_dma_count_done(void *pdata)
