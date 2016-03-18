@@ -1169,64 +1169,6 @@ static int cvd_try_mbus_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int cvd_g_fmt(struct v4l2_subdev *sd,
-			struct v4l2_mbus_framefmt *mf)
-{
-	struct cvd_dev *dec = to_state(sd);
-
-	if (dec->norm & V4L2_STD_NTSC) {
-		mf->width	= 720;
-		mf->height	= 480;
-	} else {
-		mf->width	= 720;
-		mf->height	= 576;
-	}
-
-	mf->code	= V4L2_MBUS_FMT_UYVY8_2X8;
-	mf->colorspace	= V4L2_COLORSPACE_JPEG;
-
-	return 0;
-}
-
-static int cvd_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
-{
-	struct cvd_dev *dec = to_state(sd);
-
-	a->bounds.left			= 0;
-	a->bounds.top			= 0;
-	if (dec->norm & V4L2_STD_NTSC) {
-		a->bounds.width         = 720;
-		a->bounds.height        = 480;
-	} else {
-		a->bounds.width         = 720;
-		a->bounds.height        = 576;
-	}
-	a->defrect                      = a->bounds;
-	a->type				= V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	a->pixelaspect.numerator	= 1;
-	a->pixelaspect.denominator	= 1;
-
-	return 0;
-}
-
-static int cvd_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
-{
-	struct cvd_dev *dec = to_state(sd);
-
-	a->c.left	= 0;
-	a->c.top	= 0;
-	if (dec->norm & V4L2_STD_NTSC) {
-		a->c.width	= 720;
-		a->c.height	= 480;
-	} else {
-		a->c.width	= 720;
-		a->c.height	= 576;
-	}
-	a->type	= V4L2_BUF_TYPE_VIDEO_CAPTURE;
-
-	return 0;
-}
-
 static int cvd_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			   enum v4l2_mbus_pixelcode *code)
 {
@@ -1368,9 +1310,6 @@ static struct v4l2_subdev_video_ops cvd_video_ops = {
 	.querystd	= cvd_querystd,
 	.s_stream	= cvd_s_stream,
 	.try_mbus_fmt	= cvd_try_mbus_fmt,
-	.g_mbus_fmt	= cvd_g_fmt,
-	.cropcap	= cvd_cropcap,
-	.g_crop		= cvd_g_crop,
 	.enum_mbus_fmt	= cvd_enum_fmt,
 	.s_routing	= cvd_s_routing,
 	.enum_framesizes = cvd_enum_framesizes,
