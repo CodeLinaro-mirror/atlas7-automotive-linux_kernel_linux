@@ -78,8 +78,6 @@ struct cvd_dev {
 	struct v4l2_subdev	sd;
 	struct v4l2_ctrl_handler hdl;
 
-	bool			norm_detected;
-
 	int			skip_count;
 	struct completion	skip_done;	/* skip unstable fields */
 	struct completion	locked_done;	/* get locked signals */
@@ -1044,8 +1042,6 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 
 		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd);	/* CVBSAFE disable */
 
-		dec->norm_detected = false;
-
 		return 0;
 	}
 
@@ -1143,8 +1139,6 @@ static int cvd_querystd(struct v4l2_subdev *sd, v4l2_std_id *norm)
 	value = cvd_detect_video_signal(sd);
 	*norm = (value < 0) ? V4L2_STD_UNKNOWN : value;
 
-	dec->norm_detected = true;
-
 	cvd_s_stream(sd, 0);
 
 	return 0;
@@ -1154,6 +1148,7 @@ static int cvd_try_mbus_fmt(struct v4l2_subdev *sd,
 				struct v4l2_mbus_framefmt *fmt)
 {
 	struct cvd_dev *dec = to_state(sd);
+	v4l2_std_id norm;
 
 	switch (fmt->field) {
 	/* such both interlaced fmts supported, needn't change */
@@ -1168,9 +1163,8 @@ static int cvd_try_mbus_fmt(struct v4l2_subdev *sd,
 	}
 
 	fmt->width = 720;
-	if (!dec->norm_detected)
-		cvd_querystd(sd, &dec->norm);
-	fmt->height = dec->norm & V4L2_STD_525_60 ? 480 : 576;
+	cvd_querystd(sd, &norm);
+	fmt->height = norm & V4L2_STD_525_60 ? 480 : 576;
 
 	return 0;
 }
