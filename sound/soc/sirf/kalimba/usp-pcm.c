@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <sound/soc.h>
 
 #include "../sirf-usp.h"
 
@@ -90,10 +91,16 @@ void sirf_usp_pcm_params(int port, int playback, int channels, int rate)
 
 	shifter_len = data_len;
 
-	/* DSP_A mode */
-	regmap_update_bits(usp[port]->regmap, USP_RX_FRAME_CTRL,
-			USP_I2S_SYNC_CHG, 0);
-	frame_len = data_len * channels;
+	/* SYNC mode I2S or DSP_A*/
+	if (usp[port]->daifmt_format & SND_SOC_DAIFMT_I2S) {
+		regmap_update_bits(usp[port]->regmap, USP_RX_FRAME_CTRL,
+				USP_I2S_SYNC_CHG, USP_I2S_SYNC_CHG);
+		frame_len = data_len;
+	} else {
+		regmap_update_bits(usp[port]->regmap, USP_RX_FRAME_CTRL,
+				USP_I2S_SYNC_CHG, 0);
+		frame_len = data_len * channels;
+	}
 	data_len = frame_len;
 
 	if (playback)
@@ -173,6 +180,7 @@ static void sirf_usp_i2s_init(struct sirf_usp *usp)
 	/* Congiure TX FIFO Level Check register */
 	regmap_write(usp->regmap, USP_TX_FIFO_LEVEL_CHK,
 		TX_FIFO_SC(fifo_h) | TX_FIFO_LC(fifo_m) | TX_FIFO_HC(fifo_l));
+
 }
 
 static const struct regmap_config sirf_usp_regmap_config = {
@@ -190,6 +198,7 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	int i;
 	int port;
+	const char *fs_mode;
 	bool is_atlas7_bt_usp = false;
 
 	if (of_property_read_u32(pdev->dev.of_node, "cell-index", &port)) {
@@ -253,6 +262,14 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 			}
 		}
 	}
+
+	ret = of_property_read_string(pdev->dev.of_node, "frame-sync-mode",
+			&fs_mode);
+	if (ret == 0) {
+		if (!strcmp("i2s", fs_mode))
+			usp[port]->daifmt_format |= SND_SOC_DAIFMT_I2S;
+	}
+
 	sirf_usp_i2s_init(usp[port]);
 
 	return 0;
