@@ -2012,6 +2012,7 @@ static int sirfsoc_lcdc_resume_early(struct device *dev)
 	if (unlikely(ret))
 		goto exit;
 
+	enable_irq(lcdc->irq);
 	_sirfsoc_lcdc_set_irqs(lcdc->id);
 
 	if (lcdc->cur_pad) {
@@ -2025,7 +2026,6 @@ static int sirfsoc_lcdc_resume_early(struct device *dev)
 			lcdc_write_reg(lcdc->id, PADMUX_LDD_0 + i * 4,
 				       1 << plist[i]);
 	}
-
 exit:
 	return ret;
 }
@@ -2033,9 +2033,8 @@ exit:
 static int sirfsoc_lcdc_suspend(struct device *dev)
 {
 	struct sirfsoc_lcdc *lcdc = dev_get_drvdata(dev);
-	struct sirfsoc_lcdc_irq *lcdc_irq = &lcdc->lcdc_irq;
 
-	lcdc_write_intmask(lcdc->id, lcdc_irq->irq_err_mask);
+	disable_irq(lcdc->irq);
 	clk_disable_unprepare(lcdc->clk);
 	return 0;
 }
