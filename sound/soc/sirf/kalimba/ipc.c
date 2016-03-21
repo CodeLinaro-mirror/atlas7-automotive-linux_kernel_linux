@@ -373,7 +373,9 @@ static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 				kwatchdog_clear();
 				break;
 			}
+			mutex_unlock(&ipc_data->ipc_comm_mutex);
 			usleep_range(50, 60);
+			mutex_lock(&ipc_data->ipc_comm_mutex);
 		}
 		if (i == 10) {
 			kcoredump();
