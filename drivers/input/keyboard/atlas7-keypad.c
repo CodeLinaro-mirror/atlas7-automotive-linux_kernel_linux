@@ -48,9 +48,11 @@ struct atlas7_keys {
 	u32			keys_map_count;
 	u32			keys_keycode;
 	u32			max_press_volt;
+	struct workqueue_struct *keys_wq;
+	struct delayed_work     keys_poll;
 };
 
-static void atlas7_keys_release_keys(struct atlas7_keys *keys)
+static void atlas7_keys_try_release_keys(struct atlas7_keys *keys)
 {
 	int i;
 
@@ -59,45 +61,24 @@ static void atlas7_keys_release_keys(struct atlas7_keys *keys)
 			input_report_key(keys->input,
 					keys->keys_map[i].keycode, 0);
 			input_sync(keys->input);
-
 			keys->keys_map[i].pressed = false;
 		}
 	}
 }
 
-static irqreturn_t atlas7_keys_irq_handler(int irq, void *dev_id)
+static void atlas7_keys_try_press_keys(struct atlas7_keys *keys, int volt)
 {
-	struct atlas7_keys *keys = dev_id;
-	int volt;
-	int ret;
 	int i;
 
-	ret = iio_read_channel_processed(keys->chan, &volt);
-	if (ret < 0)
-		dev_WARN(keys->dev, "read channel error\n");
-
 	for (i = 0; i < keys->keys_map_count; i++) {
-		if (abs(keys->keys_map[i].voltage - volt) < 35) {
+		if (abs(keys->keys_map[i].voltage - volt) < 35
+			&& keys->keys_map[i].pressed == false) {
 			input_report_key(keys->input,
 					keys->keys_map[i].keycode, 1);
 			input_sync(keys->input);
-
 			keys->keys_map[i].pressed = true;
 		}
 	}
-
-	/* poll key-up since key-up has no interrupt */
-	do {
-		msleep(KEYS_DETECT_UP_TIME);
-
-		ret = iio_read_channel_processed(keys->chan, &volt);
-		if (ret < 0)
-			dev_err(keys->dev, "read channel error\n");
-	} while (volt < keys->max_press_volt);
-
-	atlas7_keys_release_keys(keys);
-
-	return IRQ_HANDLED;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -106,7 +87,7 @@ static int atlas7_keys_suspend(struct device *dev)
 	struct atlas7_keys *keys = dev_get_drvdata(dev);
 
 	writel(0, keys->comp_base + KEY_COMPARE_CTRL);
-	disable_irq(keys->irq);
+	cancel_delayed_work(&keys->keys_poll);
 	return 0;
 }
 
@@ -115,13 +96,34 @@ static int atlas7_keys_resume(struct device *dev)
 	struct atlas7_keys *keys = dev_get_drvdata(dev);
 
 	writel(KEY_COMPARE_EN, keys->comp_base + KEY_COMPARE_CTRL);
-	enable_irq(keys->irq);
+	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 30);
 	return 0;
 }
 
 static SIMPLE_DEV_PM_OPS(atlas7_keys_pm_ops,
 			atlas7_keys_suspend, atlas7_keys_resume);
 #endif
+
+static void atlas7_adc_key_func(struct work_struct *work)
+{
+	struct delayed_work *delay = to_delayed_work(work);
+	struct atlas7_keys *keys = container_of(delay,
+				   struct atlas7_keys, keys_poll);
+	int volt;
+	int ret;
+	int i;
+
+	ret = iio_read_channel_processed(keys->chan, &volt);
+	if (ret < 0)
+		dev_WARN(keys->dev, "read channel error\n");
+
+	if (volt < keys->max_press_volt)
+		atlas7_keys_try_press_keys(keys, volt);
+	else
+		atlas7_keys_try_release_keys(keys);
+
+	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 30);
+}
 
 static int atlas7_keys_probe(struct platform_device *pdev)
 {
@@ -201,20 +203,8 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 	}
 	writel(KEY_COMPARE_EN, keys->comp_base + KEY_COMPARE_CTRL);
 
-	keys->irq = platform_get_irq(pdev, 0);
-	if (keys->irq < 0) {
-		dev_err(&pdev->dev, "atlas7 keys: get irq failed!\n");
-		return keys->irq;
-	}
-	irq_set_status_flags(keys->irq, IRQ_NOAUTOEN);
-
-	ret = devm_request_threaded_irq(&pdev->dev, keys->irq, NULL,
-				atlas7_keys_irq_handler,
-				IRQF_ONESHOT, "atlas7-keys", keys);
-	if (ret) {
-		dev_err(&pdev->dev, "atlas7 keys: request irq thread fail!\n");
-		return ret;
-	}
+	keys->keys_wq = create_singlethread_workqueue("atlas7_adckeys");
+	INIT_DELAYED_WORK(&keys->keys_poll, atlas7_adc_key_func);
 
 	keys->dev = &pdev->dev;
 	keys->input = devm_input_allocate_device(&pdev->dev);
@@ -235,7 +225,7 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 		goto out;
 
 	platform_set_drvdata(pdev, keys);
-	enable_irq(keys->irq);
+	queue_delayed_work(keys->keys_wq, &keys->keys_poll, 0);
 
 	return 0;
 out:
@@ -250,9 +240,9 @@ static int atlas7_keys_remove(struct platform_device *pdev)
 
 	writel(0, keys->comp_base + KEY_COMPARE_CTRL);
 	iounmap(keys->comp_base);
-	disable_irq(keys->irq);
 	input_unregister_device(keys->input);
 	iio_channel_release(keys->chan);
+	destroy_workqueue(keys->keys_wq);
 
 	return 0;
 }
