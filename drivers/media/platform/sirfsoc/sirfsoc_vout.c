@@ -1412,6 +1412,7 @@ static int sirfsoc_vout_querycap(struct file *file, void  *priv,
 	WARN_ON(priv != file->private_data);
 
 	strlcpy(cap->driver, SIRFSOC_VOUT_DRV_NAME, sizeof(cap->driver));
+	strlcpy(cap->card, SIRFSOC_VOUT_DRV_NAME, sizeof(cap->card));
 	cap->version = SIRFSOC_VOUT_VERSION_CODE;
 	cap->capabilities = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING |
 		V4L2_CAP_VIDEO_OUTPUT_OVERLAY;
