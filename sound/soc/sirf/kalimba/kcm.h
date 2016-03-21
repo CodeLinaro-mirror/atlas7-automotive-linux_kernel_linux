@@ -39,6 +39,9 @@
 #define VOICECALL_IACC_TO_BT_STREAM	9
 #define VOICECALL_CAPTURE_STREAM	10
 #define IACC_LOOPBACK_CAPTURE_STREAM	11
+#define USP0_TO_IACC_LOOPBACK_STREAM	12
+#define USP1_TO_IACC_LOOPBACK_STREAM	13
+#define USP2_TO_IACC_LOOPBACK_STREAM	14
 
 /* Virtual streams which are used mono and 4 channels music playback */
 #define MUSIC_MONO_STREAM		16
@@ -51,6 +54,7 @@
 
 
 #include "ipc.h"
+#include "usp-pcm.h"
 
 struct hw_ep_handle_buff_t {
 	struct endpoint_handle *handle;
@@ -71,9 +75,9 @@ struct kcm_t {
 	struct hw_ep_handle_buff_t capture_iacc_sco_ep;
 	struct hw_ep_handle_buff_t playback_usp_sco_ep;
 	struct hw_ep_handle_buff_t capture_usp_sco_ep;
-	struct hw_ep_handle_buff_t capture_usp_a2dp_ep;
 	struct hw_ep_handle_buff_t capture_iacc_stereo_ep;
 	struct hw_ep_handle_buff_t capture_i2s_stereo_ep;
+	struct hw_ep_handle_buff_t capture_usp_stereo_ep[USP_PORTS];
 	unsigned long running_pipeline;
 };
 

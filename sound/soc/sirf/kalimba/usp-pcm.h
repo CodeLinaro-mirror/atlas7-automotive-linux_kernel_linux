@@ -16,6 +16,8 @@
 #ifndef _KAS_USP_PCM_H
 #define _KAS_USP_PCM_H
 
+#define USP_PORTS		4
+
 void sirf_usp_pcm_start(int port, int playback);
 void sirf_usp_pcm_stop(int port, int playback);
 void sirf_usp_pcm_params(int port, int playback, int channels, int rate);

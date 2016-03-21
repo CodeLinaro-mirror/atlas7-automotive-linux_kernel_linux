@@ -23,8 +23,8 @@
 #include <sound/soc.h>
 
 #include "../sirf-usp.h"
+#include "usp-pcm.h"
 
-#define SUPPORT_USP_PORT		4
 /* Extra clocks required by Atlas7 USP3 */
 static const char *const a7_exclks[] = {
 	"a7ca_btss", "a7ca_io",
@@ -42,7 +42,7 @@ struct sirf_usp {
 	u32 fifo_size;
 };
 
-static struct sirf_usp *usp[SUPPORT_USP_PORT];
+static struct sirf_usp *usp[USP_PORTS];
 
 static void sirf_usp_tx_enable(struct sirf_usp *usp)
 {

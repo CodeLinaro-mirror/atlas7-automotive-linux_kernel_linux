@@ -198,6 +198,43 @@ static struct snd_soc_dai_link kas_audio_dais[] = {
 			SND_SOC_DPCM_TRIGGER_POST},
 		.dpcm_capture = 1,
 	},
+	{
+		.name = "USP0",
+		.stream_name = "USP0 Playback",
+		.cpu_dai_name = "USP0 Pin",
+		.platform_name = "kas-pcm-audio",
+		.dynamic = 1,
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.dpcm_playback = 1,
+	},
+	{
+		.name = "USP1",
+		.stream_name = "USP1 Playback",
+		.cpu_dai_name = "USP1 Pin",
+		.platform_name = "kas-pcm-audio",
+		.dynamic = 1,
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.dpcm_playback = 1,
+	},
+	{
+		.name = "USP2",
+		.stream_name = "USP2 Playback",
+		.cpu_dai_name = "USP2 Pin",
+		.platform_name = "kas-pcm-audio",
+		.dynamic = 1,
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.dpcm_playback = 1,
+	},
+
 	/* Back End DAI links */
 	{
 		/* IACC - Codec */

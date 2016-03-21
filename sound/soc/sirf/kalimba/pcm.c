@@ -33,7 +33,7 @@
 
 bool enable_2mic_cvc = false;
 module_param(enable_2mic_cvc, bool, 0);
-#define KAS_PCM_COUNT	12
+#define KAS_PCM_COUNT	15
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
@@ -909,20 +909,40 @@ static int kas_pcm_voicecall_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int kas_pcm_a2dp_hw_params(struct snd_pcm_substream *substream,
+static int kas_pcm_usp_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct kas_priv_data *pdata =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kcm_t *kcm = pdata->kcm;
+	int stream = rtd->cpu_dai->id;
+	int usp_port;
 
-	memset(kcm->capture_usp_a2dp_ep.buff, 0,
-		kcm->capture_usp_a2dp_ep.buff_bytes);
-	sirf_usp_pcm_params(bt_usp_port, 0, kcm->capture_usp_a2dp_ep.channels,
-		kcm->capture_usp_a2dp_ep.sample_rate);
+	switch (stream) {
+	case USP0_TO_IACC_LOOPBACK_STREAM:
+		usp_port = 0;
+		break;
+	case USP1_TO_IACC_LOOPBACK_STREAM:
+		usp_port = 1;
+		break;
+	case USP2_TO_IACC_LOOPBACK_STREAM:
+		usp_port = 2;
+		break;
+	case A2DP_STREAM:
+		usp_port = 3;
+		break;
+	default:
+		break;
+	}
+
+	memset(kcm->capture_usp_stereo_ep[usp_port].buff, 0,
+		kcm->capture_usp_stereo_ep[usp_port].buff_bytes);
+	sirf_usp_pcm_params(usp_port, 0,
+		kcm->capture_usp_stereo_ep[usp_port].channels,
+		kcm->capture_usp_stereo_ep[usp_port].sample_rate);
 	prepare_stream(rtd->cpu_dai->id, params_channels(params), 0,
-		params_rate(params), 1, params_period_bytes(params) / 4);
+		params_rate(params), 0, params_period_bytes(params) / 4);
 	return 0;
 }
 
@@ -1053,7 +1073,7 @@ static int kas_pcm_voicecall_hw_free(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static int kas_pcm_a2dp_hw_free(struct snd_pcm_substream *substream)
+static int kas_pcm_usp_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 
@@ -1240,7 +1260,7 @@ error:
 	return -EPIPE;
 }
 
-static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
+static int kas_pcm_usp_trigger(struct snd_pcm_substream *substream,
 	int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1248,16 +1268,35 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct kcm_t *kcm = pdata->kcm;
 	int ret;
+	int stream = rtd->cpu_dai->id;
+	int usp_port;
 
-	memset(kcm->capture_usp_a2dp_ep.buff, 0,
-			kcm->capture_usp_a2dp_ep.buff_bytes);
+	switch (stream) {
+	case USP0_TO_IACC_LOOPBACK_STREAM:
+		usp_port = 0;
+		break;
+	case USP1_TO_IACC_LOOPBACK_STREAM:
+		usp_port = 1;
+		break;
+	case USP2_TO_IACC_LOOPBACK_STREAM:
+		usp_port = 2;
+		break;
+	case A2DP_STREAM:
+		usp_port = 3;
+		break;
+	default:
+		break;
+	}
+
+	memset(kcm->capture_usp_stereo_ep[usp_port].buff, 0,
+			kcm->capture_usp_stereo_ep[usp_port].buff_bytes);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		iacc_start(1, kcm->playback_iacc_ep.channels);
-		sirf_usp_pcm_start(bt_usp_port, 0);
+		sirf_usp_pcm_start(usp_port, 0);
 		ret = start_stream(rtd->cpu_dai->id, 1);
 		if (ret < 0)
 			goto error;
@@ -1266,14 +1305,14 @@ static int kas_pcm_a2dp_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		iacc_stop(1);
-		sirf_usp_pcm_stop(bt_usp_port, 0);
+		sirf_usp_pcm_stop(usp_port, 0);
 		break;
 	}
 	return 0;
 
 error:
 	iacc_stop(1);
-	sirf_usp_pcm_stop(bt_usp_port, 0);
+	sirf_usp_pcm_stop(usp_port, 0);
 	return -EPIPE;
 
 }
@@ -1468,10 +1507,13 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 			pcm_data->hw_params = kas_pcm_voicecall_hw_params;
 			pcm_data->hw_free = kas_pcm_voicecall_hw_free;
 			pcm_data->trigger = kas_pcm_voicecall_trigger;
-		} else if (!strcmp(stream_name, "A2DP Playback")) {
-			pcm_data->hw_params = kas_pcm_a2dp_hw_params;
-			pcm_data->hw_free = kas_pcm_a2dp_hw_free;
-			pcm_data->trigger = kas_pcm_a2dp_trigger;
+		} else if (!(strcmp(stream_name, "A2DP Playback") &&
+				strcmp(stream_name, "USP0 Playback") &&
+				strcmp(stream_name, "USP1 Playback") &&
+				strcmp(stream_name, "USP2 Playback"))) {
+			pcm_data->hw_params = kas_pcm_usp_hw_params;
+			pcm_data->hw_free = kas_pcm_usp_hw_free;
+			pcm_data->trigger = kas_pcm_usp_trigger;
 		} else if (!(strcmp(stream_name, "Iacc-loopback-playback") &&
 			strcmp(stream_name, "Iacc-loopback-capture"))) {
 			pcm_data->hw_params = kas_pcm_iacc_loopback_hw_params;
@@ -1671,6 +1713,36 @@ static struct snd_soc_dai_driver kas_dais[] = {
 			.rates = KAS_RATES,
 			.formats = KAS_FORMATS,
 		},
+	},
+	{
+		.name = "USP0 Pin",
+		.playback = {
+			.stream_name = "USP0 Playback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
+		.name = "USP1 Pin",
+		.playback = {
+			.stream_name = "USP1 Playback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
+	},
+	{
+		.name = "USP2 Pin",
+		.playback = {
+			.stream_name = "USP2 Playback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = KAS_RATES,
+			.formats = KAS_FORMATS,
+		},
 	}
 };
 
@@ -1697,6 +1769,9 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"Voicecall-iacc-to-bt", NULL, "Codec IN"},
 	{"Voicecall-capture", NULL, "Codec IN"},
 	{"Iacc-loopback-capture", NULL, "Codec IN"},
+	{"Playback VMixer", NULL, "USP0 Playback"},
+	{"Playback VMixer", NULL, "USP1 Playback"},
+	{"Playback VMixer", NULL, "USP2 Playback"},
 };
 
 static const struct snd_soc_component_driver kas_dai_component = {

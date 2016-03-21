@@ -32,6 +32,7 @@
 #define SET_PRIMARY_STREAM		0
 #define CLEAR_PRIMARY_STREAM		1
 
+
 static struct kcm_t *kcm;
 
 static struct component components_global[512];
@@ -1464,62 +1465,64 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 	return i;
 }
 
-static int init_a2dp_pipeline(int bt_usp_port, int index)
+static int init_usp_pipeline(int usp_port, int index)
 {
 	int i = index;
 	int k, j = 0;
 	int source_to_passthrough_connection[2];
-	int usp3_source;
+	int usp_source;
 	u32 device_instance_id;
+	u32 stream_id;
+	struct hw_ep_handle_buff_t *usp_hw_ep;
 
-	switch (bt_usp_port) {
+	switch (usp_port) {
 	case 0:
 		device_instance_id = ENDPOINT_PHY_DEV_PCM0;
+		stream_id = USP0_TO_IACC_LOOPBACK_STREAM;
 		break;
 	case 1:
 		device_instance_id = ENDPOINT_PHY_DEV_PCM1;
+		stream_id = USP1_TO_IACC_LOOPBACK_STREAM;
 		break;
 	case 2:
 		device_instance_id = ENDPOINT_PHY_DEV_PCM2;
+		stream_id = USP2_TO_IACC_LOOPBACK_STREAM;
 		break;
 	case 3:
 		device_instance_id = ENDPOINT_PHY_DEV_A7CA;
+		stream_id = A2DP_STREAM;
 		break;
 	default:
 		WARN_ON(1);
 		pr_err("Only support usp 0,1,2,3 for bluetooth\n");
 		return -EINVAL;
 	}
-
+	usp_hw_ep = &kcm->capture_usp_stereo_ep[usp_port];
 	components_global[i].component_id = GET_SOURCE_REQ;
 	components_global[i].params[0] = ENDPOINT_TYPE_USP;
 	components_global[i].params[1] = device_instance_id;
-	components_global[i].params[2] = (u32)(&kcm->capture_usp_a2dp_ep);
+	components_global[i].params[2] = (u32)(usp_hw_ep);
 	components_global[i].params[3] = 5; /* Config items */
 	components_global[i].params[4] = ENDPOINT_CONF_AUDIO_SAMPLE_RATE;
-	components_global[i].params[5] =
-			(u32)(&kcm->capture_usp_a2dp_ep.sample_rate);
+	components_global[i].params[5] = (u32)(&usp_hw_ep->sample_rate);
 	components_global[i].params[6] = ENDPOINT_CONF_AUDIO_DATA_FORMAT;
-	components_global[i].params[7] =
-			(u32)(&kcm->capture_usp_a2dp_ep.audio_data_format);
+	components_global[i].params[7] = (u32)(&usp_hw_ep->audio_data_format);
 	components_global[i].params[8] = ENDPOINT_CONF_DRAM_PACKING_FORMAT;
-	components_global[i].params[9] =
-			(u32)(&kcm->capture_usp_a2dp_ep.packing_format);
+	components_global[i].params[9] = (u32)(&usp_hw_ep->packing_format);
 	components_global[i].params[10] = ENDPOINT_CONF_INTERLEAVING_MODE;
 	components_global[i].params[11] =
-			(u32)(&kcm->capture_usp_a2dp_ep.interleaving_format);
+		(u32)(&usp_hw_ep->interleaving_format);
 	components_global[i].params[12] = ENDPOINT_CONF_CLOCK_MASTER;
-	components_global[i].params[13] =
-			(u32)(&kcm->capture_usp_a2dp_ep.clock_master);
-	usp3_source = i;
+	components_global[i].params[13] = (u32)(&usp_hw_ep->clock_master);
+	usp_source = i;
 	i++;
-	resample_op_id[A2DP_STREAM] = music_resampler;
+	resample_op_id[stream_id] = music_resampler;
 
 	for (k = 0; k < 2; k++) {
 		source_to_passthrough_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
-			(u32)(&components_global[usp3_source].ret[k]);
+			(u32)(&components_global[usp_source].ret[k]);
 		components_global[i].params[1] = 0;
 		components_global[i].params[2] =
 			(u32)(&components_global[music_passthrough].ret[0]);
@@ -1527,58 +1530,58 @@ static int init_a2dp_pipeline(int bt_usp_port, int index)
 		i++;
 	}
 
-	pipeline_link[A2DP_STREAM][j++] = usp3_source;
-	pipeline_link[A2DP_STREAM][j++] = music_passthrough;
+	pipeline_link[stream_id][j++] = usp_source;
+	pipeline_link[stream_id][j++] = music_passthrough;
 	for (k = 0; k < 2; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			source_to_passthrough_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = music_resampler;
+	pipeline_link[stream_id][j++] = music_resampler;
 	for (k = 0; k < 2; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_passthrough_to_resampler_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = music_splitter;
+	pipeline_link[stream_id][j++] = music_splitter;
 	for (k = 0; k < 2; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_resampler_to_splitter_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = music_usr_peq;
+	pipeline_link[stream_id][j++] = music_usr_peq;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_splitter_to_usrpeq_connection[k];
 	for (k = 0; k < 2; k++)
-		pipeline_link[A2DP_STREAM][j++] = music_dbe[k];
+		pipeline_link[stream_id][j++] = music_dbe[k];
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_usrpeq_to_dbe_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = music_delay;
+	pipeline_link[stream_id][j++] = music_delay;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_dbe_to_delay_connection[k];
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] = music_spk_peq[k];
+		pipeline_link[stream_id][j++] = music_spk_peq[k];
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_delay_to_spkpeq_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = mixer_1;
+	pipeline_link[stream_id][j++] = mixer_1;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			music_spkpeq_to_mixer1_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = mixer_2;
+	pipeline_link[stream_id][j++] = mixer_2;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			mixer1_to_mixer2_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = volume_ctrl;
+	pipeline_link[stream_id][j++] = volume_ctrl;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			mixer2_to_volumectrl_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = aec_ref;
+	pipeline_link[stream_id][j++] = aec_ref;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			volumectrl_to_aecref_connection[k];
-	pipeline_link[A2DP_STREAM][j++] = iacc_sink;
+	pipeline_link[stream_id][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
-		pipeline_link[A2DP_STREAM][j++] =
+		pipeline_link[stream_id][j++] =
 			aecref_to_iaccsink_connection[k];
-	pipeline_link_count[A2DP_STREAM] = j;
+	pipeline_link_count[stream_id] = j;
 	return i;
 }
 
@@ -1902,6 +1905,7 @@ static int init_i2s_to_iacc_loopback_pipeline(int index)
 static void init_pipeline(int bt_usp_port)
 {
 	int index;
+	int i;
 
 	index = init_music_stereo_pipeline();
 	index = init_music_mono_pipeline(index);
@@ -1911,7 +1915,8 @@ static void init_pipeline(int bt_usp_port)
 	index = init_capture_mono_pipeline(index);
 	index = init_capture_stereo_pipeline(index);
 	index = init_voicecall_bt_to_iacc_pipeline(bt_usp_port, index);
-	index = init_a2dp_pipeline(bt_usp_port, index);
+	for (i = 0; i < USP_PORTS; i++)
+		index = init_usp_pipeline(i, index);
 	index = init_voicecall_capture_pipeline(index);
 	index = init_voicecall_playback_pipeline(index);
 	index = init_iacc_loopback_playback_pipeline(index);
@@ -2016,6 +2021,7 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 	u16 resp[64];
 	int i;
 	int ret;
+	int usp_port;
 	struct component *stream_first_component =
 		&components_global[pipeline_link[stream][0]];
 	u16 resample_cfg;
@@ -2167,9 +2173,28 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 				&sw_endpoint_connect_id[stream][i], resp);
 			if (ret < 0)
 				goto out;
-	} else if (stream == A2DP_STREAM) {
+	} else if (stream == A2DP_STREAM
+		|| stream == USP0_TO_IACC_LOOPBACK_STREAM
+		|| stream == USP1_TO_IACC_LOOPBACK_STREAM
+		|| stream == USP2_TO_IACC_LOOPBACK_STREAM) {
+		switch (stream) {
+		case USP0_TO_IACC_LOOPBACK_STREAM:
+			usp_port = 0;
+			break;
+		case USP1_TO_IACC_LOOPBACK_STREAM:
+			usp_port = 1;
+			break;
+		case USP2_TO_IACC_LOOPBACK_STREAM:
+			usp_port = 2;
+			break;
+		case A2DP_STREAM:
+			usp_port = 3;
+			break;
+		default:
+			break;
+		}
 		resample_cfg = get_rasample_conversion_conf(
-			kcm->capture_usp_a2dp_ep.sample_rate,
+			kcm->capture_usp_stereo_ep[usp_port].sample_rate,
 			kcm->playback_iacc_ep.sample_rate);
 		/* Set resample configration */
 		ret = kalimba_operator_message(
@@ -2749,6 +2774,7 @@ struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 {
 	int ret;
 	int i;
+	int alloced_usp_ep = 0;
 
 	kcm = devm_kzalloc(dev, sizeof(struct kcm_t), GFP_KERNEL);
 	if (kcm == NULL)
@@ -2780,12 +2806,6 @@ struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 		pr_err("Allocate USP-SCO capture endpoint buffer failed.\n");
 		goto error_alloc_capture_usp_sco_ep_failed;
 	}
-	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep,
-		BUFF_BYTES_EACH_CHANNEL, 2, 48000);
-	if (ret) {
-		pr_err("Allocate USP-A2DP capture endpoint buffer failed.\n");
-		goto error_alloc_capture_usp_a2dp_ep_failed;
-	}
 	ret = alloc_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep,
 		BUFF_BYTES_IACC_SCO_CAPTURE, enable_2mic_cvc ? 2 : 1,
 		48000);
@@ -2807,6 +2827,16 @@ struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 		pr_err("Allocate I2S(2ch) capture endpoint buffer failed.\n");
 		goto error_alloc_capture_i2s_stereo_ep_failed;
 	}
+	for (i = 0; i < USP_PORTS; i++) {
+		ret  = alloc_hw_ep_handle_and_buff(dev,
+			&kcm->capture_usp_stereo_ep[i], BUFF_BYTES_EACH_CHANNEL,
+			2, 48000);
+		if (ret) {
+			pr_err("Allocate usp capture ep buffer failed.\n");
+			goto error_alloc_capture_usp_stereo_ep_failed;
+		}
+		alloced_usp_ep++;
+	}
 	for (i = 0; i < PEQ_NUM_MAX; i++)
 		memcpy(&music_peqs_default_params[i][3],
 			peq_params_array_def, sizeof(peq_params_array_def));
@@ -2815,13 +2845,15 @@ struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 	init_pipeline(bt_usp_port);
 
 	return kcm;
+error_alloc_capture_usp_stereo_ep_failed:
+	for (i = 0; i < alloced_usp_ep; i++)
+		free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_stereo_ep[i]);
+	free_hw_ep_handle_and_buff(dev, &kcm->capture_i2s_stereo_ep);
 error_alloc_capture_i2s_stereo_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_stereo_ep);
 error_alloc_capture_iacc_stereo_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
 error_alloc_capture_iacc_sco_ep_failed:
-	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
-error_alloc_capture_usp_a2dp_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
 error_alloc_capture_usp_sco_ep_failed:
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
@@ -2834,12 +2866,15 @@ error_alloc_capture_iacc_mono_ep_failed:
 
 void kcm_deinit(struct device *dev)
 {
+	int i;
+
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_i2s_stereo_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_stereo_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_mono_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_iacc_sco_ep);
-	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_a2dp_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_usp_sco_ep);
 	free_hw_ep_handle_and_buff(dev, &kcm->playback_iacc_ep);
+	for (i = 0; i < USP_PORTS; i++)
+		free_hw_ep_handle_and_buff(dev, &kcm->capture_usp_stereo_ep[i]);
 }
