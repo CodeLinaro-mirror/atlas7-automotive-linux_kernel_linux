@@ -473,20 +473,33 @@ out:
 
 static irqreturn_t ipc_irq_handler(int irq, void *pdata)
 {
-	/* Read from IPC interrupt register will clear the interrupt */
-	readl(ipc_data->ipc_base + IPC_TRGT1_INIT3_1);
+	while (1) {
+		/* Read from IPC interrupt register will clear the interrupt */
+		readl(ipc_data->ipc_base + IPC_TRGT1_INIT3_1);
 
-	if (ipc_recv_msg_payload_handler() == IPC_SEND_MSG_TO_ARM) {
-		if (kfifo_put(&ipc_msg_kfifo, ipc_data->message))
-			schedule_work(&ipc_data->msg_process_work);
-		else
-			pr_err("Kalimba IPC message buffer overflow.\n");
+		/*
+		 * If the DSP send counter unequal to  ARM ack counter,
+		 * that means the DSP send a message or respone to the ARM
+		 * After a message or respone processed, check again.
+		 */
 		mutex_lock(&ipc_data->ipc_comm_mutex);
-		ipc_clear_raised_and_send_ack();
+		if (read_sram(DSP_SEND_COUNT_ADDR) ==
+				read_sram(ARM_ACK_COUNT_ADDR)) {
+			mutex_unlock(&ipc_data->ipc_comm_mutex);
+			return IRQ_HANDLED;
+		}
 		mutex_unlock(&ipc_data->ipc_comm_mutex);
-	}
 
-	return IRQ_HANDLED;
+		if (ipc_recv_msg_payload_handler() == IPC_SEND_MSG_TO_ARM) {
+			if (kfifo_put(&ipc_msg_kfifo, ipc_data->message))
+				schedule_work(&ipc_data->msg_process_work);
+			else
+				pr_err("Kalimba IPC msg buff overflow.\n");
+			mutex_lock(&ipc_data->ipc_comm_mutex);
+			ipc_clear_raised_and_send_ack();
+			mutex_unlock(&ipc_data->ipc_comm_mutex);
+		}
+	}
 }
 
 static const struct regmap_config kalimba_regs_regmap_config = {
