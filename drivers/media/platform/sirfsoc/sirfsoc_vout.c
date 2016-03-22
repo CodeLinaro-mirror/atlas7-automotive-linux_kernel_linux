@@ -477,31 +477,8 @@ static int __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	params.op.passthrough.src_surf = src_surf;
 	params.op.passthrough.src_rect = src_rect;
 	params.op.passthrough.dst_rect = dst_rect;
-
-	if ((field == V4L2_FIELD_SEQ_TB) ||
-		(field == V4L2_FIELD_SEQ_BT) ||
-		(field == V4L2_FIELD_INTERLACED_TB) ||
-		(field == V4L2_FIELD_INTERLACED_BT)) {
-		params.op.passthrough.interlace.interlaced = true;
-		params.op.passthrough.interlace.out_mode =
-						VDSS_P_SINGLE;
-		params.op.passthrough.interlace.di_mode =
-						vout->di_mode;
-		params.op.passthrough.interlace.input_top_first =
-			((field == V4L2_FIELD_INTERLACED_TB) ||
-			(field == V4L2_FIELD_SEQ_TB)) ? true : false;
-		params.op.passthrough.interlace.field_offset =
-			((field == V4L2_FIELD_SEQ_TB) ||
-				(field == V4L2_FIELD_SEQ_BT)) ?
-			vout->surf_width * vout->surf_height :
-			vout->surf_width * vout->surf_height / 2;
-
-		if ((field == V4L2_FIELD_INTERLACED_TB) ||
-			(field == V4L2_FIELD_INTERLACED_BT))
-			params.op.passthrough.interlace.field_offset =
-								0;
-	}
-
+	if (src_surf.field != VDSS_FIELD_NONE)
+		params.op.passthrough.interlace.di_mode = vout->di_mode;
 	params.op.passthrough.color_ctrl.brightness =
 				vout->color_ctrl.brightness;
 	params.op.passthrough.color_ctrl.contrast =

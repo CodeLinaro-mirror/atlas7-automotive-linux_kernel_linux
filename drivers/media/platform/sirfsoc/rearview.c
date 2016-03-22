@@ -881,6 +881,7 @@ static void rv_start(struct rv_dev *rv)
 
 	src_surf.width = rv->width;
 	src_surf.height = rv->height;
+	src_surf.field = VDSS_FIELD_SEQ_TB;
 	src_surf.base = 0;
 
 	if (!sirfsoc_vdss_check_size(VDSS_DISP_IBV, &src_surf,
@@ -925,14 +926,7 @@ static void rv_start(struct rv_dev *rv)
 		is_cvd_vip((struct vip_dev *)rv->rv_vip) ?
 				SIRFSOC_VDSS_VIP0_EXT : SIRFSOC_VDSS_VIP1_EXT;
 	vpp_op_params.op.ibv.src_size	= 3;
-
-	vpp_op_params.op.ibv.interlace.interlaced = true;
-	vpp_op_params.op.ibv.interlace.field_offset = FRAME_SIZE/2;
-	vpp_op_params.op.ibv.interlace.di_top = false;
-	vpp_op_params.op.ibv.interlace.out_mode = VDSS_P_SINGLE;
 	vpp_op_params.op.ibv.interlace.di_mode = rv->di_mode;
-	vpp_op_params.op.ibv.interlace.input_top_first = true;
-	vpp_op_params.op.ibv.interlace.output_top_first = false;
 
 	vpp_op_params.op.ibv.src_rect = rv->d_info.src_rect;
 	vpp_op_params.op.ibv.dst_rect = rv->d_info.sca_rect;

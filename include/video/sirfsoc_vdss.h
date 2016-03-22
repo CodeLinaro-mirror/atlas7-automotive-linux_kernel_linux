@@ -184,15 +184,12 @@ enum vdss_field {
 	VDSS_FIELD_SEQ_BT,
 	VDSS_FIELD_INTERLACED_TB,
 	VDSS_FIELD_INTERLACED_BT,
+	VDSS_FRAME_TOP,
+	VDSS_FRAME_BOTTOM,
 };
 
 struct vdss_vpp_interlace {
-	u32 field_offset;
-	bool interlaced;
-	bool output_top_first;
-	bool input_top_first;
 	bool di_top;
-	enum vdss_vpp_output_mode out_mode;
 	enum vdss_deinterlace_mode di_mode;
 };
 
@@ -233,7 +230,7 @@ struct vdss_vpp_blt_params {
 	struct vdss_surface src_surf;
 	struct vdss_rect src_rect;
 	struct vdss_vpp_interlace interlace;
-	struct vdss_surface dst_surf;
+	struct vdss_surface dst_surf[2];
 	struct vdss_rect dst_rect;
 	struct vdss_vpp_colorctrl color_ctrl;
 };

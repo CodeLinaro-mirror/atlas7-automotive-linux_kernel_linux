@@ -65,6 +65,12 @@ static bool vdsscomp_layer_enable(
 	src_surf.width = info->width;
 	src_surf.height = info->height;
 	src_surf.base = phys_addr;
+	if (info->interlace.interlaced) {
+		if (info->interlace.field_offset)
+			src_surf.field = VDSS_FIELD_SEQ_TB;
+		else
+			src_surf.field = VDSS_FIELD_INTERLACED_TB;
+	}
 
 	if (sirfsoc_vpp_is_passthrough_support(info->fmt))
 		l->disp_mode = VDSS_DISP_PASS_THROUGH;
@@ -94,15 +100,7 @@ static bool vdsscomp_layer_enable(
 		memset(&params, 0, sizeof(params));
 		params.type = VPP_OP_PASS_THROUGH;
 
-		params.op.passthrough.interlace.interlaced =
-						info->interlace.interlaced;
-		params.op.passthrough.interlace.field_offset =
-						info->interlace.field_offset;
-		params.op.passthrough.interlace.di_top = false;
-		params.op.passthrough.interlace.out_mode = VDSS_P_SINGLE;
 		params.op.passthrough.interlace.di_mode = info->interlace.mode;
-		params.op.passthrough.interlace.input_top_first = true;
-		params.op.passthrough.interlace.output_top_first = false;
 		params.op.passthrough.src_surf = src_surf;
 		params.op.passthrough.src_rect = src_rect;
 		params.op.passthrough.dst_rect = dst_rect;

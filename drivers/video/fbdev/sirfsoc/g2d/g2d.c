@@ -142,13 +142,11 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 		struct vdss_vpp_interlace *interlace;
 
 		interlace = &vpp_params.op.blt.interlace;
-		interlace->out_mode = VDSS_P_SINGLE;
 		interlace->di_mode = VDSS_VPP_DI_WEAVE;
-		interlace->field_offset =
-			params->src.height * params->src.width;
-		interlace->output_top_first = true;
-		interlace->input_top_first = true;
-		interlace->interlaced = true;
+		vpp_params.op.blt.src_surf.field =
+			VDSS_FIELD_SEQ_TB;
+		vpp_params.op.blt.dst_surf[0].field =
+			VDSS_FIELD_INTERLACED_TB;
 	}
 	vpp_params.op.blt.src_surf.fmt = fmt;
 	vpp_params.op.blt.src_surf.width = params->src.width;
@@ -159,10 +157,10 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 	fmt = get_vpp_out_fmt(params->dst.format);
 	if (fmt <= 0)
 		return -EINVAL;
-	vpp_params.op.blt.dst_surf.fmt = fmt;
-	vpp_params.op.blt.dst_surf.width = params->dst.width;
-	vpp_params.op.blt.dst_surf.height = params->dst.height;
-	vpp_params.op.blt.dst_surf.base = params->dst.paddr;
+	vpp_params.op.blt.dst_surf[0].fmt = fmt;
+	vpp_params.op.blt.dst_surf[0].width = params->dst.width;
+	vpp_params.op.blt.dst_surf[0].height = params->dst.height;
+	vpp_params.op.blt.dst_surf[0].base = params->dst.paddr;
 	vpp_params.op.blt.dst_rect = dstrc;
 
 	/*vpp color ctrl*/
