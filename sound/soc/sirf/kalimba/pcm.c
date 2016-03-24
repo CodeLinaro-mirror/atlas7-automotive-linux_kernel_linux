@@ -806,8 +806,6 @@ static int kas_pcm_close(struct snd_pcm_substream *substream)
 
 	close_stream(rtd->cpu_dai->id);
 
-	kwatchdog_stop();
-
 	return 0;
 }
 
@@ -819,7 +817,6 @@ static int kas_data_notify(u16 message, void *priv_data, u16 *message_data)
 		pcm_data->pos = (message_data[1] << 16 | message_data[2]) * 4;
 		snd_pcm_period_elapsed(pcm_data->substream);
 		/* Move the watchdog forward */
-		kwatchdog_clear();
 		return ACTION_HANDLED;
 	} else
 		return ACTION_NONE;

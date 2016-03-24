@@ -365,12 +365,10 @@ static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 		write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, msg[i]);
 	increment_counter(ARM_SEND_COUNT_ADDR);
 	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT1_1);
-	kwatchdog_start();
 	if (need_ack_rsp & MSG_NEED_ACK) {
 		/* Try to check the ACK for 10 times */
 		for (i = 0; i < 10; i++) {
 			if (is_ipc_ack()) {
-				kwatchdog_clear();
 				break;
 			}
 			mutex_unlock(&ipc_data->ipc_comm_mutex);
