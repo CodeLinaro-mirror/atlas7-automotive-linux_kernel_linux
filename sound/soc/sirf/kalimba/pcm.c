@@ -868,6 +868,10 @@ static int kas_pcm_generic_hw_params(struct snd_pcm_substream *substream,
 	pcm_data->sw_ep_handle->buff_addr = dmab->addr;
 	pcm_data->sw_ep_handle->buff_length =
 		params_buffer_bytes(params) / 4;
+	pcm_data->sw_ep_handle->write_pointer = 0;
+	pcm_data->sw_ep_handle->read_pointer = 0;
+
+	memset(dmab->area, 0, params_buffer_bytes(params));
 
 	pcm_data->kalimba_notify_ep_id = prepare_stream(stream,
 		params_channels(params),
