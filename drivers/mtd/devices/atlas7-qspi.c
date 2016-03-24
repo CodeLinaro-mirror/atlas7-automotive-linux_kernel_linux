@@ -35,6 +35,8 @@
 
 #define DRIVER_NAME			"atlas7_qspi"
 
+#define ATLAS7_XIP_CHECK
+
 #define ATLAS7_SOUCRE_CLOCK		160000000
 
 /* QSPI clock rate */
@@ -1179,11 +1181,13 @@ atlas7_qspi_nor_jedec_probe(struct atlas7_qspi_nor *a7nor)
 	return NULL;
 }
 
+#ifdef ATLAS7_XIP_CHECK
 static int atlas7_qspi_is_xip(struct atlas7_qspi_nor *a7nor)
 {
 	return readl(a7nor->base + ATLAS7_QSPI_XOTF_EN) &
 			ATLAS7_QSPI_XOTF_ACTIVATED;
 }
+#endif
 
 static int atlas7_qspi_nor_hw_init(struct atlas7_qspi_nor *a7nor)
 {
@@ -1271,6 +1275,7 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+#ifdef ATLAS7_XIP_CHECK
 	/*
 	* if the QSPI is on XIP mode, M3 is run on it,
 	* a7 should not use qspi.
@@ -1280,6 +1285,7 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 			"The QSPI is on XIP mode.\n");
 		return -EBUSY;
 	}
+#endif
 
 	init_completion(&a7nor->tx_av);
 	init_completion(&a7nor->rx_rdy);
