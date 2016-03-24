@@ -5538,17 +5538,6 @@ save_pull_sel:
 		status->pull = pull_info->v2s[regv].data;
 	}
 
-	/*
-	 * Save disable input selector, this selector is not for Pin,
-	 * but for Mux function.
-	 */
-	for (idx = 0; idx < NUM_OF_IN_DISABLE_REG; idx++) {
-		pmx->status_ds[idx] = readl(pmx->regs[BANK_DS] +
-					IN_DISABLE_0_REG_SET + 0x8 * idx);
-		pmx->status_dsv[idx] = readl(pmx->regs[BANK_DS] +
-					IN_DISABLE_VAL_0_REG_SET + 0x8 * idx);
-	}
-
 	return 0;
 }
 
@@ -5580,21 +5569,6 @@ restore_pull_sel:
 		/* Restore Pull selector */
 		altas7_pinctrl_set_pull_sel(pmx->pctl, idx,
 						(u32)status->pull & 0xff);
-	}
-
-	/*
-	 * Restore disable input selector, this selector is not for Pin,
-	 * but for Mux function
-	 */
-	for (idx = 0; idx < NUM_OF_IN_DISABLE_REG; idx++) {
-		writel(~0, pmx->regs[BANK_DS] +
-					IN_DISABLE_0_REG_CLR + 0x8 * idx);
-		writel(pmx->status_ds[idx], pmx->regs[BANK_DS] +
-					IN_DISABLE_0_REG_SET + 0x8 * idx);
-		writel(~0, pmx->regs[BANK_DS] +
-					IN_DISABLE_VAL_0_REG_CLR + 0x8 * idx);
-		writel(pmx->status_dsv[idx], pmx->regs[BANK_DS] +
-					IN_DISABLE_VAL_0_REG_SET + 0x8 * idx);
 	}
 
 	return 0;
