@@ -864,6 +864,21 @@ static int it68013_remove(struct i2c_client *client)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int it68013_pm_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+
+	/* do the hardware initialization */
+	it68013_video_probe(client);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(it68013_pm_ops, NULL, it68013_pm_resume);
+
+
 static const struct i2c_device_id it68013_id[] = {
 	{ "it68013", 0 },
 	{ }
@@ -875,6 +890,7 @@ static struct i2c_driver it68013_i2c_driver = {
 	.driver = {
 		.owner	= THIS_MODULE,
 		.name = "it68013",
+		.pm = &it68013_pm_ops,
 	},
 	.probe    = it68013_probe,
 	.remove   = it68013_remove,
