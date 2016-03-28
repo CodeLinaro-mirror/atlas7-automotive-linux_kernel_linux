@@ -2654,7 +2654,7 @@ static int vip_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(vip->clk);
 	if (ret) {
 		dev_err(dev, "%s: fail to open vip clock\n", __func__);
-		goto exit;
+		return ret;
 	}
 
 	ret = of_property_read_u32(dev->of_node,
@@ -2710,6 +2710,7 @@ exit_uninit_dma:
 	if (!is_cvd_vip(vip) && !is_com_vip(vip))
 		dma_release_channel(vip->dma_chan);
 exit:
+	clk_disable_unprepare(vip->clk);
 	return ret;
 }
 
