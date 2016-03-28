@@ -1208,6 +1208,19 @@ static int rv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int rv_pm_suspend(struct device *dev)
+{
+	struct rv_dev *rv = dev_get_drvdata(dev);
+
+	/* we need to wait ongoing worker tasks for finishing*/
+	flush_workqueue(rv->rv_wq);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(rv_pm_ops, rv_pm_suspend, NULL);
 
 static const struct of_device_id rv_match_tbl[] = {
 	{ .compatible = "sirf,rearview", },
@@ -1217,6 +1230,7 @@ static const struct of_device_id rv_match_tbl[] = {
 static struct platform_driver rv_driver = {
 	.driver	= {
 		.name = RV_DRV_NAME,
+		.pm = &rv_pm_ops,
 		.of_match_table = rv_match_tbl,
 	},
 	.probe = rv_probe,
