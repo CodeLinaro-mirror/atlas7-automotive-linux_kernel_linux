@@ -247,40 +247,57 @@ bool dcu_inline_check_size(struct vdss_surface *src_surf,
 	}
 
 	/*
-	 * The width and height of VPP source surface must be
-	 * integer multiples of 2. And in inline mode, the height of
-	 * dst_rect and the width of src_rect are the height and the
-	 * width of VPP input surface.
+	 * Inline mode, driver use DCU do vertical scaling, so
+	 * the dst height must match the request of VPP source:
+	 *    1. vpp need read three lines at the beginning;
+	 *    2. height of VPP source surface must be integer
+	 *       multiples of 2.
 	 * */
-	if (dst_rect_height < 2) {
-		VDSSWARN("The height of dst rect is less than 2!\n");
+	if (dst_rect_height < 4) {
+		VDSSWARN("The height of dst rect is less than 4!\n");
 		return false;
 	}
 
 	if (dst_rect_height & 0x01) {
 		if (src_rect_height > ((dst_rect_height - 1) << 3))
-			dst_rect->bottom = dst_rect->top + dst_rect_height;
+			src_rect_height = ((dst_rect_height - 1) << 3);
 		else
-			dst_rect->bottom = dst_rect->top + dst_rect_height - 2;
+			src_rect_height = src_rect_height -
+				src_rect_height/dst_rect_height;
+
+		dst_rect_height = dst_rect_height - 1;
+
+		dst_rect->bottom = dst_rect->top + dst_rect_height - 1;
+		src_rect->bottom = src_rect->top + src_rect_height - 1;
 	}
 
 	src_rect_width = src_rect->right - src_rect->left + 1;
 	dst_rect_width = dst_rect->right - dst_rect->left + 1;
 
+	/*
+	 * Inline mode, driver use VPP do horizontal scaling, so
+	 * the src width must match the request of VPP source:
+	 *    1. width of VPP source surface must be integer
+	 *       multiples of 2.
+	 * */
 	if (src_rect_width < 2) {
 		VDSSWARN("The width of src rect is less than 2!\n");
 		return false;
 	}
 
 	if (src_rect_width & 0x01) {
-		src_rect->right = src_rect->left + src_rect_width - 2;
-		dst_rect->right = dst_rect->left + dst_rect_width - 1 -
-			dst_rect_width/src_rect_width;
-		src_rect_width = src_rect->right - src_rect->left + 1;
-		dst_rect_width = dst_rect->right - dst_rect->left + 1;
+		if (dst_rect_width > ((src_rect_width - 1) << 3))
+			dst_rect_width = ((src_rect_width - 1) << 3);
+		else
+			dst_rect_width = dst_rect_width -
+				dst_rect_width/src_rect_width;
+
+		src_rect_width = src_rect_width - 1;
+
+		src_rect->right = src_rect->left + src_rect_width - 1;
+		dst_rect->right = dst_rect->left + dst_rect_width - 1;
 	}
 
-	src_rect_height = src_rect->bottom - src_rect->top + 1;
 	/*
 	 * At present, DCU driver doesn't support source clip
 	 * */
