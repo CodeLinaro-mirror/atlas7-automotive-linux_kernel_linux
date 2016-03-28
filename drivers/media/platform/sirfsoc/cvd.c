@@ -78,6 +78,8 @@ struct cvd_dev {
 	struct v4l2_subdev	sd;
 	struct v4l2_ctrl_handler hdl;
 
+	bool			streaming;
+
 	int			skip_count;
 	struct completion	skip_done;	/* skip unstable fields */
 	struct completion	locked_done;	/* get locked signals */
@@ -1042,6 +1044,8 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 
 		cvd_write(CVBSD_AFEPWR_EN, 0x1, sd);	/* CVBSAFE disable */
 
+		dec->streaming = false;
+
 		return 0;
 	}
 
@@ -1125,6 +1129,8 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 			"wait for fi_sync completion error: %d\n", ret);
 		return ret;
 	}
+
+	dec->streaming = true;
 
 	return 0;
 }
@@ -1272,6 +1278,10 @@ static int cvd_init(struct v4l2_subdev *sd, u32 val)
 	int i;
 	struct v4l2_ctrl ctrl;
 	struct cvd_dev *dec = to_state(sd);
+
+	/* if cvd is streaming status, shouldn't re-initialize again */
+	if (dec->streaming)
+		return 0;
 
 	/* set initial registers */
 	for (i = 0; i < ARRAY_SIZE(initial_registers); i++)
