@@ -106,6 +106,7 @@ struct lcdc_prop *lcdc_get_prop(u32 lcdc_index);
 
 bool lcdc_check_size(struct vdss_rect *src_rect,
 	struct vdss_rect *dst_rect);
+bool lcdc_get_layer_status(u32 lcdc_index, enum vdss_layer layer);
 
 int vpp_init_platform_driver(void) __init;
 void vpp_uninit_platform_driver(void);

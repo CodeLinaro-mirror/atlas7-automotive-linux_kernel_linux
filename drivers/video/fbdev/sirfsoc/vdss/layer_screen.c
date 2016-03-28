@@ -189,17 +189,17 @@ static struct screen_priv_data *get_screen_data(struct sirfsoc_vdss_screen *scn)
 
 static void vdss_set_layer_status(struct sirfsoc_vdss_layer *l,
 	bool enable);
+static bool vdss_get_layer_status(struct sirfsoc_vdss_layer *l);
 
 static ssize_t layer_enable_show(struct sirfsoc_vdss_layer *l,
 	char *buf)
 {
-	struct layer_priv_data *ldata = get_layer_data(l);
 	unsigned long flags;
 	bool e;
 
 	spin_lock_irqsave(&data_lock, flags);
 
-	e = ldata->enabled && !ldata->preempted;
+	e = vdss_get_layer_status(l);
 
 	spin_unlock_irqrestore(&data_lock, flags);
 
@@ -406,6 +406,11 @@ static void vdss_set_layer_status(struct sirfsoc_vdss_layer *l,
 
 	lcdc_layer_enable(l->lcdc_id, l->id, enable,
 		ldata->info.disp_mode != VDSS_DISP_NORMAL);
+}
+
+static bool vdss_get_layer_status(struct sirfsoc_vdss_layer *l)
+{
+	return lcdc_get_layer_status(l->lcdc_id, l->id);
 }
 
 static void vdss_layer_update_regs_extra(struct sirfsoc_vdss_layer *l)

@@ -275,6 +275,15 @@ void lcdc_layer_enable(u32 lcdc_index, enum vdss_layer layer,
 
 }
 
+bool lcdc_get_layer_status(u32 lcdc_index, enum vdss_layer layer)
+{
+	u32 val;
+
+	val = lcdc_read_reg(lcdc_index, S0_LAYER_STATUS) & (1 << layer);
+
+	return val ? true : false;
+}
+
 void lcdc_layer_confirm_setting(u32 lcdc_index, enum vdss_layer layer)
 {
 	u32 lx_ctrl;
