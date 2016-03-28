@@ -2747,6 +2747,7 @@ static int vip_pm_suspend(struct device *dev)
 	struct v4l2_subdev *sd = subdev->sd;
 
 	disable_irq(vip->irq);
+	flush_work(&vip->restart_work);
 	if (is_com_vip(vip))
 		disable_irq(vip->dma_irq);
 
@@ -2757,8 +2758,8 @@ static int vip_pm_suspend(struct device *dev)
 
 	vip_hw_stop(vip);
 
-	/* capture pipe line is working, also should stop subdev */
-	if (vip->vb2_active)
+	/* capture pipe line is working, should also stop subdev */
+	if (is_streaming(vip))
 		v4l2_subdev_call(sd, video, s_stream, 0);
 
 	clk_disable_unprepare(vip->clk);
@@ -2784,7 +2785,7 @@ static int vip_pm_resume(struct device *dev)
 		enable_irq(vip->dma_irq);
 
 	/* Before suspend it's active, so we should restore the pipe line */
-	if (vip->vb2_active) {
+	if (is_streaming(vip)) {
 
 		/* restore VIP hardware configuration */
 		vip_config_host(subdev);
@@ -2793,8 +2794,9 @@ static int vip_pm_resume(struct device *dev)
 		v4l2_subdev_call(sd, core, init, 0);
 		v4l2_subdev_call(sd, video, s_stream, 1);
 
-		/* start hardware pipe line */
-		vip_start_dma(vip);
+		/* continue to transfer */
+		if (vip->vb2_active)
+			vip_start_dma(vip);
 	}
 
 	return 0;
