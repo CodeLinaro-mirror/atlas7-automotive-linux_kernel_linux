@@ -62,12 +62,29 @@ static int get_vpp_in_fmt(int fmt)
 	int vpp_fmt = -1;
 
 	switch (fmt) {
-	case G2D_EX_YUV420:
-		vpp_fmt = VDSS_PIXELFORMAT_I420;
-		break;
-	case G2D_EX_YUV422_INTERLACED:
-	case G2D_EX_YUV422:
+	case G2D_EX_YUYV:
 		vpp_fmt = VDSS_PIXELFORMAT_YUYV;
+		break;
+	case G2D_EX_YVYU:
+		vpp_fmt = VDSS_PIXELFORMAT_YVYU;
+		break;
+	case G2D_EX_UYVY:
+		vpp_fmt = VDSS_PIXELFORMAT_UYVY;
+		break;
+	case G2D_EX_VYUY:
+		vpp_fmt = VDSS_PIXELFORMAT_VYUY;
+		break;
+	case G2D_EX_NV12:
+		vpp_fmt = VDSS_PIXELFORMAT_NV12;
+		break;
+	case G2D_EX_NV21:
+		vpp_fmt = VDSS_PIXELFORMAT_NV21;
+		break;
+	case G2D_EX_YV12:
+		vpp_fmt = VDSS_PIXELFORMAT_YV12;
+		break;
+	case G2D_EX_I420:
+		vpp_fmt = VDSS_PIXELFORMAT_I420;
 		break;
 	default:
 		g2d_err("Unsupported format:%d!\n", fmt);
@@ -85,11 +102,20 @@ static int get_vpp_out_fmt(int fmt)
 	case G2D_RGB565:
 		vpp_fmt = VDSS_PIXELFORMAT_565;
 		break;
-	case G2D_EX_O_RGBX888:
-		vpp_fmt = VDSS_PIXELFORMAT_RGBX_8880;
+	case G2D_EX_BGRX8880:
+		vpp_fmt = VDSS_PIXELFORMAT_BGRX_8880;
 		break;
-	case G2D_EX_YUV422:
+	case G2D_EX_YUYV:
 		vpp_fmt = VDSS_PIXELFORMAT_YUYV;
+		break;
+	case G2D_EX_YVYU:
+		vpp_fmt = VDSS_PIXELFORMAT_YVYU;
+		break;
+	case G2D_EX_UYVY:
+		vpp_fmt = VDSS_PIXELFORMAT_UYVY;
+		break;
+	case G2D_EX_VYUY:
+		vpp_fmt = VDSS_PIXELFORMAT_VYUY;
 		break;
 	default:
 		g2d_err("Unsupported format:%d!\n", fmt);
@@ -97,6 +123,34 @@ static int get_vpp_out_fmt(int fmt)
 	}
 
 	return vpp_fmt;
+}
+
+static int get_vdss_field(enum g2d_ex_field field)
+{
+	enum vdss_field vdss_fid;
+
+	switch (field) {
+	case G2D_EX_FIELD_NONE:
+		vdss_fid = VDSS_FIELD_NONE;
+		break;
+	case G2D_EX_FIELD_SEQ_TB:
+		vdss_fid = VDSS_FIELD_SEQ_TB;
+		break;
+	case G2D_EX_FIELD_SEQ_BT:
+		vdss_fid = VDSS_FIELD_SEQ_BT;
+		break;
+	case G2D_EX_FIELD_INTERLACED_TB:
+		vdss_fid = VDSS_FIELD_INTERLACED_TB;
+		break;
+	case G2D_EX_FIELD_INTERLACED_BT:
+		vdss_fid = VDSS_FIELD_INTERLACED_BT;
+		break;
+	default:
+		g2d_err("Unsupported field:%d!\n", field);
+		break;
+	}
+
+	return vdss_fid;
 }
 
 /*
@@ -138,20 +192,11 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 		return -EINVAL;
 
 	vpp_params.type = VPP_OP_BITBLT;
-	if (params->src.format == G2D_EX_YUV422_INTERLACED) {
-		struct vdss_vpp_interlace *interlace;
-
-		interlace = &vpp_params.op.blt.interlace;
-		interlace->di_mode = VDSS_VPP_DI_WEAVE;
-		vpp_params.op.blt.src_surf.field =
-			VDSS_FIELD_SEQ_TB;
-		vpp_params.op.blt.dst_surf[0].field =
-			VDSS_FIELD_INTERLACED_TB;
-	}
 	vpp_params.op.blt.src_surf.fmt = fmt;
 	vpp_params.op.blt.src_surf.width = params->src.width;
 	vpp_params.op.blt.src_surf.height = params->src.height;
 	vpp_params.op.blt.src_surf.base = params->src.paddr;
+	vpp_params.op.blt.src_surf.field = get_vdss_field(params->src.field);
 	vpp_params.op.blt.src_rect = srcrc;
 
 	fmt = get_vpp_out_fmt(params->dst.format);
@@ -161,7 +206,10 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 	vpp_params.op.blt.dst_surf[0].width = params->dst.width;
 	vpp_params.op.blt.dst_surf[0].height = params->dst.height;
 	vpp_params.op.blt.dst_surf[0].base = params->dst.paddr;
+	vpp_params.op.blt.dst_surf[0].field = get_vdss_field(params->dst.field);
 	vpp_params.op.blt.dst_rect = dstrc;
+
+	vpp_params.op.blt.interlace.di_mode = VDSS_VPP_DI_WEAVE;
 
 	/*vpp color ctrl*/
 	vpp_params.op.blt.color_ctrl.brightness = 0;
@@ -170,19 +218,22 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 	vpp_params.op.blt.color_ctrl.saturation = 128;
 
 #ifdef CONFIG_SIRF_G2D_DEBUG_LOG
-	g2d_inf("src:baddr:%x, bw:%d, bh:%d, fmt:%d[%d,%d,%d,%d]\n",
+	g2d_inf("src:baddr:%x, bw:%d, bh:%d, fmt:%d, field:%d[%d,%d,%d,%d]\n",
 		vpp_params.op.blt.src_surf.base,
 		vpp_params.op.blt.src_surf.width,
 		vpp_params.op.blt.src_surf.height,
 		vpp_params.op.blt.src_surf.fmt,
+		vpp_params.op.blt.src_surf.field,
 		srcrc.left, srcrc.top, srcrc.right, srcrc.bottom);
-	g2d_inf("dst:baddr:%x, bw:%d, bh:%d, fmt:%d[%d,%d,%d,%d]\n",
-		vpp_params.op.blt.dst_surf.base,
-		vpp_params.op.blt.dst_surf.width,
-		vpp_params.op.blt.dst_surf.height,
-		vpp_params.op.blt.dst_surf.fmt,
+	g2d_inf("dst:baddr:%x, bw:%d, bh:%d, fmt:%d, field:%d[%d,%d,%d,%d]\n",
+		vpp_params.op.blt.dst_surf[0].base,
+		vpp_params.op.blt.dst_surf[0].width,
+		vpp_params.op.blt.dst_surf[0].height,
+		vpp_params.op.blt.dst_surf[0].fmt,
+		vpp_params.op.blt.dst_surf[0].field,
 		dstrc.left, dstrc.top, dstrc.right, dstrc.bottom);
 #endif
+
 	ret = sirfsoc_vpp_present(NULL, &vpp_params);
 	return ret;
 }
@@ -796,9 +847,14 @@ static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 	case G2D_RGB565:
 		sformat = RGB;
 		break;
-	case G2D_EX_YUV420:
-	case G2D_EX_YUV422:
-	case G2D_EX_YUV422_INTERLACED:
+	case G2D_EX_YUYV:
+	case G2D_EX_YVYU:
+	case G2D_EX_UYVY:
+	case G2D_EX_VYUY:
+	case G2D_EX_NV12:
+	case G2D_EX_NV21:
+	case G2D_EX_YV12:
+	case G2D_EX_I420:
 		sformat = YUV;
 		break;
 	default:
@@ -809,7 +865,7 @@ static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 	if (sformat == RGB) {
 		switch (params.dst.format) {
 		case G2D_ARGB8888:
-		case G2D_ABGR8888:
+		case G2D_RGB565:
 			break;
 		default:
 			g2d_err("invalid destination format:%d\n",
@@ -818,12 +874,12 @@ static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 		}
 	} else if (sformat == YUV) {
 		switch (params.dst.format) {
-		case G2D_ARGB8888:
-		case G2D_ABGR8888:
+		case G2D_EX_YUYV:
+		case G2D_EX_YVYU:
+		case G2D_EX_UYVY:
+		case G2D_EX_VYUY:
+		case G2D_EX_BGRX8880:
 		case G2D_RGB565:
-		case G2D_EX_O_RGBX888:
-		case G2D_EX_O_BGRX888:
-		case G2D_EX_YUV422:
 			break;
 		default:
 			g2d_err("invalid destination format:%d\n",

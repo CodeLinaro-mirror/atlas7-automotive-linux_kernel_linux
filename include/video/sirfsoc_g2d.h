@@ -49,6 +49,9 @@
 #define G2D_BLT_COLOR_FILL		0x00001000
 /* wait blt to complete */
 #define G2D_BLT_WAIT_COMPLETE		0x00100000
+/* enable clip*/
+#define G2D_BLT_CLIP_ENABLE		0x00002000
+
 
 /* Memory type */
 #define G2D_MEM_ADDR 0
@@ -61,18 +64,28 @@ enum g2d_format {
 	G2D_ABGR8888,
 	G2D_RGB565,
 
-	G2D_YUYV,      /* this format is not support yet */
-	G2D_YVYU,      /* this format is not support yet */
-	G2D_UYVY,      /* this format is not support yet */
-	G2D_VYUY,      /* this format is not support yet */
-
 	/* the following format isn't for g2d but vpp. */
-	G2D_EX_YUV420 = 0x10000,
-	G2D_EX_YUV422,
-	G2D_EX_O_RGBX888,
-	G2D_EX_O_BGRX888,
-	G2D_EX_YUV422_INTERLACED,
-	G2D_MAX,
+	G2D_EX_YUYV = 0x10000,
+	G2D_EX_YVYU,
+	G2D_EX_UYVY,
+	G2D_EX_VYUY,
+	G2D_EX_NV12,
+	G2D_EX_NV21,
+	G2D_EX_YV12,
+	G2D_EX_I420,
+	G2D_EX_BGRX8880,
+};
+
+/* field type isn't for g2d but vpp */
+enum g2d_ex_field {
+	G2D_EX_FIELD_NONE = 0, /* no field*/
+	G2D_EX_FIELD_SEQ_TB, /* both fields sequential into
+				one buffer, top-bottom order */
+	G2D_EX_FIELD_SEQ_BT, /* same as above + bottom-top order */
+	G2D_EX_FIELD_INTERLACED_TB, /*both fields interlaced, top
+				field is transmitted first */
+	G2D_EX_FIELD_INTERLACED_BT, /* same as above + bottom field
+				is transmitted first */
 };
 
 struct sirf_g2d_rect {
@@ -92,9 +105,10 @@ struct sirf_g2d_rect_wh {
 struct sirf_g2d_surface {
 	u_int32_t paddr; /* destination memory */
 	u_int32_t bpp;
-	u_int32_t format; /* dest format */
+	enum g2d_format format;
 	u_int32_t width; /* size of dest surface in pixels */
 	u_int32_t height; /* size of dest surface in pixels */
+	enum g2d_ex_field field;
 };
 
 struct sirf_g2d_bltparams {
