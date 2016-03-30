@@ -1,9 +1,16 @@
 /*
  * Driver for CSR SiRFprimaII onboard UARTs.
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -1187,6 +1194,7 @@ static enum hrtimer_restart
 	xmit = &sirfport->rx_dma_items.xmit;
 	ufifo_st = &sirfport->uart_reg->fifo_status;
 
+	spin_lock(&port->lock);
 	dmaengine_tx_status(sirfport->rx_dma_chan,
 			sirfport->rx_dma_items.cookie, &tx_state);
 	if (SIRFSOC_RX_DMA_BUF_SIZE - tx_state.residue !=
@@ -1207,7 +1215,9 @@ static enum hrtimer_restart
 				(SIRFSOC_RX_DMA_BUF_SIZE - 1);
 		count = CIRC_CNT_TO_END(xmit->head, xmit->tail,
 				SIRFSOC_RX_DMA_BUF_SIZE);
+		spin_unlock(&port->lock);
 		tty_flip_buffer_push(tty->port);
+		spin_lock(&port->lock);
 	}
 	/*
 	 * if RX DMA buffer data have all push into tty buffer, and there is
@@ -1248,6 +1258,7 @@ static enum hrtimer_restart
 		dmaengine_resume(sirfport->rx_dma_chan);
 	}
 next_hrt:
+	spin_unlock(&port->lock);
 	hrtimer_forward_now(hrt, ns_to_ktime(sirfport->rx_period_time));
 	return HRTIMER_RESTART;
 }
@@ -1504,5 +1515,4 @@ static void __exit sirfsoc_uart_exit(void)
 module_exit(sirfsoc_uart_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Bin Shi <Bin.Shi@csr.com>, Rong Wang<Rong.Wang@csr.com>");
 MODULE_DESCRIPTION("CSR SiRFprimaII Uart Driver");
