@@ -601,8 +601,7 @@ static void __vpp_set_dst_rect(struct vpp_adapter *adapter,
 
 static int __vpp_setup_src(struct vpp_adapter *adapter,
 			struct vdss_surface *surf,
-			bool inline_mode,
-			enum vpp_seq_type seq)
+			bool inline_mode)
 {
 	u32 reg_ctrl = 0;
 	u32 reg_stride0 = 0, reg_stride1 = 0;
@@ -614,11 +613,6 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 			VPP_CTRL_INLINE_EN |
 			VPP_CTRL_INLINE_3LINE |
 			VPP_CTRL_UVUV_MODE;
-	enum vdss_field field;
-
-	field = surf->field;
-	if (seq == VPP_SEQ_TYPE_PIIO)
-		field = VDSS_FIELD_INTERLACED_TB;
 
 	switch (surf->fmt) {
 	case VDSS_PIXELFORMAT_YV12:
@@ -691,7 +685,7 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 		reg_ctrl |= (VPP_CTRL_INLINE_EN |
 			VPP_CTRL_INLINE_3LINE | VPP_CTRL_ENDIAN_MODE);
 
-	switch (field) {
+	switch (surf->field) {
 	case VDSS_FIELD_INTERLACED:
 	case VDSS_FIELD_INTERLACED_TB:
 	case VDSS_FIELD_INTERLACED_BT:
@@ -853,6 +847,9 @@ static int __vpp_setup_dst(struct vpp_adapter *adapter,
 			reg_ctrl |= VPP_CTRL_TOP_FIELD_FIRST;
 			reg_stride1 = VPP_DEST_STRIDE(surf->width * 4);
 			break;
+		case VDSS_FIELD_INTERLACED_BT:
+			reg_stride1 = VPP_DEST_STRIDE(surf->width * 4);
+			break;
 		default:
 			break;
 		}
@@ -881,8 +878,7 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 				struct vdss_surface *surf,
 				u32 size,
 				bool inline_mode,
-				struct vdss_rect *rect,
-				enum vpp_seq_type seq)
+				struct vdss_rect *rect)
 {
 	u32 ybase = 0, ubase = 0, vbase = 0;
 	u32 ybase_bot = 0, ubase_bot = 0, vbase_bot = 0;
@@ -890,7 +886,7 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 	u32 i = 0;
 	u32 field_offset = 0;
 	struct vdss_rect src_rect = *rect;
-	enum vdss_field field;
+	enum vdss_field field = surf->field;
 
 	if (inline_mode) {
 		/* Inline address is fixed */
@@ -900,14 +896,6 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 	}
 
 	vpp_write_reg(adapter, VPP_INLINE_ADDR, 0);
-
-	field = surf->field;
-	/*
-	 * When frame in - field out, VPP take this case the same
-	 * as field(VDSS_FIELD_INTERLACED_TB) in - field out
-	 * */
-	if (seq == VPP_SEQ_TYPE_PIIO)
-		field = VDSS_FIELD_INTERLACED_TB;
 
 	switch (field) {
 	case VDSS_FIELD_SEQ_TB:
@@ -1379,8 +1367,15 @@ static enum vpp_seq_type __vpp_seq_type(struct vdss_surface *src_surf,
 		return VPP_SEQ_TYPE_IIIO;
 	else if (src_i && !dst_i)
 		return VPP_SEQ_TYPE_IIPO;
-	else if (!src_i && dst_i)
-		return VPP_SEQ_TYPE_PIIO;
+	else if (!src_i && dst_i) {
+		/*
+		* When frame in - field out, VPP take this case the same
+		* as field(VDSS_FIELD_INTERLACED_TB) in - field out
+		*/
+		src_surf->field =
+			VDSS_FIELD_INTERLACED_TB;
+		return VPP_SEQ_TYPE_IIIO;
+	}
 	else
 		return VPP_SEQ_TYPE_PIPO;
 }
@@ -1451,9 +1446,9 @@ static int __vpp_blt(struct vpp_adapter *adapter,
 
 	seq = __vpp_seq_type(&params->src_surf, &params->dst_surf[0]);
 	/* src setting */
-	__vpp_setup_src(adapter, &params->src_surf, false, seq);
+	__vpp_setup_src(adapter, &params->src_surf, false);
 	__vpp_set_srcbase(adapter, &params->src_surf, 1, false,
-			&params->src_rect, seq);
+			&params->src_rect);
 	__vpp_set_src_rect(adapter, &params->src_rect);
 	__vpp_ibv_disable(adapter);
 
@@ -1486,9 +1481,9 @@ static int __vpp_inline(struct vpp_adapter *adapter,
 	seq = __vpp_seq_type(&params->src_surf, NULL);
 	__vpp_disable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 	/* src setting */
-	__vpp_setup_src(adapter, &params->src_surf, true, seq);
+	__vpp_setup_src(adapter, &params->src_surf, true);
 	__vpp_set_srcbase(adapter, &params->src_surf, 1, true,
-			&params->src_rect, seq);
+			&params->src_rect);
 	__vpp_set_src_rect(adapter, &params->src_rect);
 	__vpp_ibv_disable(adapter);
 
@@ -1519,13 +1514,13 @@ static int __vpp_passthrough(struct vpp_adapter *adapter,
 
 	if (params->flip) {
 		__vpp_set_srcbase(adapter, &params->src_surf, 1, false,
-			&params->src_rect, seq);
+			&params->src_rect);
 	} else {
 		/* src setting */
 		__vpp_setup_src(adapter, &params->src_surf,
-				false, seq);
+				false);
 		__vpp_set_srcbase(adapter, &params->src_surf, 1, false,
-				&params->src_rect, seq);
+				&params->src_rect);
 		__vpp_set_src_rect(adapter, &params->src_rect);
 		__vpp_ibv_disable(adapter);
 
@@ -1563,10 +1558,10 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 	__vpp_disable_interrupt(adapter, VPP_INT_SINGLE_STATUS);
 	/* src setting */
 	__vpp_setup_src(adapter, &params->src_surf[0],
-			false, seq);
+			false);
 	__vpp_set_srcbase(adapter, &params->src_surf[0],
 			params->src_size, false,
-			&params->src_rect, seq);
+			&params->src_rect);
 	__vpp_set_src_rect(adapter, &params->src_rect);
 	__vpp_ibv_enable(adapter, params->src_id, params->src_size);
 
