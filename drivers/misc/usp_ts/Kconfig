@@ -1,0 +1,8 @@
+config ATLAS7_USP_TS
+	tristate "atlas7 usp ts module"
+	depends on ARCH_ATLAS7
+	default y
+	select REGMAP_MMIO
+	---help---
+	  Support for atlas7 usp ts module.
+
