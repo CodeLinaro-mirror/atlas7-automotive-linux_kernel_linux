@@ -132,6 +132,7 @@ struct kasdb_op {
 		int dummy;
 		int resampler_custom_output;	/* 1: capture, 0: playback */
 		int mixer_streams;		/* 2, 3 */
+		int delay_channels;
 	} param;	/* Operator specific parameter */
 };
 

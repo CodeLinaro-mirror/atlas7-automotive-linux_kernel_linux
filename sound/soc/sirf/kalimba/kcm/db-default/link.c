@@ -41,7 +41,7 @@ static const struct kasdb_link link[] = {
 		.channels = 1,
 	},
 	{
-		/* Splitter1x2 - > Splitter, 2ch */
+		/* Splitter1x2 -> Splitter, 2ch */
 		.name = __S("lk_split1x2_split"),
 		.source_name = __S("op_split_music_1x2"),
 		.sink_name = __S("op_split_music"),
@@ -50,13 +50,121 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 	{
-		/* Splitter -> Mixer1, 4ch (1-4) */
-		.name = __S("lk_music_mixer"),
+		/* Splitter -> User PEQ 4ch (1-4) */
+		.name = __S("lk_split_upeq"),
 		.source_name = __S("op_split_music"),
-		.sink_name = __S("op_mixer"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 1, 2, 3, 4 },
+		.sink_name = __S("op_upeq_music"),
+		.source_pins = { 1, 2, 3, 4},
+		.sink_pins = { 1, 2, 3, 4},
 		.channels = 4,
+	},
+	{
+		/* User PEQ -> Bass, 2ch (1-2) */
+		.name = __S("lk_upeq_bass_1"),
+		.source_name = __S("op_upeq_music"),
+		.sink_name = __S("op_bass_1_music"),
+		.source_pins = { 1, 2},
+		.sink_pins = { 1, 2},
+		.channels = 2,
+	},
+	{
+		/* User PEQ -> Bass, 2ch (3-4) */
+		.name = __S("lk_upeq_bass_2"),
+		.source_name = __S("op_upeq_music"),
+		.sink_name = __S("op_bass_2_music"),
+		.source_pins = { 3, 4},
+		.sink_pins = {1, 2},
+		.channels = 2,
+	},
+	{
+		/* Bass -> Delay, 2ch (1-2) */
+		.name = __S("lk_bass_1_delay"),
+		.source_name = __S("op_bass_1_music"),
+		.sink_name = __S("op_delay_music"),
+		.source_pins = { 1, 2},
+		.sink_pins = { 1, 2},
+		.channels = 2,
+	},
+	{
+		/* Bass -> Delay, 2ch (3-4) */
+		.name = __S("lk_bass_2_delay"),
+		.source_name = __S("op_bass_2_music"),
+		.sink_name = __S("op_delay_music"),
+		.source_pins = {1, 2},
+		.sink_pins = {3, 4},
+		.channels = 2,
+	},
+	{
+		/* Delay -> Spk1 PEQ, 1ch (1) */
+		.name = __S("lk_delay_s1peq"),
+		.source_name = __S("op_delay_music"),
+		.sink_name = __S("op_spk1_peq_music"),
+		.source_pins = { 1},
+		.sink_pins = { 1},
+		.channels = 1,
+	},
+	{
+		/* Delay -> Spk2 PEQ, 1ch (2) */
+		.name = __S("lk_delay_s2peq"),
+		.source_name = __S("op_delay_music"),
+		.sink_name = __S("op_spk2_peq_music"),
+		.source_pins = { 2},
+		.sink_pins = { 1},
+		.channels = 1,
+	},
+	{
+		/* Delay -> Spk3 PEQ, 1ch (3) */
+		.name = __S("lk_delay_s3peq"),
+		.source_name = __S("op_delay_music"),
+		.sink_name = __S("op_spk3_peq_music"),
+		.source_pins = { 3},
+		.sink_pins = { 1},
+		.channels = 1,
+	},
+	{
+		/* Delay -> Spk4 PEQ, 1ch (4) */
+		.name = __S("lk_delay_s4peq"),
+		.source_name = __S("op_delay_music"),
+		.sink_name = __S("op_spk4_peq_music"),
+		.source_pins = { 4},
+		.sink_pins = { 1},
+		.channels = 1,
+	},
+	{
+		/* Spk1 PEQ -> Mixer, 1ch (1) */
+		.name = __S("lk_s1peq_mixer"),
+		.source_name = __S("op_spk1_peq_music"),
+		.sink_name = __S("op_mixer"),
+		.source_pins = { 1},
+		.sink_pins = { 1},
+		.channels = 1,
+	},
+	{
+		/* Spk2 PEQ -> Mixer, 1ch (2) */
+		.name = __S("lk_s2peq_mixer"),
+		.source_name = __S("op_spk2_peq_music"),
+		.sink_name = __S("op_mixer"),
+		.source_pins = { 1},
+		.sink_pins = { 2},
+		.channels = 1,
+	},
+	{
+		/* Spk3 PEQ -> Mixer, 1ch (3) */
+		.name = __S("lk_s3peq_mixer"),
+		.source_name = __S("op_spk3_peq_music"),
+		.sink_name = __S("op_mixer"),
+		.source_pins = { 1},
+		.sink_pins = { 3},
+		.channels = 1,
+	},
+	{
+		/* Spk4 PEQ -> Mixer, 1ch (4) */
+		.name = __S("lk_s4peq_mixer"),
+		.source_name = __S("op_spk4_peq_music"),
+		.sink_name = __S("op_mixer"),
+		.source_pins = { 1},
+		.sink_pins = { 4},
+		.channels = 1,
 	},
 
 	/* Music, 2ch */
@@ -108,12 +216,12 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 	{
-		/* Resampler -> Mixer1, 4ch */
-		.name = __S("lk_src_mixer"),
+		/* Resampler -> User PEQ, 4ch */
+		.name = __S("lk_src_upeq"),
 		.source_name = __S("op_src_music"),
-		.sink_name = __S("op_mixer"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 1, 2, 3, 4 },
+		.sink_name = __S("op_upeq_music"),
+		.source_pins = { 1, 2, 3, 4},
+		.sink_pins = { 1, 2, 3, 4},
 		.channels = 4,
 	},
 
@@ -177,12 +285,112 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 	{
-		/* Mixer2 -> IACC, 4ch */
-		.name = __S("lk_mixer2_iacc"),
+		/* Mixer2 -> Volume Control, 4ch */
+		.name = __S("lk_mixer2_volctrl"),
 		.source_name = __S("op_mixer2"),
-		.sink_name = __S("si_iacc"),
+		.sink_name = __S("op_volume_control"),
 		.source_pins = { 1, 2, 3, 4 },
+		.sink_pins = { 1, 3, 5, 7 },
+		.channels = 4,
+	},
+	{
+		/* Volume Control -> AEC-Ref 1 Mic, 4ch */
+		.name = __S("lk_volctrl_aecref_1mic"),
+		.source_name = __S("op_volume_control"),
+		.sink_name = __S("op_aecref_1mic"),
+		.source_pins = { 1, 2, 3, 4 },
+		.sink_pins = { 1, 2, 7, 8 },
+		.channels = 4,
+	},
+	{
+		/* AEC-Ref -> IACC, 4ch */
+		.name = __S("lk_aecref_1mic_iacc"),
+		.source_name = __S("op_aecref_1mic"),
+		.sink_name = __S("si_iacc"),
+		.source_pins = { 2, 3, 8, 9 },
 		.sink_pins = { 1, 2, 3, 4 },
+		.channels = 4,
+	},
+	/* CVC send & recv */
+	{
+		/* IACC -> AEC-Ref 1 Mic */
+		.name = __S("lk_iacc_aecref_1mic"),
+		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_aecref_1mic"),
+		.source_pins = { 1 },
+		.sink_pins = { 3 },
+		.channels = 1,
+	},
+	{
+		/* AEC-Ref 1 Mic -> CVC send */
+		.name = __S("lk_aecref_1mic_cvc_send"),
+		.source_name = __S("op_aecref_1mic"),
+		.sink_name = __S("op_send_1mic_cvc"),
+		.source_pins = { 4 },
+		.sink_pins = { 2 },
+		.channels = 1,
+	},
+	{
+		/* AEC-Ref 1 Mic -> CVC send ref */
+		.name = __S("lk_aecref_1mic_cvc_send_ref"),
+		.source_name = __S("op_aecref_1mic"),
+		.sink_name = __S("op_send_1mic_cvc"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* CVC send -> USP3  */
+		.name = __S("lk_cvc_send_usp3"),
+		.source_name = __S("op_send_1mic_cvc"),
+		.sink_name = __S("si_usp3"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* USP -> CVC recv */
+		.name = __S("lk_usp3_cvc_recv"),
+		.source_name = __S("so_usp3"),
+		.sink_name = __S("op_recv_cvc"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* CVC recv -> SRC */
+		.name = __S("lk_cvc_recv_src"),
+		.source_name = __S("op_recv_cvc"),
+		.sink_name = __S("op_src_cvc"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* CVC: SRC -> spliter1x2, 1 ch */
+		.name = __S("lk_src_split1x2_cvc"),
+		.source_name = __S("op_src_cvc"),
+		.sink_name = __S("op_split1x2_cvc"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* CVC: spliter1x2 -> spliter2x4, 2 ch */
+		.name = __S("lk_split1x2_split2x4_cvc"),
+		.source_name = __S("op_split1x2_cvc"),
+		.sink_name = __S("op_split2x4_cvc"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* CVC: spliter2x4 -> mixer2, 4 ch */
+		.name = __S("lk_split2x4_mixer2_cvc"),
+		.source_name = __S("op_split2x4_cvc"),
+		.sink_name = __S("op_mixer2"),
+		.source_pins = { 1, 2, 3, 4 },
+		.sink_pins = { 5, 6, 7, 8 },
 		.channels = 4,
 	},
 

@@ -129,7 +129,7 @@ static int __init kcm_init_chain1_obj(struct kcm_chain *chain,
 /* Setup FE/HW/OP/Link list */
 static int __init kcm_init_chain1(struct kcm_chain *chain)
 {
-	char lkbuf[256], *lkbuf_ptr = lkbuf, *lk_name;
+	char lkbuf[512], *lkbuf_ptr = lkbuf, *lk_name;
 	struct kcm_chain_obj *chain_obj;
 	struct kasobj *obj;
 
@@ -145,7 +145,7 @@ static int __init kcm_init_chain1(struct kcm_chain *chain)
 	if (!chain->db->links.s)
 		return 0;	/* Dummy chain only to trigger codec */
 
-	if (snprintf(lkbuf, 256, "%s", chain->db->links.s) >= 256) {
+	if (snprintf(lkbuf, 512, "%s", chain->db->links.s) >= 512) {
 		pr_err("KASCHAIN(%s): links too long!\n", chain->name);
 		return -EINVAL;
 	}
@@ -177,13 +177,13 @@ static int __init kcm_init_chain1(struct kcm_chain *chain)
 /* Setup exclusive list */
 static int __init kcm_init_chain1_ex(struct kcm_chain *chain)
 {
-	char exbuf[256], *exbuf_ptr = exbuf, *ex_name;
+	char exbuf[512], *exbuf_ptr = exbuf, *ex_name;
 	struct kcm_chain_ex *chain_ex;
 
 	if (!chain->db->mutexs.s)
 		return 0;	/* No exclusive list */
 
-	if (snprintf(exbuf, 256, "%s", chain->db->mutexs.s) >= 256) {
+	if (snprintf(exbuf, 512, "%s", chain->db->mutexs.s) >= 512) {
 		pr_err("KASCHAIN(%s): mutexs too long!\n", chain->name);
 		return -EINVAL;
 	}

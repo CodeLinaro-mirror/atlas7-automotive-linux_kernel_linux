@@ -23,6 +23,30 @@ static const struct kasdb_codec codec[] = {
 /* Sink, Source */
 static const struct kasdb_hw hw[] = {
 	{
+		.name = __S("si_usp3"),
+		.is_sink = 1,
+		.is_slave = 0,
+		.instance_id = ENDPOINT_PHY_DEV_A7CA,
+		.max_channels = 1,
+		.def_channels = 1,
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 16000,
+		.bytes_per_ch = 192,
+	},
+	{
+		.name = __S("so_usp3"),
+		.is_sink = 0,
+		.is_slave = 0,
+		.instance_id = ENDPOINT_PHY_DEV_A7CA,
+		.max_channels = 1,
+		.def_channels = 1,
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 16000,
+		.bytes_per_ch = 192,
+	},
+	{
 		.name = __S("si_iacc"),
 		.is_sink = 1,
 		.is_slave = 0,
