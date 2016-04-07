@@ -127,6 +127,7 @@ static inline void put24bit(u8 *buf, u16 pos, u32 data)
 }
 
 extern bool enable_2mic_cvc;
+extern bool disable_uwb_cvc;
 
 void set_default_music_delay_params(int offset, int val);
 void set_default_music_dbe_params(int offset, int val);

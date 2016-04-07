@@ -33,6 +33,8 @@
 
 bool enable_2mic_cvc = false;
 module_param(enable_2mic_cvc, bool, 0);
+bool disable_uwb_cvc = false;
+module_param(disable_uwb_cvc, bool, 0);
 #define KAS_PCM_COUNT	15
 
 struct kas_pcm_data {

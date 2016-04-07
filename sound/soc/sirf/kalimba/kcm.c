@@ -56,6 +56,8 @@ static int aec_ref;
 static int cvc_post_resampler;
 static int cvc_rcv;
 static int cvc_send;
+static int cvc_rcv_24k;
+static int cvc_send_24k;
 
 static int iacc_source;
 static int iacc_voicecall_source;
@@ -78,11 +80,15 @@ static u16 aecref_to_cvcsend_ref_connect_id;
 
 static int voicecall_splitter_1, voicecall_splitter_2;
 static int cvcrcv_to_resampler_connection;
+static int cvcrcv24k_to_resampler_connection;
 static int resampler_to_voicecall_splitter1_connection;
 static int voicecall_splitter1_to_voicecall_splitter2_connection[2];
 static int voicecall_splitter2_to_mixer2_connection[4];
 static int iaccsource_to_aecref_connection[2];
 static int aecref_to_cvcsend_mic_connection[2];
+static int aecref_to_cvcsend24k_mic_connection[2];
+static u16 aec_ref_sample_rate_config[2] = {48000, 16000};
+static u16 aec_ref_sample_rate_config_24k[2] = {48000, 24000};
 
 static unsigned long active_stream;
 
@@ -406,7 +412,6 @@ static int init_music_4channels_pipeline(int index)
 static int init_music_stereo_pipeline(void)
 {
 	int i = 0, k, j = 0;
-	static u16 aec_ref_sample_rate_config[2] = {48000, 16000};
 	static u16 aec_ref_ucid = 4;
 	static u16 mixer_oper_conf_channels[MIXER_SUPPORT_STREAMS] = {
 		0x4, 0x4, 0x4};
@@ -1632,32 +1637,56 @@ static int init_voicecall_playback_pipeline(int index)
 	int i = index;
 	int k, j = 0;
 	int resampler_to_cvcrcv_connection;
+	int resampler_to_cvcrcv24k_connection;
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
 	resample_op_id[VOICECALL_PLAYBACK_STREAM] = i;
 	i++;
 
-	resampler_to_cvcrcv_connection = i;
-	components_global[i].component_id = CONNECT_REQ;
-	components_global[i].params[0] =
-		(u32)(&components_global[resample_op_id[
-			VOICECALL_PLAYBACK_STREAM]].ret[0]);
-	components_global[i].params[1] = 0x2000;
-	components_global[i].params[2] =
-		(u32)(&components_global[cvc_rcv].ret[0]);
-	components_global[i].params[3] = 0xA000;
-	i++;
+	if (disable_uwb_cvc) {
+		resampler_to_cvcrcv_connection = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[resample_op_id[
+				VOICECALL_PLAYBACK_STREAM]].ret[0]);
+		components_global[i].params[1] = 0x2000;
+		components_global[i].params[2] =
+			(u32)(&components_global[cvc_rcv].ret[0]);
+		components_global[i].params[3] = 0xA000;
+		i++;
+	} else {
+		resampler_to_cvcrcv24k_connection = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[resample_op_id[
+				VOICECALL_PLAYBACK_STREAM]].ret[0]);
+		components_global[i].params[1] = 0x2000;
+		components_global[i].params[2] =
+			(u32)(&components_global[cvc_rcv_24k].ret[0]);
+		components_global[i].params[3] = 0xA000;
+		i++;
+	}
 
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
 		resample_op_id[VOICECALL_PLAYBACK_STREAM];
-	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_rcv;
-	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
-		resampler_to_cvcrcv_connection;
-	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
-		resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
-	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
-		cvcrcv_to_resampler_connection;
+	if (disable_uwb_cvc) {
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_rcv;
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			resampler_to_cvcrcv_connection;
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			cvcrcv_to_resampler_connection;
+	} else {
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_rcv_24k;
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			resampler_to_cvcrcv24k_connection;
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			resample_op_id[VOICECALL_BT_TO_IACC_STREAM];
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
+			cvcrcv24k_to_resampler_connection;
+	}
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = voicecall_splitter_1;
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
 		resampler_to_voicecall_splitter1_connection;
@@ -1677,7 +1706,10 @@ static int init_voicecall_playback_pipeline(int index)
 	for (k = 0; k < 4; k++)
 		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
 			volumectrl_to_aecref_connection[k];
-	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_send;
+	if (disable_uwb_cvc)
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_send;
+	else
+		pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] = cvc_send_24k;
 	pipeline_link[VOICECALL_PLAYBACK_STREAM][j++] =
 		resample_op_id[VOICECALL_CAPTURE_STREAM];
 
@@ -1690,28 +1722,112 @@ static int init_voicecall_capture_pipeline(int index)
 	int i = index;
 	int j = 0, k;
 	int cvcsend_to_resampler_to_connection;
+	int cvcsend24k_to_resampler_to_connection;
+	static u16 cvc_ucid = 4;
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
 	resample_op_id[VOICECALL_CAPTURE_STREAM] = i;
 	i++;
 
-	cvcsend_to_resampler_to_connection = i;
-	components_global[i].component_id = CONNECT_REQ;
-	components_global[i].params[0] =
-		(u32)(&components_global[cvc_send].ret[0]);
-	components_global[i].params[1] = 0x2000;
-	components_global[i].params[2] =
-		(u32)(&components_global[resample_op_id[
-			VOICECALL_CAPTURE_STREAM]].ret[0]);
-	components_global[i].params[3] = 0xA000;
-	i++;
+	if (!disable_uwb_cvc) {
+		/* cvc_send_24k */
+		components_global[i].component_id = CREATE_OPERATOR_REQ;
+		if (enable_2mic_cvc)
+			components_global[i].params[0] =
+				CAPABILITY_ID_CVCHF2MIC_SEND_UWB;
+		else
+			components_global[i].params[0] =
+				CAPABILITY_ID_CVCHF1MIC_SEND_UWB;
+		components_global[i].params[1] = 1;
+		components_global[i].params[2] = OPERATOR_MSG_SET_UCID;
+		components_global[i].params[3] = 1;
+		components_global[i].params[4] = (u32)(&cvc_ucid);
+		cvc_send_24k = i;
+		i++;
+
+		/* cvc_rcv_24k */
+		components_global[i].component_id = CREATE_OPERATOR_REQ;
+		components_global[i].params[0] = CAPABILITY_ID_CVC_RCV_UWB;
+		components_global[i].params[1] = 1;
+		components_global[i].params[2] = OPERATOR_MSG_SET_UCID;
+		components_global[i].params[3] = 1;
+		components_global[i].params[4] = (u32)(&cvc_ucid);
+		cvc_rcv_24k = i;
+		i++;
+
+		/* cvc_rcv_24k to resampler */
+		cvcrcv24k_to_resampler_connection = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[cvc_rcv_24k].ret[0]);
+		components_global[i].params[1] = 0x2000;
+		components_global[i].params[2] =
+			(u32)(&components_global[resample_op_id[
+				VOICECALL_BT_TO_IACC_STREAM]].ret[0]);
+		components_global[i].params[3] = 0xA000;
+		i++;
+
+		/* AEC REF to cvc send (MIC1) */
+		aecref_to_cvcsend24k_mic_connection[0] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[aec_ref].ret[0]);
+		components_global[i].params[1] = 0x2003;
+		components_global[i].params[2] =
+			(u32)(&components_global[cvc_send_24k].ret[0]);
+		components_global[i].params[3] = 0xA001;
+		i++;
+
+		if (enable_2mic_cvc) {
+			/* AEC REF to cvc send (MIC2) */
+			aecref_to_cvcsend24k_mic_connection[1] = i;
+			components_global[i].component_id = CONNECT_REQ;
+			components_global[i].params[0] =
+				(u32)(&components_global[aec_ref].ret[0]);
+			components_global[i].params[1] = 0x2004;
+			components_global[i].params[2] =
+				(u32)(&components_global[cvc_send_24k].ret[0]);
+			components_global[i].params[3] = 0xA002;
+			i++;
+		}
+	}
+
+	if (disable_uwb_cvc) {
+		cvcsend_to_resampler_to_connection = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[cvc_send].ret[0]);
+		components_global[i].params[1] = 0x2000;
+		components_global[i].params[2] =
+			(u32)(&components_global[resample_op_id[
+				VOICECALL_CAPTURE_STREAM]].ret[0]);
+		components_global[i].params[3] = 0xA000;
+		i++;
+	} else {
+		cvcsend24k_to_resampler_to_connection = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[cvc_send_24k].ret[0]);
+		components_global[i].params[1] = 0x2000;
+		components_global[i].params[2] =
+			(u32)(&components_global[resample_op_id[
+				VOICECALL_CAPTURE_STREAM]].ret[0]);
+		components_global[i].params[3] = 0xA000;
+		i++;
+	}
 
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
 		resample_op_id[VOICECALL_CAPTURE_STREAM];
-	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = cvc_send;
-	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
-		cvcsend_to_resampler_to_connection;
+	if (disable_uwb_cvc) {
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = cvc_send;
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+			cvcsend_to_resampler_to_connection;
+	} else {
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = cvc_send_24k;
+		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+			cvcsend24k_to_resampler_to_connection;
+	}
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = iacc_sink;
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = aec_ref;
 	for (k = 0; k < 4; k++)
@@ -1720,13 +1836,24 @@ static int init_voicecall_capture_pipeline(int index)
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] = iacc_voicecall_source;
 	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
 		iaccsource_to_aecref_connection[0];
-	pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
-		aecref_to_cvcsend_mic_connection[0];
-	if (enable_2mic_cvc) {
+	if (disable_uwb_cvc) {
 		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
-			iaccsource_to_aecref_connection[1];
+			aecref_to_cvcsend_mic_connection[0];
+		if (enable_2mic_cvc) {
+			pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+				iaccsource_to_aecref_connection[1];
+			pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+				aecref_to_cvcsend_mic_connection[1];
+		}
+	} else {
 		pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
-			aecref_to_cvcsend_mic_connection[1];
+			aecref_to_cvcsend24k_mic_connection[0];
+		if (enable_2mic_cvc) {
+			pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+				iaccsource_to_aecref_connection[1];
+			pipeline_link[VOICECALL_CAPTURE_STREAM][j++] =
+				aecref_to_cvcsend24k_mic_connection[1];
+		}
 	}
 
 	pipeline_link_count[VOICECALL_CAPTURE_STREAM] = j;
@@ -2079,12 +2206,22 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 		&components_global[pipeline_link[stream][0]];
 	u16 resample_cfg;
 
+	if ((stream == VOICECALL_PLAYBACK_STREAM
+	    || stream == VOICECALL_CAPTURE_STREAM) && !disable_uwb_cvc)
+		/* Set aec_ref resample configration */
+		components_global[aec_ref].params[4] =
+			(u32)(aec_ref_sample_rate_config_24k);
+	else
+		components_global[aec_ref].params[4] =
+			(u32)(aec_ref_sample_rate_config);
+
 	kalimba_msg_send_lock();
-	for (i = 0;  i < pipeline_link_count[stream]; i++)
+	for (i = 0;  i < pipeline_link_count[stream]; i++) {
 		ret = execute_component(&components_global[
 				pipeline_link[stream][i]]);
 		if (ret < 0)
 			goto out;
+	}
 	if (stream == VOICECALL_BT_TO_IACC_STREAM) {
 		resample_cfg = get_rasample_conversion_conf(
 				kcm->capture_usp_sco_ep.sample_rate, 48000);
@@ -2107,9 +2244,14 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			resample_cfg = get_rasample_conversion_conf(
 					kcm->capture_iacc_stereo_ep.sample_rate,
 					sample_rate);
-		else if (stream == VOICECALL_CAPTURE_STREAM)
-			resample_cfg = get_rasample_conversion_conf(
-					16000, sample_rate);
+		else if (stream == VOICECALL_CAPTURE_STREAM) {
+			if (disable_uwb_cvc)
+				resample_cfg = get_rasample_conversion_conf(
+						16000, sample_rate);
+			else
+				resample_cfg = get_rasample_conversion_conf(
+						24000, sample_rate);
+		}
 
 		ret = kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, (u16)channels,
 				handle_addr, sw_endpoint_id[stream], resp);
@@ -2168,8 +2310,12 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 		|| stream == VOICECALL_PLAYBACK_STREAM) {
 		sw_channels[stream] = channels;
 		if (stream == VOICECALL_PLAYBACK_STREAM) {
-			resample_cfg = get_rasample_conversion_conf(16000,
-				48000);
+			if (disable_uwb_cvc)
+				resample_cfg = get_rasample_conversion_conf(
+					16000, 48000);
+			else
+				resample_cfg = get_rasample_conversion_conf(
+					24000, 48000);
 			/* Set resample configration */
 			ret = kalimba_operator_message(
 			components_global[cvc_post_resampler].ret[0],
@@ -2177,8 +2323,12 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 				&resample_cfg, NULL, NULL, resp);
 			if (ret < 0)
 				goto out;
-			resample_cfg = get_rasample_conversion_conf(sample_rate,
-				16000);
+			if (disable_uwb_cvc)
+				resample_cfg = get_rasample_conversion_conf(
+					sample_rate, 16000);
+			else
+				resample_cfg = get_rasample_conversion_conf(
+					sample_rate, 24000);
 		} else if (stream != NAVIGATION_STREAM)
 			resample_cfg = get_rasample_conversion_conf(sample_rate,
 				kcm->playback_iacc_ep.sample_rate);
@@ -2492,14 +2642,25 @@ int start_stream(int stream, int clock_master)
 		if (ret < 0)
 			goto out;
 
-	if (stream == VOICECALL_BT_TO_IACC_STREAM ||
-		stream == VOICECALL_PLAYBACK_STREAM)
+	if (stream == VOICECALL_BT_TO_IACC_STREAM)
 		ret = kalimba_connect_endpoints(
 			components_global[aec_ref].ret[0] + 0x2000,
 			components_global[cvc_send].ret[0] + 0xA000,
 			&aecref_to_cvcsend_ref_connect_id, resp);
-		if (ret < 0)
-			goto out;
+	else if (stream == VOICECALL_PLAYBACK_STREAM) {
+		if (disable_uwb_cvc)
+			ret = kalimba_connect_endpoints(
+				components_global[aec_ref].ret[0] + 0x2000,
+				components_global[cvc_send].ret[0] + 0xA000,
+				&aecref_to_cvcsend_ref_connect_id, resp);
+		else
+			ret = kalimba_connect_endpoints(
+				components_global[aec_ref].ret[0] + 0x2000,
+				components_global[cvc_send_24k].ret[0] + 0xA000,
+				&aecref_to_cvcsend_ref_connect_id, resp);
+	}
+	if (ret < 0)
+		goto out;
 
 out:
 	kalimba_msg_send_unlock();
