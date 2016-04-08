@@ -2227,6 +2227,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 		if (ret)
 			dev_info(vip->dev, "%s: can't get data mode\n",
 						__func__);
+		of_node_put(r_ep);
 
 		remote = of_graph_get_remote_port_parent(l_ep);
 		of_node_put(l_ep);
@@ -2281,6 +2282,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 				!try_module_get(client->dev.driver->owner)) {
 				device_unlock(&client->dev);
 				of_node_put(remote);
+				put_device(&client->dev);
 				ret = -EPROBE_DEFER;
 				continue;
 			}
@@ -2293,6 +2295,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 				module_put(client->dev.driver->owner);
 				device_unlock(&client->dev);
 				of_node_put(remote);
+				put_device(&client->dev);
 				continue;
 			}
 
@@ -2302,6 +2305,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 			module_put(client->dev.driver->owner);
 			device_unlock(&client->dev);
 			of_node_put(remote);
+			put_device(&client->dev);
 		}
 
 		vip->num_subdev++;
