@@ -204,7 +204,7 @@ static void it68013_edid_init(struct i2c_client *client)
 	edid_client = of_find_i2c_device_by_node(edid_np);
 	if (!edid_client) {
 		dev_err(&client->dev, "Fail to get edid i2c node\n");
-		return;
+		goto node_put_exit;
 	}
 	/*set the edid address firstly.*/
 	i2c_smbus_write_byte_data(client, 0x87, (edid_client->addr<<1)|0x01);
@@ -213,7 +213,7 @@ static void it68013_edid_init(struct i2c_client *client)
 		if (i2c_smbus_write_byte_data(edid_client,
 						i, it68013_edid_table[i])) {
 			dev_err(&edid_client->dev, "EDID 1st 128 write err\n");
-			return;
+			goto device_put_exit;
 		}
 		sum += it68013_edid_table[i];
 	}
@@ -222,7 +222,7 @@ static void it68013_edid_init(struct i2c_client *client)
 	i2c_smbus_write_byte_data(client, 0xC4, block0_checksum);
 
 	if (sizeof(it68013_edid_table) < 256)
-		return;
+		goto device_put_exit;
 
 	/*support the extend edid */
 	sum = 0;
@@ -230,7 +230,7 @@ static void it68013_edid_init(struct i2c_client *client)
 		if (i2c_smbus_write_byte_data(edid_client,
 						i, it68013_edid_table[i])) {
 			dev_err(&edid_client->dev, "EDID 2nd 128 write err\n");
-			return;
+			goto device_put_exit;
 		}
 		sum += it68013_edid_table[i];
 	}
@@ -249,6 +249,13 @@ static void it68013_edid_init(struct i2c_client *client)
 		i2c_smbus_write_byte_data(client, 0xC7, 0x00);
 		i2c_smbus_write_byte_data(client, 0xC9, 0x69);
 	}
+
+device_put_exit:
+	put_device(&edid_client->dev);
+node_put_exit:
+	of_node_put(edid_np);
+
+	return 0;
 }
 
 /* set and clear the register of hdmi port*/
@@ -856,6 +863,8 @@ static int it68013_probe(struct i2c_client *client,
 static int it68013_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+
+	it68013_s_stream(sd, 0);
 
 	sysfs_remove_file(&client->dev.kobj, &dev_attr_hotplug_status.attr);
 
