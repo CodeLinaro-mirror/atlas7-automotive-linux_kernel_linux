@@ -42,7 +42,7 @@
 			compatible = "arm,cortex-a7";
 			reg = <0>;
 			clocks = <&car 20>;
-			cpu0-supply = <&vdd_cpu>;
+			/*cpu0-supply = <&vdd_cpu>;*/
 			voltage-tolerance = <1>;
 			clock-frequency = <793000000>;
 			operating-points = <
@@ -3344,7 +3344,7 @@
 
 					sysctl {
 						compatible = "sirf,sirf-sysctl";
-						core-supply = <&vdd_core>;
+						/*core-supply = <&vdd_core>;*/
 					};
 
 					onkey {
