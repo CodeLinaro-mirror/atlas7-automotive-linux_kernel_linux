@@ -1928,8 +1928,6 @@ static int sirfsoc_camera_open(struct file *file)
 		goto exit_module_put;
 	}
 
-	v4l2_subdev_call(sd, core, s_power, 1);
-
 	ret = vip_init_videobuf2(vip);
 	if (ret)
 		goto exit_power;
@@ -1965,8 +1963,6 @@ static int sirfsoc_camera_close(struct file *file)
 
 	vb2_queue_release(&vip->vb2_vidq);
 	vb2_dma_contig_cleanup_ctx(vip->alloc_ctx);
-
-	v4l2_subdev_call(sd, core, s_power, 0);
 
 	vip_hw_stop(vip);
 
