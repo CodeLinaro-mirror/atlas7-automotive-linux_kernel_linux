@@ -1388,6 +1388,7 @@ static int cvd_probe(struct platform_device *pdev)
 
 	dev->platform_data = sd;
 
+	sd->owner = dev->driver->owner;
 	if (!sd->name[0])
 		strncpy(sd->name, CVD_DRV_NAME, sizeof(sd->name));
 
@@ -1425,6 +1426,8 @@ static int cvd_remove(struct platform_device *pdev)
 {
 	struct cvd_dev *dec = platform_get_drvdata(pdev);
 	struct v4l2_subdev *sd = &dec->sd;
+
+	cvd_s_stream(sd, 0);
 
 	clk_disable_unprepare(dec->clk);
 
