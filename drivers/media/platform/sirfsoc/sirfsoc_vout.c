@@ -2056,6 +2056,7 @@ static int sirfsoc_vout_s_ctrl(struct v4l2_ctrl *ctrl)
 /* File operations */
 static int sirfsoc_vout_open(struct file *file)
 {
+	int ret = 0;
 	struct sirfsoc_vout_device *vout = video_drvdata(file);
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct sirfsoc_vdss_layer *l;
@@ -2074,14 +2075,17 @@ static int sirfsoc_vout_open(struct file *file)
 		return -EBUSY;
 	}
 
-	if (mutex_lock_interruptible(&vout->lock))
-		return -ERESTARTSYS;
+	if (mutex_lock_interruptible(&vout->lock)) {
+		ret = -ERESTARTSYS;
+		goto err_vout_clear_bit;
+	}
 
 	scn = sirfsoc_vdss_find_screen_from_panel(vout->display);
 
 	if (!scn) {
 		v4l2_err(v4l2_dev, "no screen for the panel\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err_vout_open;
 	}
 
 	/*
@@ -2095,14 +2099,16 @@ static int sirfsoc_vout_open(struct file *file)
 	if (!l) {
 		v4l2_err(v4l2_dev, "no free layer for %s\n",
 			vout->vd->name);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto err_vout_open;
 	}
 
 	vout->layer = l;
 
 	if (__sirfsoc_setup_video_data(vout)) {
 		v4l2_err(v4l2_dev, "get default output information fail\n");
-		return -EBUSY;
+		ret = -EBUSY;
+		goto err_vout_open;
 	}
 
 	file->private_data = vout;
@@ -2115,6 +2121,15 @@ static int sirfsoc_vout_open(struct file *file)
 
 	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
 	return 0;
+
+err_vout_open:
+	mutex_unlock(&vout->lock);
+
+err_vout_clear_bit:
+	clear_bit(1, &vout->device_is_open);
+
+	v4l2_dbg(1, debug, v4l2_dev, "Exit %s\n", __func__);
+	return ret;
 }
 
 static int sirfsoc_vout_release(struct file *file)
