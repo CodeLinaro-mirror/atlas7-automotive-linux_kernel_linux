@@ -2259,6 +2259,14 @@ static int vip_subdevs_register(struct vip_dev *vip)
 
 			device_lock(&pdev->dev);
 
+			if (!pdev->dev.driver ||
+				!try_module_get(pdev->dev.driver->owner)) {
+				device_unlock(&pdev->dev);
+				of_node_put(remote);
+				ret = -EPROBE_DEFER;
+				continue;
+			}
+
 			sd = dev_get_platdata(&pdev->dev);
 
 			ret = v4l2_device_register_subdev(&vip->v4l2_dev, sd);
@@ -2272,6 +2280,7 @@ static int vip_subdevs_register(struct vip_dev *vip)
 			v4l2_set_subdev_hostdata(sd, subdev);
 			subdev->sd = sd;
 
+			module_put(pdev->dev.driver->owner);
 			device_unlock(&pdev->dev);
 			of_node_put(remote);
 		} else {
