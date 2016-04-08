@@ -7,6 +7,16 @@ menuconfig VIDEO_SIRFSOC
 
 if VIDEO_SIRFSOC
 
+config VIDEO_SIRFSOC_CVD
+    tristate "SIRFSOC Composite Video Decoder driver"
+	depends on ARCH_SIRF
+	default y
+	help
+	  This is a sub device driver for the SiRFSOC Video Input Port 0.
+	  CVBS Decoder (CVD) IP solution contains a single-channel
+	  dual-input CVBS Decoder.
+	  Only one of the two video inputs can be processed at any time.
+
 config VIDEO_SIRFSOC_VIP
     tristate "SIRFSOC Video Input Port driver"
 	depends on VIDEO_DEV && ARCH_SIRF && VIDEO_V4L2 && HAS_DMA && I2C
@@ -20,7 +30,7 @@ config VIDEO_SIRFSOC_VIP
 
 menuconfig VIDEO_SIRFSOC_REARVIEW
     tristate "SIRFSOC Rearview driver"
-    depends on ARCH_SIRF && SIRF_VDSS && VIDEO_SIRFSOC_VIP && INPUT
+    depends on ARCH_SIRF && SIRF_VDSS && VIDEO_SIRFSOC_CVD && VIDEO_SIRFSOC_VIP && INPUT
     select KEYBOARD_GPIO
 	default y
     help
