@@ -1100,6 +1100,8 @@ static int rv_probe(struct platform_device *pdev)
 			rv->source_std = V4L2_STD_NTSC;
 		if (std & (V4L2_STD_PAL | V4L2_STD_PAL_Nc))
 			rv->source_std = V4L2_STD_PAL;
+		if (std == V4L2_STD_UNKNOWN)
+			pr_info("AUTO detection fails, please check source\n");
 	}
 
 	if (rv->source_std == V4L2_STD_NTSC) {
@@ -1183,6 +1185,8 @@ static int rv_remove(struct platform_device *pdev)
 	struct rv_dev *rv = platform_get_drvdata(pdev);
 
 	rv_input_unregister();
+
+	flush_workqueue(rv->rv_wq);
 
 	mutex_lock(&rv->hw_lock);
 	if (rv->running) {
