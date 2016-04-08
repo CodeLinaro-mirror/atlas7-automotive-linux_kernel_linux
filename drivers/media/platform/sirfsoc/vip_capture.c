@@ -2730,19 +2730,21 @@ static int vip_remove(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 
-	for (i = 0; vip->num_subdev > 0; vip->num_subdev--, i++)
-		v4l2_device_unregister_subdev(vip->subdev[i].sd);
-
-	v4l2_device_unregister(&vip->v4l2_dev);
-
 	if (is_cvd_vip(vip) || is_com_vip(vip)) {
+		disable_irq(vip->irq);
+		flush_work(&vip->restart_work);
+		if (is_com_vip(vip))
+			disable_irq(vip->dma_irq);
 		vip_hw_wait_dma_idle(vip);
+		vip_hw_stop(vip);
 	} else {
 		dmaengine_terminate_all(vip->dma_chan);
 		dma_release_channel(vip->dma_chan);
 	}
 
-	dma_release_declared_memory(&pdev->dev);
+	clk_disable_unprepare(vip->clk);
+
+	v4l2_device_unregister(&vip->v4l2_dev);
 
 	return 0;
 }
