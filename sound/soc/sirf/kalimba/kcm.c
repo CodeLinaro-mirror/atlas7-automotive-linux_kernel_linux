@@ -317,13 +317,13 @@ static int init_music_mono_pipeline(int index)
 		pipeline_link[MUSIC_MONO_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[MUSIC_MONO_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_MONO_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[MUSIC_MONO_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_MONO_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_MONO_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[MUSIC_MONO_STREAM] = j;
 	return i;
 }
@@ -399,13 +399,13 @@ static int init_music_4channels_pipeline(int index)
 		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[MUSIC_4CHANNELS_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_4CHANNELS_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[MUSIC_4CHANNELS_STREAM] = j;
 	return i;
 }
@@ -922,13 +922,13 @@ static int init_music_stereo_pipeline(void)
 		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[MUSIC_STEREO_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[MUSIC_STEREO_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[MUSIC_STEREO_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[MUSIC_STEREO_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[MUSIC_STEREO_STREAM] = j;
 	return i;
 }
@@ -973,13 +973,13 @@ static int init_navigation_pipeline(int index)
 		pipeline_link[NAVIGATION_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[NAVIGATION_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[NAVIGATION_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[NAVIGATION_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[NAVIGATION_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[NAVIGATION_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[NAVIGATION_STREAM] = j;
 
 	return i;
@@ -1066,13 +1066,13 @@ static int init_alarm_pipeline(int index)
 		pipeline_link[ALARM_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[ALARM_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[ALARM_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[ALARM_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[ALARM_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[ALARM_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[ALARM_STREAM] = j;
 
 	return i;
@@ -1476,9 +1476,6 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
@@ -1490,6 +1487,9 @@ static int init_voicecall_bt_to_iacc_pipeline(int bt_usp_port, int index)
 	if (enable_2mic_cvc)
 		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 			iaccsource_to_aecref_connection[1];
+	for (k = 0; k < 4; k++)
+		pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] = cvc_send;
 	pipeline_link[VOICECALL_BT_TO_IACC_STREAM][j++] =
 		aecref_to_cvcsend_mic_connection[0];
@@ -1621,13 +1621,13 @@ static int init_usp_pipeline(int usp_port, int index)
 		pipeline_link[stream_id][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[stream_id][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[stream_id][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[stream_id][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[stream_id][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[stream_id][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[stream_id] = j;
 	return i;
 }
@@ -1955,13 +1955,13 @@ static int init_iacc_loopback_playback_pipeline(int index)
 		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[IACC_LOOPBACK_PLAYBACK_STREAM] = j;
 
 	return i;
@@ -2066,13 +2066,13 @@ static int init_i2s_to_iacc_loopback_pipeline(int index)
 		pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
 			mixer2_to_volumectrl_connection[k];
 	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] = aec_ref;
-	for (k = 0; k < 4; k++)
-		pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
-			volumectrl_to_aecref_connection[k];
 	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] = iacc_sink;
 	for (k = 0; k < 4; k++)
 		pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
 			aecref_to_iaccsink_connection[k];
+	for (k = 0; k < 4; k++)
+		pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
+			volumectrl_to_aecref_connection[k];
 	pipeline_link_count[I2S_TO_IACC_LOOPBACK_STREAM] = j;
 
 	return i;
