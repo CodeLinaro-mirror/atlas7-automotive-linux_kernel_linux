@@ -1223,7 +1223,7 @@ static struct atlas7_unit_init_data unit_list[] = {
 	{ 4, "mediam_jpenc", "jpenc_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 4, 0, 0, &root0_gate_lock },
 	{ 5, "vdifm_disp0", "disp0_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 5, 0, 0, &root0_gate_lock },
 	{ 6, "vdifm_disp1", "disp1_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 6, 0, 0, &root0_gate_lock },
-	{ 7, "audmscm_i2s", "i2s_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 8, 0, 0, &root0_gate_lock },
+	{ 7, "audmscm_i2s", "i2s_mux", CLK_SET_RATE_PARENT, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 8, 0, 0, &root0_gate_lock },
 	{ 8, "audmscm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 11, 0, 0, &root0_gate_lock },
 	{ 9, "vdifm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 12, 0, 0, &root0_gate_lock },
 	{ 10, "gnssm_io", "io_mux", 0, SIRFSOC_CLKC_ROOT_CLK_EN0_SET, 13, 0, 0, &root0_gate_lock },

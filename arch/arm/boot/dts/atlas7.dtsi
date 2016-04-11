@@ -2825,9 +2825,9 @@
 				reg = <0x10d02000 0x1000>;
 				dmas = <&dmac3 1>, <&dmac3 2>;
 				dma-names = "rx", "tx";
-				clocks = <&car 84>, <&car 83>, <&car 142>,
+				clocks = <&car 84>, <&car 83>, <&car 7>,
 				       <&car 255>;
-				clock-names = "i2s", "audioif", "i2s_mux",
+				clock-names = "i2s", "audioif", "audmscm_i2s",
 					"audio_dto";
 				pinctrl-names = "default";
 				pinctrl-0 = <&audio_i2s_2ch_pmx>;

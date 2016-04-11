@@ -114,8 +114,7 @@ void sirf_i2s_params(int channels, int rate, int slave)
 	 * calculated in machine driver per codec requirement.
 	 */
 	clk_set_rate(i2s->clk_dto, rate * 1024);
-	if (clk_get_parent(i2s->clk_mux) != i2s->clk_dto)
-		clk_set_parent(i2s->clk_mux, i2s->clk_dto);
+	clk_set_rate(i2s->clk_mux, rate * 1024);
 
 	switch (channels) {
 	case 2:
@@ -202,7 +201,7 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		return PTR_ERR(i2s->clk_audioif);
 	}
 
-	i2s->clk_mux = devm_clk_get(&pdev->dev, "i2s_mux");
+	i2s->clk_mux = devm_clk_get(&pdev->dev, "audmscm_i2s");
 	if (IS_ERR(i2s->clk_mux)) {
 		dev_err(&pdev->dev, "Failed to get 'i2s_mux' clock.\n");
 		return PTR_ERR(i2s->clk_mux);
