@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_gpio.h>
 #include <linux/clk.h>
 #include <linux/regmap.h>
 #include <linux/delay.h>
@@ -172,6 +173,8 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 	int ret;
 	void __iomem *base;
 	struct resource *mem_res;
+	int gpio_sw;
+	u32 sw_sel_val;
 
 	i2s = devm_kzalloc(&pdev->dev, sizeof(struct sirf_i2s),
 			GFP_KERNEL);
@@ -183,6 +186,31 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		resource_size(mem_res));
 	if (base == NULL)
 		return -ENOMEM;
+
+	/*
+	 *              ---------------
+	 *             |               |--- i2s LD port
+	 * sw1 --------|               |--- i2s VP port
+	 * sw2 --------|               |--- i2s AU port
+	 *              ---------------
+	 */
+	gpio_sw = of_get_named_gpio(pdev->dev.of_node, "sw1-sel", 0);
+	if (gpio_is_valid(gpio_sw)) {
+		if (!of_property_read_u32(pdev->dev.of_node, "sw1-sel-val",
+			&sw_sel_val))
+			devm_gpio_request_one(&pdev->dev, gpio_sw,
+				sw_sel_val ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW, "sw1-sel");
+	}
+
+	gpio_sw = of_get_named_gpio(pdev->dev.of_node, "sw2-sel", 0);
+	if (gpio_is_valid(gpio_sw)) {
+		if (!of_property_read_u32(pdev->dev.of_node, "sw2-sel-val",
+			&sw_sel_val))
+			devm_gpio_request_one(&pdev->dev, gpio_sw,
+				sw_sel_val ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW, "sw2-sel");
+	}
 
 	i2s->regmap = devm_regmap_init_mmio(&pdev->dev, base,
 					    &sirf_i2s_regmap_config);

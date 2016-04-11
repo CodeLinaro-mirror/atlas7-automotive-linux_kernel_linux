@@ -306,6 +306,20 @@
 			atlas7_iacc: atlas7_iacc@10D01000 {
 				status = "okay";
 			};
+
+			i2s: i2s@10d02000 {
+				status = "okay";
+				sw1-sel = <&gpio_3 8 0>;
+				sw2-sel = <&gpio_3 9 0>;
+				sw1-sel-val = <0>;
+				sw2-sel-val = <1>; /*I2S_WS_AU output*/
+				/*
+				 * sw1-sel-val = <1>;
+				 * sw2-sel-val = <0>; I2S_WS_VP output
+				 * sw1-sel-val = <0>;
+				 * sw2-sel-val = <0>; I2S_WS_LD output
+				 */
+			};
 			usp0: usp@10d20000 {
 				status = "okay";
 				compatible = "sirf,prima2-usp-pcm";
