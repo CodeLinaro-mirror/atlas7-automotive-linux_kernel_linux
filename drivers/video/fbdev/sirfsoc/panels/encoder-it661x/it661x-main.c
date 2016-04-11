@@ -263,7 +263,7 @@ static const struct i2c_device_id it661x_id[] = {
 	{}
 };
 
-MODULE_DEVICE_TABLE(i2c, hdmi_id);
+MODULE_DEVICE_TABLE(i2c, it661x_id);
 
 static struct i2c_driver it661x_driver = {
 	.driver = {

@@ -5,18 +5,21 @@ config DISPLAY_PANEL_RGB
 	tristate "Generic RGB panel"
 	default y
 	depends on I2C
+	select VIDEOMODE_HELPERS
 	help
 	  Driver for generic RGB panels.
 
 config DISPLAY_PANEL_LVDS
 	tristate "Generic LVDS panel"
 	default y
+	select VIDEOMODE_HELPERS
 	help
 	  Driver for generic LVDS panels.
 
 config DISPLAY_HDMI
 	tristate "Generic HDMI panel"
 	default y
+	select VIDEOMODE_HELPERS
 	help
 	  Driver for generic HDMI output drived by IT6610 HDMI transmitter.
 
