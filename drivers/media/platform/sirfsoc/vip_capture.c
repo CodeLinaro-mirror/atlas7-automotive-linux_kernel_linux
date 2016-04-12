@@ -2107,8 +2107,10 @@ static int vip_get_subdev_input(struct device_node *remote,
 			continue;
 		}
 
-		if (strcmp(input_name, "camera") == 0)
+		if (strcmp(input_name, "camera") == 0) {
 			vip->rv.subdev_index = vip->num_subdev;
+			vip->rv.cvbs_port = input_id;
+		}
 
 		subdev->inputs[input_id].index = input_id;
 		strncpy(subdev->inputs[input_id].name, input_name,
@@ -2433,7 +2435,7 @@ v4l2_std_id vip_rv_querystd(void *data)
 
 	mutex_lock(&vip->host_lock);
 
-	v4l2_subdev_call(sd, video, s_routing, index, 0, 0);
+	v4l2_subdev_call(sd, video, s_routing, vip->rv.cvbs_port, 0, 0);
 	v4l2_subdev_call(sd, video, querystd, &std);
 
 	mutex_unlock(&vip->host_lock);
@@ -2539,7 +2541,7 @@ void vip_rv_start(void *data)
 	vip_hw_reset_fifo(vip);
 	dma_hw_set_start_addr(vip, dma_table_addr);
 
-	v4l2_subdev_call(sd, video, s_routing, index, 0, 0);
+	v4l2_subdev_call(sd, video, s_routing, vip->rv.cvbs_port, 0, 0);
 	v4l2_subdev_call(sd, video, s_std, vip->rv.std);
 	v4l2_subdev_call(sd, video, s_stream, 1);
 

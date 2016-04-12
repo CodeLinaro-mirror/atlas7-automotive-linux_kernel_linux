@@ -198,6 +198,7 @@ struct vip_rv_info {
 	bool			preemption;
 	bool			mirror_en;
 	unsigned int		subdev_index;
+	unsigned int		cvbs_port;
 	unsigned int		dma_table_addr;
 	unsigned int		match_addrs[3];
 	v4l2_std_id		std;
