@@ -49,7 +49,7 @@ static int music_usr_peq;
 static int music_dbe[2];
 static int music_delay;
 static int music_spk_peq[4];
-static int mixer_1, mixer_2;
+static int mixer_1, mixer_2, mixer_3;
 static int volume_ctrl;
 static int aec_ref;
 
@@ -61,6 +61,7 @@ static int iacc_source;
 static int iacc_voicecall_source;
 static int iacc_sink;
 
+static int music_mixer3_to_passthrough_connection[2];
 static int music_passthrough_to_resampler_connection[2];
 static int music_resampler_to_splitter_connection[2];
 static int music_splitter_to_usrpeq_connection[4];
@@ -87,6 +88,7 @@ static unsigned long active_stream;
 
 static u16 mixer1_default_streams_volume[MIXER_SUPPORT_STREAMS];
 static u16 mixer2_default_streams_volume[MIXER_SUPPORT_STREAMS];
+static u16 mixer3_default_streams_volume[MIXER_SUPPORT_STREAMS];
 static u16 mixer1_default_streams_channel_volume
 	[1 + MIXER_SUPPORT_CHANNELS * 2] = {
 	12, /* total channels */
@@ -190,7 +192,6 @@ void set_default_mixer_stream_volume(int stream, u16 volume)
 void set_default_mixer_stream_channel_volume(int stream, int channel,
 	u16 volume)
 {
-	int i = 0;
 	u16 index = 0;
 
 	if (stream < MIXER_SUPPORT_STREAMS) {
@@ -409,11 +410,28 @@ static int init_music_stereo_pipeline(void)
 	static u16 aec_ref_ucid = 4;
 	static u16 mixer_oper_conf_channels[MIXER_SUPPORT_STREAMS] = {
 		0x4, 0x4, 0x4};
+	static u16 mixer3_oper_conf_channels[MIXER_SUPPORT_STREAMS] = {
+		0x2, 0x2, 0x2};
 	/*
 	 * Mixer need set the sample rate for avoid noise.
 	 * The value is "sample rate / 25".
 	 */
 	static u16 mixer_sample_rate = 48000 / 25;
+
+	mixer_3 = i;
+	components_global[i].component_id = CREATE_OPERATOR_REQ;
+	components_global[i].params[0] = CAPABILITY_ID_MIXER;
+	components_global[i].params[1] = 3; /* Config items */
+	components_global[i].params[2] = OPERATOR_MSG_SET_CHANNELS;
+	components_global[i].params[3] = MIXER_SUPPORT_STREAMS;
+	components_global[i].params[4] = (u32)(mixer3_oper_conf_channels);
+	components_global[i].params[5] = OPMSG_COMMON_SET_SAMPLE_RATE;
+	components_global[i].params[6] = 1;
+	components_global[i].params[7] = (u32)(&mixer_sample_rate);
+	components_global[i].params[8] = OPERATOR_MSG_SET_GAINS;
+	components_global[i].params[9] = MIXER_SUPPORT_STREAMS;
+	components_global[i].params[10] = (u32)(mixer3_default_streams_volume);
+	i++;
 
 	/* Music stream pipeline */
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
@@ -425,6 +443,19 @@ static int init_music_stereo_pipeline(void)
 		(u32)(&music_passthrough_default_volume);
 	music_passthrough = i;
 	i++;
+
+	for (k = 0; k < 2; k++) {
+		music_mixer3_to_passthrough_connection[k] = i;
+		components_global[i].component_id = CONNECT_REQ;
+		components_global[i].params[0] =
+			(u32)(&components_global[mixer_3].ret[0]);
+		components_global[i].params[1] = 0x2000 + k;
+		components_global[i].params[2] =
+			(u32)(&components_global[music_passthrough].ret[0]);
+		components_global[i].params[3] = 0xA000 + k;
+		i++;
+
+	}
 
 	components_global[i].component_id = CREATE_OPERATOR_REQ;
 	components_global[i].params[0] = CAPABILITY_ID_RESAMPLER;
@@ -842,7 +873,11 @@ static int init_music_stereo_pipeline(void)
 	i++;
 
 	/* Init pipeline link */
+	pipeline_link[MUSIC_STEREO_STREAM][j++] = mixer_3;
 	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_passthrough;
+	for (k = 0; k < 2; k++)
+		pipeline_link[MUSIC_STEREO_STREAM][j++] =
+			music_mixer3_to_passthrough_connection[k];
 	pipeline_link[MUSIC_STEREO_STREAM][j++] = music_resampler;
 	for (k = 0; k < 2; k++)
 		pipeline_link[MUSIC_STEREO_STREAM][j++] =
@@ -1469,7 +1504,7 @@ static int init_usp_pipeline(int usp_port, int index)
 {
 	int i = index;
 	int k, j = 0;
-	int source_to_passthrough_connection[2];
+	int source_to_mixer3_connection[2];
 	int usp_source;
 	u32 device_instance_id;
 	u32 stream_id;
@@ -1519,22 +1554,29 @@ static int init_usp_pipeline(int usp_port, int index)
 	resample_op_id[stream_id] = music_resampler;
 
 	for (k = 0; k < 2; k++) {
-		source_to_passthrough_connection[k] = i;
+		source_to_mixer3_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
 			(u32)(&components_global[usp_source].ret[k]);
 		components_global[i].params[1] = 0;
 		components_global[i].params[2] =
-			(u32)(&components_global[music_passthrough].ret[0]);
-		components_global[i].params[3] = 0xA000 + k;
+			(u32)(&components_global[mixer_3].ret[0]);
+		if (stream_id == A2DP_STREAM)
+			components_global[i].params[3] = 0xA002 + k;
+		else
+			components_global[i].params[3] = 0xA004 + k;
 		i++;
 	}
 
 	pipeline_link[stream_id][j++] = usp_source;
+	pipeline_link[stream_id][j++] = mixer_3;
+	for (k = 0; k < 2; k++)
+		pipeline_link[stream_id][j++] =
+			source_to_mixer3_connection[k];
 	pipeline_link[stream_id][j++] = music_passthrough;
 	for (k = 0; k < 2; k++)
 		pipeline_link[stream_id][j++] =
-			source_to_passthrough_connection[k];
+			music_mixer3_to_passthrough_connection[k];
 	pipeline_link[stream_id][j++] = music_resampler;
 	for (k = 0; k < 2; k++)
 		pipeline_link[stream_id][j++] =
@@ -1696,7 +1738,7 @@ static int init_iacc_loopback_playback_pipeline(int index)
 	int i = index;
 	int j = 0, k;
 	int iacc_stereo_source;
-	int source_to_music_passthrough_connection[2];
+	int source_to_mixer3_connection[2];
 
 	/* Get Source */
 	components_global[i].component_id = GET_SOURCE_REQ;
@@ -1723,24 +1765,28 @@ static int init_iacc_loopback_playback_pipeline(int index)
 	i++;
 
 	for (k = 0; k < kcm->capture_iacc_stereo_ep.channels; k++) {
-		source_to_music_passthrough_connection[k] = i;
+		source_to_mixer3_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
 			(u32)(&components_global[iacc_stereo_source].ret[k]);
 		components_global[i].params[1] = 0;
 		components_global[i].params[2] =
-			(u32)(&components_global[music_passthrough].ret[0]);
-		components_global[i].params[3] = 0xA000 + k;
+			(u32)(&components_global[mixer_3].ret[0]);
+		components_global[i].params[3] = 0xA004 + k;
 		i++;
 	}
 
 	resample_op_id[IACC_LOOPBACK_PLAYBACK_STREAM] = music_resampler;
 	/* Init pipeline link */
 	pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] = iacc_stereo_source;
+	pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] = mixer_3;
+	for (k = 0; k < kcm->capture_iacc_stereo_ep.channels; k++)
+		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
+			source_to_mixer3_connection[k];
 	pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] = music_passthrough;
 	for (k = 0; k < kcm->capture_iacc_stereo_ep.channels; k++)
 		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
-			source_to_music_passthrough_connection[k];
+			music_mixer3_to_passthrough_connection[k];
 	pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] = music_resampler;
 	for (k = 0; k < 2; k++)
 		pipeline_link[IACC_LOOPBACK_PLAYBACK_STREAM][j++] =
@@ -1799,7 +1845,7 @@ static int init_i2s_to_iacc_loopback_pipeline(int index)
 	int i = index;
 	int j = 0, k;
 	int i2s_stereo_source;
-	int source_to_music_passthrough_connection[2];
+	int source_to_mixer3_connection[2];
 
 	/* Get Source */
 	components_global[i].component_id = GET_SOURCE_REQ;
@@ -1826,26 +1872,29 @@ static int init_i2s_to_iacc_loopback_pipeline(int index)
 	i++;
 
 	for (k = 0; k < kcm->capture_i2s_stereo_ep.channels; k++) {
-		source_to_music_passthrough_connection[k] = i;
+		source_to_mixer3_connection[k] = i;
 		components_global[i].component_id = CONNECT_REQ;
 		components_global[i].params[0] =
 			(u32)(&components_global[i2s_stereo_source].ret[k]);
 		components_global[i].params[1] = 0;
 		components_global[i].params[2] =
-			(u32)(&components_global[music_passthrough].ret[0]);
-		components_global[i].params[3] = 0xA000 + k;
+			(u32)(&components_global[mixer_3].ret[0]);
+		components_global[i].params[3] = 0xA004 + k;
 		i++;
 	}
 
 	resample_op_id[I2S_TO_IACC_LOOPBACK_STREAM] = music_resampler;
 	/* Init pipeline link */
-	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
-		i2s_stereo_source;
+	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] = i2s_stereo_source;
+	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] = mixer_3;
+	for (k = 0; k < kcm->capture_iacc_stereo_ep.channels; k++)
+		pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
+			source_to_mixer3_connection[k];
 	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
 		music_passthrough;
 	for (k = 0; k < kcm->capture_iacc_stereo_ep.channels; k++)
 		pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
-			source_to_music_passthrough_connection[k];
+			music_mixer3_to_passthrough_connection[k];
 	pipeline_link[I2S_TO_IACC_LOOPBACK_STREAM][j++] =
 		music_resampler;
 	for (k = 0; k < 2; k++)
@@ -1955,9 +2004,13 @@ struct conflict_pipeline {
  * pipeline, should check the pipeline's conflict.
  */
 static struct conflict_pipeline conflict_pipeline_array[] = {
-	{MUSIC_STEREO_STREAM, A2DP_STREAM},
-	{MUSIC_STEREO_STREAM, IACC_LOOPBACK_PLAYBACK_STREAM},
-	{MUSIC_STEREO_STREAM, I2S_TO_IACC_LOOPBACK_STREAM},
+	{I2S_TO_IACC_LOOPBACK_STREAM, USP0_TO_IACC_LOOPBACK_STREAM},
+	{I2S_TO_IACC_LOOPBACK_STREAM, USP1_TO_IACC_LOOPBACK_STREAM},
+	{I2S_TO_IACC_LOOPBACK_STREAM, USP2_TO_IACC_LOOPBACK_STREAM},
+	{IACC_LOOPBACK_PLAYBACK_STREAM, USP0_TO_IACC_LOOPBACK_STREAM},
+	{IACC_LOOPBACK_PLAYBACK_STREAM, USP1_TO_IACC_LOOPBACK_STREAM},
+	{IACC_LOOPBACK_PLAYBACK_STREAM, USP2_TO_IACC_LOOPBACK_STREAM},
+	{I2S_TO_IACC_LOOPBACK_STREAM, IACC_LOOPBACK_PLAYBACK_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_BT_TO_IACC_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_IACC_TO_BT_STREAM},
 	{ANALOG_CAPTURE_STREAM, VOICECALL_CAPTURE_STREAM},
@@ -2156,14 +2209,18 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 				goto out;
 		}
 		/* Set resample configration */
-		if (stream != NAVIGATION_STREAM)
-			ret = kalimba_operator_message(
-				components_global[
-				resample_op_id[stream]].ret[0],
-				RESAMPLER_SET_CONVERSION_RATE, 1,
-				&resample_cfg, NULL, NULL, resp);
-			if (ret < 0)
-				goto out;
+		if (stream != NAVIGATION_STREAM) {
+			if (components_global[resample_op_id[stream]].
+				running_refcnt == 0) {
+				ret = kalimba_operator_message(
+					components_global[
+					resample_op_id[stream]].ret[0],
+					RESAMPLER_SET_CONVERSION_RATE, 1,
+					&resample_cfg, NULL, NULL, resp);
+				if (ret < 0)
+					goto out;
+			}
+		}
 
 		/* Connect source with first operator */
 		for (i = 0; i < channels; i++)
@@ -2197,24 +2254,30 @@ u16 prepare_stream(int stream, int channels, u32 handle_addr, int sample_rate,
 			kcm->capture_usp_stereo_ep[usp_port].sample_rate,
 			kcm->playback_iacc_ep.sample_rate);
 		/* Set resample configration */
-		ret = kalimba_operator_message(
-			components_global[resample_op_id[stream]].ret[0],
-			RESAMPLER_SET_CONVERSION_RATE, 1,
-			&resample_cfg, NULL, NULL, resp);
-		if (ret < 0)
-			goto out;
+		if (components_global[resample_op_id[stream]].
+				running_refcnt == 0) {
+			ret = kalimba_operator_message(components_global[
+				resample_op_id[stream]].ret[0],
+				RESAMPLER_SET_CONVERSION_RATE, 1,
+				&resample_cfg, NULL, NULL, resp);
+			if (ret < 0)
+				goto out;
+		}
 	} else if (stream == IACC_LOOPBACK_PLAYBACK_STREAM
 		|| stream == I2S_TO_IACC_LOOPBACK_STREAM) {
 		resample_cfg = get_rasample_conversion_conf(
 			kcm->capture_iacc_stereo_ep.sample_rate,
 			kcm->playback_iacc_ep.sample_rate);
 		/* Set resample configration */
-		ret = kalimba_operator_message(
-			components_global[resample_op_id[stream]].ret[0],
-			RESAMPLER_SET_CONVERSION_RATE, 1,
-			&resample_cfg, NULL, NULL, resp);
-		if (ret < 0)
-			goto out;
+		if (components_global[resample_op_id[stream]].
+				running_refcnt == 0) {
+			ret = kalimba_operator_message(components_global[
+				resample_op_id[stream]].ret[0],
+				RESAMPLER_SET_CONVERSION_RATE, 1,
+				&resample_cfg, NULL, NULL, resp);
+			if (ret < 0)
+				goto out;
+		}
 	}
 	ret = sw_endpoint_id[stream][0];
 out:
@@ -2226,7 +2289,11 @@ static int change_primary_stream(int action, int stream)
 {
 	u16 mixer1_primary_stream = 0;
 	u16 mixer2_primary_stream = 0;
+	u16 mixer3_primary_stream = 0;
+	int mixer3_stream_count = 0;
+	u16 mixer3_stream_gain = 0;
 	u16 resp[64];
+	int i;
 	int ret;
 
 	/*
@@ -2242,9 +2309,7 @@ static int change_primary_stream(int action, int stream)
 	 * And the IACC_LOOPBACK_CAPTURE_STREAM don't need change the
 	 * primary stream, so bypass it.
 	 */
-	if (stream == IACC_LOOPBACK_PLAYBACK_STREAM
-		|| stream == I2S_TO_IACC_LOOPBACK_STREAM
-		|| stream == MUSIC_MONO_STREAM
+	if (stream == MUSIC_MONO_STREAM
 		|| stream == MUSIC_4CHANNELS_STREAM
 		|| stream == MUSIC_STEREO_STREAM)
 		stream = MUSIC_STREAM;
@@ -2259,22 +2324,85 @@ static int change_primary_stream(int action, int stream)
 	else
 		return 0;
 
-	if (test_bit(0, &active_stream)) {
+	if (test_bit(MUSIC_STREAM, &active_stream)) {
 		mixer1_primary_stream = 1;
 		mixer2_primary_stream = 1;
-	} else if (test_bit(1, &active_stream)) {
+		mixer3_primary_stream = 1;
+		mixer3_stream_count++;
+	} else if (test_bit(NAVIGATION_STREAM, &active_stream)) {
 		mixer1_primary_stream = 2;
 		mixer2_primary_stream = 1;
-	} else if (test_bit(2, &active_stream)) {
+	} else if (test_bit(ALARM_STREAM, &active_stream)) {
 		mixer1_primary_stream = 3;
 		mixer2_primary_stream = 1;
-	} else if (test_bit(3, &active_stream)) {
+	} else if (test_bit(A2DP_STREAM, &active_stream)) {
 		mixer1_primary_stream = 1;
 		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 2;
+	} else if (test_bit(USP0_TO_IACC_LOOPBACK_STREAM, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 3;
+	} else if (test_bit(USP1_TO_IACC_LOOPBACK_STREAM, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 3;
+	} else if (test_bit(USP2_TO_IACC_LOOPBACK_STREAM, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 3;
+	} else if (test_bit(IACC_LOOPBACK_PLAYBACK_STREAM, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 3;
+	} else if (test_bit(I2S_TO_IACC_LOOPBACK_STREAM, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 3;
 	}
-	if (test_bit(4, &active_stream))
+	if (test_bit(VOICECALL_BT_TO_IACC_STREAM, &active_stream))
 		mixer2_primary_stream = 2;
 
+	/*
+	 * For the mixer 3, the music, a2dp, i2s and usp should be mix together.
+	 * If a stream input from the audio hardware endpoint, which must be
+	 * set to primary stream, it is the limitation of the mixer operator.
+	 */
+	if (test_bit(A2DP_STREAM, &active_stream)) {
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 2;
+		mixer3_stream_count++;
+	}
+
+	if (test_bit(IACC_LOOPBACK_PLAYBACK_STREAM, &active_stream) ||
+		test_bit(I2S_TO_IACC_LOOPBACK_STREAM, &active_stream) ||
+		test_bit(USP0_TO_IACC_LOOPBACK_STREAM, &active_stream) ||
+		test_bit(USP1_TO_IACC_LOOPBACK_STREAM, &active_stream) ||
+		test_bit(USP2_TO_IACC_LOOPBACK_STREAM, &active_stream))	{
+		mixer1_primary_stream = 1;
+		mixer2_primary_stream = 1;
+		mixer3_primary_stream = 3;
+		mixer3_stream_count++;
+	}
+
+	/*
+	 * Base the stream counter of mixer 3, change the gain of each stream,
+	 * This change avoids the saturation of the mixer output.
+	 */
+	if (mixer3_stream_count == 2)
+		mixer3_stream_gain = 0xFE98; /* 1/2(-6dB) for each stream */
+	else if (mixer3_stream_count == 3)
+		mixer3_stream_gain = 0xFDC5; /* 1/3(-9.5dB) for each stream */
+
+	for (i = 0; i < MIXER_SUPPORT_STREAMS; i++)
+		mixer3_default_streams_volume[i] = mixer3_stream_gain;
+
+	if (mixer3_stream_count)
+		kalimba_operator_message(get_mixer_op_id(3),
+			OPERATOR_MSG_SET_GAINS,
+			MIXER_SUPPORT_STREAMS, mixer3_default_streams_volume,
+			NULL, NULL, NULL);
 	if (mixer1_primary_stream != 0) {
 		if (components_global[mixer_1].primary_stream !=
 				mixer1_primary_stream) {
@@ -2299,6 +2427,19 @@ static int change_primary_stream(int action, int stream)
 				return ret;
 		}
 	}
+	if (mixer3_primary_stream != 0) {
+		if (components_global[mixer_3].primary_stream !=
+			mixer3_primary_stream) {
+			components_global[mixer_3].primary_stream =
+				mixer3_primary_stream;
+			ret = kalimba_operator_message(get_mixer_op_id(3),
+				OPERATOR_MSG_SET_PRIMARY_STREAM,
+				1, &mixer3_primary_stream, NULL, NULL, resp);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -2525,6 +2666,8 @@ u16 get_mixer_op_id(int which)
 		return components_global[mixer_1].ret[0];
 	else if (which == 2)
 		return components_global[mixer_2].ret[0];
+	else if (which == 3)
+		return components_global[mixer_3].ret[0];
 	return 0;
 }
 
