@@ -68,7 +68,7 @@
 
 #define KAS_DMAC_IDLE				(1 << 0)
 
-#define KAS_PM_SRAM_BYTES			(128 * 1024)
+#define KAS_PM_SRAM_BYTES			(256 * 1024)
 #define KAS_DM1_SRAM_BYTES			(96 * 1024)
 #define KAS_DM2_SRAM_BYTES			KAS_DM1_SRAM_BYTES
 
