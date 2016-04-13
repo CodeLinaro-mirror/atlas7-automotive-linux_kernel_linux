@@ -21,17 +21,18 @@
 #include "../../dsp.h"
 #include "utils.h"
 
-/**************************************
-  The squence number of peq controls
-  defined in db-default/op.c
-  control names		   control index
-  band 1~10 gain	   0 ~ 9
-  band 1~10 FC		   10~ 19
-  band num			   20
-  core type			   21
-  master gain		   22
-  switch mode		   23
- **************************************/
+/*
+ * The squence number of peq controls
+ * defined in db-default/op.c
+ * control names		   control index
+ * band 1~10 gain	   0 ~ 9
+ * band 1~10 FC		   10~ 19
+ * band num			   20
+ * core type			   21
+ * master gain		   22
+ * switch mode		   23
+ */
+
 #define PEQ_CNTL_BAND1_GAIN 0
 #define PEQ_CNTL_BAND10_GAIN 9
 #define PEQ_CNTL_BAND1_FC 10
@@ -92,11 +93,31 @@ struct peq_ctx {
 	int band_gain[PEQ_BANDS];
 };
 
+struct peq_mode_msg {
+	u16 block;
+	u16 ctrl_id;
+	u16 value_h;
+	u16 value_l;
+};
+
+struct peq_param_msg {
+	u16 block;
+	u16 offset;
+	u16 param_num;
+	u16 value_h;
+	u16 value_l;
+	u16 pad;
+};
+
 static int set_peq_params(struct kasobj_op *op, int ctl_idx)
 {
 	struct peq_ctx *ctx = op->context;
-	int ret = 0, offset, value;
-	u16 msg[6] = {1, 0, 1, 0};
+	int ret, offset, value;
+	struct peq_param_msg msg = {
+		.block = 1,
+		.param_num = 1,
+		.pad = 0,
+	};
 
 	/* IPC only if operator is instantiated */
 	if (!op->obj.life_cnt)
@@ -128,36 +149,40 @@ static int set_peq_params(struct kasobj_op *op, int ctl_idx)
 			pr_err("KASOP(%s): peq set parameter exception !\n",
 				 op->obj.name);
 	}
-	msg[1] = (u16)(offset & 0x0000ffff);
-	msg[3] = (u16)((value >> 8) & 0x0000ffff);
-	msg[4] = (u16)((value & 0x000000ff) << 8);
+	msg.offset = (u16)(offset & 0x0000ffff);
+	msg.value_h = (u16)((value >> 8) & 0x0000ffff);
+	msg.value_l = (u16)((value & 0x000000ff) << 8);
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_PARAMS,
-		6, msg, NULL, NULL, __kcm_resp);
+		6, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret)
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 			op->obj.name, ret);
 
-	return ret;
+	return 0;
 }
 
 static int set_peq_mode(struct kasobj_op *op)
 {
 	struct peq_ctx *ctx = op->context;
-	u16 msg[4] = {1, 1, 0, 0}; /* {block, ctrl ID, value_H, value_L} */
-	int ret = 0;
+	int ret;
+	struct peq_mode_msg msg = {
+		.block = 1,
+		.ctrl_id = 1,
+		.value_h = 0,
+	};
 
 	if (!op->obj.life_cnt)
 		return 0;
 
-	msg[3] = ctx->switch_mode + 1;	/* 0~2 -> 1~3 */
+	msg.value_l = ctx->switch_mode + 1;	/* 0~2 -> 1~3 */
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_CONTROL,
-		4, msg, NULL, NULL, __kcm_resp);
+		4, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret)
 		pr_err("KASOBJ(%s): set PEQ mode failed(%d)!\n",
 			op->obj.name, ret);
 
-	return ret;
+	return 0;
 }
 
 static int peq_get(struct snd_kcontrol *kcontrol,
@@ -204,7 +229,7 @@ static int peq_get(struct snd_kcontrol *kcontrol,
 static int peq_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int ctl_idx, diff = 0, ret = 0;
+	int ctl_idx, diff = 0, ret;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	struct peq_ctx *ctx = op->context;
 	int value = ucontrol->value.integer.value[0];
@@ -311,7 +336,7 @@ static int peq_init(struct kasobj_op *op)
 			max = PEQ_MAX_GAIN;
 			tlv = peq_db_tlv;
 		} else if (kcm_strcasestr(name, "FC"))
-			max = 2400;
+			max = 24000;
 		else if (kcm_strcasestr(name, "Mode"))
 			max = 2;
 		else if (kcm_strcasestr(name, "Type"))
@@ -341,7 +366,7 @@ static int peq_init(struct kasobj_op *op)
 static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 {
 	u16 sample_rate = param->rate / 25; /* sample rate / 25 */
-	int ret = 0;
+	int ret;
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 		1, &sample_rate, NULL, NULL, __kcm_resp);
@@ -358,12 +383,12 @@ static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 			op->obj.name, ret);
 		return ret;
 	}
-	ret = set_peq_mode(op);
+	set_peq_mode(op);
 
-	return ret;
+	return 0;
 }
 
-static struct kasop_impl peq_impl = {
+static const struct kasop_impl peq_impl = {
 	.init = peq_init,
 	.create = peq_create,
 };

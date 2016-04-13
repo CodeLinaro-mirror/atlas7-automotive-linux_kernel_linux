@@ -27,7 +27,7 @@ static int aec_ref_create(struct kasobj_op *op,
 {
 	u16 sample_rate[2];
 	u16 aec_ref_ucid = 4; /* stable user case ID */
-	int ret = 0;
+	int ret;
 
 	sample_rate[0] = param->rate;
 	sample_rate[1] = 16000; /* wide band */
@@ -45,10 +45,10 @@ static int aec_ref_create(struct kasobj_op *op,
 		return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
-static struct kasop_impl aec_ref_impl = {
+static const struct kasop_impl aec_ref_impl = {
 	.create = aec_ref_create,
 };
 

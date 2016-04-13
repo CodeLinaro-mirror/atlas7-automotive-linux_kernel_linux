@@ -31,6 +31,24 @@
 	name " Master Gain;"			\
 	name " Switch Mode"
 
+#define KCM_MIXER_STREAM(name)	\
+	name " Stream Volume;"			   \
+	name " Stream Mute;"		\
+	name " Stream Ramp;"		\
+	name " Stream Front Left;"	\
+	name " Stream Front Right;" \
+	name " Stream Rear Left;"	\
+	name " Stream Rear Right"
+
+#define KCM_MIXER1_CTRLS				\
+	KCM_MIXER_STREAM("Music") ";"		\
+	KCM_MIXER_STREAM("Navigation") ";"	\
+	KCM_MIXER_STREAM("Alarm")
+
+#define KCM_MIXER2_CTRLS				\
+	";;;;;;;"							\
+	KCM_MIXER_STREAM("Voicecall")
+
 static const struct kasdb_op op[] = {
 	{
 		/* Music passthrough */
@@ -162,25 +180,19 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
-		/* Mixer: music, navigation, alarm */
+		/* Mixer1: music, navigation, alarm */
 		.name = __S("op_mixer"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(
-				"Music Stream Playback Volume;"
-				"Navigation Stream Playback Volume;"
-				"Alarm Stream Playback Volume;"
-				"Music Stream Mute;"
-				"Navigation Stream Mute;"
-				"Alarm Stream Mute"),
+		.ctrl_names = __S(KCM_MIXER1_CTRLS),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
 		.param.mixer_streams = 3,
 	},
 	{
-		/* Mixer: mixer1, voice */
+		/* Mixer2: mixer1, voice */
 		.name = __S("op_mixer2"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
+		.ctrl_names = __S(KCM_MIXER2_CTRLS),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
 		.param.mixer_streams = 3,

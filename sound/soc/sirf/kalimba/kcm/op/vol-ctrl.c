@@ -55,12 +55,21 @@ struct volctrl_ctx {
 	int master_mute;
 };
 
+struct volctrl_msg {
+	u16 block;
+	u16 ctrl_id;
+	u16 value_h;
+	u16 value_l;
+};
+
 static int set_volctrl_params(struct kasobj_op *op, int ctl_idx)
 {
 	struct volctrl_ctx *ctx = op->context;
-	int ret = 0;
+	int ret;
 	u32 volume;
-	u16 msg[4] = {1, 0, 0, 0}; /* {block, ctrl ID, value_H, value_L} */
+	struct volctrl_msg msg = {
+		.block = 1,
+	};
 
 	/* IPC only if operator is instantiated */
 	if (!op->obj.life_cnt)
@@ -68,28 +77,28 @@ static int set_volctrl_params(struct kasobj_op *op, int ctl_idx)
 
 	switch (ctl_idx) {
 	case VOLCTRL_CTRL_FRONT_LEFT:
-		msg[1] = VOLCTRL_FRONT_LEFT_ID;
+		msg.ctrl_id = VOLCTRL_FRONT_LEFT_ID;
 		/* 1/60th of one dB resolution,( <dB gain> * 60) */
 		volume = ctx->front_left * 60;
 		break;
 	case VOLCTRL_CTRL_FRONT_RIGHT:
-		msg[1] = VOLCTRL_FRONT_RIGHT_ID;
+		msg.ctrl_id = VOLCTRL_FRONT_RIGHT_ID;
 		volume = ctx->front_right * 60;
 		break;
 	case VOLCTRL_CTRL_REAR_LEFT:
-		msg[1] = VOLCTRL_REAR_LEFT_ID;
+		msg.ctrl_id = VOLCTRL_REAR_LEFT_ID;
 		volume = ctx->rear_left * 60;
 		break;
 	case VOLCTRL_CTRL_REAR_RIGHT:
-		msg[1] = VOLCTRL_REAR_RIGHT_ID;
+		msg.ctrl_id = VOLCTRL_REAR_RIGHT_ID;
 		volume = ctx->rear_right * 60;
 		break;
 	case VOLCTRL_CTRL_MASTER_GAIN:
-		msg[1] = VOLCTRL_MASTER_GAIN_ID;
+		msg.ctrl_id = VOLCTRL_MASTER_GAIN_ID;
 		volume = ctx->master_gain * 60;
 		break;
 	case VOLCTRL_CTRL_MASTER_MUTE:
-		msg[1] = VOLCTRL_MASTER_GAIN_ID;
+		msg.ctrl_id = VOLCTRL_MASTER_GAIN_ID;
 		/* mute equals minamal master gain */
 		if (ctx->master_mute)
 			volume = VOLCTRL_MIN_DB * 60;
@@ -100,16 +109,16 @@ static int set_volctrl_params(struct kasobj_op *op, int ctl_idx)
 		pr_err("KASOP(%s): volume control, set parameter exception !\n",
 			 op->obj.name);
 	}
-	msg[2] = (u16)(volume >> 16);
-	msg[3] = (u16)(volume & 0xffff);
+	msg.value_h = (u16)(volume >> 16);
+	msg.value_l = (u16)(volume & 0xffff);
 	ret = kalimba_operator_message(op->op_id,
 		OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL,
-		4, msg, NULL, NULL, __kcm_resp);
+		4, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret)
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 		op->obj.name, ret);
 
-	return ret;
+	return 0;
 }
 
 static int volctrl_get(struct snd_kcontrol *kcontrol,
@@ -134,7 +143,7 @@ static int volctrl_get(struct snd_kcontrol *kcontrol,
 static int volctrl_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int ctl_idx, ret = 0;
+	int ctl_idx, ret;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	struct volctrl_ctx *ctx = op->context;
 	int value = ucontrol->value.integer.value[0];
@@ -149,11 +158,11 @@ static int volctrl_put(struct snd_kcontrol *kcontrol,
 		((int *)ctx)[ctl_idx] = value;
 		if (!((ctl_idx == VOLCTRL_CTRL_MASTER_GAIN) &&
 			ctx->master_mute))
-			ret = set_volctrl_params(op, ctl_idx);
+			set_volctrl_params(op, ctl_idx);
 	}
 	kcm_unlock();
 
-	return ret;
+	return 0;
 }
 
 /* Create control interfaces */
@@ -227,10 +236,10 @@ static int volctrl_create(struct kasobj_op *op,
 			break;
 	}
 
-	return ret;
+	return 0;
 }
 
-static struct kasop_impl volctrl_impl = {
+static const struct kasop_impl volctrl_impl = {
 	.init = volctrl_init,
 	.create = volctrl_create,
 };

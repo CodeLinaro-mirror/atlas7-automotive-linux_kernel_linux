@@ -433,4 +433,44 @@ static const struct kasdb_link link[] = {
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
+
+	/* A2DP */
+	{
+		/* usp3 -> Passthrough, 4ch */
+		.name = __S("lk_usp3_pass_4"),
+		.source_name = __S("so_usp3"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2, 3, 4 },
+		.sink_pins = { 1, 2, 3, 4 },
+		.channels = 4,
+	},
+
+	/* Carplay */
+	{
+		/* CVC send -> Voicecall capture, 1ch */
+		.name = __S("lk_cvc_send_vocall_cap"),
+		.source_name = __S("op_send_1mic_cvc"),
+		.sink_name = __S("Voicecall-capture"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* Voicecall playback -> CVC recv */
+		.name = __S("lk_vocall_play_cvc_recv"),
+		.source_name = __S("Voicecall-playback"),
+		.sink_name = __S("op_recv_cvc"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* I2S -> Passthrough, 2ch */
+		.name = __S("lk_i2s_pass_2"),
+		.source_name = __S("so_i2s"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
 };

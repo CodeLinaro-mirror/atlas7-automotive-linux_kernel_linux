@@ -26,7 +26,7 @@ static int cvc_send_create(struct kasobj_op *op,
 	const struct kasobj_param *param)
 {
 	u16 cvc_send_ucid = 4; /* stable user case ID */
-	int ret = 0;
+	int ret;
 
 	ret = kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_UCID,
 		1, &cvc_send_ucid, NULL, NULL, __kcm_resp);
@@ -35,10 +35,10 @@ static int cvc_send_create(struct kasobj_op *op,
 		return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
-static struct kasop_impl cvc_send_impl = {
+static const struct kasop_impl cvc_send_impl = {
 	.create = cvc_send_create,
 };
 

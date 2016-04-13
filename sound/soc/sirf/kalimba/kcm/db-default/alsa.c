@@ -23,6 +23,17 @@ static const struct kasdb_codec codec[] = {
 /* Sink, Source */
 static const struct kasdb_hw hw[] = {
 	{
+		.name = __S("so_i2s"),
+		.is_sink = 0,
+		.is_slave = 0,
+		.max_channels = 2,
+		.def_channels = 2,
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 48000,
+		.bytes_per_ch = 192,
+	},
+	{
 		.name = __S("si_usp3"),
 		.is_sink = 1,
 		.is_slave = 0,
@@ -39,8 +50,8 @@ static const struct kasdb_hw hw[] = {
 		.is_sink = 0,
 		.is_slave = 0,
 		.instance_id = ENDPOINT_PHY_DEV_A7CA,
-		.max_channels = 1,
-		.def_channels = 1,
+		.max_channels = 4,
+		.def_channels = 0,	/* Stream dependent */
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
 		.def_rate = 16000,
@@ -175,6 +186,42 @@ static const struct kasdb_fe fe[] = {
 		.stream_name = __S("IACC-loopback-capture"),
 		.channels_min = 1,
 		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.sink_codec = __S(NULL),
+		.source_codec = __S("iacc"),
+	},
+	{
+		.name = __S("I2S-to-iacc-loopback"),
+		.playback = 1,
+		.internal = 0,
+		.stream_name = __S(NULL),	/* Radio Playback */
+		.channels_min = 2,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.sink_codec = __S("iacc"),
+		.source_codec = __S(NULL),
+	},
+	{
+		.name = __S("Voicecall-playback"),
+		.playback = 1,
+		.internal = 0,
+		.stream_name = __S(NULL),	/* Carplay Voicecall-playback */
+		.channels_min = 1,
+		.channels_max = 1,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.sink_codec = __S("iacc"),
+		.source_codec = __S(NULL),
+	},
+	{
+		.name = __S("Voicecall-capture"),
+		.playback = 0,
+		.internal = 0,
+		.stream_name = __S(NULL),	/* Carplay Voicecall-capture */
+		.channels_min = 1,
+		.channels_max = 1,
 		.rates = SNDRV_PCM_RATE_8000_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		.sink_codec = __S(NULL),

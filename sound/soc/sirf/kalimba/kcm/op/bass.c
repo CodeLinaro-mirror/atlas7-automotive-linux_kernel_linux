@@ -23,7 +23,8 @@
 
 #define CONTROL_NUM 8
 #define PARAM_NUM 7
-#define MSG_LEN 15 /* (3 + (PARAM_NUM * 3) / 2) */
+#define PARAM_LEN 12 /* (CONTROL_NUM * 3) / 2 */
+#define MSG_LEN 15 /* 3 + PARAM_LEN */
 #define MAX_IDX 1
 #define MIN_IDX 0
 #define MIN_DB (-32)
@@ -59,6 +60,20 @@ struct bass_ctx {
 	int have_control;
 };
 
+struct bass_param_msg {
+	u16 block;
+	u16 offset;
+	u16 param_num;
+	u16 params[PARAM_NUM];
+};
+
+struct bass_mode_msg {
+	u16 block;
+	u16 ctrl_id;
+	u16 value_h;
+	u16 value_l;
+};
+
 /* the context of operator without controls */
 static struct bass_ctx *no_cntl_op_ctx;
 static u16 no_cntl_op_id;
@@ -75,70 +90,80 @@ static void set_bass_default_value(struct bass_ctx *ctx)
 	ctx->switch_mode = 1; /* default: process */
 }
 
-static int set_bass_params(struct kasobj_op *op, int create)
+static int set_bass_params(struct kasobj_op *op, int create_op)
 {
-	int *ctx, ret = 0, idx, word;
-	u16 msg[MSG_LEN] = {1, 1, PARAM_NUM};
+	int *ctx, ret, idx, m_idx;
+	struct bass_param_msg msg;
 	int tmp;
 
 	/* IPC only if operator is instantiated */
 	if (!op->obj.life_cnt)
 		return 0;
 
+	msg.block = 1;
+	msg.offset = 0;
+	msg.param_num = PARAM_NUM;
+
 	/* Every time, send all the parameters to DSP */
 	ctx = (int *)(op->context);
-	for (idx = 0, word = 3; (idx < CONTROL_NUM) && word < MSG_LEN;) {
-		msg[word++] = (u16)((ctx[idx] >> 8) & 0x0000ffff);
+	for (idx = 0, m_idx = 0; (idx < CONTROL_NUM) && m_idx < PARAM_LEN;) {
+		msg.params[m_idx++] = (u16)((ctx[idx] >> 8) & 0x0000ffff);
 		tmp = (ctx[idx++] & 0x000000ff) << 8;
-		msg[word++] = (u16)(tmp | ((ctx[idx] & 0x00ff0000) >> 16));
-		msg[word++] = (u16)(ctx[idx++] & 0x0000ffff);
+		msg.params[m_idx++] = (u16)(tmp |
+			((ctx[idx] & 0x00ff0000) >> 16));
+		msg.params[m_idx++] = (u16)(ctx[idx++] & 0x0000ffff);
 	}
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_PARAMS,
-		MSG_LEN, msg, NULL, NULL, __kcm_resp);
+		MSG_LEN, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret)
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 			op->obj.name, ret);
 
-	if (!create) {
+	if (!create_op) {
 		ret = kalimba_operator_message(no_cntl_op_id,
-			OPMSG_COMMON_SET_PARAMS, MSG_LEN, msg, NULL,
+			OPMSG_COMMON_SET_PARAMS, MSG_LEN, (u16 *)&msg, NULL,
 			NULL, __kcm_resp);
 		if (ret)
 			pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 				op->obj.name, ret);
 	}
 
-	return ret;
+	return 0;
 }
 
-static int set_bass_mode(struct kasobj_op *op, int create)
+static int set_bass_mode(struct kasobj_op *op, int create_op)
 {
 	struct bass_ctx *ctx;
-	u16 msg[4] = {1, 1, 0, 0}; /* {block, ctrl ID, value_H, value_L} */
-	int ret = 0;
+	struct bass_mode_msg msg = {
+		.block = 1,
+		.ctrl_id = 1,
+		.value_h = 0,
+		.value_l = 0,
+	};
+	int ret;
 
 	if (!op->obj.life_cnt)
 		return 0;
 
 	ctx = op->context;
-	msg[3] = ctx->switch_mode + 1;	/* 0~2 -> 1~3 */
+	msg.value_l = ctx->switch_mode + 1;	/* 0~2 -> 1~3 */
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_CONTROL,
-		4, msg, NULL, NULL, __kcm_resp);
+		4, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret)
 		pr_err("KASOBJ(%s): set bass mode failed(%d)!\n",
 			op->obj.name, ret);
 
-	if (!create) {
+	if (!create_op) {
 		ret = kalimba_operator_message(no_cntl_op_id,
-			OPMSG_COMMON_SET_CONTROL, 4, msg, NULL, NULL,
+			OPMSG_COMMON_SET_CONTROL, 4, (u16 *)&msg, NULL, NULL,
 			__kcm_resp);
 		if (ret)
 			pr_err("KASOBJ(%s): set bass mode failed(%d)!\n",
 				op->obj.name, ret);
 	}
 
-	return ret;
+	return 0;
 }
 
 static int bass_get(struct snd_kcontrol *kcontrol,
@@ -262,7 +287,7 @@ static int bass_create(struct kasobj_op *op,
 {
 	struct bass_ctx *ctx = op->context;
 	u16 sample_rate = param->rate / 25; /* sample rate / 25 */
-	int ret = 0;
+	int ret;
 
 	if (!ctx->have_control)
 		no_cntl_op_id = op->op_id;
@@ -282,7 +307,7 @@ static int bass_create(struct kasobj_op *op,
 		return ret;
 }
 
-static struct kasop_impl bass_impl = {
+static const struct kasop_impl bass_impl = {
 	.init = bass_init,
 	.create = bass_create,
 };
