@@ -70,6 +70,12 @@ static int const32_data_size;
 
 static void firmware_run_pm(u32 start_addr)
 {
+	if (!(start_addr >= KAS_PM_SRAM_START_ADDR &&
+			start_addr <= KAS_PM_SRAM_END_ADDR)) {
+		pr_err("%s: the start address(0x%x) is not correct.\n",
+			start_addr);
+		return;
+	}
 	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, (KAS_DEBUG << 2) | (0x2 << 30));
 	write_kalimba_reg(KAS_CPU_KEYHOLE_DATA, KAS_DEBUG_STOP);
 
@@ -431,6 +437,11 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 	case IOCTL_KALIMBA_WRITE_PM:
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
+		if (!(start_addr >= KAS_PM_SRAM_START_ADDR &&
+			start_addr <= KAS_PM_SRAM_END_ADDR))
+			return -EINVAL;
+		if (length > (KAS_PM_SRAM_END_ADDR - start_addr + 1))
+			return -EINVAL;
 		data = kmalloc(length, GFP_KERNEL);
 		if (!data)
 			return -ENOMEM;
@@ -446,6 +457,11 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 	case IOCTL_KALIMBA_READ_PM:
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
+		if (!(start_addr >= KAS_PM_SRAM_START_ADDR &&
+			start_addr <= KAS_PM_SRAM_END_ADDR))
+			return -EINVAL;
+		if (length > (KAS_PM_SRAM_END_ADDR - start_addr + 1))
+			return -EINVAL;
 		arg += 8;
 		write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
 		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
@@ -460,6 +476,16 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 	case IOCTL_KALIMBA_WRITE_DM:
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
+		if (start_addr >= KAS_DM1_SRAM_START_ADDR &&
+			start_addr <= KAS_DM1_SRAM_END_ADDR) {
+			if (length > (KAS_DM1_SRAM_END_ADDR - start_addr + 1))
+				return -EINVAL;
+		} else if (start_addr >= KAS_DM2_SRAM_START_ADDR &&
+			start_addr <= KAS_DM2_SRAM_END_ADDR) {
+			if (length > (KAS_DM2_SRAM_END_ADDR - start_addr + 1))
+				return -EINVAL;
+		} else
+			return -EINVAL;
 		arg += 8;
 		write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
 		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
@@ -474,6 +500,16 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 	case IOCTL_KALIMBA_READ_DM:
 		get_user(start_addr, (u32 __user *)arg);
 		get_user(length, (u32 __user *)(arg + 4));
+		if (start_addr >= KAS_DM1_SRAM_START_ADDR &&
+			start_addr <= KAS_DM1_SRAM_END_ADDR) {
+			if (length > (KAS_DM1_SRAM_END_ADDR - start_addr + 1))
+				return -EINVAL;
+		} else if (start_addr >= KAS_DM2_SRAM_START_ADDR &&
+			start_addr <= KAS_DM2_SRAM_END_ADDR) {
+			if (length > (KAS_DM2_SRAM_END_ADDR - start_addr + 1))
+				return -EINVAL;
+		} else
+			return -EINVAL;
 		arg += 8;
 		write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
 		write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
@@ -487,8 +523,11 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 		break;
 	case IOCTL_KALIMBA_RUN_PM:
 		get_user(start_addr, (u32 __user *)arg);
-		firmware_run_pm(start_addr);
-		ps_ptr_update();
+		if (start_addr >= KAS_PM_SRAM_START_ADDR &&
+			start_addr <= KAS_PM_SRAM_END_ADDR) {
+				firmware_run_pm(start_addr);
+				ps_ptr_update();
+		}
 		break;
 	case IOCTL_KALIMBA_STOP_PM:
 		dev_info(dev, "Pause PM\n");
