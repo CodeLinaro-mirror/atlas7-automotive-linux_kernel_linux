@@ -577,16 +577,15 @@ static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 	}
 
 	core_reg = regulator_get_optional(&pdev->dev, "core");
-	if (IS_ERR(core_reg)) {
+	if (IS_ERR(core_reg))
 		dev_err(&pdev->dev, "no regulator for core: %ld\n",
 			PTR_ERR(core_reg));
-		goto out;
+	else {
+		info->core_reg = core_reg;
+		atlas7_otp_get_svm(&info->svm);
+		atlas7_pm_svm(SVM_CORE);
+		atlas7_pm_svm(SVM_CPU);
 	}
-
-	info->core_reg = core_reg;
-	atlas7_otp_get_svm(&info->svm);
-	atlas7_pm_svm(SVM_CORE);
-	atlas7_pm_svm(SVM_CPU);
 
 	return 0;
 out:
