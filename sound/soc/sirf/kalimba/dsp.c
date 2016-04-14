@@ -623,13 +623,15 @@ int kalimba_get_version_id(u32 *version_id, u16 *resp)
 	u16 msg[2] = {GET_VERSION_ID_REQ, 0};
 	int ret;
 
-	BUG_ON(!version_id);
 	ret = ipc_send_msg(msg, 2,
 		MSG_NEED_ACK | MSG_NEED_RSP, resp);
-	if (ret < 0)
-		*version_id = -1;
-	else
-		*version_id = resp[3] | (resp[4] << 16);
+
+	if (version_id != NULL) {
+		if (ret < 0)
+			*version_id = -1;
+		else
+			*version_id = resp[3] | (resp[4] << 16);
+	}
 
 	return ret;
 }
