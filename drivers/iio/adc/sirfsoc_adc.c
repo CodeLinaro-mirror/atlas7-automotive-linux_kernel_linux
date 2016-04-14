@@ -734,9 +734,10 @@ static u32 atlas7_adc_calculate_volt(u32 digital_out,
 				u32 sgain, u32 digital_again)
 {
 	u32 volt, digital_ideal, digital_convert;
-
+#if 0
 	pr_info("cal volt: out: %x  sgain: %x gain: %x\n",
 			 digital_out, sgain, digital_again);
+#endif
 	/* Vin=(Codeout * 0.001128/Gain), where Gain is 1 for SGAIN[2..0]=0
 	 * Gain is 2.59 for SGAIN[2..0]=2 */
 
