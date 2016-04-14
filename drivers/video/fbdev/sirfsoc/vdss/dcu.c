@@ -250,10 +250,16 @@ bool dcu_inline_check_size(struct vdss_surface *src_surf,
 	 * Inline mode, driver use DCU do vertical scaling, so
 	 * the dst height must match the request of VPP source:
 	 *    1. vpp need read three lines at the beginning;
-	 *    2. height of VPP source surface must be integer
+	 *    2. TODO: workaround solution
+	 *       If the dst height of DCU is less than 32,
+	 *       fifo underflow randomly happens in DCU+VPP scaling
+	 *       overnight test.
+	 *       According to the test result, 32 is a safe size of
+	 *       dst height
+	 *    3. height of VPP source surface must be integer
 	 *       multiples of 2.
 	 * */
-	if (dst_rect_height < 4) {
+	if (dst_rect_height < 32) {
 		VDSSWARN("The height of dst rect is less than 4!\n");
 		return false;
 	}
