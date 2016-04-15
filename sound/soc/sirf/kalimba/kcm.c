@@ -2548,7 +2548,8 @@ static int change_primary_stream(int action, int stream)
 	for (i = 0; i < MIXER_SUPPORT_STREAMS; i++)
 		mixer3_default_streams_volume[i] = mixer3_stream_gain;
 
-	if (mixer3_stream_count)
+	/* Some streams do not have mixer 3 operator, so bypass set */
+	if (mixer3_stream_count && get_mixer_op_id(3))
 		kalimba_operator_message(get_mixer_op_id(3),
 			OPERATOR_MSG_SET_GAINS,
 			MIXER_SUPPORT_STREAMS, mixer3_default_streams_volume,
@@ -2577,7 +2578,8 @@ static int change_primary_stream(int action, int stream)
 				return ret;
 		}
 	}
-	if (mixer3_primary_stream != 0) {
+	/* Some streams do not have mixer 3 operator, so bypass set */
+	if (mixer3_primary_stream != 0 && get_mixer_op_id(3)) {
 		if (components_global[mixer_3].primary_stream !=
 			mixer3_primary_stream) {
 			components_global[mixer_3].primary_stream =
