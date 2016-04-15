@@ -239,8 +239,7 @@ int noc_dump_errlog(struct noc_macro *nocm)
 	bool vld;
 	void __iomem *noc_errlog_mbase;
 
-	pr_info("err[%s]\n", nocm->name);
-
+	pr_debug("err[%s]\n", nocm->name);
 	noc_errlog_mbase = (void __iomem *)(nocm->mbase + nocm->errlogoff);
 	/* race of async abort and irq*/
 	spin_lock(&nocm->lock);
@@ -275,6 +274,7 @@ int noc_dump_errlog(struct noc_macro *nocm)
 
 	return 0;
 err:
+	spin_unlock(&nocm->lock);
 	return 1;
 }
 
