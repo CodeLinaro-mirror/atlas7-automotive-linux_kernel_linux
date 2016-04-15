@@ -354,9 +354,7 @@ void kalimba_set_stream_volume(int stream, int vol, int samples)
 void kalimba_set_stream_channel_volume(int stream, int channel, int vol,
 	int samples)
 {
-	int i;
 	u16 mixer_op_id;
-	static u16 streams_channel_volume[MIXER_SUPPORT_STREAMS * 2][4];
 	u16 msg[3] = {1, 0, (u16)(vol * 60)};
 	u16 msg_ramp[2];
 

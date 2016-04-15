@@ -73,7 +73,7 @@ static void firmware_run_pm(u32 start_addr)
 	if (!(start_addr >= KAS_PM_SRAM_START_ADDR &&
 			start_addr <= KAS_PM_SRAM_END_ADDR)) {
 		pr_err("%s: the start address(0x%x) is not correct.\n",
-			start_addr);
+			__func__, start_addr);
 		return;
 	}
 	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR, (KAS_DEBUG << 2) | (0x2 << 30));
@@ -579,7 +579,7 @@ void firmware_download(u32 *fw_data)
 {
 	struct firmware_code code;
 	int i;
-	int *p = &code.head;
+	int *p = (int *)&code.head;
 	int head_size = sizeof(struct firmware_code_head) / sizeof(int);
 
 	for (i = 0; i < head_size; i++)
