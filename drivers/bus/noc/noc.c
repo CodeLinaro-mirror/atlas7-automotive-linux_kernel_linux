@@ -36,8 +36,7 @@ static irqreturn_t noc_irq_handle(int irq, void *data)
 	if (nocm->errlogoff)
 		noc_dump_errlog(nocm);
 
-	if (nocm->probe_enable)
-		noc_handle_probe(nocm);
+	noc_handle_probe(nocm);
 
 	return IRQ_HANDLED;
 }
@@ -89,26 +88,17 @@ static int noc_macro_init(struct noc_macro *nocm)
 {
 	int ret = 0;
 	struct platform_device *pdev = nocm->pdev;
-
-	nocm->clk = devm_clk_get(&pdev->dev, "nocm");
-	if (!IS_ERR(nocm->clk)) {
-		ret = clk_prepare_enable(nocm->clk);
-		pr_info("%s: clk_prepare_enable %d!\n", __func__, ret);
-	}
-
+#if 0
 	/* ignore qos on pxp for lack some modules*/
 	if (!of_machine_is_compatible("sirf,atlas7-pxp")) {
 		ret = noc_qos_init(nocm);
 		if (ret)
 			goto err;
 	}
-
+#endif
 	ret = noc_probe_init(nocm);
 	if (ret)
 		goto err;
-
-	if (!(nocm->errlogoff || nocm->probe_enable))
-		return 0;
 
 	/*enable errlog trigger, thus irq/abort could come*/
 	noc_errlog_enable(nocm);
@@ -142,8 +132,7 @@ static int noc_pm_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct noc_macro *nocm = platform_get_drvdata(pdev);
 
-	if (!IS_ERR(nocm->clk))
-		clk_disable_unprepare(nocm->clk);
+	noc_probe_suspend(nocm);
 
 	return 0;
 }
@@ -153,8 +142,7 @@ static int noc_pm_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct noc_macro *nocm = platform_get_drvdata(pdev);
 
-	if (!IS_ERR(nocm->clk))
-		clk_prepare_enable(nocm->clk);
+	noc_probe_resume(nocm);
 
 	return 0;
 }
@@ -195,8 +183,8 @@ static int sirfsoc_noc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, nocm);
 	if (strstr(nocm->name, "cpum"))
 		s_cpum = nocm;
-	pr_debug("initialized nocm:%s, %d, %d\n",
-		nocm->name, !!nocm->errlogoff, nocm->probe_enable);
+	pr_debug("initialized nocm:%s, %d\n",
+		nocm->name, !!nocm->errlogoff);
 
 	return 0;
 }

@@ -21,22 +21,10 @@ struct noc_macro {
 	u32 faultenoff;
 	u32 regfwoff;
 	u32 schedoff;
-	u32 probe_enable;	/*if 1, MUST set faultenoff*/
 	struct noc_qos_t *qos_tbl;
 	u32 qos_size;
 	struct noc_probe_t *probe_tbl;
 	u32 probe_size;
-	u32 probe_en;
-	u32 probe_manual_mode;	/*manual or alarm mode*/
-	u32 probe_port_rotate;
-	/* for sysfs*/
-	struct kobject *qos_kobj;
-	struct kobj_ext_attribute all_qos_attr;
-	struct kobject *probe_kobj;
-	struct kobj_ext_attribute probe_en_attr;
-	struct kobj_ext_attribute probe_out_attr;
-	struct kobj_ext_attribute probe_manual_mode_attr;
-	struct kobj_ext_attribute probe_port_rotate_attr;
 };
 
 int noc_dump_errlog(struct noc_macro *nocm);
@@ -45,6 +33,9 @@ int noc_probe_init(struct noc_macro *nocm);
 void noc_handle_probe(struct noc_macro *nocm);
 int noc_qos_init(struct noc_macro *nocm);
 int noc_get_cpu_by_name(const char *name);
+int noc_probe_suspend(struct noc_macro *nocm);
+int noc_probe_resume(struct noc_macro *nocm);
+
 
 #ifdef CONFIG_ATLAS7_NOC_FW
 int noc_spramfw_init(struct noc_macro *nocm);
