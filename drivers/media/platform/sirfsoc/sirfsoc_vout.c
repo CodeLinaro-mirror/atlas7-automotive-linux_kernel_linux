@@ -2357,7 +2357,7 @@ static int sirfsoc_vout_create_video_devices(struct platform_device *pdev)
 		vout->display =
 			vid_dev->display[i / SIRFSOC_MAX_VOUT_ON_EACH_DISPLAY];
 
-		vout->di_mode = VDSS_VPP_DI_WEAVE;
+		vout->di_mode = VDSS_VPP_3MEDIAN;
 		sirfsoc_setup_video_data(vout);
 
 		/* the internal index in each display, from 0 to 'MAX -1' */
