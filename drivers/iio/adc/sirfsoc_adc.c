@@ -611,9 +611,6 @@ static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 {
 	struct sirfsoc_adc *adc = container_of(req, struct sirfsoc_adc, req);
 	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
-	struct sirfsoc_adc_register *adc_reg = adc->chip_info->adc_reg;
-	struct sirfsoc_adc_ctrl_set *ctrl_set = &adc_reg->ctrl_set;
-	struct sirfsoc_adc_mode_sel *mode_sel = &adc_reg->mode_sel;
 	struct device_node *np = indio_dev->dev.parent->of_node;
 	u32 sgain;
 
@@ -733,7 +730,6 @@ static u32 atlas6_adc_calculate_volt(u32 digital_out,
 static u32 atlas7_adc_calculate_volt(u32 digital_out,
 				u32 sgain, u32 digital_again)
 {
-	u32 volt, digital_ideal, digital_convert;
 #if 0
 	pr_info("cal volt: out: %x  sgain: %x gain: %x\n",
 			 digital_out, sgain, digital_again);
