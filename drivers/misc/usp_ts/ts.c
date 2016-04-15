@@ -150,16 +150,17 @@ static irqreturn_t ts_irq(int irq, void *data)
 	status = ts_read(ts, USP_INT_STATUS);
 	ts_write(ts, USP_INT_STATUS, status);
 
-	if (ts->intr_msg) {
-		if (status & USP_RX_TSIF_SYNC_BYTE_ERR)
-			pr_info("TS INT: USP_RX_TSIF_SYNC_BYTE_ERR\n");
+#if defined(CONFIG_ATLAS7_USP_TS_DEBUG)
+	if (status & USP_RX_TSIF_SYNC_BYTE_ERR)
+		pr_info("TS INT: USP_RX_TSIF_SYNC_BYTE_ERR\n");
 
-		if (status & USP_RX_TSIF_PROTOCOL_ERR)
-			pr_info("TS INT: USP_RX_TSIF_PROTOCOL_ERR\n");
+	if (status & USP_RX_TSIF_PROTOCOL_ERR)
+		pr_info("TS INT: USP_RX_TSIF_PROTOCOL_ERR\n");
 
-		if (status & USP_RX_TSIF_ERR)
+	if (status & USP_RX_TSIF_ERR)
 			pr_info("TS INT: USP_RX_TSIF_ERR\n");
-	}
+#endif /* CONFIG_ATLAS7_USP_TS_DEBUG */
+
 	return IRQ_HANDLED;
 }
 
@@ -184,49 +185,6 @@ static void ts_hw_dump_registers(struct ts_dev *ts)
 	pr_info("USP_RX_FIFO_STATUS =0x%x\n", ts_read(ts, USP_RX_FIFO_STATUS));
 
 }
-
-/******************************attributes*************************/
-
-
-static ssize_t intr_msg_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct ts_dev *ts = dev_get_drvdata(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%d\n", ts->intr_msg);
-}
-
-static ssize_t intr_msg_store(struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	struct ts_dev *ts = dev_get_drvdata(dev);
-
-	int ret;
-	unsigned long value = 0;
-
-	ret = kstrtoul(buf, 0, &value);
-
-	if (!ret)
-		ts->intr_msg = value ? true : false;
-
-	return count;
-}
-static DEVICE_ATTR(intr_msg, S_IRUSR | S_IWUSR, intr_msg_show, intr_msg_store);
-
-static struct attribute *ts_ctrl_attrs[] = {
-	&dev_attr_intr_msg.attr,
-	NULL,
-};
-
-static struct attribute_group ts_ctrl_attr_group = {
-	.name = "ts_intr",
-	.attrs = ts_ctrl_attrs,
-};
-
-static const struct attribute_group *ts_attr_groups[] = {
-	&ts_ctrl_attr_group,
-	NULL,
-};
 
 /******************************DMA*************************/
 
@@ -549,7 +507,6 @@ static int ts_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	u32 index;
-	u32 len;
 
 	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
 	if (!ts)
@@ -607,20 +564,14 @@ static int ts_probe(struct platform_device *pdev)
 	ts->dev = dev;
 	dev_set_drvdata(dev, ts);
 
-	ts->misc_dev.name = devm_kasprintf(dev, GFP_KERNEL, "%s%d",
-		TS_DRV_NAME, ts->dev_num);
+	ts->misc_dev.name = devm_kasprintf(dev, GFP_KERNEL, "usp_ts%d",
+		ts->dev_num);
 	ts->misc_dev.fops = &ts_fops;
 	ts->misc_dev.minor = MISC_DYNAMIC_MINOR;
 
 	ret = misc_register(&ts->misc_dev);
 	if (ret) {
 		dev_err(dev, "misc register fail\n");
-		goto out;
-	}
-
-	ret = sysfs_create_groups(&dev->kobj, ts_attr_groups);
-	if (ret) {
-		dev_err(dev, "create sysfs fail\n");
 		goto out;
 	}
 
@@ -636,7 +587,6 @@ static int ts_remove(struct platform_device *pdev)
 {
 	struct ts_dev *ts = dev_get_drvdata(&pdev->dev);
 
-	sysfs_remove_groups(&pdev->dev.kobj, ts_attr_groups);
 	dmaengine_terminate_all(ts->rx_chan);
 	misc_deregister(&ts->misc_dev);
 

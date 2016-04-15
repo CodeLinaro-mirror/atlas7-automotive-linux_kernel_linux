@@ -169,7 +169,6 @@ struct ts_dev {
 	spinlock_t		buffer_lock;
 
 	bool            data_is_ready;
-	bool            intr_msg;
 };
 
 #define TS_IOC_MAGIC  'T'
