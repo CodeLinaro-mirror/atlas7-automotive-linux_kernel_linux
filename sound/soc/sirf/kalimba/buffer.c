@@ -77,7 +77,8 @@ int buff_fill(struct device *dev, unsigned long start_addr,
 
 	list_for_each_entry(buff, &buff_list, node) {
 		if (buff->phy_addr <= start_addr &&
-			(start_addr + size) <= (buff->phy_addr + buff->size)) {
+			start_addr < (buff->phy_addr + buff->size) &&
+			size <= (buff->size - (start_addr - buff->phy_addr))) {
 			virt_start_addr = (unsigned long)buff->virt_addr +
 				(start_addr - buff->phy_addr);
 			memcpy((void *)virt_start_addr, data, size);
@@ -101,7 +102,8 @@ int buff_read(struct device *dev, unsigned long start_addr,
 
 	list_for_each_entry(buff, &buff_list, node) {
 		if (buff->phy_addr <= start_addr &&
-			(start_addr + size) <= (buff->phy_addr + buff->size)) {
+			start_addr < (buff->phy_addr + buff->size) &&
+			size <= (buff->size - (start_addr - buff->phy_addr))) {
 			virt_start_addr = (unsigned long)buff->virt_addr +
 				(start_addr - buff->phy_addr);
 			memcpy(data, (void *)virt_start_addr, size);
