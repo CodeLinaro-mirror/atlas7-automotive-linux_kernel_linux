@@ -1,0 +1,17 @@
+CSRatlas7 SoC USP TS module
+
+Required properties:
+- compatible: "sirf,atlas7-usp_ts"
+
+Example:
+
+	usp2: usp@10d40000 {
+		compatible = "sirf,atlas7-usp_ts";
+		status = "okay";
+		pinctrl-0 = <&audio_uart2_urfs_pmx2
+			&audio_uart2_urxd_pmx2
+			&audio_uart2_usclk_pmx2
+			&audio_uart2_utfs_pmx2
+			&audio_uart2_utxd_pmx2>;
+		pinctrl-names = "default";
+	};

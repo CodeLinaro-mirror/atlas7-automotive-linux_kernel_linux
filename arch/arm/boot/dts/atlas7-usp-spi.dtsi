@@ -1,0 +1,46 @@
+/*
+ * DTS file for CSR SiRFatlas7 SoC USP PCM port
+ *
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	noc {
+		audiom {
+			usp2: usp@10d40000 {
+				status = "disabled";
+				compatible = "sirf,atlas7-usp-spi";
+				pinctrl-0 = <&audio_uart2_urfs_pmx0
+					&audio_uart2_urxd_pmx0
+					&audio_uart2_usclk_pmx0
+					&audio_uart2_utfs_pmx0
+					&audio_uart2_utxd_pmx0>;
+				pinctrl-names = "default";
+				fifosize = <512>;
+				uspspiflash: mxicy@0{
+					status = "okay";
+					compatible = "mxicy,mx25l6405d";
+					reg = <0>;
+					spi-max-frequency = <37500000>;
+					spi-cpha;
+					spi-cpol;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partitions@0 {
+						label = "myspiboot";
+						reg = <0x0 0x800000>;
+					};
+				};
+			};
+		};
+	};
+};

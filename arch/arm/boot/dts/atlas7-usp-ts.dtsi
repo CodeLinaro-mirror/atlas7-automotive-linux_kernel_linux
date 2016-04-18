@@ -1,5 +1,5 @@
 /*
- * DTS file for Atlas7 Evaluation Board
+ * DTS file for CSR SiRFatlas7 SoC USP TS port
  *
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
@@ -13,17 +13,23 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+/ {
+	noc {
+		audiom {
+			usp2: usp@10d40000 {
+				compatible = "sirf,atlas7-usp_ts";
+				status = "disabled";
+				pinctrl-0 = <&audio_uart2_urfs_pmx2
+					&audio_uart2_urxd_pmx2
+					&audio_uart2_usclk_pmx2
+					&audio_uart2_utfs_pmx2
+					&audio_uart2_utxd_pmx2>;
+				pinctrl-names = "default";
+			};
 
-/include/ "atlas7.dtsi"
-#include "atlas7-a7ca-amber.dtsi"
-#include "atlas7-evb-common.dtsi"
-#include "atlas7-dual-common.dtsi"
-/*
- * the usp port can be used as SPI port or the TS port,
- * so we can select the different function by include
- * the specified dtsi file.
- * atlas7-usp-spi.dtsi : the SPI port setting.
- * atlas7-usp-ts.dtsi :  the TS port setting.
-*/
-#include "atlas7-usp-ts.dtsi"
+			dmac2: dma-controller@10d50000 {
+				status = "okay";
+			};
+		};
+	};
+};

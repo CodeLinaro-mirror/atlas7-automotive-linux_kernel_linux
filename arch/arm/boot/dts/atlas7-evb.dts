@@ -19,3 +19,11 @@
 #include "atlas7-a7ca.dtsi"
 #include "atlas7-evb-common.dtsi"
 #include "atlas7-dual-common.dtsi"
+/*
+ * the usp port can be used as SPI port or the TS port,
+ * so we can select the different function by include
+ * the specified dtsi file.
+ * atlas7-usp-spi.dtsi : the SPI port setting.
+ * atlas7-usp-ts.dtsi :  the TS port setting.
+*/
+#include "atlas7-usp-ts.dtsi"
