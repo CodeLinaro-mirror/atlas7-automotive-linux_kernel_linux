@@ -319,9 +319,6 @@ static ssize_t probe_show(struct device *dev, struct device_attribute *attr,
 	for (i = 0; i < nocm->probe_size; i++) {
 		entry = nocm->probe_tbl + i;
 		bw = &entry->bw;
-		if (!bw || bw->peak == 0)
-			return pos;
-
 		pos += scnprintf(buf + pos,
 			PAGE_SIZE - pos,
 			"%s\t%d\t%d\t%d\n",
