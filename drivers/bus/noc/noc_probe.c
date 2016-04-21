@@ -374,7 +374,7 @@ int noc_probe_init(struct noc_macro *nocm)
 
 	bnp = of_get_child_by_name(np, "bw_probe");
 	if (!bnp) {
-		pr_err("bw_probe not found\n");
+		pr_debug("bw_probe not found\n");
 		return -ENODEV;
 	}
 
@@ -424,5 +424,6 @@ int noc_probe_init(struct noc_macro *nocm)
 
 	return 0;
 err:
+	devm_kfree(&pdev->dev, nocm->probe_tbl);
 	return ret;
 }

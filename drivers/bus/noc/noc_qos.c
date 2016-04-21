@@ -85,10 +85,6 @@ static int qos_generator_get(struct noc_qos_t *entry,
 	entry->saturation = readl_relaxed(&qos_reg->saturation);
 	entry->priority = readl_relaxed(&qos_reg->priority);
 	extcontrol = readl_relaxed(&qos_reg->extcontrol);
-	pr_debug("get: %s qos: %d(reg=0x%x, f=%dM), 0x%x, 0x%x, 0x%x, 0x%x\n",
-		entry->name, entry->bw, bw, entry->mhz,
-		entry->priority, entry->mode, entry->saturation, extcontrol);
-
 	qos_disable_clk(entry);
 
 	return ret;
@@ -115,14 +111,7 @@ static int qos_generator_set(struct noc_qos_t *entry,
 	writel_relaxed(entry->saturation, &qos_reg->saturation);
 	writel_relaxed(entry->priority, &qos_reg->priority);
 	writel_relaxed(0, &qos_reg->extcontrol);
-	pr_debug("set: %s qos values read:  0x%x, 0x%x, 0x%x, 0x%x\n",
-		entry->name, readl_relaxed(&qos_reg->bw),
-		readl_relaxed(&qos_reg->priority),
-		readl_relaxed(&qos_reg->mode),
-		readl_relaxed(&qos_reg->saturation));
-
 	qos_disable_clk(entry);
-
 	return ret;
 }
 
@@ -137,12 +126,22 @@ static ssize_t qos_show(struct device *dev,
 	if (!(nocm->qos_tbl))
 		return pos;
 
+
 	for (i = 0; i < nocm->qos_size; i++) {
 		entry = nocm->qos_tbl + i;
 		if (qos_generator_get(entry, nocm))
 			return pos;
+
+		pos += scnprintf(buf + pos,
+			PAGE_SIZE - pos,
+			"set: %s qos: mode:%d bw:%d priority:0x%x saturation:0x%x\n",
+			entry->name,
+			entry->mode,
+			entry->bw,
+			entry->priority,
+			entry->saturation);
 	}
-	return 0;
+	return pos;
 }
 
 static ssize_t qos_store(struct device *dev,
@@ -150,26 +149,35 @@ static ssize_t qos_store(struct device *dev,
 					const char *buf, size_t len)
 {
 	struct noc_macro *nocm = (struct noc_macro *)dev_get_drvdata(dev);
-	struct noc_qos_t *entry = NULL;
-	char entry_name[16];
+	struct noc_qos_t *entry;
+	struct noc_qos_t params;
+	char name[16];
 	u32 i;
 
+	memset(&params, 0, sizeof(params));
+	memset(name, 0, sizeof(name));
+
 	if (sscanf(buf, "%s %d %d %x %x\n",
-		entry_name,
-		&entry->mode,
-		&entry->bw,
-		&entry->priority,
-		&entry->saturation) != 5)
+		name,
+		&params.mode,
+		&params.bw,
+		&params.priority,
+		&params.saturation) != 5)
 		return -EINVAL;
 
 	for (i = 0; i < nocm->qos_size; i++) {
 		entry = nocm->qos_tbl + i;
-		if (!strcmp(entry->name, entry_name))
+		if (!strcmp(entry->name, name))
 			break;
 	}
 
 	if (i >= nocm->qos_size || entry == NULL)
 		return -EINVAL;
+	entry->mode = params.mode;
+	entry->bw = params.bw;
+	entry->mode = params.mode;
+	entry->priority = params.priority;
+	entry->saturation = params.saturation;
 
 	qos_generator_set(entry, nocm);
 
@@ -190,10 +198,8 @@ int noc_qos_parse(struct noc_macro *nocm)
 	int ret = 0;
 
 	bnp = of_get_child_by_name(np, "qos");
-	if (!bnp) {
-		pr_err("qos not found\n");
-		goto err;
-	}
+	if (!bnp)
+		return 0;
 
 	nocm->qos_size = of_get_child_count(bnp);
 	nocm->qos_tbl = devm_kzalloc(&pdev->dev, nocm->qos_size *
@@ -240,9 +246,10 @@ int noc_qos_parse(struct noc_macro *nocm)
 		entry->clk = devm_clk_get(&nocm->pdev->dev,
 					clock_name);
 		if (IS_ERR(entry->clk)) {
-			pr_err("%s: failed get clk of %s!\n",
+			pr_err("%s: failed get clk of %s!try later\n",
 				__func__, clock_name);
 			entry->clk = NULL;
+			ret = -EPROBE_DEFER;
 			goto err;
 		}
 
@@ -254,7 +261,9 @@ int noc_qos_parse(struct noc_macro *nocm)
 
 	return 0;
 err:
-	return -1;
+	if (nocm->qos_tbl)
+		devm_kfree(&pdev->dev, nocm->qos_tbl);
+	return ret;
 }
 
 int noc_qos_init(struct noc_macro *nocm)
@@ -264,9 +273,12 @@ int noc_qos_init(struct noc_macro *nocm)
 	int ret = 0;
 	struct platform_device *pdev = nocm->pdev;
 
-	noc_qos_parse(nocm);
+	ret = noc_qos_parse(nocm);
+	if (ret)
+		return ret;
+
 	if (!(nocm->qos_tbl))
-		goto err;
+		return 0;
 
 	for (j = 0; j < nocm->qos_size; j++) {
 		entry = nocm->qos_tbl + j;

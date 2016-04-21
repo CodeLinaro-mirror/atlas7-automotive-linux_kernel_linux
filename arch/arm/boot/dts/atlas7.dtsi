@@ -3167,8 +3167,8 @@
 				compatible = "sirf,noc-macro";
 				reg = <0x11010000 0x3000>;
 				interrupts = <0 103 0>;
-				clocks = <&car 137>;
-				clock-names = "uart6_io";
+				clocks = <&car 140>, <&car 137>;
+				clock-names = "nocm", "uart6_io";
 				regofs = <&btm 0 0x200 0x1050 0x8000>;
 
 				qos {
@@ -3203,6 +3203,7 @@
 			rtcm:rtcm@18810000 {
 				compatible = "sirf,noc-macro";
 				reg = <0x18810000 0x3000>;
+				interrupts = <0 109 0>;
 				clocks = <&rtcmclk 1>;
 				clock-names = "rtc_fastclk";
 				regofs = <&rtcm 0xa00 0x900 0x2050 0x4000>;

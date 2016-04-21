@@ -88,41 +88,51 @@ static int noc_macro_init(struct noc_macro *nocm)
 {
 	int ret = 0;
 	struct platform_device *pdev = nocm->pdev;
-#if 0
+
+	/*by default btm noc clock is down, so turn it on before operate*/
+	nocm->clk = devm_clk_get(&pdev->dev, "nocm");
+	if (!IS_ERR(nocm->clk)) {
+		ret = clk_prepare_enable(nocm->clk);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: clk_prepare_enable %d!\n",
+					__func__, ret);
+			return ret;
+		}
+	}
 	/* ignore qos on pxp for lack some modules*/
 	if (!of_machine_is_compatible("sirf,atlas7-pxp")) {
 		ret = noc_qos_init(nocm);
 		if (ret)
 			goto err;
 	}
-#endif
+
 	ret = noc_probe_init(nocm);
 	if (ret)
-		goto err;
+		dev_info(&pdev->dev, "%s:no probe\n", nocm->name);
 
 	/*enable errlog trigger, thus irq/abort could come*/
-	noc_errlog_enable(nocm);
-
+	noc_macro_parse(nocm);
 	ret = of_irq_get(pdev->dev.of_node, 0);
 	if (ret <= 0) {
 		dev_info(&pdev->dev,
 			"Unable to find IRQ number. ret=%d\n", ret);
-		goto err;
+		return 0;
 	}
 	nocm->irq = ret;
-
 	ret = devm_request_irq(&pdev->dev,
 			nocm->irq,
 			noc_irq_handle,
 			0,
 			nocm->name, nocm);
-	if (ret) {
-		pr_err("err: devm_request_irq %s: ret=%d\n", nocm->name, ret);
-		goto err;
-	}
+	if (ret)
+		dev_info(&pdev->dev, "err: devm_request_irq %s: ret=%d\n",
+			nocm->name, ret);
 
+	noc_errlog_enable(nocm);
 	return 0;
 err:
+	if (!IS_ERR(nocm->clk))
+		clk_disable_unprepare(nocm->clk);
 	return ret;
 }
 
@@ -131,6 +141,9 @@ static int noc_pm_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct noc_macro *nocm = platform_get_drvdata(pdev);
+
+	if (!IS_ERR(nocm->clk))
+		clk_disable_unprepare(nocm->clk);
 
 	noc_probe_suspend(nocm);
 
@@ -141,6 +154,9 @@ static int noc_pm_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct noc_macro *nocm = platform_get_drvdata(pdev);
+
+	if (!IS_ERR(nocm->clk))
+		clk_prepare_enable(nocm->clk);
 
 	noc_probe_resume(nocm);
 
@@ -158,9 +174,11 @@ static int sirfsoc_noc_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct noc_macro *nocm = NULL;
+	int ret;
 
 	/* just for trace point compiling test*/
-	pr_debug("%s %s\n", __func__, of_node_full_name(np));
+	dev_info(&pdev->dev, "%s %s\n", __func__,
+		of_node_full_name(np));
 	trace_noc_bw_data(of_node_full_name(np), 0);
 
 	nocm = devm_kzalloc(&pdev->dev,
@@ -172,21 +190,27 @@ static int sirfsoc_noc_probe(struct platform_device *pdev)
 	nocm->name = strrchr(of_node_full_name(np), '/') + 1;
 	nocm->mbase = of_iomap(np, 0);
 	if (!nocm->mbase) {
-		pr_err("err: %s: of_iomap error\n", nocm->name);
+		dev_err(&pdev->dev, "%s: of_iomap error\n", nocm->name);
 		return -ENOMEM;
 	}
 
 	nocm->pdev = pdev;
-	noc_macro_parse(nocm);
-	noc_macro_init(nocm);
+	ret = noc_macro_init(nocm);
+	if (ret)
+		goto err;
+
 	spin_lock_init(&nocm->lock);
 	platform_set_drvdata(pdev, nocm);
 	if (strstr(nocm->name, "cpum"))
 		s_cpum = nocm;
-	pr_debug("initialized nocm:%s, %d\n",
+	dev_dbg(&pdev->dev, "initialized nocm:%s, %d\n",
 		nocm->name, !!nocm->errlogoff);
 
 	return 0;
+err:
+	iounmap(nocm->mbase);
+	return ret;
+
 }
 
 static int __init noc_hook_abort(void)
