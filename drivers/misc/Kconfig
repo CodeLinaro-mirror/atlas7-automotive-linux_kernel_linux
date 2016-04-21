@@ -579,5 +579,5 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/hs_i2s/Kconfig"
-source "drivers/misc/usp_ts/Kconfig"
+source "drivers/misc/ts/Kconfig"
 endmenu

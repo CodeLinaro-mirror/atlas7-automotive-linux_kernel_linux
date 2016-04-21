@@ -15,3 +15,18 @@ Example:
 			&audio_uart2_utxd_pmx2>;
 		pinctrl-names = "default";
 	};
+
+CSRatlas7 SoC VIP TS module
+
+Required properties:
+- compatible: "sirf,atlas7-vip_ts"
+
+Example:
+
+	vip1@13160000 {
+		compatible = "sirf,atlas7-vip_ts";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&vi_vip1_low8bit_pmx>;
+	};
+

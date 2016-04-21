@@ -1,0 +1,75 @@
+/*
+ * DTS file for CSR SiRFatlas7 SoC VIP CCIR port
+ *
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	noc {
+		vdifm {
+			vip1@13160000 {
+				compatible = "sirf,atlas7-com-vip";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&vi_vip1_low8bit_pmx>;
+				port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					vip1_0: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&it68013_1>;
+					};
+				};
+			};
+		};
+
+		mediam {
+			i2c0: i2c@17020000 {
+				it68013: decoder@49 {
+					compatible = "itetech,it68013";
+					reg = <0x49>;
+					hp-hdmiinput-gpios = <&gpio_3 5 2>;
+					input-number = <1>;
+					inputs = <&hdmi0>;
+					hdmi0: hdmi@0 {
+						input-name = "hdmi";
+						input-id = <0>;
+					};
+					port {
+						it68013_1: endpoint {
+							/* separate or
+								embedded sync */
+							/*hsync-active = <1>;*/
+							/*vsync-active = <1>;*/
+							/* SDR or DDR
+								sample mode */
+							data-mode = "DDR";
+							/* 0: 16bit data
+								to VIP */
+							/* 1: 8bit to
+								VIP data[7:0] */
+							/* 2: 8bit to
+								VIP data[8:1] */
+							data-shift = <1>;
+							remote-endpoint =
+								<&vip1_0>;
+						};
+					};
+				};
+				it68013_edid@45 {
+					compatible = "itetech,edid";
+					reg = <0x45>;
+				};
+			};
+		};
+	};
+};

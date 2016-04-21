@@ -2716,7 +2716,7 @@
 			};
 
 			vip1@13160000 {
-				compatible = "sirf,atlas7-com-vip";
+				cell-index = <1>;
 				reg = <0x13160000 0x1000>;
 				clocks = <&car 88>;
 				resets = <&car 88>;

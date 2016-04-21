@@ -25,5 +25,15 @@
  * the specified dtsi file.
  * atlas7-usp-spi.dtsi : the SPI port setting.
  * atlas7-usp-ts.dtsi :  the TS port setting.
+
+ #include "atlas7-usp-ts.dtsi"
 */
-#include "atlas7-usp-ts.dtsi"
+
+/*
+ * the vip port can be used as ts port or the ccir656/ccir601 port,
+ * we can select the different function by include
+ * the specified dtsi file.
+ * atlas7-vip-ts.dtsi : the ts port setting.
+ * atlas7-vip-ccir.dtsi :  the ccir port setting.
+*/
+#include "atlas7-vip-ccir.dtsi"

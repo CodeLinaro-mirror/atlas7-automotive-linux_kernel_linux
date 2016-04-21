@@ -1,5 +1,5 @@
 /*
- * DTS file for CSR SiRFatlas7 SoC USP TS port
+ * DTS file for CSR SiRFatlas7 SoC VIP TS port
  *
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
@@ -15,20 +15,12 @@
 
 / {
 	noc {
-		audiom {
-			usp2: usp@10d40000 {
-				compatible = "sirf,atlas7-usp_ts";
+		vdifm {
+			vip1@13160000 {
+				compatible = "sirf,atlas7-vip_ts";
 				status = "okay";
-				pinctrl-0 = <&audio_uart2_urfs_pmx2
-					&audio_uart2_urxd_pmx2
-					&audio_uart2_usclk_pmx2
-					&audio_uart2_utfs_pmx2
-					&audio_uart2_utxd_pmx2>;
 				pinctrl-names = "default";
-			};
-
-			dmac2: dma-controller@10d50000 {
-				status = "okay";
+				pinctrl-0 = <&vi_vip1_low8bit_pmx>;
 			};
 		};
 	};

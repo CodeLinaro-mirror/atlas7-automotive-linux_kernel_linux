@@ -1,5 +1,5 @@
 /*
- * CSR SiRFSoc USP-TS controller driver
+ * CSR SiRFSoc TS driver of USP and VIP controller
  *
  * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
@@ -28,9 +28,8 @@
 
 #define TS_DRV_NAME "usp_ts"
 
-
 #define TS_FRAME_SIZE 188
-#define TS_FRAME_BUF_NUM (1024)
+#define TS_FRAME_BUF_NUM 1024
 
 #define USP_FIFO_SIZE 512
 
@@ -40,9 +39,7 @@
 
 static int ts_pm_suspend(struct device *dev);
 static int ts_pm_resume(struct device *dev);
-static void ts_hw_dump_registers(struct ts_dev *ts);
 static int ts_ioctl_stop(struct ts_dev *ts);
-
 
 /*****************************TS HW*************************/
 
@@ -59,14 +56,14 @@ static inline unsigned int ts_read(struct ts_dev *ts,
 	return readl(ts->regbase + (regoffset));
 }
 
-static long ts_hw_start(struct ts_dev *ts)
+static long ts_usp_start(struct ts_dev *ts)
 {
 	unsigned int fifo_l = 16 / 4;
 	unsigned int fifo_m = (USP_FIFO_SIZE / 2) / 4;
 	unsigned int fifo_h = (USP_FIFO_SIZE - 16) / 4;
 
-	unsigned int data_len    = ts->frame_len*8;
-	unsigned int frame_len   = ts->frame_len*8;
+	unsigned int data_len	 = ts->frame_len*8;
+	unsigned int frame_len	 = ts->frame_len*8;
 	unsigned int shifter_len = 32;
 
 	ts_write(ts, USP_MODE1, 0);
@@ -76,7 +73,7 @@ static long ts_hw_start(struct ts_dev *ts)
 	otherwise the loading of TS bus is too heavy
 	for the signal source, and the data may be
 	sampled incorrectly.*/
-	ts_write(ts, USP_MODE1,	USP_TXD_IO_MODE_INPUT |
+	ts_write(ts, USP_MODE1, USP_TXD_IO_MODE_INPUT |
 		USP_TFS_IO_MODE_INPUT |
 		USP_RXD_IO_MODE_INPUT |
 		USP_SCLK_IO_MODE_INPUT |
@@ -84,7 +81,7 @@ static long ts_hw_start(struct ts_dev *ts)
 		USP_RXD_PIN_MODE_IO   |
 		USP_TXD_PIN_MODE_IO   |
 		USP_TFS_PIN_MODE_IO   |
-	    USP_SYNC_MODE |
+		USP_SYNC_MODE |
 		USP_RFS_ACT_LEVEL_LOGIC1 |
 		USP_TFS_ACT_LEVEL_LOGIC1 |
 		USP_CLOCK_MODE_SLAVE | USP_EN);
@@ -93,8 +90,10 @@ static long ts_hw_start(struct ts_dev *ts)
 	ts_write(ts, USP_INT_STATUS, 0x0003FFFF);
 	ts_write(ts, USP_INT_ENABLE_CLR, 0x0000FFFF);
 
-	/*enable TS interrupts  */
+#if defined(CONFIG_ATLAS7_TS_DEBUG)
+	/*enable TS interrupts	*/
 	ts_write(ts, USP_INT_ENABLE_SET, (0x07 << 16));
+#endif
 
 	ts_write(ts, USP_RISC_DSP_MODE,   0);
 	ts_write(ts, USP_RX_DMA_IO_LEN,   0);
@@ -105,7 +104,7 @@ static long ts_hw_start(struct ts_dev *ts)
 
 	ts_write(ts, USP_RX_DMA_IO_CTRL, 0x10);
 
-	ts_write(ts, USP_RX_FRAME_CTRL, RX_DATA_LEN_L(data_len)	|
+	ts_write(ts, USP_RX_FRAME_CTRL, RX_DATA_LEN_L(data_len) |
 		RX_FRAME_LEN_L(frame_len) |
 		RX_SHIFT_LEN_L(shifter_len));
 
@@ -127,30 +126,107 @@ static long ts_hw_start(struct ts_dev *ts)
 	ts_write(ts, USP_TX_RX_ENABLE, USP_TSIF_VALID_MODE |
 		USP_TSIF_SYNC_BYTE | USP_TSIF_EN | USP_RX_ENA);
 
-	ts_hw_dump_registers(ts);
 
 	return 0;
+}
+
+static long ts_usp_stop(struct ts_dev *ts)
+{
+
+	ts_write(ts, USP_INT_ENABLE_CLR, 0x0000FFFF);
+	ts_write(ts, USP_RX_FIFO_OP,   0);
+	ts_write(ts, USP_TX_RX_ENABLE, 0);
+	return 0;
+}
+
+static long ts_vip_start(struct ts_dev *ts)
+{
+	u32 val;
+
+	ts_write(ts, CAM_INT_EN, 0);
+	ts_write(ts, CAM_CTRL, 0);
+
+	ts_write(ts, CAM_PIXEL_SHIFT, CAM_PIXEL_SHIFT_0TO7);
+	ts_write(ts, CAM_PXCLK_CFG, 0);
+	ts_write(ts, CAM_INPUT_BIT_SEL_0, 0);
+	ts_write(ts, CAM_INPUT_BIT_SEL_1, 1);
+	ts_write(ts, CAM_INPUT_BIT_SEL_2, 2);
+	ts_write(ts, CAM_INPUT_BIT_SEL_3, 3);
+	ts_write(ts, CAM_INPUT_BIT_SEL_4, 4);
+	ts_write(ts, CAM_INPUT_BIT_SEL_5, 5);
+	ts_write(ts, CAM_INPUT_BIT_SEL_6, 6);
+	ts_write(ts, CAM_INPUT_BIT_SEL_7, 7);
+	ts_write(ts, CAM_INPUT_BIT_SEL_8, 12);
+	ts_write(ts, CAM_INPUT_BIT_SEL_9, 13);
+	ts_write(ts, CAM_INPUT_BIT_SEL_10, 14);
+	ts_write(ts, CAM_INPUT_BIT_SEL_11, 15);
+	ts_write(ts, CAM_INPUT_BIT_SEL_12, 16);
+	ts_write(ts, CAM_INPUT_BIT_SEL_13, 17);
+	ts_write(ts, CAM_INPUT_BIT_SEL_14, 18);
+	ts_write(ts, CAM_INPUT_BIT_SEL_15, 19);
+	ts_write(ts, CAM_INPUT_BIT_SEL_HSYNC, 9);
+	ts_write(ts, CAM_INPUT_BIT_SEL_VSYNC, 10);
+
+
+	ts_write(ts, CAM_FIFO_CTRL_REG, 0x01);
+	/* Disable FIFO */
+	ts_write(ts, CAM_FIFO_OP_REG, CAM_FIFO_OP_FIFO_RESET);
+	/* Set FIFO config data, high check, low check and stop check. */
+	ts_write(ts, CAM_FIFO_LEVEL_CHECK, (0x10 << 20) | (0x08 << 10) | 0x01);
+
+	/* clear all interrupts */
+	ts_write(ts, CAM_INT_CTRL, CAM_INT_CTRL_MASK_A7);
+
+	/* Enable overflow, underflow, sensor interrupt and bad field */
+	ts_write(ts, CAM_INT_EN, CAM_INT_EN_FIFO_OFLOW |
+				CAM_INT_EN_FIFO_UFLOW);
+
+
+	ts_write(ts, CAM_TS_CTRL, CAM_TS_CTRL_INIT | CAM_TS_CTRL_VIP_TS);
+	ts_write(ts, CAM_TS_CTRL, CAM_TS_CTRL_VIP_TS);
+
+	/* Reset and active all the configuration before starting */
+	val = ts_read(ts, CAM_CTRL);
+	ts_write(ts, CAM_CTRL, val | CAM_CTRL_INIT);
+	ts_write(ts, CAM_CTRL, val & ~CAM_CTRL_INIT);
+
+	/* Start FIFO transfer to DMA */
+	ts_write(ts, CAM_FIFO_OP_REG, CAM_FIFO_OP_FIFO_START);
+	return 0;
+}
+
+
+static long ts_vip_stop(struct ts_dev *ts)
+{
+	ts_write(ts, CAM_FIFO_OP_REG, CAM_FIFO_OP_FIFO_STOP);
+	ts_write(ts, CAM_CTRL, CAM_CTRL_INIT);
+	return 0;
+}
+
+static long ts_hw_start(struct ts_dev *ts)
+{
+	long ret;
+
+	ret = ts->ops->hw_start(ts);
+	return ret;
 }
 
 static long ts_hw_stop(struct ts_dev *ts)
 {
-	ts_write(ts, USP_INT_ENABLE_CLR, 0x0000FFFF);
-	ts_write(ts, USP_RX_FIFO_OP,   0);
-	ts_write(ts, USP_TX_RX_ENABLE, 0);
+	long ret;
 
-	ts_hw_dump_registers(ts);
-	return 0;
+	ret = ts->ops->hw_stop(ts);
+	return ret;
 }
 
-static irqreturn_t ts_irq(int irq, void *data)
+static void ts_usp_irq(struct ts_dev *ts, int irq)
 {
-	struct ts_dev *ts = data;
 	unsigned int status;
 
 	status = ts_read(ts, USP_INT_STATUS);
 	ts_write(ts, USP_INT_STATUS, status);
 
-#if defined(CONFIG_ATLAS7_USP_TS_DEBUG)
+#if defined(CONFIG_ATLAS7_TS_DEBUG)
 	if (status & USP_RX_TSIF_SYNC_BYTE_ERR)
 		pr_info("TS INT: USP_RX_TSIF_SYNC_BYTE_ERR\n");
 
@@ -159,15 +235,28 @@ static irqreturn_t ts_irq(int irq, void *data)
 
 	if (status & USP_RX_TSIF_ERR)
 			pr_info("TS INT: USP_RX_TSIF_ERR\n");
-#endif /* CONFIG_ATLAS7_USP_TS_DEBUG */
+#endif /* CONFIG_ATLAS7_TS_DEBUG */
 
+}
+
+static void ts_vip_irq(struct ts_dev *ts, int irq)
+{
+	unsigned int status;
+
+	status = ts_read(ts, CAM_INT_CTRL);
+	ts_write(ts, CAM_INT_CTRL, status);
+}
+
+static irqreturn_t ts_irq(int irq, void *data)
+{
+	struct ts_dev *ts = data;
+
+	ts->ops->hw_irq(ts, irq);
 	return IRQ_HANDLED;
 }
 
 
-
-
-static void ts_hw_dump_registers(struct ts_dev *ts)
+static void ts_usp_dump_registers(struct ts_dev *ts)
 {
 	pr_info("USP_MODE1          =0x%x\n", ts_read(ts, USP_MODE1));
 	pr_info("USP_MODE2          =0x%x\n", ts_read(ts, USP_MODE2));
@@ -183,8 +272,22 @@ static void ts_hw_dump_registers(struct ts_dev *ts)
 		ts_read(ts, USP_RX_FIFO_LEVEL_CHK));
 	pr_info("USP_RX_FIFO_OP     =0x%x\n", ts_read(ts, USP_RX_FIFO_OP));
 	pr_info("USP_RX_FIFO_STATUS =0x%x\n", ts_read(ts, USP_RX_FIFO_STATUS));
-
 }
+
+static void ts_vip_dump_registers(struct ts_dev *ts)
+{
+	pr_info("CAM_CTRL            =0x%x\n", ts_read(ts, CAM_CTRL));
+	pr_info("CAM_TS_CTRL         =0x%x\n", ts_read(ts, CAM_TS_CTRL));
+	pr_info("CAM_INT_EN          =0x%x\n", ts_read(ts, CAM_INT_EN));
+	pr_info("CAM_INT_CTRL        =0x%x\n", ts_read(ts, CAM_INT_CTRL));
+	pr_info("CAM_DMA_CTRL        =0x%x\n", ts_read(ts, CAM_DMA_CTRL));
+	pr_info("CAM_FIFO_CTRL_REG   =0x%x\n", ts_read(ts, CAM_FIFO_CTRL_REG));
+	pr_info("CAM_FIFO_OP_REG     =0x%x\n", ts_read(ts, CAM_FIFO_OP_REG));
+	pr_info("CAM_FIFO_STATUS_REG =0x%x\n",
+		ts_read(ts, CAM_FIFO_STATUS_REG));
+	pr_info("CAM_PXCLK_CFG       =0x%x\n", ts_read(ts, CAM_PXCLK_CFG));
+}
+
 
 /******************************DMA*************************/
 
@@ -200,18 +303,37 @@ static inline void ts_dma_update_info(struct ts_dev *ts,
 		ts->dma_running_pos = pos;
 }
 
+static unsigned int ts_usp_dma_get_pos(struct ts_dev *ts)
+{
+	struct dma_tx_state tx_state;
+	unsigned int pos_running;
+
+	dmaengine_tx_status(ts->rx_chan, ts->dma_cookie, &tx_state);
+	pos_running = ts->buffer_size - tx_state.residue;
+
+	return pos_running;
+}
+
+static unsigned int ts_vip_dma_get_pos(struct ts_dev *ts)
+{
+	unsigned int pos_running;
+
+	pos_running = ts_read(ts, DMAN_CUR_DATA_ADDR)
+				- ts_read(ts, DMAN_ADDR);
+	return pos_running;
+}
+
+
 
 static unsigned int ts_dma_get_current_status(struct ts_dev *ts,
 	dma_addr_t *data_addr, unsigned int *data_size)
 {
-	struct dma_tx_state tx_state;
 	dma_addr_t start_addr;
 	unsigned int pos_running;
 	unsigned int pos;
 	unsigned int size;
 
-	dmaengine_tx_status(ts->rx_chan, ts->dma_cookie, &tx_state);
-	pos_running = ts->buffer_size - tx_state.residue;
+	pos_running = ts->ops->dma_get_pos(ts);
 
 	pos = ts->dma_running_pos;
 
@@ -233,17 +355,33 @@ static unsigned int ts_dma_get_current_status(struct ts_dev *ts,
 		*data_size = size;
 
 	return pos;
+
 }
 
 
-static void ts_dma_callback(void *arg)
+static void ts_usp_dma_irq(struct ts_dev *ts)
 {
-	struct ts_dev *ts = arg;
+
+}
+
+
+static void ts_vip_dma_irq(struct ts_dev *ts)
+{
+	ts_write(ts, DMAN_INT, ts_read(ts, DMAN_INT));
+	ts_write(ts, DMAN_LOOP_CTRL, (1<<0)|(1<<16));
+}
+
+
+static irqreturn_t ts_dma_irq(int irq, void *data)
+{
+	struct ts_dev *ts = data;
 	dma_addr_t start_addr;
 	unsigned int pos;
 	unsigned int size;
 	unsigned int update_flags;
 	unsigned long flags;
+
+	ts->ops->dma_irq(ts);
 
 	update_flags = UPDATE_FLAGS_INTR | UPDATE_FLAGS_POS;
 
@@ -257,9 +395,19 @@ static void ts_dma_callback(void *arg)
 
 	ts->data_is_ready = true;
 	wake_up(&ts->wait_read);
+
+	return IRQ_HANDLED;
 }
 
-static unsigned int ts_dma_start(struct ts_dev *ts)
+static void ts_dma_usp_callback(void *data)
+{
+	struct ts_dev *ts = data;
+
+	ts_dma_irq(0, ts);
+}
+
+
+static unsigned int ts_dma_usp_start(struct ts_dev *ts)
 {
 	struct dma_slave_config rx_slv_cfg = {
 		.src_maxburst = 2,
@@ -281,7 +429,7 @@ static unsigned int ts_dma_start(struct ts_dev *ts)
 	ts->dma_intr_num = 0;
 	ts->dma_running_pos = 0;
 
-	ts->desc->callback = ts_dma_callback;
+	ts->desc->callback = ts_dma_usp_callback;
 	ts->desc->callback_param = ts;
 
 	ts->dma_cookie = dmaengine_submit(ts->desc);
@@ -290,10 +438,108 @@ static unsigned int ts_dma_start(struct ts_dev *ts)
 	return 0;
 }
 
+static bool ts_dam_cal_xy(struct ts_dev *ts,
+	unsigned int len, unsigned int *x, unsigned int *y)
+{
+	unsigned int xlen, ylen;
+	unsigned int item_len;
+#define DMA_XY_MAX 0x10000
+
+	if ((len % sizeof(unsigned int)))
+		return false;
+
+	item_len = ts->frame_len;
+	if (!(len % item_len)) {
+		for (xlen = item_len; xlen < DMA_XY_MAX; xlen += item_len) {
+			ylen = len/xlen;
+			if (ylen < DMA_XY_MAX) {
+				*x = xlen;
+				*y = ylen;
+				return true;
+			}
+		}
+	} else {
+		item_len = sizeof(unsigned int);
+		for (xlen = item_len; xlen < DMA_XY_MAX; xlen += item_len) {
+			ylen = len/xlen;
+			if (ylen < DMA_XY_MAX) {
+				*x = xlen;
+				*y = ylen;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+static unsigned int ts_dma_vip_start(struct ts_dev *ts)
+{
+	unsigned int x;
+	unsigned int y;
+
+	ts_write(ts, CAM_DMA_LEN, 0);
+	ts_write(ts, CAM_DMA_CTRL, 0);
+
+	ts_write(ts, DMAN_XLEN, 0);
+
+	ts_dam_cal_xy(ts, ts->buffer_size, &x, &y);
+
+	ts_write(ts, DMAN_YLEN, y - 1);
+	ts_write(ts, DMAN_WIDTH, x/4);
+
+	ts_write(ts, DMAN_MUL, ts->buffer_size/4/2);
+
+	ts_write(ts, DMAN_CTRL, 0x3);
+
+	ts_write(ts, DMAN_INT_EN, (1<<3) | (1<<0));
+
+	ts_write(ts, DMAN_LOOP_CTRL, (1<<0) | (1<<16));
+
+	ts_write(ts, DMAN_ADDR, ts->buffer_addr_dma);
+
+	return 0;
+}
+
+
+static unsigned int ts_dma_start(struct ts_dev *ts)
+{
+	long ret;
+
+	ret = ts->ops->dma_start(ts);
+	return ret;
+}
+
+static void ts_dma_usp_stop(struct ts_dev *ts)
+{
+	dmaengine_terminate_all(ts->rx_chan);
+}
+
+static void ts_dma_vip_stop(struct ts_dev *ts)
+{
+	unsigned int val;
+	uint32_t times = 200000;
+	unsigned int state_mask;
+
+	/*wait command and data fifo is empty firstly  */
+	state_mask = (1<<5) | (1<<7);
+	while (((ts_read(ts, DMAN_STATE0) & state_mask)
+		!= state_mask) && times--)
+		cpu_relax();
+
+	/*stop if dma is idle */
+	if (times) {
+		val = ts_read(ts, DMAN_CTRL);
+		val |= (1<<6);
+		ts_write(ts, DMAN_CTRL, val);
+	}
+}
+
 static unsigned int ts_dma_stop(struct ts_dev *ts)
 {
 	if (test_and_clear_bit(TS_FLAG_DMA, &ts->device_flags))
-		dmaengine_terminate_all(ts->rx_chan);
+		ts->ops->dma_stop(ts);
+
 	return 0;
 }
 
@@ -331,6 +577,65 @@ static void ts_dma_get_info(struct ts_dev *ts,
 	info->seq_num = ts->dma_intr_num/2;
 	spin_unlock_irqrestore(&ts->buffer_lock, flags);
 }
+
+static int ts_usp_dma_setup(struct ts_dev *ts, struct platform_device *pdev)
+{
+	int ret = 0;
+	struct device *dev = &pdev->dev;
+
+	ts->rx_chan = dma_request_slave_channel(dev, "rx");
+	if (!ts->rx_chan) {
+		dev_err(dev, "request rx dma failed\n");
+		ret = -ENODEV;
+	}
+	return ret;
+}
+
+static int ts_vip_dma_setup(struct ts_dev *ts, struct platform_device *pdev)
+{
+	int ret = 0;
+	struct device *dev = &pdev->dev;
+
+	ts->dma_irq = platform_get_irq(pdev, 1);
+	if (!ts->dma_irq) {
+		dev_err(dev, "%s: fail to get dma irq\n", __func__);
+		return -ENODEV;
+	}
+	ret = devm_request_irq(dev, ts->dma_irq, ts_dma_irq,
+		0, TS_DRV_NAME, ts);
+	if (ret) {
+		dev_err(dev, "%s: fail to request dma irq\n", __func__);
+		return -ENODEV;
+	}
+
+	return ret;
+}
+
+
+
+static const struct ts_ops ts_usp_ops = {
+	.hw_start = ts_usp_start,
+	.hw_stop  = ts_usp_stop,
+	.hw_irq   = ts_usp_irq,
+	.hw_dump_registers = ts_usp_dump_registers,
+	.dma_get_pos = ts_usp_dma_get_pos,
+	.dma_irq = ts_usp_dma_irq,
+	.dma_setup = ts_usp_dma_setup,
+	.dma_start = ts_dma_usp_start,
+	.dma_stop  = ts_dma_usp_stop,
+};
+
+static const struct ts_ops ts_vip_ops = {
+	.hw_start = ts_vip_start,
+	.hw_stop  = ts_vip_stop,
+	.hw_irq   = ts_vip_irq,
+	.hw_dump_registers = ts_vip_dump_registers,
+	.dma_get_pos = ts_vip_dma_get_pos,
+	.dma_irq = ts_vip_dma_irq,
+	.dma_setup = ts_vip_dma_setup,
+	.dma_start = ts_dma_vip_start,
+	.dma_stop  = ts_dma_vip_stop,
+};
 
 static int ts_open(struct inode *inode, struct file *filp)
 {
@@ -500,12 +805,15 @@ static const struct file_operations ts_fops = {
 	.poll = ts_poll,
 };
 
+
+
 static int ts_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct ts_dev *ts;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	const struct ts_portdata *port_data;
 	u32 index;
 
 	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
@@ -529,28 +837,19 @@ static int ts_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	port_data = (const struct ts_portdata *)(of_match_device(dev->driver
+						->of_match_table, dev)->data);
+	ts->ops = port_data->ops;
+
 	if (of_property_read_u32(dev->of_node, "cell-index", &index)) {
 		dev_err(dev, "Fail to get dev index\n");
 		ret = -ENODEV;
 		goto out;
 	}
 
-	ts->dev_num = index;
-
-	ts->rx_chan = dma_request_slave_channel(dev, "rx");
-	if (!ts->rx_chan) {
-		dev_err(dev, "request rx dma failed\n");
-		ret = -ENODEV;
-		goto out;
-	}
-
-	ts->frame_len = TS_FRAME_SIZE;
-	ts->buffer_size = ts->frame_len*TS_FRAME_BUF_NUM;
-
-	if (ts_dma_req_buffer(ts, ts->buffer_size)) {
-		ret = -ENOMEM;
-		goto out;
-	}
+	if (!port_data->port_base)
+		ts->is_usp_port = true;
+	ts->dev_num = port_data->port_base + index;
 
 	/*it is ok if the interrupt setting is invaild. */
 	ts->irq = platform_get_irq(pdev, 0);
@@ -560,6 +859,18 @@ static int ts_probe(struct platform_device *pdev)
 	ret = devm_request_irq(dev, ts->irq, ts_irq, 0, TS_DRV_NAME, ts);
 	if (ret)
 		dev_err(dev, "%s: fail to request irq\n", __func__);
+
+
+	ret = ts->ops->dma_setup(ts, pdev);
+	if (ret)
+		goto out;
+
+	ts->frame_len = TS_FRAME_SIZE;
+	ts->buffer_size = ts->frame_len*TS_FRAME_BUF_NUM;
+	if (ts_dma_req_buffer(ts, ts->buffer_size)) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	ts->dev = dev;
 	dev_set_drvdata(dev, ts);
@@ -587,7 +898,9 @@ static int ts_remove(struct platform_device *pdev)
 {
 	struct ts_dev *ts = dev_get_drvdata(&pdev->dev);
 
-	dmaengine_terminate_all(ts->rx_chan);
+	if (ts->is_usp_port)
+		dmaengine_terminate_all(ts->rx_chan);
+
 	misc_deregister(&ts->misc_dev);
 
 	return 0;
@@ -609,8 +922,14 @@ static int ts_pm_resume(struct device *dev)
 	return clk_prepare_enable(ts->clk);
 }
 
+static const struct ts_portdata of_match_data[2] = {
+	{.port_base = 0, .ops = &ts_usp_ops},
+	{.port_base = 3, .ops = &ts_vip_ops},
+};
+
 static const struct of_device_id ts_of_match[] = {
-	{ .compatible = "sirf,atlas7-usp_ts"},
+	{ .compatible = "sirf,atlas7-usp_ts", .data = &of_match_data[0]},
+	{ .compatible = "sirf,atlas7-vip_ts", .data = &of_match_data[1]},
 	{}
 };
 
@@ -628,5 +947,5 @@ static struct platform_driver ts_driver = {
 
 module_platform_driver(ts_driver);
 
-MODULE_DESCRIPTION("USP-TS driver for SiRFAtlas7DA");
+MODULE_DESCRIPTION("TS driver for SiRFAtlas7DA");
 MODULE_LICENSE("GPL v2");

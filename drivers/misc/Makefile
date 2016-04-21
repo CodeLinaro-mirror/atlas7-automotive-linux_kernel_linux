@@ -65,4 +65,4 @@ obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_ARCH_ATLAS7)	+= atlas7_gps.o
 obj-$(CONFIG_A7CA_BT)		+= a7ca_bt.o
 obj-y				+= hs_i2s/
-obj-$(CONFIG_ATLAS7_HSI2S)	+= usp_ts/
+obj-$(CONFIG_ATLAS7_USP_VIP_TS)	+= ts/

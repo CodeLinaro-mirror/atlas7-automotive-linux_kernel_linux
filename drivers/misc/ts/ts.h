@@ -1,8 +1,9 @@
-#ifndef __ATLAS7_HSI2S_H__
-#define __ATLAS7_HSI2S_H__
+#ifndef __ATLAS7_TS_H__
+#define __ATLAS7_TS_H__
 
 
-/* USP Registers */
+/***********usp****************/
+
 #define USP_MODE1			0x00
 #define USP_MODE2			0x04
 #define USP_TX_FRAME_CTRL	0x08
@@ -127,6 +128,111 @@
 #define UPDATE_FLAGS_INTR  0x01
 #define UPDATE_FLAGS_POS   0x02
 
+/***********vip****************/
+
+
+#define CAM_CTRL			0x10
+#define CAM_PIXEL_SHIFT		0x14
+#define CAM_INT_EN			0x28
+#define CAM_INT_CTRL		0x2C
+#define CAM_DMA_CTRL		0x44
+#define CAM_DMA_LEN			0x48
+#define CAM_FIFO_CTRL_REG	0x4C
+#define CAM_FIFO_LEVEL_CHECK	0x50
+#define CAM_FIFO_OP_REG			0x54
+#define CAM_FIFO_STATUS_REG		0x58
+
+#define CAM_TS_CTRL			    0x60
+#define CAM_PXCLK_CFG			0x68
+
+
+
+#define CAM_PIXEL_SHIFT_0TO7		(1 << 0)
+#define CAM_INT_EN_TS_OVER		    (1 << 3)
+#define CAM_INT_EN_FIFO_UFLOW		(1 << 2)
+#define CAM_INT_EN_FIFO_OFLOW		(1 << 1)
+
+#define CAM_INT_CTRL_TS_OVER		(1 << 3)
+#define CAM_INT_CTRL_FIFO_UFLOW		(1 << 2)
+#define CAM_INT_CTRL_FIFO_OFLOW		(1 << 1)
+#define CAM_INT_CTRL_SENSOR_INT		(1 << 0)
+
+#define CAM_DMA_CTRL_ENDIAN_MODE_MASK	(0x3 << 4)
+#define CAM_DMA_CTRL_ENDIAN_NO_CHG	(0 << 4)
+#define CAM_DMA_CTRL_ENDIAN_BXDW	(1 << 4)
+#define CAM_DMA_CTRL_ENDIAN_WXDW	(2 << 4)
+#define CAM_DMA_CTRL_ENDIAN_BXW		(3 << 4)
+#define CAM_DMA_CTRL_DMA_FLUSH		(1 << 2)
+#define CAM_DMA_CTRL_DMA_OP		(0 << 0)
+#define CAM_DMA_CTRL_IO_OP		(1 << 0)
+
+#define CAM_FIFO_OP_FIFO_RESET		(1 << 1)
+#define CAM_FIFO_OP_FIFO_START		(1 << 0)
+#define CAM_FIFO_OP_FIFO_STOP		(0 << 0)
+
+#define CAM_CTRL_INIT			(1 << 31)
+
+#define CAM_TS_CTRL_INIT		(1 << 31)
+#define CAM_TS_CTRL_BIG_ENDIAN		(1 << 7)
+#define CAM_TS_CTRL_SINGLE		(1 << 6)
+#define CAM_TS_CTRL_NEG_SAMPLE		(1 << 5)
+#define CAM_TS_CTRL_VIP_TS		(1 << 4)
+
+#define CAM_INT_CTRL_MASK_A7		(0x3F << 0)
+
+
+
+#define CAM_PXCLK_CFG			0x68
+#define CAM_INPUT_BIT_SEL_0		0x6C
+#define CAM_INPUT_BIT_SEL_1		0x70
+#define CAM_INPUT_BIT_SEL_2		0x74
+#define CAM_INPUT_BIT_SEL_3		0x78
+#define CAM_INPUT_BIT_SEL_4		0x7C
+#define CAM_INPUT_BIT_SEL_5		0x80
+#define CAM_INPUT_BIT_SEL_6		0x84
+#define CAM_INPUT_BIT_SEL_7		0x88
+#define CAM_INPUT_BIT_SEL_8		0x8C
+#define CAM_INPUT_BIT_SEL_9		0x90
+#define CAM_INPUT_BIT_SEL_10		0x94
+#define CAM_INPUT_BIT_SEL_11		0x98
+#define CAM_INPUT_BIT_SEL_12		0x9C
+#define CAM_INPUT_BIT_SEL_13		0xA0
+#define CAM_INPUT_BIT_SEL_14		0xA4
+#define CAM_INPUT_BIT_SEL_15		0xA8
+#define CAM_INPUT_BIT_SEL_HSYNC		0xAC
+#define CAM_INPUT_BIT_SEL_VSYNC		0xB0
+
+/* DMAC register */
+#define DMAN_ADDR			0x400
+#define DMAN_XLEN			0x404
+#define DMAN_YLEN			0x408
+#define DMAN_CTRL			0x40C
+#define DMAN_CTRL_TABLE_NUM(x)		(((x) & 0xF) << 7)
+#define DMAN_CTRL_CHAIN_EN		(1 << 3)
+#define DMAN_WIDTH			0x410
+#define DMAN_VALID			0x414
+#define DMAN_INT			0x418
+#define DMAN_FINI_INT			(1 << 0)
+#define DMAN_CNT_INT			(1 << 1)
+#define DMAN_INT_MASK			(0x7F << 0)
+#define DMAN_INTMASK_FINI		(0x1 << 0)
+#define DMAN_INTMASK_CNT		(0x1 << 1)
+#define DMAN_INT_EN			0x41C
+#define DMAN_LOOP_CTRL			0x420
+#define DMAN_INT_CNT			0x424
+#define DMAN_TIMEOUT_CNT		0x428
+#define DMAN_PAU_TIME_CNT		0x42C
+#define DMAN_CUR_TABLE_ADDR		0x430
+#define DMAN_CUR_DATA_ADDR		0x434
+#define DMAN_MUL			0x438
+#define DMAN_STATE0			0x43C
+#define DMAN_STATE1			0x440
+#define DMAN_MATCH_ADDR1		0x448
+#define DMAN_MATCH_ADDR2		0x44c
+#define DMAN_MATCH_ADDR3		0x450
+#define DMAN_MATCH_ADDR_EN		0x454
+
+
 
 
 struct ts_buffer_info {
@@ -145,6 +251,25 @@ u32 frame_length;
 #define TS_FLAG_TIMER  0x04
 #define TS_FLAG_DMA    0x08
 
+struct ts_dev;
+
+struct ts_ops {
+	long (*hw_start)(struct ts_dev *);
+	long (*hw_stop)(struct ts_dev *);
+	void (*hw_irq)(struct ts_dev *, int);
+	void (*hw_dump_registers)(struct ts_dev *);
+	unsigned int (*dma_get_pos)(struct ts_dev *);
+	void (*dma_irq)(struct ts_dev *);
+	int (*dma_setup)(struct ts_dev *, struct platform_device *);
+	unsigned int (*dma_start)(struct ts_dev *);
+	void (*dma_stop)(struct ts_dev *);
+};
+
+struct ts_portdata {
+	unsigned int port_base;
+	const struct ts_ops *ops;
+};
+
 
 struct ts_dev {
 	struct device *dev;
@@ -156,8 +281,7 @@ struct ts_dev {
 	u32             frame_len;
 	unsigned long	device_flags;
 	unsigned int	irq;
-
-
+	unsigned int	dma_irq;
 	struct dma_chan	*rx_chan;
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t	dma_cookie;
@@ -168,7 +292,9 @@ struct ts_dev {
 	unsigned int   buffer_size;
 	spinlock_t		buffer_lock;
 
+	const struct ts_ops *ops;
 	bool            data_is_ready;
+	bool            is_usp_port;
 };
 
 #define TS_IOC_MAGIC  'T'

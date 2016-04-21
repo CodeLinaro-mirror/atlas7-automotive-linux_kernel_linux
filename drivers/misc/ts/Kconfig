@@ -1,0 +1,18 @@
+config ATLAS7_USP_VIP_TS
+	tristate "atlas7 usp and vip ts module"
+	depends on ARCH_ATLAS7
+	default y
+	select REGMAP_MMIO
+	---help---
+	  Support for atlas7 ts module. it can support 2 kinds of TS port,
+	  USP TS port and VIP TS port. you need include the corresponding
+	  dtsi files in the dts file.
+	  Say Y if you connect a device to TS port.
+
+config ATLAS7_TS_DEBUG
+	bool "atlas7 usp ts module debug"
+	depends on ATLAS7_USP_VIP_TS
+	default n
+	---help---
+	  output the message in the isr for the TS driver.
+
