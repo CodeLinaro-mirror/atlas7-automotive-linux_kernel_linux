@@ -1275,24 +1275,6 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-#ifdef ATLAS7_XIP_CHECK
-	/*
-	* if the QSPI is on XIP mode, M3 is run on it,
-	* a7 should not use qspi.
-	*/
-	if (atlas7_qspi_is_xip(a7nor)) {
-		dev_err(&pdev->dev,
-			"The QSPI is on XIP mode.\n");
-		return -EBUSY;
-	}
-#endif
-
-	init_completion(&a7nor->tx_av);
-	init_completion(&a7nor->rx_rdy);
-	init_completion(&a7nor->req_rdy);
-	mutex_init(&a7nor->lock);
-
-
 	a7nor->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(a7nor->clk)) {
 		dev_err(&pdev->dev, "cannot get clock\n");
@@ -1300,6 +1282,23 @@ static int atlas7_qspi_nor_probe(struct platform_device *pdev)
 		goto err;
 	}
 	clk_prepare_enable(a7nor->clk);
+
+#ifdef ATLAS7_XIP_CHECK
+		/*
+		* if the QSPI is on XIP mode, M3 is run on it,
+		* a7 should not use qspi.
+		*/
+		if (atlas7_qspi_is_xip(a7nor)) {
+			dev_err(&pdev->dev,
+				"The QSPI is on XIP mode.\n");
+			ret = -EBUSY;
+			goto err_clk;
+		}
+#endif
+		init_completion(&a7nor->tx_av);
+		init_completion(&a7nor->rx_rdy);
+		init_completion(&a7nor->req_rdy);
+		mutex_init(&a7nor->lock);
 
 	/* set flash info to a default value, hardware init need them */
 	a7nor->info = flash_types;
