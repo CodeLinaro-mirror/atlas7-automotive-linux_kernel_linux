@@ -155,12 +155,38 @@ static int hw_init(struct kasobj *obj)
 		pr_err("KASHW: unknown hardware '%s'!\n", db->name.s);
 		return -EINVAL;
 	}
-	obj->ops->start = ops->start;
-	obj->ops->stop = ops->stop;
 
 	hw->param = ops->port;
 	for (i = 0; i < db->max_channels; i++)
 		hw->ep_id[i] = KCM_INVALID_EP_ID;
+
+	return 0;
+}
+
+static int hw_start(struct kasobj *obj)
+{
+	struct kasobj_hw *hw = kasobj_to_hw(obj);
+	const struct kasdb_hw *db = hw->db;
+	struct hw_name_ops *ops = hw_find_ops(db->name.s);
+
+	if (!obj->life_cnt)
+		return 0;
+
+	ops->start(obj);
+
+	return 0;
+}
+
+static int hw_stop(struct kasobj *obj)
+{
+	struct kasobj_hw *hw = kasobj_to_hw(obj);
+	const struct kasdb_hw *db = hw->db;
+	struct hw_name_ops *ops = hw_find_ops(db->name.s);
+
+	if (!obj->life_cnt)
+		return 0;
+
+	ops->stop(obj);
 
 	return 0;
 }
@@ -286,4 +312,6 @@ static struct kasobj_ops hw_ops = {
 	.get = hw_get,
 	.put = hw_put,
 	.get_ep = hw_get_ep,
+	.start = hw_start,
+	.stop = hw_stop,
 };
