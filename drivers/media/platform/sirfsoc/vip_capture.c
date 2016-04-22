@@ -1612,7 +1612,8 @@ static int vidioc_enum_input(struct file *file, void *priv,
 	inp->std  = V4L2_STD_ALL;
 	inp->capabilities = V4L2_IN_CAP_DV_TIMINGS | V4L2_IN_CAP_STD;
 
-	/* get input status */
+	/* get selected port input status */
+	status = inp->index;
 	ret = v4l2_subdev_call(sd, video, g_input_status, &status);
 	if (!ret)
 		inp->status = status;

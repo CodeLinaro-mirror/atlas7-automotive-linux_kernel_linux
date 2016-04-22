@@ -1215,6 +1215,60 @@ static int cvd_s_routing(struct v4l2_subdev *sd, u32 input,
 	return 0;
 }
 
+static int cvd_g_input_status(struct v4l2_subdev *sd, u32 *status)
+{
+	bool detected = false;
+	struct cvd_dev *dec = to_state(sd);
+	unsigned int try_times, cvd_status, ori_port = dec->input_port;
+	unsigned int ori_pwr_val = cvd_read(CVBSD_AFEPWR_EN, sd);
+
+	cvd_write(CVBSD_AFEPWR_EN, 0x3, sd); /* PWR on anyway */
+
+	/* input status indicates the queried port */
+	cvd_s_routing(sd, *status, 0, 0);
+
+	/* take some times for switching port to complete */
+	msleep(100);
+
+	/* take at most 700ms to get a correct status */
+	for (try_times = 7; try_times > 0; try_times--) {
+		cvd_status = cvd_read(CVBSD_CVD1_STATUS_REGISTER_1, sd);
+		switch (cvd_status & 0x0F) {
+		/* chroma PLL, vertical, horizontal line all locked */
+		case 0x0E:
+			*status = 0;
+			detected = true;
+			break;
+		/* no signal detect */
+		case 0x01:
+			*status = V4L2_IN_ST_NO_SIGNAL;
+			detected = true;
+			break;
+		/* intermediate state, need more tries */
+		default:
+			break;
+		}
+
+		if (detected)
+			break;
+
+		msleep(100);
+	}
+
+	if (!try_times || !detected) {
+		dev_warn(dec->dev, "abnormal signal, can't get its status\n");
+		*status = V4L2_IN_ST_NO_SIGNAL;
+	}
+
+	/* switch to original port */
+	cvd_s_routing(sd, ori_port, 0, 0);
+
+	/* we should set back to original PWR status */
+	cvd_write(CVBSD_AFEPWR_EN, ori_pwr_val, sd);
+
+	return 0;
+}
+
 static int cvd_enum_framesizes(struct v4l2_subdev *sd,
 					struct v4l2_frmsizeenum *fsize)
 {
@@ -1322,6 +1376,7 @@ static struct v4l2_subdev_video_ops cvd_video_ops = {
 	.try_mbus_fmt	= cvd_try_mbus_fmt,
 	.enum_mbus_fmt	= cvd_enum_fmt,
 	.s_routing	= cvd_s_routing,
+	.g_input_status = cvd_g_input_status,
 	.enum_framesizes = cvd_enum_framesizes,
 };
 
