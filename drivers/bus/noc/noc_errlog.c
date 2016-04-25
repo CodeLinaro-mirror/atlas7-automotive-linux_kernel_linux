@@ -270,6 +270,7 @@ int noc_dump_errlog(struct noc_macro *nocm)
 
 	/* clear the NoC errlog */
 	writel_relaxed(0x1, noc_errlog_mbase + ERRORLOGGER_0_ERRCLR);
+	wmb();/* drain write buffer to clear noc errlog */
 	spin_unlock(&nocm->lock);
 
 	return 0;
