@@ -345,8 +345,10 @@ static ssize_t probe_store(struct device *dev,
 
 	for (i = 0; i < nocm->probe_size; i++) {
 		entry = nocm->probe_tbl + i;
-		if (!strcmp(entry->name, name))
+		if (!strcmp(entry->name, name)) {
+			noc_probe_stop(entry);
 			noc_probe_start(entry);
+		}
 	}
 
 	if (strcmp(name, "stop"))
