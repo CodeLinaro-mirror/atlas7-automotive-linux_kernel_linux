@@ -1571,7 +1571,7 @@ static int kas_pcm_probe(struct snd_soc_platform *platform)
 		return -ENOMEM;
 
 	snd_soc_platform_set_drvdata(platform, priv_data);
-	priv_data->kcm = kcm_init(bt_usp_port, platform->dev);
+	priv_data->kcm = kcm_init(bt_usp_port, platform->dev, i2s_master);
 	if (IS_ERR(priv_data->kcm))
 		return PTR_ERR(priv_data->kcm);
 	return 0;

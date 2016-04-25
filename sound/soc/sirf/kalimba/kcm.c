@@ -3076,7 +3076,7 @@ static void free_hw_ep_handle_and_buff(struct device *dev,
 		hw_ep_handle_buff->handle, hw_ep_handle_buff->handle_phy_addr);
 }
 
-struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
+struct kcm_t *kcm_init(int bt_usp_port, struct device *dev, int i2s_master)
 {
 	int ret;
 	int i;
@@ -3133,6 +3133,13 @@ struct kcm_t *kcm_init(int bt_usp_port, struct device *dev)
 		pr_err("Allocate I2S(2ch) capture endpoint buffer failed.\n");
 		goto error_alloc_capture_i2s_stereo_ep_failed;
 	}
+	/*
+	 * If i2s is master mode, that means the device is salve mode.
+	 * The endpointer clock master configuration is set the external
+	 * device clock mode. So if The i2s host is master mode, the endpoint
+	 * clock mode must be set slave mode.
+	 */
+	kcm->capture_i2s_stereo_ep.clock_master = i2s_master ? 0 : 1;
 	for (i = 0; i < USP_PORTS; i++) {
 		ret  = alloc_hw_ep_handle_and_buff(dev,
 			&kcm->capture_usp_stereo_ep[i], BUFF_BYTES_EACH_CHANNEL,
