@@ -126,6 +126,9 @@ static ssize_t qos_show(struct device *dev,
 	if (!(nocm->qos_tbl))
 		return pos;
 
+	pos += scnprintf(buf + pos,
+		PAGE_SIZE - pos,
+		"Niu:\t\t\tmode\tbw\tpriority\tsaturation\n");
 
 	for (i = 0; i < nocm->qos_size; i++) {
 		entry = nocm->qos_tbl + i;
@@ -134,7 +137,7 @@ static ssize_t qos_show(struct device *dev,
 
 		pos += scnprintf(buf + pos,
 			PAGE_SIZE - pos,
-			"set: %s qos: mode:%d bw:%d priority:0x%x saturation:0x%x\n",
+			"%-24s%d\t%d\t0x%x\t0x%x\n",
 			entry->name,
 			entry->mode,
 			entry->bw,
@@ -151,7 +154,7 @@ static ssize_t qos_store(struct device *dev,
 	struct noc_macro *nocm = (struct noc_macro *)dev_get_drvdata(dev);
 	struct noc_qos_t *entry;
 	struct noc_qos_t params;
-	char name[16];
+	char name[32];
 	u32 i;
 
 	memset(&params, 0, sizeof(params));

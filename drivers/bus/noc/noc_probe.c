@@ -337,9 +337,9 @@ static ssize_t probe_store(struct device *dev,
 	struct noc_macro *nocm = (struct noc_macro *)dev_get_drvdata(dev);
 	struct noc_probe_t *entry;
 	int i;
-	char name[16];
+	char name[32];
 
-	memset(name, 0, 16);
+	memset(name, 0, sizeof(name));
 	if (sscanf(buf, "%s\n", name) != 1)
 		return -EINVAL;
 
