@@ -321,7 +321,7 @@ static int __vout_set_normal_mode(
 	struct sirfsoc_vdss_layer *l;
 	struct sirfsoc_vdss_layer_info info;
 	enum vdss_pixelformat pixfmt;
-	enum v4l2_field field = buf->v4l2_buf.field;
+	enum v4l2_field field;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct vdss_rect src_rect, dst_rect;
 	int src_skip, dst_skip;
@@ -332,6 +332,7 @@ static int __vout_set_normal_mode(
 		return;
 	}
 
+	field = buf->v4l2_buf.field;
 	l = vout->layer;
 
 	if (flip) {
@@ -414,7 +415,7 @@ static int __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 	struct sirfsoc_vdss_layer *l;
 	struct sirfsoc_vdss_layer_info info;
 	enum vdss_pixelformat pixfmt;
-	enum v4l2_field field = buf->v4l2_buf.field;
+	enum v4l2_field field;
 	struct vdss_vpp_op_params params = {0};
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	struct vdss_rect src_rect, dst_rect;
@@ -426,6 +427,7 @@ static int __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 		return -EINVAL;
 	}
 
+	field = buf->v4l2_buf.field;
 	l = vout->layer;
 
 	if (flip) {
