@@ -308,6 +308,29 @@ static const struct regmap_config atlas7_iacc_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int sirf_iacc_suspend(struct device *dev)
+{
+	struct atlas7_iacc *atlas7_iacc = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(atlas7_iacc->clk);
+	return 0;
+}
+
+static int sirf_iacc_resume(struct device *dev)
+{
+	int ret;
+	struct atlas7_iacc *atlas7_iacc = dev_get_drvdata(dev);
+
+	ret = clk_prepare_enable(atlas7_iacc->clk);
+	if (ret) {
+		dev_err(dev, "clk_enable failed: %d\n", ret);
+		return ret;
+	}
+	return 0;
+}
+#endif
+
 static int atlas7_iacc_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -339,27 +362,21 @@ static int atlas7_iacc_probe(struct platform_device *pdev)
 
 	atlas7_iacc->clk = clk;
 
-	ret = clk_prepare_enable(atlas7_iacc->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "clk_enable failed: %d\n", ret);
-		return ret;
-	}
-
 	mutex_init(&atlas7_iacc->tx_mutex);
 	mutex_init(&atlas7_iacc->rx_mutex);
 	platform_set_drvdata(pdev, atlas7_iacc);
 
-	return 0;
+	return sirf_iacc_resume(&pdev->dev);
 }
 
 static int atlas7_iacc_remove(struct platform_device *pdev)
 {
-	struct atlas7_iacc *atlas7_iacc = platform_get_drvdata(pdev);
-
-	clk_disable_unprepare(atlas7_iacc->clk);
-
-	return 0;
+	return sirf_iacc_suspend(&pdev->dev);
 }
+
+static const struct dev_pm_ops sirf_iacc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_iacc_suspend, sirf_iacc_resume)
+};
 
 static const struct of_device_id atlas7_iacc_of_match[] = {
 	{ .compatible = "sirf,atlas7-iacc", },
@@ -371,6 +388,7 @@ static struct platform_driver atlas7_iacc_driver = {
 	.driver = {
 		.name = "sirf-atlas7-iacc",
 		.of_match_table = atlas7_iacc_of_match,
+		.pm = &sirf_iacc_pm_ops,
 	},
 	.probe = atlas7_iacc_probe,
 	.remove = atlas7_iacc_remove,
