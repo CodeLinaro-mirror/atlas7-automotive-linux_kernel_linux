@@ -3207,6 +3207,7 @@
 				clocks = <&rtcmclk 1>;
 				clock-names = "rtc_fastclk";
 				regofs = <&rtcm 0xa00 0x900 0x2050 0x4000>;
+				status = "disabled";
 
 				qos {
 					armm3_axi {
