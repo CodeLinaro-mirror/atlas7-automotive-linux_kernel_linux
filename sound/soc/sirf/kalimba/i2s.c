@@ -168,9 +168,53 @@ static const struct regmap_config sirf_i2s_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int sirf_i2s_suspend(struct device *dev)
+{
+	struct sirf_i2s *i2s = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(i2s->clk_mux);
+	clk_disable_unprepare(i2s->clk_audioif);
+	clk_disable_unprepare(i2s->clk);
+
+	return 0;
+}
+
+static int sirf_i2s_resume(struct device *dev)
+{
+	struct sirf_i2s *i2s = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(i2s->clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable 'i2s' clock.\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(i2s->clk_audioif);
+	if (ret) {
+		dev_err(dev, "Failed to enable 'audioif' clock.\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(i2s->clk_mux);
+	if (ret) {
+		dev_err(dev, "Failed to enable 'i2s_mux' clock.\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(i2s->clk_dto);
+	if (ret) {
+		dev_err(dev, "Failed to enable 'audio_dto' clock.\n");
+		return ret;
+	}
+
+	return 0;
+}
+#endif
+
 static int sirf_i2s_probe(struct platform_device *pdev)
 {
-	int ret;
 	void __iomem *base;
 	struct resource *mem_res;
 	int gpio_sw;
@@ -241,43 +285,13 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 		return PTR_ERR(i2s->clk_dto);
 	}
 
-	ret = clk_prepare_enable(i2s->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to enable 'i2s' clock.\n");
-		return ret;
-	}
-
-	ret = clk_prepare_enable(i2s->clk_audioif);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to enable 'audioif' clock.\n");
-		goto err1;
-	}
-
-	ret = clk_prepare_enable(i2s->clk_mux);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to enable 'i2s_mux' clock.\n");
-		goto err2;
-	}
-
-	ret = clk_prepare_enable(i2s->clk_dto);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to enable 'audio_dto' clock.\n");
-		goto err3;
-	}
-
 	platform_set_drvdata(pdev, i2s);
-
-	return 0;
-
-err3:
-	clk_disable_unprepare(i2s->clk_mux);
-err2:
-	clk_disable_unprepare(i2s->clk_audioif);
-err1:
-	clk_disable_unprepare(i2s->clk);
-
-	return ret;
+	return sirf_i2s_resume(&pdev->dev);
 }
+
+static const struct dev_pm_ops sirf_i2s_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_i2s_suspend, sirf_i2s_resume)
+};
 
 static const struct of_device_id sirf_i2s_of_match[] = {
 	{ .compatible = "sirf,atlas7-i2s", },
@@ -290,6 +304,7 @@ static struct platform_driver sirf_i2s_driver = {
 		.name = "sirf-i2s",
 		.owner = THIS_MODULE,
 		.of_match_table = sirf_i2s_of_match,
+		.pm = &sirf_i2s_pm_ops,
 	},
 	.probe = sirf_i2s_probe,
 };
