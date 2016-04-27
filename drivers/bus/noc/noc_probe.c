@@ -143,7 +143,7 @@ static void noc_probe_stop(struct noc_probe_t *entry)
 
 	probe_disable_clk(entry);
 	entry->probe_enable = 0;
-
+	memset(&entry->bw, 0, sizeof(entry->bw));
 }
 
 static int noc_probe_start(struct noc_probe_t *entry)
