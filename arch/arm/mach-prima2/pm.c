@@ -361,11 +361,14 @@ static const struct of_device_id sirfsoc_pm_ids[] = {
 
 void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 {
+	u32 val;
 	/* support standand android recovery mode */
-	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
-		writel(readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
-			| RECOVERY_MODE,
-			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
+	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8)) {
+		val = readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
+			| RECOVERY_MODE;
+		val &= ~RECOVERY_RESET_FLAG;
+		writel(val, sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
+	}
 
 	sirfsoc_pm_notity_m3(SIRFSOC_PM_RESET);
 }
