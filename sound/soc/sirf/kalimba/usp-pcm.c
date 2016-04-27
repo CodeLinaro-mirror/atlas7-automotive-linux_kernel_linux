@@ -35,6 +35,7 @@ struct sirf_usp {
 	struct clk *clk;
 
 	struct clk *exclks[ARRAY_SIZE(a7_exclks)];
+	bool is_atlas7_bt_usp;
 
 	u32 mode1_reg;
 	u32 mode2_reg;
@@ -191,6 +192,47 @@ static const struct regmap_config sirf_usp_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int sirf_usp_pcm_suspend(struct device *dev)
+{
+	int i;
+	struct sirf_usp *usp = dev_get_drvdata(dev);
+
+	if (usp->is_atlas7_bt_usp)
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++)
+			clk_disable_unprepare(usp->exclks[i]);
+	clk_disable_unprepare(usp->clk);
+
+	return 0;
+}
+
+static int sirf_usp_pcm_resume(struct device *dev)
+{
+	int ret;
+	int i;
+	struct sirf_usp *usp = dev_get_drvdata(dev);
+
+	ret = clk_prepare_enable(usp->clk);
+	if (ret) {
+		dev_err(dev, "clk_enable failed: %d\n", ret);
+		return ret;
+	}
+
+	if (usp->is_atlas7_bt_usp) {
+		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
+			ret = clk_prepare_enable(usp->exclks[i]);
+			if (ret) {
+				dev_err(dev, "%s exclk enable failed: %d\n",
+						a7_exclks[i], ret);
+				return ret;
+			}
+		}
+	}
+	sirf_usp_i2s_init(usp);
+	return 0;
+}
+#endif
+
 static int sirf_usp_pcm_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -246,23 +288,6 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 		is_atlas7_bt_usp = true;
 	}
 
-	ret = clk_prepare_enable(usp[port]->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "clk_enable failed: %d\n", ret);
-		return ret;
-	}
-
-	if (is_atlas7_bt_usp) {
-		for (i = 0; i < ARRAY_SIZE(a7_exclks); i++) {
-			ret = clk_prepare_enable(usp[port]->exclks[i]);
-			if (ret) {
-				dev_err(&pdev->dev, "%s exclk enable failed: %d\n",
-						a7_exclks[i], ret);
-				goto enable_exclk_failed;
-			}
-		}
-	}
-
 	ret = of_property_read_string(pdev->dev.of_node, "frame-sync-mode",
 			&fs_mode);
 	if (ret == 0) {
@@ -270,14 +295,13 @@ static int sirf_usp_pcm_probe(struct platform_device *pdev)
 			usp[port]->daifmt_format |= SND_SOC_DAIFMT_I2S;
 	}
 
-	sirf_usp_i2s_init(usp[port]);
 
+	usp[port]->is_atlas7_bt_usp = is_atlas7_bt_usp;
+	platform_set_drvdata(pdev, usp[port]);
+	ret = sirf_usp_pcm_resume(&pdev->dev);
+	if (ret)
+		return ret;
 	return 0;
-enable_exclk_failed:
-	for (i -= 1; i >= 0; i--)
-		clk_disable_unprepare(usp[port]->exclks[i]);
-	clk_disable_unprepare(usp[port]->clk);
-	return ret;
 }
 
 static const struct of_device_id sirf_usp_pcm_of_match[] = {
@@ -287,10 +311,15 @@ static const struct of_device_id sirf_usp_pcm_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sirf_usp_pcm_of_match);
 
+static const struct dev_pm_ops sirf_usp_pcm_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sirf_usp_pcm_suspend, sirf_usp_pcm_resume)
+};
+
 static struct platform_driver sirf_usp_pcm_driver = {
 	.driver = {
 		.name = "sirf-usp-pcm",
 		.of_match_table = sirf_usp_pcm_of_match,
+		.pm = &sirf_usp_pcm_pm_ops,
 	},
 	.probe = sirf_usp_pcm_probe,
 };
