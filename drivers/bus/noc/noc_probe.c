@@ -283,8 +283,8 @@ int noc_probe_suspend(struct noc_macro *nocm)
 	for (i = 0; i < nocm->probe_size; i++) {
 		entry = nocm->probe_tbl + i;
 
-		if (!IS_ERR(entry->clk))
-			clk_disable_unprepare(entry->clk);
+		if (entry->probe_enable && !IS_ERR(entry->clk))
+			probe_disable_clk(entry);
 	}
 	return 0;
 }
@@ -297,8 +297,8 @@ int noc_probe_resume(struct noc_macro *nocm)
 	for (i = 0; i < nocm->probe_size; i++) {
 		entry = nocm->probe_tbl + i;
 
-	if (!IS_ERR(entry->clk))
-		clk_prepare_enable(entry->clk);
+		if (entry->probe_enable && !IS_ERR(entry->clk))
+			probe_enable_clk(entry);
 	}
 	return 0;
 }
