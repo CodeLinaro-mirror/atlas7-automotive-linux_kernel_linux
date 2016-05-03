@@ -252,21 +252,29 @@ void noc_handle_probe(struct noc_macro *nocm)
 		if (!val)
 			continue;
 		trace_noc_bw_data(entry->name, val);
-		mult = (u64)val * entry->mhz;
 		bw = &entry->bw;
-		do_div(mult,
-			(1 << readl_relaxed(&probe_reg->stat_period)));
-
-		bw->cur = (u32)mult;
-		bw->peak = max(bw->cur, bw->peak);
 		/*overflow?*/
-		if (bw->cnt + 1 < bw->cnt || bw->sum + bw->cur < bw->sum) {
+		if (bw->cnt + 1 < bw->cnt || bw->sum + val < bw->sum) {
 			bw->cnt = 0;
 			bw->sum = 0;
 		}
+		/*calculate cur*/
+		mult = (u64)val * entry->mhz;
+		do_div(mult, 1<<entry->period);
+		bw->cur = (u32)mult;
+
+		/*calculate peak*/
+		bw->peak = max(bw->cur, bw->peak);
+
+		/*calculate avg*/
+		bw->sum += val;
 		bw->cnt++;
-		bw->sum += bw->cur;
-		bw->avg = bw->sum / bw->cnt;
+		val = bw->sum;
+
+		do_div(val, bw->cnt);
+		mult = (u64)val * entry->mhz;
+		do_div(mult, 1<<entry->period);
+		bw->avg = (u32)mult;
 
 		/*clr the alm*/
 		writel(1, &probe_reg->stat_alarm_clr);
