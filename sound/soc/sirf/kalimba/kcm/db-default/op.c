@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) [2016] The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,50 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#define KCM_PEQ_ALL_BAND(name, param) \
-	name " Band1 " param ";"		\
-	name " Band2 " param ";"		\
-	name " Band3 " param ";"		\
-	name " Band4 " param ";"		\
-	name " Band5 " param ";"		\
-	name " Band6 " param ";"		\
-	name " Band7 " param ";"		\
-	name " Band8 " param ";"		\
-	name " Band9 " param ";"		\
-	name " Band10 " param ";"
-
-#define KCM_PEQ_ALL_CNTL(name)		\
-	KCM_PEQ_ALL_BAND(name, "Gain")	\
-	KCM_PEQ_ALL_BAND(name, "FC")	\
-	name " Bands Num;"				\
-	name " Core Type;"				\
-	name " Master Gain;"			\
-	name " Switch Mode"
-
-#define KCM_MIXER_STREAM(name)	\
-	name " Stream Volume;"			   \
-	name " Stream Mute;"		\
-	name " Stream Ramp;"		\
-	name " Stream Front Left;"	\
-	name " Stream Front Right;" \
-	name " Stream Rear Left;"	\
-	name " Stream Rear Right"
-
-#define KCM_MIXER1_CTRLS				\
-	KCM_MIXER_STREAM("Music") ";"		\
-	KCM_MIXER_STREAM("Navigation") ";"	\
-	KCM_MIXER_STREAM("Alarm")
-
-#define KCM_MIXER2_CTRLS				\
-	";;;;;;;"							\
-	KCM_MIXER_STREAM("Voicecall")
+#include "op-ctrls.h"
 
 static const struct kasdb_op op[] = {
 	{
 		/* Music passthrough */
 		.name = __S("op_pass_music"),
-		.ctrl_base = __S("Music pregain"),
-		.ctrl_names = __S("Playback Volume"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(KCM_CTRLS_BASICPASS("Music")),
 		.cap_id = CAPABILITY_ID_BASIC_PASSTHROUGH,
 		.rate = 0,
 		.param.dummy = 0,
@@ -90,7 +54,7 @@ static const struct kasdb_op op[] = {
 		/* Music user PEQ */
 		.name = __S("op_upeq_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_PEQ_ALL_CNTL("User PEQ")),
+		.ctrl_names = __S(KCM_CTRLS_PEQ("User")),
 		.cap_id = CAPABILITY_ID_PEQ,
 		.rate = 0,
 		.param.dummy = 0,
@@ -99,7 +63,7 @@ static const struct kasdb_op op[] = {
 		/* Music Spk1 PEQ */
 		.name = __S("op_spk1_peq_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_PEQ_ALL_CNTL("Spk1 PEQ")),
+		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk1")),
 		.cap_id = CAPABILITY_ID_PEQ,
 		.rate = 0,
 		.param.dummy = 0,
@@ -108,7 +72,7 @@ static const struct kasdb_op op[] = {
 		/* Music Spk2 PEQ */
 		.name = __S("op_spk2_peq_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_PEQ_ALL_CNTL("Spk2 PEQ")),
+		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk2")),
 		.cap_id = CAPABILITY_ID_PEQ,
 		.rate = 0,
 		.param.dummy = 0,
@@ -117,7 +81,7 @@ static const struct kasdb_op op[] = {
 		/* Music user PEQ */
 		.name = __S("op_spk3_peq_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_PEQ_ALL_CNTL("Spk3 PEQ")),
+		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk3")),
 		.cap_id = CAPABILITY_ID_PEQ,
 		.rate = 0,
 		.param.dummy = 0,
@@ -126,7 +90,7 @@ static const struct kasdb_op op[] = {
 		/* Music user PEQ */
 		.name = __S("op_spk4_peq_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_PEQ_ALL_CNTL("Spk4 PEQ")),
+		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk4")),
 		.cap_id = CAPABILITY_ID_PEQ,
 		.rate = 0,
 		.param.dummy = 0,
@@ -146,7 +110,7 @@ static const struct kasdb_op op[] = {
 				"DBE Switch Mode"),
 		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
 		.rate = 0,
-		.param.dummy = 0,
+		.param.bass_pair_idx = 0,
 	},
 	{
 		/* Music bass+ */
@@ -155,17 +119,13 @@ static const struct kasdb_op op[] = {
 		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
 		.rate = 0,
-		.param.dummy = 0,
+		.param.bass_pair_idx = 0,
 	},
 	{
 		/* Music delay */
 		.name = __S("op_delay_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(
-				"Delay Chan1 Delay;"
-				"Delay Chan2 Delay;"
-				"Delay Chan3 Delay;"
-				"Delay Chan4 Delay"),
+		.ctrl_names = __S(KCM_CTRLS_DELAY("Delay")),
 		.cap_id = CAPABILITY_ID_DELAY,
 		.rate = 0,
 		.param.delay_channels = 4,
@@ -183,7 +143,8 @@ static const struct kasdb_op op[] = {
 		/* Mixer1: music, navigation, alarm */
 		.name = __S("op_mixer"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_MIXER1_CTRLS),
+		.ctrl_names = __S(KCM_CTRLS_MIXER(
+			"Music", "Navigation", "Alarm")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
 		.param.mixer_streams = 3,
@@ -192,7 +153,8 @@ static const struct kasdb_op op[] = {
 		/* Mixer2: mixer1, voice */
 		.name = __S("op_mixer2"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_MIXER2_CTRLS),
+		.ctrl_names = __S(KCM_CTRLS_MIXER(
+			"NOCTRL", "Voicecall", "NOCTRL")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
 		.param.mixer_streams = 3,

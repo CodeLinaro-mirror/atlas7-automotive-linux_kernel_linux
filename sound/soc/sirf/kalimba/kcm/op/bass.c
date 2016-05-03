@@ -21,6 +21,7 @@
 #include "../../dsp.h"
 #include "utils.h"
 
+#define MAX_BASS_OP_PAIR 12
 #define CONTROL_NUM 8
 #define PARAM_NUM 7
 #define PARAM_LEN 12 /* (CONTROL_NUM * 3) / 2 */
@@ -58,6 +59,7 @@ struct bass_ctx {
 	int mix_balance;
 	int switch_mode;
 	int have_control;
+	int pair_idx;
 };
 
 struct bass_param_msg {
@@ -75,8 +77,8 @@ struct bass_mode_msg {
 };
 
 /* the context of operator without controls */
-static struct bass_ctx *no_cntl_op_ctx;
-static u16 no_cntl_op_id;
+static struct bass_ctx *no_cntl_op_ctx[MAX_BASS_OP_PAIR];
+static u16 no_cntl_op_id[MAX_BASS_OP_PAIR];
 
 static void set_bass_default_value(struct bass_ctx *ctx)
 {
@@ -93,6 +95,7 @@ static void set_bass_default_value(struct bass_ctx *ctx)
 static int set_bass_params(struct kasobj_op *op, int create_op)
 {
 	int *ctx, ret, idx, m_idx;
+	struct bass_ctx *ctx_op = op->context;
 	struct bass_param_msg msg;
 	int tmp;
 
@@ -121,7 +124,7 @@ static int set_bass_params(struct kasobj_op *op, int create_op)
 			op->obj.name, ret);
 
 	if (!create_op) {
-		ret = kalimba_operator_message(no_cntl_op_id,
+		ret = kalimba_operator_message(no_cntl_op_id[ctx_op->pair_idx],
 			OPMSG_COMMON_SET_PARAMS, MSG_LEN, (u16 *)&msg, NULL,
 			NULL, __kcm_resp);
 		if (ret)
@@ -155,7 +158,7 @@ static int set_bass_mode(struct kasobj_op *op, int create_op)
 			op->obj.name, ret);
 
 	if (!create_op) {
-		ret = kalimba_operator_message(no_cntl_op_id,
+		ret = kalimba_operator_message(no_cntl_op_id[ctx->pair_idx],
 			OPMSG_COMMON_SET_CONTROL, 4, (u16 *)&msg, NULL, NULL,
 			__kcm_resp);
 		if (ret)
@@ -199,7 +202,8 @@ static int bass_put(struct snd_kcontrol *kcontrol,
 	int ctl_idx;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	int *ctx = (int *)(op->context);
-	int *ctx_no_cntl = (int *)no_cntl_op_ctx;
+	struct bass_ctx *ctx_op = op->context;
+	int *ctx_no_cntl = (int *)no_cntl_op_ctx[ctx_op->pair_idx];
 	int value = ucontrol->value.integer.value[0];
 
 	BUG_ON(ctl_idx < 0 || ctl_idx >= CONTROL_NUM ||
@@ -244,8 +248,15 @@ static int bass_init(struct kasobj_op *op)
 
 	op->context = ctx;
 	set_bass_default_value(ctx);
+	if (!(op->db->param.bass_pair_idx < MAX_BASS_OP_PAIR)) {
+		pr_err("KASOP(%s): pair indx is %d, only support %d pair!\n",
+			op->obj.name, op->db->param.bass_pair_idx,
+			MAX_BASS_OP_PAIR);
+		return -EINVAL;
+	}
+	ctx->pair_idx = op->db->param.bass_pair_idx;
 	if (!op->db->ctrl_names.s) {
-		no_cntl_op_ctx = ctx;
+		no_cntl_op_ctx[ctx->pair_idx] = ctx;
 		ctx->have_control = 0;
 		return 0;
 	}
@@ -290,7 +301,7 @@ static int bass_create(struct kasobj_op *op,
 	int ret;
 
 	if (!ctx->have_control)
-		no_cntl_op_id = op->op_id;
+		no_cntl_op_id[ctx->pair_idx] = op->op_id;
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 		1, &sample_rate, NULL, NULL, __kcm_resp);

@@ -329,7 +329,11 @@ static int mixer_init(struct kasobj_op *op)
 				op->obj.name);
 			break;
 		}
-		if (kcm_strcasestr(name, "Volume") ||
+		if (kcm_strcasestr(name, "NOCTRL")) {
+			/* the stream without ctrls */
+			ctrl_idx++;
+			continue;
+		} else if (kcm_strcasestr(name, "Volume") ||
 			kcm_strcasestr(name, "Left") ||
 			kcm_strcasestr(name, "Right")) {
 			max = MAXV;
@@ -342,10 +346,6 @@ static int mixer_init(struct kasobj_op *op)
 				MIXER_MAX_RAMP_SAMPLES,	mixer_get, mixer_put,
 				NULL, ctrl_idx);
 			kcm_register_ctrl(ctrl);
-			ctrl_idx++;
-			continue;
-		} else if (kcm_strcasestr(name, "")) {
-			/* the stream without ctrls */
 			ctrl_idx++;
 			continue;
 		} else {
