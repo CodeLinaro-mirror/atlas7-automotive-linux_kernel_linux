@@ -139,7 +139,7 @@
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			alloc-ranges = <0x49C00000 0x6000000>;
+			alloc-ranges = <0x49400000 0x6000000>;
 			size = <0x6000000>;
 			alignment = <0x2000>;
 			linux,cma-default;
@@ -160,18 +160,18 @@
 			no-map;
 		};
 
-		jpeg_reserved: jpeg@57000000 {
-			reg = <0x57000000 0x1800000>;
+		jpeg_reserved: jpeg@46800000 {
+			reg = <0x46400000 0x1800000>;
 			no-map;
 		};
 
-		multimedia_reserved: multimedia@58800000 {
-			reg = <0x58800000 0x1800000>;
+		multimedia_reserved: multimedia@47c00000 {
+			reg = <0x47c00000 0x1800000>;
 			no-map;
 		};
 
-		uboot_reserved: uboot@5b800000 {
-			reg = <0x5b800000 0x200000>;
+		uboot_reserved: uboot@4f800000 {
+			reg = <0x4f800000 0x200000>;
 			no-map;
 		};
 
