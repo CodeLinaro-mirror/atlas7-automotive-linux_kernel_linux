@@ -133,8 +133,8 @@ static const struct kasdb_op op[] = {
 	{
 		/* Capture passthrough */
 		.name = __S("op_pass_cap"),
-		.ctrl_base = __S("Analog Capture"),
-		.ctrl_names = __S("Capture Volume;Mute"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(KCM_CTRLS_BASICPASS("Capture")),
 		.cap_id = CAPABILITY_ID_BASIC_PASSTHROUGH,
 		.rate = 0,
 		.param.dummy = 0,

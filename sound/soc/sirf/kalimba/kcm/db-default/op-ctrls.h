@@ -50,7 +50,8 @@
 	KCM_MIXER_STREAM(stream3)
 
 #define KCM_CTRLS_BASICPASS(name)\
-	name " pregain"
+	name " Pregain"
+	/* ";" name " Premute" */
 
 #define KCM_CTRLS_BASS(name)	\
 	name " DBE Effect Strength;"\

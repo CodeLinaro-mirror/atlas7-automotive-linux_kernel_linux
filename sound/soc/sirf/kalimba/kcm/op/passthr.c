@@ -67,15 +67,13 @@ static int vol_put(struct snd_kcontrol *kcontrol,
 	struct passthr_ctx *ctx = op->context;
 	int gain = ucontrol->value.integer.value[0];
 
-	if (gain == ctx->gain && !ctx->muted)
+	if (gain == ctx->gain)
 		return 0;
 
 	kcm_lock();
-	if (gain != ctx->gain || ctx->muted) {
-		ctx->muted = 0;	/* Unmute on volume change */
-		ctx->gain = ucontrol->value.integer.value[0];
+	ctx->gain = gain;
+	if (!ctx->muted)
 		set_gain(op);
-	}
 	kcm_unlock();
 
 	return 0;
@@ -102,10 +100,8 @@ static int mute_put(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	kcm_lock();
-	if (tomute != ctx->muted) {
-		ctx->muted = tomute;
-		set_gain(op);
-	}
+	ctx->muted = tomute;
+	set_gain(op);
 	kcm_unlock();
 
 	return 0;
@@ -115,42 +111,31 @@ static int mute_put(struct snd_kcontrol *kcontrol,
 static int passthr_init(struct kasobj_op *op)
 {
 	char name_buf[128], names_buf[256], *names = names_buf, *name;
-	const char *space;
-	struct passthr_ctx *ctx =
-		kzalloc(sizeof(struct passthr_ctx), GFP_KERNEL);
+	struct passthr_ctx *ctx = kzalloc(sizeof(struct passthr_ctx),
+		GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
 
 	ctx->gain = MAXV;	/* default 0dB */
 	op->context = ctx;
 
-	if (!op->db->ctrl_base.s || !op->db->ctrl_names.s)
-		return 0;
-
+	if (!op->db->ctrl_names.s) {
+		pr_err("KASOP(%s): no control names !\n", op->obj.name);
+		return -EINVAL;
+	}
 	if (snprintf(names_buf, 256, "%s", op->db->ctrl_names.s) >= 256) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
 	}
 
-	/* Add space after base name */
-	if (op->db->ctrl_base.s[0])
-		space = " ";
-	else
-		space = "";
-
 	while ((name = strsep(&names, ":;"))) {
-		if (snprintf(name_buf, 128, "%s%s%s",
-				op->db->ctrl_base.s, space, name) >= 128)
-			pr_err("KASOP(%s): control name truncated!\n",
-					op->obj.name);
-
-		if (kcm_strcasestr(name, "Volume")) {
+		if (kcm_strcasestr(name, "Pregain")) {
 			/* Volume control */
-			ctrl = kasop_ctrl_single_ext_tlv(name_buf, op, MAXV,
+			ctrl = kasop_ctrl_single_ext_tlv(name, op, MAXV,
 					vol_get, vol_put, vol_tlv, 0);
 			kcm_register_ctrl(ctrl);
-		} else if (kcm_strcasestr(name, "Mute")) {
+		} else if (kcm_strcasestr(name, "Premute")) {
 			/* Mute control */
-			ctrl = kasop_ctrl_single_ext_tlv(name_buf, op, 1,
+			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1,
 					mute_get, mute_put, NULL, 0);
 			kcm_register_ctrl(ctrl);
 		} else {
