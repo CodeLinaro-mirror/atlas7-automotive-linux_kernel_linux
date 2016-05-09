@@ -1,0 +1,8 @@
+config SND_SOC_SIRF_KALIMBA_KCM_USER
+	bool "KCM user database"
+	depends on SND_SOC_SIRF_KALIMBA_KCM
+	help
+	  Kalimba configuration manager user database is a user defined
+	  configure set. User can define their own operators, links and
+	  chains. If not selected, default database will be actived. The
+	  default case is designed for Desay.

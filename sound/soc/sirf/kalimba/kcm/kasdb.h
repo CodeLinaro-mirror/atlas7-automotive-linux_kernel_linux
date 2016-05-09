@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) [2016] The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,7 +155,6 @@ struct kasdb_chain {
 	union kasdb_str mutexs;		/* Exclusive chains "music-4:music-6" */
 };
 
-int kasdb_load_user(struct kasdb_head *db, size_t sz);
-void kasdb_load_default(void);
+void kasdb_load_database(void);
 
 #endif

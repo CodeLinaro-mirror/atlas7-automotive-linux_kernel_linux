@@ -11,8 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#include "op-ctrls.h"
-
 static const struct kasdb_op op[] = {
 	{
 		/* Music passthrough */

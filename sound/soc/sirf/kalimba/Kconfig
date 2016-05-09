@@ -24,3 +24,5 @@ config SND_SOC_SIRF_KALIMBA_KCM
 	  way to define, control, and deploy audio subsystem based on
 	  Kalimba DSP. It's to replace the hard coded audio pipeline manager,
 	  and to support various audio pipelines with one common code set.
+
+source "sound/soc/sirf/kalimba/kcm/Kconfig"

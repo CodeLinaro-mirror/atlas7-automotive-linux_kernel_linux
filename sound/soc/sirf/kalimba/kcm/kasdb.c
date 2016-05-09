@@ -1,5 +1,5 @@
 /*
- * Copyright (c) [2016] The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,12 +22,14 @@
 
 #define __S(str)	{ .s = str }
 
-#include "db-default/alsa.c"
-#include "db-default/op.c"
-#include "db-default/link.c"
-#include "db-default/chain.c"
+#include "kasdb-ctrls.h"
+#include "kasdb-hw.c"
+#include "fe.c"
+#include "op.c"
+#include "link.c"
+#include "chain.c"
 
-void __init kasdb_load_default(void)
+void __init kasdb_load_database(void)
 {
 	int i;
 

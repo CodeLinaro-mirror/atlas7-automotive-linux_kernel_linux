@@ -229,20 +229,14 @@ char *kcm_strcasestr(const char *s1, const char *s2)
 
 static int __init kcm_init(void)
 {
-	void *db_base = NULL;
-	size_t db_sz = 0;
-
 	mutex_init(&_mtx);
 
-	/* TODO: assign user db base and size to db_base and db_sz */
-
-	/* Load user database, fallback to default db if failed */
-	if (db_base && kasdb_load_user(db_base, db_sz) == 0) {
-		kcm_debug("KCM: user database loaded\n");
-	} else {
-		kasdb_load_default();
-		kcm_debug("KCM: default database loaded\n");
-	}
+	/*
+	 * Load user database or default database,
+	 * it can be selected in menuconfig
+	 */
+	kasdb_load_database();
+	kcm_debug("KCM: database loaded\n");
 
 	/* Initialize all objects and chains */
 	_kcm_init_status = kasobj_init();
