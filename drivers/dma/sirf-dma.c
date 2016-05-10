@@ -141,6 +141,7 @@ struct sirfsoc_dma {
 	void (*exec_desc)(struct sirfsoc_dma_desc *sdesc,
 		int cid, int burst_mode, void __iomem *base);
 	struct sirfsoc_dma_regs		regs_save;
+	u32				owned;
 };
 
 struct sirfsoc_dmadata {
@@ -296,7 +297,7 @@ static irqreturn_t sirfsoc_dma_irq(int irq, void *data)
 	switch (sdma->type) {
 	case SIRFSOC_DMA_VER_A6:
 	case SIRFSOC_DMA_VER_A7V1:
-		is = readl(sdma->base + SIRFSOC_DMA_CH_INT);
+		is = readl(sdma->base + SIRFSOC_DMA_CH_INT) & sdma->owned;
 		reg = sdma->base + SIRFSOC_DMA_CH_INT;
 		while ((ch = fls(is) - 1) >= 0) {
 			is &= ~(1 << ch);
@@ -615,6 +616,7 @@ static int sirfsoc_dma_chan_owner_get(struct dma_chan *chan)
 	val &= ~(SIRFSOC_OWNER_MASK << offset);
 	val |= SIRFSOC_DMA_OWNER_A7 << offset;
 	writel_relaxed(val, sdma->base + sirfsoc_owner_regs[reg_idx]);
+	sdma->owned |= (0x1 << schan->chan.chan_id);
 
 	return 0;
 }
@@ -633,6 +635,7 @@ static int sirfsoc_dma_chan_owner_put(struct dma_chan *chan)
 	val &= ~(SIRFSOC_OWNER_MASK << offset);
 	val |= SIRFSOC_DMA_OWNER_KAS << offset;
 	writel_relaxed(val, sdma->base + sirfsoc_owner_regs[reg_idx]);
+	sdma->owned &= ~(0x1 << schan->chan.chan_id);
 
 	return 0;
 }
