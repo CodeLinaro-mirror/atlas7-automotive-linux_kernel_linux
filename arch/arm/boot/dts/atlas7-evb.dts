@@ -26,7 +26,7 @@
  * atlas7-usp-spi.dtsi : the SPI port setting.
  * atlas7-usp-ts.dtsi :  the TS port setting.
 
- #include "atlas7-usp-ts.dtsi"
+#include "atlas7-usp-ts.dtsi"
 */
 
 /*

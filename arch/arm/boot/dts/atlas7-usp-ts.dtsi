@@ -16,6 +16,21 @@
 / {
 	noc {
 		audiom {
+			usp0: usp@10d20000 {
+				compatible = "sirf,atlas7-usp_ts";
+				status = "okay";
+				pinctrl-0 = <&audio_uart0_basic_pmx>;
+				pinctrl-names = "default";
+			};
+
+
+			usp1: usp@10d30000 {
+				compatible = "sirf,atlas7-usp_ts";
+				status = "okay";
+				pinctrl-0 = <&audio_uart1_basic_pmx>;
+				pinctrl-names = "default";
+			};
+
 			usp2: usp@10d40000 {
 				compatible = "sirf,atlas7-usp_ts";
 				status = "okay";
