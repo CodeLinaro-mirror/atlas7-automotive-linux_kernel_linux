@@ -104,7 +104,7 @@ static int set_bass_params(struct kasobj_op *op, int create_op)
 		return 0;
 
 	msg.block = 1;
-	msg.offset = 0;
+	msg.offset = 1;
 	msg.param_num = PARAM_NUM;
 
 	/* Every time, send all the parameters to DSP */
@@ -308,14 +308,11 @@ static int bass_create(struct kasobj_op *op,
 	if (ret) {
 		pr_err("KASOBJ(%s): set sample rate failed(%d)!\n",
 			op->obj.name, ret);
-		return ret;
 	}
-	ret = set_bass_params(op, 1);
-	if (ret)
-		return ret;
-	ret = set_bass_mode(op, 1);
+	set_bass_params(op, 1);
+	set_bass_mode(op, 1);
 
-		return ret;
+	return 0;
 }
 
 static const struct kasop_impl bass_impl = {
