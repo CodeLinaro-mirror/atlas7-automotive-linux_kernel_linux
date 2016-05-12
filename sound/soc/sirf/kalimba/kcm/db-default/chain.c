@@ -115,7 +115,7 @@ static const struct kasdb_chain chain[] = {
 	/* IACC Line-In to Line-Out */
 	{
 		.name = __S("chain_lin_to_lout_1"),
-		.trg_fe_name = __S("IACC-loopback-playback"),
+		.trg_fe_name = __S("Iacc-loopback-playback"),
 		.trg_channels = 1,
 		.links = __S("lk_lin_pass_1;lk_pass_src_1;lk_src_split1x2;"
 				"lk_split1x2_split;lk_split_upeq;lk_upeq_bass_1;"
@@ -131,7 +131,7 @@ static const struct kasdb_chain chain[] = {
 	},
 	{
 		.name = __S("chain_lin_to_lout_2"),
-		.trg_fe_name = __S("IACC-loopback-playback"),
+		.trg_fe_name = __S("Iacc-loopback-playback"),
 		.trg_channels = 2,
 		.links = __S("lk_lin_pass_2;lk_pass_src_2;lk_src_split;"
 				"lk_split_upeq;lk_upeq_bass_1;lk_upeq_bass_2;"
@@ -147,7 +147,7 @@ static const struct kasdb_chain chain[] = {
 	{
 		/* Only to trigger codec working */
 		.name = __S("chain_lin_to_lout_dummy"),
-		.trg_fe_name = __S("IACC-loopback-capture"),
+		.trg_fe_name = __S("Iacc-loopback-capture"),
 		.trg_channels = 0,	/* Any channels */
 		.links = __S(NULL),	/* No links */
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
