@@ -436,13 +436,13 @@ static const struct kasdb_link link[] = {
 
 	/* A2DP */
 	{
-		/* usp3 -> Passthrough, 4ch */
-		.name = __S("lk_usp3_pass_4"),
-		.source_name = __S("so_usp3"),
+		/* usp3 -> Passthrough, 2ch */
+		.name = __S("lk_usp3_pass_2"),
+		.source_name = __S("so_usp3_a2dp"),
 		.sink_name = __S("op_pass_music"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 1, 2, 3, 4 },
-		.channels = 4,
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
 	},
 
 	/* Carplay */

@@ -58,6 +58,19 @@ static const struct kasdb_hw hw[] = {
 		.bytes_per_ch = 192,
 	},
 	{
+		/* FIXME: this should be combined with so_usp3 */
+		.name = __S("so_usp3_a2dp"),
+		.is_sink = 0,
+		.is_slave = 0,
+		.instance_id = ENDPOINT_PHY_DEV_A7CA,
+		.max_channels = 4,
+		.def_channels = 2,  /* stereo a2dp stream */
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 0,
+		.bytes_per_ch = 192,
+	},
+	{
 		.name = __S("si_iacc"),
 		.is_sink = 1,
 		.is_slave = 0,
