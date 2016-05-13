@@ -190,6 +190,11 @@ static struct screen_priv_data *get_screen_data(struct sirfsoc_vdss_screen *scn)
 static void vdss_set_layer_status(struct sirfsoc_vdss_layer *l,
 	bool enable);
 static bool vdss_get_layer_status(struct sirfsoc_vdss_layer *l);
+static void vdss_layer_get_info(struct sirfsoc_vdss_layer *layer,
+	struct sirfsoc_vdss_layer_info *info);
+static int vdss_layer_set_info(struct sirfsoc_vdss_layer *layer,
+	struct sirfsoc_vdss_layer_info *info);
+
 
 static ssize_t layer_enable_show(struct sirfsoc_vdss_layer *l,
 	char *buf)
@@ -245,6 +250,70 @@ static ssize_t layer_enable_store(struct sirfsoc_vdss_layer *l,
 	return size;
 }
 
+static ssize_t layer_src_alpha_show(struct sirfsoc_vdss_layer *l,
+	char *buf)
+{
+	struct sirfsoc_vdss_layer_info info;
+
+	vdss_layer_get_info(l, &info);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", info.source_alpha);
+}
+
+static ssize_t layer_src_alpha_store(struct sirfsoc_vdss_layer *l,
+	const char *buf, size_t size)
+{
+	int r;
+	bool alpha;
+	struct sirfsoc_vdss_layer_info info;
+
+	r = strtobool(buf, &alpha);
+	if (r)
+		return r;
+
+	vdss_layer_get_info(l, &info);
+
+	if (info.source_alpha != alpha) {
+		info.source_alpha = alpha;
+		vdss_layer_set_info(l, &info);
+		l->screen->apply(l->screen);
+	}
+
+	return size;
+}
+
+static ssize_t layer_premulti_alpha_show(struct sirfsoc_vdss_layer *l,
+	char *buf)
+{
+	struct sirfsoc_vdss_layer_info info;
+
+	vdss_layer_get_info(l, &info);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", info.pre_mult_alpha);
+}
+
+static ssize_t layer_premulti_alpha_store(struct sirfsoc_vdss_layer *l,
+	const char *buf, size_t size)
+{
+	int r;
+	bool alpha;
+	struct sirfsoc_vdss_layer_info info;
+
+	r = strtobool(buf, &alpha);
+	if (r)
+		return r;
+
+	vdss_layer_get_info(l, &info);
+
+	if (info.pre_mult_alpha != alpha) {
+		info.pre_mult_alpha = alpha;
+		vdss_layer_set_info(l, &info);
+		l->screen->apply(l->screen);
+	}
+
+	return size;
+}
+
 struct layer_attribute {
 	struct attribute attr;
 	ssize_t (*show)(struct sirfsoc_vdss_layer *, char *);
@@ -257,9 +326,17 @@ struct layer_attribute {
 
 static LAYER_ATTR(layer_enable, S_IRUGO|S_IWUSR,
 	layer_enable_show, layer_enable_store);
+static LAYER_ATTR(layer_src_alpha, S_IRUGO|S_IWUSR,
+	layer_src_alpha_show, layer_src_alpha_store);
+static LAYER_ATTR(layer_premulti_alpha, S_IRUGO|S_IWUSR,
+	layer_premulti_alpha_show, layer_premulti_alpha_store);
+
+
 
 static struct attribute *layer_sysfs_attrs[] = {
 	&layer_attr_layer_enable.attr,
+	&layer_attr_layer_src_alpha.attr,
+	&layer_attr_layer_premulti_alpha.attr,
 	NULL
 };
 
