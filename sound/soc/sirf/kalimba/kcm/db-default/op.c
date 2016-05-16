@@ -180,7 +180,7 @@ static const struct kasdb_op op[] = {
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_AEC_REF_1MIC,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
@@ -189,7 +189,7 @@ static const struct kasdb_op op[] = {
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_AEC_REF_2MIC,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{

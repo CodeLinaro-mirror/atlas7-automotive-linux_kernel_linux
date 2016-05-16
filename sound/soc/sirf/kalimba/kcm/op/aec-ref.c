@@ -29,7 +29,10 @@ static int aec_ref_create(struct kasobj_op *op,
 	u16 aec_ref_ucid = 4; /* stable user case ID */
 	int ret;
 
-	sample_rate[0] = param->rate;
+	if (!op->db->rate)
+		pr_err("KASOBJ(%s): sample rate invalid(%d)!\n",
+			op->obj.name, op->db->rate);
+	sample_rate[0] = op->db->rate;
 	sample_rate[1] = 16000; /* wide band */
 	ret = kalimba_operator_message(op->op_id, AEC_REF_SET_SAMPLE_RATES,
 		2, sample_rate, NULL, NULL, __kcm_resp);

@@ -220,9 +220,13 @@ static int volctrl_init(struct kasobj_op *op)
 static int volctrl_create(struct kasobj_op *op,
 	const struct kasobj_param *param)
 {
-	u16 sample_rate = param->rate / 25; /* sample rate / 25 */
+	u16 sample_rate;  /* sample rate / 25 */
 	int ret = 0, idx;
 
+	if (!op->db->rate)
+		pr_err("KASOBJ(%s): sample rate invalid(%d)!\n",
+			op->obj.name, op->db->rate);
+	sample_rate = op->db->rate / 25;
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 		1, &sample_rate, NULL, NULL, __kcm_resp);
 	if (ret) {
