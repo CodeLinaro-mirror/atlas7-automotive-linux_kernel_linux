@@ -288,7 +288,7 @@ static int mixer_init(struct kasobj_op *op)
 {
 	int i, ctrl_idx = 0, max;
 	const int *tlv = NULL;
-	char names_buf[512], *names = names_buf, *name;
+	char names_buf[1024], *names = names_buf, *name;
 	struct mixer_ctx *ctx = kzalloc(sizeof(struct mixer_ctx), GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
 
@@ -318,7 +318,7 @@ static int mixer_init(struct kasobj_op *op)
 	if (!op->db->ctrl_names.s)
 		return 0;
 
-	if (snprintf(names_buf, 512, "%s", op->db->ctrl_names.s) >= 512) {
+	if (snprintf(names_buf, 1024, "%s", op->db->ctrl_names.s) >= 1024) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
 	}

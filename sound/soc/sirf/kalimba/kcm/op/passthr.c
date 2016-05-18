@@ -21,11 +21,11 @@
 #include "../../dsp.h"
 #include "utils.h"
 
-#define MIN_DB	-120
+#define MIN_DB	(-60)
 #define STEP_DB	1
 #define MAXV	(-MIN_DB / STEP_DB)
 
-static const DECLARE_TLV_DB_SCALE(vol_tlv, -120*100, STEP_DB*100, 0);
+static const DECLARE_TLV_DB_SCALE(vol_tlv, MIN_DB*100, STEP_DB*100, 0);
 
 /* Context for each instance */
 struct passthr_ctx {

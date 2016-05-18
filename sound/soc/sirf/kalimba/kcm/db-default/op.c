@@ -154,7 +154,7 @@ static const struct kasdb_op op[] = {
 		.name = __S("op_mixer2"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_MIXER(
-			"NOCTRL", "Voicecall", "NOCTRL")),
+			"Multimedia", "Voicecall", "NOCTRL")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
 		.param.mixer_streams = 3,
