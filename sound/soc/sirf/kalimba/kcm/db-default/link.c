@@ -434,11 +434,38 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 
-	/* A2DP */
+	/* USP */
 	{
 		/* usp3 -> Passthrough, 2ch */
 		.name = __S("lk_usp3_pass_2"),
 		.source_name = __S("so_usp3_a2dp"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* usp2 -> Passthrough, 2ch */
+		.name = __S("lk_usp2_pass_2"),
+		.source_name = __S("so_usp2"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* usp1 -> Passthrough, 2ch */
+		.name = __S("lk_usp1_pass_2"),
+		.source_name = __S("so_usp1"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* usp0 -> Passthrough, 2ch */
+		.name = __S("lk_usp0_pass_2"),
+		.source_name = __S("so_usp0"),
 		.sink_name = __S("op_pass_music"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },

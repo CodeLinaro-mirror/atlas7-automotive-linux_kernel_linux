@@ -26,7 +26,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_mixer2_volctrl;lk_aecref_1mic_iacc;"
 				"lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
-				"chain_i2s_to_iacc_2;chain_a2dp_2ch"),
+				"chain_i2s_to_iacc_2;chain_a2dp_2ch;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		.name = __S("chain_music_2"),
@@ -40,7 +41,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
 				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
-				"chain_i2s_to_iacc_2;chain_a2dp_2ch"),
+				"chain_i2s_to_iacc_2;chain_a2dp_2ch;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		.name = __S("chain_music_4"),
@@ -54,7 +56,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_mixer_mixer2;lk_mixer2_volctrl;"
 				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
-				"chain_i2s_to_iacc_2;chain_a2dp_2ch"),
+				"chain_i2s_to_iacc_2;chain_a2dp_2ch;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
 
 	/* Navigation */
@@ -87,7 +90,8 @@ static const struct kasdb_chain chain[] = {
 		.links = __S(NULL),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 				"chain_cap;chain_a2dp_2ch;"
-				"chain_voicecall_capture"),
+				"chain_voicecall_capture;chain_usp0_2ch;"
+				"chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		.name = __S("chain_cvc_recv"),
@@ -99,7 +103,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_aecref_1mic_iacc;lk_iacc_aecref_1mic;"
 				"lk_volctrl_aecref_1mic;lk_aecref_1mic_cvc_send;"
 				"lk_cvc_send_usp3;lk_aecref_1mic_cvc_send_ref"),
-		.mutexs = __S("chain_a2dp_2ch;chain_voicecall_playback"),
+		.mutexs = __S("chain_a2dp_2ch;chain_voicecall_playback;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
 
 	/* Microphone */
@@ -127,7 +132,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 				"chain_a2dp_2ch;chain_cap;chain_cvc_send_1mic;"
-				"chain_voicecall_capture;chain_i2s_to_iacc_2"),
+				"chain_voicecall_capture;chain_i2s_to_iacc_2;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		.name = __S("chain_lin_to_lout_2"),
@@ -142,7 +148,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 				"chain_a2dp_2ch;chain_cap;chain_cvc_send_1mic;"
-				"chain_voicecall_capture;chain_i2s_to_iacc_2"),
+				"chain_voicecall_capture;chain_i2s_to_iacc_2;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		/* Only to trigger codec working */
@@ -169,7 +176,62 @@ static const struct kasdb_chain chain[] = {
 				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 				"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
-				"chain_lin_to_lout_2;chain_i2s_to_iacc_2"),
+				"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
+	},
+
+	/* USP0 Playback */
+	{
+		.name = __S("chain_usp0_2ch"),
+		.trg_fe_name = __S("USP0"),
+		.trg_channels = 2,
+		.links = __S("lk_usp0_pass_2;lk_pass_src_2;lk_src_split;"
+				"lk_split_upeq;lk_upeq_bass_1;lk_upeq_bass_2;"
+				"lk_bass_1_delay;lk_bass_2_delay;lk_delay_s1peq;"
+				"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
+				"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
+				"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
+				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
+		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
+				"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
+				"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
+				"chain_usp1_2ch;chain_usp2_2ch;chain_a2dp_2ch"),
+	},
+
+	/* USP1 Playback */
+	{
+		.name = __S("chain_usp1_2ch"),
+		.trg_fe_name = __S("USP1"),
+		.trg_channels = 2,
+		.links = __S("lk_usp1_pass_2;lk_pass_src_2;lk_src_split;"
+				"lk_split_upeq;lk_upeq_bass_1;lk_upeq_bass_2;"
+				"lk_bass_1_delay;lk_bass_2_delay;lk_delay_s1peq;"
+				"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
+				"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
+				"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
+				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
+		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
+				"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
+				"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
+				"chain_usp0_2ch;chain_usp2_2ch;chain_a2dp_2ch"),
+	},
+
+	/* USP2 Playback */
+	{
+		.name = __S("chain_usp2_2ch"),
+		.trg_fe_name = __S("USP2"),
+		.trg_channels = 2,
+		.links = __S("lk_usp2_pass_2;lk_pass_src_2;lk_src_split;"
+				"lk_split_upeq;lk_upeq_bass_1;lk_upeq_bass_2;"
+				"lk_bass_1_delay;lk_bass_2_delay;lk_delay_s1peq;"
+				"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
+				"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
+				"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
+				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
+		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
+				"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
+				"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
+				"chain_usp0_2ch;chain_usp1_2ch;chain_a2dp_2ch"),
 	},
 
 	/* Carplay */
@@ -209,6 +271,7 @@ static const struct kasdb_chain chain[] = {
 				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 				"chain_a2dp_2ch;chain_lin_to_lout_1;"
-				"chain_lin_to_lout_2"),
+				"chain_lin_to_lout_2;chain_usp0_2ch;"
+				"chain_usp1_2ch;chain_usp2_2ch"),
 	},
 };

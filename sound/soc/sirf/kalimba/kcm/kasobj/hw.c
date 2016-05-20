@@ -125,8 +125,12 @@ static struct hw_name_ops {
 		ENDPOINT_TYPE_IACC, ENDPOINT_PHY_DEV_IACC, 0 },
 	{ "usp3", hw_usp_config, hw_usp_start, hw_usp_stop,
 		ENDPOINT_TYPE_USP, ENDPOINT_PHY_DEV_A7CA, 3 },
+	{ "usp2", hw_usp_config, hw_usp_start, hw_usp_stop,
+		ENDPOINT_TYPE_USP, ENDPOINT_PHY_DEV_PCM2, 2 },
 	{ "usp1", hw_usp_config, hw_usp_start, hw_usp_stop,
 		ENDPOINT_TYPE_USP, ENDPOINT_PHY_DEV_PCM1, 1 },
+	{ "usp0", hw_usp_config, hw_usp_start, hw_usp_stop,
+		ENDPOINT_TYPE_USP, ENDPOINT_PHY_DEV_PCM0, 0 },
 	{ "i2s", hw_i2s_config, hw_i2s_start, hw_i2s_stop,
 		ENDPOINT_TYPE_I2S, ENDPOINT_PHY_DEV_I2S0, 0 },
 };
