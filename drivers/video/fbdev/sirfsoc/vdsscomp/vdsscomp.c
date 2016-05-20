@@ -61,6 +61,7 @@ static bool vdsscomp_layer_enable(
 	dst_rect.right = info->dst_rect.right;
 	dst_rect.bottom = info->dst_rect.bottom;
 
+	memset(&src_surf, 0, sizeof(src_surf));
 	src_surf.fmt = info->fmt;
 	src_surf.width = info->width;
 	src_surf.height = info->height;
@@ -70,7 +71,8 @@ static bool vdsscomp_layer_enable(
 			src_surf.field = VDSS_FIELD_SEQ_TB;
 		else
 			src_surf.field = VDSS_FIELD_INTERLACED_TB;
-	}
+	} else
+		src_surf.field = VDSS_FIELD_NONE;
 
 	if (sirfsoc_vpp_is_passthrough_support(info->fmt))
 		l->disp_mode = VDSS_DISP_PASS_THROUGH;
