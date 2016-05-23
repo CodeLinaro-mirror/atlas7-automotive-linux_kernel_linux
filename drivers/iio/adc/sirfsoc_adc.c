@@ -347,7 +347,7 @@ struct sirfsoc_adc {
 	struct clk			*clk_io;
 	struct clk			*clk_analog;
 	struct clk			*clk_ds;
-
+	struct mutex			mutex;
 	void __iomem			*base;
 	/*
 	 * FIXME: atlas7 need ctrl analog for enable adc
@@ -800,6 +800,7 @@ static void sirfsoc_adc_enable_analog(struct sirfsoc_adc *adc)
 	 * when enable analog. the follow operations are to
 	 * workaround the bug.
 	 */
+	mutex_lock(&adc->mutex);
 	read_data =  readl(adc->ana_base + 0x58);
 	writel(read_data | (0x2 << 5) , adc->ana_base + 0x58);
 	read_data =  readl(adc->ana_base + 0x50);
@@ -828,6 +829,7 @@ static void sirfsoc_adc_enable_analog(struct sirfsoc_adc *adc)
 	writel(TMPS1_OUT_EN | TMPS1_EN | TMPS2_OUT_EN |
 			TMPS2_OUT_EN,
 		adc->ana_base + TEMPSENSOR_CTRL);
+	mutex_unlock(&adc->mutex);
 }
 
 static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
@@ -852,15 +854,17 @@ static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
 	cali_data.is_calibration = false;
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
+		mutex_lock(&adc->mutex);
 		if (0 == chan->channel)
 			ret = sirfsoc_adc_single_ts_sample(adc, val);
 		else
 			ret = sirfsoc_adc_dual_ts_sample(adc, val);
-
+		mutex_unlock(&adc->mutex);
 		if (ret)
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
+		mutex_lock(&adc->mutex);
 		msel = adc->chip_info->channel_sel[chan->channel];
 		if (of_device_is_compatible(np, "sirf,atlas7-adc"))
 			sgain = adc->chip_info->sgain_sel[chan->channel];
@@ -870,6 +874,7 @@ static int sirfsoc_adc_read_raw(struct iio_dev *indio_dev,
 				ctrl_set->sgain_shift;
 		cali_data.sgain = sgain;
 		*val = sirfsoc_adc_get_adc_volt(adc, &cali_data);
+		mutex_unlock(&adc->mutex);
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -1142,7 +1147,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&adc->done);
-
+	mutex_init(&adc->mutex);
 	/* some register need set on atlas7 */
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		struct regulator *da_regulator;
@@ -1306,7 +1311,7 @@ err:
 		clk_disable_unprepare(adc->clk_io);
 	}
 	clk_disable_unprepare(adc->clk);
-
+	mutex_destroy(&adc->mutex);
 	return ret;
 }
 
@@ -1324,7 +1329,7 @@ static int sirfsoc_adc_remove(struct platform_device *pdev)
 		iounmap(adc->ana_base);
 	}
 	clk_disable_unprepare(adc->clk);
-
+	mutex_destroy(&adc->mutex);
 	return 0;
 }
 
