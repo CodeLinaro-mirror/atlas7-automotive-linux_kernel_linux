@@ -63,7 +63,7 @@ static const struct kasdb_hw hw[] = {
 		.is_slave = 0,
 		.instance_id = ENDPOINT_PHY_DEV_PCM2,
 		.max_channels = 4,
-		.def_channels = 2,  /* stereo USP2 stream */
+		.def_channels = 2,	/* stereo USP2 stream */
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
 		.def_rate = 0,
@@ -75,7 +75,7 @@ static const struct kasdb_hw hw[] = {
 		.is_slave = 0,
 		.instance_id = ENDPOINT_PHY_DEV_PCM1,
 		.max_channels = 4,
-		.def_channels = 2,  /* stereo USP1 stream */
+		.def_channels = 2,	/* stereo USP1 stream */
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
 		.def_rate = 0,
@@ -87,7 +87,7 @@ static const struct kasdb_hw hw[] = {
 		.is_slave = 0,
 		.instance_id = ENDPOINT_PHY_DEV_PCM0,
 		.max_channels = 4,
-		.def_channels = 2,  /* stereo USP0 stream */
+		.def_channels = 2,	/* stereo USP0 stream */
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
 		.def_rate = 0,
@@ -100,7 +100,7 @@ static const struct kasdb_hw hw[] = {
 		.is_slave = 0,
 		.instance_id = ENDPOINT_PHY_DEV_A7CA,
 		.max_channels = 4,
-		.def_channels = 2,  /* stereo a2dp stream */
+		.def_channels = 2,	/* stereo a2dp stream */
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
 		.def_rate = 0,
@@ -231,42 +231,6 @@ static const struct kasdb_fe fe[] = {
 		.source_codec = __S(NULL),
 	},
 	{
-		.name = __S("USP0"),
-		.playback = 1,
-		.internal = 1,
-		.stream_name = __S(NULL),   /* "USP0 Playback" */
-		.channels_min = 1,
-		.channels_max = 4,
-		.rates = SNDRV_PCM_RATE_8000_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-		.sink_codec = __S("iacc"),
-		.source_codec = __S(NULL),
-	},
-	{
-		.name = __S("USP1"),
-		.playback = 1,
-		.internal = 1,
-		.stream_name = __S(NULL),   /* "USP1 Playback" */
-		.channels_min = 1,
-		.channels_max = 4,
-		.rates = SNDRV_PCM_RATE_8000_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-		.sink_codec = __S("iacc"),
-		.source_codec = __S(NULL),
-	},
-	{
-		.name = __S("USP2"),
-		.playback = 1,
-		.internal = 1,
-		.stream_name = __S(NULL),   /* "USP2 Playback" */
-		.channels_min = 1,
-		.channels_max = 4,
-		.rates = SNDRV_PCM_RATE_8000_192000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-		.sink_codec = __S("iacc"),
-		.source_codec = __S(NULL),
-	},
-	{
 		.name = __S("AnalogCapture"),
 		.playback = 0,
 		.internal = 0,
@@ -314,5 +278,41 @@ static const struct kasdb_fe fe[] = {
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		.sink_codec = __S(NULL),
 		.source_codec = __S("iacc"),
+	},
+	{
+		.name = __S("USP0"),
+		.playback = 1,
+		.internal = 1,
+		.stream_name = __S(NULL),	/* "USP0 Playback" */
+		.channels_min = 1,
+		.channels_max = 4,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.sink_codec = __S("iacc"),
+		.source_codec = __S(NULL),
+	},
+	{
+		.name = __S("USP1"),
+		.playback = 1,
+		.internal = 1,
+		.stream_name = __S(NULL),	/* "USP1 Playback" */
+		.channels_min = 1,
+		.channels_max = 4,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.sink_codec = __S("iacc"),
+		.source_codec = __S(NULL),
+	},
+	{
+		.name = __S("USP2"),
+		.playback = 1,
+		.internal = 1,
+		.stream_name = __S(NULL),	/* "USP2 Playback" */
+		.channels_min = 1,
+		.channels_max = 4,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.sink_codec = __S("iacc"),
+		.source_codec = __S(NULL),
 	},
 };
