@@ -372,7 +372,7 @@ static int mixer_create(struct kasobj_op *op, const struct kasobj_param *param)
 	static short stream3x4_cfg[] = { 4, 4, 4 };
 	static short stream2x6_cfg[] = { 6, 6 };
 	short *stream_cfg;
-	short rate = op->db->rate;
+	short rate = op->db->rate / 25;
 
 	if (ctx->streams == 2) {
 		stream_cfg = stream2x6_cfg;
