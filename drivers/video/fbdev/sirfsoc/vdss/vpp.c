@@ -345,6 +345,7 @@ static bool vpp_blt_check_size(struct vdss_surface *src_surf,
 		pixel_aligned = 8;
 		break;
 	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_YUV420_A:
 	case VDSS_PIXELFORMAT_YV12:
 		pixel_aligned = 16;
 		break;
@@ -450,6 +451,7 @@ bool vpp_passthrough_check_size(struct vdss_surface *src_surf,
 		pixel_aligned = 8;
 		break;
 	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_YUV420_A:
 	case VDSS_PIXELFORMAT_YV12:
 		pixel_aligned = 16;
 		break;
@@ -629,6 +631,7 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 	case VDSS_PIXELFORMAT_IMC3:
 	case VDSS_PIXELFORMAT_IMC2:
 	case VDSS_PIXELFORMAT_IMC1:
+	case VDSS_PIXELFORMAT_YUV420_A:
 		reg_ctrl |= VPP_CTRL_YUV420_FORMAT;
 		reg_stride0 |= VPP_Y_STRIDE(surf->width);
 		reg_stride0 |= VPP_U_STRIDE(surf->width);
@@ -906,8 +909,9 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 		 * */
 		src_rect.top = src_rect.top >> 1;
 		src_rect.bottom = src_rect.bottom >> 1;
-		if (surf->fmt > VDSS_PIXELFORMAT_32BPPGENERIC &&
-			surf->fmt < VDSS_PIXELFORMAT_IMC2)
+		if ((surf->fmt > VDSS_PIXELFORMAT_32BPPGENERIC &&
+			surf->fmt < VDSS_PIXELFORMAT_IMC2) ||
+			surf->fmt  == VDSS_PIXELFORMAT_YUV420_A)
 			field_offset = surf->width * surf->height;
 		else
 			field_offset = surf->width *
@@ -933,7 +937,8 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 	} else if (surf->fmt == VDSS_PIXELFORMAT_IMC1 ||
 		surf->fmt == VDSS_PIXELFORMAT_IMC3 ||
 		surf->fmt == VDSS_PIXELFORMAT_IMC2 ||
-		surf->fmt == VDSS_PIXELFORMAT_IMC4) {
+		surf->fmt == VDSS_PIXELFORMAT_IMC4 ||
+		surf->fmt == VDSS_PIXELFORMAT_YUV420_A) {
 		uoffset = surf->width * (src_rect.top / 2) +
 			src_rect.left / 2;
 		voffset = uoffset;
@@ -959,6 +964,13 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 			surf->height + uoffset;
 		vbase = surf->base + surf->width *
 			surf->height * 5 / 4 + voffset;
+		break;
+	case VDSS_PIXELFORMAT_YUV420_A:
+		ybase = surf->base + yoffset;
+		ubase = surf->base +  surf->width  *
+			surf->height + uoffset;
+		vbase = surf->base + surf->width  *
+			surf->height * 3 / 2 + voffset;
 		break;
 	case VDSS_PIXELFORMAT_IMC1:
 	case VDSS_PIXELFORMAT_IMC3:
@@ -1023,6 +1035,7 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 			case VDSS_PIXELFORMAT_IMC3:
 			case VDSS_PIXELFORMAT_IMC2:
 			case VDSS_PIXELFORMAT_IMC1:
+			case VDSS_PIXELFORMAT_YUV420_A:
 				ybase_bot = ybase + surf->width;
 				ubase_bot = ubase + surf->width;
 				vbase_bot = vbase + surf->width;
@@ -1977,6 +1990,7 @@ bool sirfsoc_vpp_is_passthrough_support(enum vdss_pixelformat fmt)
 	case VDSS_PIXELFORMAT_IMC3:
 	case VDSS_PIXELFORMAT_YV12:
 	case VDSS_PIXELFORMAT_I420:
+	case VDSS_PIXELFORMAT_YUV420_A:
 	case VDSS_PIXELFORMAT_UYVI:
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:

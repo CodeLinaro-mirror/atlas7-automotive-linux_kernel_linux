@@ -15,9 +15,7 @@
 #define __SIRFSOC_V4L2_H_
 
 /* v4l2 csr extensions */
-#define V4L2_CID_GET_ADDR (V4L2_CID_USER_BASE + 0x1000)
-#define V4L2_CID_SET_INTERLACE (V4L2_CID_USER_BASE + 0x1001)
-#define V4L2_CID_GET_VIDEO_STATE (V4L2_CID_USER_BASE + 0x1002)
-#define V4L2_CID_GET_AUDIO_SAMPLE_RATE (V4L2_CID_USER_BASE + 0x1003)
+/* 12 YUV 4:2:0 w-stride 64 aligned h-stride 16 aligned */
+#define V4L2_PIX_FMT_YUV420_A v4l2_fourcc('A', '4', '2', '0')
 
 #endif /* __SIRFSOC_V4L2_H_ */

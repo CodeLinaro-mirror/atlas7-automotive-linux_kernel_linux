@@ -31,6 +31,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
+#include "media/sirfsoc_v4l2.h"
 #include "sirfsoc_vout.h"
 
 #define SIRFSOC_VOUT_DRV_NAME	"sirfsoc_vout"
@@ -140,6 +141,10 @@ static const struct v4l2_fmtdesc sirfsoc_vout_formats[] = {
 	.pixelformat = V4L2_PIX_FMT_YUV420,
 	},
 	{
+	.description = "YUV420_A",
+	.pixelformat = V4L2_PIX_FMT_YUV420_A,
+	},
+	{
 	.description = "YV12",
 	.pixelformat = V4L2_PIX_FMT_YVU420,
 	},
@@ -194,6 +199,10 @@ static int __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(__u32 pix_fmt)
 
 	case V4L2_PIX_FMT_YUV420:
 		vdss_pixfmt = VDSS_PIXELFORMAT_I420;
+		break;
+
+	case V4L2_PIX_FMT_YUV420_A:
+		vdss_pixfmt = VDSS_PIXELFORMAT_YUV420_A;
 		break;
 
 	case V4L2_PIX_FMT_YVU420:
@@ -278,6 +287,13 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 	case VDSS_PIXELFORMAT_I420:
 		*hor_stride = align_size(width, 16);
 		*ver_stride = height;
+		break;
+	case VDSS_PIXELFORMAT_YUV420_A:
+		*hor_stride = align_size(width, 64);
+		if (interlaced)
+			*ver_stride = align_size(height, 32);
+		else
+			*ver_stride = align_size(height, 16);
 		break;
 	case VDSS_PIXELFORMAT_YV12:
 		*hor_stride = align_size(width, 16);
@@ -916,6 +932,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_YUV420:
 	case V4L2_PIX_FMT_YVU420:
+	case V4L2_PIX_FMT_YUV420_A:
 		pix->colorspace = V4L2_COLORSPACE_JPEG;
 		/*
 		 * Note: When the image format is planar, the bytesperline
@@ -966,6 +983,13 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	case VDSS_PIXELFORMAT_YV12:
 		/* Planar format should contain Y and UV sections */
 		pix->sizeimage += pix->sizeimage >> 1;
+		break;
+	case VDSS_PIXELFORMAT_YUV420_A:
+		/*
+		  * hor_stride of U/V section is the same with Y section
+		  * ver_stride of U/V section is 1/2 of Y section
+		  */
+		pix->sizeimage *= 2;
 		break;
 	default:
 		break;
