@@ -490,6 +490,8 @@ static int kas_playback_mute_put(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	int mute = ucontrol->value.integer.value[0];
+	u16 stream = 0;
+	int i = 0;
 
 	if (mc->reg == MASTER_MUTE_REG) { /* Volume-Control: Master Mute */
 		pdata->master_mute = ucontrol->value.integer.value[0];
@@ -500,18 +502,19 @@ static int kas_playback_mute_put(struct snd_kcontrol *kcontrol,
 				pdata->master_gain);
 	} else { /* Mixer: Per-Stream Mute */
 		pdata->stream_mute[mc->reg - MIXER_MUTE_REG] = mute;
+		stream = mc->reg - MIXER_MUTE_REG;
 
 		if (mute)
-			kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
+			kalimba_set_stream_volume(stream,
 				MIN_STREAM_GAIN_DB,
-				pdata->stream_ramp[1]
-					[mc->reg - MIXER_MUTE_REG]);
-		else
-			kalimba_set_stream_volume(mc->reg - MIXER_MUTE_REG,
-				MIN_STREAM_GAIN_DB +
-				pdata->stream_volume[mc->reg - MIXER_MUTE_REG],
-				pdata->stream_ramp[1]
-					[mc->reg - MIXER_MUTE_REG]);
+				pdata->stream_ramp[1][stream]);
+		else {
+			for (i = 0; i < 4; i++)
+				kalimba_set_stream_channel_volume(stream, i,
+					MIN_STREAM_GAIN_DB +
+					pdata->stream_channel_volume[stream][i],
+					pdata->stream_ramp[1][stream]);
+		}
 	}
 	return 0;
 }
@@ -551,7 +554,6 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 	struct kas_priv_data *pdata = snd_soc_component_get_drvdata(cmpnt);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
-	int mute = 0;
 	u16 stream = 0;
 	u16 channel = 0;
 
@@ -580,15 +582,17 @@ static int kas_playback_volume_put(struct snd_kcontrol *kcontrol,
 			pdata->stream_channel_volume[stream][channel],
 			pdata->stream_ramp[0][stream]);
 	} else { /* Mixer: Stream Volume */
-		pdata->stream_volume[mc->reg - MIXER_GAIN_REG] =
+		stream = mc->reg - MIXER_GAIN_REG;
+		pdata->stream_volume[stream] =
 			ucontrol->value.integer.value[0];
-		mute = pdata->stream_mute[mc->reg - MIXER_GAIN_REG];
-		if (mute == 0)
-			kalimba_set_stream_volume(mc->reg - MIXER_GAIN_REG,
-				MIN_STREAM_GAIN_DB +
-				pdata->stream_volume[mc->reg - MIXER_GAIN_REG],
-				pdata->stream_ramp[0][mc->reg - MIXER_GAIN_REG]
-				);
+		for (channel = 0; channel < 4; channel++)
+			pdata->stream_channel_volume[stream][channel] =
+				ucontrol->value.integer.value[0];
+		kalimba_set_stream_volume(stream,
+			MIN_STREAM_GAIN_DB +
+			pdata->stream_volume[stream],
+			pdata->stream_ramp[0][stream]
+			);
 	}
 	return 0;
 }

@@ -188,11 +188,20 @@ void set_default_master_volume(u32 volume)
 
 void set_default_mixer_stream_volume(int stream, u16 volume)
 {
-	if (stream < MIXER_SUPPORT_STREAMS)
+	int i = 0;
+
+	if (stream < MIXER_SUPPORT_STREAMS) {
 		mixer1_default_streams_volume[stream] = volume;
-	else
+		for (i = 0; i < 4; i++)
+			set_default_mixer_stream_channel_volume(stream,
+							i, volume);
+	} else {
 		mixer2_default_streams_volume[stream - MIXER_SUPPORT_STREAMS] =
 			volume;
+		for (i = 0; i < 4; i++)
+			set_default_mixer_stream_channel_volume(stream,
+							i, volume);
+	}
 }
 
 void set_default_mixer_stream_channel_volume(int stream, int channel,
