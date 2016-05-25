@@ -1147,7 +1147,6 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&adc->done);
-	mutex_init(&adc->mutex);
 	/* some register need set on atlas7 */
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		struct regulator *da_regulator;
@@ -1204,6 +1203,7 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 			return ret;
 		}
 
+		mutex_init(&adc->mutex);
 		clk_prepare_enable(adc->clk_analog);
 
 		adc->ana_base = ioremap(SIRFSOC_ANA_BASE, SZ_64K);
@@ -1237,7 +1237,8 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		adc->clk = devm_clk_get(&pdev->dev, NULL);
 		if (IS_ERR(adc->clk)) {
 			dev_err(&pdev->dev, "Get adc clk failed\n");
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto err;
 		}
 
 		clk_prepare_enable(adc->clk);
