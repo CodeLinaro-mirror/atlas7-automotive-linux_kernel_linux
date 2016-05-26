@@ -157,9 +157,6 @@ static int atlas7_wdt_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* disable watchdog hardware */
-	writel(0, wdt->base + ATLAS7_WDT_CNT_CTRL);
-
 	wdt->tick_rate = clk_get_rate(clk);
 	wdt->clk = clk;
 	atlas7_wdd.min_timeout = 1;
