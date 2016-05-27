@@ -250,15 +250,22 @@ void __init kcm_add_chain(const void *db)
 struct kcm_chain *kcm_prepare_chain(const struct kasobj_fe *fe,
 		int playback, int channels)
 {
-	int okay = 0;
+	int okay = 0, mic_num;
 	struct kcm_chain *chain;
 	struct kcm_chain_ex *chain_ex;
+
+	if (kcm_enable_2mic_cvc)
+		mic_num = 2;
+	else
+		mic_num = 1;
 
 	/* Find chain by FE */
 	list_for_each_entry(chain, &chain_list, link) {
 		if (chain->trg_fe == fe &&
-				(chain->db->trg_channels == channels ||
-				 chain->db->trg_channels == 0)) {
+			(chain->db->trg_channels == channels ||
+			 chain->db->trg_channels == 0) &&
+			(chain->db->cvc_mic == mic_num ||
+			 chain->db->cvc_mic == 0)) {
 			okay = 1;
 			break;
 		}

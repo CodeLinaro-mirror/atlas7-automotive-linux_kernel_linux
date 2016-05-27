@@ -77,4 +77,7 @@
 	name " Vol Master Gain;"	\
 	name " Vol Master Mute"
 
+#define KCM_CTRLS_AECREF(name)	\
+	name " 2Mic CVC Switch"
+
 #endif /* OP_CTRLS_H */

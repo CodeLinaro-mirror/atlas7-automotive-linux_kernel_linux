@@ -22,6 +22,8 @@
 #define kcm_debug(...)	do {}  while (0)
 #endif
 
+extern bool kcm_enable_2mic_cvc;
+
 struct kcm_chain;
 struct kasobj_fe;
 struct kasobj_param;
@@ -45,7 +47,7 @@ struct snd_kcontrol_new *kcm_ctrl_first(void);
 struct snd_kcontrol_new *kcm_ctrl_next(void);
 
 struct kasop_impl *kcm_find_cap(int cap_id);
-int kcm_register_cap(int cap_id, struct kasop_impl *impl);
+int kcm_register_cap(int cap_id, const struct kasop_impl *impl);
 
 struct kasobj_fe *kcm_find_fe(const char *dai_name, int playback);
 struct kcm_chain *kcm_prepare_chain(const struct kasobj_fe *fe,

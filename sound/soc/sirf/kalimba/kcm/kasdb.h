@@ -151,6 +151,7 @@ struct kasdb_chain {
 	union kasdb_str name;
 	union kasdb_str trg_fe_name;	/* Trigger by which FE */
 	short trg_channels;		/* Trigger by how many channels */
+	enum {ignore, single, doub} cvc_mic; /* Distinguish CVC streams */
 	union kasdb_str links;		/* "link1:link2:xxx" */
 	union kasdb_str mutexs;		/* Exclusive chains "music-4:music-6" */
 };

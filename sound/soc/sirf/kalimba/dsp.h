@@ -125,6 +125,9 @@ void kalimba_set_master_gain(int vol);
 #define CAPABILITY_ID_RESAMPLER			0x0009
 #define CAPABILITY_ID_MIXER			0x000A
 #define CAPABILITY_ID_SPLITTER			0x0013
+#define CAPABILITY_ID_CVC_RCV_NB		0x001D
+#define CAPABILITY_ID_CVCHF1MIC_SEND_NB	0x001C
+#define CAPABILITY_ID_CVCHF2MIC_SEND_NB	0x0020
 #define CAPABILITY_ID_CVC_RCV_WB		0x001F
 #define CAPABILITY_ID_CVCHF1MIC_SEND_WB		0x001E
 #define CAPABILITY_ID_CVCHF2MIC_SEND_WB		0x0021
@@ -139,6 +142,17 @@ void kalimba_set_master_gain(int vol);
 #define CAPABILITY_ID_PEQ			0x0049
 #define CAPABILITY_ID_DBE_FULLBAND_IN_OUT	0x0090
 #define CAPABILITY_ID_DBE_FULLBAND_IN		0x0091
+
+/*
+ * These dummy capability is used to register operator operations.
+ * Also, user can use it to define their CVC related operators and ignore
+ * the differences of sample rate and the number of mics. Wthin kasop_impl
+ * "prepare" function will chose the right CVC capability ID according to
+ * the parameters pass from user mode.
+ */
+#define CAPABILITY_ID_CVC_RCV_DUMMY CAPABILITY_ID_CVC_RCV_WB
+#define CAPABILITY_ID_CVCHF_SEND_DUMMY CAPABILITY_ID_CVCHF1MIC_SEND_WB
+#define CAPABILITY_ID_AEC_REF_DUMMY CAPABILITY_ID_AEC_REF_1MIC
 
 #define AEC_REF_SET_SAMPLE_RATES		0x00FE
 #define OPERATOR_MSG_SET_UCID			0x2007

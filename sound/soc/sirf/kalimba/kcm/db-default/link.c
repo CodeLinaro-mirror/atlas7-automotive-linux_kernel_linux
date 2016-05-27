@@ -438,7 +438,7 @@ static const struct kasdb_link link[] = {
 	{
 		/* usp3 -> Passthrough, 2ch */
 		.name = __S("lk_usp3_pass_2"),
-		.source_name = __S("so_usp3_a2dp"),
+		.source_name = __S("so_usp3"),
 		.sink_name = __S("op_pass_music"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },

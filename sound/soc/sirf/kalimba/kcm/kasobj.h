@@ -111,6 +111,7 @@ struct kasobj_op {
 
 	struct kasop_impl *impl;	/* Operator specific implementation */
 	void *context;			/* Operator specific context */
+	u16 cap_id;
 	u16 op_id;
 	u32 used_sink_pins;		/* Occupied pins mask */
 	u32 used_source_pins;

@@ -21,6 +21,30 @@
 #include "../../dsp.h"
 #include "utils.h"
 
+/* Called before the operator is created */
+static int cvc_recv_prepare(struct kasobj_op *op,
+	const struct kasobj_param *param)
+{
+	switch (param->rate) {
+	case 8000:
+		op->cap_id = CAPABILITY_ID_CVC_RCV_NB;
+		break;
+	case 16000:
+		op->cap_id = CAPABILITY_ID_CVC_RCV_WB;
+		break;
+	case 24000:
+		op->cap_id = CAPABILITY_ID_CVC_RCV_UWB;
+		break;
+	default:
+		pr_err("KASOBJ(%s): Unsupported sample rate(%d) !\n",
+			op->obj.name, param->rate);
+
+		break;
+	}
+
+	return 0;
+}
+
 /* Called after the operator is created */
 static int cvc_recv_create(struct kasobj_op *op,
 	const struct kasobj_param *param)
@@ -39,13 +63,14 @@ static int cvc_recv_create(struct kasobj_op *op,
 }
 
 static const struct kasop_impl cvc_recv_impl = {
+	.prepare = cvc_recv_prepare,
 	.create = cvc_recv_create,
 };
 
 /* registe cvc recv operator */
 static int __init kasop_init_cvc_recv(void)
 {
-	return kcm_register_cap(CAPABILITY_ID_CVC_RCV_WB, &cvc_recv_impl);
+	return kcm_register_cap(CAPABILITY_ID_CVC_RCV_DUMMY, &cvc_recv_impl);
 }
 
 subsys_initcall(kasop_init_cvc_recv);

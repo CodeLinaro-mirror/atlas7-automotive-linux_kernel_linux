@@ -143,7 +143,7 @@ static int volctrl_get(struct snd_kcontrol *kcontrol,
 static int volctrl_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int ctl_idx, ret;
+	int ctl_idx;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	struct volctrl_ctx *ctx = op->context;
 	int value = ucontrol->value.integer.value[0];

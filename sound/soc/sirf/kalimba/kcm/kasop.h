@@ -26,6 +26,7 @@ enum {
 
 struct kasop_impl {
 	int (*init)(struct kasobj_op *op);
+	int (*prepare)(struct kasobj_op *op, const struct kasobj_param *param);
 	int (*create)(struct kasobj_op *op, const struct kasobj_param *param);
 	int (*reconfig)(struct kasobj_op *op, const struct kasobj_param *param);
 	int (*trigger)(struct kasobj_op *op, int event);

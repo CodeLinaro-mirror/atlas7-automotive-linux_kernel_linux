@@ -87,6 +87,7 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_cvc_send_1mic"),
 		.trg_fe_name = __S("Voicecall-iacc-to-bt"),
 		.trg_channels = 1,
+		.cvc_mic = single,
 		.links = __S(NULL),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 				"chain_cap;chain_a2dp_2ch;"
@@ -166,7 +167,7 @@ static const struct kasdb_chain chain[] = {
 	{
 		.name = __S("chain_a2dp_2ch"),
 		.trg_fe_name = __S("A2DP"),
-		.trg_channels = 4, /* FIXME: it should be 2 */
+		.trg_channels = 2,
 		.links = __S("lk_usp3_pass_2;lk_pass_src_2;lk_src_split;"
 				"lk_split_upeq;lk_upeq_bass_1;lk_upeq_bass_2;"
 				"lk_bass_1_delay;lk_bass_2_delay;lk_delay_s1peq;"
@@ -239,6 +240,7 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_voicecall_capture"),
 		.trg_fe_name = __S("Voicecall-capture"),
 		.trg_channels = 1,
+		.cvc_mic = single,
 		.links = __S("lk_iacc_aecref_1mic;lk_aecref_1mic_cvc_send;"
 				"lk_aecref_1mic_cvc_send_ref;"
 				"lk_cvc_send_vocall_cap"),

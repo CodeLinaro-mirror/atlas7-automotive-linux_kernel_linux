@@ -25,6 +25,9 @@ u16 __kcm_resp[64];
 
 static int _kcm_init_status;
 
+bool kcm_enable_2mic_cvc = false;
+module_param(kcm_enable_2mic_cvc, bool, 0);
+
 int kcm_drv_status(void)
 {
 	return _kcm_init_status;
@@ -171,7 +174,7 @@ struct kasop_impl *kcm_find_cap(int cap_id)
 }
 
 /* Called before driver init() */
-int kcm_register_cap(int cap_id, struct kasop_impl *impl)
+int kcm_register_cap(int cap_id, const struct kasop_impl *impl)
 {
 	struct _kasop_cap *cap;
 

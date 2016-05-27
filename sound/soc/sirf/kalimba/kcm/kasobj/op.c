@@ -51,7 +51,10 @@ static int op_get(struct kasobj *obj, const struct kasobj_param *param)
 	struct kasobj_op *op = kasobj_to_op(obj);
 
 	if (obj->life_cnt++ == 0) {
-		kalimba_create_operator(op->db->cap_id, &op->op_id, __kcm_resp);
+		op->cap_id = op->db->cap_id;
+		if (op->impl->prepare)
+			ret = op->impl->prepare(op, param);
+		kalimba_create_operator(op->cap_id, &op->op_id, __kcm_resp);
 		if (op->impl->create)
 			ret = op->impl->create(op, param);
 		kcm_debug("OP '%s' created, id = 0x%X\n", obj->name, op->op_id);

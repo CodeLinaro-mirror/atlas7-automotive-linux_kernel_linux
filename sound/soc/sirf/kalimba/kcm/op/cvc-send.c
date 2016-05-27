@@ -21,6 +21,48 @@
 #include "../../dsp.h"
 #include "utils.h"
 
+/* Called before the operator is created */
+static int cvc_send_prepare(struct kasobj_op *op,
+	const struct kasobj_param *param)
+{
+	if (kcm_enable_2mic_cvc) {
+		switch (param->rate) {
+		case 8000:
+			op->cap_id = CAPABILITY_ID_CVCHF2MIC_SEND_NB;
+			break;
+		case 16000:
+			op->cap_id = CAPABILITY_ID_CVCHF2MIC_SEND_WB;
+			break;
+		case 24000:
+			op->cap_id = CAPABILITY_ID_CVCHF2MIC_SEND_UWB;
+			break;
+		default:
+			pr_err("KASOBJ(%s): Unsupported sample rate(%d) for 2Mic!\n",
+				op->obj.name, param->rate);
+			break;
+		}
+	} else {
+		switch (param->rate) {
+		case 8000:
+			op->cap_id = CAPABILITY_ID_CVCHF1MIC_SEND_NB;
+			break;
+		case 16000:
+			op->cap_id = CAPABILITY_ID_CVCHF1MIC_SEND_WB;
+			break;
+		case 24000:
+			op->cap_id = CAPABILITY_ID_CVCHF1MIC_SEND_UWB;
+			break;
+		default:
+			pr_err("KASOBJ(%s): Unsupported sample rate(%d) for 1Mic!\n",
+				op->obj.name, param->rate);
+			break;
+		}
+
+	}
+
+	return 0;
+}
+
 /* Called after the operator is created */
 static int cvc_send_create(struct kasobj_op *op,
 	const struct kasobj_param *param)
@@ -39,21 +81,14 @@ static int cvc_send_create(struct kasobj_op *op,
 }
 
 static const struct kasop_impl cvc_send_impl = {
+	.prepare = cvc_send_prepare,
 	.create = cvc_send_create,
 };
 
 /* registe cvc send operator */
 static int __init kasop_init_cvc_send(void)
 {
-	int ret;
-
-	ret = kcm_register_cap(CAPABILITY_ID_CVCHF1MIC_SEND_WB, &cvc_send_impl);
-	if (ret)
-		return ret;
-
-	ret = kcm_register_cap(CAPABILITY_ID_CVCHF2MIC_SEND_WB, &cvc_send_impl);
-
-	return ret;
+	return kcm_register_cap(CAPABILITY_ID_CVCHF_SEND_DUMMY, &cvc_send_impl);
 }
 
 subsys_initcall(kasop_init_cvc_send);

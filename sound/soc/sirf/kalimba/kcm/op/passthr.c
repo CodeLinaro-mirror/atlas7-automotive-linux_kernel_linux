@@ -110,7 +110,7 @@ static int mute_put(struct snd_kcontrol *kcontrol,
 /* Create control interfaces */
 static int passthr_init(struct kasobj_op *op)
 {
-	char name_buf[128], names_buf[256], *names = names_buf, *name;
+	char names_buf[256], *names = names_buf, *name;
 	struct passthr_ctx *ctx = kzalloc(sizeof(struct passthr_ctx),
 		GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
