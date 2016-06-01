@@ -20,6 +20,9 @@
 #error "Rate definition changed in kernel!"
 #endif
 
+#define KCM_RATES (SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_48000)
+#define KCM_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
+
 #define __S(str)	{ .s = str }
 
 #include "kasdb-ctrls.h"
