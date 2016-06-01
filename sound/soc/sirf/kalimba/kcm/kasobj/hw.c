@@ -132,7 +132,7 @@ static struct hw_name_ops {
 	{ "usp0", hw_usp_config, hw_usp_start, hw_usp_stop,
 		ENDPOINT_TYPE_USP, ENDPOINT_PHY_DEV_PCM0, 0 },
 	{ "i2s", hw_i2s_config, hw_i2s_start, hw_i2s_stop,
-		ENDPOINT_TYPE_I2S, ENDPOINT_PHY_DEV_I2S0, 0 },
+		ENDPOINT_TYPE_I2S, ENDPOINT_PHY_DEV_I2S1, 0 },
 };
 
 static struct hw_name_ops *hw_find_ops(const char *name)
