@@ -409,6 +409,12 @@ int kalimba_start_operator(u16 *operators_id, u16 operator_count, u16 *resp)
 
 	ret = ipc_send_msg(msg, msg_size, MSG_NEED_ACK | MSG_NEED_RSP, resp);
 	kfree(msg);
+	if (WARN_ON(resp[3] != operator_count || ret < 0)) {
+		pr_err("Operator start failed: %d %d\n",
+				operator_count, resp[3]);
+		pr_err("First failure reason: %x\n", resp[4]);
+		return -EINVAL;
+	}
 
 	return ret;
 }
