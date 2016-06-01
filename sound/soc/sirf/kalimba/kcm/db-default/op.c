@@ -138,6 +138,15 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
+		/* Capture Resampler */
+		.name = __S("op_src_cap"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_RESAMPLER,
+		.rate = 48000,
+		.param.resampler_custom_output = 1,
+	},
+	{
 		/* Mixer1: music, navigation, alarm */
 		.name = __S("op_mixer"),
 		.ctrl_base = __S(NULL),

@@ -394,24 +394,61 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 
-	/* Microphone: Analog Capture */
+	/* Microphone: Analog Capture, Mono */
 	{
-		/* IACC -> Passthrough */
-		.name = __S("lk_iacc_pass"),
+		/* IACC -> Resampler, 1ch */
+		.name = __S("lk_iacc_src_1ch"),
 		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_src_cap"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* Resampler -> Passthrough, 1ch */
+		.name = __S("lk_src_pass_1ch"),
+		.source_name = __S("op_src_cap"),
 		.sink_name = __S("op_pass_cap"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
 		.channels = 1,
 	},
 	{
-		/* Passthrough -> Analog Capture */
-		.name = __S("lk_pass_cap"),
+		/* Passthrough -> Analog Capture, 1ch */
+		.name = __S("lk_pass_cap_1ch"),
 		.source_name = __S("op_pass_cap"),
 		.sink_name = __S("AnalogCapture"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
 		.channels = 1,
+	},
+	/* Microphone: Analog Capture, Stereo */
+	{
+		/* IACC -> Resampler, 2ch */
+		.name = __S("lk_iacc_src_2ch"),
+		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_src_cap"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* Resampler -> Passthrough, 2ch */
+		.name = __S("lk_src_pass_2ch"),
+		.source_name = __S("op_src_cap"),
+		.sink_name = __S("op_pass_cap"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* Passthrough -> Analog Capture, 2ch */
+		.name = __S("lk_pass_cap_2ch"),
+		.source_name = __S("op_pass_cap"),
+		.sink_name = __S("AnalogCapture"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
 	},
 
 	/* Line-In */

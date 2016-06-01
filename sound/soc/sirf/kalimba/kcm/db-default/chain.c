@@ -90,7 +90,7 @@ static const struct kasdb_chain chain[] = {
 		.cvc_mic = single,
 		.links = __S(NULL),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
-				"chain_cap;chain_a2dp_2ch;"
+				"chain_cap_mono;chain_cap_stereo;chain_a2dp_2ch;"
 				"chain_voicecall_capture;chain_usp0_2ch;"
 				"chain_usp1_2ch;chain_usp2_2ch"),
 	},
@@ -110,10 +110,18 @@ static const struct kasdb_chain chain[] = {
 
 	/* Microphone */
 	{
-		.name = __S("chain_cap"),
+		.name = __S("chain_cap_mono"),
 		.trg_fe_name = __S("AnalogCapture"),
 		.trg_channels = 1,
-		.links = __S("lk_iacc_pass;lk_pass_cap"),
+		.links = __S("lk_iacc_src_1ch;lk_src_pass_1ch;lk_pass_cap_1ch"),
+		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
+				"chain_cvc_send_1mic;chain_voicecall_capture"),
+	},
+	{
+		.name = __S("chain_cap_stereo"),
+		.trg_fe_name = __S("AnalogCapture"),
+		.trg_channels = 2,
+		.links = __S("lk_iacc_src_2ch;lk_src_pass_2ch;lk_pass_cap_2ch"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 				"chain_cvc_send_1mic;chain_voicecall_capture"),
 	},
@@ -132,9 +140,10 @@ static const struct kasdb_chain chain[] = {
 				"lk_mixer2_volctrl;lk_aecref_1mic_iacc;"
 				"lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
-				"chain_a2dp_2ch;chain_cap;chain_cvc_send_1mic;"
-				"chain_voicecall_capture;chain_i2s_to_iacc_2;"
-				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
+				"chain_a2dp_2ch;chain_cap_mono;chain_cap_stereo;"
+				"chain_cvc_send_1mic;chain_voicecall_capture;"
+				"chain_i2s_to_iacc_2;chain_usp0_2ch;"
+				"chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		.name = __S("chain_lin_to_lout_2"),
@@ -148,9 +157,10 @@ static const struct kasdb_chain chain[] = {
 				"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
 				"lk_aecref_1mic_iacc;lk_volctrl_aecref_1mic"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
-				"chain_a2dp_2ch;chain_cap;chain_cvc_send_1mic;"
-				"chain_voicecall_capture;chain_i2s_to_iacc_2;"
-				"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
+				"chain_a2dp_2ch;chain_cap_mono;chain_cap_stereo;"
+				"chain_cvc_send_1mic;chain_voicecall_capture;"
+				"chain_i2s_to_iacc_2;chain_usp0_2ch;"
+				"chain_usp1_2ch;chain_usp2_2ch"),
 	},
 	{
 		/* Only to trigger codec working */
@@ -159,8 +169,8 @@ static const struct kasdb_chain chain[] = {
 		.trg_channels = 0,	/* Any channels */
 		.links = __S(NULL),	/* No links */
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
-				"chain_cap;chain_cvc_send_1mic;"
-				"chain_voicecall_capture"),
+				"chain_cap_mono;chain_cap_stereo;"
+				"chain_cvc_send_1mic;chain_voicecall_capture"),
 	},
 
 	/* A2DP */
@@ -245,7 +255,8 @@ static const struct kasdb_chain chain[] = {
 				"lk_aecref_1mic_cvc_send_ref;"
 				"lk_cvc_send_vocall_cap"),
 		.mutexs = __S(
-				"chain_lin_to_lout_1;chain_lin_to_lout_2;chain_cap;"
+				"chain_lin_to_lout_1;chain_lin_to_lout_2;"
+				"chain_cap_mono;chain_cap_stereo;"
 				"chain_cvc_send_1mic;chain_lin_to_lout_dummy"),
 	},
 	{
