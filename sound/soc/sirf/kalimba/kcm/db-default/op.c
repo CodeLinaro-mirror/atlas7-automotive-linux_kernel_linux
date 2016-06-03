@@ -203,7 +203,7 @@ static const struct kasdb_op op[] = {
 		/* CVC send 1 Mic*/
 		.name = __S("op_send_1mic_cvc"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
+		.ctrl_names = __S(KCM_CTRLS_CVCSEND("Voicecall")),
 		.cap_id = CAPABILITY_ID_CVCHF_SEND_DUMMY,
 		.rate = 0,
 		.param.dummy = 0,
@@ -212,7 +212,7 @@ static const struct kasdb_op op[] = {
 		/* CVC recv */
 		.name = __S("op_recv_cvc"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
+		.ctrl_names = __S(KCM_CTRLS_CVCRECV("Voicecall")),
 		.cap_id = CAPABILITY_ID_CVC_RCV_DUMMY,
 		.rate = 0,
 		.param.dummy = 0,

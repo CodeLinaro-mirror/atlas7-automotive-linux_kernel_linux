@@ -78,6 +78,14 @@
 	name " Vol Master Mute"
 
 #define KCM_CTRLS_AECREF(name)	\
-	name " 2Mic CVC Switch"
+	name " CVC 2Mic Switch"
+
+#define KCM_CTRLS_CVCSEND(name)	\
+	name " CVC Send Mode;"	\
+	name " CVC Send Bypass"
+
+#define KCM_CTRLS_CVCRECV(name)	\
+	name " CVC Recv Mode;"	\
+	name " CVC Recv Bypass"
 
 #endif /* OP_CTRLS_H */
