@@ -16,6 +16,6 @@
 
 /* v4l2 csr extensions */
 /* 12 YUV 4:2:0 w-stride 64 aligned h-stride 16 aligned */
-#define V4L2_PIX_FMT_YUV420_A v4l2_fourcc('A', '4', '2', '0')
+#define V4L2_PIX_FMT_Q420 v4l2_fourcc('Q', '4', '2', '0')
 
 #endif /* __SIRFSOC_V4L2_H_ */

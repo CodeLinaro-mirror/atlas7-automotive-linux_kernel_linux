@@ -136,7 +136,7 @@ enum vdss_pixelformat {
 	VDSS_PIXELFORMAT_VLVQ = 35,
 
 	/* YUV420, w-stride 64 aligned h-stride 16 aligned */
-	VDSS_PIXELFORMAT_YUV420_A = 36,
+	VDSS_PIXELFORMAT_Q420 = 36,
 
 	VDSS_PIXELFORMAT_CUSTOM = 0X1000
 };
