@@ -65,7 +65,7 @@ static int resampler_create(struct kasobj_op *op,
 
 	conversion_rate = resampler_conversion_rate(input_rate, output_rate);
 	if (conversion_rate == 0xFFFF) {
-		pr_err("KASOBJ(%s): rate not supported: %d or %d\n",
+		pr_err("KASOBJ(%s): rate not supported: %d to %d\n",
 			       op->obj.name, input_rate, output_rate);
 		return -EINVAL;
 	}

@@ -54,7 +54,7 @@ static const struct kasdb_op op[] = {
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_PEQ("User")),
 		.cap_id = CAPABILITY_ID_PEQ,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
@@ -63,7 +63,7 @@ static const struct kasdb_op op[] = {
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk1")),
 		.cap_id = CAPABILITY_ID_PEQ,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
@@ -72,25 +72,25 @@ static const struct kasdb_op op[] = {
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk2")),
 		.cap_id = CAPABILITY_ID_PEQ,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
-		/* Music user PEQ */
+		/* Music Spk3 PEQ */
 		.name = __S("op_spk3_peq_music"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk3")),
 		.cap_id = CAPABILITY_ID_PEQ,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
-		/* Music user PEQ */
+		/* Music Spk4 PEQ */
 		.name = __S("op_spk4_peq_music"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_PEQ("Spk4")),
 		.cap_id = CAPABILITY_ID_PEQ,
-		.rate = 0,
+		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
@@ -107,7 +107,7 @@ static const struct kasdb_op op[] = {
 				"DBE Mix Balance;"
 				"DBE Switch Mode"),
 		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
-		.rate = 0,
+		.rate = 48000,
 		.param.bass_pair_idx = 0,
 	},
 	{
@@ -116,7 +116,7 @@ static const struct kasdb_op op[] = {
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
-		.rate = 0,
+		.rate = 48000,
 		.param.bass_pair_idx = 0,
 	},
 	{

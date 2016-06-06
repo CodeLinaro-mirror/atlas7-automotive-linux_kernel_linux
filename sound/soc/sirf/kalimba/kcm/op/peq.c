@@ -63,7 +63,7 @@ peq_default_params_msg[PEQ_DEFAULT_MSG_LEN] = {
 	/*|--------||--------|	  |--------||--------|*/
 	0x0000, 0x0000, 0x0000, 0x0000, 0x0a00, 0x0000,
 	/* band: 1 ~ 10 */
-	/*	FILTER	    FC           GAIN       Q     */
+	/*  FILTER	FC	     GAIN	 Q    */
 	/*|--------||--------|	  |--------||--------|*/
 	0x0000, 0x0D00, 0x0200, 0x0000, 0x0000, 0xB505,
 	0x0000, 0x0D00, 0x0400, 0x0000, 0x0000, 0xB505,
@@ -365,9 +365,26 @@ static int peq_init(struct kasobj_op *op)
 /* Called after the operator is created */
 static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 {
-	u16 sample_rate = param->rate / 25; /* sample rate / 25 */
+	u16 sample_rate;
 	int ret;
 
+	/*
+	 * The db->rate has two function:
+	 * First, it is to decide which rate value will be used (db->rate
+	 * or param->rate), which can be implemented by setting it with
+	 * zero or non-zero value.
+	 * Second, it is used to config sample rate with a non-zero value.
+	 * For operator, there are two position within the audio pipeling:
+	 * 1. Ahead of resampler, db->rate should be 0. Rate value from
+	 *    app should be send to kalimba, and resampler will convert the
+	 *    rate to the rate of codec.
+	 * 2. Behind resampler, db->rate should not be 0 and should be
+	 *    equal to the rate of codec.
+	 */
+	if (op->db->rate)
+		sample_rate = op->db->rate / 25; /* sample rate / 25 */
+	else
+		sample_rate = param->rate / 25;
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 		1, &sample_rate, NULL, NULL, __kcm_resp);
 	if (ret) {
