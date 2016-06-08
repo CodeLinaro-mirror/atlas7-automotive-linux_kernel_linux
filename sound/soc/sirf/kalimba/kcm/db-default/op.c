@@ -154,7 +154,7 @@ static const struct kasdb_op op[] = {
 			"Music", "Navigation", "Alarm")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
-		.param.mixer_streams = 3,
+		.param.mixer_streams = 34,
 	},
 	{
 		/* Mixer2: mixer1, voice */
@@ -164,7 +164,7 @@ static const struct kasdb_op op[] = {
 			"Multimedia", "Voicecall", "NOCTRL")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
-		.param.mixer_streams = 3,
+		.param.mixer_streams = 34,
 	},
 	{
 		/* Volume control */
