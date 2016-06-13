@@ -28,6 +28,8 @@
 #include "trace.h"
 
 static struct noc_macro *s_cpum;
+struct noc_macro *s_ddrm;
+
 /*handler noc macro interrupt*/
 static irqreturn_t noc_irq_handle(int irq, void *data)
 {
@@ -203,6 +205,10 @@ static int sirfsoc_noc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, nocm);
 	if (strstr(nocm->name, "cpum"))
 		s_cpum = nocm;
+
+	if (strstr(nocm->name, "ddrm"))
+		s_ddrm = nocm;
+
 	dev_dbg(&pdev->dev, "initialized nocm:%s, %d\n",
 		nocm->name, !!nocm->errlogoff);
 

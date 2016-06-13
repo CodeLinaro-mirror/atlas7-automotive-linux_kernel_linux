@@ -53,6 +53,42 @@ struct noncpu_firewall_t {
 	struct initiator_config_t write[4];
 };
 
+struct id_err_maps_t {
+	int orig;
+	int new;
+};
+
+static struct id_err_maps_t err_id_maps[] = {
+	{8, 24},
+	{9, 25},
+	{10, 26},
+	{11, 27},
+	{12, 28},
+	{13, 29},
+	{16, 0},
+	{17, 1},
+	{18, 2},
+	{19, 3},
+	{22, 6},
+	{23, 7},
+	{44, 60},
+	{45, 61},
+	{80, 64},
+};
+
+int noc_get_id_by_oirg(int orig)
+{
+	int i = 0;
+	int size = ARRAY_SIZE(err_id_maps);
+
+	while (i < size) {
+		if (err_id_maps[i].orig == orig)
+			return err_id_maps[i].new;
+		i++;
+	}
+	return orig;
+}
+
 static void noc_write_reg(int val, void __iomem *addr)
 {
 	int page;
@@ -62,18 +98,21 @@ static void noc_write_reg(int val, void __iomem *addr)
 	/* here for debugging purpose */
 	page = page_to_phys(vmalloc_to_page(addr)) & PAGE_MASK;
 
-	pr_debug("0x%08x,0x%08x\n", page |
+	pr_debug("mw 0x%08x 0x%08x\n", page |
 				((u32)addr & ~PAGE_MASK), val);
 }
 
-static void ramfw_cpu(struct dramfw_regs_t *dfwregs,
-			int start, int size, int cpu)
+static void ramfw_range(struct dramfw_regs_t *dfwregs, int start, int size)
+{
+	noc_write_reg(start, &dfwregs->start);
+	noc_write_reg(start + size, &dfwregs->end);
+}
+
+static void ramfw_cpu(struct dramfw_regs_t *dfwregs, int cpu)
 {
 #define DFW_CPU_WRITE 1
 #define DFW_CPU_READ 5
 #define DFW_CPU_VAL (BIT(DFW_CPU_WRITE) | BIT(DFW_CPU_READ))
-	noc_write_reg(start, &dfwregs->start);
-	noc_write_reg(start + size, &dfwregs->end);
 
 	noc_write_reg(0xff, &dfwregs->fw_cpu_clr);
 	noc_write_reg(1<<cpu | 1<<(cpu+4), &dfwregs->fw_cpu_set);
@@ -87,8 +126,132 @@ static void ramfw_cpu(struct dramfw_regs_t *dfwregs,
 
 }
 
+#define ddrm_SecureState_ReadSet0    0x1050
+#define ddrm_SecureState_ReadClr0    0x1054
+
+#define ddrm_SecureState_ReadSet1    0x105C
+#define ddrm_SecureState_ReadClr1    0x1060
+
+#define ddrm_SecureState_ReadSet2    0x1068
+#define ddrm_SecureState_ReadClr2    0x106C
+
+#define ddrm_SecureState_ReadSet3    0x1074
+#define ddrm_SecureState_ReadClr3    0x1078
+
+
+#define ddrm_SecureState_WriteSet0    0x1080
+#define ddrm_SecureState_WriteClr0    0x1084
+
+#define ddrm_SecureState_WriteSet1    0x108C
+#define ddrm_SecureState_WriteClr1    0x1090
+
+#define ddrm_SecureState_WriteSet2    0x1098
+#define ddrm_SecureState_WriteClr2    0x109C
+
+#define ddrm_SecureState_WriteSet3    0x10A4
+#define ddrm_SecureState_WriteClr3    0x10A8
+
+struct ramfw_noncpu_state_t {
+	u32 readset;
+	u32 readclr;
+	u32 writeset;
+	u32 writeclr;
+};
+
+static struct ramfw_noncpu_state_t ramfw_noncpu_state_list[] = {
+	{ddrm_SecureState_ReadSet0, ddrm_SecureState_ReadClr0,
+		ddrm_SecureState_WriteSet0, ddrm_SecureState_WriteClr0},
+	{ddrm_SecureState_ReadSet1, ddrm_SecureState_ReadClr1,
+		ddrm_SecureState_WriteSet1, ddrm_SecureState_WriteClr1},
+	{ddrm_SecureState_ReadSet2, ddrm_SecureState_ReadClr2,
+		ddrm_SecureState_WriteSet2, ddrm_SecureState_WriteClr2},
+	{ddrm_SecureState_ReadSet3, ddrm_SecureState_ReadClr3,
+		ddrm_SecureState_WriteSet3, ddrm_SecureState_WriteClr3}
+};
+
+static void ramfw_noncpu_access(struct dramfw_regs_t *base, u32 initiator)
+{
+	u32 i, val;
+
+	i = initiator / 32;
+	val = 1<<(initiator - 32 * i);
+
+	/* dram access read/write */
+	noc_write_reg(val, &base->access[i].initiator_r_clr);
+	noc_write_reg(val, &base->access[i].initiator_w_clr);
+}
+
+static void ramfw_noncpu_state(struct dramfw_regs_t *base, u32 initiator)
+{
+	u32 i, val;
+
+	i = initiator / 32;
+	val = 1<<(initiator - 32 * i);
+
+	/* initiator access read/write */
+	noc_write_reg(val, s_ddrm->mbase + ramfw_noncpu_state_list[i].readclr);
+	noc_write_reg(val, s_ddrm->mbase + ramfw_noncpu_state_list[i].writeclr);
+}
+
+static void ramfw_noncpu_nonsecure(struct dramfw_regs_t *base,
+			u32 initiator, int secure)
+{
+	u32 i, val;
+
+	i = initiator / 32;
+	val = 1<<(initiator - 32 * i);
+
+	noc_write_reg(0x00000022, &base->prot_set);
+	if (secure)
+		noc_write_reg(0x00000022, &base->prot_val_set);
+}
+
 #define RP_ENABLE_OFF   0x3F04
-static ssize_t spramfw_store(struct device *dev,
+static ssize_t spramfw_noncpu_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
+{
+	struct noc_macro *nocm = dev_get_drvdata(dev);
+	struct dramfw_regs_t *dfwregs;
+	int access, state, secure, noncpu, rpnum = 0;
+	char name[16];
+	unsigned long flags;
+
+	memset(name, 0, sizeof(name));
+	if (sscanf(buf, "%s %d %d %d\n",
+			name, &access, &state, &secure) != 4)
+		return -EINVAL;
+	local_irq_save(flags);
+	dfwregs = (struct dramfw_regs_t *)((void __iomem *)nocm->mbase +
+		0x100 * rpnum);
+
+	noncpu = noc_get_noncpu_by_name(name);
+	if (noncpu < 0)
+		goto out;
+
+	/*spram noncpu id need adjust for chip bug*/
+	noncpu = noc_get_id_by_oirg(noncpu);
+	/*1: block access*/
+	if (!access)
+		ramfw_noncpu_access(dfwregs, noncpu);
+
+	/*1: set state as secure initiator*/
+	if (!state)
+		ramfw_noncpu_state(dfwregs, noncpu);
+	/*1: set range as secure for rp*/
+	ramfw_range(dfwregs, 0x04000000, 0x30000);
+	ramfw_noncpu_nonsecure(dfwregs, noncpu, secure);
+
+	/* last step enable rp */
+	noc_write_reg(1<<rpnum, (void __iomem *)nocm->mbase + RP_ENABLE_OFF);
+out:
+	local_irq_restore(flags);
+	return len;
+}
+
+static DEVICE_ATTR_WO(spramfw_noncpu);
+
+static ssize_t spramfw_cpu_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t len)
 {
@@ -109,7 +272,8 @@ static ssize_t spramfw_store(struct device *dev,
 	cpu = noc_get_cpu_by_name(name);
 	if (cpu < 0)
 		goto out;
-	ramfw_cpu(dfwregs, start, size, cpu);
+	ramfw_range(dfwregs, start, size);
+	ramfw_cpu(dfwregs, cpu);
 	/* last step enable rp */
 	noc_write_reg(1<<rpnum, (void __iomem *)nocm->mbase + RP_ENABLE_OFF);
 out:
@@ -117,7 +281,7 @@ out:
 	return len;
 }
 
-static DEVICE_ATTR_WO(spramfw);
+static DEVICE_ATTR_WO(spramfw_cpu);
 
 #define RFW_CLR_OFF 4
 static void regfw_bit_clear(void __iomem *addr, u32 bit)
@@ -176,7 +340,13 @@ int noc_spramfw_init(struct noc_macro *nocm)
 	 * fireware has been set earlier in secure mode, here
 	 * it is only for debug purpose
 	 */
-	ret = device_create_file(&pdev->dev, &dev_attr_spramfw);
+	ret = device_create_file(&pdev->dev, &dev_attr_spramfw_cpu);
+	if (ret)
+		dev_err(&pdev->dev,
+			"failed to create dram firewall attribute, %d\n",
+			ret);
+
+	ret = device_create_file(&pdev->dev, &dev_attr_spramfw_noncpu);
 	if (ret)
 		dev_err(&pdev->dev,
 			"failed to create dram firewall attribute, %d\n",

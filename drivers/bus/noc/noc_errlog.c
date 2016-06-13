@@ -216,6 +216,19 @@ int noc_get_cpu_by_name(const char *name)
 	return -1;
 }
 
+int noc_get_noncpu_by_name(const char *name)
+{
+	int i = 0;
+	int size = ARRAY_SIZE(noc_initator_id_list);
+
+	while (i < size) {
+		if (!strcmp(noc_initator_id_list[i], name))
+			return i;
+		i++;
+	}
+	return -1;
+}
+
 /*data abort handler can not get base list*/
 static bool noc_has_err(void __iomem *noc_errlog_mbase)
 {

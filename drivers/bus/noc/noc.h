@@ -9,6 +9,7 @@ struct kobj_ext_attribute {
 
 struct noc_macro;
 struct noc_probe_t;
+extern struct noc_macro *s_ddrm;
 
 struct noc_macro {
 	struct platform_device *pdev;
@@ -33,6 +34,7 @@ int noc_probe_init(struct noc_macro *nocm);
 void noc_handle_probe(struct noc_macro *nocm);
 int noc_qos_init(struct noc_macro *nocm);
 int noc_get_cpu_by_name(const char *name);
+int noc_get_noncpu_by_name(const char *name);
 int noc_probe_suspend(struct noc_macro *nocm);
 int noc_probe_resume(struct noc_macro *nocm);
 
