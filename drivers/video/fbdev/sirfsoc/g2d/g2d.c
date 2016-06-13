@@ -153,6 +153,42 @@ static int get_vdss_field(enum g2d_ex_field field)
 	return vdss_fid;
 }
 
+static int g2d_check_size(struct sirf_g2d_rect_wh *new_rect,
+	struct sirf_g2d_surface *surf)
+{
+	if (surf->width == 0 || surf->height == 0) {
+		g2d_err("invalid surface size\n");
+		return -EINVAL;
+	}
+
+	if (new_rect->x < 0) {
+		new_rect->w += new_rect->x;
+		new_rect->x = 0;
+	}
+
+	if (new_rect->y < 0) {
+		new_rect->h += new_rect->y;
+		new_rect->y = 0;
+	}
+
+	new_rect->w = (new_rect->w < surf->width) ?
+			new_rect->w : surf->width;
+	new_rect->h = (new_rect->h < surf->height) ?
+			new_rect->h : surf->height;
+
+	if (new_rect->x + new_rect->w > surf->width)
+		new_rect->w = surf->width - new_rect->x;
+	if (new_rect->y + new_rect->h > surf->height)
+		new_rect->h = surf->height  - new_rect->y;
+
+	if (new_rect->w == 0 || new_rect->h == 0) {
+		g2d_err("invalid rectangle size\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /*
  * Perform yuv2rgb bitbld with memory to memory mode of YUV.
  * Bitbid with rgb color mode in both src and dest MUST be performed
@@ -167,25 +203,13 @@ int g2d_draw_with_sirfvpp(struct sirf_g2d_bltparams *params)
 
 	srcrc.left = params->src_rc.x;
 	srcrc.top = params->src_rc.y;
-	if (params->src_rc.w > 0)
-		srcrc.right = params->src_rc.x + params->src_rc.w - 1;
-	else
-		srcrc.right = params->src_rc.x + params->src.width - 1;
-	if (params->src_rc.h > 0)
-		srcrc.bottom = params->src_rc.y + params->src_rc.h - 1;
-	else
-		srcrc.bottom = params->src_rc.y + params->src.height - 1;
+	srcrc.right = params->src_rc.x + params->src_rc.w - 1;
+	srcrc.bottom = params->src_rc.y + params->src_rc.h - 1;
 
 	dstrc.left = params->dst_rc.x;
 	dstrc.top = params->dst_rc.y;
-	if (params->dst_rc.w > 0)
-		dstrc.right = params->dst_rc.x + params->dst_rc.w - 1;
-	else
-		dstrc.right = params->dst_rc.x + params->dst.width - 1;
-	if (params->dst_rc.h > 0)
-		dstrc.bottom = params->dst_rc.y + params->dst_rc.h - 1;
-	else
-		dstrc.bottom = params->dst_rc.y + params->dst.height - 1;
+	dstrc.right = params->dst_rc.x + params->dst_rc.w - 1;
+	dstrc.bottom = params->dst_rc.y + params->dst_rc.h - 1;
 
 	fmt = get_vpp_in_fmt(params->src.format);
 	if (fmt <= 0)
@@ -836,6 +860,7 @@ static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 {
 	struct sirf_g2d_bltparams params;
 	int sformat;
+	int ret = 0;
 
 	if (copy_from_user(&params, (void __user *)arg,
 			   sizeof(params)))
@@ -888,8 +913,32 @@ static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 		}
 	}
 
+	if (!(params.flags & G2D_BLT_COLOR_FILL)) {
+		ret = g2d_check_size(&params.src_rc, &params.src);
+		if (ret)
+			return ret;
+	}
+
+	ret = g2d_check_size(&params.dst_rc, &params.dst);
+	if (ret)
+		return ret;
+
 	if (sformat == YUV)
 		return g2d_draw_with_sirfvpp(&params);
+
+	if (params.flags & (G2D_BLT_ROT_90 | G2D_BLT_ROT_270)) {
+		if (params.src_rc.w != params.dst_rc.h ||
+			params.src_rc.h != params.dst_rc.w) {
+			g2d_err("invalid rectangle for rotation blt\n");
+			return -EINVAL;
+		}
+	} else if (!(params.flags & G2D_BLT_COLOR_FILL)) {
+		if (params.src_rc.w != params.dst_rc.w ||
+			params.src_rc.h != params.dst_rc.h) {
+			g2d_err("dismatch rectangle for blt\n");
+			return -EINVAL;
+		}
+	}
 
 	return g2d_draw_with_sirfg2d(g2d_dev, &params);
 }
