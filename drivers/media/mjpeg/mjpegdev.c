@@ -32,6 +32,7 @@ static int jpeg_get_hw_pool(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *vdec_memory;
 	struct jpg_hw_pool *hw_pool;
+	u32 *address;
 
 	hw_pool = &(jpeg.hw_pool);
 	vdec_memory = of_parse_phandle(dev->of_node, "memory-region", 0);
@@ -40,9 +41,13 @@ static int jpeg_get_hw_pool(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	hw_pool->paddr = of_translate_address(vdec_memory,
-		of_get_address(vdec_memory, 0,
-		(u64 *)(&(hw_pool->size)), NULL));
+	address = of_get_address(vdec_memory, 0, (u64 *)(&(hw_pool->size)), NULL);
+	if (!address) {
+		pr_err("of_get_address error\n");
+		return -EFAULT;
+	}
+
+	hw_pool->paddr = of_translate_address(vdec_memory, address);
 	hw_pool->vaddr = devm_ioremap(&pdev->dev, hw_pool->paddr,
 		hw_pool->size);
 	if (!hw_pool->vaddr) {
