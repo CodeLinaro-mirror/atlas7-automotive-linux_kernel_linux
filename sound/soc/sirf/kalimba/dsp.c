@@ -28,6 +28,7 @@
 #include "dsp.h"
 #include "ipc.h"
 #include "kcm.h"
+#include "kcm/kcm.h"
 #include "ps.h"
 #include "kerror.h"
 #include "regs.h"
@@ -171,7 +172,8 @@ int kalimba_operator_message(u16 operator_id, u16 msg_id, int message_data_len,
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_KCM
 void kalimba_set_master_gain(int vol)
 {
-	/* TODO: It's used by the "anti-clipping" driver */
+	/* It's used by the "anti-clipping" driver */
+	kcm_set_vol_ctrl_gain(vol);
 }
 #else
 void kalimba_set_dbe_control(u16 mode)

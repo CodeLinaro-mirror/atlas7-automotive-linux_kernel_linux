@@ -121,6 +121,39 @@ static int set_volctrl_params(struct kasobj_op *op, int ctl_idx)
 	return 0;
 }
 
+static void set_volctrl_master_gain(struct kasobj_op *op, int vol)
+{
+	struct volctrl_ctx *ctx = op->context;
+
+	if (vol < -120 || vol > 9) {
+		pr_err("KASOP(%s): invalid master gain(%d) !\n",
+			 op->obj.name, vol);
+		return;
+	}
+
+	kcm_lock();
+	((int *)ctx)[VOLCTRL_CTRL_MASTER_GAIN] = vol;
+	if (!(ctx->master_mute))
+		set_volctrl_params(op, VOLCTRL_CTRL_MASTER_GAIN);
+	kcm_unlock();
+}
+
+void kcm_set_vol_ctrl_gain(int vol)
+{
+	struct kasobj_op *op;
+	int idx = 0;
+
+	while (1) {
+		op = kasobj_find_op_by_capid(
+			CAPABILITY_ID_VOLUME_CONTROL, idx++);
+		if (op)
+			set_volctrl_master_gain(op, vol);
+		else
+			break;
+	}
+}
+EXPORT_SYMBOL(kcm_set_vol_ctrl_gain);
+
 static int volctrl_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
@@ -176,19 +209,19 @@ static int volctrl_init(struct kasobj_op *op)
 	const int *tlv = NULL;
 
 	ctx = kzalloc(sizeof(struct volctrl_ctx), GFP_KERNEL);
-	if (!op->db->ctrl_names.s) {
-		pr_err("KASOP(%s): no control names !\n", op->obj.name);
-		return -EINVAL;
-	}
+	op->context = ctx;
+	for (idx = 0; idx < VOLCTRL_CONTROL_NUM - 1; idx++)
+		((int *)ctx)[idx] = 0;
+	ctx->master_mute = 0;
+
+	if (!op->db->ctrl_names.s)
+		return 0;
+
 	if (snprintf(names_buf, 256, "%s", op->db->ctrl_names.s) >= 256) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
 	}
 
-	for (idx = 0; idx < VOLCTRL_CONTROL_NUM - 1; idx++)
-		((int *)ctx)[idx] = 0;
-	ctx->master_mute = 0;
-	op->context = ctx;
 	while ((name = strsep(&names, ":;"))) {
 			/* volume controls */
 		if (ctl_idx >= VOLCTRL_CONTROL_NUM) {

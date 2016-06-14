@@ -67,5 +67,6 @@ int __kcm_stop_chain_link(struct kcm_chain *chain);
 void kcm_lock(void);
 void kcm_unlock(void);
 char *kcm_strcasestr(const char *s1, const char *s2);
+void kcm_set_vol_ctrl_gain(int vol);
 
 #endif

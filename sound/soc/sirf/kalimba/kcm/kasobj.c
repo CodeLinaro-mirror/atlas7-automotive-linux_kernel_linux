@@ -148,6 +148,23 @@ struct kasobj_fe *kasobj_find_fe_by_dai(const char *dai_name, int playback)
 	return NULL;
 }
 
+/* Return the kasobj_op with a squence of op_idx in op_list */
+struct kasobj_op *kasobj_find_op_by_capid(const u16 capid, int op_idx)
+{
+	struct kasobj *obj;
+	struct kasobj_op *op;
+	int idx = 0;
+
+	list_for_each_entry(obj, &op_list, link) {
+		op = kasobj_to_op(obj);
+		if (op->cap_id != capid)
+			continue;
+		if (op_idx == idx++)
+			return op;
+	}
+	return NULL;
+}
+
 /* Find FE, BE, OP, Link */
 struct kasobj *kasobj_find_obj(const char *name, int types)
 {

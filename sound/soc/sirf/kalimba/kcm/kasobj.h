@@ -140,6 +140,7 @@ int kcm_init_chain(void);
 
 struct kasobj *kasobj_find_obj(const char *name, int types);
 struct kasobj_fe *kasobj_find_fe_by_dai(const char *dai_name, int playback);
+struct kasobj_op *kasobj_find_op_by_capid(const u16 capid, int op_idx);
 
 /* Hack: object count */
 extern int __kasobj_fe_cnt, __kasobj_codec_cnt;
