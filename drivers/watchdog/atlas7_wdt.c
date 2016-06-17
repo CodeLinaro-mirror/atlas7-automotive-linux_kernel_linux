@@ -64,11 +64,15 @@ static int atlas7_wdt_ping(struct watchdog_device *wdd)
 	struct atlas7_wdog *wdt = watchdog_get_drvdata(wdd);
 	u32 counter, match, delta;
 
+	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL) & ~ATLAS7_WDT_CNT_EN,
+	      wdt->base + ATLAS7_WDT_CNT_CTRL);
 	counter = readl(wdt->base + ATLAS7_WDT_CNT);
 	delta = wdd->timeout * wdt->tick_rate;
 	match = counter + delta;
 
 	writel(match, wdt->base + ATLAS7_WDT_CNT_MATCH);
+	writel(readl(wdt->base + ATLAS7_WDT_CNT_CTRL) | ATLAS7_WDT_CNT_EN,
+	      wdt->base + ATLAS7_WDT_CNT_CTRL);
 
 	return 0;
 }
