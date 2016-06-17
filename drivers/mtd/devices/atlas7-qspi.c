@@ -288,6 +288,8 @@ static int
 atlas7_qspi_nor_spansion_quad_enable(struct atlas7_qspi_nor *a7nor);
 static int
 atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor);
+static int
+atlas7_qspi_nor_micron_quad_enable(struct atlas7_qspi_nor *a7nor);
 
 static int
 atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor);
@@ -297,22 +299,18 @@ static struct nor_flash_info flash_types[] = {
 	{ "default", 0, 0, 256, 4 * 1024, 4096,
 		0, 108, 100, 8, 8,
 		NULL, NULL, NULL},
-	/* Micron n25xxx */
-#define N25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
-		   FLASH_FLAG_READ_FAST		|	\
-		   FLASH_FLAG_READ_1_1_2	|	\
-		   FLASH_FLAG_READ_1_2_2	|	\
-		   FLASH_FLAG_READ_1_1_4	|	\
-		   FLASH_FLAG_READ_1_4_4	|	\
-		   FLASH_FLAG_WRITE_1_1_2	|	\
-		   FLASH_FLAG_WRITE_1_2_2	|	\
-		   FLASH_FLAG_WRITE_1_1_4)
-	{ "n25q256a", 0x20ba19, 0, 256, 4 * 1024, 4096 * 2,
-		N25Q_FLAG | FLASH_FLAG_32BIT_ADDR,
-		108, 100, 8, 10,
-		NULL, NULL, atlas7_qspi_enter_32bit_addr},
+	/* Micron */
+#define ATLAS7_QSPI_MICRON_QUAD_EN_BIT	(0x1<<3)
+#define MT25QL256ABA8ESF_FLAG (FLASH_FLAG_READ_FAST | \
+			FLASH_FLAG_READ_1_4_4 | FLASH_FLAG_WRITE_1_4_4)
+	{ "MT25QL256ABA8ESF",
+		0x20BA19, 0, 256, 4 * 1024, 8192,
+		MT25QL256ABA8ESF_FLAG, 133, 100, 8, 10,
+		NULL,
+		atlas7_qspi_nor_micron_quad_enable,
+		atlas7_qspi_enter_32bit_addr},
 
-	/*Micronix mx25xx */
+	/*Macronix */
 #define MX25_FLAG (FLASH_FLAG_READ_WRITE	|	\
 		   FLASH_FLAG_READ_FAST		|	\
 		   FLASH_FLAG_READ_1_1_2	|	\
@@ -321,7 +319,6 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_READ_1_4_4	|	\
 		   FLASH_FLAG_WRITE_1_4_4)
 #define ATLAS7_QSPI_MACRONIX_QUAD_EN_BIT	(0x1<<6)
-
 	{ "mx25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
 		133, 100, 4, 6,
@@ -333,31 +330,45 @@ static struct nor_flash_info flash_types[] = {
 		NULL, atlas7_qspi_nor_macronix_quad_enable,
 		atlas7_qspi_enter_32bit_addr},
 
-	/* Spansion s25flxx */
-#define S25FL_FLAG (FLASH_FLAG_READ_WRITE	|	\
-		   FLASH_FLAG_READ_FAST		|	\
-		   FLASH_FLAG_READ_1_1_2	|	\
-		   FLASH_FLAG_READ_1_2_2	|	\
-		   FLASH_FLAG_READ_1_1_4	|	\
-		   FLASH_FLAG_READ_1_4_4)
+#define MX25L6445E_FLAG (FLASH_FLAG_READ_FAST	| \
+			FLASH_FLAG_READ_1_4_4 | FLASH_FLAG_WRITE_1_4_4)
+	{ "MX25L6445E",
+		0xc22017, 0, 256, 4 * 1024, 2048,
+		MX25L6445E_FLAG, 104, 100, 4, 6,
+		NULL, atlas7_qspi_nor_macronix_quad_enable, NULL},
+
+	/* Spansion */
 #define ATLAS7_QSPI_SPANSION_QUAD_EN_BIT	(0x1<<1)
-	{ "s25fl164K", 0x014017, 0, 256, 4 * 1024, 2048,
-		S25FL_FLAG, 108, 100, 4, 4,
-		NULL, atlas7_qspi_nor_spansion_quad_enable, NULL},
+
+#define S25FL164K_FLAG (FLASH_FLAG_READ_FAST | FLASH_FLAG_READ_1_4_4)
+	{ "S25FL164K",
+		0x014017, 0, 256, 4 * 1024, 2048,
+		S25FL164K_FLAG, 108, 130, 0, 4,
+		NULL,
+		atlas7_qspi_nor_spansion_quad_enable,
+		NULL},
+#define S25FL116K_FLAG (FLASH_FLAG_READ_FAST | FLASH_FLAG_READ_1_4_4)
+	{ "S25FL116K",
+		0x014015, 0, 256, 4 * 1024, 512,
+		S25FL116K_FLAG, 108, 130, 0, 4,
+		NULL,
+		atlas7_qspi_nor_spansion_quad_enable,
+		NULL},
 
 	/* Winbond w25xx */
-#define W25Q_FLAG (FLASH_FLAG_READ_WRITE	|	\
-		   FLASH_FLAG_READ_FAST		|	\
-		   FLASH_FLAG_READ_1_1_2	|	\
-		   FLASH_FLAG_READ_1_2_2	|	\
-		   FLASH_FLAG_READ_1_1_4	|	\
-		   FLASH_FLAG_READ_1_4_4	|	\
-		   FLASH_FLAG_WRITE_1_1_4)
 #define ATLAS7_QSPI_WINBOND_QUAD_EN_BIT	(0x1<<1)
-	{ "w25q80bv", 0xef4014, 0, 256, 4 * 1024, 256,
-		W25Q_FLAG, 104, 100, 4, 4,
-		NULL, atlas7_qspi_nor_winbond_quad_enable, NULL},
-	/* Sentinel */
+#define W25Q80DV_FLAG \
+		(FLASH_FLAG_READ_FAST	| \
+		 FLASH_FLAG_READ_1_4_4	| \
+		 FLASH_FLAG_WRITE_1_1_4)
+	{ "W25Q80DV",
+		0xef4014, 0, 256, 4 * 1024, 256,
+		W25Q80DV_FLAG, 104, 100, 0, 4,
+		NULL,
+		atlas7_qspi_nor_winbond_quad_enable,
+		NULL},
+
+		/* Sentinel */
 	{},
 };
 
@@ -814,6 +825,39 @@ atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor)
 		goto out;
 	if (!(val[1] > 0 && (val[1] & ATLAS7_QSPI_WINBOND_QUAD_EN_BIT))) {
 		dev_err(a7nor->dev, "Winbond Quad bit not set\n");
+		ret = -EINVAL;
+	}
+out:
+	mutex_unlock(&a7nor->lock);
+	return ret;
+}
+
+static int
+atlas7_qspi_nor_micron_quad_enable(struct atlas7_qspi_nor *a7nor)
+{
+	int ret;
+	u8 val[2];
+
+	mutex_lock(&a7nor->lock);
+
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RNCR, &val[0], 2);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WREN, NULL, 0);
+	if (ret < 0)
+		goto out;
+
+	val[0] &= ~ATLAS7_QSPI_MICRON_QUAD_EN_BIT;
+	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WNCR, val, 2);
+	if (ret < 0)
+		goto out;
+
+	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RNCR, &val[0], 2);
+	if (ret < 0)
+		goto out;
+	if (val[0] & ATLAS7_QSPI_MICRON_QUAD_EN_BIT) {
+		dev_err(a7nor->dev, "Micron Quad bit not set\n");
 		ret = -EINVAL;
 	}
 out:

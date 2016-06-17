@@ -16,6 +16,8 @@
 #define SPINOR_OP_RDSR2		0x35
 #define SPINOR_OP_WRVCR		0x81
 #define SPINOR_OP_RDVCR		0x85
+#define SPINOR_OP_RNCR		0xB5
+#define SPINOR_OP_WNCR		0xB1
 
 /* JEDEC Standard - Serial Flash Discoverable Parmeters (SFDP) Commands */
 #define SPINOR_OP_READ_1_2_2	0xbb	/* DUAL I/O READ */
