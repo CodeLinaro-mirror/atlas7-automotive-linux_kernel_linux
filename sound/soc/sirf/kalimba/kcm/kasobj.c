@@ -190,6 +190,11 @@ struct kasobj *kasobj_find_obj(const char *name, int types)
 		list_for_each_entry(obj, &link_list, link)
 			if (strcasecmp(name, obj->name) == 0)
 				return obj;
+
+	if (types & kasobj_type_cd)
+		list_for_each_entry(obj, &codec_list, link)
+			if (strcasecmp(name, obj->name) == 0)
+				return obj;
 	return NULL;
 }
 

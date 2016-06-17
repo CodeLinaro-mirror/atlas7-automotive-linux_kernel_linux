@@ -13,10 +13,38 @@
 
 static const struct kasdb_codec codec[] = {
 	{
-		.name = __S("IACC-Codec"),
+		.name = __S("iacc"),
+		.chip_name = __S("10e30000.atlas7_codec"),
+		.dai_name = __S("atlas7-codec-hifi"),
+		.enable = 1,
+		.rate = 48000,
+		.playback = 1,
+		.capture = 1,
+		.codec_widget_num = 2,
+		.codec_widget = {
+			/* IACC Backend DAIs  */
+			SND_SOC_DAPM_AIF_IN("IACC Codec IN", NULL,
+				0, SND_SOC_NOPM, 0, 0),
+			SND_SOC_DAPM_AIF_OUT("IACC Codec OUT", NULL,
+				0, SND_SOC_NOPM, 0, 0)},
+		.card_widget_num = 3,
+		.card_widget = {
+			SND_SOC_DAPM_HP("Headphones", NULL),
+			SND_SOC_DAPM_LINE("LINEIN", NULL),
+			SND_SOC_DAPM_MIC("MICIN", NULL)},
+		.route_num = 8,
+		.route = {
+			{"Headphones", NULL, "LOUT0"},
+			{"Headphones", NULL, "LOUT1"},
+			{"Headphones", NULL, "LOUT2"},
+			{"Headphones", NULL, "LOUT3"},
+			{"AIF Playback", NULL, "IACC Codec OUT"},
+			{"LIN0", NULL, "LINEIN"},
+			{"MICIN0", NULL, "MICIN"},
+			{"IACC Codec IN", NULL, "AIF Capture"},},
 	},
 	{
-		.name = __S("I2S-CS42888"),
+		.name = __S("i2s"),
 	},
 };
 

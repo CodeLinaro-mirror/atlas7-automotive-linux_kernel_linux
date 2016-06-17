@@ -61,59 +61,51 @@ static const char *fe_init_cpu_dai(struct kasobj *obj,
 	return pcm->stream_name;
 }
 
-static const struct {
-	char *hw_name;	/* "iacc", "i2s" */
-	int is_sink;	/* 1 - sink, 2 - source */
-	struct snd_soc_dapm_route route;
-} route_templates[] = {
-	{ "iacc", 1, { "IACC Codec OUT", NULL, NULL } },
-	{ "iacc", 0, { NULL, NULL, "IACC Codec IN" } },
-#if 0
-	{ "i2s",  1, { "I2S Codec OUT", NULL, NULL } },
-	{ "i2s",  0, { NULL, NULL, "I2S Codec IN" } },
-#endif
-};
-
-static const struct snd_soc_dapm_route *find_route_template(
-		const char *hw_name, int is_sink)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(route_templates); i++) {
-		if (kcm_strcasestr(hw_name, route_templates[i].hw_name) &&
-				route_templates[i].is_sink == is_sink)
-			return &route_templates[i].route;
-	}
-	return NULL;
-}
-
-static void fe_init_route(struct kasobj *obj, const char *stream_name)
+static int fe_init_route(struct kasobj *obj, const char *stream_name)
 {
 	/* struct snd_soc_dapm_route route =
-	 *	{ "IACC Codec OUT", NULL, "Music Playback" };
-	 *	{ "Analog Capture", NULL, "IACC Codec IN" };
+	 *	{ "Codec Out", NULL, "Music Playback" };
+	 *	{ "Analog Capture", NULL, "Codec In" };
 	 */
-	struct kasobj_fe *fe = kasobj_to_fe(obj);
+	struct kasdb_fe *db = kasobj_to_fe(obj)->db;
 	struct snd_soc_dapm_route *route;
-	const struct snd_soc_dapm_route *route_template;
+	struct kasobj_codec *codec;
+	struct kasdb_codec *cdb;
+	int idx;
 
-	if (fe->db->sink_codec.s) {
-		route_template = find_route_template(fe->db->sink_codec.s, 1);
-		if (route_template) {
+	/* Check avalible codec */
+	if (db->sink_codec.s) {
+		codec = kasobj_find_obj(db->sink_codec.s, kasobj_type_cd);
+		if (codec) {
 			route = kcm_alloc_route();
-			*route = *route_template;
-			route->source = stream_name;
+			cdb = codec->db;
+			for (idx = 0; idx < cdb->codec_widget_num; idx++)
+				if (cdb->codec_widget[idx].id ==
+					snd_soc_dapm_aif_out) {
+					route->sink =
+						cdb->codec_widget[idx].name;
+					route->source = stream_name;
+					return 0;
+				}
+		}
+	} else if (db->source_codec.s) {
+		codec = kasobj_find_obj(db->source_codec.s, kasobj_type_cd);
+		if (codec) {
+			route = kcm_alloc_route();
+			cdb = codec->db;
+			for (idx = 0; idx < cdb->codec_widget_num; idx++)
+				if (cdb->codec_widget[idx].id ==
+					snd_soc_dapm_aif_in) {
+					route->source =
+						cdb->codec_widget[idx].name;
+					route->sink = stream_name;
+					return 0;
+				}
 		}
 	}
 
-	if (fe->db->source_codec.s) {
-		route_template = find_route_template(fe->db->source_codec.s, 0);
-		if (route_template) {
-			route = kcm_alloc_route();
-			*route = *route_template;
-			route->sink = stream_name;
-		}
-	}
+	pr_err("KASFE(%s): Invalid codec!\n", db->name.s);
+	return -EINVAL;
 }
 
 static void fe_init_dai_link(struct kasobj *obj, const char *dai_name,

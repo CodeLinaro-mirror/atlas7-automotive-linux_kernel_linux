@@ -17,82 +17,26 @@
 #include "dsp.h"
 #include "kcm/kcm.h"
 
-static const struct snd_soc_dapm_widget kas_audio_widgets[] = {
-	SND_SOC_DAPM_HP("Headphones", NULL),
-	SND_SOC_DAPM_LINE("LINEIN", NULL),
-	SND_SOC_DAPM_MIC("MICIN", NULL),
-};
-
-static const struct snd_soc_dapm_route kas_audio_map[] = {
-	{"Headphones", NULL, "LOUT0"},
-	{"Headphones", NULL, "LOUT1"},
-	{"Headphones", NULL, "LOUT2"},
-	{"Headphones", NULL, "LOUT3"},
-	{"AIF Playback", NULL, "IACC Codec OUT"},
-	{"LIN0", NULL, "LINEIN"},
-	{"MICIN0", NULL, "MICIN"},
-	{"IACC Codec IN", NULL, "AIF Capture"},
-};
-
-static int kas_iacc_fixup(struct snd_soc_pcm_runtime *rtd,
-			struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-			SNDRV_PCM_HW_PARAM_RATE);
-
-	/* The kalimba DSP will covert the FE rate to 48k, stereo */
-	rate->min = rate->max = 48000;
-
-	return 0;
-}
-
-/* Only BE DAI links are listed. FE DAI links are created on demand. */
-static const struct snd_soc_dai_link kas_be_dais[] = {
-	{
-		.name = "IACC-Codec",
-		.be_id = 0,
-		.cpu_dai_name = "snd-soc-dummy-dai",
-		.platform_name = "snd-soc-dummy",
-		.no_pcm = 1,
-		.codec_name = "10e30000.atlas7_codec",
-		.codec_dai_name = "atlas7-codec-hifi",
-		.be_hw_params_fixup = kas_iacc_fixup,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.dpcm_playback = 1,
-		.dpcm_capture = 1,
-	},
-};
-
 static struct snd_soc_card kas_audio_card = {
 	.name = "kas-audio-card",
 	.owner = THIS_MODULE,
-	.dapm_widgets = kas_audio_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(kas_audio_widgets),
-	.dapm_routes = kas_audio_map,
-	.num_dapm_routes = ARRAY_SIZE(kas_audio_map),
 	.fully_routed = true,
 };
 
 static int kas_audio_probe(struct platform_device *pdev)
 {
-	int ret, num_links, free_links;
-	struct snd_soc_dai_link *dai_link =
-		kcm_get_dai_link(&num_links, &free_links);
+	int ret, num_links, free_links, widget_num, route_num;
 
 	ret = kcm_drv_status();
 	if (ret)
 		return ret;
 
-	/* Paste BE DAI links to table. Latest kernel supports adding DAI links
-	 * dynamically by snd_soc_add_dai_link, this feature is not merged yet.
-	 */
-	BUG_ON(free_links < ARRAY_SIZE(kas_be_dais));
-	memcpy(dai_link + num_links, kas_be_dais, ARRAY_SIZE(kas_be_dais) *
-			sizeof(struct snd_soc_dai_link));
-
-	kas_audio_card.dai_link = dai_link;
-	kas_audio_card.num_links = num_links + ARRAY_SIZE(kas_be_dais);
+	kas_audio_card.dapm_widgets = kcm_get_card_widget(&widget_num);
+	kas_audio_card.num_dapm_widgets = widget_num;
+	kas_audio_card.dai_link = kcm_get_dai_link(&num_links, &free_links);
+	kas_audio_card.num_links = num_links;
+	kas_audio_card.dapm_routes = kcm_get_card_route(&route_num);
+	kas_audio_card.num_dapm_routes = route_num;
 	kas_audio_card.dev = &pdev->dev;
 	return devm_snd_soc_register_card(&pdev->dev, &kas_audio_card);
 }

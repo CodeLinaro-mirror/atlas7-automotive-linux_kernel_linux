@@ -43,7 +43,7 @@ struct kasobj_param {
 
 /* Object types */
 enum {
-	kasobj_type_cd = BIT(0),	/* Codec, not used */
+	kasobj_type_cd = BIT(0),	/* Codec */
 	kasobj_type_hw = BIT(1),	/* Sink/Source */
 	kasobj_type_fe = BIT(2),	/* Front End */
 	kasobj_type_op = BIT(3),	/* Operator */
@@ -78,6 +78,8 @@ struct kasobj {
 struct kasobj_codec {
 	struct kasobj obj;
 	const struct kasdb_codec *db;
+
+	int rate;
 };
 #define kasobj_to_codec(pobj)	container_of((pobj), struct kasobj_codec, obj)
 

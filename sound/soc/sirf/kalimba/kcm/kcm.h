@@ -28,10 +28,21 @@ struct kcm_chain;
 struct kasobj_fe;
 struct kasobj_param;
 struct kasop_impl;
+struct snd_soc_dapm_widget;
+struct snd_soc_dapm_route;
 
 int kcm_drv_status(void);
 void kcm_set_dev(void *dev);
 struct device *kcm_get_dev(void);
+
+void kcm_put_codec_widget(struct snd_soc_dapm_widget *widget, int widget_cnt);
+struct snd_soc_dapm_widget *kcm_get_codec_widget(int *cnt);
+
+void kcm_put_card_widget(struct snd_soc_dapm_widget *widget, int widget_cnt);
+struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt);
+
+void kcm_put_card_route(struct snd_soc_dapm_route *route, int route_cnt);
+struct snd_soc_dapm_route *kcm_get_card_route(int *cnt);
 
 struct snd_soc_dai_driver *kcm_alloc_dai(void);
 struct snd_soc_dai_driver *kcm_get_dai(int *cnt);

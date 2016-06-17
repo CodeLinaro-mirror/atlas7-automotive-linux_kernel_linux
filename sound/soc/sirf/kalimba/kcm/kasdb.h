@@ -14,6 +14,8 @@
 #ifndef _KCM_KASDB_H
 #define _KCM_KASDB_H
 
+#include <sound/soc.h>
+
 struct kasdb_head {
 #define KASDB_MAGIC	0xFACE
 #define	KASDB_VERSION	0x0101	/* To match user and kernel code */
@@ -84,7 +86,19 @@ static inline int kasdb_rate_alsa(int rate)
 #endif
 
 struct kasdb_codec {
-	union kasdb_str name;
+	union kasdb_str name;	/* iacc, i2s */
+	union kasdb_str chip_name;/* Description of the codec */
+	union kasdb_str dai_name; /* Soc dai driver name */
+	char enable;		/* 0: disable, 1: enable */
+	int rate;		/* 48000, 96000 ... */
+	char playback;		/* 1: support playback, 0: not support */
+	char capture;		/* 1: support capture, 0: not support */
+	char codec_widget_num;	/* codec widget number, maximum: 2 */
+	char card_widget_num;	/* card widget number, maximum: 8 */
+	char route_num;		/* Route number, maximum: 16 */
+	struct snd_soc_dapm_widget codec_widget[2];
+	struct snd_soc_dapm_widget card_widget[8];
+	struct snd_soc_dapm_route route[16];
 };
 
 /* Value must be consistent with Kalimba definition */
@@ -97,7 +111,7 @@ enum {
 
 struct kasdb_hw {
 	union kasdb_str name;	/* iacc, usp, i2s */
-	short is_sink;		/* 1 - playback, 0 - capture */
+	char is_sink;		/* 1 - playback, 0 - capture */
 	char is_slave;		/* 1 - slave, 0 - master */
 	char instance_id;	/* Only for USP */
 	char max_channels;	/* Max channels */

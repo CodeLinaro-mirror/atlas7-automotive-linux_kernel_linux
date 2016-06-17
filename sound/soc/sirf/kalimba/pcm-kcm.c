@@ -439,23 +439,16 @@ static struct snd_soc_platform_driver kas_soc_platform = {
 	.pcm_free = kas_pcm_free,
 };
 
-/* XXX: must be consistent with obj-fe.c */
-static const struct snd_soc_dapm_widget widgets[] = {
-	/* IACC Backend DAIs  */
-	SND_SOC_DAPM_AIF_IN("IACC Codec IN", NULL, 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_OUT("IACC Codec OUT", NULL, 0, SND_SOC_NOPM, 0, 0),
-};
 
 static struct snd_soc_component_driver kas_dai_component = {
 	.name = "kas-dai",
-	.dapm_widgets = widgets,
-	.num_dapm_widgets = ARRAY_SIZE(widgets),
 };
 
 static int kas_pcm_dev_probe(struct platform_device *pdev)
 {
-	int ret, route_cnt;
+	int ret, route_cnt, widget_cnt;
 	struct snd_soc_dai_driver *cpu_dai;
+	struct snd_soc_dapm_widget *widget;
 	struct snd_soc_dapm_route *route;
 
 	ret = kcm_drv_status();
@@ -466,7 +459,10 @@ static int kas_pcm_dev_probe(struct platform_device *pdev)
 
 	/* Get CPU DAI and DAPM route table */
 	cpu_dai = kcm_get_dai(&_cpu_dai_cnt);
+	widget = kcm_get_codec_widget(&widget_cnt);
 	route = kcm_get_route(&route_cnt);
+	kas_dai_component.dapm_widgets = widget;
+	kas_dai_component.num_dapm_widgets = widget_cnt;
 	kas_dai_component.dapm_routes = route,
 	kas_dai_component.num_dapm_routes = route_cnt;
 

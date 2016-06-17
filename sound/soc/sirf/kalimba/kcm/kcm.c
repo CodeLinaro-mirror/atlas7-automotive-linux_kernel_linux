@@ -96,12 +96,13 @@ static int _dai_link_cnt;
 
 struct snd_soc_dai_link *kcm_alloc_dai_link(void)
 {
-	BUG_ON(_dai_link_cnt >= __kasobj_fe_cnt);
+	int max_dai_link = __kasobj_fe_cnt + __kasobj_codec_cnt;
+
+	BUG_ON(_dai_link_cnt >= max_dai_link);
 
 	if (!_dai_link)
 		_dai_link = kzalloc(sizeof(struct snd_soc_dai_link) *
-				(__kasobj_fe_cnt + __kasobj_codec_cnt),
-				GFP_KERNEL);
+				max_dai_link, GFP_KERNEL);
 	return &_dai_link[_dai_link_cnt++];
 }
 
@@ -112,6 +113,59 @@ struct snd_soc_dai_link *kcm_get_dai_link(int *cnt, int *free_cnt)
 	return _dai_link;
 }
 EXPORT_SYMBOL(kcm_get_dai_link);
+
+/* ALSA widget table */
+static struct snd_soc_dapm_widget *_codec_widget;
+static int _codec_widget_cnt;
+
+void kcm_put_codec_widget(struct snd_soc_dapm_widget *widget,
+			int widget_cnt)
+{
+	_codec_widget = widget;
+	_codec_widget_cnt = widget_cnt;
+}
+
+struct snd_soc_dapm_widget *kcm_get_codec_widget(int *cnt)
+{
+	*cnt = _codec_widget_cnt;
+	return _codec_widget;
+}
+EXPORT_SYMBOL(kcm_get_codec_widget);
+
+static struct snd_soc_dapm_widget *_card_widget;
+static int _card_widget_cnt;
+
+void kcm_put_card_widget(struct snd_soc_dapm_widget *widget,
+			int widget_cnt)
+{
+	_card_widget = widget;
+	_card_widget_cnt = widget_cnt;
+}
+
+struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt)
+{
+	*cnt = _card_widget_cnt;
+	return _card_widget;
+}
+EXPORT_SYMBOL(kcm_get_card_widget);
+
+/* ALSA route table */
+static struct snd_soc_dapm_route *_card_route;
+static int _card_route_cnt;
+
+void kcm_put_card_route(struct snd_soc_dapm_route *route,
+			int route_cnt)
+{
+	_card_route = route;
+	_card_route_cnt = route_cnt;
+}
+
+struct snd_soc_dapm_route *kcm_get_card_route(int *cnt)
+{
+	*cnt = _card_route_cnt;
+	return _card_route;
+}
+EXPORT_SYMBOL(kcm_get_card_route);
 
 /* ALSA control interface list */
 struct _ctrl {
