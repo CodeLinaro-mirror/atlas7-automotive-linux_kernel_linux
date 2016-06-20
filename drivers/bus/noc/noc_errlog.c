@@ -72,135 +72,147 @@ static const char * const noc_cpu_list[] = {
 	"kas",
 };
 
-static const char * const noc_initator_id_list[] = {
-	"dmac2_ac97_aux_fifo",
-	"kas_dram",
-	"afe_cvd_vip0",
-	"usp0_axi_i",
-	"sgx",
-	"sdr",
-	"dmac2_usp1rx",
-	"dmac2_usp1tx",
-	"usb0",
-	"usb1",
-	"dmac2_usp0rx",
-	"dmac2_usp0tx",
-	"dmac2_usp2rx",
-	"dmac2_usp2tx",
-	"reserved",
-	"reserved",
-	"dmac3_iaccrx",
-	"dmac3_i2s1rx",
-	"dmac3_i2s1tx",
-	"dmac3_iacctx2",
-	"reserved",
-	"reserved",
-	"dmac3_ac97rx_fifo",
-	"dmac3_iacctx0",
-	"dmac3_iacctx1",
-	"dmac3_iacctx3",
-	"dmac3_ac97tx_fifo5",
-	"dmac3_ac97tx_fifo6",
-	"dmac3_ac97tx_fifo1",
-	"dmac3_ac97tx_fifo2",
-	"dmac3_ac97tx_fifo3",
-	"dmac3_ac97tx_fifo4",
-	"dmac4_usp3rx",
-	"dmac4_usp3tx",
-	"vpp0",
-	"vpp1",
-	"vip1",
-	"dcu",
-	"g2d",
-	"nand",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"dmac4_uart6rx",
-	"dmac4_uart6tx",
-	"reserved",
-	"reserved",
-	"dmac0_uart4rx",
-	"dmac0_uart4tx",
-	"dmac0_uart0tx",
-	"dmac0_uart0rx",
-	"dmac0_uart3rx",
-	"dmac0_uart3tx",
-	"dmac0_uart2rx",
-	"dmac0_uart2tx",
-	"dmac0_uart5rx",
-	"dmac0_uart5tx",
-	"sec_secure",
-	"sec_public",
-	"dmac0_spi1rx",
-	"dmac0_spi1tx",
-	"reserved",
-	"reserved",
-	"sys2pci_vdifm",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"sys2pci_mediam",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"armm3_data",
-	"qspi",
-	"hash",
-	"cssi_etr_axi",
-	"eth_avb",
-	"reserved",
-	"reserved",
-	"reserved",
-	"lcd0_ly0_rd",
-	"lcd0_ly1_rd",
-	"lcd0_ly2_rd",
-	"lcd0_ly3_rd",
-	"lcd0_wb_rd",
-	"reserved",
-	"reserved",
-	"reserved",
-	"lcd1_ly1_rd",
-	"lcd1_ly1_rd",
-	"lcd1_ly2_rd",
-	"lcd1_ly3_rd",
-	"lcd1_wb_rd",
-	"reserved",
-	"reserved",
-	"reserved",
-	"vxd_mmu",
-	"vxd_dmac",
-	"vxd_vec",
-	"vxd_dmc",
-	"vxd_deb",
-	"reserved",
-	"reserved",
-	"reserved",
-	"jpeg_tar",
-	"jpeg_code",
-	"jpeg_thumb",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
-	"reserved",
+#define FW_A7 0x0
+#define FW_DDR_BE 0x4000
+#define FW_DDR_RTLL 0x8000
+#define FW_DDR_RT   0xC000
+#define FW_DDR_SGX 0x10000
+#define FW_DDR_VXD 0x14000
+
+struct id_rp_maps_t {
+	char *name;
+	int rpbase;
+};
+
+static struct id_rp_maps_t noc_initator_id_list[] = {
+	{"dmac2_ac97_aux_fifo", FW_DDR_RTLL},
+	{"kas_dram", FW_DDR_RTLL},
+	{"afe_cvd_vip0", FW_DDR_RTLL},
+	{"usp0_axi_i", FW_DDR_RTLL},
+	{"sgx", FW_DDR_SGX},
+	{"sdr", FW_DDR_RTLL},
+	{"dmac2_usp1rx", FW_DDR_RTLL},
+	{"dmac2_usp1tx", FW_DDR_RTLL},
+	{"usb0", FW_DDR_BE},
+	{"usb1", FW_DDR_BE},
+	{"dmac2_usp0rx", FW_DDR_RTLL},
+	{"dmac2_usp0tx", FW_DDR_RTLL},
+	{"dmac2_usp2rx", FW_DDR_RTLL},
+	{"dmac2_usp2tx", FW_DDR_RTLL},
+	{"reserved",},
+	{"reserved",},
+	{"dmac3_iaccrx", FW_DDR_RTLL},
+	{"dmac3_i2s1rx", FW_DDR_RTLL},
+	{"dmac3_i2s1tx", FW_DDR_RTLL},
+	{"dmac3_iacctx2", FW_DDR_RTLL},
+	{"reserved",},
+	{"reserved",},
+	{"dmac3_ac97rx_fifo", FW_DDR_RTLL},
+	{"dmac3_iacctx0", FW_DDR_RTLL},
+	{"dmac3_iacctx1", FW_DDR_RTLL},
+	{"dmac3_iacctx3", FW_DDR_RTLL},
+	{"dmac3_ac97tx_fifo5", FW_DDR_RTLL},
+	{"dmac3_ac97tx_fifo6", FW_DDR_RTLL},
+	{"dmac3_ac97tx_fifo1", FW_DDR_RTLL},
+	{"dmac3_ac97tx_fifo2", FW_DDR_RTLL},
+	{"dmac3_ac97tx_fifo3", FW_DDR_RTLL},
+	{"dmac3_ac97tx_fifo4", FW_DDR_RTLL},
+	{"dmac4_usp3rx", FW_DDR_RTLL},
+	{"dmac4_usp3tx", FW_DDR_RTLL},
+	{"vpp0", FW_DDR_RT},
+	{"vpp1", FW_DDR_RT},
+	{"vip1", FW_DDR_RT},
+	{"dcu", FW_DDR_RT},
+	{"g2d", FW_DDR_BE},
+	{"nand", FW_DDR_BE},
+	{"DDR_BIST",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"dmac4_uart6rx", FW_DDR_RTLL},
+	{"dmac4_uart6tx", FW_DDR_RTLL},
+	{"reserved",},
+	{"reserved",},
+	{"dmac0_uart4rx", FW_DDR_BE},
+	{"dmac0_uart4tx", FW_DDR_BE},
+	{"dmac0_uart0tx", FW_DDR_BE},
+	{"dmac0_uart0rx", FW_DDR_BE},
+	{"dmac0_uart3rx", FW_DDR_BE},
+	{"dmac0_uart3tx", FW_DDR_BE},
+	{"dmac0_uart2rx", FW_DDR_BE},
+	{"dmac0_uart2tx", FW_DDR_BE},
+	{"dmac0_uart5rx", FW_DDR_BE},
+	{"dmac0_uart5tx", FW_DDR_BE},
+	{"sec_secure", FW_DDR_BE},
+	{"sec_public", FW_DDR_BE},
+	{"dmac0_spi1rx", FW_DDR_BE},
+	{"dmac0_spi1tx", FW_DDR_BE},
+	{"reserved",},
+	{"reserved",},
+	{"sys2pci_vdifm", FW_DDR_RT},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"sys2pci_mediam", FW_DDR_BE},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"DMAC1_HS_I2S0", FW_DDR_RT},
+	{"DMAC1_HS_I2S1", FW_DDR_RT},
+	{"reserved",},
+	{"reserved",},
+	{"armm3_data", FW_DDR_RT},
+	{"qspi", FW_DDR_BE},
+	{"hash", FW_DDR_BE},
+	{"cssi_etr_axi", FW_DDR_BE},
+	{"eth_avb", FW_DDR_BE},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"lcd0_ly0_rd", FW_DDR_RT},
+	{"lcd0_ly1_rd", FW_DDR_RT},
+	{"lcd0_ly2_rd", FW_DDR_RT},
+	{"lcd0_ly3_rd", FW_DDR_RT},
+	{"lcd0_wb_rd", FW_DDR_RT},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"lcd1_ly1_rd", FW_DDR_RT},
+	{"lcd1_ly1_rd", FW_DDR_RT},
+	{"lcd1_ly2_rd", FW_DDR_RT},
+	{"lcd1_ly3_rd", FW_DDR_RT},
+	{"lcd1_wb_rd", FW_DDR_RT},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"vxd_mmu", FW_DDR_VXD},
+	{"vxd_dmac", FW_DDR_VXD},
+	{"vxd_vec", FW_DDR_VXD},
+	{"vxd_dmc", FW_DDR_VXD},
+	{"vxd_deb", FW_DDR_VXD},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"jpeg_tar", FW_DDR_BE},
+	{"jpeg_code", FW_DDR_BE},
+	{"jpeg_thumb", FW_DDR_BE},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
+	{"reserved",},
 };
 
 int noc_get_cpu_by_name(const char *name)
@@ -222,12 +234,62 @@ int noc_get_noncpu_by_name(const char *name)
 	int size = ARRAY_SIZE(noc_initator_id_list);
 
 	while (i < size) {
-		if (!strcmp(noc_initator_id_list[i], name))
+		if (!strcmp(noc_initator_id_list[i].name, name))
 			return i;
 		i++;
 	}
 	return -1;
 }
+
+int noc_get_rpbase_by_name(const char *name)
+{
+	int i = 0;
+	int size = ARRAY_SIZE(noc_initator_id_list);
+
+	while (i < size) {
+		if (!strcmp(noc_initator_id_list[i].name, name))
+			return noc_initator_id_list[i].rpbase;
+		i++;
+	}
+	return -1;
+}
+
+struct id_err_maps_t {
+	int orig;
+	int new;
+};
+
+static struct id_err_maps_t err_id_maps[] = {
+	{8, 24},
+	{9, 25},
+	{10, 26},
+	{11, 27},
+	{12, 28},
+	{13, 29},
+	{16, 0},
+	{17, 1},
+	{18, 2},
+	{19, 3},
+	{22, 6},
+	{23, 7},
+	{44, 60},
+	{45, 61},
+	{80, 64},
+};
+
+int noc_get_id_by_orig(int orig)
+{
+	int i = 0;
+	int size = ARRAY_SIZE(err_id_maps);
+
+	while (i < size) {
+		if (err_id_maps[i].orig == orig)
+			return err_id_maps[i].new;
+		i++;
+	}
+	return orig;
+}
+
 
 /*data abort handler can not get base list*/
 static bool noc_has_err(void __iomem *noc_errlog_mbase)
@@ -274,8 +336,8 @@ int noc_dump_errlog(struct noc_macro *nocm)
 	if (NOC_INITIATOR_TYPE_CPU == (errCode5 & NOC_INITIATOR_TYPE))
 		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>10) & 0x3]);
 	else
-		pr_info("ID:\%s\n", noc_initator_id_list[(errCode5>>5)
-			& 0x7F]);
+		pr_info("ID:\%s\n", noc_initator_id_list[
+			noc_get_id_by_orig((errCode5>>5) & 0x7F)].name);
 
 	pr_info("Opc:\t%s\n", noc_opc_list[(errCode0>>1) & 0xF]);
 	pr_info("Addr\t%08x\n", errCode3);

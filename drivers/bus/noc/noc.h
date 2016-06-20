@@ -37,11 +37,15 @@ int noc_get_cpu_by_name(const char *name);
 int noc_get_noncpu_by_name(const char *name);
 int noc_probe_suspend(struct noc_macro *nocm);
 int noc_probe_resume(struct noc_macro *nocm);
+int noc_get_id_by_orig(int orig);
 
 
 #ifdef CONFIG_ATLAS7_NOC_FW
 int noc_spramfw_init(struct noc_macro *nocm);
 int noc_regfw_init(struct noc_macro *nocm);
+int noc_dramfw_init(struct noc_macro *nocm);
+int noc_get_rpbase_by_name(const char *name);
+
 #endif
 
 #endif

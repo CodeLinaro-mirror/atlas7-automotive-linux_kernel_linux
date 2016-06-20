@@ -68,12 +68,17 @@ static int noc_macro_parse(struct noc_macro *nocm)
 	struct device_node *np = pdev->dev.of_node;
 	struct of_phandle_args regofs;
 
+	/*spramfw/dramfw not have 'regofs' fields like other macros range*/
 	if (of_parse_phandle_with_fixed_args(np, "regofs", 4, 0, &regofs)) {
 #ifdef CONFIG_ATLAS7_NOC_FW
-		noc_spramfw_init(nocm);
+		if (strstr(nocm->name, "dramfw"))
+			noc_dramfw_init(nocm);
+		else
+			noc_spramfw_init(nocm);
 #endif
 		goto out;
 	}
+
 	nocm->errlogoff = regofs.args[0];
 	nocm->faultenoff = regofs.args[1];
 	nocm->regfwoff = regofs.args[2];

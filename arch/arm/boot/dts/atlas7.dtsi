@@ -1878,7 +1878,8 @@
 			};
 		};
 
-		ramfw {
+
+		spramfw {
 			compatible = "arteris, flexnoc", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -1886,6 +1887,17 @@
 			spramfw@0x10250000 {
 				compatible = "sirf,noc-macro";
 				reg = <0x10250000 0x4000>;
+			};
+		};
+
+		dramfw {
+			compatible = "arteris, flexnoc", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x10830000 0x10830000 0x18000>;
+			dramfw@10820000 {
+				compatible = "sirf,noc-macro";
+				reg = <0x10830000 0x18000>;
 			};
 		};
 
