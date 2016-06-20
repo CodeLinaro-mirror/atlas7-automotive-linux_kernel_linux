@@ -78,7 +78,6 @@ static int resampler_create(struct kasobj_op *op,
 
 static struct kasop_impl resampler_impl = {
 	.create = resampler_create,
-	.reconfig = resampler_create,
 };
 
 static int __init kasop_init_resampler(void)

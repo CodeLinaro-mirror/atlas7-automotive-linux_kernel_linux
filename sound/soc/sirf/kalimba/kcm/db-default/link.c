@@ -537,4 +537,69 @@ static const struct kasdb_link link[] = {
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
+
+	/* Mixer3 */
+	{
+		/* Music -> Mixer3, 1ch */
+		.name = __S("lk_music_mixer3_1"),
+		.source_name = __S("Music"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* Music -> Mixer3, 2ch */
+		.name = __S("lk_music_mixer3_2"),
+		.source_name = __S("Music"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* I2S -> Mixer3, 2ch */
+		.name = __S("lk_i2s_mixer3"),
+		.source_name = __S("so_i2s"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 3, 4 },
+		.channels = 2,
+	},
+	{
+		/* IACC -> Mixer3, 1ch */
+		.name = __S("lk_iacc_mixer3_1"),
+		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1 },
+		.sink_pins = { 3 },
+		.channels = 1,
+	},
+	{
+		/* IACC -> Mixer3, 2ch */
+		.name = __S("lk_iacc_mixer3_2"),
+		.source_name = __S("so_iacc"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 3, 4 },
+		.channels = 2,
+	},
+	{
+		/* A2DP -> Mixer3, 2ch */
+		.name = __S("lk_usp3_mixer3"),
+		.source_name = __S("so_usp3"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
+		.channels = 2,
+	},
+	{
+		/* Mixer3 -> Passthrough, 2ch */
+		.name = __S("lk_mixer3_pass"),
+		.source_name = __S("op_mixer3"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
 };

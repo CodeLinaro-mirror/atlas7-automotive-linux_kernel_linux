@@ -271,4 +271,13 @@ static const struct kasdb_op op[] = {
 		.rate = 0,
 		.param.dummy = 0,
 	},
+	{
+		/* Mixer3:(Linein, I2Sin), Music, A2DP */
+		.name = __S("op_mixer3"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_MIXER,
+		.rate = 48000,
+		.param.mixer_streams = 32,
+	},
 };
