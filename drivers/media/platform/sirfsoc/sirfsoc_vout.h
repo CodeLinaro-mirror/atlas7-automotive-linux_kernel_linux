@@ -87,6 +87,7 @@ struct sirfsoc_vout_device {
 	enum v4l2_field v4l2buf_field;
 	enum v4l2_buf_type type;
 	struct vb2_queue vb2_q;
+	struct vb2_queue vb2_qbitblt;
 	/* allocator-specific contexts for each plane */
 	struct vb2_alloc_ctx *alloc_ctx;
 	struct list_head dma_queue;
