@@ -182,26 +182,17 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
-		/* AEC-ref 1 Mic*/
-		.name = __S("op_aecref_1mic"),
+		/* AEC-ref */
+		.name = __S("op_aecref"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_AECREF("Voicecall")),
-		.cap_id = CAPABILITY_ID_AEC_REF_1MIC,
-		.rate = 48000,
-		.param.dummy = 0,
-	},
-	{
-		/* AEC-ref 2 Mic*/
-		.name = __S("op_aecref_2mic"),
-		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_AEC_REF_DUMMY,
 		.rate = 48000,
 		.param.dummy = 0,
 	},
 	{
 		/* CVC send 1 Mic*/
-		.name = __S("op_send_1mic_cvc"),
+		.name = __S("op_send_cvc"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_CVCSEND("Voicecall")),
 		.cap_id = CAPABILITY_ID_CVCHF_SEND_DUMMY,

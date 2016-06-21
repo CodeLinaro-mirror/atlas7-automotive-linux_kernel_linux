@@ -180,7 +180,7 @@ static const struct kasdb_hw hw[] = {
 		.bytes_per_ch = 192,
 	},
 	{
-		.name = __S("so_iacc_cvc"),
+		.name = __S("so_iacc_2mic"),
 		.is_sink = 0,
 		.is_slave = 0,
 		.max_channels = 2,

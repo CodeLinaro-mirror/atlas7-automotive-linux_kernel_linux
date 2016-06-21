@@ -294,18 +294,18 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 	{
-		/* Volume Control -> AEC-Ref 1 Mic, 4ch */
-		.name = __S("lk_volctrl_aecref_1mic"),
+		/* Volume Control -> AEC-Ref, 4ch */
+		.name = __S("lk_volctrl_aecref"),
 		.source_name = __S("op_volume_control"),
-		.sink_name = __S("op_aecref_1mic"),
+		.sink_name = __S("op_aecref"),
 		.source_pins = { 1, 2, 3, 4 },
 		.sink_pins = { 1, 2, 7, 8 },
 		.channels = 4,
 	},
 	{
 		/* AEC-Ref -> IACC, 4ch */
-		.name = __S("lk_aecref_1mic_iacc"),
-		.source_name = __S("op_aecref_1mic"),
+		.name = __S("lk_aecref_iacc"),
+		.source_name = __S("op_aecref"),
 		.sink_name = __S("si_iacc"),
 		.source_pins = { 2, 3, 8, 9 },
 		.sink_pins = { 1, 2, 3, 4 },
@@ -313,28 +313,46 @@ static const struct kasdb_link link[] = {
 	},
 	/* CVC send & recv */
 	{
+		/* IACC -> AEC-Ref 2 Mic */
+		.name = __S("lk_iacc_aecref_2mic"),
+		.source_name = __S("so_iacc_2mic"),
+		.sink_name = __S("op_aecref"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 3, 4 },
+		.channels = 2,
+	},
+	{
+		/* AEC-Ref 2 Mic -> CVC send */
+		.name = __S("lk_aecref_cvc_send_2mic"),
+		.source_name = __S("op_aecref"),
+		.sink_name = __S("op_send_cvc"),
+		.source_pins = { 4, 5 },
+		.sink_pins = { 2, 3 },
+		.channels = 2,
+	},
+	{
 		/* IACC -> AEC-Ref 1 Mic */
 		.name = __S("lk_iacc_aecref_1mic"),
 		.source_name = __S("so_iacc"),
-		.sink_name = __S("op_aecref_1mic"),
+		.sink_name = __S("op_aecref"),
 		.source_pins = { 1 },
 		.sink_pins = { 3 },
 		.channels = 1,
 	},
 	{
 		/* AEC-Ref 1 Mic -> CVC send */
-		.name = __S("lk_aecref_1mic_cvc_send"),
-		.source_name = __S("op_aecref_1mic"),
-		.sink_name = __S("op_send_1mic_cvc"),
+		.name = __S("lk_aecref_cvc_send_1mic"),
+		.source_name = __S("op_aecref"),
+		.sink_name = __S("op_send_cvc"),
 		.source_pins = { 4 },
 		.sink_pins = { 2 },
 		.channels = 1,
 	},
 	{
-		/* AEC-Ref 1 Mic -> CVC send ref */
-		.name = __S("lk_aecref_1mic_cvc_send_ref"),
-		.source_name = __S("op_aecref_1mic"),
-		.sink_name = __S("op_send_1mic_cvc"),
+		/* AEC-Ref  -> CVC send ref */
+		.name = __S("lk_aecref_cvc_send_ref"),
+		.source_name = __S("op_aecref"),
+		.sink_name = __S("op_send_cvc"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
 		.channels = 1,
@@ -342,7 +360,7 @@ static const struct kasdb_link link[] = {
 	{
 		/* CVC send -> USP3  */
 		.name = __S("lk_cvc_send_usp3"),
-		.source_name = __S("op_send_1mic_cvc"),
+		.source_name = __S("op_send_cvc"),
 		.sink_name = __S("si_usp3"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
@@ -513,7 +531,7 @@ static const struct kasdb_link link[] = {
 	{
 		/* CVC send -> Voicecall capture, 1ch */
 		.name = __S("lk_cvc_send_vocall_cap"),
-		.source_name = __S("op_send_1mic_cvc"),
+		.source_name = __S("op_send_cvc"),
 		.sink_name = __S("Voicecall-capture"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
