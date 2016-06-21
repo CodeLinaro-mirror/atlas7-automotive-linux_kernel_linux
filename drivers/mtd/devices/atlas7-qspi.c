@@ -367,6 +367,16 @@ static struct nor_flash_info flash_types[] = {
 		NULL,
 		atlas7_qspi_nor_winbond_quad_enable,
 		NULL},
+#define W25Q32FV_FLAG \
+		(FLASH_FLAG_READ_FAST	| \
+		 FLASH_FLAG_READ_1_4_4	| \
+		 FLASH_FLAG_WRITE_1_1_4)
+	{ "W25Q32FV",
+		0xEF4016, 0, 256, 4 * 1024, 1024,
+		W25Q32FV_FLAG, 104, 100, 0, 4,
+		NULL,
+		atlas7_qspi_nor_winbond_quad_enable,
+		NULL},
 
 		/* Sentinel */
 	{},
@@ -827,6 +837,7 @@ atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor)
 		dev_err(a7nor->dev, "Winbond Quad bit not set\n");
 		ret = -EINVAL;
 	}
+
 out:
 	mutex_unlock(&a7nor->lock);
 	return ret;
