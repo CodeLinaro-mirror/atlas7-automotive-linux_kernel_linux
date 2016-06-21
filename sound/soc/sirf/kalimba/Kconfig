@@ -18,6 +18,7 @@ config SND_SOC_SIRF_KALIMBA_DEBUG
 
 config SND_SOC_SIRF_KALIMBA_KCM
 	bool "Kalimba configuration manager driver"
+	default y
 	depends on SND_SOC_SIRF_KALIMBA
 	help
 	  Kalimba configuration manager driver is to introduce a flexible
