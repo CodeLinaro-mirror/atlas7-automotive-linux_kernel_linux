@@ -589,9 +589,15 @@ static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 			PTR_ERR(core_reg));
 	else {
 		info->core_reg = core_reg;
-		atlas7_otp_get_svm(&info->svm);
-		atlas7_pm_svm(SVM_CORE);
-		atlas7_pm_svm(SVM_CPU);
+		np = of_find_compatible_node(NULL,
+					NULL, "sirf,sirf-sysctl");
+		if (of_property_read_u32(np, "svm", &info->svm))
+			dev_info(&pdev->dev, "no svm");
+		else {
+			dev_info(&pdev->dev, "svm %x", info->svm);
+			atlas7_pm_svm(SVM_CORE);
+			atlas7_pm_svm(SVM_CPU);
+		}
 	}
 
 	return 0;
@@ -603,10 +609,8 @@ out:
 #ifdef CONFIG_PM_SLEEP
 static int sirfsoc_sysctl_resume(struct device *dev)
 {
-
 	atlas7_pm_svm(SVM_CORE);
 	atlas7_pm_svm(SVM_CPU);
-
 	return 0;
 }
 

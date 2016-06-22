@@ -326,34 +326,6 @@ static ssize_t chip_uid_show(struct device *dev,
 
 static DEVICE_ATTR_RO(chip_uid);
 
-int atlas7_otp_get_svm(unsigned int *svm)
-{
-	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	int ret = -1;
-
-	if (!svm)
-		goto err;
-
-	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_SVMVALUE,
-				svm, sizeof(svm));
-
-	ret = csrvisor_fastcall(&param, 0, cw_data);
-err:
-	return ret;
-}
-EXPORT_SYMBOL(atlas7_otp_get_svm);
-
-static ssize_t svm_value_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	unsigned int svm_val;
-
-	atlas7_otp_get_svm(&svm_val);
-	return sprintf(buf, "%08x\n", svm_val);
-}
-
-static DEVICE_ATTR_RO(svm_value);
-
 #ifdef CONFIG_HW_RANDOM
 int cvrng_read(struct hwrng *rng, void *data, size_t max_bytes, bool wait)
 {
@@ -437,9 +409,6 @@ static __init int csrvisor_wrapper_init(void)
 #endif
 	device_create_file(cw_data->wrapper_dev.this_device,
 		&dev_attr_chip_uid);
-
-	device_create_file(cw_data->wrapper_dev.this_device,
-		&dev_attr_svm_value);
 
 #ifdef CONFIG_HW_RANDOM
 	/* register hardware random generator */
