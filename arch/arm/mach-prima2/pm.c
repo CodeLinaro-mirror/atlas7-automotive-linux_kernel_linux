@@ -486,13 +486,19 @@ static void atlas7_pm_svm(int dev_type)
 {
 	struct dev_pm_opp *opp;
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
-	struct cpufreq_frequency_table *freq_table = policy->freq_table;
-	struct private_data *priv = policy->driver_data;
+	struct cpufreq_frequency_table *freq_table;
+	struct private_data *priv;
 	struct device *cpu_dev;
 	struct regulator *reg;
 	unsigned long volt = 0;
 	long freq_Hz;
 	int ret, index;
+
+	if (!policy)
+		goto out;
+
+	freq_table = policy->freq_table;
+	priv = policy->driver_data;
 
 	if (dev_type == SVM_CORE) {
 		reg = sinfo->core_reg;
