@@ -37,7 +37,7 @@ static void vdsscomp_sync_cb(struct work_struct *work)
 	if (sync->cb_fn)
 		sync->cb_fn(sync->cb_arg, 1);
 
-	kfree(sync);
+	devm_kfree(gdev->pdev, sync);
 }
 
 static bool vdsscomp_layer_enable(
@@ -264,7 +264,7 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 		}
 	}
 flush_sync:
-	sync = kzalloc(sizeof(*sync), GFP_KERNEL);
+	sync = devm_kzalloc(gdev->pdev, sizeof(*sync), GFP_KERNEL);
 	sync->cb_arg = cb_arg;
 	sync->cb_fn = cb_fn;
 	INIT_WORK(&sync->work, vdsscomp_sync_cb);
@@ -454,7 +454,7 @@ static int vdsscomp_deinit_flip(struct vdsscomp_dev *cdev)
 		list_del(&sync->list);
 		if (sync->cb_fn)
 			sync->cb_fn(sync->cb_arg, 1);
-		kfree(sync);
+		devm_kfree(gdev->pdev, sync);
 	}
 	spin_unlock_irqrestore(&gdev->flip_lock, flags);
 

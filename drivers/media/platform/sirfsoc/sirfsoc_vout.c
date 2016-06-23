@@ -2432,7 +2432,8 @@ static int sirfsoc_vout_probe(struct platform_device *pdev)
 	if (!sirfsoc_vdss_is_initialized())
 		return -ENXIO;
 
-	vid_dev = kzalloc(sizeof(struct sirfsoc_video_device), GFP_KERNEL);
+	vid_dev = devm_kzalloc(&pdev->dev,
+		sizeof(struct sirfsoc_video_device), GFP_KERNEL);
 	if (vid_dev == NULL)
 		return -ENOMEM;
 
@@ -2466,7 +2467,6 @@ static int sirfsoc_vout_probe(struct platform_device *pdev)
 probe_err2:
 	v4l2_device_unregister(&vid_dev->v4l2_dev);
 probe_err1:
-	kfree(vid_dev);
 	return ret;
 }
 
@@ -2507,8 +2507,6 @@ static int sirfsoc_vout_remove(struct platform_device *pdev)
 	v4l2_device_unregister(v4l2_dev);
 	for (i = 0; i < vid_dev->num_panel; i++)
 		sirfsoc_vout_free_device(vid_dev->vouts[i]);
-
-	kfree(vid_dev);
 
 	return 0;
 }
