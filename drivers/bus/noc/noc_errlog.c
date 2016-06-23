@@ -87,7 +87,7 @@ struct id_rp_maps_t {
 static struct id_rp_maps_t noc_initator_id_list[] = {
 	{"dmac2_ac97_aux_fifo", FW_DDR_RTLL},
 	{"kas_dram", FW_DDR_RTLL},
-	{"afe_cvd_vip0", FW_DDR_RTLL},
+	{"afe_cvd_vip0_spdif-tx", FW_DDR_RTLL},
 	{"usp0_axi_i", FW_DDR_RTLL},
 	{"sgx", FW_DDR_SGX},
 	{"sdr", FW_DDR_RTLL},
