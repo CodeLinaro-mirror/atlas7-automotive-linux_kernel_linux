@@ -241,13 +241,13 @@ static ssize_t dramfw_noncpu_store(struct device *dev,
 {
 	struct noc_macro *nocm = dev_get_drvdata(dev);
 	struct dramfw_regs_t *dfwregs;
-	int access, state, mode, noncpu, rpnum, rpbase, start;
+	int access, state, mode, noncpu, rpnum = 0, rpbase;
 	char name[16];
 	unsigned long flags;
 
 	memset(name, 0, sizeof(name));
-	if (sscanf(buf, "%s %d %d %d %x %d\n",
-			name, &access, &state, &mode, &start, &rpnum) != 6)
+	if (sscanf(buf, "%s %d %d %d\n",
+			name, &access, &state, &mode) != 4)
 		return -EINVAL;
 	local_irq_save(flags);
 
@@ -267,7 +267,8 @@ static ssize_t dramfw_noncpu_store(struct device *dev,
 
 	ramfw_config_noncpu_state(dfwregs, noncpu, state);
 
-	ramfw_config_range(dfwregs, start, 0x100000);
+	/*apply secure rp attribute to whole 512MB dram*/
+	ramfw_config_range(dfwregs, 0x40000000, 0x20000000);
 	/*1: set range mode for rp*/
 	ramfw_config_noncpu_mode(dfwregs, noncpu, mode);
 
