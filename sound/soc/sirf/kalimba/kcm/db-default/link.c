@@ -304,9 +304,9 @@ static const struct kasdb_link link[] = {
 	},
 	{
 		/* AEC-Ref -> IACC, 4ch */
-		.name = __S("lk_aecref_iacc"),
+		.name = __S("lk_aecref_codec"),
 		.source_name = __S("op_aecref"),
-		.sink_name = __S("si_iacc"),
+		.sink_name = __S(SI_CODEC),
 		.source_pins = { 2, 3, 8, 9 },
 		.sink_pins = { 1, 2, 3, 4 },
 		.channels = 4,
@@ -314,8 +314,8 @@ static const struct kasdb_link link[] = {
 	/* CVC send & recv */
 	{
 		/* IACC -> AEC-Ref 2 Mic */
-		.name = __S("lk_iacc_aecref_2mic"),
-		.source_name = __S("so_iacc_2mic"),
+		.name = __S("lk_codec_aecref_2mic"),
+		.source_name = __S(SO_CODEC_2MIC),
 		.sink_name = __S("op_aecref"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 3, 4 },
@@ -332,8 +332,8 @@ static const struct kasdb_link link[] = {
 	},
 	{
 		/* IACC -> AEC-Ref 1 Mic */
-		.name = __S("lk_iacc_aecref_1mic"),
-		.source_name = __S("so_iacc"),
+		.name = __S("lk_codec_aecref_1mic"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_aecref"),
 		.source_pins = { 1 },
 		.sink_pins = { 3 },
@@ -415,8 +415,8 @@ static const struct kasdb_link link[] = {
 	/* Microphone: Analog Capture, Mono */
 	{
 		/* IACC -> Resampler, 1ch */
-		.name = __S("lk_iacc_src_1ch"),
-		.source_name = __S("so_iacc"),
+		.name = __S("lk_codec_src_1ch"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_src_cap"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
@@ -443,8 +443,8 @@ static const struct kasdb_link link[] = {
 	/* Microphone: Analog Capture, Stereo */
 	{
 		/* IACC -> Resampler, 2ch */
-		.name = __S("lk_iacc_src_2ch"),
-		.source_name = __S("so_iacc"),
+		.name = __S("lk_codec_src_2ch"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_src_cap"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
@@ -473,7 +473,7 @@ static const struct kasdb_link link[] = {
 	{
 		/* Line-In -> Passthrough, 1ch */
 		.name = __S("lk_lin_pass_1"),
-		.source_name = __S("so_iacc"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_pass_music"),
 		.source_pins = { 1 },
 		.sink_pins = { 1 },
@@ -482,7 +482,7 @@ static const struct kasdb_link link[] = {
 	{
 		/* Line-In -> Passthrough, 2ch */
 		.name = __S("lk_lin_pass_2"),
-		.source_name = __S("so_iacc"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_pass_music"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
@@ -586,8 +586,8 @@ static const struct kasdb_link link[] = {
 	},
 	{
 		/* IACC -> Mixer3, 1ch */
-		.name = __S("lk_iacc_mixer3_1"),
-		.source_name = __S("so_iacc"),
+		.name = __S("lk_codec_mixer3_1"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1 },
 		.sink_pins = { 3 },
@@ -595,8 +595,8 @@ static const struct kasdb_link link[] = {
 	},
 	{
 		/* IACC -> Mixer3, 2ch */
-		.name = __S("lk_iacc_mixer3_2"),
-		.source_name = __S("so_iacc"),
+		.name = __S("lk_codec_mixer3_2"),
+		.source_name = __S(SO_CODEC),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 3, 4 },

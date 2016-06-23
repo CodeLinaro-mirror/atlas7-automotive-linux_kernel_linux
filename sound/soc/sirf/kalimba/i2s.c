@@ -43,6 +43,12 @@ static struct sirf_i2s *i2s;
 
 static void sirf_i2s_tx_enable(struct sirf_i2s *i2s)
 {
+	/* Reset TDM playback logic */
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_TX_RESET, I2S_TDM_TX_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_TX_RESET, 0);
+
 	/* First start the FIFO, then enable the tx/rx */
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TXFIFO_OP,
 		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
@@ -65,6 +71,12 @@ static void sirf_i2s_tx_disable(struct sirf_i2s *i2s)
 
 static void sirf_i2s_rx_enable(struct sirf_i2s *i2s)
 {
+	/* Reset TDM record logic */
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_RX_RESET, I2S_TDM_RX_RESET);
+	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			I2S_TDM_RX_RESET, 0);
+
 	/* First start the FIFO, then enable the tx/rx */
 	regmap_update_bits(i2s->regmap, AUDIO_CTRL_I2S_RXFIFO_OP,
 		AUDIO_FIFO_RESET, AUDIO_FIFO_RESET);
@@ -100,6 +112,11 @@ void sirf_i2s_stop(int playback)
 		sirf_i2s_tx_disable(i2s);
 	else
 		sirf_i2s_rx_disable(i2s);
+}
+
+void sirf_i2s_set_sysclk(int freq)
+{
+	i2s->sysclk = freq;
 }
 
 void sirf_i2s_params(int channels, int rate, int slave)
@@ -158,6 +175,108 @@ void sirf_i2s_params(int channels, int rate, int slave)
 
 	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s_ctrl);
 	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, i2s_tx_rx_ctrl);
+}
+
+int sirf_i2s_params_adv(struct i2s_params *param)
+{
+	u32 i2s_ctrl = 0;
+	u32 i2s_tx_rx_en = 0;
+	u32 tdm_ctrl = 0;
+	u32 tdm_mask;
+	u32 left_len, frame_len;
+	u32 bclk_div, bclk_ratio;
+
+	if (!i2s->sysclk)
+		i2s->sysclk = param->rate * 512;
+
+	clk_set_rate(i2s->clk_dto, i2s->sysclk * 2);
+	clk_set_rate(i2s->clk_mux, i2s->sysclk * 2);
+
+	switch (param->channels) {
+	case 2:
+		i2s_ctrl &= ~I2S_SIX_CHANNELS;
+		bclk_ratio = 32;
+		break;
+	case 4:
+		regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			&tdm_ctrl);
+
+		if (param->playback) {
+			tdm_mask = I2S_TDM_MASK_TX;
+			tdm_ctrl &= ~tdm_mask;
+			tdm_ctrl |= (I2S_TDM_WORD_SIZE_TX(32))
+				|(I2S_TDM_DAC_CH(param->channels))
+				| I2S_TDM_DATA_ALIGN_TX_LEFT_J
+				| I2S_TDM_WORD_ALIGN_TX_LEFT_J
+				| I2S_TDM_FRAME_POLARITY_LOW
+				| I2S_TDM_FRAME_SYNC_DSP0;
+		} else {
+			tdm_mask = I2S_TDM_MASK_RX;
+			tdm_ctrl &= ~tdm_mask;
+			tdm_ctrl |= (I2S_TDM_WORD_SIZE_RX(32))
+				|(I2S_TDM_ADC_CH(param->channels))
+				|I2S_TDM_DATA_ALIGN_RX_LEFT_J
+				|I2S_TDM_WORD_ALIGN_RX_I2S0
+				|I2S_TDM_FRAME_POLARITY_HIGH
+				|I2S_TDM_FRAME_SYNC_DSP0;
+		}
+		tdm_ctrl |= I2S_TDM_ENA;
+		bclk_ratio = 128;
+		break;
+	case 6:
+		i2s_ctrl |= I2S_SIX_CHANNELS;
+		break;
+	case 8:
+		regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
+			&tdm_ctrl);
+
+		if (param->playback) {
+			tdm_mask = I2S_TDM_MASK_TX;
+			tdm_ctrl &= ~tdm_mask;
+			tdm_ctrl |= (I2S_TDM_WORD_SIZE_TX(32))
+					|(I2S_TDM_DAC_CH(param->channels))
+					|I2S_TDM_DATA_ALIGN_TX_LEFT_J
+					|I2S_TDM_WORD_ALIGN_TX_I2S0
+					|I2S_TDM_FRAME_POLARITY_HIGH
+					|I2S_TDM_FRAME_SYNC_DSP0;
+		} else {
+			dev_err(i2s->dev, "%d channels record unsupported\n",
+				param->channels);
+			return -EINVAL;
+		}
+		tdm_ctrl |= I2S_TDM_ENA;
+		bclk_ratio = 256;
+		break;
+	default:
+		dev_err(i2s->dev, "%d channels unsupported\n", param->channels);
+		return -EINVAL;
+	}
+
+	left_len = 16;
+	frame_len = left_len * 2;
+
+	if (!param->slave) {
+		i2s_ctrl &= ~I2S_SLAVE_MODE;
+		bclk_div = (i2s->sysclk / (param->rate * bclk_ratio * 2)) - 1;
+
+		if (!bclk_div) {
+			dev_err(i2s->dev, "bclk div %d  error\n", bclk_div);
+			return -EINVAL;
+		}
+		i2s_ctrl |= (bclk_div << I2S_BITCLK_DIV_SHIFT);
+	} else
+		i2s_ctrl |= I2S_SLAVE_MODE;
+
+	i2s_ctrl |= ((frame_len - 1) << I2S_FRAME_LEN_SHIFT)
+		| ((left_len - 1) << I2S_L_CHAN_LEN_SHIFT);
+
+	i2s_tx_rx_en &= ~I2S_REF_CLK_SEL_EXT;
+	i2s_tx_rx_en |= I2S_MCLK_EN;
+
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_CTRL, i2s_ctrl);
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN, i2s_tx_rx_en);
+	regmap_write(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL, tdm_ctrl);
+	return 0;
 }
 
 static const struct regmap_config sirf_i2s_regmap_config = {

@@ -23,6 +23,26 @@
 #define KCM_RATES (SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_48000)
 #define KCM_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 
+#ifdef CONFIG_SND_SOC_SIRF_KALIMBA_KCM_CODEC_I2S
+#define I2S_CODEC_ENABLE 1
+#define IACC_CODEC_ENABLE 0
+#define CODEC_TYPE ("i2s")
+#define SI_CODEC ("si_i2s")
+#define SO_CODEC ("so_i2s")
+#define SO_CODEC_2MIC ("so_i2s_2mic")
+#define SO_CODEC_CH_MIN 2
+#define SO_CODEC_CH_MAX 2
+#else
+#define I2S_CODEC_ENABLE 0
+#define IACC_CODEC_ENABLE 1
+#define CODEC_TYPE ("iacc")
+#define SI_CODEC ("si_iacc")
+#define SO_CODEC ("so_iacc")
+#define SO_CODEC_2MIC ("so_iacc_2mic")
+#define SO_CODEC_CH_MIN 1
+#define SO_CODEC_CH_MAX 2
+#endif
+
 #define __S(str)	{ .s = str }
 
 #include "kasdb-ctrls.h"

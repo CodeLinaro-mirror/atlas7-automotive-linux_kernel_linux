@@ -16,8 +16,17 @@
 #ifndef _KAS_I2S_H
 #define _KAS_I2S_H
 
+struct i2s_params {
+	int channels;
+	int rate;
+	char slave;
+	char playback;
+};
+
 void sirf_i2s_start(int playback);
 void sirf_i2s_stop(int playback);
 void sirf_i2s_params(int channels, int rate, int slave);
+int sirf_i2s_params_adv(struct i2s_params *param);
+void sirf_i2s_set_sysclk(int freq);
 
 #endif /*_KAS_I2S_H*/

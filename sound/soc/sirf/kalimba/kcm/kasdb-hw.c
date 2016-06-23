@@ -13,10 +13,42 @@
 
 static const struct kasdb_codec codec[] = {
 	{
+		.name = __S("i2s"),
+		.chip_name = __S("cs42xx8.0-004b"),
+		.dai_name = __S("cs42888"),
+		.enable = I2S_CODEC_ENABLE,
+		.rate = 48000,
+		.playback = 1,
+		.capture = 1,
+		.codec_widget_num = 2,
+		.codec_widget = {
+			/* I2S Backend DAIs  */
+			SND_SOC_DAPM_AIF_IN("I2S Codec IN", NULL,
+				0, SND_SOC_NOPM, 0, 0),
+			SND_SOC_DAPM_AIF_OUT("I2S Codec OUT", NULL,
+				0, SND_SOC_NOPM, 0, 0)},
+		.card_widget_num = 2,
+		.card_widget = {
+			SND_SOC_DAPM_HP("Headphones", NULL),
+			SND_SOC_DAPM_MIC("MICIN", NULL)},
+		.route_num = 10,
+		.route = {
+			{"Headphones", NULL, "AOUT1L"},
+			{"Headphones", NULL, "AOUT1R"},
+			{"Headphones", NULL, "AOUT2L"},
+			{"Headphones", NULL, "AOUT2R"},
+			{"AIN1L", NULL, "MICIN"},
+			{"AIN1R", NULL, "MICIN"},
+			{"AIN2L", NULL, "MICIN"},
+			{"AIN2R", NULL, "MICIN"},
+			{"Playback", NULL, "I2S Codec OUT"},
+			{"I2S Codec IN", NULL, "Capture"},},
+	},
+	{
 		.name = __S("iacc"),
 		.chip_name = __S("10e30000.atlas7_codec"),
 		.dai_name = __S("atlas7-codec-hifi"),
-		.enable = 1,
+		.enable = IACC_CODEC_ENABLE,
 		.rate = 48000,
 		.playback = 1,
 		.capture = 1,
@@ -43,9 +75,6 @@ static const struct kasdb_codec codec[] = {
 			{"MICIN0", NULL, "MICIN"},
 			{"IACC Codec IN", NULL, "AIF Capture"},},
 	},
-	{
-		.name = __S("i2s"),
-	},
 };
 
 /* Sink, Source */
@@ -59,6 +88,28 @@ static const struct kasdb_hw hw[] = {
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
 		.def_rate = 0,
+		.bytes_per_ch = 192,
+	},
+	{
+		.name = __S("si_i2s"),
+		.is_sink = 1,
+		.is_slave = 0,
+		.max_channels = 8,
+		.def_channels = 8,
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 48000,
+		.bytes_per_ch = 192,
+	},
+	{
+		.name = __S("so_i2s_2mic"),
+		.is_sink = 0,
+		.is_slave = 0,
+		.max_channels = 2,
+		.def_channels = 2,		/* For two mic cvc */
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 48000,
 		.bytes_per_ch = 192,
 	},
 	{

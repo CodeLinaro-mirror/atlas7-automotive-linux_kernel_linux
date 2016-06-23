@@ -21,7 +21,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -33,7 +33,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -45,7 +45,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 1,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -57,7 +57,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -69,7 +69,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -82,7 +82,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 1,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -94,7 +94,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 2,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -107,7 +107,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 2,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -115,12 +115,12 @@ static const struct kasdb_fe fe[] = {
 		.playback = 0,
 		.internal = 0,
 		.stream_name = __S("Analog Capture"),
-		.channels_min = 1,
-		.channels_max = 2,
+		.channels_min = SO_CODEC_CH_MIN,
+		.channels_max = SO_CODEC_CH_MAX,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
 		.sink_codec = __S(NULL),
-		.source_codec = __S("iacc"),
+		.source_codec = __S(CODEC_TYPE),
 	},
 	{
 		.name = __S("Voicecall-iacc-to-bt"),
@@ -132,7 +132,7 @@ static const struct kasdb_fe fe[] = {
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
 		.sink_codec = __S(NULL),
-		.source_codec = __S("iacc"),
+		.source_codec = __S(CODEC_TYPE),
 	},
 	{
 		/* Carplay Voicecall-capture */
@@ -145,7 +145,7 @@ static const struct kasdb_fe fe[] = {
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
 		.sink_codec = __S(NULL),
-		.source_codec = __S("iacc"),
+		.source_codec = __S(CODEC_TYPE),
 	},
 	{
 		.name = __S("Iacc-loopback-capture"),
@@ -157,7 +157,7 @@ static const struct kasdb_fe fe[] = {
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
 		.sink_codec = __S(NULL),
-		.source_codec = __S("iacc"),
+		.source_codec = __S(CODEC_TYPE),
 	},
 	{
 		.name = __S("USP0"),
@@ -168,7 +168,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -180,7 +180,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 	{
@@ -192,7 +192,7 @@ static const struct kasdb_fe fe[] = {
 		.channels_max = 4,
 		.rates = KCM_RATES,
 		.formats = KCM_FORMATS,
-		.sink_codec = __S("iacc"),
+		.sink_codec = __S(CODEC_TYPE),
 		.source_codec = __S(NULL),
 	},
 };

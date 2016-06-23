@@ -11,19 +11,43 @@
  * GNU General Public License for more details.
  */
 
-static int kas_i2s_hw_params(struct snd_pcm_substream *substream,
+#include "../../i2s.h"
+static int codec_i2s_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
 	/* TODO: Implemente i2s hw_params */
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = rtd->card;
+	unsigned int fmt = 0;
+	unsigned int mclk;
+
+	mclk = 1024 * params_rate(params);
+	fmt |= SND_SOC_DAIFMT_CBS_CFS;
+
+	/*only i2s codec set need to config external codec*/
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+		fmt |= SND_SOC_DAIFMT_I2S;
+	else
+		fmt |= SND_SOC_DAIFMT_DSP_A; /*codec works in tdm mode*/
+
+	if (snd_soc_dai_set_sysclk(codec_dai, 0, mclk, SND_SOC_CLOCK_IN) ||
+			snd_soc_dai_set_fmt(codec_dai, fmt)) {
+		dev_err(card->dev, "Can't set codec dai hw params\n");
+		return -EINVAL;
+	}
+
+	/*i2s controller setting would be done by kalimba*/
+	sirf_i2s_set_sysclk(mclk);
 
 	return 0;
 }
 
-static const struct snd_soc_ops kas_i2s_hw_ops = {
-	.hw_params = kas_i2s_hw_params,
+static struct snd_soc_ops codec_i2s_hw_ops = {
+	.hw_params = codec_i2s_hw_params,
 };
 
-static int codec_iacc_fixup(struct snd_soc_pcm_runtime *rtd,
+static int codec_fixup(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate = hw_param_interval(params,
@@ -31,7 +55,6 @@ static int codec_iacc_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	/* The kalimba DSP will covert the FE rate to 48k */
 	rate->min = rate->max = 48000;
-
 	return 0;
 }
 
@@ -41,8 +64,8 @@ static const struct codec_name_ops{
 	int (*fixup)(struct snd_soc_pcm_runtime *rtd,
 			struct snd_pcm_hw_params *params);
 } _codec_ops[] = {
-	{"iacc", NULL, codec_iacc_fixup},
-	{"i2s", &kas_i2s_hw_ops, NULL},
+	{"iacc", NULL, codec_fixup},
+	{"i2s", &codec_i2s_hw_ops, codec_fixup},
 };
 
 static struct codec_name_ops *codec_find_ops(const char *name)

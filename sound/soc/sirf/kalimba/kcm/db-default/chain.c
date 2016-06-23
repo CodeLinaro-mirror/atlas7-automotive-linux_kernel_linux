@@ -23,7 +23,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s1peq;lk_delay_s2peq;lk_delay_s3peq;"
 			"lk_delay_s4peq;lk_s1peq_mixer;lk_s2peq_mixer;"
 			"lk_s3peq_mixer;lk_s4peq_mixer;lk_mixer_mixer2;"
-			"lk_mixer2_volctrl;lk_aecref_iacc;"
+			"lk_mixer2_volctrl;lk_aecref_codec;"
 			"lk_volctrl_aecref"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 			"chain_i2s_to_iacc_2;chain_a2dp_2ch;"
@@ -40,7 +40,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_lin_to_lout_1;"
 			"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
@@ -54,12 +54,11 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s3peq;lk_delay_s4peq;lk_s1peq_mixer;"
 			"lk_s2peq_mixer;lk_s3peq_mixer;lk_s4peq_mixer;"
 			"lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 			"chain_i2s_to_iacc_2;chain_a2dp_2ch;"
 			"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
 	},
-
 	/* Navigation */
 	{
 		.name = __S("chain_navi"),
@@ -67,7 +66,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_channels = 4,
 		.links = __S(
 			"lk_navi_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S(NULL),
 	},
 
@@ -78,7 +77,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_channels = 1,
 		.links = __S("lk_alarm_src;lk_alarm_split_1x2;lk_alarm_split;"
 			"lk_alarm_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S(NULL),
 	},
 
@@ -91,7 +90,7 @@ static const struct kasdb_chain chain[] = {
 		.links = __S("lk_usp3_cvc_recv;lk_cvc_recv_src;"
 			"lk_src_split1x2_cvc;lk_split1x2_split2x4_cvc;"
 			"lk_split2x4_mixer2_cvc;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_iacc_aecref_1mic;"
+			"lk_aecref_codec;lk_codec_aecref_1mic;"
 			"lk_volctrl_aecref;lk_aecref_cvc_send_1mic;"
 			"lk_cvc_send_usp3;lk_aecref_cvc_send_ref"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
@@ -108,7 +107,7 @@ static const struct kasdb_chain chain[] = {
 		.links = __S("lk_usp3_cvc_recv;lk_cvc_recv_src;"
 			"lk_src_split1x2_cvc;lk_split1x2_split2x4_cvc;"
 			"lk_split2x4_mixer2_cvc;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_iacc_aecref_2mic;"
+			"lk_aecref_codec;lk_codec_aecref_2mic;"
 			"lk_volctrl_aecref;lk_aecref_cvc_send_2mic;"
 			"lk_cvc_send_usp3;lk_aecref_cvc_send_ref"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
@@ -131,7 +130,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_cap_mono"),
 		.trg_fe_name = __S("AnalogCapture"),
 		.trg_channels = 1,
-		.links = __S("lk_iacc_src_1ch;lk_src_pass_1ch;lk_pass_cap_1ch"),
+		.links = __S("lk_codec_src_1ch;lk_src_pass_1ch;"
+			"lk_pass_cap_1ch"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 			"chain_cvc_send_1mic;chain_voicecall_capture_1mic;"
 			"chain_voicecall_capture_2mic"),
@@ -140,7 +140,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_cap_stereo"),
 		.trg_fe_name = __S("AnalogCapture"),
 		.trg_channels = 2,
-		.links = __S("lk_iacc_src_2ch;lk_src_pass_2ch;lk_pass_cap_2ch"),
+		.links = __S("lk_codec_src_2ch;lk_src_pass_2ch;"
+			"lk_pass_cap_2ch"),
 		.mutexs = __S("chain_lin_to_lout_1;chain_lin_to_lout_2;"
 			"chain_cvc_send_1mic;"
 			"chain_voicecall_capture_1mic;"
@@ -158,7 +159,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s1peq;lk_delay_s2peq;lk_delay_s3peq;"
 			"lk_delay_s4peq;lk_s1peq_mixer;lk_s2peq_mixer;"
 			"lk_s3peq_mixer;lk_s4peq_mixer;lk_mixer_mixer2;"
-			"lk_mixer2_volctrl;lk_aecref_iacc;"
+			"lk_mixer2_volctrl;lk_aecref_codec;"
 			"lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 			"chain_a2dp_2ch;chain_cap_mono;chain_cap_stereo;"
@@ -170,14 +171,14 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_lin_to_lout_2"),
 		.trg_fe_name = __S("Iacc-loopback-playback"),
 		.trg_channels = 2,
-		.links = __S("lk_iacc_mixer3_2;lk_mixer3_pass;"
+		.links = __S("lk_codec_mixer3_2;lk_mixer3_pass;"
 			"lk_pass_src_2;lk_src_split;"
 			"lk_split_upeq;lk_upeq_bass_1;lk_upeq_bass_2;"
 			"lk_bass_1_delay;lk_bass_2_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_4;"
 			"chain_cap_mono;chain_cap_stereo;"
 			"chain_cvc_send_1mic;chain_voicecall_capture_1mic;"
@@ -207,7 +208,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_4;"
 			"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
 			"chain_usp0_2ch;chain_usp1_2ch;chain_usp2_2ch"),
@@ -224,7 +225,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 			"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
 			"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
@@ -242,7 +243,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 			"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
 			"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
@@ -260,7 +261,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_2;chain_music_4;"
 			"chain_cvc_send_1mic;chain_cvc_recv;chain_lin_to_lout_1;"
 			"chain_lin_to_lout_2;chain_i2s_to_iacc_2;"
@@ -273,7 +274,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Voicecall-capture"),
 		.trg_channels = 1,
 		.cvc_mic = single,
-		.links = __S("lk_iacc_aecref_1mic;lk_aecref_cvc_send_1mic;"
+		.links = __S("lk_codec_aecref_1mic;lk_aecref_cvc_send_1mic;"
 			"lk_aecref_cvc_send_ref;"
 			"lk_cvc_send_vocall_cap"),
 		.mutexs = __S(
@@ -286,7 +287,7 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Voicecall-capture"),
 		.trg_channels = 1,
 		.cvc_mic = doub,
-		.links = __S("lk_iacc_aecref_2mic;lk_aecref_cvc_send_2mic;"
+		.links = __S("lk_codec_aecref_2mic;lk_aecref_cvc_send_2mic;"
 			"lk_aecref_cvc_send_ref;lk_cvc_send_vocall_cap"),
 		.mutexs = __S(
 			"chain_lin_to_lout_1;chain_lin_to_lout_2;"
@@ -300,7 +301,7 @@ static const struct kasdb_chain chain[] = {
 		.links = __S("lk_vocall_play_cvc_recv;lk_cvc_recv_src;"
 			"lk_src_split1x2_cvc;lk_split1x2_split2x4_cvc;"
 			"lk_split2x4_mixer2_cvc;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_cvc_recv"),
 	},
 
@@ -316,7 +317,7 @@ static const struct kasdb_chain chain[] = {
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
 			"lk_s4peq_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_iacc;lk_volctrl_aecref"),
+			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_music_1;chain_music_4;chain_lin_to_lout_1;"
 			"chain_lin_to_lout_2;chain_usp0_2ch;"
 			"chain_usp1_2ch;chain_usp2_2ch"),

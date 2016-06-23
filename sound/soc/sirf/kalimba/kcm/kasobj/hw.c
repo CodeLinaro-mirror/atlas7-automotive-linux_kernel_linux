@@ -23,9 +23,10 @@
  */
 
 /* IACC implementation */
-static void hw_iacc_config(struct kasobj_hw *hw)
+static int hw_iacc_config(struct kasobj_hw *hw)
 {
 	/* No configuration needed for IACC digital part */
+	return 0;
 }
 
 static int hw_iacc_start(struct kasobj *obj)
@@ -53,9 +54,16 @@ static int hw_iacc_stop(struct kasobj *obj)
 }
 
 /* I2S implementation */
-static void hw_i2s_config(struct kasobj_hw *hw)
+static int hw_i2s_config(struct kasobj_hw *hw)
 {
-	sirf_i2s_params(hw->channels, hw->rate, hw->db->is_slave);
+	struct i2s_params param;
+
+	param.channels = hw->channels;
+	param.rate = hw->rate;
+	param.slave = hw->db->is_slave;
+	param.playback = hw->db->is_sink;
+
+	return sirf_i2s_params_adv(&param);
 }
 
 static int hw_i2s_start(struct kasobj *obj)
@@ -83,9 +91,10 @@ static int hw_i2s_stop(struct kasobj *obj)
 }
 
 /* USP implementation */
-static void hw_usp_config(struct kasobj_hw *hw)
+static int hw_usp_config(struct kasobj_hw *hw)
 {
 	sirf_usp_pcm_params(hw->param, hw->db->is_sink, hw->channels, hw->rate);
+	return 0;
 }
 
 static int hw_usp_start(struct kasobj *obj)
@@ -114,7 +123,7 @@ static int hw_usp_stop(struct kasobj *obj)
 
 static struct hw_name_ops {
 	const char *name;
-	void (*config)(struct kasobj_hw *hw);
+	int (*config)(struct kasobj_hw *hw);
 	int (*start)(struct kasobj *obj);
 	int (*stop)(struct kasobj *obj);
 	int ep_type;
@@ -198,6 +207,7 @@ static int hw_stop(struct kasobj *obj)
 static int hw_get(struct kasobj *obj, const struct kasobj_param *param)
 {
 	int i;
+	int ret = 0;
 	struct kasobj_hw *hw = kasobj_to_hw(obj);
 	const struct kasdb_hw *db = hw->db;
 	struct hw_name_ops *ops = hw_find_ops(db->name.s);
@@ -216,7 +226,11 @@ static int hw_get(struct kasobj *obj, const struct kasobj_param *param)
 		hw->rate = param->rate;
 
 	/* Configure audio controller */
-	ops->config(hw);
+	ret = ops->config(hw);
+	if (ret) {
+		kcm_debug("KASHW: config hw error!\n");
+		return -EINVAL;
+	}
 
 	/* Allocate audio buffer */
 	hw->buff_bytes = db->bytes_per_ch * hw->channels;

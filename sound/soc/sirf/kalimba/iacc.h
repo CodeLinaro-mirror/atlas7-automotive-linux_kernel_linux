@@ -25,8 +25,8 @@ enum iacc_input_path {
 	MONO_LINEIN
 };
 
-int iacc_setup(int pchannels, int rchannels,
-	enum iacc_input_path path, u32 SampleRate, u32 format);
+int iacc_setup(int playback, int channels,
+	enum iacc_input_path path, u32 sample_rate, u32 format);
 void iacc_start(int playback, int channels);
 void iacc_stop(int playback);
 void atlas7_codec_release(void);
