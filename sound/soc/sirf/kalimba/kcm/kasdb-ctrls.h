@@ -14,7 +14,7 @@
 #ifndef OP_CTRLS_H
 #define OP_CTRLS_H
 
-#define KCM_PEQ_ALL_BAND(name, param)\
+#define KCM_PEQ_ALL_BAND(name, param)	\
 	name " PEQ Band1 " param ";"	\
 	name " PEQ Band2 " param ";"	\
 	name " PEQ Band3 " param ";"	\
@@ -26,15 +26,15 @@
 	name " PEQ Band9 " param ";"	\
 	name " PEQ Band10 " param ";"
 
-#define KCM_CTRLS_PEQ(name)			\
+#define KCM_CTRLS_PEQ(name)		\
 	KCM_PEQ_ALL_BAND(name, "Gain")	\
 	KCM_PEQ_ALL_BAND(name, "FC")	\
-	name " PEQ Bands Num;"			\
-	name " PEQ Core Type;"			\
-	name " PEQ Master Gain;"		\
+	name " PEQ Bands Num;"		\
+	name " PEQ Core Type;"		\
+	name " PEQ Master Gain;"	\
 	name " PEQ Switch Mode"
 
-#define KCM_MIXER_STREAM(name)	\
+#define KCM_MIXER_STREAM(name)		\
 	name " Stream Vol;"		\
 	name " Stream Mute;"		\
 	name " Stream Ramp;"		\
@@ -51,27 +51,27 @@
 	KCM_MIXER_STREAM(stream2) ";"	\
 	KCM_MIXER_STREAM(stream3)
 
-#define KCM_CTRLS_BASICPASS(name)\
-	name " Pregain"
-	/* ";" name " Premute" */
+#define KCM_CTRLS_BASICPASS(name)	\
+	name " Pregain;"		\
+	name " Premute"
 
-#define KCM_CTRLS_BASS(name)	\
-	name " DBE Effect Strength;"\
+#define KCM_CTRLS_BASS(name)		\
+	name " DBE Effect Strength;"	\
 	name " DBE Amp Limit;"		\
-	name " DBE LP FC;"			\
-	name " DBE HP FC;"			\
+	name " DBE LP FC;"		\
+	name " DBE HP FC;"		\
 	name " DBE Harm Content;"	\
 	name " DBE Xover FC;"		\
 	name " DBE Mix Balance;"	\
 	name " DBE Switch Mode"
 
 #define KCM_CTRLS_DELAY(name)	\
-	name " Chan1 Delay;"		\
-	name " Chan2 Delay;"		\
-	name " Chan3 Delay;"		\
+	name " Chan1 Delay;"	\
+	name " Chan2 Delay;"	\
+	name " Chan3 Delay;"	\
 	name " Chan4 Delay"
 
-#define KCM_CTRLS_VOLCTRL(name)	\
+#define KCM_CTRLS_VOLCTRL(name)		\
 	name " Vol Front Left;"		\
 	name " Vol Front Right;"	\
 	name " Vol Rear Left;"		\

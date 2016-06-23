@@ -97,15 +97,7 @@ static const struct kasdb_op op[] = {
 		/* Music bass+ */
 		.name = __S("op_bass_1_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(
-				"DBE Effect Strength;"
-				"DBE Amp Limit;"
-				"DBE LP FC;"
-				"DBE HP FC;"
-				"DBE Harm Content;"
-				"DBE Xover FC;"
-				"DBE Mix Balance;"
-				"DBE Switch Mode"),
+		.ctrl_names = __S(KCM_CTRLS_BASS("Music")),
 		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
 		.rate = 48000,
 		.param.bass_pair_idx = 0,
@@ -123,7 +115,7 @@ static const struct kasdb_op op[] = {
 		/* Music delay */
 		.name = __S("op_delay_music"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(KCM_CTRLS_DELAY("Delay")),
+		.ctrl_names = __S(KCM_CTRLS_DELAY("Music")),
 		.cap_id = CAPABILITY_ID_DELAY,
 		.rate = 0,
 		.param.delay_channels = 4,
@@ -170,13 +162,7 @@ static const struct kasdb_op op[] = {
 		/* Volume control */
 		.name = __S("op_volume_control"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(
-				"Front Left;"
-				"Front Right;"
-				"Rear Left;"
-				"Rear Right;"
-				"Master Gain;"
-				"Master Mute"),
+		.ctrl_names = __S(KCM_CTRLS_VOLCTRL("Main")),
 		.cap_id = CAPABILITY_ID_VOLUME_CONTROL,
 		.rate = 48000,
 		.param.dummy = 0,
