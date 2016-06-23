@@ -582,6 +582,11 @@ static void vdss_update_regs(u32 lcdc_index)
 		int r;
 
 		scn = sirfsoc_vdss_get_screen(lcdc_index, i);
+		if (!scn) {
+			VDSSERR("screen error\n");
+			return;
+		}
+
 		sdata = get_screen_data(scn);
 
 		if (!sdata->enabled || sdata->busy)
@@ -611,6 +616,11 @@ void vdss_restore_screen_layer(u32 lcdc_index)
 		struct sirfsoc_vdss_layer *l;
 
 		scn = sirfsoc_vdss_get_screen(lcdc_index, i);
+		if (!scn) {
+			VDSSERR("screen error\n");
+			return;
+		}
+
 		sdata = get_screen_data(scn);
 
 		if (!sdata->enabled)

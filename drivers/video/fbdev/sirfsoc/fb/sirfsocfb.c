@@ -607,6 +607,11 @@ static int sirfsocfb_pan_display(struct fb_var_screeninfo *var,
 	sirfsocfb_put_mem_region(sfbi->region);
 
 	scn = sirfsoc_vdss_find_screen_from_panel(panel);
+	if (!scn) {
+		dev_err(fbi->dev, "no screen for the default panel\n");
+		return -EINVAL;
+	}
+
 	if (var->activate & FB_ACTIVATE_VBL)
 		scn->wait_for_vsync(scn);
 

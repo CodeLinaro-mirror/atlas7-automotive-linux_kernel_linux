@@ -128,6 +128,10 @@ int vdss_init_screens_sysfs(u32 lcdc_index)
 	for (i = 0; i < num_scns; ++i) {
 		struct sirfsoc_vdss_screen *scn =
 			sirfsoc_vdss_get_screen(lcdc_index, i);
+		if (!scn) {
+			VDSSERR("failed to get valid screen\n");
+			return -EINVAL;
+		}
 
 		r = kobject_init_and_add(&scn->kobj, &screen_ktype,
 				&pdev->dev.kobj, "lcd%d-%s",

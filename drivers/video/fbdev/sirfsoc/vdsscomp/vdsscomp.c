@@ -219,6 +219,11 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 		disp = &d->disps[i];
 		panel = gdev->displays[i].panel;
 		scn = sirfsoc_vdss_find_screen_from_panel(panel);
+		if (!scn) {
+			dev_err(DEV(gdev), "no screen for the panel\n");
+			r = -EINVAL;
+			goto skip_comp;
+		}
 
 		scn->get_info(scn, &screen_info);
 		if (screen_info.top_layer != disp->scn.top_layer ||
