@@ -178,6 +178,9 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	 * here match to each ids data for it.
 	 */
 	match = of_match_node(pwrc_ids, np);
+	if (!WARN_ON(match))
+		return -ENODEV;
+
 	pwrcinfo->pwrc_reg = (struct sirfsoc_pwrc_register *)match->data;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-pwrc"))
