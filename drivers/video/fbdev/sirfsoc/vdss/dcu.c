@@ -533,18 +533,18 @@ static void __dcu_update_reg(struct dcu_param_set *dcu_param)
 	reg_val |= (vs_param->num_phase << 16);
 	dcu_write_reg(base, DCU_VS_LUM_V_INT_CTRL, reg_val);
 	reg_val = 0x0;
-	reg_val |= vs_param->start_line;
+	reg_val |= ((u16)vs_param->start_line << 0);
 	reg_val |= (vs_param->frac_offset << 26);
 	dcu_write_reg(base, DCU_VS_LUM_V_INT_START, reg_val);
 	reg_val = 0x0;
-	reg_val |= vs_param->scale_factor;
+	reg_val |= (vs_param->scale_factor << 0);
 	dcu_write_reg(base, DCU_VS_LUM_V_SCALE_PAR, reg_val);
 	reg_val = 0x0;
-	reg_val |= vs_param->under_shoot;
+	reg_val |= ((u16)vs_param->under_shoot << 0);
 	reg_val |= (vs_param->over_shoot << 16);
 	dcu_write_reg(base, DCU_VS_LUM_V_DDA_PAR, reg_val);
 	reg_val = 0x0;
-	reg_val |= vs_param->init_phase;
+	reg_val |= ((u16)vs_param->init_phase << 0);
 	dcu_write_reg(base, DCU_VS_LUM_V_DDA_START, reg_val);
 	dcu_vs_load_coefset(dcu_param);
 
@@ -893,12 +893,12 @@ static int __dcu_set_srcbase(struct dcu_param_set *dcu_param,
 	struct dcu_field_buf *bot_buf;
 	struct dcu_field_buf *fut_buf;
 
-	dcu_param->dcu_start = false;
-
 	if (NULL == dcu_param || NULL == surf || NULL == rect) {
 		dcu_err("%s: invalid input parameter!\n", __func__);
 		return dcu_param_invalid;
 	}
+
+	dcu_param->dcu_start = false;
 
 	if (0 == surf[1].base)
 		return dcu_more_data;
