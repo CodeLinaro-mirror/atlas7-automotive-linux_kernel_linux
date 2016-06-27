@@ -342,7 +342,7 @@ static int __vout_set_normal_mode(
 
 	if (buf == NULL) {
 		v4l2_warn(v4l2_dev, "%s: buf == NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
 
 	field = buf->v4l2_buf.field;
@@ -747,6 +747,8 @@ static int __sirfsoc_vout_set_display(struct sirfsoc_vout_device *vout,
 		return __vout_set_normal_mode(vout,
 			vout->worker.op.normal.next_frm,
 			flip);
+
+	return 0;
 }
 
 static void __sirfsoc_vout_display(struct sirfsoc_vout_device *vout)
@@ -1607,8 +1609,7 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
-	if ((req_buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT) ||
-		(req_buf->count < 0)) {
+	if (req_buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT) {
 		v4l2_err(v4l2_dev, "unsupported buf type\n");
 		return -EINVAL;
 	}
@@ -2159,10 +2160,12 @@ static int sirfsoc_vout_release(struct file *file)
 {
 	struct sirfsoc_vout_device *vout = file->private_data;
 	struct v4l2_device *v4l2_dev;
-	struct sirfsoc_vdss_layer *l = vout->layer;
+	struct sirfsoc_vdss_layer *l;
 
 	if (vout == NULL)
 		return -ENODEV;
+
+	l = vout->layer;
 
 	v4l2_dev = &vout->vid_dev->v4l2_dev;
 

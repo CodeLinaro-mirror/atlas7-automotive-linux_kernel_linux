@@ -1286,6 +1286,7 @@ static int __vpp_wait_for_idle(struct vpp_adapter *adapter)
 	struct vpp_irq *vpp_irq = &adapter->vpp_irq;
 	struct completion *completion = &vpp_irq->comp;
 	unsigned long flags;
+	long result;
 
 	spin_lock_irqsave(&vpp_irq->irq_lock, flags);
 
@@ -1293,14 +1294,14 @@ static int __vpp_wait_for_idle(struct vpp_adapter *adapter)
 
 	spin_unlock_irqrestore(&vpp_irq->irq_lock, flags);
 
-	timeout = wait_for_completion_interruptible_timeout(completion,
+	result = wait_for_completion_interruptible_timeout(completion,
 		timeout);
 
-	if (timeout == 0)
+	if (result == 0)
 		return -ETIMEDOUT;
 
-	if (timeout < 0)
-		return timeout;
+	if (result < 0)
+		return result;
 
 	return 0;
 }
@@ -1511,6 +1512,8 @@ static int __vpp_inline(struct vpp_adapter *adapter,
 
 	/* color ctrl setting */
 	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
+
+	return 0;
 }
 
 

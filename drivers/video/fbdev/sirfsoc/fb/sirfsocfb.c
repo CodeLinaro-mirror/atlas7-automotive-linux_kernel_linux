@@ -691,7 +691,7 @@ static int sirfsocfb_set_toplayer(struct fb_info *info, u8 toplayer)
 	struct sirfsoc_vdss_screen_info sinfo;
 	int r = 0;
 
-	if (toplayer < SIRFSOC_VDSS_LAYER0 || toplayer > SIRFSOC_VDSS_LAYER3)
+	if (toplayer > SIRFSOC_VDSS_LAYER3)
 		return -EINVAL;
 
 	l->screen->get_info(l->screen, &sinfo);
