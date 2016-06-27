@@ -2432,7 +2432,7 @@ v4l2_std_id vip_rv_querystd(void *data)
 	unsigned int index = vip->rv.subdev_index;
 	struct vip_subdev_info *subdev = &vip->subdev[index];
 	struct v4l2_subdev *sd = subdev->sd;
-	v4l2_std_id std;
+	v4l2_std_id std = V4L2_STD_UNKNOWN;
 
 	mutex_lock(&vip->host_lock);
 
@@ -2596,6 +2596,7 @@ static int vip_probe(struct platform_device *pdev)
 	struct vip_dev	*vip = NULL;
 	struct pinctrl *p;
 	int i = 0, ret = 0;
+	const struct of_device_id *of_id;
 
 	vip = devm_kzalloc(dev, sizeof(*vip), GFP_KERNEL);
 	if (!vip)
@@ -2636,8 +2637,13 @@ static int vip_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	vip->type = *(const unsigned int *)(of_match_device(dev->driver
-					->of_match_table, dev)->data);
+	of_id = of_match_device(dev->driver->of_match_table, dev);
+	if (!of_id) {
+		dev_err(dev, "%s: fail to get matched device\n", __func__);
+		return -EINVAL;
+	}
+
+	vip->type = *(const unsigned int *)(of_id->data);
 	if (is_com_vip(vip)) {
 		vip->dma_irq = platform_get_irq(pdev, 1);
 		if (!vip->dma_irq) {
