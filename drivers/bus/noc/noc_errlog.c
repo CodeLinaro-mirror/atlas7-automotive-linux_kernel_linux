@@ -336,8 +336,8 @@ int noc_dump_errlog(struct noc_macro *nocm)
 	if (NOC_INITIATOR_TYPE_CPU == (errCode5 & NOC_INITIATOR_TYPE))
 		pr_info("ID:\t%s\n", noc_cpu_list[(errCode5>>10) & 0x3]);
 	else
-		pr_info("ID:\%s\n", noc_initator_id_list[
-			noc_get_id_by_orig((errCode5>>5) & 0x7F)].name);
+		pr_info("ID:\%s\n", noc_initator_id_list
+				[(errCode5>>5) & 0x7F].name);
 
 	pr_info("Opc:\t%s\n", noc_opc_list[(errCode0>>1) & 0xF]);
 	pr_info("Addr\t%08x\n", errCode3);
