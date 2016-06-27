@@ -79,41 +79,58 @@ EXPORT_SYMBOL(it661x_get_hdmi_encoder);
 
 unsigned char it661x_read_i2c_byte(unsigned char reg_addr)
 {
+	s32 val = 0;
 	struct encoder_drv_data *encoder_data =
 			it661x_get_hdmi_encoder();
 
-	return i2c_smbus_read_byte_data(encoder_data->client,
+	if (encoder_data)
+		val = i2c_smbus_read_byte_data(encoder_data->client,
 					reg_addr);
+
+	if (val < 0)
+		return 0;
+	else
+		return (unsigned char)val;
 }
 
 bool it661x_write_i2c_byte(unsigned char reg_addr, unsigned char data)
 {
+	s32 val = 0;
 	struct encoder_drv_data *encoder_data =
 			it661x_get_hdmi_encoder();
 
-	return	i2c_smbus_write_byte_data(encoder_data->client,
+	if (encoder_data)
+		val = i2c_smbus_write_byte_data(encoder_data->client,
 					reg_addr,
 					data);
+
+	if (val < 0)
+		return false;
+	else
+		return true;
 }
 
 bool it661x_read_i2c_byteN(unsigned char reg_addr,
 			unsigned char *pdata, int n)
 {
 	int i;
+	s32 val = 0;
 	bool status = true;
 	struct encoder_drv_data *encoder_data =
 			it661x_get_hdmi_encoder();
 
-	for (i = 0; i < n; i++) {
-		pdata[i] =
-			i2c_smbus_read_byte_data(encoder_data->client,
-						reg_addr + i);
-
-		if (pdata[i] < 0) {
-			status = false;
-			break;
+	if (encoder_data)
+		for (i = 0; i < n; i++) {
+			val = i2c_smbus_read_byte_data(encoder_data->client,
+					reg_addr + i);
+			pdata[i] = (unsigned char)val;
+			if (val < 0) {
+				status = false;
+				break;
+			}
 		}
-	}
+	else
+		status = false;
 
 	return status;
 }
@@ -126,14 +143,17 @@ bool it661x_write_i2c_byteN(unsigned char reg_addr,
 	struct encoder_drv_data *encoder_data =
 			it661x_get_hdmi_encoder();
 
-	for (i = 0; i < n; i++) {
-		if (!i2c_smbus_write_byte_data(encoder_data->client,
+	if (encoder_data)
+		for (i = 0; i < n; i++) {
+			if (!i2c_smbus_write_byte_data(encoder_data->client,
 						reg_addr + i,
 						pdata[i])) {
-			status = false;
-			break;
+				status = false;
+				break;
+			}
 		}
-	}
+	else
+		status = false;
 
 	return status;
 }
@@ -212,7 +232,10 @@ bool sirfsoc_vdss_panel_find_encoder(void)
 	struct encoder_drv_data *encoder_data =
 				it661x_get_hdmi_encoder();
 
-	return encoder_data->state;
+	if (encoder_data)
+		return encoder_data->state;
+	else
+		return false;
 }
 EXPORT_SYMBOL(sirfsoc_vdss_panel_find_encoder);
 
