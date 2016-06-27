@@ -2396,6 +2396,10 @@ static __init void nested_vmx_setup_ctls_msrs(void)
 	} else
 		nested_vmx_ept_caps = 0;
 
+	if (enable_unrestricted_guest)
+		nested_vmx_secondary_ctls_high |=
+			SECONDARY_EXEC_UNRESTRICTED_GUEST;
+
 	/* miscellaneous data */
 	rdmsr(MSR_IA32_VMX_MISC, nested_vmx_misc_low, nested_vmx_misc_high);
 	nested_vmx_misc_low &= VMX_MISC_SAVE_EFER_LMA;
