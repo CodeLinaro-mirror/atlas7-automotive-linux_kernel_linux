@@ -626,7 +626,7 @@ struct dcu_vs_coef_set *__dcu_vs_get_bestcoefset(
 	u32 required_factor)
 {
 	u32	coef_set_idx;
-	u32	abs_factor_margin;
+	s32	abs_factor_margin = 0;
 	u32	min_abs_factor_margin = 0xffffffff;
 	struct dcu_vs_coef_set	*best_coef_set = NULL;
 
@@ -651,7 +651,7 @@ bool dcu_vs_load_coefset(struct dcu_param_set *dcu_param_set)
 {
 	s16 *coef_item;
 	u32 i, coef_val1, coef_val2;
-	struct dcu_vs_coef_set	*coef_set;
+	struct dcu_vs_coef_set	*coef_set = NULL;
 	struct dcu_vs_params	*vs_params = &dcu_param_set->vs_params;
 
 	if ((vs_params->interp < 0) ||
