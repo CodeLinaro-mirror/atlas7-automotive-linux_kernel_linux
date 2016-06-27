@@ -1842,6 +1842,12 @@ static void lcdc_err_worker(struct work_struct *work)
 		unsigned bit;
 
 		l = sirfsoc_vdss_get_layer(plcdc->id, i);
+		if (!l) {
+			VDSSERR("failed to get layer%d for lcdc%d\n",
+				i, plcdc->id);
+			continue;
+		}
+
 		bit = fifo_abnormal_bits[i];
 
 		if (bit & errors) {

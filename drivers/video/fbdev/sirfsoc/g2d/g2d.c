@@ -1242,12 +1242,9 @@ static int g2d_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	g2d_dev->reg_base = devm_ioremap(&pdev->dev, res->start,
-				     resource_size(res));
-	if (!g2d_dev->reg_base) {
-		dev_err(&pdev->dev, "Fail to map g2d regs\n");
-		return -ENOMEM;
-	}
+	g2d_dev->reg_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(g2d_dev->reg_base))
+		return PTR_ERR(g2d_dev->reg_base);
 
 	g2d_dev->rb_size = SZ_1M;
 	g2d_dev->rb_vaddr = dma_alloc_coherent(&pdev->dev,

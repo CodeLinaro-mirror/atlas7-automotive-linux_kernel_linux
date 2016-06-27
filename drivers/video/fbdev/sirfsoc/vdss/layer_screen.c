@@ -390,6 +390,11 @@ int vdss_init_layers_sysfs(u32 lcdc_index)
 	for (i = 0; i < num_layer; ++i) {
 		struct sirfsoc_vdss_layer *l =
 			sirfsoc_vdss_get_layer(lcdc_index, i);
+		if (!l) {
+			VDSSERR("failed to get valid layer\n");
+			r = -EINVAL;
+			goto err;
+		}
 
 		r = kobject_init_and_add(&l->kobj, &layer_ktype,
 				&pdev->dev.kobj, "lcd%d-%s",
