@@ -87,7 +87,7 @@ static const struct kasdb_hw hw[] = {
 		.def_channels = 0,
 		.audio_format = 0,
 		.pack_format = kasdb_pack_16,
-		.def_rate = 0,
+		.def_rate = 48000,
 		.bytes_per_ch = 192,
 	},
 	{

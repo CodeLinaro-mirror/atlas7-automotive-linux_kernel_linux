@@ -12,38 +12,20 @@
  */
 
 static const struct kasdb_link link[] = {
-	/* Music, 1ch */
+	/* Music, 2ch */
 	{
-		/* Music -> Passthrough, 1ch */
-		.name = __S("lk_music_pass_1"),
-		.source_name = __S("Music"),
-		.sink_name = __S("op_pass_music"),
-		.source_pins = { 1 },
-		.sink_pins = { 1 },
-		.channels = 1,
-	},
-	{
-		/* Passthrough -> Resampler, 1ch */
-		.name = __S("lk_pass_src_1"),
+		/* Passthrough -> Bass, 2ch */
+		.name = __S("lk_pass_bass"),
 		.source_name = __S("op_pass_music"),
-		.sink_name = __S("op_src_music"),
-		.source_pins = { 1 },
-		.sink_pins = { 1 },
-		.channels = 1,
+		.sink_name = __S("op_bass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
 	},
 	{
-		/* Resampler -> Splitter1x2, 1ch */
-		.name = __S("lk_src_split1x2"),
-		.source_name = __S("op_src_music"),
-		.sink_name = __S("op_split_music_1x2"),
-		.source_pins = { 1 },
-		.sink_pins = { 1 },
-		.channels = 1,
-	},
-	{
-		/* Splitter1x2 -> Splitter, 2ch */
-		.name = __S("lk_split1x2_split"),
-		.source_name = __S("op_split_music_1x2"),
+		/* Bass -> Splitter, 2ch */
+		.name = __S("lk_bass_split"),
+		.source_name = __S("op_bass_music"),
 		.sink_name = __S("op_split_music"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
@@ -59,40 +41,13 @@ static const struct kasdb_link link[] = {
 		.channels = 4,
 	},
 	{
-		/* User PEQ -> Bass, 2ch (1-2) */
-		.name = __S("lk_upeq_bass_1"),
+		/* User PEQ -> Delay, 4ch */
+		.name = __S("lk_upeq_delay"),
 		.source_name = __S("op_upeq_music"),
-		.sink_name = __S("op_bass_1_music"),
-		.source_pins = { 1, 2},
-		.sink_pins = { 1, 2},
-		.channels = 2,
-	},
-	{
-		/* User PEQ -> Bass, 2ch (3-4) */
-		.name = __S("lk_upeq_bass_2"),
-		.source_name = __S("op_upeq_music"),
-		.sink_name = __S("op_bass_2_music"),
-		.source_pins = { 3, 4},
-		.sink_pins = {1, 2},
-		.channels = 2,
-	},
-	{
-		/* Bass -> Delay, 2ch (1-2) */
-		.name = __S("lk_bass_1_delay"),
-		.source_name = __S("op_bass_1_music"),
 		.sink_name = __S("op_delay_music"),
-		.source_pins = { 1, 2},
-		.sink_pins = { 1, 2},
-		.channels = 2,
-	},
-	{
-		/* Bass -> Delay, 2ch (3-4) */
-		.name = __S("lk_bass_2_delay"),
-		.source_name = __S("op_bass_2_music"),
-		.sink_name = __S("op_delay_music"),
-		.source_pins = {1, 2},
-		.sink_pins = {3, 4},
-		.channels = 2,
+		.source_pins = {1, 2, 3, 4 },
+		.sink_pins = {1, 2, 3, 4},
+		.channels = 4,
 	},
 	{
 		/* Delay -> Spk1 PEQ, 1ch (1) */
@@ -167,73 +122,15 @@ static const struct kasdb_link link[] = {
 		.channels = 1,
 	},
 
-	/* Music, 2ch */
-	{
-		/* Music -> Passthrough, 2ch */
-		.name = __S("lk_music_pass_2"),
-		.source_name = __S("Music"),
-		.sink_name = __S("op_pass_music"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-	{
-		/* Passthrough -> Resampler, 2ch */
-		.name = __S("lk_pass_src_2"),
-		.source_name = __S("op_pass_music"),
-		.sink_name = __S("op_src_music"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-	{
-		/* Resampler -> Splitter, 2ch */
-		.name = __S("lk_src_split"),
-		.source_name = __S("op_src_music"),
-		.sink_name = __S("op_split_music"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-
-	/* Music, 4ch */
-	{
-		/* Music -> Passthrough, 4ch */
-		.name = __S("lk_music_pass_4"),
-		.source_name = __S("Music"),
-		.sink_name = __S("op_pass_music"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 1, 2, 3, 4 },
-		.channels = 4,
-	},
-	{
-		/* Passthrough -> Resampler, 4ch */
-		.name = __S("lk_pass_src_4"),
-		.source_name = __S("op_pass_music"),
-		.sink_name = __S("op_src_music"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 1, 2, 3, 4 },
-		.channels = 4,
-	},
-	{
-		/* Resampler -> User PEQ, 4ch */
-		.name = __S("lk_src_upeq"),
-		.source_name = __S("op_src_music"),
-		.sink_name = __S("op_upeq_music"),
-		.source_pins = { 1, 2, 3, 4},
-		.sink_pins = { 1, 2, 3, 4},
-		.channels = 4,
-	},
-
 	/* Navigation, 4ch */
 	{
 		/* Navigation -> Mixer1, 4ch (5-8) */
 		.name = __S("lk_navi_mixer"),
 		.source_name = __S("Navigation"),
 		.sink_name = __S("op_mixer"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 5, 6, 7, 8 },
-		.channels = 4,
+		.source_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
+		.channels = 2,
 	},
 
 	/* Alarm, 1ch */
@@ -270,7 +167,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_split_alarm"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 9, 10, 11, 12 },
+		.sink_pins = { 7, 8, 9, 10 },
 		.channels = 4,
 	},
 
@@ -367,7 +264,7 @@ static const struct kasdb_link link[] = {
 		.channels = 1,
 	},
 	{
-		/* USP -> CVC recv */
+		/* USP3 -> CVC recv */
 		.name = __S("lk_usp3_cvc_recv"),
 		.source_name = __S("so_usp3"),
 		.sink_name = __S("op_recv_cvc"),
@@ -394,22 +291,31 @@ static const struct kasdb_link link[] = {
 		.channels = 1,
 	},
 	{
-		/* CVC: spliter1x2 -> spliter2x4, 2 ch */
-		.name = __S("lk_split1x2_split2x4_cvc"),
+		/* CVC: spliter1x2 -> mixer2, 2 ch */
+		.name = __S("lk_split1x2_mixer2_cvc"),
 		.source_name = __S("op_split1x2_cvc"),
-		.sink_name = __S("op_split2x4_cvc"),
+		.sink_name = __S("op_mixer2"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
 		.channels = 2,
 	},
 	{
-		/* CVC: spliter2x4 -> mixer2, 4 ch */
-		.name = __S("lk_split2x4_mixer2_cvc"),
-		.source_name = __S("op_split2x4_cvc"),
-		.sink_name = __S("op_mixer2"),
-		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 5, 6, 7, 8 },
-		.channels = 4,
+		/* CVC send -> USP1  */
+		.name = __S("lk_cvc_send_usp1"),
+		.source_name = __S("op_send_cvc"),
+		.sink_name = __S("si_usp1"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
+	},
+	{
+		/* USP1 -> CVC recv */
+		.name = __S("lk_usp1_cvc_recv"),
+		.source_name = __S("so_usp1"),
+		.sink_name = __S("op_recv_cvc"),
+		.source_pins = { 1 },
+		.sink_pins = { 1 },
+		.channels = 1,
 	},
 
 	/* Microphone: Analog Capture, Mono */
@@ -471,59 +377,59 @@ static const struct kasdb_link link[] = {
 
 	/* Line-In */
 	{
-		/* Line-In -> Passthrough, 1ch */
-		.name = __S("lk_lin_pass_1"),
-		.source_name = __S(SO_CODEC),
-		.sink_name = __S("op_pass_music"),
-		.source_pins = { 1 },
-		.sink_pins = { 1 },
-		.channels = 1,
-	},
-	{
 		/* Line-In -> Passthrough, 2ch */
-		.name = __S("lk_lin_pass_2"),
+		.name = __S("lk_codec_mixer3"),
 		.source_name = __S(SO_CODEC),
-		.sink_name = __S("op_pass_music"),
+		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
+		.sink_pins = { 3, 4 },
 		.channels = 2,
 	},
 
 	/* USP */
 	{
-		/* usp3 -> Passthrough, 2ch */
-		.name = __S("lk_usp3_pass_2"),
+		/* usp3 -> Mixer3, 2ch */
+		.name = __S("lk_usp3_mixer3"),
 		.source_name = __S("so_usp3"),
-		.sink_name = __S("op_pass_music"),
+		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
 		.channels = 2,
 	},
 	{
-		/* usp2 -> Passthrough, 2ch */
-		.name = __S("lk_usp2_pass_2"),
+		/* usp2 -> Resampler, 2ch */
+		.name = __S("lk_usp2_src"),
 		.source_name = __S("so_usp2"),
-		.sink_name = __S("op_pass_music"),
+		.sink_name = __S("op_src_radio"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 	{
-		/* usp1 -> Passthrough, 2ch */
-		.name = __S("lk_usp1_pass_2"),
+		/* usp1 -> Mixer3, 2ch */
+		.name = __S("lk_usp1_mixer3"),
 		.source_name = __S("so_usp1"),
-		.sink_name = __S("op_pass_music"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
+		.channels = 2,
+	},
+	{
+		/* usp0 -> Resampler, 2ch */
+		.name = __S("lk_usp0_src"),
+		.source_name = __S("so_usp0"),
+		.sink_name = __S("op_src_radio"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 	{
-		/* usp0 -> Passthrough, 2ch */
-		.name = __S("lk_usp0_pass_2"),
-		.source_name = __S("so_usp0"),
-		.sink_name = __S("op_pass_music"),
+		/* Radio resampler -> Mixer3, 2ch */
+		.name = __S("lk_src_mixer3_radio"),
+		.source_name = __S("op_src_radio"),
+		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
+		.sink_pins = { 3, 4 },
 		.channels = 2,
 	},
 
@@ -546,11 +452,13 @@ static const struct kasdb_link link[] = {
 		.sink_pins = { 1 },
 		.channels = 1,
 	},
+
+	/* I2S */
 	{
-		/* I2S -> Passthrough, 2ch */
-		.name = __S("lk_i2s_pass_2"),
+		/* I2S -> Resampler, 2ch */
+		.name = __S("lk_i2s_src"),
 		.source_name = __S("so_i2s"),
-		.sink_name = __S("op_pass_music"),
+		.sink_name = __S("op_src_radio"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
@@ -558,45 +466,54 @@ static const struct kasdb_link link[] = {
 
 	/* Mixer3 */
 	{
-		/* Music -> Mixer3, 1ch */
-		.name = __S("lk_music_mixer3_1"),
+		/* Music -> Resampler, 2ch */
+		.name = __S("lk_music_src"),
 		.source_name = __S("Music"),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1 },
-		.sink_pins = { 1 },
-		.channels = 1,
+		.sink_name = __S("op_src_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
 	},
 	{
-		/* Music -> Mixer3, 2ch */
-		.name = __S("lk_music_mixer3_2"),
-		.source_name = __S("Music"),
+		/* Resampler -> Mixer3, 2ch */
+		.name = __S("lk_src_mixer3"),
+		.source_name = __S("op_src_music"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 	{
-		/* I2S -> Mixer3, 2ch */
-		.name = __S("lk_i2s_mixer3"),
+		/* I2S -> Resampler, 2ch */
+		.name = __S("lk_i2s_src"),
 		.source_name = __S("so_i2s"),
+		.sink_name = __S("op_src_radio"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* I2S -> Mixer3, 2ch */
+		.name = __S("lk_src_mixer3"),
+		.source_name = __S("op_src_radio"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 3, 4 },
 		.channels = 2,
 	},
 	{
-		/* IACC -> Mixer3, 1ch */
-		.name = __S("lk_codec_mixer3_1"),
+		/* CODEC -> Resampler, 2ch */
+		.name = __S("lk_codec_src"),
 		.source_name = __S(SO_CODEC),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1 },
-		.sink_pins = { 3 },
-		.channels = 1,
+		.sink_name = __S("op_src_cap"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
 	},
 	{
-		/* IACC -> Mixer3, 2ch */
-		.name = __S("lk_codec_mixer3_2"),
-		.source_name = __S(SO_CODEC),
+		/* Resampler -> Mixer3, 2ch */
+		.name = __S("lk_src_mixer3_lin"),
+		.source_name = __S("op_src_cap"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 3, 4 },

@@ -40,15 +40,6 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
-		/* Music splitter: 1 -> 2 (only used by mono stream) */
-		.name = __S("op_split_music_1x2"),
-		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
-		.cap_id = CAPABILITY_ID_SPLITTER,
-		.rate = 0,
-		.param.dummy = 0,
-	},
-	{
 		/* Music user PEQ */
 		.name = __S("op_upeq_music"),
 		.ctrl_base = __S(NULL),
@@ -95,18 +86,9 @@ static const struct kasdb_op op[] = {
 	},
 	{
 		/* Music bass+ */
-		.name = __S("op_bass_1_music"),
+		.name = __S("op_bass_music"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_BASS("Music")),
-		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
-		.rate = 48000,
-		.param.bass_pair_idx = 0,
-	},
-	{
-		/* Music bass+ */
-		.name = __S("op_bass_2_music"),
-		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_DBE_FULLBAND_IN_OUT,
 		.rate = 48000,
 		.param.bass_pair_idx = 0,
@@ -213,15 +195,6 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
-		/* CVC splitter: 2 -> 4 */
-		.name = __S("op_split2x4_cvc"),
-		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
-		.cap_id = CAPABILITY_ID_SPLITTER,
-		.rate = 0,
-		.param.dummy = 0,
-	},
-	{
 		/* Alaram resampler */
 		.name = __S("op_src_alarm"),
 		.ctrl_base = __S(NULL),
@@ -256,5 +229,14 @@ static const struct kasdb_op op[] = {
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
 		.param.mixer_streams = 32,
+	},
+	{
+		/* Radio resampler */
+		.name = __S("op_src_radio"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_RESAMPLER,
+		.rate = 48000,
+		.param.resampler_custom_output = 0,
 	},
 };
