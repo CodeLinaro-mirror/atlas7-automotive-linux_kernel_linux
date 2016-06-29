@@ -35,15 +35,15 @@
 	name " PEQ Switch Mode"
 
 #define KCM_MIXER_STREAM(name)		\
-	name " Stream Vol;"		\
-	name " Stream Mute;"		\
-	name " Stream Ramp;"		\
 	name " Stream CH1 Gain;"	\
 	name " Stream CH2 Gain;"	\
 	name " Stream CH3 Gain;"	\
 	name " Stream CH4 Gain;"	\
 	name " Stream CH5 Gain;"	\
-	name " Stream CH6 Gain"
+	name " Stream CH6 Gain;"	\
+	name " Stream Vol;"		\
+	name " Stream Mute;"		\
+	name " Stream Ramp"
 
 /* If a stream has no controls, fill the parameter with "NOCTRL" */
 #define KCM_CTRLS_MIXER(stream1, stream2, stream3)\

@@ -21,21 +21,24 @@
 #include "../../dsp.h"
 #include "utils.h"
 
-#define MIXER_CTRL_GAIN	0
-#define MIXER_CTRL_MUTE	1
-#define MIXER_CTRL_RAMP	2
-#define MIXER_CTRL_CH1	3
-#define MIXER_CTRL_CH2	4
-#define MIXER_CTRL_CH3	5
-#define MIXER_CTRL_CH4	6
-#define MIXER_CTRL_CH5	7
-#define MIXER_CTRL_CH6	8
+#define MIXER_CTRL_CH1	0
+#define MIXER_CTRL_CH2	1
+#define MIXER_CTRL_CH3	2
+#define MIXER_CTRL_CH4	3
+#define MIXER_CTRL_CH5	4
+#define MIXER_CTRL_CH6	5
+#define MIXER_CTRL_GAIN 6
+#define MIXER_CTRL_MUTE 7
+#define MIXER_CTRL_RAMP 8
 
 #define MIXER_CTRLS_PER_STREAM 9
 #define MIXER_MAX_RAMP_SAMPLES 0x00ffffff
 
 #define MAX_STREAMS	3
+#define MIN_STREAMS	2
 #define MAX_CHANNELS	6
+#define MAX_CH_3STREAMS	4
+#define MAX_CH_2STREAMS	6
 #define MIN_DB		(-96)
 #define STEP_DB		1
 #define MAXV		(-MIN_DB / STEP_DB)
@@ -49,8 +52,8 @@ struct mixer_ctx {
 	int muted[MAX_STREAMS];
 	int ramp[2][MAX_STREAMS];	/* 0: for volume, 1: for mute/unmute */
 	int ch_gain[MAX_STREAMS][MAX_CHANNELS];
-	int streams;
-	int channels;
+	u16 streams;
+	u16 channels[MAX_STREAMS];
 	u16 primary_stream;	/* Starts from 1 */
 };
 
@@ -86,6 +89,7 @@ static void set_channel_gain(struct kasobj_op *op, int stream,
 	struct mixer_ctx *ctx = op->context;
 	u16 msg[3] = {1, 0, 0};
 	u16 msg_ramp[2];
+	int idx;
 
 	/* if muted, do not send ipc msg */
 	if (!op->obj.life_cnt || ctx->muted[stream])
@@ -95,7 +99,9 @@ static void set_channel_gain(struct kasobj_op *op, int stream,
 	msg_ramp[0] = ctx->ramp[0][stream] >> 16;
 	msg_ramp[1] = ctx->ramp[0][stream] & 0xffff;
 
-	msg[1] = stream * ctx->channels + channel;
+	for (idx = 0; idx < stream; idx++)
+		msg[1] += ctx->channels[idx];
+	msg[1] += channel;
 	msg[2] = (gain - MAXV) * 60;
 
 	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
@@ -117,15 +123,15 @@ static void set_primary_stream(struct kasobj_op *op)
 /* Find primary stream (last active stream) */
 static int select_primary_stream(struct kasobj_op *op)
 {
-	int i;
+	int i, ch;
 	struct mixer_ctx *ctx = op->context;
 
 	/*
 	 * Check first channel pin of each stream
 	 * eg. 3streams, 4channels: 0,4,8
 	 */
-	for (i = ctx->streams - 1; i >= 0; i--)
-		if (op->active_sink_pins & BIT(i * ctx->channels))
+	for (i = 0, ch = 0; i < ctx->streams; ch += ctx->channels[i++])
+		if (op->active_sink_pins & BIT(ch))
 			return i + 1;
 
 	return ctx->primary_stream;
@@ -151,7 +157,7 @@ static void pin_changed(struct kasobj_op *op, int is_sink)
 static int mixer_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int stream_idx, ch_idx, ctrl_idx, param_idx, value;
+	int stream_idx, ctrl_idx, param_idx, value;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	struct mixer_ctx *ctx = op->context;
 
@@ -160,15 +166,8 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 
 	stream_idx = ctrl_idx / MIXER_CTRLS_PER_STREAM;
 	param_idx = ctrl_idx % MIXER_CTRLS_PER_STREAM;
-	ch_idx = param_idx - 3;
 	if (stream_idx >= ctx->streams) {
 		pr_err("KASOP(%s): mixer get, invalid stream !\n",
-			op->obj.name);
-		ucontrol->value.integer.value[0] = 0;
-		return 0;
-	}
-	if (ch_idx >= ctx->channels) {
-		pr_err("KASOP(%s): mixer get, invalid channel !\n",
 			op->obj.name);
 		ucontrol->value.integer.value[0] = 0;
 		return 0;
@@ -190,7 +189,7 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 	case MIXER_CTRL_CH4:
 	case MIXER_CTRL_CH5:
 	case MIXER_CTRL_CH6:
-		value = ctx->ch_gain[stream_idx][ch_idx];
+		value = ctx->ch_gain[stream_idx][param_idx];
 		break;
 	default:
 		pr_err("KASOP(%s): mixer get, invalid control number !\n",
@@ -204,7 +203,7 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 static int mixer_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int stream_idx, ch_idx, param_idx, ctrl_idx, cnt;
+	int stream_idx, param_idx, ctrl_idx, cnt;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	struct mixer_ctx *ctx = op->context;
 	int value = ucontrol->value.integer.value[0];
@@ -214,14 +213,8 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 
 	stream_idx = ctrl_idx / MIXER_CTRLS_PER_STREAM;
 	param_idx = ctrl_idx % MIXER_CTRLS_PER_STREAM;
-	ch_idx = param_idx - 3;
 	if (stream_idx >= ctx->streams) {
 		pr_err("KASOP(%s): mixer put, invalid stream !\n",
-			op->obj.name);
-		return 0;
-	}
-	if (ch_idx >= ctx->channels) {
-		pr_err("KASOP(%s): mixer put, invalid channel !\n",
 			op->obj.name);
 		return 0;
 	}
@@ -229,7 +222,7 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 	case MIXER_CTRL_GAIN:
 		ctx->gain[stream_idx] = value;
 		/* overwrite channel gains of the stream */
-		for (cnt = 0; cnt < ctx->channels; cnt++)
+		for (cnt = 0; cnt < ctx->channels[stream_idx]; cnt++)
 			ctx->ch_gain[stream_idx][cnt] = value;
 		/* if muted, just save the vlaue */
 		if (!ctx->muted[stream_idx]) {
@@ -244,9 +237,12 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 			/* when unmute, send all the saved channel gain */
 			kcm_lock();
 			if (!value) {
-				for (cnt = 0; cnt < ctx->channels; cnt++)
+				cnt = 0;
+				while (cnt < ctx->channels[stream_idx]) {
 					set_channel_gain(op, stream_idx, cnt,
 						ctx->ch_gain[stream_idx][cnt]);
+					cnt++;
+				}
 			} else {
 				set_stream_gain(op, ctx->ramp[1][stream_idx]);
 			}
@@ -267,10 +263,10 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 	case MIXER_CTRL_CH4:
 	case MIXER_CTRL_CH5:
 	case MIXER_CTRL_CH6:
-		if (ctx->ch_gain[stream_idx][ch_idx] != value) {
-			ctx->ch_gain[stream_idx][ch_idx] = value;
+		if (ctx->ch_gain[stream_idx][param_idx] != value) {
+			ctx->ch_gain[stream_idx][param_idx] = value;
 			kcm_lock();
-			set_channel_gain(op, stream_idx, ch_idx, value);
+			set_channel_gain(op, stream_idx, param_idx, value);
 			kcm_unlock();
 		}
 		break;
@@ -284,15 +280,48 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 
 static int mixer_init(struct kasobj_op *op)
 {
-	int st, ch, ctrl_idx = 0, max;
+	u16 st, ch, ctrl_idx = 0, max, st_config;
 	const int *tlv = NULL;
 	char names_buf[1024], *names = names_buf, *name;
 	struct mixer_ctx *ctx = kzalloc(sizeof(struct mixer_ctx), GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
 
 	op->context = ctx;
-	ctx->streams = op->db->param.mixer_streams / 10;
-	ctx->channels = op->db->param.mixer_streams % 10;
+	st_config = (u16)op->db->param.mixer_streams;
+
+	/* Analysis the number of stream and channel
+	 *   XXX--> channel number of stream3
+	 *   ||
+	 *   |+---> channel number of stream2
+	 *   +----> channel number of stream1
+	 * Example: 124 means 1 channel for stream1, 2 channels for stream2,
+	 *   4 channels for stream3.
+	 */
+	if ((st_config & (~0x0fff)) || !(st_config & (~0x000f))) {
+		pr_err("KASOP(%s): Too many or too few streams!\n",
+			op->obj.name);
+		return -EINVAL;
+	}
+	if (st_config & 0xf00) {
+		/* 3 streams */
+		ctx->streams = 3;
+		max = MAX_CH_3STREAMS;
+	} else {
+		/* 2 streams */
+		ctx->streams = 2;
+		max = MAX_CH_2STREAMS;
+	}
+
+	for (st = 0; st < ctx->streams; st++) {
+		ch = st_config & 0x00f;
+		if (ch > max) {
+			pr_err("KASOP(%s): Invalid channels of stream(%d)!\n",
+				op->obj.name, st);
+			return -EINVAL;
+		}
+		ctx->channels[st] = ch;
+		st_config >>= 4;
+	}
 
 	for (st = 0; st < MAX_STREAMS; st++) {
 		ctx->gain[st] = DEFV;
@@ -325,6 +354,8 @@ static int mixer_init(struct kasobj_op *op)
 		if (kcm_strcasestr(name, "NOCTRL")) {
 			/* the stream without ctrls */
 			ctrl_idx++;
+			if (kcm_strcasestr(name, "Vol"))
+				st++;
 			continue;
 		} else if (kcm_strcasestr(name, "Vol")) {
 			max = MAXV;
@@ -336,7 +367,7 @@ static int mixer_init(struct kasobj_op *op)
 			st++;
 		} else if (kcm_strcasestr(name, "Gain")) {
 			ch = ch % MAX_CHANNELS;
-			if (ch < ctx->channels) {
+			if (ch < ctx->channels[st]) {
 				max = MAXV;
 				tlv = vol_tlv;
 				ch++;
@@ -376,26 +407,11 @@ static int mixer_init(struct kasobj_op *op)
 static int mixer_create(struct kasobj_op *op, const struct kasobj_param *param)
 {
 	struct mixer_ctx *ctx = op->context;
-	static u16 stream3_cfg[3];
-	static u16 stream2_cfg[2];
 	u16 *stream_cfg;
 	short rate = op->db->rate / 25;
 	int st, ch;
 
-	if (ctx->streams == 3 && ctx->channels < 5 && ctx->channels > 0) {
-		stream3_cfg[0] = stream3_cfg[1] = stream3_cfg[2]
-			= ctx->channels;
-		stream_cfg = stream3_cfg;
-	} else if (ctx->streams == 2 && ctx->channels < 7 &&
-		ctx->channels > 0) {
-		stream2_cfg[0] = stream2_cfg[1]
-			= ctx->channels;
-		stream_cfg = stream2_cfg;
-	} else {
-		pr_err("KASOBJ(%s): unsupported %d streams, %d channels!\n",
-			op->obj.name, ctx->streams, ctx->channels);
-		return 0;
-	}
+	stream_cfg = ctx->channels;
 	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_CHANNELS,
 			ctx->streams, stream_cfg, NULL, NULL, __kcm_resp);
 	if (rate <= 0) {
@@ -406,11 +422,10 @@ static int mixer_create(struct kasobj_op *op, const struct kasobj_param *param)
 	kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 			1, &rate, NULL, NULL, __kcm_resp);
 	for (st = 0; st < ctx->streams; st++)
-		for (ch = 0; ch < ctx->channels; ch++)
+		for (ch = 0; ch < ctx->channels[st]; ch++)
 			set_channel_gain(op, st, ch, ctx->ch_gain[st][ch]);
 
-	ctx->primary_stream = 1;
-	set_primary_stream(op);
+	ctx->primary_stream = 0;
 
 	return 0;
 }
