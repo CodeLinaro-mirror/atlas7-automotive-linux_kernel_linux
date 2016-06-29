@@ -159,17 +159,16 @@ static void ramfw_config_noncpu_state(struct dramfw_regs_t *base,
 	i = initiator / 32;
 	val = 1<<(initiator - 32 * i);
 
+	noc_write_reg(val, s_ddrm->mbase +
+			ramfw_noncpu_state_list[i].readset);
+	noc_write_reg(val, s_ddrm->mbase +
+			ramfw_noncpu_state_list[i].writeset);
 	/* initiator access read/write */
 	if (state == MODE_S) {
 		noc_write_reg(val, s_ddrm->mbase +
 				ramfw_noncpu_state_list[i].readclr);
 		noc_write_reg(val, s_ddrm->mbase +
 				ramfw_noncpu_state_list[i].writeclr);
-	} else {
-		noc_write_reg(val, s_ddrm->mbase +
-				ramfw_noncpu_state_list[i].readset);
-		noc_write_reg(val, s_ddrm->mbase +
-				ramfw_noncpu_state_list[i].writeset);
 	}
 }
 
