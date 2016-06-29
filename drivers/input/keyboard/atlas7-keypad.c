@@ -204,6 +204,12 @@ static int atlas7_keys_probe(struct platform_device *pdev)
 	writel(KEY_COMPARE_EN, keys->comp_base + KEY_COMPARE_CTRL);
 
 	keys->keys_wq = create_singlethread_workqueue("atlas7_adckeys");
+	if (!keys->keys_wq) {
+		dev_err(&pdev->dev,
+			"atlas7 keys: Unable to create workqueue\n");
+		ret = -EFAULT;
+		goto out;
+	}
 	INIT_DELAYED_WORK(&keys->keys_poll, atlas7_adc_key_func);
 
 	keys->dev = &pdev->dev;
