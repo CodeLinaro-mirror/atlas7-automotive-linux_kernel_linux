@@ -930,6 +930,7 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 	struct device_node *fw_memory;
 	u64 size;
 	struct arch_nanddisk_resource *arch_nres_used;
+	const __be32 *addr;
 
 	arch_nres_used = &arch_nres[0];
 	for (i = 0; i < ARRAY_SIZE(arch_nres); i++) {
@@ -956,8 +957,13 @@ static int sirfsoc_nand_probe(struct platform_device *pdev)
 		goto err_exit;
 	}
 
-	nand_dev.nanddisk_code_start = of_translate_address(fw_memory,
-			of_get_address(fw_memory, 0, &size, NULL));
+	addr = of_get_address(fw_memory, 0, &size, NULL);
+	if (!addr) {
+		error = -EINVAL;
+		goto err_exit;
+	}
+
+	nand_dev.nanddisk_code_start = of_translate_address(fw_memory, addr);
 	nand_dev.nanddisk_code_size = size;
 
 	/* total other controller */
