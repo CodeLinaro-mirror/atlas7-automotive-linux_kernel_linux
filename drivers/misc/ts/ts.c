@@ -814,6 +814,7 @@ static int ts_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	const struct ts_portdata *port_data;
+	const struct of_device_id *match;
 	u32 index;
 
 	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
@@ -837,8 +838,12 @@ static int ts_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	port_data = (const struct ts_portdata *)(of_match_device(dev->driver
-						->of_match_table, dev)->data);
+	match = of_match_device(dev->driver->of_match_table, dev);
+	if (WARN_ON(!match)) {
+		ret = -ENODEV;
+		goto out;
+	}
+	port_data = (const struct ts_portdata *)(match->data);
 	ts->ops = port_data->ops;
 
 	if (of_property_read_u32(dev->of_node, "cell-index", &index)) {
