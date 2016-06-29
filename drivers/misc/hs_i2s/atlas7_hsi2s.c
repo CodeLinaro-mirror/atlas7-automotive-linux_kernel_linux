@@ -222,8 +222,8 @@ static ssize_t frame_polarity_show(struct device *dev,
 	};
 	const char *str;
 
-	if (i2s->i2s_ctrl.frame_polarity > WORD_ALIGN_LAST)
-		i2s->i2s_ctrl.frame_polarity = WORD_ALIGN_I2S0;
+	if (i2s->i2s_ctrl.frame_polarity >= FRAME_POLARITY_MAX)
+		i2s->i2s_ctrl.frame_polarity = FRAME_POLARITY_RAISING;
 	str = mode[i2s->i2s_ctrl.frame_polarity];
 
 	return snprintf(buf, PAGE_SIZE, "%d: %s\n",
