@@ -1,0 +1,15 @@
+QCA rome chip bt gpio configuration
+
+Required properties:
+- compatible: "sirf,rome"
+
+Example:
+bt {
+        compatible = "sirf,rome";
+        rome_gpio_1p8v_power = <&gpio_1 76 1>; /* PIN:coex_pio_0 */
+        rome_gpio_3p3v_power = <&gpio_1 77 1>; /* PIN:coex_pio_1 */
+        rome_gpio_bt_reset = <&gpio_1 78 1>; /* PIN:coex_pio_2 */
+        pinctrl-names = "default";
+        pinctrl-0 = <&pw_i2s01_clk_pmx0>;
+        pwms = <&pwm 6 30518>;
+};

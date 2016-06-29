@@ -8,6 +8,7 @@ dtb-$(CONFIG_ARCH_ATLAS7) += atlas7-evb.dtb atlas7-pxp.dtb
 dtb-$(CONFIG_ARCH_ATLAS7) += atlas7_entry-evb.dtb
 dtb-$(CONFIG_ARCH_ATLAS7) += atlas7-amber.dtb
 dtb-$(CONFIG_ARCH_ATLAS7) += atlas7-a7ca-amber.dtb
+dtb-$(CONFIG_ARCH_ATLAS7) += atlas7-rome.dtb
 dtb-$(CONFIG_ARCH_AT91) += mpa1600.dtb
 # sam9260
 dtb-$(CONFIG_ARCH_AT91) += animeo_ip.dtb
