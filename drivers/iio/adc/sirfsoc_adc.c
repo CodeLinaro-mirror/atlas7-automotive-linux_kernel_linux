@@ -1126,6 +1126,8 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 
 	/* ADC specific data */
 	match = of_match_device(of_match_ptr(sirfsoc_adc_of_match), &pdev->dev);
+	if (WARN_ON(!match))
+		return -ENODEV;
 	adc->chip_info = match->data;
 	adc_reg = adc->chip_info->adc_reg;
 	ctrl_set = &adc_reg->ctrl_set;
