@@ -18,6 +18,17 @@
 #include "kcm.h"
 #include "../dsp.h"
 
+/**
+ * list_for_each_entry_backward - iterate over list of given type backward
+ * @pos:		the type * to use as a loop cursor.
+ * @head:		the head for your list.
+ * @member:		the name of the list_head within the struct.
+ */
+#define list_for_each_entry_backward(pos, head, member)			\
+	for (pos = list_entry((head)->prev, typeof(*pos), member);	\
+		&pos->member != (head);					\
+		pos = list_entry(pos->member.prev, typeof(*pos), member))
+
 #define KCM_CHAIN_LENGTH 512
 
 struct kcm_chain {
@@ -369,13 +380,13 @@ int kcm_put_chain(struct kcm_chain *chain)
 	kcm_lock();
 
 	/* Link must be first, to disconnect endpoints */
-	list_for_each_entry(chain_obj, &chain->lk_list, link)
+	list_for_each_entry_backward(chain_obj, &chain->lk_list, link)
 		chain_obj->obj->ops->put(chain_obj->obj);
-	list_for_each_entry(chain_obj, &chain->op_list, link)
+	list_for_each_entry_backward(chain_obj, &chain->op_list, link)
 		chain_obj->obj->ops->put(chain_obj->obj);
-	list_for_each_entry(chain_obj, &chain->hw_list, link)
+	list_for_each_entry_backward(chain_obj, &chain->hw_list, link)
 		chain_obj->obj->ops->put(chain_obj->obj);
-	list_for_each_entry(chain_obj, &chain->fe_list, link)
+	list_for_each_entry_backward(chain_obj, &chain->fe_list, link)
 		chain_obj->obj->ops->put(chain_obj->obj);
 
 	chain->prepared = 0;
@@ -420,7 +431,7 @@ int __kcm_stop_chain_op(struct kcm_chain *chain)
 	int op_cnt = 0;
 	u16 op_ids[KCM_CHAIN_MAX_OPS];
 
-	list_for_each_entry(chain_obj, &chain->op_list, link) {
+	list_for_each_entry_backward(chain_obj, &chain->op_list, link) {
 		struct kasobj_op *op = kasobj_to_op(chain_obj->obj);
 
 		BUG_ON(!op->obj.life_cnt);
@@ -451,7 +462,7 @@ int __kcm_stop_chain_hw(struct kcm_chain *chain)
 {
 	struct kcm_chain_obj *chain_obj;
 
-	list_for_each_entry(chain_obj, &chain->hw_list, link)
+	list_for_each_entry_backward(chain_obj, &chain->hw_list, link)
 		chain_obj->obj->ops->stop(chain_obj->obj);
 	return 0;
 }
@@ -471,7 +482,7 @@ int __kcm_stop_chain_link(struct kcm_chain *chain)
 {
 	struct kcm_chain_obj *chain_obj;
 
-	list_for_each_entry(chain_obj, &chain->lk_list, link)
+	list_for_each_entry_backward(chain_obj, &chain->lk_list, link)
 		chain_obj->obj->ops->stop(chain_obj->obj);
 	return 0;
 }
