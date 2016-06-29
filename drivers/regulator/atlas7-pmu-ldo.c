@@ -120,8 +120,7 @@ static int atlas7_analog_ldo_probe(struct platform_device *pdev)
 
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	base = devm_ioremap(&pdev->dev, mem_res->start,
-		resource_size(mem_res));
+	base = devm_ioremap_resource(&pdev->dev, mem_res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
