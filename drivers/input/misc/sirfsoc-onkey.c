@@ -137,6 +137,7 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 	if (info->virq <= 0) {
 		dev_info(&pdev->dev,
 			"Unable to find IRQ for onkey. err=%d\n", info->virq);
+		ret = -ENXIO;
 		goto err;
 	}
 	irq_set_status_flags(info->virq, IRQ_NOAUTOEN);
@@ -153,6 +154,7 @@ static int sirfsoc_onkey_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev,
 			"Unable to find IRQ for exton_key. ret=%d\n",
 			info->exton_virq);
+		ret = -ENXIO;
 		goto err;
 	}
 	irq_set_status_flags(info->exton_virq,
