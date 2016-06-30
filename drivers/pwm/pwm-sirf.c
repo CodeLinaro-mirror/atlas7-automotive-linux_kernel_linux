@@ -40,8 +40,6 @@
 
 #define SIRF_MAX_SRC_CLK			5
 
-#define FEQ_32KHZ		(1000000000/32768)
-
 struct sirf_pwm_chip {
 	struct pwm_chip	chip;
 	struct mutex mutex;
@@ -180,6 +178,7 @@ static int sirf_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			 * if want to get 32Khz output clock, choice 32Khz XINW
 			 * as the input clock directly
 			 */
+#define	FEQ_32KHZ	(1000000000/32768)
 			if (period_ns == FEQ_32KHZ) {
 				spwm->sigsrc_clk_idx = 3;
 				spwm->sigsrc_clk = devm_clk_get(chip->dev,
