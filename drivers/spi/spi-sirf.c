@@ -1090,6 +1090,10 @@ static int spi_sirfsoc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	match = of_match_node(spi_sirfsoc_of_match, pdev->dev.of_node);
+	if (WARN_ON(!match)) {
+		ret = -ENODEV;
+		goto free_master;
+	}
 	platform_set_drvdata(pdev, master);
 	sspi = spi_master_get_devdata(master);
 	spi_comp_data = (struct sirf_spi_comp_data *)match->data;
