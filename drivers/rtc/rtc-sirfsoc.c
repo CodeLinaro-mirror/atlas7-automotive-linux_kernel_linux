@@ -336,7 +336,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spin_lock_init(&rtcdrv->lock);
-	err = of_property_read_u32(np, "reg", &rtcdrv->rtc_base);
+	err = of_property_read_u32(np, "sub-reg", &rtcdrv->rtc_base);
 	if (err) {
 		dev_err(&pdev->dev, "unable to find base address of rtc node in dtb\n");
 		return err;

@@ -3343,12 +3343,12 @@
 
 				sysrtc@2000 {
 					compatible = "sirf,prima2-sysrtc";
-					reg = <0x2000 0x100>;
+					sub-reg = <0x2000 0x100>;
 					interrupts = <0 52 0>;
 				};
 				pwrc:pwrc@3000 {
 					compatible = "sirf,atlas7-pwrc";
-					reg = <0x3000 0x100>;
+					sub-reg = <0x3000 0x100>;
 					interrupts = <0 32 0>;
 					interrupt-controller;
 					#interrupt-cells = <2>;

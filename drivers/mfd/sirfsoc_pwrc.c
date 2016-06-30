@@ -164,7 +164,7 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	int ret;
 	u32 base;
 
-	if (of_property_read_u32(np, "reg", &base))
+	if (of_property_read_u32(np, "sub-reg", &base))
 		panic("unable to find base address of pwrc node in dtb\n");
 
 	pwrcinfo = devm_kzalloc(&pdev->dev,
