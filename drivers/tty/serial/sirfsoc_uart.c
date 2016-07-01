@@ -1287,6 +1287,10 @@ static int sirfsoc_uart_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 
 	match = of_match_node(sirfsoc_uart_ids, pdev->dev.of_node);
+	if (WARN_ON(!match)) {
+		ret = -ENODEV;
+		goto err;
+	}
 	sirfport = devm_kzalloc(&pdev->dev, sizeof(*sirfport), GFP_KERNEL);
 	if (!sirfport) {
 		ret = -ENOMEM;
@@ -1425,7 +1429,8 @@ alloc_coherent_err:
 	dma_free_coherent(port->dev, SIRFSOC_RX_DMA_BUF_SIZE,
 			sirfport->rx_dma_items.xmit.buf,
 			sirfport->rx_dma_items.dma_addr);
-	dma_release_channel(sirfport->rx_dma_chan);
+	if (sirfport->rx_dma_chan)
+		dma_release_channel(sirfport->rx_dma_chan);
 err:
 	return ret;
 }
