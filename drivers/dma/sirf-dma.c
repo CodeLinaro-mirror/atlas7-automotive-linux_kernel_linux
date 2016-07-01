@@ -1097,15 +1097,17 @@ static int sirfsoc_dma_probe(struct platform_device *op)
 	u32 id;
 	int ret, i;
 	int dma_channels = 0;
+	const struct of_device_id *match;
 
 	sdma = devm_kzalloc(dev, sizeof(*sdma), GFP_KERNEL);
 	if (!sdma) {
 		dev_err(dev, "Memory exhausted!\n");
 		return -ENOMEM;
 	}
-	data = (struct sirfsoc_dmadata *)
-		(of_match_device(op->dev.driver->of_match_table,
-				 &op->dev)->data);
+	match = of_match_device(op->dev.driver->of_match_table, &op->dev);
+	if (WARN_ON(!match))
+		return -ENODEV;
+	data = (struct sirfsoc_dmadata *)(match->data);
 	sdma->exec_desc = data->exec;
 	sdma->type = data->type;
 
