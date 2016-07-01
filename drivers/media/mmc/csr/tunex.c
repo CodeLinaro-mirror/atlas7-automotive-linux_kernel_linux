@@ -292,7 +292,7 @@ static int tunex_sdio_reinit(struct csr_radio *radio)
  * 2. enable the function
  * 3. reinit the tunex sdio
  */
-static int tunex_get_params(struct csr_radio *radio,
+static void tunex_get_params(struct csr_radio *radio,
 		int id, struct tx_message_element *element,
 		int *fn, int *addr)
 {
@@ -329,7 +329,6 @@ static int tunex_get_params(struct csr_radio *radio,
 		}
 		break;
 	}
-	return ret;
 }
 
 /*
@@ -701,7 +700,7 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 	unsigned int count;
 	unsigned int id;
 	int i;
-	int ret;
+	int ret = 0;
 	struct tx_message *msg;
 	struct device *dev;
 
@@ -714,6 +713,8 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 	size = TX_MSGSIZE_MEM(count);
 
 	msg = kmalloc(size, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
 	if (copy_from_user(msg, (void __user *)data_msg, size)) {
 		ret = -EINVAL;
@@ -798,6 +799,7 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 			break;
 		default:
 			msg->elements[i].id |= TX_MFLAG_ERROR;
+			ret = -EINVAL;
 			break;
 		}
 	}
