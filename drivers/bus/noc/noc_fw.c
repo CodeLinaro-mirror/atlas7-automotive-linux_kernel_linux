@@ -276,8 +276,6 @@ static ssize_t dramfw_noncpu_store(struct device *dev,
 	if (noncpu < 0)
 		goto out;
 
-	/*spram noncpu id need adjust for chip bug*/
-	noncpu = noc_get_id_by_orig(noncpu);
 	/*1: block access*/
 	if (!access)
 		ramfw_config_noncpu_access(dfwregs, noncpu);
