@@ -139,44 +139,44 @@
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			alloc-ranges = <0x49400000 0x6000000>;
+			alloc-ranges = <0x46000000 0x6000000>;
 			size = <0x6000000>;
 			alignment = <0x2000>;
 			linux,cma-default;
 		};
 
-		ipc_mem0: ns_m3_mem@4fd00000 {
+		ipc_mem0: ns_m3_mem@45600000 {
 			compatible = "sirf,reserved-memory";
-			reg = <0x4FD00000 0x10000>;
+			reg = <0x45600000 0x10000>;
 		};
 
-		ipc_mem1: ns_kal_mem@4fd10000 {
+		ipc_mem1: ns_kal_mem@45610000 {
 			compatible = "sirf,reserved-memory";
-			reg = <0x4FD10000 0x10000>;
+			reg = <0x45610000 0x10000>;
 		};
 
-		nanddisk_reserved: nanddisk@46000000 {
-			reg = <0x46000000 0x200000>;
+		nanddisk_reserved: nanddisk@45000000 {
+			reg = <0x45000000 0x200000>;
 			no-map;
 		};
 
-		jpeg_reserved: jpeg@46800000 {
-			reg = <0x46400000 0x1800000>;
+		jpeg_reserved: jpeg@4c000000 {
+			reg = <0x4c000000 0x1800000>;
 			no-map;
 		};
 
-		multimedia_reserved: multimedia@47c00000 {
-			reg = <0x47c00000 0x1800000>;
+		multimedia_reserved: multimedia@4d800000 {
+			reg = <0x4d800000 0x1800000>;
 			no-map;
 		};
 
-		uboot_reserved: uboot@4f800000 {
-			reg = <0x4f800000 0x200000>;
+		uboot_reserved: uboot@45800000 {
+			reg = <0x45800000 0x200000>;
 			no-map;
 		};
 
-		cm3_reserved: cm3@4fe00000 {
-			reg = <0x4fe00000 0x100000>;
+		cm3_reserved: cm3@45400000 {
+			reg = <0x45400000 0x200000>;
 			no-map;
 		};
 	};

@@ -1,9 +1,16 @@
 /*
  * Defines machines for CSR SiRFprimaII
  *
- * Copyright (c) 2011 Cambridge Silicon Radio Limited, a CSR plc group company.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/init.h>
@@ -147,8 +154,16 @@ static void __init sirfsoc_init_late(void)
 
 static __init void sirfsoc_map_io(void)
 {
+#ifdef CONFIG_NANDDISK
+	unsigned long dt_root;
+#endif
 	debug_ll_io_init();
 #ifdef CONFIG_NANDDISK
+	dt_root = of_get_flat_dt_root();
+	if (of_flat_dt_is_compatible(dt_root, "sirf,atlas7")) {
+		sirfsoc_nanddisk_map[0].virtual = 0xC5000000;
+		sirfsoc_nanddisk_map[0].pfn = __phys_to_pfn(0x45000000UL);
+	}
 	iotable_init(sirfsoc_nanddisk_map, ARRAY_SIZE(sirfsoc_nanddisk_map));
 #endif
 }
@@ -160,7 +175,7 @@ static const char *atlas6_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(ATLAS6_DT, "Generic ATLAS6 (Flattened Device Tree)")
-	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	/* Maintainer: Barry Song <baohuas@codeaurora.org> */
 	.reserve	= sirfsoc_reserve,
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
@@ -178,7 +193,7 @@ static const char *prima2_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(PRIMA2_DT, "Generic PRIMA2 (Flattened Device Tree)")
-	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	/* Maintainer: Barry Song <baohuas@codeaurora.org> */
 	.reserve	= prima2_reserve,
 	.l2c_aux_val	= 0,
 	.l2c_aux_mask	= ~0,
@@ -197,7 +212,7 @@ static const char *atlas7_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(ATLAS7_DT, "Generic ATLAS7 (Flattened Device Tree)")
-	/* Maintainer: Barry Song <baohua.song@csr.com> */
+	/* Maintainer: Barry Song <baohuas@codeaurora.org> */
 	.smp            = smp_ops(sirfsoc_smp_ops),
 	.map_io         = sirfsoc_map_io,
 	.init_machine   = sirfsoc_init_mach,
