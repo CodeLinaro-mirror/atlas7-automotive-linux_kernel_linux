@@ -1,10 +1,16 @@
 /*
  * pinmux driver for CSR SiRFprimaII
  *
- * Copyright (c) 2011 - 2014 Cambridge Silicon Radio Limited, a CSR plc group
- * company.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
- * Licensed under GPLv2 or later.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/init.h>
@@ -277,6 +283,7 @@ static int sirfsoc_pinmux_probe(struct platform_device *pdev)
 	int ret;
 	struct sirfsoc_pmx *spmx;
 	struct device_node *np = pdev->dev.of_node;
+	const struct of_device_id *match;
 	const struct sirfsoc_pinctrl_data *pdata;
 
 	/* Create state holders etc for this driver */
@@ -287,6 +294,10 @@ static int sirfsoc_pinmux_probe(struct platform_device *pdev)
 	spmx->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, spmx);
+
+	match = of_match_node(pinmux_ids, np);
+	if (WARN_ON(!match))
+		return -ENODEV;
 
 	spmx->gpio_virtbase = of_iomap(np, 0);
 	if (!spmx->gpio_virtbase) {
@@ -301,7 +312,7 @@ static int sirfsoc_pinmux_probe(struct platform_device *pdev)
 		goto out_no_rsc_remap;
 	}
 
-	pdata = of_match_node(pinmux_ids, np)->data;
+	pdata = match->data;
 	sirfsoc_pin_groups = pdata->grps;
 	sirfsoc_pingrp_cnt = pdata->grps_cnt;
 	sirfsoc_pmx_functions = pdata->funcs;
@@ -919,8 +930,5 @@ static int __init sirfsoc_gpio_init(void)
 }
 subsys_initcall(sirfsoc_gpio_init);
 
-MODULE_AUTHOR("Rongjun Ying <rongjun.ying@csr.com>");
-MODULE_AUTHOR("Yuping Luo <yuping.luo@csr.com>");
-MODULE_AUTHOR("Barry Song <baohua.song@csr.com>");
 MODULE_DESCRIPTION("SIRFSOC pin control driver");
 MODULE_LICENSE("GPL");
