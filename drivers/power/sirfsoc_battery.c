@@ -287,7 +287,7 @@ static int sirfsoc_batt_thread(void *data)
 	u32 old_battery, new_battery;
 	struct sirfsoc_batt *batt = (struct sirfsoc_batt *)data;
 	u32 new_capacity;
-	bool clear;
+	bool clear = false;
 	int old_status_batt;
 	struct sirfsoc_batt_rcv_fifo battery_fifo;
 
