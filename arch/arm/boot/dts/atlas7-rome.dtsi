@@ -14,38 +14,15 @@
  */
 
 / {
-	bt_sco_a2dp: bt-sco-a2dp {
-		#sound-dai-cells = <0>;
-		compatible = "bt-sco-a2dp";
-		status = "disabled";
-	};
-/*
- * FIXME
- * Now pcm interface is used in android while i2s interface is used in linux
- * It is necessay to drop this workaround after i2s interface is used in android
- */
-	sirf-bt-sco-a2dp {
-		status = "disabled";
-		compatible = "simple-audio-card";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,cpu {
-			sound-dai = <&usp1>;
-		};
-		simple-audio-card,codec {
-			sound-dai = <&bt_sco_a2dp>;
-			bitclock-master;
-			frame-master;
-		};
+	/*
+	 *usp1 is set in atlas7-evb-common.dtsi, which is used by a7ca bt
+	 */
+	kas-pcm-audio {
+		compatible = "csr,kas-pcm";
+		i2s-master;
+		bt-usp-port = <1>;
 	};
 	noc {
-		vdifm {
-			sdhci@14300000 {
-				status = "okay";
-				pinctrl-names = "default";
-				pinctrl-0 = <&sd3_pmx>;
-				broken-cd;
-			};
-		};
 		gnssm {
 			uart4: uart@18050000 {
 				status = "okay";
