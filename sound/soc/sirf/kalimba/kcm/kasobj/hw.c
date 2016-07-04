@@ -60,7 +60,14 @@ static int hw_i2s_config(struct kasobj_hw *hw)
 
 	param.channels = hw->channels;
 	param.rate = hw->rate;
-	param.slave = hw->db->is_slave;
+
+	/*
+	 * If i2s is master mode, that means the device is salve mode.
+	 * The endpointer clock master configuration is set the external
+	 * device clock mode. So if The i2s host is master mode, the endpoint
+	 * clock mode must be set slave mode.
+	 */
+	param.slave = !(hw->db->is_slave);
 	param.playback = hw->db->is_sink;
 
 	return sirf_i2s_params_adv(&param);

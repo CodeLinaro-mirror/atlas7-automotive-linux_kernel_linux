@@ -82,7 +82,7 @@ static const struct kasdb_hw hw[] = {
 	{
 		.name = __S("so_i2s"),
 		.is_sink = 0,
-		.is_slave = 0,
+		.is_slave = 1,
 		.max_channels = 2,
 		.def_channels = 0,
 		.audio_format = 0,
@@ -93,7 +93,7 @@ static const struct kasdb_hw hw[] = {
 	{
 		.name = __S("si_i2s"),
 		.is_sink = 1,
-		.is_slave = 0,
+		.is_slave = 1,
 		.max_channels = 8,
 		.def_channels = 8,
 		.audio_format = 0,
@@ -104,7 +104,7 @@ static const struct kasdb_hw hw[] = {
 	{
 		.name = __S("so_i2s_2mic"),
 		.is_sink = 0,
-		.is_slave = 0,
+		.is_slave = 1,
 		.max_channels = 2,
 		.def_channels = 2,		/* For two mic cvc */
 		.audio_format = 0,
