@@ -1,0 +1,8 @@
+config SND_SOC_SIRF_KALIMBA_M3
+	tristate "Kalimba m3 driver"
+	select REGMAP_MMIO
+	help
+	  Kalimba is audio DSP process which support mix, sample rate
+	  convert and echo cancellation etc features. Kalimba gets the
+	  audio data from the frontend device and puts the audio data
+	  to backend device.

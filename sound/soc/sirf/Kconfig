@@ -48,3 +48,4 @@ config SND_SOC_SIRF_USP
 
 # SiRF kalimba DSP support
 source "sound/soc/sirf/kalimba/Kconfig"
+source "sound/soc/sirf/kalimba-m3/Kconfig"
