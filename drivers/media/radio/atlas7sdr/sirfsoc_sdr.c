@@ -548,8 +548,7 @@ static int sdr_sirf_probe(struct platform_device *pdev)
 	sdr->sram_phy = res.start;
 	sdr->sram_size = resource_size(&res);
 	res_io = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	sdr->regbase = devm_ioremap(&pdev->dev, res_io->start,
-			resource_size(res_io));
+	sdr->regbase = devm_ioremap_resource(&pdev->dev, res_io);
 	if (!sdr->regbase) {
 		ret = -ENOMEM;
 		goto tx_dma_fail;
