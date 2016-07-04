@@ -302,14 +302,22 @@ static struct nor_flash_info flash_types[] = {
 	/* Micron */
 #define ATLAS7_QSPI_MICRON_QUAD_EN_BIT	(0x1<<3)
 #define MT25QL256ABA8ESF_FLAG (FLASH_FLAG_READ_FAST | \
+			FLASH_FLAG_READ_1_4_4 | FLASH_FLAG_WRITE_1_1_4)
+	{ "MT25QL256ABA8ESF",
+		0x20BA19, 0, 256, 4 * 1024, 8192,
+		MT25QL256ABA8ESF_FLAG | FLASH_FLAG_32BIT_ADDR,
+		108, 100, 8, 10,
+		NULL, NULL, atlas7_qspi_enter_32bit_addr},
+/*
+		#define MT25QL256ABA8ESF_FLAG (FLASH_FLAG_READ_FAST | \
 			FLASH_FLAG_READ_1_4_4 | FLASH_FLAG_WRITE_1_4_4)
 	{ "MT25QL256ABA8ESF",
 		0x20BA19, 0, 256, 4 * 1024, 8192,
-		MT25QL256ABA8ESF_FLAG, 133, 100, 8, 10,
+		MT25QL256ABA8ESF_FLAG, 133, 100, 8, 14,
 		NULL,
 		atlas7_qspi_nor_micron_quad_enable,
 		atlas7_qspi_enter_32bit_addr},
-
+*/
 	/*Macronix */
 #define MX25_FLAG (FLASH_FLAG_READ_WRITE	|	\
 		   FLASH_FLAG_READ_FAST		|	\
@@ -319,12 +327,12 @@ static struct nor_flash_info flash_types[] = {
 		   FLASH_FLAG_READ_1_4_4	|	\
 		   FLASH_FLAG_WRITE_1_4_4)
 #define ATLAS7_QSPI_MACRONIX_QUAD_EN_BIT	(0x1<<6)
-	{ "mx25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
+	{ "MX25l25635f", 0xc22019, 0, 256, 4 * 1024, 4096 * 2,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
 		133, 100, 4, 6,
 		NULL, atlas7_qspi_nor_macronix_quad_enable,
 		atlas7_qspi_enter_32bit_addr},
-	{ "mx25l12835f", 0xc22018, 0, 256, 4 * 1024, 4096,
+	{ "MX25l12835f", 0xc22018, 0, 256, 4 * 1024, 4096,
 		MX25_FLAG | FLASH_FLAG_32BIT_ADDR,
 		133, 100, 4, 6,
 		NULL, atlas7_qspi_nor_macronix_quad_enable,
