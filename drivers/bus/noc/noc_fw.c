@@ -159,10 +159,27 @@ static void ramfw_config_noncpu_state(struct dramfw_regs_t *base,
 	i = initiator / 32;
 	val = 1<<(initiator - 32 * i);
 
-	noc_write_reg(val, s_ddrm->mbase +
-			ramfw_noncpu_state_list[i].readset);
-	noc_write_reg(val, s_ddrm->mbase +
-			ramfw_noncpu_state_list[i].writeset);
+	/*seems hw has bug, reset default before start*/
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[0].readset);
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[0].writeset);
+
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[1].readset);
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[1].writeset);
+
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[2].readset);
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[2].writeset);
+
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[3].readset);
+	noc_write_reg(0xffffffff, s_ddrm->mbase +
+			ramfw_noncpu_state_list[3].writeset);
+
 	/* initiator access read/write */
 	if (state == MODE_S) {
 		noc_write_reg(val, s_ddrm->mbase +
