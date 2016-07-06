@@ -198,8 +198,9 @@ static void ramfw_config_noncpu_mode(struct dramfw_regs_t *base,
 	val = 1<<(initiator - 32 * i);
 
 	noc_write_reg(0x00000022, &base->prot_set);
-	if (mode == MODE_NS)
-		noc_write_reg(0x00000022, &base->prot_val_set);
+	noc_write_reg(0x00000022, &base->prot_val_set);
+	if (mode == MODE_S)
+		noc_write_reg(0x00000022, &base->prot_val_clr);
 }
 
 #define RP_ENABLE_OFF   0x3F04
