@@ -1,5 +1,7 @@
 /*
- * Copyright (c) [2016] The Linux Foundation. All rights reserved.
+ * SiRF I2S controllers define
+ *
+ * Copyright (c) 2011, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,14 +12,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _KAS_I2S_H
+#define _KAS_I2S_H
 
-#ifndef __AUDIO_PROTOCOL
-#define __AUDIO_PROTOCOL
+void sirf_i2s_start(int playback);
+void sirf_i2s_stop(int playback);
+void sirf_i2s_params(int channels, int rate, int slave);
 
-int audio_protocol_init(void);
-void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
-	u32 buff_size, u32 period_size);
-void kas_stop_stream(u32 stream);
-int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp);
-
-#endif
+#endif /*_KAS_I2S_H*/

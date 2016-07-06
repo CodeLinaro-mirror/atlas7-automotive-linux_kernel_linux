@@ -1,8 +1,17 @@
 config SND_SOC_SIRF_KALIMBA_M3
 	tristate "Kalimba m3 driver"
-	select REGMAP_MMIO
 	help
 	  Kalimba is audio DSP process which support mix, sample rate
 	  convert and echo cancellation etc features. Kalimba gets the
 	  audio data from the frontend device and puts the audio data
 	  to backend device.
+
+config SND_SOC_SIRF_KALIMBA_DEBUG
+	tristate "Kalimba driver debug"
+	depends on SND_SOC_SIRF_KALIMBA || SND_SOC_SIRF_KALIMBA_M3
+	help
+	  Kalimba debug interface which helps to develop the code of kalimba,
+	  it alloc, free and fill memory by test tool use.
+	  It also initialize hardware audio device, such as I2S, codec and dma.
+	  It also prepare the interface to user space test tools.
+

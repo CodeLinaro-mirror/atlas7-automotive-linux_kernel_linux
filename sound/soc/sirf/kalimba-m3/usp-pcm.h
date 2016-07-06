@@ -1,5 +1,7 @@
 /*
- * Copyright (c) [2016] The Linux Foundation. All rights reserved.
+ * CSRatlas7 USP-PCM controllers define
+ *
+ * Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,13 +13,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __AUDIO_PROTOCOL
-#define __AUDIO_PROTOCOL
+#ifndef _KAS_USP_PCM_H
+#define _KAS_USP_PCM_H
 
-int audio_protocol_init(void);
-void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
-	u32 buff_size, u32 period_size);
-void kas_stop_stream(u32 stream);
-int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp);
+#define USP_PORTS		4
 
-#endif
+void sirf_usp_pcm_start(int port, int playback);
+void sirf_usp_pcm_stop(int port, int playback);
+void sirf_usp_pcm_params(int port, int playback, int channels, int rate);
+
+#endif /*_KAS_USP_PCM_H*/
