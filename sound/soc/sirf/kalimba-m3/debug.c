@@ -26,6 +26,7 @@
 #include "audio-protocol.h"
 #include "buffer.h"
 #include "debug.h"
+#include "firmware.h"
 #include "i2s.h"
 #include "iacc.h"
 #include "usp-pcm.h"
@@ -329,6 +330,16 @@ static long debug_ioctl(struct file *filp,
 		return -EINVAL;
 
 	switch (cmd) {
+	case IOCTL_KALIMBA_WRITE_PM:
+	case IOCTL_KALIMBA_READ_PM:
+	case IOCTL_KALIMBA_WRITE_DM:
+	case IOCTL_KALIMBA_READ_DM:
+	case IOCTL_KALIMBA_RUN_PM:
+	case IOCTL_KALIMBA_STOP_PM:
+	case IOCTL_KALIMBA_RESUME_PM:
+	case IOCTL_KALIMBA_DUMP_BOOTCODE:
+	case IOCTL_KALIMBA_DOWNLOAD_BOOTCODE:
+		return firmware_ioctl(debug_data->dev, cmd, arg);
 	case IOCTL_KALIMBA_API:
 		get_user(api_cmd_length, (u16 __user *)(arg + 2));
 		api_cmd = kmalloc(api_cmd_length * 2 + 4, GFP_KERNEL);
