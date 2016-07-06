@@ -161,31 +161,31 @@ static void ramfw_config_noncpu_state(struct dramfw_regs_t *base,
 
 	/*seems hw has bug, reset default before start*/
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[0].readset);
+			ramfw_noncpu_state_list[0].readclr);
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[0].writeset);
+			ramfw_noncpu_state_list[0].writeclr);
 
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[1].readset);
+			ramfw_noncpu_state_list[1].readclr);
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[1].writeset);
+			ramfw_noncpu_state_list[1].writeclr);
 
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[2].readset);
+			ramfw_noncpu_state_list[2].readclr);
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[2].writeset);
+			ramfw_noncpu_state_list[2].writeclr);
 
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[3].readset);
+			ramfw_noncpu_state_list[3].readclr);
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
-			ramfw_noncpu_state_list[3].writeset);
+			ramfw_noncpu_state_list[3].writeclr);
 
 	/* initiator access read/write */
-	if (state == MODE_S) {
+	if (state == MODE_NS) {
 		noc_write_reg(val, s_ddrm->mbase +
-				ramfw_noncpu_state_list[i].readclr);
+				ramfw_noncpu_state_list[i].readset);
 		noc_write_reg(val, s_ddrm->mbase +
-				ramfw_noncpu_state_list[i].writeclr);
+				ramfw_noncpu_state_list[i].writeset);
 	}
 }
 
