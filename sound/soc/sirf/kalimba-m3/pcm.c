@@ -137,6 +137,7 @@ static int kas_pcm_ack(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	u32 pos;
 
 	if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
 		return 0;
@@ -151,12 +152,9 @@ static int kas_pcm_ack(struct snd_pcm_substream *substream)
 	else
 		return 0;
 
-#if 0
-	pcm_data->sw_ep_handle->write_pointer =	frames_to_bytes(runtime,
+	pos = frames_to_bytes(runtime,
 		pcm_data->last_appl_ptr % runtime->buffer_size) / 4;
-
-	data_produced(pcm_data->kalimba_notify_ep_id);
-#endif
+	kas_send_data_produced(rtd->cpu_dai->id, pos);
 	return 0;
 }
 

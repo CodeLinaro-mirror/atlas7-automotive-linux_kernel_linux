@@ -78,6 +78,17 @@ int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp)
 	return 0;
 }
 
+void kas_send_data_produced(u32 stream, u32 pos)
+{
+	u32 msg[3];
+
+	msg[0] = MSG_DATA_PRODUCED;
+	msg[1] = stream;
+	msg[2] = pos;
+
+	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
+}
+
 void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 		u32 buff_size, u32 period_size)
 {
