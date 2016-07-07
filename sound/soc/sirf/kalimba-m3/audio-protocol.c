@@ -20,6 +20,7 @@
 
 #include "debug.h"
 #include "pcm.h"
+#include "ps.h"
 
 static struct rpmsg_channel *audio_rpdev;
 
@@ -27,12 +28,13 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_STOP_STREAM			0x00000002
 #define MSG_OPERATOR_CFG		0x00000003
 #define MSG_PS_ADDR_SET			0x00000004
-#define MSG_DATA_PRODUCED		0x00000005
-#define MSG_DATA_CONSUMED		0x00000006
-#define MSG_AUDIO_CODEC_SET		0x00000007
-#define MSG_GET_AUDIO_CODEC_VOL_RANGE	0x00000008
-#define MSG_AUDIO_CODEC_VOL_SET		0x00000009
-#define MSG_DSP_COMMAND			0x0000000A
+#define MSG_PS_UPDATE			0x00000005
+#define MSG_DATA_PRODUCED		0x00000006
+#define MSG_DATA_CONSUMED		0x00000007
+#define MSG_AUDIO_CODEC_SET		0x00000008
+#define MSG_GET_AUDIO_CODEC_VOL_RANGE	0x00000009
+#define MSG_AUDIO_CODEC_VOL_SET		0x0000000A
+#define MSG_DSP_COMMAND			0x0000000B
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
@@ -102,23 +104,43 @@ void kas_stop_stream(u32 stream)
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
 }
 
+void kas_ps_region_addr_update(u32 addr)
+{
+	u32 msg[2];
+
+	msg[0] = MSG_PS_ADDR_SET;
+	msg[1] = addr;
+	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
+}
+
 static struct rpmsg_device_id rpmsg_driver_audio_id_table[] = {
 	{ .name = "rpmsg-audio" },
 	{ },
 };
 MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_sample_id_table);
 
+#define AUDIO_PROTOCOL_RESP_ID(msg)		(0x10000000 | msg)
+
 static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		void *priv, u32 src)
 {
 	u32 *msg = (u32 *)data;
 
-	if (msg[0] == MSG_DATA_PRODUCED || msg[0] == MSG_DATA_CONSUMED)
+	switch (msg[0]) {
+	case MSG_DATA_PRODUCED:
+	case MSG_DATA_CONSUMED:
 		kas_pcm_notify(msg[1], msg[2]);
-	else if (msg[0] == (0x10000000 | MSG_DSP_COMMAND)) {
+		break;
+	case AUDIO_PROTOCOL_RESP_ID(MSG_DSP_COMMAND):
 		memcpy(resp_payload, &msg[2], msg[1]);
 		msg_dsp_rsp = true;
 		wake_up(&waitq_dsp_rsp);
+		break;
+	case MSG_PS_UPDATE:
+		kas_ps_update();
+		break;
+	default:
+		break;
 	}
 }
 
@@ -151,5 +173,6 @@ int audio_protocol_init(void)
 #ifdef CONFIG_SND_SOC_SIRF_KALIMBA_DEBUG
 	debug_init();
 #endif
+	ps_init();
 	return ret;
 }

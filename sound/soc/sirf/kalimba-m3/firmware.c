@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 
 #include "debug.h"
+#include "ps.h"
 #include "regs.h"
 
 #define KAS_ADDR_CONST16 0x007FA7
@@ -543,8 +544,10 @@ int firmware_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 	case IOCTL_KALIMBA_RUN_PM:
 		get_user(start_addr, (u32 __user *)arg);
 		if (start_addr >= KAS_PM_SRAM_START_ADDR &&
-			start_addr <= KAS_PM_SRAM_END_ADDR)
+			start_addr <= KAS_PM_SRAM_END_ADDR) {
 				firmware_run_pm(start_addr);
+				ps_ptr_update();
+		}
 		break;
 	case IOCTL_KALIMBA_STOP_PM:
 		dev_info(dev, "Pause PM\n");
