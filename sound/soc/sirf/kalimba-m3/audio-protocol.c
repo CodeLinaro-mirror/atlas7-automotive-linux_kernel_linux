@@ -19,6 +19,7 @@
 #include <linux/wait.h>
 
 #include "debug.h"
+#include "license.h"
 #include "pcm.h"
 #include "ps.h"
 
@@ -35,6 +36,8 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_GET_AUDIO_CODEC_VOL_RANGE	0x00000009
 #define MSG_AUDIO_CODEC_VOL_SET		0x0000000A
 #define MSG_DSP_COMMAND			0x0000000B
+#define MSG_LICENSE_REQ			0x0000000C
+#define MSG_LICENSE_RESP		0x0000000D
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
@@ -87,6 +90,24 @@ void kas_send_data_produced(u32 stream, u32 pos)
 	msg[2] = pos;
 
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
+}
+
+void kas_send_license_ctrl_resp(u32 resp_len, void *data)
+{
+	void *__msg;
+	u32 *msg;
+
+	__msg = kmalloc(2 * sizeof(u32) + resp_len, GFP_KERNEL);
+	if (__msg == NULL)
+		return;
+
+	msg = (u32 *)__msg;
+
+	msg[0] = MSG_LICENSE_RESP;
+	msg[1] = resp_len / sizeof(u16);
+	memcpy(&msg[2], data, resp_len);
+	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32) + resp_len);
+	kfree(msg);
 }
 
 void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
@@ -150,6 +171,9 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	case MSG_PS_UPDATE:
 		kas_ps_update();
 		break;
+	case MSG_LICENSE_REQ:
+		kalimba_license_req(msg[1], &msg[2]);
+		break;
 	default:
 		break;
 	}
@@ -185,5 +209,6 @@ int audio_protocol_init(void)
 	debug_init();
 #endif
 	ps_init();
+	license_init();
 	return ret;
 }

@@ -21,5 +21,6 @@ void kas_stop_stream(u32 stream);
 int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp);
 void kas_ps_region_addr_update(u32 addr);
 void kas_send_data_produced(u32 stream, u32 pos);
+void kas_send_license_ctrl_resp(u32 resp_len, void *data);
 
 #endif
