@@ -215,7 +215,7 @@ static ssize_t spramfw_noncpu_store(struct device *dev,
 	struct noc_macro *nocm = dev_get_drvdata(dev);
 	struct dramfw_regs_t *dfwregs;
 	int access, state, mode, noncpu, rpnum = 0;
-	char name[16];
+	char name[32];
 	unsigned long flags;
 
 	memset(name, 0, sizeof(name));
@@ -263,7 +263,7 @@ static ssize_t dramfw_noncpu_store(struct device *dev,
 	struct noc_macro *nocm = dev_get_drvdata(dev);
 	struct dramfw_regs_t *dfwregs;
 	int access, state, mode, noncpu, rpnum = 0, rpbase;
-	char name[16];
+	char name[32];
 	unsigned long flags;
 
 	memset(name, 0, sizeof(name));
