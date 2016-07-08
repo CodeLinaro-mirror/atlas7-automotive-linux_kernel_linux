@@ -52,9 +52,15 @@ static int codec_fixup(struct snd_soc_pcm_runtime *rtd,
 {
 	struct snd_interval *rate = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	/* The kalimba DSP will covert the FE rate to 48k */
 	rate->min = rate->max = 48000;
+
+	/*cvc 2mic should enable Iacc ADC1/2 both work*/
+	if (kcm_enable_2mic_cvc)
+		channels->min = channels->max = 2;
 	return 0;
 }
 
