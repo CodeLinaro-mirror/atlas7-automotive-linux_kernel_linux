@@ -32,7 +32,8 @@
 	name " PEQ Bands Num;"		\
 	name " PEQ Core Type;"		\
 	name " PEQ Master Gain;"	\
-	name " PEQ Switch Mode"
+	name " PEQ Switch Mode;"	\
+	name " PEQ UCID"
 
 #define KCM_MIXER_STREAM(name)		\
 	name " Stream CH1 Gain;"	\
@@ -63,7 +64,8 @@
 	name " DBE Harm Content;"	\
 	name " DBE Xover FC;"		\
 	name " DBE Mix Balance;"	\
-	name " DBE Switch Mode"
+	name " DBE Switch Mode;"	\
+	name " DBE UCID"
 
 #define KCM_CTRLS_DELAY(name)	\
 	name " Chan1 Delay;"	\
@@ -84,10 +86,10 @@
 
 #define KCM_CTRLS_CVCSEND(name)	\
 	name " CVC Send Mode;"	\
-	name " CVC Send Bypass"
+	name " CVC Send UCID"
 
 #define KCM_CTRLS_CVCRECV(name)	\
 	name " CVC Recv Mode;"	\
-	name " CVC Recv Bypass"
+	name " CVC Recv UCID"
 
 #endif /* OP_CTRLS_H */

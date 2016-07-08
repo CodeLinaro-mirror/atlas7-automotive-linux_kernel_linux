@@ -128,10 +128,8 @@ static int delay_init(struct kasobj_op *op)
 	for (idx = 0; idx < MAX_CHANNELS; idx++)
 		ctx->samples[idx] = MIN_SAMPLES;
 
-	if (!op->db->ctrl_names.s) {
-		pr_err("KASOP(%s): invalid control name!\n", op->obj.name);
-		return -EINVAL;
-	}
+	if (!op->db->ctrl_names.s)
+		return 0;
 
 	if (snprintf(names_buf, 256, "%s", op->db->ctrl_names.s) >= 256) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);

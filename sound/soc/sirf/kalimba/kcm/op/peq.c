@@ -24,13 +24,14 @@
 /*
  * The squence number of peq controls
  * defined in db-default/op.c
- * control names		   control index
+ * control names	   control index
  * band 1~10 gain	   0 ~ 9
  * band 1~10 FC		   10~ 19
- * band num			   20
- * core type			   21
+ * band num		   20
+ * core type		   21
  * master gain		   22
  * switch mode		   23
+ * ucid			   24
  */
 
 #define PEQ_CNTL_BAND1_GAIN 0
@@ -41,14 +42,19 @@
 #define PEQ_CNTL_CORE_TYPE 21
 #define PEQ_CNTL_MASTER_GAIN 22
 #define PEQ_CNTL_SWITCH_MODE 23
+#define PEQ_CNTL_UCID 24
 
-#define PEQ_CONTROL_NUM 24
+#define PEQ_CONTROL_NUM 25
 #define PEQ_DEFAULT_MSG_LEN 69
 #define PEQ_MIN_DB (-60)
 #define PEQ_MAX_DB 20
 #define PEQ_STEP_DB 1
 #define PEQ_MAX_GAIN (PEQ_MAX_DB - PEQ_MIN_DB)
 #define PEQ_BANDS 10
+#define PEQ_MAX_UCID 9
+
+#define PEQ_DEFAULT_UCID 0x00	/* default peq UCID */
+#define PEQ_CUST_UCID_MAX 0x09
 
 static const DECLARE_TLV_DB_SCALE(peq_db_tlv,
 	PEQ_MIN_DB*100, PEQ_STEP_DB*100, 0);
@@ -79,7 +85,7 @@ peq_default_params_msg[PEQ_DEFAULT_MSG_LEN] = {
 
 /* The default FC for each band */
 static const int peq_default_fc[] = {
-	32,   64,	125,  250,	500,
+	32,   64,   125,  250,	500,
 	1000, 2000, 4000, 8000, 16000
 };
 
@@ -89,6 +95,7 @@ struct peq_ctx {
 	int core_type;
 	int bands_num;
 	int master_gain;
+	int ucid; /* 0x00: default ucid, 0x01~0x09: tier1 predefined ucid */
 	int band_fc[PEQ_BANDS];
 	int band_gain[PEQ_BANDS];
 };
@@ -185,6 +192,30 @@ static int set_peq_mode(struct kasobj_op *op)
 	return 0;
 }
 
+static int set_peq_ucid(struct kasobj_op *op)
+{
+	struct peq_ctx *ctx = op->context;
+	u16 ucid;
+	int ret;
+
+	if (!op->obj.life_cnt)
+		return 0;
+
+	ucid = ctx->ucid;
+	if (ucid < PEQ_DEFAULT_UCID || ucid > PEQ_CUST_UCID_MAX) {
+		pr_err("KASOBJ(%s): invalid UCID(0x%x)!\n", op->obj.name, ucid);
+		return -EINVAL;
+	}
+	ret = kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_UCID,
+		1, &ucid, NULL, NULL, __kcm_resp);
+	if (ret) {
+		pr_err("KASOBJ(%s): set UCID failed(%d)!\n", op->obj.name, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int peq_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
@@ -207,6 +238,9 @@ static int peq_get(struct snd_kcontrol *kcontrol,
 		break;
 	case PEQ_CNTL_SWITCH_MODE:
 		value = ctx->switch_mode;
+		break;
+	case PEQ_CNTL_UCID:
+		value = ctx->ucid;
 		break;
 	default: {
 		if (ctl_idx >= PEQ_CNTL_BAND1_GAIN &&
@@ -263,6 +297,12 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 			diff = 1;
 		}
 		break;
+	case PEQ_CNTL_UCID:
+		if (ctx->ucid != value) {
+			ctx->ucid = value;
+			diff = 1;
+		}
+		break;
 	default: {
 		if (ctl_idx >= PEQ_CNTL_BAND1_GAIN &&
 			ctl_idx <= PEQ_CNTL_BAND10_GAIN) {
@@ -288,6 +328,8 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 	if (diff) {
 		if (ctl_idx == PEQ_CNTL_SWITCH_MODE)
 			ret = set_peq_mode(op);
+		else if (ctl_idx == PEQ_CNTL_UCID)
+			ret = set_peq_ucid(op);
 		else
 			ret = set_peq_params(op, ctl_idx);
 	}
@@ -306,10 +348,9 @@ static int peq_init(struct kasobj_op *op)
 	int max, idx;
 	const int *tlv = NULL;
 
-	if (!op->db->ctrl_names.s) {
-		pr_err("KASOP(%s): no control names !\n", op->obj.name);
-		return -EINVAL;
-	}
+	if (!op->db->ctrl_names.s)
+		return 0;
+
 	if (snprintf(names_buf, 512, "%s", op->db->ctrl_names.s) >= 512) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
@@ -319,6 +360,7 @@ static int peq_init(struct kasobj_op *op)
 	ctx->core_type = 0;
 	ctx->bands_num = 10;
 	ctx->master_gain = 0; /* default 0dB */
+	ctx->ucid = PEQ_DEFAULT_UCID; /* use default ucid */
 	for (idx = 0; idx < PEQ_BANDS; idx++) {
 		ctx->band_fc[idx] = peq_default_fc[idx] << 4;
 		ctx->band_gain[idx] = 0; /* default 0dB */
@@ -343,6 +385,8 @@ static int peq_init(struct kasobj_op *op)
 			max = 2;
 		else if (kcm_strcasestr(name, "Num"))
 			max = 10;
+		else if (kcm_strcasestr(name, "UCID"))
+			max = PEQ_MAX_UCID;
 		else {
 			pr_err("KASOP(%s): Invalid control !\n", op->obj.name);
 			continue;
@@ -368,6 +412,9 @@ static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 	u16 sample_rate;
 	int ret;
 
+	ret = set_peq_ucid(op);
+	if (ret)
+		return ret;
 	/*
 	 * The db->rate has two function:
 	 * First, it is to decide which rate value will be used (db->rate
@@ -400,9 +447,9 @@ static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 			op->obj.name, ret);
 		return ret;
 	}
-	set_peq_mode(op);
+	ret = set_peq_mode(op);
 
-	return 0;
+	return ret;
 }
 
 static const struct kasop_impl peq_impl = {

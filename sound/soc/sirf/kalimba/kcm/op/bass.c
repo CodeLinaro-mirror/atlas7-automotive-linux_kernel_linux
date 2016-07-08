@@ -22,16 +22,17 @@
 #include "utils.h"
 
 #define MAX_BASS_OP_PAIR 12
-#define CONTROL_NUM 8
+#define CONTROL_NUM 9
 #define PARAM_NUM 7
 #define PARAM_LEN 12 /* (CONTROL_NUM * 3) / 2 */
 #define MSG_LEN 15 /* 3 + PARAM_LEN */
-#define MAX_IDX 1
-#define MIN_IDX 0
 #define MIN_DB (-32)
 #define STEP_DB 1
 #define MAXV (-MIN_DB / STEP_DB)
 #define MINV (-MAX_DB / STEP_DB)
+
+#define BASS_DEFAULT_UCID 0x00
+#define BASS_CUST_UCID 0x01
 
 /* the squence number of bass controls */
 #define BASS_CNTL_EFFECT_STRENGTH 0
@@ -42,12 +43,14 @@
 #define BASS_CNTL_XOVER_FC 5
 #define BASS_CNTL_MIX_BALANCE 6
 #define BASS_CNTL_SWITCH_MODE 7
+#define BASS_CNTL_UCID 8
 
 static const DECLARE_TLV_DB_SCALE(bass_db_tlv, MIN_DB*100, STEP_DB*100, 0);
 static const int param_min[CONTROL_NUM] = {
-	0, 0, 50, 30, 0, 40, 0, 0};  /* min value of control value */
+	0, 0, 50, 30, 0, 40, 0, 0, 0};	/* min value of control value */
 static const int param_max[CONTROL_NUM] = {
-	100, 32, 300, 300, 100, 1000, 100, 2}; /* max value of control value */
+	/* max value of control value */
+	100, 32, 300, 300, 100, 1000, 100, 2, 1};
 
 struct bass_ctx {
 	int effect_strength;
@@ -58,6 +61,8 @@ struct bass_ctx {
 	int xover_fc;
 	int mix_balance;
 	int switch_mode;
+	int ucid; /* 0x00: default ucid, 0x01: tier 1 predefined ucid */
+
 	int have_control;
 	int pair_idx;
 };
@@ -77,7 +82,6 @@ struct bass_mode_msg {
 };
 
 /* the context of operator without controls */
-static struct bass_ctx *no_cntl_op_ctx[MAX_BASS_OP_PAIR];
 static u16 no_cntl_op_id[MAX_BASS_OP_PAIR];
 
 static void set_bass_default_value(struct bass_ctx *ctx)
@@ -90,6 +94,41 @@ static void set_bass_default_value(struct bass_ctx *ctx)
 	ctx->hp_fc = 100 << 4;
 	ctx->harm_content = 100;
 	ctx->switch_mode = 1; /* default: process */
+	ctx->ucid = BASS_DEFAULT_UCID;
+}
+
+static int set_bass_ucid(struct kasobj_op *op, int create_op)
+{
+	struct bass_ctx *ctx = op->context;
+	u16 ucid;
+	int ret;
+
+	if (!op->obj.life_cnt)
+		return 0;
+
+	ucid = ctx->ucid;
+	if (ucid != BASS_DEFAULT_UCID && ucid != BASS_CUST_UCID) {
+		pr_err("KASOBJ(%s): invalid UCID(0x%x)!\n", op->obj.name, ucid);
+		return -EINVAL;
+	}
+	ret = kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_UCID,
+		1, &ucid, NULL, NULL, __kcm_resp);
+	if (ret) {
+		pr_err("KASOBJ(%s): set UCID failed(%d)!\n", op->obj.name, ret);
+		return ret;
+	}
+	if (!create_op && no_cntl_op_id[ctx->pair_idx]) {
+		ret = kalimba_operator_message(no_cntl_op_id[ctx->pair_idx],
+			OPERATOR_MSG_SET_UCID, 1, &ucid, NULL, NULL,
+			__kcm_resp);
+		if (ret) {
+			pr_err("KASOBJ(%s): set UCID failed(%d)!\n",
+				op->obj.name, ret);
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 static int set_bass_params(struct kasobj_op *op, int create_op)
@@ -123,7 +162,7 @@ static int set_bass_params(struct kasobj_op *op, int create_op)
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 			op->obj.name, ret);
 
-	if (!create_op) {
+	if (!create_op && no_cntl_op_id[ctx_op->pair_idx]) {
 		ret = kalimba_operator_message(no_cntl_op_id[ctx_op->pair_idx],
 			OPMSG_COMMON_SET_PARAMS, MSG_LEN, (u16 *)&msg, NULL,
 			NULL, __kcm_resp);
@@ -157,7 +196,7 @@ static int set_bass_mode(struct kasobj_op *op, int create_op)
 		pr_err("KASOBJ(%s): set bass mode failed(%d)!\n",
 			op->obj.name, ret);
 
-	if (!create_op) {
+	if (!create_op && no_cntl_op_id[ctx->pair_idx]) {
 		ret = kalimba_operator_message(no_cntl_op_id[ctx->pair_idx],
 			OPMSG_COMMON_SET_CONTROL, 4, (u16 *)&msg, NULL, NULL,
 			__kcm_resp);
@@ -203,7 +242,6 @@ static int bass_put(struct snd_kcontrol *kcontrol,
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	int *ctx = (int *)(op->context);
 	struct bass_ctx *ctx_op = op->context;
-	int *ctx_no_cntl = (int *)no_cntl_op_ctx[ctx_op->pair_idx];
 	int value = ucontrol->value.integer.value[0];
 
 	BUG_ON(ctl_idx < 0 || ctl_idx >= CONTROL_NUM ||
@@ -222,12 +260,14 @@ static int bass_put(struct snd_kcontrol *kcontrol,
 	default:
 		break;
 	}
+
 	kcm_lock();
 	if (value != ctx[ctl_idx]) {
 		ctx[ctl_idx] = value;
-		ctx_no_cntl[ctl_idx] = value;
 		if (ctl_idx == BASS_CNTL_SWITCH_MODE)
 			set_bass_mode(op, 0);
+		else if (ctl_idx == BASS_CNTL_UCID)
+			set_bass_ucid(op, 0);
 		else
 			set_bass_params(op, 0);
 	}
@@ -256,11 +296,14 @@ static int bass_init(struct kasobj_op *op)
 	}
 	ctx->pair_idx = op->db->param.bass_pair_idx;
 	if (!op->db->ctrl_names.s) {
-		no_cntl_op_ctx[ctx->pair_idx] = ctx;
 		ctx->have_control = 0;
 		return 0;
 	}
 	ctx->have_control = 1;
+
+	if (!op->db->ctrl_names.s)
+		return 0;
+
 	if (snprintf(names_buf, 256, "%s", op->db->ctrl_names.s) >= 256) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
@@ -300,6 +343,9 @@ static int bass_create(struct kasobj_op *op,
 	u16 sample_rate;
 	int ret;
 
+	ret = set_bass_ucid(op, 1);
+	if (ret)
+		return ret;
 	/*
 	 * The db->rate has two function:
 	 * First, it is to decide which rate value will be used (db->rate
@@ -326,10 +372,13 @@ static int bass_create(struct kasobj_op *op,
 		pr_err("KASOBJ(%s): set sample rate failed(%d)!\n",
 			op->obj.name, ret);
 	}
-	set_bass_params(op, 1);
-	set_bass_mode(op, 1);
+	ret = set_bass_params(op, 1);
+	if (ret)
+		return ret;
 
-	return 0;
+	ret = set_bass_mode(op, 1);
+
+	return ret;
 }
 
 static const struct kasop_impl bass_impl = {

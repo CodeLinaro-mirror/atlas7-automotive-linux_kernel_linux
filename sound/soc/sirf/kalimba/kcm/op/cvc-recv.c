@@ -22,15 +22,19 @@
 #include "utils.h"
 
 #define CVC_RECV_DEFAULT_MODE (1)
-#define CVC_RECV_DEFAULT_BYPASS (0)
+#define CVC_RECV_DEFAULT_UCID (0x00)
+#define CVC_RECV_CUST_UCID (0x01)
+
 #define CVC_RECV_CTRL_NUM (2)
 #define CVC_RECV_CTRL_MODE_IDX (0)
-#define CVC_RECV_CTRL_BYPASS_IDX (1)
-#define CVC_RECV_BYPASS_MASK (0x000f) /* 4 bypass elements */
+#define CVC_RECV_CTRL_UCID_IDX (1)
+
+#define CVC_RECV_MODE_MAX (2)
+#define CVC_RECV_UCID_MAX (1)
 
 struct cvc_recv_ctx {
 	u16 mode; /* 0: mute, 1: process, 2: passthrough */
-	u16 bypass;
+	u16 ucid; /* 0x00: default UCID, 0x01: tier 1 predefined UCID */
 };
 
 struct cvc_recv_mode_msg {
@@ -40,13 +44,26 @@ struct cvc_recv_mode_msg {
 	u16 value_l;
 };
 
-static int set_cvc_recv_bypass(struct kasobj_op *op, u16 diff)
+static int set_cvc_recv_ucid(struct kasobj_op *op)
 {
 	struct cvc_recv_ctx *ctx = op->context;
+	u16 ucid;
+	int ret;
 
 	if (!op->obj.life_cnt)
 		return 0;
-	/* FIXME: Add bypass process elements here */
+
+	ucid = ctx->ucid;
+	if (ucid != CVC_RECV_DEFAULT_UCID && ucid != CVC_RECV_CUST_UCID) {
+		pr_err("KASOBJ(%s): invalid UCID(0x%x)!\n", op->obj.name, ucid);
+		return -EINVAL;
+	}
+	ret = kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_UCID,
+		1, &ucid, NULL, NULL, __kcm_resp);
+	if (ret) {
+		pr_err("KASOBJ(%s): set UCID failed(%d)!\n", op->obj.name, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -87,8 +104,8 @@ static int cvc_recv_get(struct snd_kcontrol *kcontrol,
 	case CVC_RECV_CTRL_MODE_IDX:
 		value = ctx->mode;
 		break;
-	case CVC_RECV_CTRL_BYPASS_IDX:
-		value = ctx->bypass;
+	case CVC_RECV_CTRL_UCID_IDX:
+		value = ctx->ucid;
 		break;
 	default:
 		pr_err("KASOP(%s): CVC Recv get, invalid control number !\n",
@@ -107,7 +124,6 @@ static int cvc_recv_put(struct snd_kcontrol *kcontrol,
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	struct cvc_recv_ctx *ctx = op->context;
 	u16 value = ucontrol->value.integer.value[0];
-	u16 diff_bit;
 
 	BUG_ON(ctl_idx < 0 || ctl_idx >= CVC_RECV_CTRL_NUM);
 
@@ -120,13 +136,11 @@ static int cvc_recv_put(struct snd_kcontrol *kcontrol,
 			kcm_unlock();
 		}
 		break;
-	case CVC_RECV_CTRL_BYPASS_IDX:
-		if (value != ctx->bypass) {
+	case CVC_RECV_CTRL_UCID_IDX:
+		if (value != ctx->ucid) {
 			kcm_lock();
-			diff_bit = (value ^ ctx->bypass) &
-				CVC_RECV_BYPASS_MASK;
-			ctx->bypass = value;
-			set_cvc_recv_bypass(op, diff_bit);
+			ctx->ucid = value;
+			set_cvc_recv_ucid(op);
 			kcm_unlock();
 		}
 		break;
@@ -150,7 +164,7 @@ static int cvc_recv_init(struct kasobj_op *op)
 	int max;
 
 	ctx->mode = CVC_RECV_DEFAULT_MODE;
-	ctx->bypass = CVC_RECV_DEFAULT_BYPASS;
+	ctx->ucid = CVC_RECV_DEFAULT_UCID;
 	op->context = ctx;
 	if (!op->db->ctrl_names.s)
 		return 0;
@@ -167,9 +181,9 @@ static int cvc_recv_init(struct kasobj_op *op)
 			continue;
 		}
 		if (kcm_strcasestr(name, "Mode"))
-			max = 2;
-		else if (kcm_strcasestr(name, "Bypass"))
-			max = 255;
+			max = CVC_RECV_MODE_MAX;
+		else if (kcm_strcasestr(name, "UCID"))
+			max = CVC_RECV_UCID_MAX;
 		else
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 				op->obj.name, name);
@@ -211,18 +225,20 @@ static int cvc_recv_prepare(struct kasobj_op *op,
 static int cvc_recv_create(struct kasobj_op *op,
 	const struct kasobj_param *param)
 {
-	u16 cvc_recv_ucid = 4; /* stable user case ID */
+	struct cvc_recv_ctx *ctx = op->context;
 	int ret;
 
-	ret = kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_UCID,
-		1, &cvc_recv_ucid, NULL, NULL, __kcm_resp);
-	if (ret) {
-		pr_err("KASOBJ(%s): set UCID failed(%d)!\n", op->obj.name, ret);
-		return ret;
-	}
-	set_cvc_recv_mode(op);
+	/* Reset to default when HF call started */
+	ctx->mode = CVC_RECV_DEFAULT_MODE;
+	ctx->ucid = CVC_RECV_DEFAULT_UCID;
 
-	return 0;
+	ret = set_cvc_recv_ucid(op);
+	if (ret)
+		return ret;
+
+	ret = set_cvc_recv_mode(op);
+
+	return ret;
 }
 
 static const struct kasop_impl cvc_recv_impl = {

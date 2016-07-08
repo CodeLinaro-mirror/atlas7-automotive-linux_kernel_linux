@@ -118,10 +118,9 @@ static int passthr_init(struct kasobj_op *op)
 	ctx->gain = MAXV;	/* default 0dB */
 	op->context = ctx;
 
-	if (!op->db->ctrl_names.s) {
-		pr_err("KASOP(%s): no control names !\n", op->obj.name);
-		return -EINVAL;
-	}
+	if (!op->db->ctrl_names.s)
+		return 0;
+
 	if (snprintf(names_buf, 256, "%s", op->db->ctrl_names.s) >= 256) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
