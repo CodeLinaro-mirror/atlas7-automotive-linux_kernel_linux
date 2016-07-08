@@ -9,7 +9,6 @@ struct kobj_ext_attribute {
 
 struct noc_macro;
 struct noc_probe_t;
-extern struct noc_macro *s_ddrm;
 
 struct noc_macro {
 	struct platform_device *pdev;
@@ -41,9 +40,14 @@ int noc_get_id_by_orig(int orig);
 
 
 #ifdef CONFIG_ATLAS7_NOC_FW
+extern struct noc_macro *s_ddrm;
+extern struct noc_macro *s_rtcm;
+extern struct noc_macro *s_audiom;
+
 int noc_spramfw_init(struct noc_macro *nocm);
 int noc_regfw_init(struct noc_macro *nocm);
 int noc_dramfw_init(struct noc_macro *nocm);
+int ntfw_init(struct noc_macro *nocm);
 int noc_get_rpbase_by_name(const char *name);
 
 #endif

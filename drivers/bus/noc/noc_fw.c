@@ -54,8 +54,12 @@ struct noncpu_firewall_t {
 };
 #define MODE_BLOCK 0
 #define MODE_ALLOW 1
+/*mode is secure feature of rp:range process of ram*/
 #define MODE_S 0
 #define MODE_NS 1
+/*state is secure feature of initiator itself*/
+#define STATE_S 0
+#define STATE_NS 1
 
 static void noc_write_reg(int val, void __iomem *addr)
 {
@@ -159,7 +163,7 @@ static void ramfw_config_noncpu_state(struct dramfw_regs_t *base,
 	i = initiator / 32;
 	val = 1<<(initiator - 32 * i);
 
-	/*seems hw has bug, reset default before start*/
+	/*set one initiator state, leave others to be secure*/
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
 			ramfw_noncpu_state_list[0].readclr);
 	noc_write_reg(0xffffffff, s_ddrm->mbase +
@@ -366,13 +370,28 @@ out:
 
 
 static DEVICE_ATTR_WO(spramfw_cpu);
-
-#define RFW_CLR_OFF 4
-static void regfw_bit_clear(void __iomem *addr, u32 bit)
+/*configure M3 secure state*/
+static void noc_config_m3_state(u32 state)
 {
-	noc_write_reg(1<<bit, addr + RFW_CLR_OFF);
+	/*m3*/
+	if (state == STATE_NS)
+		noc_write_reg(1, (void __iomem *)s_rtcm->mbase + 0x1050);
+	else
+		noc_write_reg(1, (void __iomem *)s_rtcm->mbase + 0x1054);
 }
 
+/*configure Kas secure state*/
+static void noc_config_kas_state(u32 state)
+{
+	/*kas*/
+	if (state == STATE_NS)
+		noc_write_reg(1, (void __iomem *)s_audiom->mbase + 0x1050);
+	else
+		noc_write_reg(1, (void __iomem *)s_audiom->mbase + 0x1054);
+}
+
+#define CPU_M3 2
+#define CPU_KAS 3
 static ssize_t regfw_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t len)
@@ -380,21 +399,101 @@ static ssize_t regfw_store(struct device *dev,
 	struct noc_macro *nocm = dev_get_drvdata(dev);
 	struct cpu_firewall_t *rfwregs = nocm->mbase + (int)nocm->regfwoff;
 	unsigned long flags;
+	char name[16];
+	u32 state, mode, access, bit;
+	int cpu;
 
-	u32 bit;
-
-	if (sscanf(buf, "%d\n", &bit) != 1)
+	if (sscanf(buf, "%s %d %d %d %d\n",
+			name, &access, &state, &mode, &bit) != 5)
 		return -EINVAL;
 
+	cpu = noc_get_cpu_by_name(name);
+	if (cpu < 0)
+		goto out;
+
 	local_irq_save(flags);
-	if (bit > 0 && bit < 31)
-		regfw_bit_clear(&rfwregs->ns, bit);
+
+	/*restore default nonsecure*/
+	noc_write_reg(0xffffffff, &rfwregs->ns.set);
+	if (!mode)
+		noc_write_reg(1<<bit, &rfwregs->ns.clear);
+
+	/*restore default access*/
+	noc_write_reg(0xffffffff, &rfwregs->cpu_access[cpu].set);
+	if (!access)
+		noc_write_reg(1<<bit, &rfwregs->cpu_access[cpu].clear);
+
+	switch (cpu) {
+	case CPU_M3:
+		noc_config_m3_state(state);
+		break;
+	case CPU_KAS:
+		noc_config_kas_state(state);
+		break;
+	default:
+		break;
+	}
 
 	local_irq_restore(flags);
+out:
 	return len;
 }
 
 static DEVICE_ATTR_WO(regfw);
+
+static ssize_t ntfw_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
+{
+	struct noc_macro *nocm = dev_get_drvdata(dev);
+	void __iomem *addr;
+	unsigned long flags;
+	char name[16];
+	u32 state, mode, access, offset, val;
+	int cpu;
+
+#define NTFW_SECURE_BIT	BIT(4)
+
+	if (sscanf(buf, "%s %d %d %d %d\n", name,
+			&access, &state, &mode, &offset) != 5)
+		return -EINVAL;
+
+	cpu = noc_get_cpu_by_name(name);
+	if (cpu < 0)
+		goto out;
+
+	local_irq_save(flags);
+	addr = nocm->mbase + (int)offset;
+
+	/*restore default*/
+	val = ~0;
+
+	if (!mode)
+		val &= ~NTFW_SECURE_BIT;
+
+	if (!access)
+		val &= ~(1<<cpu);
+
+	switch (cpu) {
+	case CPU_M3:
+		noc_config_m3_state(state);
+		break;
+	case CPU_KAS:
+		noc_config_kas_state(state);
+		break;
+	default:
+		break;
+	}
+
+	noc_write_reg(val, addr);
+
+	local_irq_restore(flags);
+out:
+	return len;
+}
+
+static DEVICE_ATTR_WO(ntfw);
+
 
 int noc_regfw_init(struct noc_macro *nocm)
 {
@@ -459,6 +558,20 @@ int noc_dramfw_init(struct noc_macro *nocm)
 			"failed to create dram firewall attribute, %d\n",
 			ret);
 
+
+	return 0;
+}
+
+int ntfw_init(struct noc_macro *nocm)
+{
+	struct platform_device *pdev = nocm->pdev;
+	int ret;
+
+	ret = device_create_file(&pdev->dev, &dev_attr_ntfw);
+	if (ret)
+		dev_err(&pdev->dev,
+			"failed to create dram firewall attribute, %d\n",
+			ret);
 
 	return 0;
 }

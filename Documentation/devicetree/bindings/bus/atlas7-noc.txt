@@ -19,7 +19,7 @@ firewall(protect registers by per-register).
 Noc service sub-nodes:
 properties:
 - compatible : Should be one of
-	"sirf,noc-macro",
+	"sirf,noc-macro", "sirf,atlas7-ntfw"
 - reg: A resource specifier for the register space
 - interrupts : Should be the interrupt number - optional
 - regofs: define offset of NoC related registers

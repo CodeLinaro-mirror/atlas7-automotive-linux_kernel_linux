@@ -1958,7 +1958,9 @@
 			#size-cells = <1>;
 			ranges = <0x18641000 0x18641000 0x3000>,
 					 <0x18620000 0x18620000 0x1000>,
-					<0x18630000 0x18630000 0x10000>;
+					<0x18630000 0x18630000 0x10000>,
+					<0x18660000 0x18660000 0x600>,
+					<0x18680000 0x18680000 0x100>;
 
 			cgum:cgum@18641000 {
 				compatible = "sirf,noc-macro";
@@ -1972,6 +1974,12 @@
 				#clock-cells = <1>;
 				#reset-cells = <1>;
 			};
+
+			ntfw_car: ntfw_car@18660000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x18660000 0x600>;
+			};
+
 			pwm: pwm@18630000 {
 				compatible = "sirf,prima2-pwm";
 				#pwm-cells = <2>;
@@ -1980,6 +1988,11 @@
 					<&car 241>,  <&car 49>, <&car 247>;
 				clock-names = "pwmc", "sigsrc0", "sigsrc1",
 					"sigsrc2", "sigsrc3", "sigsrc4";
+			};
+
+			ntfw_pwm: ntfw_pwm@18680000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x18680000 0x100>;
 			};
 		};
 
@@ -1998,7 +2011,8 @@
 				<0x18100000 0x18100000 0x3000>,
 				<0x18200000 0x18200000 0x1000>,
 				<0x18240000 0x18240000 0x10000>,
-				<0x18250000 0x18250000 0x10000>;
+				<0x18250000 0x18250000 0x10000>,
+				<0x18280000 0x18280000 0x1000>;
 
 			dmac0: dma-controller@18000000 {
 				cell-index = <0>;
@@ -2008,6 +2022,11 @@
 				clocks = <&car 113>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
+			};
+
+			ntfw_dmac0: ntfw_dmac0@18280000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x18280000 0x1000>;
 			};
 
 			gnssm:gnssm@0x18100000 {
@@ -2267,7 +2286,8 @@
 				<0x17060200 0x17060200 0x100>,
 				<0x17070000 0x17070000 0x200>,
 				<0x17070200 0x17070200 0x100>,
-				<0x170A0000 0x170A0000 0x3000>;
+				<0x170A0000 0x170A0000 0x3000>,
+				<0x170C0000 0x170C0000 0x200>;
 
 			multimedia@15000000 {
 				compatible = "sirf,atlas7-video-codec";
@@ -2381,6 +2401,11 @@
 						"jtag_uart_nand_gpio_grp";
 			};
 
+			ntfw_gpio_0: ntfw_gpio_0@170C0000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x170C0000 0x200>;
+			};
+
 			nand@17050000 {
 				compatible = "sirf,atlas7-nand";
 				reg = <0x17050000 0x10000>;
@@ -2482,6 +2507,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x131e0000 0x131e0000 0x100>,
+				<0x13320000 0x13320000 0x400>,
 				<0x13290000 0x13290000 0x10000>,
 				<0x13300000 0x13300000 0x1000>,
 				<0x13160000 0x13160000 0x1000>,
@@ -2647,6 +2673,11 @@
 							"sp_rgmii_gpio_grp";
 			};
 
+			ntfw_gpio_1: ntfw_gpio_1@13320000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x13320000 0x400>;
+			};
+
 			sd2: sdhci@14200000 {
 				cell-index = <2>;
 				compatible = "sirf,atlas7-sdhc";
@@ -2786,7 +2817,9 @@
 					<0x10d20000 0x10d20000 0x1000>,
 					<0x10d02000 0x10d02000 0x1000>,
 					<0x10e30000 0x10e30000 0x1000>,
-					<0x10d01000 0x10d01000 0x100>;
+					<0x10d01000 0x10d01000 0x100>,
+					<0x10f00000 0x10f00000 0x1000>,
+					<0x10f20000 0x10f20000 0x1000>;
 
 
 			i2s: i2s@10d02000 {
@@ -2852,6 +2885,11 @@
 				#dma-cells = <1>;
 			};
 
+			ntfw_dmac2: ntfw_dmac2@10f00000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x10f00000 0x1000>;
+			};
+
 			dmac3: dma-controller@10d60000 {
 				status = "disabled";	/* Kalimba takes over */
 				cell-index = <3>;
@@ -2861,6 +2899,11 @@
 				clocks = <&car 80>;
 				dma-channels = <16>;
 				#dma-cells = <1>;
+			};
+
+			ntfw_dmac3: ntfw_dmac3@10f20000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x10f20000 0x1000>;
 			};
 
 			adc: adc@10d80000 {
@@ -3139,7 +3182,8 @@
 			       <0x11010000 0x11010000 0x3000>,
 			       <0x11000000 0x11000000 0x1000>,
 			       <0x11001000 0x11001000 0x1000>,
-			       <0x11003000 0x11003000 0x1000>;
+			       <0x11003000 0x11003000 0x1000>,
+			       <0x11040000 0x11040000 0x1000>;
 
 			dmac4: dma-controller@11002000 {
 				cell-index = <4>;
@@ -3150,6 +3194,12 @@
 				dma-channels = <16>;
 				#dma-cells = <1>;
 			};
+
+			ntfw_dmac4: ntfw_dmac4@11040000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x11040000 0x1000>;
+			};
+
 			uart6: uart@11000000 {
 				cell-index = <6>;
 				compatible = "sirf,atlas7-uart";
@@ -3211,7 +3261,8 @@
 				<0x18840000 0x18840000 0x1000>,
 				<0x18890000 0x18890000 0x1000>,
 				<0x188B0000 0x188B0000 0x10000>,
-				<0x188D0000 0x188D0000 0x1000>;
+				<0x188D0000 0x188D0000 0x1000>,
+				<0x18A00000 0x18A00000 0x100>;
 			rtcm:rtcm@18810000 {
 				compatible = "sirf,noc-macro";
 				reg = <0x18810000 0x3000>;
@@ -3273,6 +3324,11 @@
 				gpio-banks = <1>;
 				gpio-ranges = <&pinctrl 0 0 0>;
 				gpio-ranges-group-names = "rtc_gpio_grp";
+			};
+
+			ntfw_gpio_2: ntfw_gpio_2@18A00000 {
+				compatible = "sirf,atlas7-ntfw";
+				reg = <0x18A00000 0x100>;
 			};
 
 			rtc-iobg@18840000 {

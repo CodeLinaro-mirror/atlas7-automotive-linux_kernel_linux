@@ -28,7 +28,12 @@
 #include "trace.h"
 
 static struct noc_macro *s_cpum;
+#ifdef CONFIG_ATLAS7_NOC_FW
 struct noc_macro *s_ddrm;
+struct noc_macro *s_rtcm;
+struct noc_macro *s_audiom;
+#endif
+
 
 /*handler noc macro interrupt*/
 static irqreturn_t noc_irq_handle(int irq, void *data)
@@ -73,8 +78,10 @@ static int noc_macro_parse(struct noc_macro *nocm)
 #ifdef CONFIG_ATLAS7_NOC_FW
 		if (strstr(nocm->name, "dramfw"))
 			noc_dramfw_init(nocm);
-		else
+		else if (strstr(nocm->name, "spramfw"))
 			noc_spramfw_init(nocm);
+		else if (strstr(nocm->name, "ntfw"))
+			ntfw_init(nocm);
 #endif
 		goto out;
 	}
@@ -210,10 +217,14 @@ static int sirfsoc_noc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, nocm);
 	if (strstr(nocm->name, "cpum"))
 		s_cpum = nocm;
-
-	if (strstr(nocm->name, "ddrm"))
+#ifdef CONFIG_ATLAS7_NOC_FW
+	else if (strstr(nocm->name, "ddrm"))
 		s_ddrm = nocm;
-
+	else if (strstr(nocm->name, "rtcm"))
+		s_rtcm = nocm;
+	else if (strstr(nocm->name, "audiom"))
+		s_audiom = nocm;
+#endif
 	dev_dbg(&pdev->dev, "initialized nocm:%s, %d\n",
 		nocm->name, !!nocm->errlogoff);
 
@@ -243,6 +254,7 @@ arch_initcall(noc_hook_abort);
 
 static const struct of_device_id sirfsoc_nocfw_ids[] = {
 	{ .compatible = "sirf,noc-macro", .data = 0 },
+	{ .compatible = "sirf,atlas7-ntfw", .data = 0 },
 	{},
 };
 
