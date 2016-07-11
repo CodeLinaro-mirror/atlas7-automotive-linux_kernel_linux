@@ -189,7 +189,7 @@ static struct id_rp_maps_t noc_initator_id_list[] = {
 	{"reserved",},
 	{"reserved",},
 	{"reserved",},
-	{"lcd1_ly1_rd", FW_DDR_RT},
+	{"lcd1_ly0_rd_lcd1_wb_wr", FW_DDR_RT},
 	{"lcd1_ly1_rd", FW_DDR_RT},
 	{"lcd1_ly2_rd", FW_DDR_RT},
 	{"lcd1_ly3_rd", FW_DDR_RT},
