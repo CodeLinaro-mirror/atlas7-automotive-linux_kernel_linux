@@ -421,9 +421,14 @@ static int mixer_create(struct kasobj_op *op, const struct kasobj_param *param)
 	}
 	kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 			1, &rate, NULL, NULL, __kcm_resp);
-	for (st = 0; st < ctx->streams; st++)
+	for (st = 0; st < ctx->streams; st++) {
+		if (ctx->muted[st]) {
+			set_stream_gain(op, ctx->ramp[1][st]);
+			continue;
+		}
 		for (ch = 0; ch < ctx->channels[st]; ch++)
 			set_channel_gain(op, st, ch, ctx->ch_gain[st][ch]);
+	}
 
 	ctx->primary_stream = 0;
 
