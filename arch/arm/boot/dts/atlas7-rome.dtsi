@@ -23,6 +23,14 @@
 		bt-usp-port = <1>;
 	};
 	noc {
+		vdifm {
+			sdhci@14300000 {
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&sd3_pmx>;
+				broken-cd;
+			};
+		};
 		gnssm {
 			uart4: uart@18050000 {
 				status = "okay";
@@ -40,6 +48,8 @@
 				rome_gpio_3p3v_power = <&gpio_1 77 1>;
 				/* PIN:coex_pio_2 */
 				rome_gpio_bt_reset = <&gpio_1 78 1>;
+				/* PIN:coex_pio_3 */
+				rome_gpio_wifi_reset = <&gpio_1 79 1>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pw_i2s01_clk_pmx0>;
 				pwms = <&pwm 6 30518>;
