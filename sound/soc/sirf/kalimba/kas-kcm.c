@@ -25,11 +25,27 @@ static struct snd_soc_card kas_audio_card = {
 
 static int kas_audio_probe(struct platform_device *pdev)
 {
-	int ret, num_links, free_links, widget_num, route_num;
+	int ret, num_links, free_links, widget_num, route_num, val;
+	struct device_node *np = pdev->dev.of_node;
+	struct kcm_card_data *data;
+
+	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
 
 	ret = kcm_drv_status();
 	if (ret)
 		return ret;
+
+	if (of_get_property(np, "frame-master", NULL))
+		data->fmt |= SND_SOC_DAIFMT_CBM_CFM;
+	else
+		data->fmt |= SND_SOC_DAIFMT_CBS_CFS;
+
+	if (!of_property_read_u32(pdev->dev.of_node, "mclk-fs", &val))
+		data->mclk_fs = val;
+	else
+		data->mclk_fs = 512;
 
 	kas_audio_card.dapm_widgets = kcm_get_card_widget(&widget_num);
 	kas_audio_card.num_dapm_widgets = widget_num;
@@ -38,6 +54,7 @@ static int kas_audio_probe(struct platform_device *pdev)
 	kas_audio_card.dapm_routes = kcm_get_card_route(&route_num);
 	kas_audio_card.num_dapm_routes = route_num;
 	kas_audio_card.dev = &pdev->dev;
+	snd_soc_card_set_drvdata(&kas_audio_card, data);
 	return devm_snd_soc_register_card(&pdev->dev, &kas_audio_card);
 }
 

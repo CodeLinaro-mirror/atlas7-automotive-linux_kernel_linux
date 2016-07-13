@@ -15,21 +15,18 @@
 static int codec_i2s_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
-	/* TODO: Implemente i2s hw_params */
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = rtd->card;
+	struct kcm_card_data *data = snd_soc_card_get_drvdata(card);
 	unsigned int fmt = 0;
 	unsigned int mclk;
 
-	mclk = 1024 * params_rate(params);
-	fmt |= SND_SOC_DAIFMT_CBS_CFS;
+	mclk = data->mclk_fs * params_rate(params);
+	fmt |= data->fmt;
 
-	/*only i2s codec set need to config external codec*/
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		fmt |= SND_SOC_DAIFMT_I2S;
-	else
-		fmt |= SND_SOC_DAIFMT_DSP_A; /*codec works in tdm mode*/
+	/*kalimba always output 4 channel or more*/
+	fmt |= SND_SOC_DAIFMT_DSP_A;
 
 	if (snd_soc_dai_set_sysclk(codec_dai, 0, mclk, SND_SOC_CLOCK_IN) ||
 			snd_soc_dai_set_fmt(codec_dai, fmt)) {

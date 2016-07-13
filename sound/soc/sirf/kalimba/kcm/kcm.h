@@ -30,6 +30,10 @@ struct kasobj_param;
 struct kasop_impl;
 struct snd_soc_dapm_widget;
 struct snd_soc_dapm_route;
+struct kcm_card_data {
+	int mclk_fs;
+	int fmt;
+};
 
 int kcm_drv_status(void);
 void kcm_set_dev(void *dev);

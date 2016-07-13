@@ -240,9 +240,14 @@ int sirf_i2s_params_adv(struct i2s_params *param)
 					|I2S_TDM_FRAME_POLARITY_HIGH
 					|I2S_TDM_FRAME_SYNC_DSP0;
 		} else {
-			dev_err(i2s->dev, "%d channels record unsupported\n",
-				param->channels);
-			return -EINVAL;
+			tdm_mask = I2S_TDM_MASK_RX;
+			tdm_ctrl &= ~tdm_mask;
+			tdm_ctrl |= (I2S_TDM_WORD_SIZE_RX(32))
+					|(I2S_TDM_ADC_CH(param->channels))
+					|I2S_TDM_DATA_ALIGN_RX_LEFT_J
+					|I2S_TDM_WORD_ALIGN_RX_I2S0
+					|I2S_TDM_FRAME_POLARITY_HIGH
+					|I2S_TDM_FRAME_SYNC_DSP0;
 		}
 		tdm_ctrl |= I2S_TDM_ENA;
 		bclk_ratio = 256;
@@ -270,6 +275,8 @@ int sirf_i2s_params_adv(struct i2s_params *param)
 	i2s_ctrl |= ((frame_len - 1) << I2S_FRAME_LEN_SHIFT)
 		| ((left_len - 1) << I2S_L_CHAN_LEN_SHIFT);
 
+	regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TX_RX_EN,
+		&i2s_tx_rx_en);
 	i2s_tx_rx_en &= ~I2S_REF_CLK_SEL_EXT;
 	i2s_tx_rx_en |= I2S_MCLK_EN;
 
