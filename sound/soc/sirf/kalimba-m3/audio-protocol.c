@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 
+#include "buffer.h"
 #include "debug.h"
 #include "license.h"
 #include "pcm.h"
@@ -38,6 +39,10 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_DSP_COMMAND			0x0000000B
 #define MSG_LICENSE_REQ			0x0000000C
 #define MSG_LICENSE_RESP		0x0000000D
+#define MSG_DRAM_ALLOCATION_REQ		0x0000000E
+#define MSG_DRAM_ALLOCATION_RESP	0x0000000F
+#define MSG_DRAM_FREE_REQ		0x00000010
+#define MSG_DRAM_FREE_RESP		0x00000011
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
@@ -145,6 +150,26 @@ void kas_ps_region_addr_update(u32 addr)
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
 }
 
+static void kas_dram_allocation_req(u32 length)
+{
+	u32 msg[2];
+	unsigned long dram_allocation_addr;
+
+	dram_allocation_addr = buff_alloc(NULL, length);
+	msg[0] = MSG_DRAM_ALLOCATION_RESP;
+	msg[1] = dram_allocation_addr;
+	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
+}
+
+static void kas_dram_free_req(u32 address)
+{
+	u32 msg;
+
+	buff_free(NULL, address);
+	msg = MSG_DRAM_FREE_RESP;
+	rpmsg_send(audio_rpdev, &msg, sizeof(u32));
+}
+
 static struct rpmsg_device_id rpmsg_driver_audio_id_table[] = {
 	{ .name = "rpmsg-audio" },
 	{ },
@@ -173,6 +198,12 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		break;
 	case MSG_LICENSE_REQ:
 		kalimba_license_req(msg[1], &msg[2]);
+		break;
+	case MSG_DRAM_ALLOCATION_REQ:
+		kas_dram_allocation_req(msg[1]);
+		break;
+	case MSG_DRAM_FREE_REQ:
+		kas_dram_free_req(msg[1]);
 		break;
 	default:
 		break;
