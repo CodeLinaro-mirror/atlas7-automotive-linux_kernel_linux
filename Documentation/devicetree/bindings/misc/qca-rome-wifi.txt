@@ -1,0 +1,24 @@
+QCA rome chip bt&wifi gpio configuration
+
+Required properties:
+- compatible: "sirf,rome_wifi"
+- rome_gpio_1p8v_power: GPIO control for 1.8v power supply to QCA6574
+- rome_gpio_3p3v_power: GPIO control for 3.3v power supply to QCA6574
+- rome_gpio_bt_reset: GPIO control for RESET bt subsystem of QCA6574
+- rome_gpio_wifi_reset: GPIO control for RESET wifi subsystem of QCA6574
+- pinctrl-names: set to “default”
+- pinctrl-0: configure gpio2 as the pwm function
+- pwms: use pwm2 to output 32Khz clock for QCA6574
+
+
+Example:
+rome_power_gpio {
+        compatible = "sirf,rome_wifi";
+        rome_gpio_1p8v_power = <&gpio_1 76 1>; /* PIN:coex_pio_0 */
+        rome_gpio_3p3v_power = <&gpio_1 77 1>; /* PIN:coex_pio_1 */
+        rome_gpio_bt_reset = <&gpio_1 78 1>; /* PIN:coex_pio_2 */
+        rome_gpio_wifi_reset = <&gpio_1 79 1>; /* PIN:coex_pio_3 */
+        pinctrl-names = "default";
+        pinctrl-0 = <&pw_i2s01_clk_pmx0>;
+        pwms = <&pwm 6 30518>;
+};
