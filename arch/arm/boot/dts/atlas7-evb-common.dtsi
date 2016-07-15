@@ -180,6 +180,11 @@
 			reg = <0x45400000 0x200000>;
 			no-map;
 		};
+
+		cm3_kas_reserved: cm3_kas@4ff00000 {
+			reg = <0x4ff00000 0x200000>;
+			no-map;
+		};
 	};
 
 	kalimba {
