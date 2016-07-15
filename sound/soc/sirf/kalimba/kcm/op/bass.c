@@ -158,17 +158,21 @@ static int set_bass_params(struct kasobj_op *op, int create_op)
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_PARAMS,
 		MSG_LEN, (u16 *)&msg, NULL, NULL, __kcm_resp);
-	if (ret)
+	if (ret) {
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 			op->obj.name, ret);
+		return ret;
+	}
 
 	if (!create_op && no_cntl_op_id[ctx_op->pair_idx]) {
 		ret = kalimba_operator_message(no_cntl_op_id[ctx_op->pair_idx],
 			OPMSG_COMMON_SET_PARAMS, MSG_LEN, (u16 *)&msg, NULL,
 			NULL, __kcm_resp);
-		if (ret)
+		if (ret) {
 			pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 				op->obj.name, ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -192,17 +196,21 @@ static int set_bass_mode(struct kasobj_op *op, int create_op)
 	msg.value_l = ctx->switch_mode + 1;	/* 0~2 -> 1~3 */
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_CONTROL,
 		4, (u16 *)&msg, NULL, NULL, __kcm_resp);
-	if (ret)
+	if (ret) {
 		pr_err("KASOBJ(%s): set bass mode failed(%d)!\n",
 			op->obj.name, ret);
+		return ret;
+	}
 
 	if (!create_op && no_cntl_op_id[ctx->pair_idx]) {
 		ret = kalimba_operator_message(no_cntl_op_id[ctx->pair_idx],
 			OPMSG_COMMON_SET_CONTROL, 4, (u16 *)&msg, NULL, NULL,
 			__kcm_resp);
-		if (ret)
+		if (ret) {
 			pr_err("KASOBJ(%s): set bass mode failed(%d)!\n",
 				op->obj.name, ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -314,7 +322,7 @@ static int bass_init(struct kasobj_op *op)
 		if (ctl_idx >= CONTROL_NUM) {
 			pr_err("KASOP(%s): too many bass controls!\n",
 				op->obj.name);
-			break;
+			return -EINVAL;
 		}
 		if (kcm_strcasestr(name, "Limit"))
 			tlv = bass_db_tlv;
@@ -343,6 +351,9 @@ static int bass_create(struct kasobj_op *op,
 	u16 sample_rate;
 	int ret;
 
+	if (!ctx->have_control)
+		no_cntl_op_id[ctx->pair_idx] = op->op_id;
+
 	ret = set_bass_ucid(op, 1);
 	if (ret)
 		return ret;
@@ -359,18 +370,21 @@ static int bass_create(struct kasobj_op *op,
 	 * 2. Behind resampler, db->rate should not be 0 and should be
 	 *    equal to the rate of codec.
 	 */
-	if (op->db->rate)
+	if (op->db->rate > 0 && op->db->rate <= KASOP_MAX_SAMPLE_RATE)
 		sample_rate = op->db->rate / 25;
-	else
+	else if (op->db->rate == 0)
 		sample_rate = param->rate / 25; /* sample rate / 25 */
-	if (!ctx->have_control)
-		no_cntl_op_id[ctx->pair_idx] = op->op_id;
-
+	else {
+		pr_err("KASOBJ(%s): Invalid sample rate (%d)!\n",
+			op->obj.name, op->db->rate);
+		return -EINVAL;
+	}
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 		1, &sample_rate, NULL, NULL, __kcm_resp);
 	if (ret) {
 		pr_err("KASOBJ(%s): set sample rate failed(%d)!\n",
 			op->obj.name, ret);
+		return ret;
 	}
 	ret = set_bass_params(op, 1);
 	if (ret)

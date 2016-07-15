@@ -23,6 +23,7 @@ enum {
 #define KASOP_MAKE_EVENT(event, param)	((event) | ((param) << 4))
 #define KASOP_GET_EVENT(event_param)	((event_param) & 0xF)
 #define KASOP_GET_PARAM(event_param)	((event_param) >> 4)
+#define KASOP_MAX_SAMPLE_RATE		(48000)
 
 struct kasop_impl {
 	int (*init)(struct kasobj_op *op);

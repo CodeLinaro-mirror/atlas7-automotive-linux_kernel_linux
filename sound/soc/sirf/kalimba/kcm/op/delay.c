@@ -67,9 +67,11 @@ static int set_delay_samples(struct kasobj_op *op)
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_PARAMS,
 		 MSG_LEN, (u16 *)&msg, NULL, NULL, __kcm_resp);
-	if (ret)
+	if (ret) {
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 			op->obj.name, ret);
+		return ret;
+	}
 
 	return ret;
 }
@@ -142,7 +144,7 @@ static int delay_init(struct kasobj_op *op)
 			if (sample_idx >= ctx->channels) {
 				pr_err("KASOP(%s): too many Sample controls!\n",
 					op->obj.name);
-				continue;
+				return -EINVAL;
 			}
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, MAX_SAMPLES,
 				samples_get, samples_put, NULL, sample_idx);
@@ -150,7 +152,8 @@ static int delay_init(struct kasobj_op *op)
 			sample_idx++;
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
-					op->obj.name, name);
+				op->obj.name, name);
+			return -EINVAL;
 		}
 	}
 

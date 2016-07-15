@@ -108,15 +108,18 @@ static int set_volctrl_params(struct kasobj_op *op, int ctl_idx)
 	default:
 		pr_err("KASOP(%s): volume control, set parameter exception !\n",
 			 op->obj.name);
+		return -EINVAL;
 	}
 	msg.value_h = (u16)(volume >> 16);
 	msg.value_l = (u16)(volume & 0xffff);
 	ret = kalimba_operator_message(op->op_id,
 		OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL,
 		4, (u16 *)&msg, NULL, NULL, __kcm_resp);
-	if (ret)
+	if (ret) {
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
-		op->obj.name, ret);
+			op->obj.name, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -269,10 +272,15 @@ static int volctrl_create(struct kasobj_op *op,
 	 * 2. Behind resampler, db->rate should not be 0 and should be
 	 *    equal to the rate of codec.
 	 */
-	if (op->db->rate)
+	if (op->db->rate > 0 && op->db->rate <= KASOP_MAX_SAMPLE_RATE)
 		sample_rate = op->db->rate / 25;
-	else
-		sample_rate = param->rate / 25;
+	else if (op->db->rate == 0)
+		sample_rate = param->rate / 25; /* sample rate / 25 */
+	else {
+		pr_err("KASOBJ(%s): Invalid sample rate (%d)!\n",
+			op->obj.name, op->db->rate);
+		return -EINVAL;
+	}
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 		1, &sample_rate, NULL, NULL, __kcm_resp);
 	if (ret) {
@@ -283,7 +291,7 @@ static int volctrl_create(struct kasobj_op *op,
 	for (idx = 0; idx < VOLCTRL_CONTROL_NUM; idx++) {
 		ret = set_volctrl_params(op, idx);
 		if (ret)
-			break;
+			return ret;
 	}
 
 	return 0;

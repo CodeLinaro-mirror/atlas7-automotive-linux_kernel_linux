@@ -59,36 +59,11 @@
 static const DECLARE_TLV_DB_SCALE(peq_db_tlv,
 	PEQ_MIN_DB*100, PEQ_STEP_DB*100, 0);
 
-/* PEQ default parameter-set array: for init */
-static const u16
-peq_default_params_msg[PEQ_DEFAULT_MSG_LEN] = {
-	/*BLOCK  OFFSET  PARAM_NUM
-	  |--|	  |--|	  |--|	 */
-	0x0001, 0x0000, 0x002C,
-	/* PEQ_CONF  CORE_TYPE	  NUM_BANDS MASTER_GAIN */
-	/*|--------||--------|	  |--------||--------|*/
-	0x0000, 0x0000, 0x0000, 0x0000, 0x0a00, 0x0000,
-	/* band: 1 ~ 10 */
-	/*  FILTER	FC	     GAIN	 Q    */
-	/*|--------||--------|	  |--------||--------|*/
-	0x0000, 0x0D00, 0x0200, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x0400, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x07D0, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x0FA0, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x1F40, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x3E80, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0x7D00, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D00, 0xFA00, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D01, 0xF400, 0x0000, 0x0000, 0xB505,
-	0x0000, 0x0D03, 0xE800, 0x0000, 0x0000, 0xB505
-};
-
 /* The default FC for each band */
 static const int peq_default_fc[] = {
 	32,   64,   125,  250,	500,
 	1000, 2000, 4000, 8000, 16000
 };
-
 
 struct peq_ctx {
 	int switch_mode;
@@ -162,9 +137,11 @@ static int set_peq_params(struct kasobj_op *op, int ctl_idx)
 
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_PARAMS,
 		6, (u16 *)&msg, NULL, NULL, __kcm_resp);
-	if (ret)
+	if (ret) {
 		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
 			op->obj.name, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -410,7 +387,7 @@ static int peq_init(struct kasobj_op *op)
 static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 {
 	u16 sample_rate;
-	int ret;
+	int ret, idx;
 
 	ret = set_peq_ucid(op);
 	if (ret)
@@ -439,13 +416,10 @@ static int peq_create(struct kasobj_op *op, const struct kasobj_param *param)
 			op->obj.name, ret);
 		return ret;
 	}
-	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_PARAMS,
-		PEQ_DEFAULT_MSG_LEN, peq_default_params_msg, NULL, NULL,
-		__kcm_resp);
-	if (ret) {
-		pr_err("KASOBJ(%s): set parametor failed(%d)!\n",
-			op->obj.name, ret);
-		return ret;
+	for (idx = 0; idx < PEQ_CNTL_SWITCH_MODE; idx++) {
+		ret = set_peq_params(op, idx);
+		if (ret)
+			return ret;
 	}
 	ret = set_peq_mode(op);
 

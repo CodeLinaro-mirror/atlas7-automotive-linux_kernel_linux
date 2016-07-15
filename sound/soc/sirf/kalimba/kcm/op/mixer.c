@@ -59,7 +59,7 @@ struct mixer_ctx {
 
 static void set_stream_gain(struct kasobj_op *op, int samples)
 {
-	int i;
+	int i, ret;
 	struct mixer_ctx *ctx = op->context;
 	u16 db[MAX_STREAMS];
 	u16 msg_ramp[2];
@@ -77,10 +77,21 @@ static void set_stream_gain(struct kasobj_op *op, int samples)
 		else
 			db[i] = (ctx->gain[i] - MAXV) * 60;
 	}
-	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
+	ret = kalimba_operator_message(op->op_id,
+			OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
 			2, msg_ramp, NULL, NULL, __kcm_resp);
-	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_GAINS,
+	if (ret) {
+		pr_err("KASOP(%s): set stream ramp failed !\n",
+			op->obj.name);
+		return ret;
+	}
+	ret = kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_GAINS,
 			ctx->streams, db, NULL, NULL, __kcm_resp);
+	if (ret) {
+		pr_err("KASOP(%s): set stream gain failed !\n",
+			op->obj.name);
+		return ret;
+	}
 }
 
 static void set_channel_gain(struct kasobj_op *op, int stream,
@@ -89,7 +100,7 @@ static void set_channel_gain(struct kasobj_op *op, int stream,
 	struct mixer_ctx *ctx = op->context;
 	u16 msg[3] = {1, 0, 0};
 	u16 msg_ramp[2];
-	int idx;
+	int idx, ret;
 
 	/* if muted, do not send ipc msg */
 	if (!op->obj.life_cnt || ctx->muted[stream])
@@ -104,10 +115,22 @@ static void set_channel_gain(struct kasobj_op *op, int stream,
 	msg[1] += channel;
 	msg[2] = (gain - MAXV) * 60;
 
-	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
-			2, msg_ramp, NULL, NULL, __kcm_resp);
-	kalimba_operator_message(op->op_id, OPERATOR_MSG_SET_CHANNEL_GAINS,
-			3, msg, NULL, NULL, __kcm_resp);
+	ret = kalimba_operator_message(op->op_id,
+		OPERATOR_MSG_SET_RAMP_NUM_SAMPLES,
+		2, msg_ramp, NULL, NULL, __kcm_resp);
+	if (ret) {
+		pr_err("KASOP(%s): set channel ramp failed !\n",
+			op->obj.name);
+		return ret;
+	}
+	ret = kalimba_operator_message(op->op_id,
+		OPERATOR_MSG_SET_CHANNEL_GAINS,
+		3, msg, NULL, NULL, __kcm_resp);
+	if (ret) {
+		pr_err("KASOP(%s): set channel gain failed !\n",
+			op->obj.name);
+		return ret;
+	}
 }
 
 static void set_primary_stream(struct kasobj_op *op)
@@ -349,7 +372,7 @@ static int mixer_init(struct kasobj_op *op)
 		if (ctrl_idx / MIXER_CTRLS_PER_STREAM >= ctx->streams) {
 			pr_err("KASOP(%s): too many Mixer controls!\n",
 				op->obj.name);
-			break;
+			return -EINVAL;
 		}
 		if (kcm_strcasestr(name, "NOCTRL")) {
 			/* the stream without ctrls */
@@ -363,6 +386,7 @@ static int mixer_init(struct kasobj_op *op)
 			if (st >= ctx->streams) {
 				pr_err("KASOP(%s): Too many streams '%s'!\n",
 					op->obj.name, name);
+				return -EINVAL;
 			}
 			st++;
 		} else if (kcm_strcasestr(name, "Gain")) {
@@ -389,6 +413,7 @@ static int mixer_init(struct kasobj_op *op)
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 					op->obj.name, name);
+			return -EINVAL;
 		}
 		if (max <= 0) {
 			pr_err("KASOP(%s): invalid control max value, %d!\n",
@@ -417,7 +442,7 @@ static int mixer_create(struct kasobj_op *op, const struct kasobj_param *param)
 	if (rate <= 0) {
 		pr_err("KASOBJ(%s): Invalid sample rate (%d)\n",
 			op->obj.name, rate);
-		return 0;
+		return -EINVAL;
 	}
 	kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_SAMPLE_RATE,
 			1, &rate, NULL, NULL, __kcm_resp);

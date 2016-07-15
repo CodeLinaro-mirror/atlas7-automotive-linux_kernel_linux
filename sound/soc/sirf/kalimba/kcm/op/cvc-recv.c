@@ -84,9 +84,11 @@ static int set_cvc_recv_mode(struct kasobj_op *op)
 	msg.value_l = ctx->mode + 1; /* 0~2 -> 1~3 */
 	ret = kalimba_operator_message(op->op_id, OPMSG_COMMON_SET_CONTROL,
 		4, (u16 *)&msg, NULL, NULL, __kcm_resp);
-	if (ret)
+	if (ret) {
 		pr_err("KASOBJ(%s): Set CVC Recv mode failed(%d)!\n",
 			op->obj.name, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -110,7 +112,7 @@ static int cvc_recv_get(struct snd_kcontrol *kcontrol,
 	default:
 		pr_err("KASOP(%s): CVC Recv get, invalid control number !\n",
 			op->obj.name);
-		break;
+		return -EINVAL;
 	}
 	ucontrol->value.integer.value[0] = value;
 
@@ -147,7 +149,7 @@ static int cvc_recv_put(struct snd_kcontrol *kcontrol,
 	default:
 		pr_err("KASOP(%s): CVC Recv put, invalid control number !\n",
 			op->obj.name);
-		break;
+		return -EINVAL;
 	}
 
 	return 0;
@@ -178,15 +180,17 @@ static int cvc_recv_init(struct kasobj_op *op)
 		if (ctrl_idx >= CVC_RECV_CTRL_NUM) {
 			pr_err("KASOP(%s): too many controls!\n",
 				op->obj.name);
-			continue;
+			return -EINVAL;
 		}
 		if (kcm_strcasestr(name, "Mode"))
 			max = CVC_RECV_MODE_MAX;
 		else if (kcm_strcasestr(name, "UCID"))
 			max = CVC_RECV_UCID_MAX;
-		else
+		else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 				op->obj.name, name);
+			return -EINVAL;
+		}
 
 		ctrl = kasop_ctrl_single_ext_tlv(name, op, max,
 			cvc_recv_get, cvc_recv_put, NULL, ctrl_idx);
@@ -214,8 +218,7 @@ static int cvc_recv_prepare(struct kasobj_op *op,
 	default:
 		pr_err("KASOBJ(%s): Unsupported sample rate(%d) !\n",
 			op->obj.name, param->rate);
-
-		break;
+		return -EINVAL;
 	}
 
 	return 0;
