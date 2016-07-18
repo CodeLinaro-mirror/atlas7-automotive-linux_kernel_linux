@@ -29,8 +29,6 @@ struct sirf_hwspinlock {
 	struct hwspinlock_device bank;
 };
 
-/* Hardware spinlock control register */
-#define HW_SPINLOCK_CONTROL_REG(base)	(base)
 /* Enable Hardware Spinlocks */
 #define HW_SPINLOCK_ENABLE	0x0
 
@@ -99,9 +97,6 @@ static int sirf_hwspinlock_probe(struct platform_device *pdev)
 		hwlock = &hwspin->bank.lock[idx];
 		hwlock->priv = HW_SPINLOCK_REG(hwspin->io_base, idx);
 	}
-
-	/* Enable hwspinlock */
-	writel(HW_SPINLOCK_ENABLE, HW_SPINLOCK_CONTROL_REG(hwspin->io_base));
 
 	platform_set_drvdata(pdev, hwspin);
 
