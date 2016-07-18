@@ -319,7 +319,7 @@ static int mixer_init(struct kasobj_op *op)
 				op->obj.name, st);
 			return -EINVAL;
 		}
-		ctx->channels[st] = ch;
+		ctx->channels[ctx->streams - st - 1] = ch;
 		st_config >>= 4;
 	}
 
