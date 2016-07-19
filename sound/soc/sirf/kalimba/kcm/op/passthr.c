@@ -21,7 +21,7 @@
 #include "../../dsp.h"
 #include "utils.h"
 
-#define MIN_DB	(-60)
+#define MIN_DB	(-120)
 #define STEP_DB	1
 #define MAXV	(-MIN_DB / STEP_DB)
 

@@ -39,7 +39,7 @@
 #define MAX_CHANNELS	6
 #define MAX_CH_3STREAMS	4
 #define MAX_CH_2STREAMS	6
-#define MIN_DB		(-96)
+#define MIN_DB		(-120)
 #define STEP_DB		1
 #define MAXV		(-MIN_DB / STEP_DB)
 #define DEFV		MAXV   /* May big noise if all streams are 0dB */
