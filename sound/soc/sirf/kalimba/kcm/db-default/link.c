@@ -14,6 +14,33 @@
 static const struct kasdb_link link[] = {
 	/* Music, 2ch */
 	{
+		/* Music -> Resampler, 2ch */
+		.name = __S("lk_music_src"),
+		.source_name = __S("Music"),
+		.sink_name = __S("op_src_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* Resampler -> Mixer3, 2ch */
+		.name = __S("lk_src_mixer3"),
+		.source_name = __S("op_src_music"),
+		.sink_name = __S("op_mixer3"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
+		.channels = 2,
+	},
+	{
+		/* Mixer3 -> Passthrough, 2ch */
+		.name = __S("lk_mixer3_pass"),
+		.source_name = __S("op_mixer3"),
+		.sink_name = __S("op_pass_music"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
 		/* Passthrough -> Bass, 2ch */
 		.name = __S("lk_pass_bass"),
 		.source_name = __S("op_pass_music"),
@@ -377,9 +404,18 @@ static const struct kasdb_link link[] = {
 
 	/* Line-In */
 	{
-		/* Line-In -> Passthrough, 2ch */
-		.name = __S("lk_codec_mixer3"),
+		/* CODEC -> Resampler, 2ch */
+		.name = __S("lk_codec_src"),
 		.source_name = __S(SO_CODEC),
+		.sink_name = __S("op_src_cap"),
+		.source_pins = { 1, 2 },
+		.sink_pins = { 1, 2 },
+		.channels = 2,
+	},
+	{
+		/* Resampler -> Mixer3, 2ch */
+		.name = __S("lk_src_mixer3_lin"),
+		.source_name = __S("op_src_cap"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 3, 4 },
@@ -393,7 +429,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("so_usp3"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 5, 6 },
+		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 	{
@@ -459,80 +495,6 @@ static const struct kasdb_link link[] = {
 		.name = __S("lk_i2s_src"),
 		.source_name = __S("so_i2s"),
 		.sink_name = __S("op_src_radio"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-
-	/* Mixer3 */
-	{
-		/* Music -> Resampler, 2ch */
-		.name = __S("lk_music_src"),
-		.source_name = __S("Music"),
-		.sink_name = __S("op_src_music"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-	{
-		/* Resampler -> Mixer3, 2ch */
-		.name = __S("lk_src_mixer3"),
-		.source_name = __S("op_src_music"),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 5, 6 },
-		.channels = 2,
-	},
-	{
-		/* I2S -> Resampler, 2ch */
-		.name = __S("lk_i2s_src"),
-		.source_name = __S("so_i2s"),
-		.sink_name = __S("op_src_radio"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-	{
-		/* I2S -> Mixer3, 2ch */
-		.name = __S("lk_src_mixer3"),
-		.source_name = __S("op_src_radio"),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 3, 4 },
-		.channels = 2,
-	},
-	{
-		/* CODEC -> Resampler, 2ch */
-		.name = __S("lk_codec_src"),
-		.source_name = __S(SO_CODEC),
-		.sink_name = __S("op_src_cap"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-	{
-		/* Resampler -> Mixer3, 2ch */
-		.name = __S("lk_src_mixer3_lin"),
-		.source_name = __S("op_src_cap"),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 3, 4 },
-		.channels = 2,
-	},
-	{
-		/* A2DP -> Mixer3, 2ch */
-		.name = __S("lk_usp3_mixer3"),
-		.source_name = __S("so_usp3"),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
-		.channels = 2,
-	},
-	{
-		/* Mixer3 -> Passthrough, 2ch */
-		.name = __S("lk_mixer3_pass"),
-		.source_name = __S("op_mixer3"),
-		.sink_name = __S("op_pass_music"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
