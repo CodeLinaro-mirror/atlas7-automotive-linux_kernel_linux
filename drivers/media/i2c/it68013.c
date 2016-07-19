@@ -254,8 +254,6 @@ device_put_exit:
 	put_device(&edid_client->dev);
 node_put_exit:
 	of_node_put(edid_np);
-
-	return 0;
 }
 
 /* set and clear the register of hdmi port*/
@@ -312,7 +310,7 @@ static int it68013_get_chipid(struct i2c_client *client,
 	if (value < 0)
 		return -EIO;
 
-	*vendor |= value;
+	*vendor |= (u16)value;
 
 	value = i2c_smbus_read_byte_data(client, 0x03);
 	if (value < 0)
@@ -325,7 +323,7 @@ static int it68013_get_chipid(struct i2c_client *client,
 	if (value < 0)
 		return -EIO;
 
-	*device |= value;
+	*device |= (u16)value;
 
 	return 0;
 }
@@ -338,7 +336,7 @@ static void it68013_get_vid_info(const struct i2c_client *client,
 	int htotal, hactive, hfp, hsyncw;
 	int vtotal, vactive, vfp, vsyncw;
 
-	unsigned int uctmdsclk;
+	unsigned int uctmdsclk = 0;
 	unsigned char rddata, ucclk;
 	int pclk;
 
@@ -757,7 +755,7 @@ static int it68013_probe(struct i2c_client *client,
 	u16 vendor_id, device_id;
 	int ret;
 	const char *mode;
-	struct device_node *port_np, *endpoint_np;
+	struct device_node *port_np, *endpoint_np = NULL;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&client->dev,
@@ -782,10 +780,14 @@ static int it68013_probe(struct i2c_client *client,
 	port_np = of_get_child_by_name(it68013_np, "port");
 	if (port_np) {
 		endpoint_np = of_get_next_child(port_np, NULL);
-		if (!endpoint_np)
+		if (!endpoint_np) {
 			dev_err(&client->dev, "## [IT68013] endpoint node\n");
-	} else
+			return -EINVAL;
+		}
+	} else {
 		dev_err(&client->dev, "[IT68013] Can't find port node\n");
+		return -EINVAL;
+	}
 
 	ret = of_property_read_u32(endpoint_np, "data-shift", &data_shift);
 	if (ret)
