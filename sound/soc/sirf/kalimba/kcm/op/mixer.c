@@ -32,7 +32,8 @@
 #define MIXER_CTRL_RAMP 8
 
 #define MIXER_CTRLS_PER_STREAM 9
-#define MIXER_MAX_RAMP_SAMPLES 0x00ffffff
+#define MIXER_MIN_RAMP_SAMPLES 240
+#define MIXER_MAX_RAMP_SAMPLES 480000
 
 #define MAX_STREAMS	3
 #define MIN_STREAMS	2
@@ -230,6 +231,7 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	struct mixer_ctx *ctx = op->context;
 	int value = ucontrol->value.integer.value[0];
+	int ramp0, ramp1;
 
 	BUG_ON(ctrl_idx < 0 || ctrl_idx >= ctx->streams *
 		MIXER_CTRLS_PER_STREAM);
@@ -273,12 +275,18 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 		}
 		break;
 	case MIXER_CTRL_RAMP:
-		if (ctx->ramp[0][stream_idx] != value ||
-			ctx->ramp[1][stream_idx] !=
-				ucontrol->value.integer.value[1])
-			ctx->ramp[0][stream_idx] = value;
-			ctx->ramp[1][stream_idx] =
-				ucontrol->value.integer.value[1];
+		ramp0 = value;
+		ramp1 = ucontrol->value.integer.value[1];
+		if (ramp0 < MIXER_MIN_RAMP_SAMPLES || /* RAMP: 240 ~ 480000 */
+			ramp0 > MIXER_MAX_RAMP_SAMPLES ||
+			ramp1 < MIXER_MIN_RAMP_SAMPLES ||
+			ramp1 > MIXER_MAX_RAMP_SAMPLES)
+			return -EINVAL;
+		if (ctx->ramp[0][stream_idx] != ramp0 ||
+			ctx->ramp[1][stream_idx] != ramp1) {
+			ctx->ramp[0][stream_idx] = ramp0;
+			ctx->ramp[1][stream_idx] = ramp1;
+		}
 		break;
 	case MIXER_CTRL_CH1:
 	case MIXER_CTRL_CH2:
