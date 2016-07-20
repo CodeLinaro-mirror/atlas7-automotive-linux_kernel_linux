@@ -46,8 +46,9 @@
 
 #define PEQ_CONTROL_NUM 25
 #define PEQ_DEFAULT_MSG_LEN 69
-#define PEQ_MIN_DB (-60)
+#define PEQ_MIN_DB (-120)
 #define PEQ_MAX_DB 20
+#define PEQ_ZERO_GAIN (0 - PEQ_MIN_DB)
 #define PEQ_STEP_DB 1
 #define PEQ_MAX_GAIN (PEQ_MAX_DB - PEQ_MIN_DB)
 #define PEQ_BANDS 10
@@ -211,7 +212,7 @@ static int peq_get(struct snd_kcontrol *kcontrol,
 		break;
 	case PEQ_CNTL_MASTER_GAIN:
 		value = ctx->master_gain >> 12;
-		value += 60;
+		value += PEQ_ZERO_GAIN;
 		break;
 	case PEQ_CNTL_SWITCH_MODE:
 		value = ctx->switch_mode;
@@ -223,7 +224,7 @@ static int peq_get(struct snd_kcontrol *kcontrol,
 		if (ctl_idx >= PEQ_CNTL_BAND1_GAIN &&
 			ctl_idx <= PEQ_CNTL_BAND10_GAIN) {
 			value = ctx->band_gain[ctl_idx] >> 12;
-			value += 60;
+			value += PEQ_ZERO_GAIN;
 		} else if (ctl_idx >= PEQ_CNTL_BAND1_FC &&
 			ctl_idx <= PEQ_CNTL_BAND10_FC)
 			value = ctx->band_fc[ctl_idx - 10] >> 4;
@@ -261,7 +262,7 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 		}
 		break;
 	case PEQ_CNTL_MASTER_GAIN:
-		value -= 60;	/* 0 ~ 80 -> -60 ~ 20 dB */
+		value -= PEQ_ZERO_GAIN;	/* 0 ~ 140 -> -120 ~ 20 dB */
 		value <<= 12;	/* Q24: 12.N */
 		if (ctx->master_gain != value) {
 			ctx->master_gain = value;
@@ -286,7 +287,7 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 	default: {
 		if (ctl_idx >= PEQ_CNTL_BAND1_GAIN &&
 			ctl_idx <= PEQ_CNTL_BAND10_GAIN) {
-			value -= 60;	/* 0 ~ 80 -> -60 ~ 20 dB */
+			value -= PEQ_ZERO_GAIN;	/* 0 ~ 140 -> -120 ~ 20 dB */
 			value <<= 12;
 			if (ctx->band_gain[ctl_idx] != value) {
 				ctx->band_gain[ctl_idx] = value;
