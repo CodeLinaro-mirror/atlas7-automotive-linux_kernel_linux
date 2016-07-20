@@ -24,7 +24,7 @@
 #define MAX_BASS_OP_PAIR 12
 #define CONTROL_NUM 9
 #define PARAM_NUM 7
-#define PARAM_LEN 12 /* (CONTROL_NUM * 3) / 2 */
+#define PARAM_LEN 12 /* ((PARAM_NUM + 1) * 3) / 2 */
 #define MSG_LEN 15 /* 3 + PARAM_LEN */
 #define MIN_DB (-32)
 #define STEP_DB 1
@@ -61,7 +61,8 @@ struct bass_ctx {
 	int xover_fc;
 	int mix_balance;
 	int switch_mode;
-	int ucid; /* 0x00: default ucid, 0x01: tier 1 predefined ucid */
+
+	int ucid; /* 0x01: default ucid, 0x02: tier 1 predefined ucid */
 
 	int have_control;
 	int pair_idx;
@@ -71,7 +72,7 @@ struct bass_param_msg {
 	u16 block;
 	u16 offset;
 	u16 param_num;
-	u16 params[PARAM_NUM];
+	u16 params[PARAM_LEN];
 };
 
 struct bass_mode_msg {
