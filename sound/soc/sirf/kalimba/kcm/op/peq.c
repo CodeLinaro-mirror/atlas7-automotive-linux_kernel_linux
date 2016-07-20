@@ -291,6 +291,8 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 			}
 		} else if (ctl_idx >= PEQ_CNTL_BAND1_FC &&
 			ctl_idx <= PEQ_CNTL_BAND10_FC) {
+			if (value < 20)	/* FC: 20 ~ 2400 */
+				return -EINVAL;
 			value <<= 4;	/* Q24: 20.N */
 			if (ctx->band_fc[ctl_idx - 10] != value) {
 				ctx->band_fc[ctl_idx - 10] = value;
@@ -299,6 +301,7 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 		} else
 			pr_err("KASOP(%s): peq put, invalid control number !\n",
 				 op->obj.name);
+			return -EINVAL;
 		}
 	}
 	kcm_lock();

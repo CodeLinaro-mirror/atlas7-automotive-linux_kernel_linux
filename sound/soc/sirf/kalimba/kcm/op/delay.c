@@ -84,6 +84,7 @@ static int samples_get(struct snd_kcontrol *kcontrol,
 	struct delay_ctx *ctx = op->context;
 
 	BUG_ON(sample_idx < 0 || sample_idx >= ctx->channels);
+
 	ucontrol->value.integer.value[0] = ctx->samples[sample_idx];
 
 	return 0;
@@ -97,8 +98,10 @@ static int samples_put(struct snd_kcontrol *kcontrol,
 	struct delay_ctx *ctx = op->context;
 	int samples = ucontrol->value.integer.value[0];
 
-	BUG_ON(sample_idx < 0 || sample_idx >= ctx->channels ||
-		samples < MIN_SAMPLES || samples > MAX_SAMPLES);
+	BUG_ON(sample_idx < 0 || sample_idx >= ctx->channels);
+
+	if (samples < MIN_SAMPLES || samples > MAX_SAMPLES)
+		return -EINVAL;
 
 	kcm_lock();
 	if (samples != ctx->samples[sample_idx]) {

@@ -224,6 +224,7 @@ static int bass_get(struct snd_kcontrol *kcontrol,
 	int *ctx = (int *)(op->context);
 
 	BUG_ON(ctl_idx < 0 || ctl_idx >= CONTROL_NUM);
+
 	value = ctx[ctl_idx];
 	switch (ctl_idx) {
 	case BASS_CNTL_XOVER_FC:
@@ -252,8 +253,10 @@ static int bass_put(struct snd_kcontrol *kcontrol,
 	struct bass_ctx *ctx_op = op->context;
 	int value = ucontrol->value.integer.value[0];
 
-	BUG_ON(ctl_idx < 0 || ctl_idx >= CONTROL_NUM ||
-		value < param_min[ctl_idx] || value > param_max[ctl_idx]);
+	BUG_ON(ctl_idx < 0 || ctl_idx >= CONTROL_NUM);
+
+	if (value < param_min[ctl_idx] || value > param_max[ctl_idx])
+		return -EINVAL;
 
 	switch (ctl_idx) {
 	case BASS_CNTL_XOVER_FC:
