@@ -51,10 +51,10 @@
 #define PEQ_STEP_DB 1
 #define PEQ_MAX_GAIN (PEQ_MAX_DB - PEQ_MIN_DB)
 #define PEQ_BANDS 10
-#define PEQ_MAX_UCID 9
 
-#define PEQ_DEFAULT_UCID 0x00	/* default peq UCID */
-#define PEQ_CUST_UCID_MAX 0x09
+#define PEQ_DEFAULT_UCID 0x01	/* default peq UCID */
+#define PEQ_CUST_UCID_MAX 0x0a
+#define PEQ_MAX_UCID PEQ_CUST_UCID_MAX
 
 static const DECLARE_TLV_DB_SCALE(peq_db_tlv,
 	PEQ_MIN_DB*100, PEQ_STEP_DB*100, 0);
@@ -276,6 +276,9 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 		break;
 	case PEQ_CNTL_UCID:
 		if (ctx->ucid != value) {
+			if (value < PEQ_DEFAULT_UCID ||
+				value > PEQ_CUST_UCID_MAX)
+				return -EINVAL;
 			ctx->ucid = value;
 			diff = 1;
 		}

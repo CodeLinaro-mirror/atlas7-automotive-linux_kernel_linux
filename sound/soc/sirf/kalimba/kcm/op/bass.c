@@ -31,8 +31,8 @@
 #define MAXV (-MIN_DB / STEP_DB)
 #define MINV (-MAX_DB / STEP_DB)
 
-#define BASS_DEFAULT_UCID 0x00
-#define BASS_CUST_UCID 0x01
+#define BASS_DEFAULT_UCID 0x01
+#define BASS_CUST_UCID 0x02
 
 /* the squence number of bass controls */
 #define BASS_CNTL_EFFECT_STRENGTH 0
@@ -47,10 +47,10 @@
 
 static const DECLARE_TLV_DB_SCALE(bass_db_tlv, MIN_DB*100, STEP_DB*100, 0);
 static const int param_min[CONTROL_NUM] = {
-	0, 0, 50, 30, 0, 40, 0, 0, 0};	/* min value of control value */
+	0, 0, 50, 30, 0, 40, 0, 0, 1};	/* min value of control value */
 static const int param_max[CONTROL_NUM] = {
 	/* max value of control value */
-	100, 32, 300, 300, 100, 1000, 100, 2, 1};
+	100, 32, 300, 300, 100, 1000, 100, 2, 2};
 
 struct bass_ctx {
 	int effect_strength;
@@ -89,10 +89,10 @@ static void set_bass_default_value(struct bass_ctx *ctx)
 	ctx->xover_fc = 200 << 4;
 	ctx->mix_balance = 50;
 	ctx->effect_strength = 50;
-	ctx->amp_limit = 0 << 12;
+	ctx->amp_limit = 32 << 12;
 	ctx->lp_fc = 100 << 4;
 	ctx->hp_fc = 100 << 4;
-	ctx->harm_content = 100;
+	ctx->harm_content = 50;
 	ctx->switch_mode = 1; /* default: process */
 	ctx->ucid = BASS_DEFAULT_UCID;
 }

@@ -22,22 +22,22 @@
 #include "utils.h"
 
 #define CVC_SEND_DEFAULT_MODE (1)
-#define CVC_SEND_DEFAULT_UCID (0x00)
-#define CVC_SEND_CUST_UCID (0x01)
+#define CVC_SEND_DEFAULT_UCID (0x01)
+#define CVC_SEND_CUST_UCID (0x02)
 
 #define CVC_SEND_CTRL_NUM (2)
 #define CVC_SEND_CTRL_MODE_IDX (0)
 #define CVC_SEND_CTRL_UCID_IDX (1)
 
 #define CVC_SEND_MODE_MAX (2)
-#define CVC_SEND_UCID_MAX (1)
+#define CVC_SEND_UCID_MAX (2)
 
 #define CVC_SEND_CTRL_ID_MODE (0x1)
 #define CVC_SEND_CTRL_ID_MUTE (0x2)
 
 struct cvc_send_ctx {
 	u16 mode; /* 0: mute, 1: process, 2: passthrough */
-	u16 ucid; /* 0x00: default setting, 0x01: tier1 predefined setting */
+	u16 ucid; /* 0x01: default setting, 0x02: tier1 predefined setting */
 };
 
 struct cvc_send_mode_msg {
@@ -183,6 +183,10 @@ static int cvc_send_put(struct snd_kcontrol *kcontrol,
 		break;
 	case CVC_SEND_CTRL_UCID_IDX:
 		if (value != ctx->ucid) {
+			/* UCID: 1 ~ 2 */
+			if (value != CVC_SEND_DEFAULT_UCID &&
+				value != CVC_SEND_CUST_UCID)
+				return -EINVAL;
 			kcm_lock();
 			ctx->ucid = value;
 			set_cvc_send_ucid(op);

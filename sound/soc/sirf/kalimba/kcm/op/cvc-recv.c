@@ -22,19 +22,19 @@
 #include "utils.h"
 
 #define CVC_RECV_DEFAULT_MODE (1)
-#define CVC_RECV_DEFAULT_UCID (0x00)
-#define CVC_RECV_CUST_UCID (0x01)
+#define CVC_RECV_DEFAULT_UCID (0x01)
+#define CVC_RECV_CUST_UCID (0x02)
 
 #define CVC_RECV_CTRL_NUM (2)
 #define CVC_RECV_CTRL_MODE_IDX (0)
 #define CVC_RECV_CTRL_UCID_IDX (1)
 
 #define CVC_RECV_MODE_MAX (2)
-#define CVC_RECV_UCID_MAX (1)
+#define CVC_RECV_UCID_MAX (2)
 
 struct cvc_recv_ctx {
 	u16 mode; /* 0: mute, 1: process, 2: passthrough */
-	u16 ucid; /* 0x00: default UCID, 0x01: tier 1 predefined UCID */
+	u16 ucid; /* 0x01: default UCID, 0x02: tier 1 predefined UCID */
 };
 
 struct cvc_recv_mode_msg {
@@ -140,6 +140,10 @@ static int cvc_recv_put(struct snd_kcontrol *kcontrol,
 		break;
 	case CVC_RECV_CTRL_UCID_IDX:
 		if (value != ctx->ucid) {
+			/* UCID: 1 ~ 2 */
+			if (value != CVC_RECV_DEFAULT_UCID &&
+				value != CVC_RECV_CUST_UCID)
+				return -EINVAL;
 			kcm_lock();
 			ctx->ucid = value;
 			set_cvc_recv_ucid(op);
