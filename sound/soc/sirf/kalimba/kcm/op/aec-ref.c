@@ -173,11 +173,22 @@ static int aec_ref_trigger(struct kasobj_op *op, int event)
 	return 0;
 }
 
+static int aec_ref_reconfig(struct kasobj_op *op,
+	const struct kasobj_param *param)
+{
+	struct aec_ref_ctx *ctx = op->context;
+
+	ctx->sample_rate = param->rate;
+
+	return 0;
+}
+
 static const struct kasop_impl aec_ref_impl = {
 	.init = aec_ref_init,
 	.prepare = aec_ref_prepare,
 	.create = aec_ref_create,
 	.trigger = aec_ref_trigger,
+	.reconfig = aec_ref_reconfig,
 };
 
 /* registe AEC-Ref operator */
