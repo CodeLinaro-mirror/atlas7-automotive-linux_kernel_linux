@@ -280,7 +280,7 @@ static void __dcu_ee_calc(struct dcu_param_set *dcu_param_set,
 	u32 i;
 	u8 *gain;
 	u8 *filter;
-	u32 sharp_level;
+	u32 sharp_level = 0;
 	struct dcu_ee_params *ee_params;
 	struct dcu_ee_luma_filter *luma_filter;
 	struct dcu_ee_chroma_filter *chroma_filter;
@@ -300,37 +300,37 @@ static void __dcu_ee_calc(struct dcu_param_set *dcu_param_set,
 				else
 					sharp_level =
 			ee_sharpsd2hd_1080ip[ee_params->sharpness_level];
-			}
-		} else
-			sharp_level = ee_params->sharpness_level;
+			} else
+				sharp_level = ee_params->sharpness_level;
 
-		if (DCU_EE_DEF_SHARP > sharp_level) {
-			filter = &ee_softtbl[sharp_level][0];
-			luma_filter->coef1_5 = filter[2];
-			luma_filter->coef2_4 = filter[1];
-			luma_filter->coef3 = filter[0];
+			if (DCU_EE_DEF_SHARP > sharp_level) {
+				filter = &ee_softtbl[sharp_level][0];
+				luma_filter->coef1_5 = filter[2];
+				luma_filter->coef2_4 = filter[1];
+				luma_filter->coef3 = filter[0];
 
-			luma_filter->use_lowpass = true;
-			luma_filter->peaking_mode = 0;
-		} else if (DCU_EE_DEF_SHARP == sharp_level) {
+				luma_filter->use_lowpass = true;
+				luma_filter->peaking_mode = 0;
+			} else if (DCU_EE_DEF_SHARP == sharp_level) {
 				luma_filter->use_lowpass = false;
 				luma_filter->peaking_mode = 0;
-		} else {
-			gain =
-		&ee_sharp_gaintbl[sharp_level - DCU_EE_DEF_SHARP - 1][0];
-			luma_filter->use_lowpass = false;
-			luma_filter->peaking_mode = 2;
-			luma_filter->coef1_5 = 0;
-			luma_filter->coef2_4 = -32;
-			luma_filter->coef3 = 64;
-			/*Coring circuit mode*/
-			luma_filter->coring_mode = 0x1;
-			/*Coring circuit threshold*/
-			luma_filter->coring_th = 3;
-			/*Peaking gains*/
-			luma_filter->use_brightness = false;
-			for (i = 0; i < DCU_EE_LUMA_NUM_GAINS; i++)
-				luma_filter->gains[i] = gain[i];
+			} else {
+				gain = &ee_sharp_gaintbl[sharp_level -
+					DCU_EE_DEF_SHARP - 1][0];
+				luma_filter->use_lowpass = false;
+				luma_filter->peaking_mode = 2;
+				luma_filter->coef1_5 = 0;
+				luma_filter->coef2_4 = -32;
+				luma_filter->coef3 = 64;
+				/*Coring circuit mode*/
+				luma_filter->coring_mode = 0x1;
+				/*Coring circuit threshold*/
+				luma_filter->coring_th = 3;
+				/*Peaking gains*/
+				luma_filter->use_brightness = false;
+				for (i = 0; i < DCU_EE_LUMA_NUM_GAINS; i++)
+					luma_filter->gains[i] = gain[i];
+			}
 		}
 
 		ee_params->ee_mode_y |= luma_filter->use_lowpass & 0x1;
