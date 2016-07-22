@@ -493,7 +493,7 @@ static const struct kasdb_link link[] = {
 	{
 		/* I2S -> Resampler, 2ch */
 		.name = __S("lk_i2s_src"),
-		.source_name = __S("so_i2s"),
+		.source_name = __S("so_i2s_radio"),
 		.sink_name = __S("op_src_radio"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },

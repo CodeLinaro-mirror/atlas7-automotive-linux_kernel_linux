@@ -113,6 +113,17 @@ static const struct kasdb_hw hw[] = {
 		.bytes_per_ch = 192,
 	},
 	{
+		.name = __S("so_i2s_radio"),
+		.is_sink = 0,
+		.is_slave = 1,
+		.max_channels = 2,
+		.def_channels = 0,
+		.audio_format = 0,
+		.pack_format = kasdb_pack_16,
+		.def_rate = 48000,
+		.bytes_per_ch = 192,
+	},
+	{
 		.name = __S("si_usp3"),
 		.is_sink = 1,
 		.is_slave = 0,
