@@ -225,7 +225,6 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	/* TODO: move to trigger/stop and combine to kcm_stop_chain() */
 	kcm_lock();
 	__kcm_stop_chain_op(pcm_data->chain);
-	__kcm_stop_chain_link(pcm_data->chain);
 	kcm_unlock();
 
 	kcm_put_chain(pcm_data->chain);
@@ -276,6 +275,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		kcm_lock();
+		__kcm_stop_chain_link(pcm_data->chain);
 		__kcm_stop_chain_hw(pcm_data->chain);
 		kcm_unlock();
 		pcm_data->pos = 0;

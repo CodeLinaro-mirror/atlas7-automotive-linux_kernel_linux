@@ -502,9 +502,9 @@ EXPORT_SYMBOL(kcm_start_chain);
 int kcm_stop_chain(struct kcm_chain *chain)
 {
 	kcm_lock();
-	__kcm_stop_chain_op(chain);
 	__kcm_stop_chain_link(chain);
 	__kcm_stop_chain_hw(chain);
+	__kcm_stop_chain_op(chain);
 	kcm_unlock();
 	return 0;
 }
