@@ -125,20 +125,20 @@ static const struct kasdb_op op[] = {
 		.name = __S("op_mixer"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_MIXER(
-			"Music", "Navigation", "Alarm")),
+			"Navigation", "Alarm", "Music")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
-		.param.mixer_streams = 0x424,
+		.param.mixer_streams = 0x244,
 	},
 	{
 		/* Mixer2: mixer1, voice */
 		.name = __S("op_mixer2"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_MIXER(
-			"Voicecall", "Multimedia", "NOCTRL")),
+			"Multimedia", "Voicecall", "NOCTRL")),
 		.cap_id = CAPABILITY_ID_MIXER,
 		.rate = 48000,
-		.param.mixer_streams = 0x244,
+		.param.mixer_streams = 0x424,
 	},
 	{
 		/* Volume control */

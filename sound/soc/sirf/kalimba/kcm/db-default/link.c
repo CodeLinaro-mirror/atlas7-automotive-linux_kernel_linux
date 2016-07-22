@@ -28,7 +28,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_src_music"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 5, 6 },
+		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 	{
@@ -118,7 +118,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_spk1_peq_music"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1},
-		.sink_pins = { 1},
+		.sink_pins = { 7},
 		.channels = 1,
 	},
 	{
@@ -127,7 +127,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_spk2_peq_music"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1},
-		.sink_pins = { 2},
+		.sink_pins = { 8},
 		.channels = 1,
 	},
 	{
@@ -136,7 +136,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_spk3_peq_music"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1},
-		.sink_pins = { 3},
+		.sink_pins = { 9},
 		.channels = 1,
 	},
 	{
@@ -145,7 +145,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_spk4_peq_music"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1},
-		.sink_pins = { 4},
+		.sink_pins = { 10},
 		.channels = 1,
 	},
 
@@ -156,7 +156,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("Navigation"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 5, 6 },
+		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 
@@ -194,7 +194,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_split_alarm"),
 		.sink_name = __S("op_mixer"),
 		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 7, 8, 9, 10 },
+		.sink_pins = { 3, 4, 5, 6 },
 		.channels = 4,
 	},
 
@@ -205,7 +205,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_mixer"),
 		.sink_name = __S("op_mixer2"),
 		.source_pins = { 1, 2, 3, 4 },
-		.sink_pins = { 3, 4, 5, 6 },
+		.sink_pins = { 1, 2, 3, 4 },
 		.channels = 4,
 	},
 	{
@@ -323,7 +323,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_split1x2_cvc"),
 		.sink_name = __S("op_mixer2"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
 		.channels = 2,
 	},
 	{
@@ -429,7 +429,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("so_usp3"),
 		.sink_name = __S("op_mixer3"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 1, 2 },
+		.sink_pins = { 5, 6 },
 		.channels = 2,
 	},
 	{
