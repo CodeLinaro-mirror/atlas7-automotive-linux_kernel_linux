@@ -3375,6 +3375,10 @@
 						interrupt-parent = <&pwrc>;
 						interrupts = <5 0>, <6 0>,
 							<7 0>, <8 0>;
+						gps-int-gpio = <&gpio_1 89 0>;
+						memory-region = <&cm3_reserved>;
+						mem-offset = <0xe0000>;
+						mem-size = <0x10000>;
 						status = "disabled";
 					};
 				};
