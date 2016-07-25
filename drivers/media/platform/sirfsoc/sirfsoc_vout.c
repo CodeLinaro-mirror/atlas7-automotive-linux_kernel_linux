@@ -1603,8 +1603,6 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 {
 	struct sirfsoc_vout_device *vout = priv;
 	struct vb2_queue *vb2_q = &vout->vb2_q;
-	struct vb2_queue *vb2_qbitblt = &vout->vb2_qbitblt;
-	struct v4l2_requestbuffers req_buf_bitblt = *req_buf;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
 	int ret = 0;
 	struct sirfsoc_vdss_layer *l = vout->layer;
@@ -1637,22 +1635,6 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 		}
 	}
 
-	vb2_qbitblt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	vb2_qbitblt->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	vb2_qbitblt->drv_priv = vout;
-	vb2_qbitblt->ops = &sirfsoc_vout_video_qops;
-	vb2_qbitblt->mem_ops = &vb2_dma_contig_memops;
-	vb2_qbitblt->buf_struct_size = sizeof(struct sirfsoc_vout_buf);
-	vb2_qbitblt->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	vb2_qbitblt->min_buffers_needed = 1;
-
-	ret = vb2_queue_init(vb2_qbitblt);
-	if (ret) {
-		vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
-		vout->alloc_ctx = NULL;
-		goto reqbuf_err;
-	}
-
 	vb2_q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	vb2_q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
 	vb2_q->drv_priv = vout;
@@ -1670,14 +1652,6 @@ static int sirfsoc_vout_reqbufs(struct file *file, void *priv,
 	}
 
 	INIT_LIST_HEAD(&vout->dma_queue);
-
-	if (req_buf->count)
-		req_buf_bitblt.count = 1;
-	ret = vb2_reqbufs(vb2_qbitblt, &req_buf_bitblt);
-	if (ret) {
-		v4l2_err(v4l2_dev, "require bitblt buffer error\n");
-		goto reqbuf_err;
-	}
 
 	ret = vb2_reqbufs(vb2_q, req_buf);
 
@@ -1818,12 +1792,8 @@ static int sirfsoc_vout_streamoff(struct file *file, void *priv,
 			    enum v4l2_buf_type buf_type)
 {
 	int ret;
-	int i;
 	struct sirfsoc_vout_device *vout = priv;
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
-	struct sirfsoc_vout_buf *vout_buf;
-	struct vout_passthrough_mode *mode_info
-			= &vout->worker.op.passthrough;
 
 	v4l2_dbg(1, debug, v4l2_dev, "Enter %s\n", __func__);
 
@@ -1834,42 +1804,6 @@ static int sirfsoc_vout_streamoff(struct file *file, void *priv,
 
 	sirfsoc_lcdc_unregister_isr(vout->layer->lcdc_id, sirfsoc_vout_isr,
 		vout, LCDC_INT_VSYNC);
-
-	if (vout->worker.mode == VOUT_PASSTHROUGH) {
-		struct vb2_buffer *vb, *vb_active, *vb_next;
-		struct v4l2_buffer qbitbltbuf;
-		unsigned long flags;
-
-		qbitbltbuf.index = 0;
-		qbitbltbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-		qbitbltbuf.memory = V4L2_MEMORY_MMAP;
-		ret = vb2_querybuf(&vout->vb2_qbitblt, &qbitbltbuf);
-		if (!ret && qbitbltbuf.index == 0) {
-			vb_active = mode_info->active_frm;
-			vb = vout->vb2_qbitblt.bufs[qbitbltbuf.index];
-			vb->state = VB2_BUF_STATE_ACTIVE;
-			vb->v4l2_buf.field = vb_active->v4l2_buf.field;
-
-			if (vb && vb_active) {
-				for (i = 0; i < vb->num_planes; ++i) {
-					memcpy(vb2_plane_vaddr(vb, i),
-						vb2_plane_vaddr(vb_active, i),
-						vb->v4l2_planes[i].length);
-				}
-
-				spin_lock_irqsave(&vout->vbq_lock, flags);
-				vb_next = mode_info->next_frm;
-				mode_info->next_frm = vb;
-				__sirfsoc_vout_display(vout);
-				mode_info->next_frm = vb_next;
-				spin_unlock_irqrestore(&vout->vbq_lock, flags);
-			} else {
-				v4l2_err(v4l2_dev, "query buffer error\n");
-			}
-		} else {
-			v4l2_err(v4l2_dev, "query buffer error\n");
-		}
-	}
 
 	ret = vb2_streamoff(&vout->vb2_q, buf_type);
 
@@ -2260,7 +2194,6 @@ static int sirfsoc_vout_release(struct file *file)
 
 	if (vout->alloc_ctx) {
 		vb2_queue_release(&vout->vb2_q);
-		vb2_queue_release(&vout->vb2_qbitblt);
 		vb2_dma_contig_cleanup_ctx(vout->alloc_ctx);
 		vout->alloc_ctx = NULL;
 	}
