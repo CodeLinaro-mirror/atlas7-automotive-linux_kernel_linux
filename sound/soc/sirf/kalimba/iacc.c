@@ -190,6 +190,22 @@ static u32 dac_sample_rate_regs[] = {
 	KCODEC_DAC_D_SAMP_RATE
 };
 
+static int path_to_reg(enum iacc_input_path path)
+{
+	int val;
+
+	switch (path) {
+	case STEREO_LINEIN:
+		val = 0x1850;
+		break;
+	default:
+		val = 0x1080;/*default use Mic0*/
+		break;
+	}
+
+	return val;
+}
+
 static int atlas7_codec_setup(int playback, int channels,
 	enum iacc_input_path path, u32 sample_rate)
 {
@@ -223,7 +239,8 @@ static int atlas7_codec_setup(int playback, int channels,
 			regmap_update_bits(atlas7_codec_regmap, KCODEC_CONFIG,
 				1 << (10 + i), 1 << (10 + i));
 
-		regmap_write(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL0, 0x1850);
+		regmap_write(atlas7_codec_regmap, AUDIO_ANA_ADC_CTRL0,
+				path_to_reg(path));
 		regmap_write(atlas7_codec_regmap, KCODEC_ADC_A_GAIN, 32);
 		regmap_write(atlas7_codec_regmap, KCODEC_ADC_B_GAIN, 32);
 

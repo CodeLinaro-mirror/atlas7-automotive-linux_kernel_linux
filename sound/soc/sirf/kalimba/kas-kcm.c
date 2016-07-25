@@ -47,6 +47,9 @@ static int kas_audio_probe(struct platform_device *pdev)
 	else
 		data->mclk_fs = 512;
 
+	if (of_get_property(np, "force_iacc_cap", NULL))
+		kcm_force_iacc_cap = true;
+
 	kas_audio_card.dapm_widgets = kcm_get_card_widget(&widget_num);
 	kas_audio_card.num_dapm_widgets = widget_num;
 	kas_audio_card.dai_link = kcm_get_dai_link(&num_links, &free_links);

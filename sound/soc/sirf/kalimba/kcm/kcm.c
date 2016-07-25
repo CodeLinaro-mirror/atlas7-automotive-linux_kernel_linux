@@ -28,6 +28,8 @@ static int _kcm_init_status;
 bool kcm_enable_2mic_cvc = false;
 module_param(kcm_enable_2mic_cvc, bool, 0);
 
+bool kcm_force_iacc_cap = false;
+
 int kcm_drv_status(void)
 {
 	return _kcm_init_status;

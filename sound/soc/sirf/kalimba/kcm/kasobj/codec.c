@@ -12,6 +12,7 @@
  */
 
 #include "../../i2s.h"
+
 static int codec_i2s_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
@@ -24,6 +25,14 @@ static int codec_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	mclk = data->mclk_fs * params_rate(params);
 	fmt |= data->fmt;
+
+	/*multicodec scenario, Iacc capture, i2s playback
+	* do not affect I2s playback configuration when iacc capture
+	* event occurs
+	*/
+	if (kcm_force_iacc_cap)
+		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+			return 0;
 
 	/*kalimba always output 4 channel or more*/
 	fmt |= SND_SOC_DAIFMT_DSP_A;

@@ -23,6 +23,7 @@
 #endif
 
 extern bool kcm_enable_2mic_cvc;
+extern bool kcm_force_iacc_cap;
 
 struct kcm_chain;
 struct kasobj_fe;

@@ -26,6 +26,9 @@
 static int hw_iacc_config(struct kasobj_hw *hw)
 {
 	/* No configuration needed for IACC digital part */
+	if (kcm_force_iacc_cap)
+		iacc_setup(hw->db->is_sink, hw->channels,
+			hw->param, hw->rate, 0);
 	return 0;
 }
 
@@ -137,6 +140,8 @@ static struct hw_name_ops {
 	int ep_phy_dev;
 	int port;	/* Only for USP: 0~3 */
 } _hw_name_ops[] = {
+	{ "iacc_linein", hw_iacc_config, hw_iacc_start, hw_iacc_stop,
+		ENDPOINT_TYPE_IACC, ENDPOINT_PHY_DEV_IACC, 4 },
 	{ "iacc", hw_iacc_config, hw_iacc_start, hw_iacc_stop,
 		ENDPOINT_TYPE_IACC, ENDPOINT_PHY_DEV_IACC, 0 },
 	{ "usp3", hw_usp_config, hw_usp_start, hw_usp_stop,
