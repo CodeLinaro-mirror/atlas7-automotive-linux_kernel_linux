@@ -213,7 +213,7 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (!pcm_data->kas_started)
 		return 0;
 
-	if (pcm_data->fe->db->internal)
+	if (!(pcm_data->fe->db->internal))
 		unregister_kalimba_msg_action(pcm_data->action_id);
 
 	/* Wait if kas_data_notify() is running */
