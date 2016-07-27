@@ -297,7 +297,9 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 		if (ctx->ch_gain[stream_idx][param_idx] != value) {
 			ctx->ch_gain[stream_idx][param_idx] = value;
 			kcm_lock();
-			set_channel_gain(op, stream_idx, param_idx, value);
+			for (cnt = 0; cnt < ctx->channels[stream_idx]; cnt++)
+				set_channel_gain(op, stream_idx, cnt,
+					ctx->ch_gain[stream_idx][cnt]);
 			kcm_unlock();
 		}
 		break;
