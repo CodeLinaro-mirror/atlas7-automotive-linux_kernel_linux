@@ -283,7 +283,7 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 			diff = 1;
 		}
 		break;
-	default: {
+	default:
 		if (ctl_idx >= PEQ_CNTL_BAND1_GAIN &&
 			ctl_idx <= PEQ_CNTL_BAND10_GAIN) {
 			value -= 60;	/* 0 ~ 80 -> -60 ~ 20 dB */
@@ -301,7 +301,7 @@ static int peq_put(struct snd_kcontrol *kcontrol,
 				ctx->band_fc[ctl_idx - 10] = value;
 				diff = 1;
 			}
-		} else
+		} else {
 			pr_err("KASOP(%s): peq put, invalid control number !\n",
 				 op->obj.name);
 			return -EINVAL;
