@@ -59,7 +59,7 @@ struct noc_macro_bw_t {
 	u32 cur;
 	u32 avg;
 	u32 cnt;
-	u32 sum;
+	u64 sum;
 };
 
 struct noc_probe_t {
@@ -233,7 +233,7 @@ void noc_handle_probe(struct noc_macro *nocm)
 	struct noc_probe_t *entry;
 	struct noc_macro_bw_t *bw;
 	u32 val, i;
-	u64  mult;
+	u64  mult, sum;
 
 	for (i = 0; i < nocm->probe_size; i++) {
 
@@ -269,10 +269,10 @@ void noc_handle_probe(struct noc_macro *nocm)
 		/*calculate avg*/
 		bw->sum += val;
 		bw->cnt++;
-		val = bw->sum;
+		sum = bw->sum;
 
-		do_div(val, bw->cnt);
-		mult = (u64)val * entry->mhz;
+		mult = (u64)sum * entry->mhz;
+		do_div(mult, bw->cnt);
 		do_div(mult, 1<<entry->period);
 		bw->avg = (u32)mult;
 
