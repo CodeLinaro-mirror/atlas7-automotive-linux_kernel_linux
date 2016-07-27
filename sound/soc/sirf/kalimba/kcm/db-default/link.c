@@ -64,7 +64,7 @@ static const struct kasdb_link link[] = {
 		.source_name = __S("op_split_music"),
 		.sink_name = __S("op_upeq_music"),
 		.source_pins = { 1, 2, 3, 4},
-		.sink_pins = { 1, 2, 3, 4},
+		.sink_pins = { 1, 3, 2, 4},
 		.channels = 4,
 	},
 	{
