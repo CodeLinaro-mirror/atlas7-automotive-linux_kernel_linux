@@ -122,11 +122,14 @@ static int ps_prepare_region(struct ps_entry *pse)
 	 */
 	ps_write_dm(pse->dm_ptr, 8, dmbuf);
 
+	filp_close(cfile, NULL);
+
 	return 0;
 fail:
 	kfree(buf);
 
 err_close:
+	filp_close(cfile, NULL);
 	return rc;
 }
 
@@ -136,11 +139,15 @@ err_close:
 static int ps_write_file(struct ps_entry *pse)
 {
 	ssize_t ret;
+	struct file *cfile;
 
-	if (pse->ps_file != NULL && pse->kbuf != NULL)
-		ret = kernel_write(pse->ps_file, pse->kbuf, pse->size, 0);
+	cfile = filp_open(pse->file_name, O_RDWR | O_DSYNC, 0);
+	if (cfile != NULL && pse->kbuf != NULL) {
+		ret = kernel_write(cfile, pse->kbuf, pse->size, 0);
 		if (ret < 0)
 			pr_err("Error writing PS file: %s\n", pse->file_name);
+	}
+	filp_close(cfile, NULL);
 
 	return 0;
 }
