@@ -244,6 +244,10 @@ static int hw_get(struct kasobj *obj, const struct kasobj_param *param)
 	hw->ep_handle = dma_zalloc_coherent(kcm_get_dev(),
 			sizeof(struct endpoint_handle),
 			&hw->ep_handle_pa, GFP_KERNEL);
+	if (!hw->ep_handle) {
+		pr_err("KASHW: allocate buffer failure\n");
+		return -ENOMEM;
+	}
 	hw->ep_handle->buff_length = hw->buff_bytes / sizeof(u32);
 	hw->buff = dma_zalloc_coherent(kcm_get_dev(), hw->buff_bytes,
 			&hw->ep_handle->buff_addr, GFP_KERNEL);
