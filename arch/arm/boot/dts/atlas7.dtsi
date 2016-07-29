@@ -32,6 +32,8 @@
 		spi2 = &usp1;
 		spi3 = &usp2;
 		spi4 = &usp3;
+		tunex1 = &sd5;
+		tunex2 = &sd9;
 	};
 	cpus {
 		#address-cells = <1>;

@@ -1,7 +1,6 @@
 /*
- * CSR Radio Driver for Linux
- *
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Tunex Radio Driver for Linux
+ * Copyright (c) 2014, 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +28,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/sdhci.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
@@ -39,7 +39,7 @@
 #include "tunex.h"
 #include "tx_regtrans.h"
 
-#define DRV_NAME "csr_radio"
+#define DRV_NAME "tunex"
 
 #define WAIT_DATA_TIMEOUT 1000
 #define REG_TRANS_TIMEOUT 1000
@@ -292,7 +292,7 @@ static int tunex_sdio_reinit(struct csr_radio *radio)
  * 2. enable the function
  * 3. reinit the tunex sdio
  */
-static void tunex_get_params(struct csr_radio *radio,
+static int tunex_get_params(struct csr_radio *radio,
 		int id, struct tx_message_element *element,
 		int *fn, int *addr)
 {
@@ -329,6 +329,7 @@ static void tunex_get_params(struct csr_radio *radio,
 		}
 		break;
 	}
+	return ret;
 }
 
 /*
@@ -582,10 +583,16 @@ static enum hrtimer_restart tunex_hrtimer_callback(struct hrtimer *hrt)
 		wake_up(&(radio->data_avail));
 	}
 	intmask = readl(host->ioaddr + LOOPDMA_INT_STATUS);
-	if (intmask & LOOPDMA_BUFF0_RDY_FLAG)
-		radio->buffer_ready |= BUF0_READY;
-	if (intmask & LOOPDMA_BUFF1_RDY_FLAG)
-		radio->buffer_ready |= BUF1_READY;
+	if (intmask & LOOPDMA_BUFF0_RDY_FLAG) {
+		writel(LOOPDMA_BUFF0_RDY_FLAG,
+				host->ioaddr + LOOPDMA_INT_STATUS);
+	}
+	if (intmask & LOOPDMA_BUFF1_RDY_FLAG) {
+		writel(LOOPDMA_BUFF1_RDY_FLAG,
+				host->ioaddr + LOOPDMA_INT_STATUS);
+	}
+	if (radio->buf_full)
+		radio->buf_full = 0;
 
 	buffer_err = 0;
 	if (intmask & LOOPDMA_BUFF0_ERR_FLAG)
@@ -713,8 +720,6 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 	size = TX_MSGSIZE_MEM(count);
 
 	msg = kmalloc(size, GFP_KERNEL);
-	if (!msg)
-		return -ENOMEM;
 
 	if (copy_from_user(msg, (void __user *)data_msg, size)) {
 		ret = -EINVAL;
@@ -799,7 +804,6 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 			break;
 		default:
 			msg->elements[i].id |= TX_MFLAG_ERROR;
-			ret = -EINVAL;
 			break;
 		}
 	}
@@ -853,29 +857,22 @@ static long
 tunex_ioctl_release_buf(struct csr_radio *radio,
 		unsigned long size)
 {
+#if 0
 	unsigned long flags;
 	struct sdhci_host *host = radio->radio_sdio.host;
-
 	spin_lock_irqsave(&radio->lock, flags);
 	radio->out += size;
-	if ((radio->buffer_ready & BUF0_READY) &&
-			(radio->out > LOOPDMA_BUF_SIZE / 2)) {
-		writel(LOOPDMA_BUFF0_RDY_FLAG,
-				host->ioaddr + LOOPDMA_INT_STATUS);
-		radio->buffer_ready &= ~BUF0_READY;
-	}
-	if (radio->out >= LOOPDMA_BUF_SIZE) {
-		if (radio->buffer_ready & BUF1_READY) {
-			writel(LOOPDMA_BUFF1_RDY_FLAG,
-					host->ioaddr + LOOPDMA_INT_STATUS);
-			radio->buffer_ready &= ~BUF1_READY;
-		}
-		radio->out = 0;
-	}
-	if (radio->buf_full)
-		radio->buf_full = 0;
 	spin_unlock_irqrestore(&radio->lock, flags);
+#endif
 	return 0;
+}
+
+static long tunex_ioctl_get_in_buf(struct csr_radio *radio)
+{
+	if (radio->data_control.dma_status != START)
+		return -EINVAL;
+
+	return radio->in;
 }
 
 static int tunex_fops_open(struct inode *inode, struct file *filp)
@@ -925,6 +922,9 @@ tunex_fops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IOCTL_RELEASE_BUFFER:
 		ret = tunex_ioctl_release_buf(radio, arg);
 		break;
+	case IOCTL_GET_IN_POINTER:
+		ret =  tunex_ioctl_get_in_buf(radio);
+		break;
 	default:
 		dev_err(radio->device, "Unsupport ioctl %x\n", cmd);
 		return -EINVAL;
@@ -959,6 +959,7 @@ static int tunex_sdio_probe(struct sdio_func *func,
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_sirf_priv *priv;
 	struct mmc_context_info *context_info;
+	char *dev_name;
 
 	card = func->card;
 	host = card->host;
@@ -970,6 +971,14 @@ static int tunex_sdio_probe(struct sdio_func *func,
 	radio = devm_kzalloc(&pdev->dev, sizeof(*radio), GFP_KERNEL);
 	if (!radio)
 		return -ENOMEM;
+	dev_name = devm_kzalloc(&pdev->dev, 16, GFP_KERNEL);
+	if (!dev_name)
+		return -ENOMEM;
+	/* check the tunex device number. The Atlas7 only support up to 2
+	 * devices, and set the device name to tunex1 for first device
+	 */
+
+	radio->tunex_num = of_alias_get_id(pdev->dev.of_node, "tunex");
 	radio->device = &pdev->dev;
 	pltfm_host = sdhci_priv(shost);
 	priv = pltfm_host->priv;
@@ -1011,9 +1020,11 @@ static int tunex_sdio_probe(struct sdio_func *func,
 		return -ENODEV;
 	}
 
-	radio->misc_radio.name = DRV_NAME;
+	snprintf(dev_name, 16, "%s%d", DRV_NAME, radio->tunex_num);
+	radio->misc_radio.name = dev_name;
 	radio->misc_radio.fops = &tunex_fops;
 	radio->misc_radio.minor = MISC_DYNAMIC_MINOR;
+	radio->misc_radio.parent = &pdev->dev;
 	ret = misc_register(&radio->misc_radio);
 	if (unlikely(ret)) {
 		dev_err(&pdev->dev, "misc register fail\n");
@@ -1091,4 +1102,4 @@ static void __exit tunex_sdio_exit(void)
 module_exit(tunex_sdio_exit);
 
 MODULE_DESCRIPTION("Driver support for CSR SDIO Radio");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPLv2");

@@ -1,7 +1,6 @@
 /*
- * CSR Radio Driver for Linux
- *
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Tunex Radio Driver for Linux
+ * Copyright (c) 2014, 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +42,7 @@
 #define IOCTL_DATA_CONTROL		_IOR(RADIO_IO_MAGIC, 3, int)
 #define IOCTL_GET_BUFFER_POINTER	_IOR(RADIO_IO_MAGIC, 4, int)
 #define IOCTL_RELEASE_BUFFER		_IOR(RADIO_IO_MAGIC, 5, int)
+#define IOCTL_GET_IN_POINTER		_IOR(RADIO_IO_MAGIC, 6, int)
 
 enum dma_status_t {
 	STOP = 0,
@@ -90,6 +90,7 @@ struct csr_radio {
 	struct dma_config data_control;
 	struct csr_radio_sdio radio_sdio;
 	struct hrtimer	hrt;
+	int tunex_num;
 	dma_addr_t dma_addr;
 	int dma_buf_size;
 	unsigned int in;
