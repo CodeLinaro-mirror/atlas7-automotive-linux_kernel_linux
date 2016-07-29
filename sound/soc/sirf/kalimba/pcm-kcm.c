@@ -43,7 +43,6 @@ struct kas_pcm_data {
 	bool kas_started;
 	const struct kasobj_fe *fe;
 	struct kcm_chain *chain;
-	bool op_started;		/* TODO: remove it */
 	struct mutex pcm_free_lock;
 };
 
@@ -191,7 +190,6 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	pcm_data->kas_started = true;
-	pcm_data->op_started = false;
 	return 0;
 
 err2:
@@ -220,12 +218,6 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	mutex_lock(&pcm_data->pcm_free_lock);
 
 	pcm_data->kas_started = false;
-	pcm_data->op_started = false;
-
-	/* TODO: move to trigger/stop and combine to kcm_stop_chain() */
-	kcm_lock();
-	__kcm_stop_chain_op(pcm_data->chain);
-	kcm_unlock();
 
 	kcm_put_chain(pcm_data->chain);
 
@@ -258,15 +250,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 					pcm_data->fe->ep_cnt,
 					!!atomic_read(&substream->mmap_count));
 
-		kcm_lock();
-		__kcm_start_chain_hw(pcm_data->chain);
-		/* Operators are not stopped in TRIGGER_STOP */
-		if (!pcm_data->op_started) {
-			__kcm_start_chain_link(pcm_data->chain);
-			__kcm_start_chain_op(pcm_data->chain);
-			pcm_data->op_started = true;
-		}
-		kcm_unlock();
+		kcm_start_chain(pcm_data->chain);
 
 		if (playback && !pcm_data->fe->db->internal)
 			kas_pcm_data_produced(pcm_data->kalimba_notify_ep_id);
@@ -274,10 +258,7 @@ static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		kcm_lock();
-		__kcm_stop_chain_link(pcm_data->chain);
-		__kcm_stop_chain_hw(pcm_data->chain);
-		kcm_unlock();
+		kcm_stop_chain(pcm_data->chain);
 		pcm_data->pos = 0;
 		break;
 	default:
