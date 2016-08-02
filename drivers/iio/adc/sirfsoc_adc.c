@@ -52,7 +52,13 @@
 #define OFFSET_ERR_BITS_MASK		0x3fff
 #define GAIN_ERR_BITS_MASK			0xfff
 #define ATLAS7_ADC_1V2_IDEAL0		1064
+#define ATLAS7_ADC_1V2_IDEAL1		1975
 #define ATLAS7_ADC_1V2_IDEAL2		2757
+#define ATLAS7_ADC_1V2_IDEAL3		3427
+#define ATLAS7_ADC_600mV_IDEAL4		2246
+#define ATLAS7_ADC_600mV_IDEAL5		2638
+#define ATLAS7_ADC_600mV_IDEAL6		2926
+#define ATLAS7_ADC_600mV_IDEAL7		3137
 
 
 #define AUDIO_ANA_REF_AUDBIAS_IREF_EN			BIT(0)
@@ -359,8 +365,20 @@ struct sirfsoc_adc {
 	struct completion		done;
 	unsigned int			offset_cali0;
 	unsigned int			offset_cali2;
-	unsigned int			gain_cali0;
-	unsigned int			gain_cali2;
+	unsigned int			gain_cali2_ch1_2;
+	unsigned int			gain_cali3_ch1_2;
+	unsigned int			gain_cali4_ch1_2;
+	unsigned int			gain_cali5_ch1_2;
+	unsigned int			gain_cali6_ch1_2;
+	unsigned int			gain_cali7_ch1_2;
+	unsigned int			gain_cali0_ch3_4_5_6;
+	unsigned int			gain_cali1_ch3_4_5_6;
+	unsigned int			gain_cali2_ch3_4_5_6;
+	unsigned int			gain_cali3_ch3_4_5_6;
+	unsigned int			gain_cali4_ch3_4_5_6;
+	unsigned int			gain_cali5_ch3_4_5_6;
+	unsigned int			gain_cali6_ch3_4_5_6;
+	unsigned int			gain_cali7_ch3_4_5_6;
 };
 
 /* Dual touch samples read registers*/
@@ -604,7 +622,102 @@ static u32 sirfsoc_adc_gain_cali(struct sirfsoc_adc_request *req)
 
 	return digital_gain;
 }
+/*Get the gain error for atlas7*/
+static int atlas7_adc_get_gain_cali(struct sirfsoc_adc_request *req,
+				struct sirfsoc_adc *adc)
+{
+	u32 sgain, gain_err;
+	u16 mode;
 
+	sgain = (req->s_gain_bits >> 16) & 0x7;
+	mode = (req->mode >> 10) & 0x1F;
+	gain_err = -EINVAL;
+	/*
+	*channel 1 and 2 only support s_gain value 2,3,4,5,6 and 7.
+	*Meanwhile the gain error values may vary from the ones of
+	*channel 3,4,5 and 6
+	*/
+	if ((mode == 0x04) || (mode == 0x05)) {
+		switch (sgain) {
+		case 2:
+			gain_err = adc->gain_cali2_ch1_2 ?
+				adc->gain_cali2_ch1_2 : ATLAS7_ADC_1V2_IDEAL2;
+			break;
+		case 3:
+			gain_err = adc->gain_cali3_ch1_2 ?
+				adc->gain_cali3_ch1_2 : ATLAS7_ADC_1V2_IDEAL3;
+			break;
+		case 4:
+			gain_err = adc->gain_cali4_ch1_2 ?
+				adc->gain_cali4_ch1_2 : ATLAS7_ADC_600mV_IDEAL4;
+			break;
+		case 5:
+			gain_err = adc->gain_cali5_ch1_2 ?
+				adc->gain_cali5_ch1_2 : ATLAS7_ADC_600mV_IDEAL5;
+			break;
+		case 6:
+			gain_err = adc->gain_cali6_ch1_2 ?
+				adc->gain_cali6_ch1_2 : ATLAS7_ADC_600mV_IDEAL6;
+			break;
+		case 7:
+			gain_err = adc->gain_cali7_ch1_2 ?
+				adc->gain_cali7_ch1_2 : ATLAS7_ADC_600mV_IDEAL7;
+			break;
+		default:
+			return -EINVAL;
+		}
+	} else if ((mode > 0x05) && (mode < 0x0A)) {
+		/*
+		* gain error values of different s_gain for channel 3, 4,
+		*5 and 6
+		*/
+		switch (sgain) {
+		case 0:
+			gain_err = adc->gain_cali0_ch3_4_5_6 ?
+				adc->gain_cali0_ch3_4_5_6 :
+				ATLAS7_ADC_1V2_IDEAL0;
+			break;
+		case 1:
+			gain_err = adc->gain_cali1_ch3_4_5_6 ?
+				adc->gain_cali1_ch3_4_5_6 :
+				ATLAS7_ADC_1V2_IDEAL1;
+			break;
+		case 2:
+			gain_err = adc->gain_cali2_ch3_4_5_6 ?
+				adc->gain_cali2_ch3_4_5_6 :
+				ATLAS7_ADC_1V2_IDEAL2;
+			break;
+		case 3:
+			gain_err = adc->gain_cali3_ch3_4_5_6 ?
+				adc->gain_cali3_ch3_4_5_6 :
+				ATLAS7_ADC_1V2_IDEAL3;
+			break;
+		case 4:
+			gain_err = adc->gain_cali4_ch3_4_5_6 ?
+				adc->gain_cali4_ch3_4_5_6 :
+				ATLAS7_ADC_600mV_IDEAL4;
+			break;
+		case 5:
+			gain_err = adc->gain_cali5_ch3_4_5_6 ?
+				adc->gain_cali5_ch3_4_5_6 :
+				ATLAS7_ADC_600mV_IDEAL5;
+			break;
+		case 6:
+			gain_err = adc->gain_cali6_ch3_4_5_6 ?
+				adc->gain_cali6_ch3_4_5_6 :
+				ATLAS7_ADC_600mV_IDEAL6;
+			break;
+		case 7:
+			gain_err = adc->gain_cali7_ch3_4_5_6 ?
+				adc->gain_cali7_ch3_4_5_6 :
+				ATLAS7_ADC_600mV_IDEAL7;
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
+	return gain_err;
+}
 /* Absolute gain calibration */
 static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 				struct sirfsoc_adc_cali_data *cali_data)
@@ -613,16 +726,12 @@ static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
 	struct device_node *np = indio_dev->dev.parent->of_node;
 	u32 sgain;
+	u16 mode;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		cali_data->digital_offset = 0;
-		sgain = (req->s_gain_bits >> 16) & 0x7;
-		if (sgain == 2)
-			cali_data->digital_again = adc->gain_cali2 ?
-				adc->gain_cali2 : ATLAS7_ADC_1V2_IDEAL2;
-		else
-			cali_data->digital_again = adc->gain_cali0 ?
-				adc->gain_cali0 : ATLAS7_ADC_1V2_IDEAL0;
+		cali_data->digital_again = atlas7_adc_get_gain_cali(req,
+				adc);
 	} else {
 		cali_data->digital_offset = sirfsoc_adc_offset_cali(req);
 		if (!cali_data->digital_offset)
@@ -738,10 +847,44 @@ static u32 atlas7_adc_calculate_volt(u32 digital_out,
 	 * Gain is 2.59 for SGAIN[2..0]=2 */
 
 	switch (sgain) {
+	case 0:
+		digital_out = digital_out * 141 * ATLAS7_ADC_1V2_IDEAL0;
+		digital_out = digital_out / (125 * digital_again);
+		break;
+	case 1:
+		digital_out = digital_out * 141 * ATLAS7_ADC_1V2_IDEAL1;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 190;
+		break;
 	case 2:
 		digital_out = digital_out * 141 * ATLAS7_ADC_1V2_IDEAL2;
 		digital_out = digital_out / (125 * digital_again);
 		digital_out = digital_out * 100 / 259;
+		break;
+	case 3:
+		digital_out = digital_out * 141 * ATLAS7_ADC_1V2_IDEAL3;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 320;
+		break;
+	case 4:
+		digital_out = digital_out * 141 * ATLAS7_ADC_600mV_IDEAL4;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 420;
+		break;
+	case 5:
+		digital_out = digital_out * 141 * ATLAS7_ADC_600mV_IDEAL5;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 500;
+		break;
+	case 6:
+		digital_out = digital_out * 141 * ATLAS7_ADC_600mV_IDEAL6;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 550;
+		break;
+	case 7:
+		digital_out = digital_out * 141 * ATLAS7_ADC_600mV_IDEAL7;
+		digital_out = digital_out / (125 * digital_again);
+		digital_out = digital_out * 100 / 590;
 		break;
 
 	default:
@@ -1211,12 +1354,64 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		adc->ana_base = ioremap(SIRFSOC_ANA_BASE, SZ_64K);
 		sirfsoc_adc_enable_analog(adc);
 
-		ret = of_property_read_u32(np, "cali-gain0", &adc->gain_cali0);
+		ret = of_property_read_u32(np, "cali-gain2-ch1-2",
+				&adc->gain_cali2_ch1_2);
 		if (ret)
-			adc->gain_cali0 = 0;
-		ret = of_property_read_u32(np, "cali-gain2", &adc->gain_cali2);
+			adc->gain_cali2_ch1_2 = 0;
+		ret = of_property_read_u32(np, "cali-gain3-ch1-2",
+				&adc->gain_cali3_ch1_2);
 		if (ret)
-			adc->gain_cali2 = 0;
+			adc->gain_cali3_ch1_2 = 0;
+		ret = of_property_read_u32(np, "cali-gain4-ch1-2",
+				&adc->gain_cali4_ch1_2);
+		if (ret)
+			adc->gain_cali4_ch1_2 = 0;
+		ret = of_property_read_u32(np, "cali-gain5-ch1-2",
+				&adc->gain_cali5_ch1_2);
+		if (ret)
+			adc->gain_cali5_ch1_2 = 0;
+		ret = of_property_read_u32(np, "cali-gain6-ch1-2",
+				&adc->gain_cali6_ch1_2);
+		if (ret)
+			adc->gain_cali6_ch1_2 = 0;
+		ret = of_property_read_u32(np, "cali-gain7-ch1-2",
+				&adc->gain_cali7_ch1_2);
+		if (ret)
+			adc->gain_cali7_ch1_2 = 0;
+
+		ret = of_property_read_u32(np, "cali-gain0-ch3-4-5-6",
+				&adc->gain_cali0_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali0_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain1-ch3-4-5-6",
+				&adc->gain_cali1_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali1_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain2-ch3-4-5-6",
+				&adc->gain_cali2_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali2_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain3-ch3-4-5-6",
+				&adc->gain_cali3_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali3_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain4-ch3-4-5-6",
+				&adc->gain_cali4_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali4_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain5-ch3-4-5-6",
+				&adc->gain_cali5_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali5_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain6-ch3-4-5-6",
+				&adc->gain_cali6_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali6_ch3_4_5_6 = 0;
+		ret = of_property_read_u32(np, "cali-gain7-ch3-4-5-6",
+				&adc->gain_cali7_ch3_4_5_6);
+		if (ret)
+			adc->gain_cali7_ch3_4_5_6 = 0;
+
 		ret = of_property_read_u32(np, "cali-offset0",
 			&adc->offset_cali0);
 		if (ret)
@@ -1232,9 +1427,8 @@ static int sirfsoc_adc_probe(struct platform_device *pdev)
 		if (adc->offset_cali2 > 0x2400)
 			adc->offset_cali2 = (((~(adc->offset_cali2 & 0x1FFF)) +
 					      1) & 0x1FFF) | 0x2000;
-		dev_info(&pdev->dev, "cali offset: %x - %x, cali gain: %x - %x\n",
-					adc->offset_cali0, adc->offset_cali2,
-					adc->gain_cali0, adc->gain_cali2);
+		dev_info(&pdev->dev, "cali offset: %x - %x\n",
+					adc->offset_cali0, adc->offset_cali2);
 	} else {
 		adc->clk = devm_clk_get(&pdev->dev, NULL);
 		if (IS_ERR(adc->clk)) {
