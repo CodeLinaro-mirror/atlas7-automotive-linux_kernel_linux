@@ -84,6 +84,13 @@ struct id_rp_maps_t {
 	int rpbase;
 };
 
+static struct id_rp_maps_t noc_cpu_id_list[] = {
+	{"kas_apb", FW_DDR_RTLL},
+	{"kas_axi", FW_DDR_RTLL},
+	{"armm3_apb", FW_DDR_BE},
+	{"armm3_axi", FW_DDR_RT},
+};
+
 static struct id_rp_maps_t noc_initator_id_list[] = {
 	{"dmac2_ac97_aux_fifo", FW_DDR_RTLL},
 	{"kas_dram", FW_DDR_RTLL},
@@ -249,6 +256,19 @@ int noc_get_rpbase_by_name(const char *name)
 	while (i < size) {
 		if (!strcmp(noc_initator_id_list[i].name, name))
 			return noc_initator_id_list[i].rpbase;
+		i++;
+	}
+	return -1;
+}
+
+int noc_get_rpbase_by_bus(const char *name)
+{
+	int i = 0;
+	int size = ARRAY_SIZE(noc_cpu_id_list);
+
+	while (i < size) {
+		if (!strcmp(noc_cpu_id_list[i].name, name))
+			return noc_cpu_id_list[i].rpbase;
 		i++;
 	}
 	return -1;
