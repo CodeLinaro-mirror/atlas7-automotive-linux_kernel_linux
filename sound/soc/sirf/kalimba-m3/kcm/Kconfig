@@ -1,0 +1,18 @@
+config SND_SOC_SIRF_KALIMBA_KCM_USER
+	bool "KCM user database"
+	depends on SND_SOC_SIRF_KALIMBA_KCM
+	help
+	  Kalimba configuration manager user database is a user defined
+	  configure set. User can define their own operators, links and
+	  chains. If not selected, default database will be actived. The
+	  default case is designed for Desay.
+
+config SND_SOC_SIRF_KALIMBA_KCM_CODEC_I2S
+	bool "Kalimba use I2s external codec test"
+	depends on SND_SOC_SIRF_KALIMBA_KCM  && I2C
+	select SND_SOC_CS42XX8_I2C
+	help
+	  Kalimba configuration manager could support IACC and I2s external
+	  codec, so it also responsible for codec management for internal/external
+	  codec, if selected, I2s external codec cs42888 is default in using, otherwise
+	  default use internal iacc codec.

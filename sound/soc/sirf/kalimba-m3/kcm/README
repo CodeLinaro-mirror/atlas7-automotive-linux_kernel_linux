@@ -1,0 +1,210 @@
+Overview
+========
+
+    tuning app         pipeline script         alsa app        kastool
+--------|--------------------|--------------------|---------------|-------
+        v                    v                    v               v
+  +-----------+         +----------+        +-----------+     +-------+
+  |  Control  |-------->| Database |<-------|   ALSA    |     |  KAS  |
+  | Interface |         |  Engine  |        | PCM, DAPM |     | DEBUG |
+  +-----------+         +----------+        +-----------+     +-------+
+        |                    ^                    |               |
+        |                    |                    |               |
+        |               +----------+              |               |
+        +-------------->| Pipeline |<-------------+               |
+                        |  Engine  |-----------+                  |
+                        +----------+           |                  |
+                             |                 v                  |
+                             |            +---------+             |
+                             v            | CPU DAI |<------------+
+                        +----------+      +---------+             |
+                        |   IPC    |<----------|------------------+
+                        +----------+           |
+-----------------------------|-----------------|--------------------------
+                             v                 v
+                        /---------\    /----------------\
+                        | Kalimba |--->|Audio Controller|
+                        \---------/    \----------------/
+
+
+KAS Object Hierarchy
+====================
+
+                                  ----------------
+                                 /   KAS Object  /
+                                /   Interface  /
+                               ---------------
+                                      ^
+                                      |
+              +--------------+--------+-------+---------------+
+              |              |                |               |
+       +-------------+  +-----------+  +------+-----+  +------+-------+
+       | Sink/Source |  | Front End |  | Audio Link |  | KAS Operator |
+       +-------------+  +-----------+  +------------+  +--------------+
+              |                                               |
+     +--------+--------+                         +------------+-----------+
+     |        |        |                         |            |           |
+ +------+  +-----+  +-----+                  +-------+  +-----------+
+ | IACC |  | I2S |  | USP |                  | Mixer |  | Resampler |  ......
+ +------+  +-----+  +-----+                  +-------+  +-----------+
+
+
+Object Interface: kasobj.h
+--------------------------
+
+All KAS objects share a same virtual interface, which define abstract operation
+rules must be followed by all derived implementations. KAS objects use
+reference counts to keep track of life cycle and start cycle.
+
+struct kasobj_ops {
+        int (*init)(struct kasobj *obj);
+        int (*get)(struct kasobj *obj, const struct kasobj_param *param);
+        int (*put)(struct kasobj *obj);
+        int (*start)(struct kasobj *obj);
+        int (*stop)(struct kasobj *obj);
+        u16 (*get_ep)(struct kasobj *obj, unsigned pin, int is_sink);
+        void (*put_ep)(struct kasobj *obj, unsigned pin, int is_sink);
+        void (*start_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
+        void (*stop_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
+};
+
+- init() is called on system startup, when database is parsed and according
+  object is instantiated.
+- get() is called in ALSA hw_params() callback, when audio chain is selected per
+  stream property. Every object in the chain will be "got" in sequence.
+- put() is called in ALSA hw_free() callback, when audio chain is torn down.
+  Every object in the chain will be "put" in sequence.
+- start() and stop() is called in ALSA trigger() callback, per start/stop event.
+  Every object in the chain will be "started" and "stopped" in sequence.
+- get_ep()/put_ep() is to abstract the pin to endpoint number mapping. Also,
+  operators can keep track of pin activity in these callbacks.
+- start_ep()/stop_ep() is called when endpoint status changes, which is useful
+  for objects to keep track of its endpoin activity.
+
+
+Hardware Sink/Source Object: obj-hw.c
+-------------------------------------
+
+- init():   Replace start(), stop() with according DAI implementation.
+- get():    Allocate audio buffer, create and configure hardware endpoins,
+            configure DAI.
+- put():    Free audio buffer, close hardware endpoins.
+- start():  Start DAI.
+- stop():   Stop DAI.
+- get_ep(): Return hardware endpoint ID.
+
+
+Front End Object: obj-fe.c
+--------------------------
+
+- init():   Add instance to CPU DAI table, DAPM routing table, DAI link table.
+- get():    Create and configure software endpoints.
+- put():    Close software endpoints.
+- get_ep(): Return software endpoint ID.
+
+
+Kalimba Operator Object: obj-op.c
+---------------------------------
+
+Operator is instance of one capability. Each capability must export an
+implementation interface to achieve different behavious.
+
+- init():   Find capability implementation by cap ID, and call impl->init().
+- get():    Create and configure operator, call impl->create().
+- put():    Destroy operator.
+- start():  Start operator, call impl->trigger() wth pre/post start event.
+- stop():   Stop operator, call impl->trigger() wth pre/post stop event.
+- get_ep(): Return operator endpoint ID, call impl->trigger() with get_ep event.
+- put_ep(): Call impl->trigger() with put_ep event.
+
+
+Link Object: obj-link.c
+-----------------------
+
+Link is a connection from sink endpoins to source endpoints.
+
+- init(): Resolve source/sink object pointers by their names.
+- get():  Call get_ep() of source/sink objects, and connect endpoins.
+- put():  Disconnect endpoins, call put_ep() of source/sink objects.
+
+
+Database Engine: kasdb.h
+========================
+
+There're two sources of audio pipeline database:
+- Default database built in the driver. Defined in db-default.c.
+- Blob generated by user tool and exported to kernel. Parsed by db-parser.c.
+
+Database contains all necessary information for a configurable audio system:
+- Create ALSA components per configuration: CPU DAIs, DAPM routing table,
+  sound cards (DAI links).
+- Create and manage ALSA control interfaces dynamically.
+- Manage audio pipelines per stream activity: software/hardware endpoints,
+  operators, audio controllers, audio links.
+
+Default database definition is under db-default/.
+- alsa.c contains codec, hardware sink/source and front end definitions.
+- op.c, link.c, chain.c defines operators, links and chains.
+- checkdb.sh is a script to help checking database integrity. Check file header
+  for introduction and usage.
+
+
+Capability Implementation
+=========================
+
+Implementation Interface: kasop.h
+---------------------------------
+
+Each Kalimba capability must have an according implementation, which registers
+a "struct kasop_impl" table along with the capability ID.
+
+struct kasop_impl {
+        int (*init)(struct kasobj_op *op);
+        int (*create)(struct kasobj_op *op, const struct kasobj_param *param);
+        int (*reconfig)(struct kasobj_op *op, const struct kasobj_param *param);
+        int (*trigger)(struct kasobj_op *op, int event);
+};
+
+- init() is called when this capability is instantiated. Normally, we should
+  allocate instance specific data and register ALSA control interfaces here.
+- create() is called after Kalimba creates according object. It's a good place
+  to adding capability specific configuration code.
+- trigger() is called on several events(start/stop/ep) to gain more control.
+- When trying to instantiate an operator object, create() won't be called if
+  operator is already in Kalimba, in case of multiple configuring of shared
+  operators. This is good in most cases, but some operators like resampler may
+  require re-configure even if it's already instantiated, reconfig() is for
+  this purpose.
+
+
+Example: op/passthr.c
+---------------------
+
+- init():   Allocate private context to store volume, mute status. Parse
+            database field "ctrl_base" and "ctrl_names", to create the required
+            control interface and register callbacks.
+- create(): Configure latest volume and mute to Kalimba operator.
+
+NOTE:
+- Capbility implementation must be registered explicity by calling
+  "kasop_register_cap(cap_id, impl_table)" in op/init.c.
+- All control interface callbacks must be proteced by kcm_lock()/kcm_unlock().
+
+
+Limitations
+===========
+
+- Each Front End only supports one stream type.
+- This driver must be called before PCM driver, it's declared as fs_initcall().
+  Normal printk is not available then. If any init() call hangs, the system will
+  stall at "Starting Kernel..." without debug messages. Do not add BUG() in
+  init() calls, nothing will show.
+
+
+TODO
+====
+- Suspend/Resume.
+- kalimba_set_master_gain() by "anti-clippping" driver. This should be a
+  general solution to handle all asynchronous system events.
+- Develop cases:
+  * i2s

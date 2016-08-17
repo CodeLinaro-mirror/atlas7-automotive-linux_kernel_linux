@@ -15,3 +15,14 @@ config SND_SOC_SIRF_KALIMBA_DEBUG
 	  It also initialize hardware audio device, such as I2S, codec and dma.
 	  It also prepare the interface to user space test tools.
 
+config SND_SOC_SIRF_KALIMBA_KCM
+	bool "Kalimba configuration manager driver"
+	default y
+	depends on SND_SOC_SIRF_KALIMBA
+	help
+	  Kalimba configuration manager driver is to introduce a flexible
+	  way to define, control, and deploy audio subsystem based on
+	  Kalimba DSP. It's to replace the hard coded audio pipeline manager,
+	  and to support various audio pipelines with one common code set.
+
+source "sound/soc/sirf/kalimba/kcm/Kconfig"
