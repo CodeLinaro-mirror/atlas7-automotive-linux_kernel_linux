@@ -351,6 +351,11 @@ static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 	int i;
 	int ret = 0;
 
+	if ((need_ack_rsp & MSG_NEED_ACK) && !is_ipc_ack()) {
+		pr_err("The conuts of ARM request and DSP ack are not equal\n");
+		return -EKASCRASH;
+	}
+
 	write_kalimba_reg(KAS_CPU_KEYHOLE_MODE, 4);
 	write_kalimba_reg(KAS_CPU_KEYHOLE_ADDR,
 			(ARM_MESSAGE_SEND_ADDR << 2) | (0x2 << 30));
@@ -366,8 +371,8 @@ static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 	increment_counter(ARM_SEND_COUNT_ADDR);
 	writel(ARM_IPC_INTR_TO_KALIMBA, ipc_data->ipc_base + IPC_TRGT3_INIT1_1);
 	if (need_ack_rsp & MSG_NEED_ACK) {
-		/* Try to check the ACK for 10 times */
-		for (i = 0; i < 10; i++) {
+		/* Try to check the ACK for 1000 times */
+		for (i = 0; i < 1000; i++) {
 			if (is_ipc_ack()) {
 				break;
 			}
@@ -375,7 +380,7 @@ static int ipc_send_msg_package(u16 *msg, int size, u16 msg_short_type,
 			usleep_range(50, 60);
 			mutex_lock(&ipc_data->ipc_comm_mutex);
 		}
-		if (i == 10) {
+		if (i == 1000) {
 			kcoredump();
 			pr_err("Ack from DSP timeout: Maybe Kalimba is down\n");
 			WARN_ON(1);
