@@ -34,9 +34,6 @@ static int codec_i2s_hw_params(struct snd_pcm_substream *substream,
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 			return 0;
 
-	/*kalimba always output 4 channel or more*/
-	fmt |= SND_SOC_DAIFMT_DSP_A;
-
 	if (snd_soc_dai_set_sysclk(codec_dai, 0, mclk, SND_SOC_CLOCK_IN) ||
 			snd_soc_dai_set_fmt(codec_dai, fmt)) {
 		dev_err(card->dev, "Can't set codec dai hw params\n");

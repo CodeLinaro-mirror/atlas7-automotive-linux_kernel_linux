@@ -28,6 +28,7 @@ static int kas_audio_probe(struct platform_device *pdev)
 	int ret, num_links, free_links, widget_num, route_num, val;
 	struct device_node *np = pdev->dev.of_node;
 	struct kcm_card_data *data;
+	const char *fs_mode;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -47,8 +48,18 @@ static int kas_audio_probe(struct platform_device *pdev)
 	else
 		data->mclk_fs = 512;
 
-	if (of_get_property(np, "force_iacc_cap", NULL))
+	if (of_property_read_bool(np, "i2s-force-iacc-cap"))
 		kcm_force_iacc_cap = true;
+
+	ret = of_property_read_string(pdev->dev.of_node, "i2s-frame-sync-mode",
+			&fs_mode);
+	if (ret == 0) {
+		if (!strcmp("i2s", fs_mode))
+			data->fmt |= SND_SOC_DAIFMT_I2S;
+		else
+			data->fmt |= SND_SOC_DAIFMT_DSP_A;
+	} else
+		data->fmt |= SND_SOC_DAIFMT_DSP_A;
 
 	kas_audio_card.dapm_widgets = kcm_get_card_widget(&widget_num);
 	kas_audio_card.num_dapm_widgets = widget_num;

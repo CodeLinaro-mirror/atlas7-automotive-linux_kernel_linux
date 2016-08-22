@@ -194,7 +194,8 @@ int sirf_i2s_params_adv(struct i2s_params *param)
 
 	switch (param->channels) {
 	case 2:
-		i2s_ctrl &= ~I2S_SIX_CHANNELS;
+	case 6:
+		i2s_ctrl |= I2S_SIX_CHANNELS;
 		bclk_ratio = 32;
 		break;
 	case 4:
@@ -222,9 +223,6 @@ int sirf_i2s_params_adv(struct i2s_params *param)
 		}
 		tdm_ctrl |= I2S_TDM_ENA;
 		bclk_ratio = 128;
-		break;
-	case 6:
-		i2s_ctrl |= I2S_SIX_CHANNELS;
 		break;
 	case 8:
 		regmap_read(i2s->regmap, AUDIO_CTRL_I2S_TDM_CTRL,
@@ -380,6 +378,15 @@ static int sirf_i2s_probe(struct platform_device *pdev)
 			devm_gpio_request_one(&pdev->dev, gpio_sw,
 				sw_sel_val ? GPIOF_OUT_INIT_HIGH :
 				GPIOF_OUT_INIT_LOW, "sw2-sel");
+	}
+
+	gpio_sw = of_get_named_gpio(pdev->dev.of_node, "sw3-sel", 0);
+	if (gpio_is_valid(gpio_sw)) {
+		if (!of_property_read_u32(pdev->dev.of_node, "sw3-sel-val",
+			&sw_sel_val))
+			devm_gpio_request_one(&pdev->dev, gpio_sw,
+				sw_sel_val ? GPIOF_OUT_INIT_HIGH :
+				GPIOF_OUT_INIT_LOW, "sw3-sel");
 	}
 
 	i2s->regmap = devm_regmap_init_mmio(&pdev->dev, base,
