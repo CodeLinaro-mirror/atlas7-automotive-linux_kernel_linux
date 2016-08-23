@@ -3343,11 +3343,6 @@
 
 				hwlocks = <&hwlock_retain 0>;
 
-				sysrtc@2000 {
-					compatible = "sirf,prima2-sysrtc";
-					sub-reg = <0x2000 0x100>;
-					interrupts = <0 52 0>;
-				};
 				pwrc:pwrc@3000 {
 					compatible = "sirf,atlas7-pwrc";
 					sub-reg = <0x3000 0x100>;
@@ -3383,6 +3378,12 @@
 						mem-size = <0x10000>;
 						status = "disabled";
 					};
+				};
+
+				sysrtc@2000 {
+					compatible = "sirf,prima2-sysrtc";
+					sub-reg = <0x2000 0x100>;
+					interrupts = <0 52 0>;
 				};
 			};
 
