@@ -13,7 +13,6 @@
 
 #include <sound/pcm.h>
 #include <sound/soc.h>
-#include "../../dsp.h"
 
 static const char *fe_init_cpu_dai(struct kasobj *obj,
 		const char **dai_name)
@@ -104,7 +103,7 @@ static int fe_init_route(struct kasobj *obj, const char *stream_name)
 		}
 	}
 
-	pr_err("KASFE(%s): Invalid codec!\n", db->name.s);
+	kcm_debug("KASFE(%s): Invalid codec!\n", db->name.s);
 	return -EINVAL;
 }
 
@@ -149,119 +148,14 @@ static int fe_init(struct kasobj *obj)
 	const char *dai_name, *stream_name;
 	struct kasobj_fe *fe = kasobj_to_fe(obj);
 
+	kcm_debug("FE '%s': go init ...\n", obj->name);
 	stream_name = fe_init_cpu_dai(obj, &dai_name);
 	fe_init_route(obj, stream_name);
 	fe_init_dai_link(obj, dai_name, stream_name);
 
-	for (i = 0; i < fe->db->channels_max; i++)
-		fe->ep_id[i] = KCM_INVALID_EP_ID;
-	fe->ep_cnt = 0;
-
 	return 0;
-}
-
-/* Must be consistent with Kalimba definition */
-static void fe_parse_format(int format, int channels,
-		int *audio_format, int *pack_format)
-{
-	*audio_format = 0;	/* XXX: Where's the definition? */
-
-	switch (format) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		*pack_format = kasdb_pack_16;
-		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		*pack_format = kasdb_pack_24r;	/* XXX: Maybe 24l? */
-		break;
-	default:
-		pr_err("KASFE: unknown format!\n");
-		*pack_format = kasdb_pack_16;
-		break;
-	}
-}
-
-static int fe_get(struct kasobj *obj, const struct kasobj_param *param)
-{
-	int i, audio_format, pack_format;
-	struct kasobj_fe *fe = kasobj_to_fe(obj);
-
-	if (obj->life_cnt++) {
-		kcm_debug("FE '%s' refcnt++: %d\n", obj->name, obj->life_cnt);
-		return 0;
-	}
-
-	fe_parse_format(param->format, param->channels,
-			&audio_format, &pack_format);
-	fe->ep_cnt = param->channels;
-
-	if (fe->db->playback)
-		kalimba_get_source(ENDPOINT_TYPE_FILE, 0, fe->ep_cnt,
-				param->ep_handle_pa, fe->ep_id, __kcm_resp);
-	else
-		kalimba_get_sink(ENDPOINT_TYPE_FILE, 0, fe->ep_cnt,
-				param->ep_handle_pa, fe->ep_id, __kcm_resp);
-	for (i = 0; i < fe->ep_cnt; i++) {
-		kalimba_config_endpoint(fe->ep_id[i],
-				ENDPOINT_CONF_AUDIO_SAMPLE_RATE,
-				param->rate, __kcm_resp);
-		kalimba_config_endpoint(fe->ep_id[i],
-				ENDPOINT_CONF_AUDIO_DATA_FORMAT,
-				audio_format, __kcm_resp);
-		kalimba_config_endpoint(fe->ep_id[i],
-				ENDPOINT_CONF_DRAM_PACKING_FORMAT,
-				pack_format, __kcm_resp);
-		kalimba_config_endpoint(fe->ep_id[i],
-				ENDPOINT_CONF_INTERLEAVING_MODE,
-				1, __kcm_resp);		/* Needs configure? */
-		kalimba_config_endpoint(fe->ep_id[i],
-				ENDPOINT_CONF_PERIOD_SIZE,
-				param->period_size, __kcm_resp);
-		if (!fe->db->playback)
-			kalimba_config_endpoint(fe->ep_id[i],
-					ENDPOINT_CONF_CLOCK_MASTER,
-					1, __kcm_resp);	/* Needs configure? */
-	}
-
-	kcm_debug("FE '%s' created\n", obj->name);
-	return 0;
-}
-
-static int fe_put(struct kasobj *obj)
-{
-	int i;
-	struct kasobj_fe *fe = kasobj_to_fe(obj);
-
-	BUG_ON(!obj->life_cnt);
-	if (--obj->life_cnt) {
-		kcm_debug("FE '%s' refcnt--: %d\n", obj->name, obj->life_cnt);
-		return 0;
-	}
-
-	if (fe->ep_id[0] != KCM_INVALID_EP_ID) {
-		if (fe->db->playback)
-			kalimba_close_source(fe->ep_cnt, fe->ep_id, __kcm_resp);
-		else
-			kalimba_close_sink(fe->ep_cnt, fe->ep_id, __kcm_resp);
-	}
-	for (i = 0; i < fe->db->channels_max; i++)
-		fe->ep_id[i] = KCM_INVALID_EP_ID;
-	fe->ep_cnt = 0;
-
-	kcm_debug("FE '%s' destroyed\n", obj->name);
-	return 0;
-}
-
-static u16 fe_get_ep(struct kasobj *obj, unsigned pin, int is_sink)
-{
-	struct kasobj_fe *fe = kasobj_to_fe(obj);
-
-	BUG_ON(pin >= fe->ep_cnt);
-	return fe->ep_id[pin];
 }
 
 static struct kasobj_ops fe_ops = {
 	.init = fe_init,
-	.get = fe_get,
-	.put = fe_put,
-	.get_ep = fe_get_ep,
 };

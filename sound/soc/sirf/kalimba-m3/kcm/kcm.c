@@ -14,14 +14,10 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <sound/soc.h>
+#include "../audio-protocol.h"
 #include "kasobj.h"
 #include "kasop.h"
 #include "kcm.h"
-
-/* TODO: suspend/resume */
-
-/* A global response buffer is safe as IPC in KCM are exclusive */
-u16 __kcm_resp[64];
 
 static int _kcm_init_status;
 
@@ -288,17 +284,29 @@ char *kcm_strcasestr(const char *s1, const char *s2)
 
 static int __init kcm_init(void)
 {
+	int ret;
+
+	ret = audio_protocol_init();
+	if (ret) {
+		kcm_debug("KCM: IPC init failed\n");
+		return ret;
+	}
+	kcm_debug("KCM: IPC init success\n");
+
 	mutex_init(&_mtx);
 
 	/*
 	 * Load user database or default database,
 	 * it can be selected in menuconfig
 	 */
+	kcm_debug("KCM: start database loading ...\n");
 	kasdb_load_database();
 	kcm_debug("KCM: database loaded\n");
 
 	/* Initialize all objects and chains */
+	kcm_debug("KCM: starting init kasobj ...\n");
 	_kcm_init_status = kasobj_init();
+	kcm_debug("KCM: kasobj init finished\n");
 	return _kcm_init_status;
 }
 

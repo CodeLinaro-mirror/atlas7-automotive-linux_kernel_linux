@@ -14,7 +14,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <sound/soc.h>
-#include "dsp.h"
 #include "kcm/kcm.h"
 
 static struct snd_soc_card kas_audio_card = {

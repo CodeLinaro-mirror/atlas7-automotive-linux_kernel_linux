@@ -14,6 +14,8 @@
 #ifndef _KCM_KASOP_H
 #define _KCM_KASOP_H
 
+#include "kas.h"
+
 enum {
 	kasop_event_start_ep,
 	kasop_event_stop_ep,

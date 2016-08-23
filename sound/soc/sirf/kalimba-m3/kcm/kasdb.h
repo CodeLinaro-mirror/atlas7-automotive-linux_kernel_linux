@@ -16,22 +16,6 @@
 
 #include <sound/soc.h>
 
-struct kasdb_head {
-#define KASDB_MAGIC	0xFACE
-#define	KASDB_VERSION	0x0101	/* To match user and kernel code */
-	short magic;
-	short version;
-	int elements;
-	int reloc_off;		/* Offset of relocation table */
-	int cksum;
-	char data[0];
-};
-
-/* Relocation table to change string offset to pointer */
-struct kasdb_reloc {
-	int cnt;
-	int offset[];
-};
 
 /* In user db, all string pointers are replaced with offsets to db header,
  * and recovered to pointer in kernel. This introduce unnecessary difficulty
@@ -52,11 +36,8 @@ union kasdb_str {
  */
 enum {
 	kasdb_elm_codec,
-	kasdb_elm_hw,
 	kasdb_elm_fe,
 	kasdb_elm_op,
-	kasdb_elm_link,
-	kasdb_elm_chain,
 	kasdb_elm_max,
 };
 
@@ -101,27 +82,6 @@ struct kasdb_codec {
 	struct snd_soc_dapm_route route[16];
 };
 
-/* Value must be consistent with Kalimba definition */
-enum {
-	kasdb_pack_24r,		/* 32-bit right aligned */
-	kasdb_pack_24l,		/* 32-bit left aligned */
-	kasdb_pack_16,		/* 16-bit */
-	kasdb_pack_24,		/* 24-bit */
-};
-
-struct kasdb_hw {
-	union kasdb_str name;	/* iacc, usp, i2s */
-	char is_sink;		/* 1 - playback, 0 - capture */
-	char is_slave;		/* 1 - slave, 0 - master */
-	char instance_id;	/* Only for USP */
-	char max_channels;	/* Max channels */
-	char def_channels;	/* Default channels */
-	char audio_format;	/* XXX: Where's the definition? */
-	char pack_format;	/* kasdb_pack_24r, ..., kasdb_pack_16, ... */
-	int def_rate;		/* 48000, 96000, ..., 0 - stream dependent */
-	int bytes_per_ch;	/* Bytes per channel */
-};
-
 /* Only supports one stream */
 struct kasdb_fe {
 	union kasdb_str name;	/* Card name */
@@ -149,25 +109,6 @@ struct kasdb_op {
 		int delay_channels;
 		int bass_pair_idx;	/* 0: default use, 1~11: user use*/
 	} param;	/* Operator specific parameter */
-};
-
-struct kasdb_link {
-#define KASDB_CH_MAX	8
-	union kasdb_str name;
-	union kasdb_str source_name;
-	union kasdb_str sink_name;
-	char source_pins[KASDB_CH_MAX];	/* Pin number start from 1 */
-	char sink_pins[KASDB_CH_MAX];	/* " */
-	int channels;
-};
-
-struct kasdb_chain {
-	union kasdb_str name;
-	union kasdb_str trg_fe_name;	/* Trigger by which FE */
-	short trg_channels;		/* Trigger by how many channels */
-	enum {ignore, single, doub} cvc_mic; /* Distinguish CVC streams */
-	union kasdb_str links;		/* "link1:link2:xxx" */
-	union kasdb_str mutexs;		/* Exclusive chains "music-4:music-6" */
 };
 
 void kasdb_load_database(void);
