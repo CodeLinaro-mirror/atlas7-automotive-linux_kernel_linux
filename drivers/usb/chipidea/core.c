@@ -652,6 +652,8 @@ static int ci_hdrc_probe(struct platform_device *pdev)
 	ci->imx28_write_fix = !!(ci->platdata->flags &
 		CI_HDRC_IMX28_WRITE_FIX);
 
+	spin_lock_init(&ci->lock);
+
 	ret = hw_device_init(ci, base);
 	if (ret < 0) {
 		dev_err(dev, "can't initialize hardware\n");
