@@ -20,72 +20,37 @@
 #include "../kcm.h"
 #include "utils.h"
 
+#define PASSTHR_CTRL_ID_GAIN 0
+#define PASSTHR_CTRL_ID_MUTE 1
+
 #define MIN_DB	(-120)
 #define STEP_DB	1
 #define MAXV	(-MIN_DB / STEP_DB)
 
 static const DECLARE_TLV_DB_SCALE(vol_tlv, MIN_DB*100, STEP_DB*100, 0);
 
-static int vol_get(struct snd_kcontrol *kcontrol,
+static int passthr_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-#if 0
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
-	struct passthr_ctx *ctx = op->context;
+	int ctrl_idx;
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	u32 ret;
 
-	ucontrol->value.integer.value[0] = ctx->gain;
-#endif
+	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 0, 0, &ret);
+	ucontrol->value.integer.value[0] = ret;
+
 	return 0;
 }
 
-static int vol_put(struct snd_kcontrol *kcontrol,
+static int passthr_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-#if 0
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
-	struct passthr_ctx *ctx = op->context;
-	int gain = ucontrol->value.integer.value[0];
+	int ctrl_idx;
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	int value = ucontrol->value.integer.value[0];
 
-	if (gain == ctx->gain)
-		return 0;
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, NULL);
 
-	kcm_lock();
-	ctx->gain = gain;
-	if (!ctx->muted)
-		set_gain(op);
-	kcm_unlock();
-#endif
-	return 0;
-}
-
-static int mute_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-#if 0
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
-	struct passthr_ctx *ctx = op->context;
-
-	ucontrol->value.integer.value[0] = ctx->muted;
-#endif
-	return 0;
-}
-
-static int mute_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-#if 0
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, NULL);
-	struct passthr_ctx *ctx = op->context;
-	int tomute = ucontrol->value.integer.value[0];
-
-	if (tomute == ctx->muted)
-		return 0;
-
-	kcm_lock();
-	ctx->muted = tomute;
-	set_gain(op);
-	kcm_unlock();
-#endif
 	return 0;
 }
 
@@ -107,12 +72,12 @@ static int passthr_init(struct kasobj_op *op)
 		if (kcm_strcasestr(name, "Pregain")) {
 			/* Volume control */
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, MAXV,
-					vol_get, vol_put, vol_tlv, 0);
+					passthr_get, passthr_put, vol_tlv, 0);
 			kcm_register_ctrl(ctrl);
 		} else if (kcm_strcasestr(name, "Premute")) {
 			/* Mute control */
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1,
-					mute_get, mute_put, NULL, 0);
+					passthr_get, passthr_put, NULL, 0);
 			kcm_register_ctrl(ctrl);
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",

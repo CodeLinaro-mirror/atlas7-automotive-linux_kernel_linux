@@ -22,5 +22,8 @@ int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp);
 void kas_ps_region_addr_update(u32 addr);
 void kas_send_data_produced(u32 stream, u32 pos);
 void kas_send_license_ctrl_resp(u32 resp_len, void *data);
+u32 *kas_get_m3_op_obj(u8 *op_name, int len);
+int kas_ctrl_msg(int put, u32 *op_m3, int ctrl_id, int value_idx,
+	u32 value, u32 *rsp);
 
 #endif

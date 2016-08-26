@@ -312,3 +312,11 @@ static int __init kcm_init(void)
 
 /* Must be earlier than ALSA drivers */
 fs_initcall(kcm_init);
+
+static int __init load_op_m3(void)
+{
+	kasobj_register_m3_op();
+	return 0;
+}
+
+late_initcall(load_op_m3);

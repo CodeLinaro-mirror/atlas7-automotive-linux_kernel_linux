@@ -136,6 +136,26 @@ struct kasobj_op *kasobj_find_op_by_capid(const u16 capid, int op_idx)
 	return NULL;
 }
 
+int kasobj_register_m3_op(void)
+{
+	struct kasobj *obj;
+	struct kasobj_op *op;
+	u32 *op_m3;
+
+	list_for_each_entry(obj, &op_list, link) {
+		op = kasobj_to_op(obj);
+		op_m3 = kas_get_m3_op_obj(op->obj.name, strlen(op->obj.name));
+		if (!op_m3) {
+			pr_err("KASOBJ(%s): fail to get OP on M3!\n",
+				op->obj.name);
+			return -EINVAL;
+		}
+		op->op_m3 = op_m3;
+	}
+
+	return 0;
+}
+
 /* Find FE, BE, OP, Link */
 struct kasobj *kasobj_find_obj(const char *name, int types)
 {

@@ -43,6 +43,10 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_DRAM_ALLOCATION_RESP	0x0000000F
 #define MSG_DRAM_FREE_REQ		0x00000010
 #define MSG_DRAM_FREE_RESP		0x00000011
+#define MSG_OP_OBJ_REQ			0x00000012
+#define MSG_OP_OBJ_RESP			0x00000013
+#define MSG_CTRL_REQ			0x00000014
+#define MSG_CTRL_RESP			0x00000015
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
@@ -57,6 +61,57 @@ struct audio_msg {
 	u32 size;
 	u8 msg[];
 };
+
+u32 *kas_get_m3_op_obj(u8 *op_name, int len)
+{
+	u32 msg[10];
+	u32 *resp = (u32 *)resp_payload;
+
+	if (len > 32) {
+		pr_err("Audio IPC: OP name too long (%d)\n", len);
+		return NULL;
+	}
+
+	msg[0] = MSG_OP_OBJ_REQ;
+	msg[1] = len;
+	memcpy(&msg[2], op_name, len);
+	if (!audio_rpdev) {
+		pr_err("Audio IPC: rpdev 0x%x\n", (u32)audio_rpdev);
+		return NULL;
+	}
+	rpmsg_send(audio_rpdev, msg, len + 2 * sizeof(u32));
+	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+
+	return (u32 *)resp[0];
+}
+int kas_ctrl_msg(int put, u32 *op_m3, int ctrl_id, int value_idx,
+		u32 value, u32 *ret)
+{
+	u32 *resp = (u32 *)resp_payload;
+	u32 msg[6];
+
+	msg[0] = MSG_CTRL_REQ;
+	msg[1] = put;
+	msg[2] = (u32)op_m3;
+	msg[3] = ctrl_id;
+	msg[4] = value_idx;
+	msg[5] = value;
+	if (!audio_rpdev) {
+		pr_err("Audio IPC: rpdev 0x%x\n", (u32)audio_rpdev);
+		return -EINVAL;
+	}
+	rpmsg_send(audio_rpdev, msg, 6 * sizeof(u32));
+	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	if (!ret) {
+		if (put)
+			return 0;
+		pr_err("Audio IPC: return value addr is NULL!\n");
+		return -EINVAL;
+	}
+	*ret = resp[0];
+
+	return	0;
+}
 
 int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp)
 {
@@ -204,6 +259,12 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		break;
 	case MSG_DRAM_FREE_REQ:
 		kas_dram_free_req(msg[1]);
+		break;
+	case MSG_OP_OBJ_RESP:
+	case MSG_CTRL_RESP:
+		memcpy(resp_payload, &msg[1], sizeof(u32));
+		msg_dsp_rsp = true;
+		wake_up(&waitq_dsp_rsp);
 		break;
 	default:
 		break;

@@ -119,6 +119,7 @@ struct kasobj_op {
 	u32 used_source_pins;
 	u32 active_sink_pins;		/* Running pins mask */
 	u32 active_source_pins;
+	u32 *op_m3;			/* The operator object cerated on M3 */
 };
 #define kasobj_to_op(pobj)	container_of((pobj), struct kasobj_op, obj)
 
@@ -143,6 +144,8 @@ int kcm_init_chain(void);
 struct kasobj *kasobj_find_obj(const char *name, int types);
 struct kasobj_fe *kasobj_find_fe_by_dai(const char *dai_name, int playback);
 struct kasobj_op *kasobj_find_op_by_capid(const u16 capid, int op_idx);
+
+int kasobj_register_m3_op(void);
 
 /* Hack: object count */
 extern int __kasobj_fe_cnt, __kasobj_codec_cnt;
