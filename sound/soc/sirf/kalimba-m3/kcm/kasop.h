@@ -15,7 +15,6 @@
 #define _KCM_KASOP_H
 
 #include "kas.h"
-#include "../audio-protocol.h"
 
 enum {
 	kasop_event_start_ep,
@@ -27,9 +26,6 @@ enum {
 #define KASOP_GET_EVENT(event_param)	((event_param) & 0xF)
 #define KASOP_GET_PARAM(event_param)	((event_param) >> 4)
 #define KASOP_MAX_SAMPLE_RATE		(48000)
-
-#define CTRL_GET 0
-#define CTRL_PUT 1
 
 struct kasop_impl {
 	int (*init)(struct kasobj_op *op);

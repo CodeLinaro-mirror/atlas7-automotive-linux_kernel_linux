@@ -29,31 +29,6 @@
 
 static const DECLARE_TLV_DB_SCALE(vol_tlv, MIN_DB*100, STEP_DB*100, 0);
 
-static int passthr_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	int ctrl_idx;
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
-	u32 ret;
-
-	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 0, 0, &ret);
-	ucontrol->value.integer.value[0] = ret;
-
-	return 0;
-}
-
-static int passthr_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	int ctrl_idx;
-	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
-	int value = ucontrol->value.integer.value[0];
-
-	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, NULL);
-
-	return 0;
-}
-
 /* Create control interfaces */
 static int passthr_init(struct kasobj_op *op)
 {
@@ -72,12 +47,11 @@ static int passthr_init(struct kasobj_op *op)
 		if (kcm_strcasestr(name, "Pregain")) {
 			/* Volume control */
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, MAXV,
-					passthr_get, passthr_put, vol_tlv, 0);
+					vol_tlv, 0);
 			kcm_register_ctrl(ctrl);
 		} else if (kcm_strcasestr(name, "Premute")) {
 			/* Mute control */
-			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1,
-					passthr_get, passthr_put, NULL, 0);
+			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1, NULL, 0);
 			kcm_register_ctrl(ctrl);
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",

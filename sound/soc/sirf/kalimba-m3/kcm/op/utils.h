@@ -46,10 +46,10 @@ static inline struct kasobj_op *kasobj_ctrl_get_op(struct snd_kcontrol *ctrl,
 
 /* SOC_SINGLE_EXT_TLV(name, reg, shift, max, invert, get, put, tlv) */
 struct snd_kcontrol_new *kasop_ctrl_single_ext_tlv(const char *name,
-		struct kasobj_op *op, int max, snd_kcontrol_get_t get,
-		snd_kcontrol_put_t put, const unsigned int *tlv, int param);
+		struct kasobj_op *op, int max, const unsigned int *tlv,
+		int param);
 
 /* SOC_DOUBLE_EXT(xname, reg, shift_left, shift_right, max, invert, get, put) */
 struct snd_kcontrol_new *kasop_ctrl_double_ext_tlv(const char *name,
-		struct kasobj_op *op, int max, snd_kcontrol_get_t get,
-		snd_kcontrol_put_t put, const unsigned int *tlv, int param);
+		struct kasobj_op *op, int max, const unsigned int *tlv,
+		int param);

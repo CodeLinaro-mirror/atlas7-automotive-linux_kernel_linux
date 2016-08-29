@@ -15,7 +15,6 @@
 #include "../kasobj.h"
 #include "../kasop.h"
 #include "../kcm.h"
-#include "../../dsp.h"
 
 /* Splitter is simple enough, framework has done all the job */
 static struct kasop_impl splitter_impl = {

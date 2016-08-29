@@ -13,6 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
+#include "../audio-protocol.h"
 #include "kcm.h"
 #include "kasobj.h"
 

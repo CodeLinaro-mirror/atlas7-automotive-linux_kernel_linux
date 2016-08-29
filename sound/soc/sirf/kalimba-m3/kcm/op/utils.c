@@ -14,13 +14,42 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <sound/soc.h>
+#include "../../audio-protocol.h"
 #include "../kasobj.h"
 #include "utils.h"
 
+#define CTRL_GET 0
+#define CTRL_PUT 1
+
+static int op_ctrl_single_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ctrl_idx;
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	u32 ret;
+
+	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 0, 0, &ret);
+	ucontrol->value.integer.value[0] = ret;
+
+	return 0;
+}
+
+static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ctrl_idx;
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	int value = ucontrol->value.integer.value[0];
+
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, NULL);
+
+	return 0;
+}
+
 /* SOC_SINGLE_EXT_TLV(name, reg, shift, max, invert, get, put, tlv) */
 struct snd_kcontrol_new *kasop_ctrl_single_ext_tlv(const char *name,
-		struct kasobj_op *op, int max, snd_kcontrol_get_t get,
-		snd_kcontrol_put_t put, const unsigned int *tlv, int param)
+		struct kasobj_op *op, int max, const unsigned int *tlv,
+		int param)
 {
 	/* Allocate snd_control_new and soc_mixer_control altogether */
 	struct snd_kcontrol_new *ctrl = kzalloc((sizeof(struct snd_kcontrol_new)
@@ -34,8 +63,8 @@ struct snd_kcontrol_new *kasop_ctrl_single_ext_tlv(const char *name,
 		SNDRV_CTL_ELEM_ACCESS_READWRITE;
 	ctrl->tlv.p = tlv;
 	ctrl->info = snd_soc_info_volsw;
-	ctrl->get = get;
-	ctrl->put = put;
+	ctrl->get = op_ctrl_single_get;
+	ctrl->put = op_ctrl_single_put;
 	ctrl->private_value = (unsigned long)mixer;
 
 	mixer->max = mixer->platform_max = max;
@@ -44,10 +73,39 @@ struct snd_kcontrol_new *kasop_ctrl_single_ext_tlv(const char *name,
 	return ctrl;
 }
 
+static int op_ctrl_double_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ctrl_idx;
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	u32 ret0, ret1;
+
+	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 0, 0, &ret0);
+	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 1, 0, &ret1);
+	ucontrol->value.integer.value[0] = ret0;
+	ucontrol->value.integer.value[1] = ret1;
+
+	return 0;
+}
+
+static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ctrl_idx;
+	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	int value0 = ucontrol->value.integer.value[0];
+	int value1 = ucontrol->value.integer.value[1];
+
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value0, NULL);
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 1, value1, NULL);
+
+	return 0;
+}
+
 /* SOC_DOUBLE_EXT(xname, reg, shift_left, shift_right, max, invert, get, put) */
 struct snd_kcontrol_new *kasop_ctrl_double_ext_tlv(const char *name,
-		struct kasobj_op *op, int max, snd_kcontrol_get_t get,
-		snd_kcontrol_put_t put, const unsigned int *tlv, int param)
+		struct kasobj_op *op, int max, const unsigned int *tlv,
+		int param)
 {
 	/* Allocate snd_control_new and soc_mixer_control altogether */
 	struct snd_kcontrol_new *ctrl = kzalloc((sizeof(struct snd_kcontrol_new)
@@ -61,8 +119,8 @@ struct snd_kcontrol_new *kasop_ctrl_double_ext_tlv(const char *name,
 		SNDRV_CTL_ELEM_ACCESS_READWRITE;
 	ctrl->tlv.p = tlv;
 	ctrl->info = snd_soc_info_volsw;
-	ctrl->get = get;
-	ctrl->put = put;
+	ctrl->get = op_ctrl_double_get;
+	ctrl->put = op_ctrl_double_put;
 	ctrl->private_value = (unsigned long)mixer;
 
 	mixer->max = mixer->platform_max = max;
