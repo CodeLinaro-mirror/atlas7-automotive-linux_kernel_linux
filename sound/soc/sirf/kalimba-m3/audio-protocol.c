@@ -79,6 +79,7 @@ u32 *kas_get_m3_op_obj(u8 *op_name, int len)
 		pr_err("Audio IPC: rpdev 0x%x\n", (u32)audio_rpdev);
 		return NULL;
 	}
+	msg_dsp_rsp = false;
 	rpmsg_send(audio_rpdev, msg, len + 2 * sizeof(u32));
 	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
 
@@ -100,6 +101,7 @@ int kas_ctrl_msg(int put, u32 *op_m3, int ctrl_id, int value_idx,
 		pr_err("Audio IPC: rpdev 0x%x\n", (u32)audio_rpdev);
 		return -EINVAL;
 	}
+	msg_dsp_rsp = false;
 	rpmsg_send(audio_rpdev, msg, 6 * sizeof(u32));
 	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
 	if (!ret) {

@@ -26,8 +26,13 @@ static int op_ctrl_single_get(struct snd_kcontrol *kcontrol,
 {
 	int ctrl_idx;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
+	struct kasobj *obj = (struct kasobj *)op;
 	u32 ret;
 
+	if (!(op->op_m3)) {
+		pr_err("KCM ctrl get (%s): invalid M3 OP object !\n");
+		return 0;
+	}
 	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 0, 0, &ret);
 	ucontrol->value.integer.value[0] = ret;
 
@@ -41,6 +46,10 @@ static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	int value = ucontrol->value.integer.value[0];
 
+	if (!(op->op_m3)) {
+		pr_err("KCM ctrl put (%s): invalid M3 OP object !\n");
+		return 0;
+	}
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, NULL);
 
 	return 0;
@@ -80,6 +89,10 @@ static int op_ctrl_double_get(struct snd_kcontrol *kcontrol,
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	u32 ret0, ret1;
 
+	if (!(op->op_m3)) {
+		pr_err("KCM ctrl get (%s): invalid M3 OP object !\n");
+		return 0;
+	}
 	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 0, 0, &ret0);
 	kas_ctrl_msg(CTRL_GET, op->op_m3, ctrl_idx, 1, 0, &ret1);
 	ucontrol->value.integer.value[0] = ret0;
@@ -96,6 +109,10 @@ static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
 	int value0 = ucontrol->value.integer.value[0];
 	int value1 = ucontrol->value.integer.value[1];
 
+	if (!(op->op_m3)) {
+		pr_err("KCM ctrl get (%s): invalid M3 OP object !\n");
+		return 0;
+	}
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value0, NULL);
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 1, value1, NULL);
 

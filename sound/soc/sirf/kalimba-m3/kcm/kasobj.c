@@ -145,11 +145,12 @@ int kasobj_register_m3_op(void)
 
 	list_for_each_entry(obj, &op_list, link) {
 		op = kasobj_to_op(obj);
+		if (!op->db->ctrl_names.s)
+			continue;
 		op_m3 = kas_get_m3_op_obj(op->obj.name, strlen(op->obj.name));
 		if (!op_m3) {
-			pr_err("KASOBJ(%s): fail to get OP on M3!\n",
+			kcm_debug("KASOBJ(%s): fail to get OP on M3!\n",
 				op->obj.name);
-			return -EINVAL;
 		}
 		op->op_m3 = op_m3;
 	}
