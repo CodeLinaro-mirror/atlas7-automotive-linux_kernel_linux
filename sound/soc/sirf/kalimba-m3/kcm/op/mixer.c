@@ -156,6 +156,8 @@ static int mixer_init(struct kasobj_op *op)
 		ctrl_idx++;
 	}
 	kfree(ctx);
+	op->ctrl_value = kcalloc(ctrl_idx, sizeof(int), GFP_KERNEL);
+	op->ctrl_flag  = kcalloc(ctrl_idx, sizeof(int), GFP_KERNEL);
 
 	return 0;
 }

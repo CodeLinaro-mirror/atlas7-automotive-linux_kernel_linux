@@ -59,6 +59,9 @@ static int passthr_init(struct kasobj_op *op)
 		}
 	}
 
+	op->ctrl_value = kcalloc(2, sizeof(int), GFP_KERNEL);
+	op->ctrl_flag  = kcalloc(2, sizeof(int), GFP_KERNEL);
+
 	return 0;
 }
 

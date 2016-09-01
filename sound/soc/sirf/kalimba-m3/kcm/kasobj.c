@@ -31,7 +31,6 @@ static void __init kasobj_init_obj(struct kasobj *obj, const char *name,
 		struct list_head *obj_list, int type, struct kasobj_ops *ops)
 {
 	obj->name = name;
-	obj->life_cnt = obj->start_cnt = 0;
 	obj->type = type;
 	obj->ops = ops;
 

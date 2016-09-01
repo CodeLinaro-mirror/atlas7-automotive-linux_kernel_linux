@@ -29,7 +29,6 @@ static int delay_init(struct kasobj_op *op)
 	struct snd_kcontrol_new *ctrl;
 	char names_buf[256], *names = names_buf, *name;
 	int sample_idx = 0; /* control interface index */
-	int idx;
 
 	if (!op->db->ctrl_names.s)
 		return 0;
@@ -57,6 +56,8 @@ static int delay_init(struct kasobj_op *op)
 			return -EINVAL;
 		}
 	}
+	op->ctrl_value = kcalloc(sample_idx, sizeof(int), GFP_KERNEL);
+	op->ctrl_flag  = kcalloc(sample_idx, sizeof(int), GFP_KERNEL);
 
 	return 0;
 }

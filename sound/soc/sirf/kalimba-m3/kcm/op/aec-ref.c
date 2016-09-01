@@ -52,6 +52,8 @@ static int aec_ref_init(struct kasobj_op *op)
 					op->obj.name, name);
 		}
 	}
+	op->ctrl_value = kcalloc(ctrl_idx, sizeof(int), GFP_KERNEL);
+	op->ctrl_flag  = kcalloc(ctrl_idx, sizeof(int), GFP_KERNEL);
 
 	return 0;
 }

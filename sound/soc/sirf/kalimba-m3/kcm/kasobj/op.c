@@ -34,7 +34,6 @@ static int op_init(struct kasobj *obj)
 		return -EINVAL;
 	}
 
-	op->op_id = KCM_INVALID_EP_ID;
 	if (IS_ERR(impl))
 		return PTR_ERR(impl);
 

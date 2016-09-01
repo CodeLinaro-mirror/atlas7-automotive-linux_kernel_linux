@@ -71,6 +71,8 @@ static int bass_init(struct kasobj_op *op)
 		kcm_register_ctrl(ctrl);
 		ctl_idx++;
 	}
+	op->ctrl_value = kcalloc(ctl_idx, sizeof(int), GFP_KERNEL);
+	op->ctrl_flag  = kcalloc(ctl_idx, sizeof(int), GFP_KERNEL);
 
 	return 0;
 }

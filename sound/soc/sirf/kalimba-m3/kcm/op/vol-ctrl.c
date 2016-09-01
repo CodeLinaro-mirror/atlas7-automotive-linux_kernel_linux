@@ -44,7 +44,7 @@ static int volctrl_init(struct kasobj_op *op)
 	struct snd_kcontrol_new *ctrl;
 	char names_buf[256], *names = names_buf, *name;
 	int ctl_idx = 0; /* control interface index */
-	int max, idx;
+	int max;
 	const int *tlv = NULL;
 
 	if (!op->db->ctrl_names.s)
@@ -77,6 +77,8 @@ static int volctrl_init(struct kasobj_op *op)
 		kcm_register_ctrl(ctrl);
 		ctl_idx++;
 	}
+	op->ctrl_value = kcalloc(ctl_idx, sizeof(int), GFP_KERNEL);
+	op->ctrl_flag  = kcalloc(ctl_idx, sizeof(int), GFP_KERNEL);
 
 	return 0;
 }

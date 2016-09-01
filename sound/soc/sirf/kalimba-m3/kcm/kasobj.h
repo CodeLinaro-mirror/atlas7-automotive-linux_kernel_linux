@@ -22,23 +22,6 @@ struct kasobj_param;
 /* Interface */
 struct kasobj_ops {
 	int (*init)(struct kasobj *obj);
-	int (*get)(struct kasobj *obj, const struct kasobj_param *param);
-	int (*put)(struct kasobj *obj);
-	int (*start)(struct kasobj *obj);
-	int (*stop)(struct kasobj *obj);
-	u16 (*get_ep)(struct kasobj *obj, unsigned pin, int is_sink);
-	void (*put_ep)(struct kasobj *obj, unsigned pin, int is_sink);
-	void (*start_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
-	void (*stop_ep)(struct kasobj *obj, unsigned pin_mask, int is_sink);
-};
-
-/* Only for stream dependent objects (FE, resampler, etc) */
-struct kasobj_param {
-	int rate;
-	int channels;
-	int period_size;		/* In words */
-	int format;
-	u32 ep_handle_pa;
 };
 
 /* Object types */
@@ -55,22 +38,6 @@ struct kasobj {
 	const char *name;
 	struct kasobj_ops *ops;
 
-	/* Two reference counts are used here:
-	 * - "life_cnt is" to track object life cycle. It's increased in get()
-	 *   and decreased in put().
-	 *   Some operators, such as mixer, are shared by several audio chains.
-	 *   We should send IPC to create Kalimba operator only when life_cnt
-	 *   changes from 0 to 1. Same rule apply to audio controller and links.
-	 * - start_cnt is to track start/stop commands received. It's increased
-	 *   in start() and decreased in stop().
-	 *   Ex. Audio controller are shared by several audio chains and may
-	 *   be started/stopped several times. We should set according hardware
-	 *   registers only on the first start and last stop. Same rule apply
-	 *   to operators and audio links.
-	 */
-	int life_cnt;
-	int start_cnt;
-
 	int type;
 	struct list_head link;		/* Link to objects of same type */
 };
@@ -82,21 +49,6 @@ struct kasobj_codec {
 	int rate;
 };
 #define kasobj_to_codec(pobj)	container_of((pobj), struct kasobj_codec, obj)
-
-struct kasobj_hw {
-	struct kasobj obj;
-	const struct kasdb_hw *db;
-
-	int channels;
-	int rate;
-	int param;			/* USP port: 0~3 */
-	struct endpoint_handle *ep_handle;
-	u32 ep_handle_pa;
-	void *buff;
-	size_t buff_bytes;
-	u16 ep_id[0];			/* Depends on channels */
-};
-#define kasobj_to_hw(pobj)	container_of((pobj), struct kasobj_hw, obj)
 
 struct kasobj_fe {
 	struct kasobj obj;
@@ -112,14 +64,10 @@ struct kasobj_op {
 	const struct kasdb_op *db;
 
 	struct kasop_impl *impl;	/* Operator specific implementation */
-	void *context;			/* Operator specific context */
 	u16 cap_id;
-	u16 op_id;
-	u32 used_sink_pins;		/* Occupied pins mask */
-	u32 used_source_pins;
-	u32 active_sink_pins;		/* Running pins mask */
-	u32 active_source_pins;
 	u32 *op_m3;			/* The operator object cerated on M3 */
+	int *ctrl_flag;			/* The modfy flag of ctrl value */
+	int *ctrl_value;
 };
 #define kasobj_to_op(pobj)	container_of((pobj), struct kasobj_op, obj)
 
