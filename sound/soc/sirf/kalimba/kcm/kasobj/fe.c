@@ -67,15 +67,16 @@ static int fe_init_route(struct kasobj *obj, const char *stream_name)
 	 *	{ "Codec Out", NULL, "Music Playback" };
 	 *	{ "Analog Capture", NULL, "Codec In" };
 	 */
-	struct kasdb_fe *db = kasobj_to_fe(obj)->db;
+	const struct kasdb_fe *db = kasobj_to_fe(obj)->db;
 	struct snd_soc_dapm_route *route;
 	struct kasobj_codec *codec;
-	struct kasdb_codec *cdb;
+	const struct kasdb_codec *cdb;
 	int idx;
 
 	/* Check avalible codec */
 	if (db->sink_codec.s) {
-		codec = kasobj_find_obj(db->sink_codec.s, kasobj_type_cd);
+		codec = (struct kasobj_codec *)kasobj_find_obj(db->sink_codec.s,
+			kasobj_type_cd);
 		if (codec) {
 			route = kcm_alloc_route();
 			cdb = codec->db;
@@ -89,7 +90,8 @@ static int fe_init_route(struct kasobj *obj, const char *stream_name)
 				}
 		}
 	} else if (db->source_codec.s) {
-		codec = kasobj_find_obj(db->source_codec.s, kasobj_type_cd);
+		codec = (struct kasobj_codec *)kasobj_find_obj(
+			db->source_codec.s, kasobj_type_cd);
 		if (codec) {
 			route = kcm_alloc_route();
 			cdb = codec->db;

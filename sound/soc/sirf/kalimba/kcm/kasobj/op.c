@@ -14,9 +14,9 @@
 #include "../kasop.h"
 #include "../../dsp.h"
 
-static struct kasop_impl *op_find_cap(int cap_id)
+static const struct kasop_impl *op_find_cap(int cap_id)
 {
-	struct kasop_impl *impl = kcm_find_cap(cap_id);
+	const struct kasop_impl *impl = kcm_find_cap(cap_id);
 
 	if (!impl) {
 		pr_err("KASOP: unsupported capability %d!\n", cap_id);
@@ -28,7 +28,7 @@ static struct kasop_impl *op_find_cap(int cap_id)
 static int op_init(struct kasobj *obj)
 {
 	struct kasobj_op *op = kasobj_to_op(obj);
-	struct kasop_impl *impl = op_find_cap(op->db->cap_id);
+	const struct kasop_impl *impl = op_find_cap(op->db->cap_id);
 
 	if (op->impl) {
 		pr_err("KASOP(%s): double initialization?\n", obj->name);

@@ -58,7 +58,7 @@ struct mixer_ctx {
 	u16 primary_stream;	/* Starts from 1 */
 };
 
-static void set_stream_gain(struct kasobj_op *op, int samples)
+static int set_stream_gain(struct kasobj_op *op, int samples)
 {
 	int i, ret;
 	struct mixer_ctx *ctx = op->context;
@@ -66,7 +66,7 @@ static void set_stream_gain(struct kasobj_op *op, int samples)
 	u16 msg_ramp[2];
 
 	if (!op->obj.life_cnt)
-		return;
+		return 0;
 
 	/* <MS_8bits> <LS_16bits> */
 	msg_ramp[0] = samples >> 16;
@@ -93,9 +93,11 @@ static void set_stream_gain(struct kasobj_op *op, int samples)
 			op->obj.name);
 		return ret;
 	}
+
+	return 0;
 }
 
-static void set_channel_gain(struct kasobj_op *op, int stream,
+static int set_channel_gain(struct kasobj_op *op, int stream,
 			int channel, int gain)
 {
 	struct mixer_ctx *ctx = op->context;
@@ -105,7 +107,7 @@ static void set_channel_gain(struct kasobj_op *op, int stream,
 
 	/* if muted, do not send ipc msg */
 	if (!op->obj.life_cnt || ctx->muted[stream])
-		return;
+		return 0;
 
 	/* <MS_8bits> <LS_16bits> */
 	msg_ramp[0] = ctx->ramp[0][stream] >> 16;
@@ -132,6 +134,8 @@ static void set_channel_gain(struct kasobj_op *op, int stream,
 			op->obj.name);
 		return ret;
 	}
+
+	return 0;
 }
 
 static void set_primary_stream(struct kasobj_op *op)
@@ -311,11 +315,12 @@ static int mixer_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+#define NAME_BUF_LEN	768
 static int mixer_init(struct kasobj_op *op)
 {
 	u16 st, ch, ctrl_idx = 0, max, st_config;
 	const int *tlv = NULL;
-	char names_buf[1024], *names = names_buf, *name;
+	char names_buf[NAME_BUF_LEN], *names = names_buf, *name;
 	struct mixer_ctx *ctx = kzalloc(sizeof(struct mixer_ctx), GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
 
@@ -372,7 +377,8 @@ static int mixer_init(struct kasobj_op *op)
 	if (!op->db->ctrl_names.s)
 		return 0;
 
-	if (snprintf(names_buf, 1024, "%s", op->db->ctrl_names.s) >= 1024) {
+	if (snprintf(names_buf, NAME_BUF_LEN, "%s", op->db->ctrl_names.s)
+			>= NAME_BUF_LEN) {
 		pr_err("KASOP(%s): control names too long!\n", op->obj.name);
 		return -EINVAL;
 	}

@@ -72,7 +72,7 @@ static int set_cvc_send_ucid(struct kasobj_op *op)
 	return 0;
 }
 
-static inline void send_mode_msg(struct kasobj_op *op,
+static inline int send_mode_msg(struct kasobj_op *op,
 	struct cvc_send_mode_msg mode_msg)
 {
 	int ret;
@@ -84,6 +84,7 @@ static inline void send_mode_msg(struct kasobj_op *op,
 			op->obj.name, ret);
 		return ret;
 	}
+	return 0;
 }
 
 static int set_cvc_send_mode(struct kasobj_op *op)
@@ -139,7 +140,7 @@ static int set_cvc_send_mode(struct kasobj_op *op)
 static int cvc_send_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	u16 ctl_idx, value;
+	int ctl_idx, value;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	struct cvc_send_ctx *ctx = op->context;
 

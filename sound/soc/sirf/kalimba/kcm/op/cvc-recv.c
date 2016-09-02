@@ -96,7 +96,7 @@ static int set_cvc_recv_mode(struct kasobj_op *op)
 static int cvc_recv_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	u16 ctl_idx, value;
+	int ctl_idx, value;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	struct cvc_recv_ctx *ctx = op->context;
 

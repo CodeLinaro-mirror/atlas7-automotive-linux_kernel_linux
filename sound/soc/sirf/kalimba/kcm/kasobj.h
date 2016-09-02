@@ -111,7 +111,7 @@ struct kasobj_op {
 	struct kasobj obj;
 	const struct kasdb_op *db;
 
-	struct kasop_impl *impl;	/* Operator specific implementation */
+	const struct kasop_impl *impl;	/* Operator specific implementation */
 	void *context;			/* Operator specific context */
 	u16 cap_id;
 	u16 op_id;

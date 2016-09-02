@@ -429,8 +429,8 @@ static int kas_pcm_dev_probe(struct platform_device *pdev)
 {
 	int ret, route_cnt, widget_cnt;
 	struct snd_soc_dai_driver *cpu_dai;
-	struct snd_soc_dapm_widget *widget;
-	struct snd_soc_dapm_route *route;
+	const struct snd_soc_dapm_widget *widget;
+	const struct snd_soc_dapm_route *route;
 
 	ret = kcm_drv_status();
 	if (ret)

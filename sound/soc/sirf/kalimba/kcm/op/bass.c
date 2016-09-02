@@ -251,7 +251,6 @@ static int bass_put(struct snd_kcontrol *kcontrol,
 	int ctl_idx;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctl_idx);
 	int *ctx = (int *)(op->context);
-	struct bass_ctx *ctx_op = op->context;
 	int value = ucontrol->value.integer.value[0];
 
 	BUG_ON(ctl_idx < 0 || ctl_idx >= CONTROL_NUM);
