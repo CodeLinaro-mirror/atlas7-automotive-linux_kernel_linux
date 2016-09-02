@@ -2170,7 +2170,7 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 				struct cpufreq_policy *new_policy)
 {
 	struct cpufreq_governor *old_gov;
-	int ret = 0, failed = 1;
+	int ret = 0;
 	unsigned int pmin = policy->min;
 	unsigned int pmax = policy->max;
 	unsigned int qmin = pm_qos_request(PM_QOS_CPU_FREQ_MIN);
@@ -2589,7 +2589,6 @@ static int cpu_freq_notify(struct notifier_block *b,
 
 static int __init cpufreq_core_init(void)
 {
-	int cpu;
 	int rc;
 
 	if (cpufreq_disabled())
