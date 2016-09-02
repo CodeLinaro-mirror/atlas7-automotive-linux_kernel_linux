@@ -8,7 +8,13 @@
  */
 #ifndef _SIRFSOC_RTC_IOBRG_H_
 #define _SIRFSOC_RTC_IOBRG_H_
-
+#define CONFIG_NOC_LOCK_RTCM
+#ifdef CONFIG_NOC_LOCK_RTCM
+extern unsigned long restricted_reg_write(unsigned long, unsigned long);
+extern unsigned long restricted_reg_read(unsigned long);
+#endif
+extern unsigned long sirfsoc_iobg_lock(void);
+extern void sirfsoc_iobg_unlock(void);
 struct regmap_config;
 
 extern void sirfsoc_rtc_iobrg_besyncing(void);

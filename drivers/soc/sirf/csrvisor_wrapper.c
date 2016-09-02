@@ -38,6 +38,17 @@
 /* command for csrvisor io */
 #define IOCTL_CMD_CSRVISOR_IO	0x70000001
 
+/* csrvisor call id */
+#define CVID_FASTCALL_SERVICE		0x80000001
+#define CVID_FASTCALL_READREG		0x80000002
+#define CVID_FASTCALL_WRITEREG		0x80000003
+#define CVID_FASTCALL_HWSPIN_LOCK	0x80000004
+#define CVID_FASTCALL_HWSPIN_UNLOCK	0x80000005
+
+/* secure register operations */
+#define SECURE_REG_READ		0x0
+#define SECURE_REG_WRITE	0x1
+
 /* sub function commands */
 #define CVIO_CMD_GET_RANDOM	0x70000003	/* get random value from HW */
 #define CVIO_CMD_GET_CHIPUID	0x70000004	/* get chip uid for user */
@@ -64,25 +75,33 @@ struct cmd_param {
 
 struct csrvisor_wrapper {
 	struct task_struct *wrapper_thread;
+	unsigned long csrvisor_ready;
 	struct mutex call_mutex;
 	wait_queue_head_t wqueue;
 	int wq_wait_type;
+	unsigned long return_val;
 	atomic_t count;
-	struct cmd_param *xfer_param;
+	unsigned long service_id;
+	void *call_param;
+	void *call_extra;
 	struct miscdevice wrapper_dev;
 	struct clk *sec_clk;
 };
 
-static inline void __csrvisor_fastcall(void *ptr)
+static inline unsigned long __csrvisor_fastcall(unsigned long id,
+						void *ptr, void *extra)
 {
-	register unsigned long r0 asm("r0") = 0x80000001;
+	register unsigned long r0 asm("r0") = id;
 	register unsigned long r1 asm("r1") = (unsigned long)ptr;
+	register unsigned long r2 asm("r2") = (unsigned long)extra;
 
 	__asm__ __volatile__(".arch_extension sec\n\t"
 		"dsb\n\t"
-		"smc #0" :		/* no output */
-		: "r"(r0), "r"(r1)
+		"smc #0" : "=r"(r0)
+		: "r"(r0), "r"(r1), "r"(r2)
 		: "memory");
+
+	return r0;
 }
 
 #ifdef CONFIG_SMP
@@ -99,7 +118,10 @@ static int csrvisor_wrapper_thread(void *data)
 			break;
 
 		/* do fastcall */
-		__csrvisor_fastcall(cw_data->xfer_param);
+		cw_data->return_val =
+			__csrvisor_fastcall(cw_data->service_id,
+					    cw_data->call_param,
+					    cw_data->call_extra);
 
 		/* wake up reader */
 		cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
@@ -113,15 +135,23 @@ static int csrvisor_wrapper_thread(void *data)
 static int _csrvisor_fastcall(struct csrvisor_wrapper *cw_data)
 {
 #ifdef CONFIG_SMP
-	if (smp_processor_id() != CSRVISOR_CPU) {
+	/*
+	* Schedule to CPU0 working thread for saving CPU1 loading if
+	* caller on CPU1 and preempt is enabled (checking preempt
+	* count); otherwise just fallthrough and do fastcall directly.
+	*/
+	if ((smp_processor_id() != CSRVISOR_CPU) && (preempt_count() == 0)) {
 		cw_data->wq_wait_type = CSRVISOR_WAIT_REQ;
 		wake_up(&cw_data->wqueue);
 		return wait_event_interruptible(cw_data->wqueue,
 			cw_data->wq_wait_type == CSRVISOR_WAIT_RES);
 	}
 #endif
+	cw_data->return_val =
+		__csrvisor_fastcall(cw_data->service_id,
+				    cw_data->call_param,
+				    cw_data->call_extra);
 
-	__csrvisor_fastcall(cw_data->xfer_param);
 	return 0;
 }
 
@@ -221,7 +251,9 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 	}
 
 	/* csrvisor handles DMA addr */
-	cw_data->xfer_param = (struct cmd_param *)dma_addr;
+	cw_data->service_id = CVID_FASTCALL_SERVICE;
+	cw_data->call_param = (void *)dma_addr;
+	cw_data->call_extra = NULL;
 
 	/* push to csrviosr */
 	ret = _csrvisor_fastcall(cw_data);
@@ -253,7 +285,7 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 
 __free_and_exit:
 	dma_free_coherent(dev, param_size, xfer_param, dma_addr);
-	cw_data->xfer_param = NULL;
+	cw_data->call_param = NULL;
 __unlock_and_exit:
 	mutex_unlock(&cw_data->call_mutex);
 	return ret;
@@ -290,6 +322,7 @@ static const struct file_operations csrviosr_wrapper_fops = {
 };
 
 static struct csrvisor_wrapper cw_private_glob = {
+	.csrvisor_ready		=	0,
 	.wrapper_dev.minor	=	128,
 	.wrapper_dev.name	=	"cvwrapper",
 	.wrapper_dev.fops	=	&csrviosr_wrapper_fops,
@@ -348,42 +381,36 @@ static struct hwrng csrvisor_hwrng = {
 };
 #endif
 
-static __init int csrvisor_wrapper_init(void)
+static int csrvisor_wrapper_prepare(struct csrvisor_wrapper *cw_data)
 {
-	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 	struct device_node *dn;
 	int ret;
 
+	if (cw_data->csrvisor_ready)
+		return 0;
+
 	if (!of_machine_is_compatible("sirf,atlas7"))
 		return -EINVAL;
-
-	/* register device */
-	ret = misc_register(&cw_data->wrapper_dev);
-	if (ret) {
-		pr_err("failed to register misc device\n");
-		return ret;
-	}
 
 	/* open discretix secuity clock since csrvisor uses it */
 	dn = of_find_compatible_node(NULL, NULL, "dx,cc44s");
 	cw_data->sec_clk = of_clk_get_by_name(dn, NULL);
 	if (IS_ERR(cw_data->sec_clk)) {
 		pr_err("can not find ccsec clock\n");
-		ret = PTR_ERR(cw_data->sec_clk);
-		goto __err_exit_dev;
+		return PTR_ERR(cw_data->sec_clk);
 	}
 
 	ret = clk_prepare_enable(cw_data->sec_clk);
 	if (ret) {
 		pr_err("enable ccsec clock failed\n");
-		goto __err_exit_put;
+		goto __err_exit_put_clk;
 	}
 
 	ret = dma_set_coherent_mask(cw_data->wrapper_dev.this_device,
 				DMA_BIT_MASK(32));
 	if (ret) {
 		pr_err("failed to set dma coherent mask:%d\n", ret);
-		goto __err_exit_disable;
+		goto __err_exit_disable_clk;
 	}
 
 #ifdef CONFIG_SMP
@@ -400,13 +427,124 @@ static __init int csrvisor_wrapper_init(void)
 	if (IS_ERR(cw_data->wrapper_thread)) {
 		pr_err("failed to create csrvisor_wrapper_thread\n");
 		ret = PTR_ERR(cw_data->wrapper_thread);
-		goto __err_exit_disable;
+		goto __err_exit_disable_clk;
 	}
 
 	/* bind to cpu 0 */
 	kthread_bind(cw_data->wrapper_thread, CSRVISOR_CPU);
 	wake_up_process(cw_data->wrapper_thread);
 #endif
+
+	cw_data->csrvisor_ready = 1;
+	return 0;
+
+__err_exit_disable_clk:
+	clk_disable_unprepare(cw_data->sec_clk);
+__err_exit_put_clk:
+	clk_put(cw_data->sec_clk);
+
+	return ret;
+}
+
+unsigned long restricted_reg_read(unsigned long addr)
+{
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	/* get called in cpu0, working thread is unnecessary */
+	if (smp_processor_id() != CSRVISOR_CPU)
+		if (csrvisor_wrapper_prepare(cw_data))
+			return 0;
+
+	/* read operation takes two parameters */
+	cw_data->service_id = CVID_FASTCALL_READREG;
+	cw_data->call_param = (void *)addr;
+	cw_data->call_extra = (void *)NULL;
+
+	if (_csrvisor_fastcall(cw_data))
+		return 0;
+
+	return cw_data->return_val;
+}
+EXPORT_SYMBOL(restricted_reg_read);
+
+unsigned long restricted_reg_write(unsigned long addr, unsigned long data)
+{
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	/* get called in cpu0, working thread is unnecessary */
+	if (smp_processor_id() != CSRVISOR_CPU)
+		if (csrvisor_wrapper_prepare(cw_data))
+			return 0;
+
+	/* read operation takes two parameters */
+	cw_data->service_id = CVID_FASTCALL_WRITEREG;
+	cw_data->call_param = (void *)addr;
+	cw_data->call_extra = (void *)data;
+
+	if (_csrvisor_fastcall(cw_data))
+		return 0;
+
+	return cw_data->return_val;
+}
+EXPORT_SYMBOL(restricted_reg_write);
+
+unsigned long sirfsoc_iobg_lock(void)
+{
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	/* get called in cpu0, working thread is unnecessary */
+	if (smp_processor_id() != CSRVISOR_CPU)
+		if (csrvisor_wrapper_prepare(cw_data))
+			return 0;
+
+	/* lock operation ignores parameters */
+	cw_data->service_id = CVID_FASTCALL_HWSPIN_LOCK;
+	cw_data->call_param = (void *)NULL;
+	cw_data->call_extra = (void *)NULL;
+
+	if (_csrvisor_fastcall(cw_data))
+		return 0;
+
+	return cw_data->return_val;
+}
+EXPORT_SYMBOL(sirfsoc_iobg_lock);
+
+void sirfsoc_iobg_unlock(void)
+{
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	/* get called in cpu0, working thread is unnecessary */
+	if (smp_processor_id() != CSRVISOR_CPU)
+		if (csrvisor_wrapper_prepare(cw_data))
+			return;
+
+	/* unlock operation ignores parameters */
+	cw_data->service_id = CVID_FASTCALL_HWSPIN_UNLOCK;
+	cw_data->call_param = (void *)NULL;
+	cw_data->call_extra = (void *)NULL;
+
+	_csrvisor_fastcall(cw_data);
+}
+EXPORT_SYMBOL(sirfsoc_iobg_unlock);
+
+static __init int csrvisor_wrapper_init(void)
+{
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	int ret;
+
+	/* register device */
+	ret = misc_register(&cw_data->wrapper_dev);
+	if (ret) {
+		pr_err("failed to register misc device\n");
+		return ret;
+	}
+
+	ret = csrvisor_wrapper_prepare(cw_data);
+	if (ret) {
+		pr_err("prepare wrapper failed.\n");
+		goto __err_exit_deregister;
+	}
+
 	device_create_file(cw_data->wrapper_dev.this_device,
 		&dev_attr_chip_uid);
 
@@ -416,11 +554,7 @@ static __init int csrvisor_wrapper_init(void)
 #endif
 	return 0;
 
-__err_exit_disable:
-	clk_disable_unprepare(cw_data->sec_clk);
-__err_exit_put:
-	clk_put(cw_data->sec_clk);
-__err_exit_dev:
+__err_exit_deregister:
 	misc_deregister(&cw_data->wrapper_dev);
 	return ret;
 }

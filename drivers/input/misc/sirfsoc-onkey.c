@@ -45,10 +45,12 @@ static int sirfsoc_onkey_down(struct sirfsoc_onkey_info *info)
 	struct sirfsoc_pwrc_register *pwrc = info->pwrc_reg;
 	u32 state;
 
+	sirfsoc_iobg_lock();
 	regmap_read(info->regmap,
 					info->base +
 					pwrc->pwrc_pin_status,
 					&state);
+	sirfsoc_iobg_unlock();
 	/* active low for onkey, but active high for ext_onkey*/
 	return !(state & BIT(PWRC_IRQ_ONKEY)) ||
 		(state & BIT(PWRC_IRQ_EXT_ONKEY));

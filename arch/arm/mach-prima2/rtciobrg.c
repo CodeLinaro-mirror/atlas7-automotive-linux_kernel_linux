@@ -22,6 +22,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
+#include <linux/rtc/sirfsoc_rtciobrg.h>
 
 #define SIRFSOC_CPUIOBRG_CTRL           0x00
 #define SIRFSOC_CPUIOBRG_WRBE           0x04
@@ -76,8 +77,12 @@ u32 __sirfsoc_rtc_iobrg_readl(u32 addr)
 	return readl_relaxed(sirfsoc_rtciobrg_base + SIRFSOC_CPUIOBRG_DATA);
 }
 
+
 u32 sirfsoc_rtc_iobrg_readl(u32 addr)
 {
+#ifdef CONFIG_NOC_LOCK_RTCM
+	return restricted_reg_read(0x18840000 + addr);
+#else
 	unsigned long flags, val;
 	int err;
 
@@ -93,6 +98,7 @@ u32 sirfsoc_rtc_iobrg_readl(u32 addr)
 	hwspin_unlock_irqrestore(rtciobrg_hwlock, &flags);
 
 	return val;
+#endif
 }
 EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_readl);
 
@@ -108,6 +114,9 @@ void sirfsoc_rtc_iobrg_pre_writel(u32 val, u32 addr)
 
 void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 {
+#ifdef CONFIG_NOC_LOCK_RTCM
+	restricted_reg_write(0x18840000 + addr, val);
+#else
 	unsigned long flags;
 	int err;
 
@@ -125,6 +134,8 @@ void sirfsoc_rtc_iobrg_writel(u32 val, u32 addr)
 	sirfsoc_rtc_iobrg_wait_sync();
 
 	hwspin_unlock_irqrestore(rtciobrg_hwlock, &flags);
+
+#endif
 }
 EXPORT_SYMBOL_GPL(sirfsoc_rtc_iobrg_writel);
 
@@ -175,12 +186,13 @@ static const struct of_device_id rtciobrg_ids[] = {
 static int sirfsoc_rtciobrg_probe(struct platform_device *op)
 {
 	struct device_node *np = op->dev.of_node;
+#ifndef CONFIG_NOC_LOCK_RTCM
 	int hwlock_id;
-
+#endif
 	sirfsoc_rtciobrg_base = of_iomap(np, 0);
 	if (!sirfsoc_rtciobrg_base)
 		panic("unable to map rtc iobrg registers\n");
-
+#ifndef CONFIG_NOC_LOCK_RTCM
 	/* Request hwlock for rtc io-bridge */
 	hwlock_id = of_hwspin_lock_get_id(np, 0);
 	if (hwlock_id < 0)
@@ -190,7 +202,7 @@ static int sirfsoc_rtciobrg_probe(struct platform_device *op)
 	rtciobrg_hwlock = hwspin_lock_request_specific(hwlock_id);
 	if (!rtciobrg_hwlock)
 		panic("request specific hwlock for rtc iobrg failed!\n");
-
+#endif
 	return 0;
 }
 

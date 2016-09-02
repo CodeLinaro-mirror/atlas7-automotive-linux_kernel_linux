@@ -94,6 +94,7 @@ static ssize_t atlas7_gps_show(struct device *dev,
 	u32 tmp = 0;
 	u32 val = 0;
 
+	sirfsoc_iobg_lock();
 	regmap_read(gps_info->regmap,
 		gps_info->base +
 		pwrc->pwrc_gnss_ctrl, &tmp);
@@ -102,6 +103,7 @@ static ssize_t atlas7_gps_show(struct device *dev,
 	regmap_read(gps_info->regmap,
 		gps_info->base +
 		pwrc->pwrc_gnss_status, &tmp);
+	sirfsoc_iobg_unlock();
 
 	tmp = (tmp>>4) & 0xffff;
 	val |= (tmp<<4);
@@ -130,6 +132,7 @@ static ssize_t atlas7_gps_store(struct device *dev,
 
 	switch (gps_config) {
 	case GNSS_FORCE_PON:
+		sirfsoc_iobg_lock();
 		regmap_read(gps_info->regmap,
 			gps_info->base +
 			pwrc->pwrc_gnss_ctrl, &tmp);
@@ -139,9 +142,11 @@ static ssize_t atlas7_gps_store(struct device *dev,
 				gps_info->base +
 				pwrc->pwrc_gnss_ctrl,
 				tmp);
+		sirfsoc_iobg_unlock();
 		break;
 
 	case GNSS_FORCE_POFF:
+		sirfsoc_iobg_lock();
 		regmap_read(gps_info->regmap,
 				gps_info->base +
 				pwrc->pwrc_gnss_ctrl, &tmp);
@@ -150,10 +155,11 @@ static ssize_t atlas7_gps_store(struct device *dev,
 		regmap_write(gps_info->regmap,
 				gps_info->base +
 				pwrc->pwrc_gnss_ctrl, tmp);
+		sirfsoc_iobg_unlock();
 		break;
 
 	case GNSS_SW_RST_OFF:
-
+		sirfsoc_iobg_lock();
 		regmap_read(gps_info->regmap,
 			gps_info->base +
 			pwrc->pwrc_gnss_ctrl, &tmp);
@@ -163,9 +169,11 @@ static ssize_t atlas7_gps_store(struct device *dev,
 				gps_info->base +
 				pwrc->pwrc_gnss_ctrl,
 				tmp);
+		sirfsoc_iobg_unlock();
 		break;
 
 	case GNSS_SW_RST_ON:
+		sirfsoc_iobg_lock();
 		regmap_read(gps_info->regmap,
 			gps_info->base +
 			pwrc->pwrc_gnss_ctrl, &tmp);
@@ -174,10 +182,12 @@ static ssize_t atlas7_gps_store(struct device *dev,
 				gps_info->base +
 				pwrc->pwrc_gnss_ctrl,
 				tmp);
+		sirfsoc_iobg_unlock();
 
 		break;
 
 	case GNSS_FORCE_CLR:
+		sirfsoc_iobg_lock();
 		regmap_read(gps_info->regmap,
 			gps_info->base +
 			pwrc->pwrc_gnss_ctrl, &tmp);
@@ -193,6 +203,7 @@ static ssize_t atlas7_gps_store(struct device *dev,
 				gps_info->base +
 				pwrc->pwrc_gnss_ctrl,
 				tmp);
+		sirfsoc_iobg_unlock();
 
 		break;
 

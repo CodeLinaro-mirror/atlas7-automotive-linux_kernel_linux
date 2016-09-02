@@ -159,15 +159,30 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 
 	sirfsoc_set_wakeup_source();
 }
+#ifdef CONFIG_NOC_LOCK_RTCM
+static u32 sirfsoc_virt_to_phys(u32 addr)
+{
+	int page;
+	u32 ret;
 
+	/* here for debugging purpose */
+	page = page_to_phys(vmalloc_to_page(addr)) & PAGE_MASK;
+	ret = page | ((u32)addr & ~PAGE_MASK);
+
+	return ret;
+}
+#endif
 static void sirfsoc_pm_notity_m3(u32 state)
 {
 #define IPC_M3_OFS 0x10c
 #define IPC_M3_TRIG 1
-
+#ifdef CONFIG_NOC_LOCK_RTCM
+	restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+		SIRFSOC_PWRC_SCRATCH_PAD8), state & 0xf);
+#else
 	writel(state & 0xf, sinfo->retain_base +
 		SIRFSOC_PWRC_SCRATCH_PAD8);
-
+#endif
 	writel(IPC_M3_TRIG, sirfsoc_pm_ipc_base + IPC_M3_OFS);
 	while (1)
 		;
@@ -200,11 +215,18 @@ int sirfsoc_pre_suspend_power_off(void)
 
 	wakeup_entry = virt_to_phys(cpu_resume);
 	if (sinfo->ver == PWRC_ATLAS7_VER) {
+#ifdef CONFIG_NOC_LOCK_RTCM
+		restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+			SIRFSOC_PWRC_SCRATCH_PAD1), wakeup_entry);
+		restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+			SIRFSOC_PWRC_SCRATCH_PAD8), SIRFSOC_PM_SLEEP);
+#else
+
 		writel_relaxed(wakeup_entry,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD1);
-
 		writel(SIRFSOC_PM_SLEEP, sinfo->retain_base +
 			SIRFSOC_PWRC_SCRATCH_PAD8);
+#endif
 	} else {
 		regmap_write(sinfo->regmap,
 				sinfo->base + pwrc_reg->pwrc_scratch_pad1,
@@ -227,8 +249,15 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 	struct sirfsoc_pwrc_register *pwrc_reg = sinfo->pwrc_reg;
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
+#ifdef CONFIG_NOC_LOCK_RTCM
+		boot_stat = restricted_reg_read(sirfsoc_virt_to_phys
+			((sinfo->retain_base) +
+			SIRFSOC_PWRC_SCRATCH_PAD11));
+#else
 		boot_stat = readl_relaxed(sinfo->retain_base
 				+ SIRFSOC_PWRC_SCRATCH_PAD11);
+#endif
+
 	else
 		boot_stat = sirfsoc_rtc_iobrg_readl(sinfo->base +
 			pwrc_reg->pwrc_scratch_pad3);
@@ -266,8 +295,13 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
+#ifdef CONFIG_NOC_LOCK_RTCM
+		restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+			SIRFSOC_PWRC_SCRATCH_PAD11), boot_stat);
+#else
 		writel_relaxed(boot_stat,
 			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
+#endif
 	else
 		regmap_write(sinfo->regmap,
 			sinfo->base + pwrc_reg->pwrc_scratch_pad3,
@@ -293,7 +327,9 @@ static ssize_t pwrc_store(struct device *dev,
 
 	if (sscanf(buf, "%x %x\n", &offset, &val) != 2)
 		return -EINVAL;
+	sirfsoc_iobg_lock();
 	regmap_write(info->regmap, info->base + offset, val);
+	sirfsoc_iobg_unlock();
 	return len;
 }
 
@@ -305,7 +341,9 @@ static ssize_t pwrc_show(struct device *dev, struct device_attribute *attr,
 
 	info = (struct sirfsoc_sysctl_info *)dev_get_drvdata(dev);
 	for (i = 0; i < 0x9c && strlen(buf) < PAGE_SIZE; i = i + 4) {
+		sirfsoc_iobg_lock();
 		regmap_read(info->regmap, info->base + i, &val);
+		sirfsoc_iobg_unlock();
 		pos += scnprintf(buf + pos,
 			PAGE_SIZE - pos,
 			"0x%x:0x%x\n", i, val);
@@ -362,17 +400,36 @@ static const struct of_device_id sirfsoc_pm_ids[] = {
 void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 {
 	u32 ipc;
+#define M3_IN_HOLD 0x11223344
 
 	/* support standand android recovery mode */
 	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
-		writel(readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
-			| RECOVERY_MODE,
-			sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
+#ifdef CONFIG_NOC_LOCK_RTCM
+		restricted_reg_write((sirfsoc_virt_to_phys
+				((sinfo->retain_base) +
+				SIRFSOC_PWRC_SCRATCH_PAD11)),
+			restricted_reg_read(sirfsoc_virt_to_phys
+				((sinfo->retain_base) +
+				SIRFSOC_PWRC_SCRATCH_PAD11)) | RECOVERY_MODE);
+
+		ipc = restricted_reg_read(sirfsoc_virt_to_phys
+			((sinfo->retain_base) +
+			SIRFSOC_PWRC_SCRATCH_PAD8));
+		if (ipc == M3_IN_HOLD)
+			restricted_reg_write(sirfsoc_virt_to_phys
+				((sinfo->retain_base) +
+				SIRFSOC_PWRC_SCRATCH_PAD8), 0);
+#else
+
+	writel(readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11)
+		| RECOVERY_MODE,
+		sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD11);
 
 	ipc = readl(sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
-#define M3_IN_HOLD 0x11223344
 	if (ipc == M3_IN_HOLD)
 		writel(0, sinfo->retain_base + SIRFSOC_PWRC_SCRATCH_PAD8);
+
+#endif
 	else
 		sirfsoc_pm_notity_m3(SIRFSOC_PM_RESET);
 }

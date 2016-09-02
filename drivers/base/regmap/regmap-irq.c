@@ -18,7 +18,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
-
+#include <linux/rtc/sirfsoc_rtciobrg.h>
 #include "internal.h"
 
 struct regmap_irq_chip_data {
@@ -77,6 +77,8 @@ static void regmap_irq_sync_unlock(struct irq_data *data)
 	 * hardware.  We rely on the use of the regmap core cache to
 	 * suppress pointless writes.
 	 */
+	sirfsoc_iobg_lock();
+
 	for (i = 0; i < d->chip->num_regs; i++) {
 		reg = d->chip->mask_base +
 			(i * map->reg_stride * d->irq_reg_stride);
@@ -142,6 +144,8 @@ static void regmap_irq_sync_unlock(struct irq_data *data)
 					reg, ret);
 		}
 	}
+
+	sirfsoc_iobg_unlock();
 
 	if (d->chip->runtime_pm)
 		pm_runtime_put(map->dev);
@@ -237,9 +241,12 @@ static irqreturn_t regmap_irq_thread(int irq, void *d)
 
 		BUG_ON(!data->status_reg_buf);
 
+		sirfsoc_iobg_lock();
 		ret = regmap_bulk_read(map, chip->status_base,
 				       data->status_reg_buf,
 				       chip->num_regs);
+		sirfsoc_iobg_unlock();
+
 		if (ret != 0) {
 			dev_err(map->dev, "Failed to read IRQ status: %d\n",
 				ret);
@@ -265,10 +272,12 @@ static irqreturn_t regmap_irq_thread(int irq, void *d)
 
 	} else {
 		for (i = 0; i < data->chip->num_regs; i++) {
+			sirfsoc_iobg_lock();
 			ret = regmap_read(map, chip->status_base +
 					  (i * map->reg_stride
 					   * data->irq_reg_stride),
 					  &data->status_buf[i]);
+			sirfsoc_iobg_unlock();
 
 			if (ret != 0) {
 				dev_err(map->dev,
@@ -295,12 +304,15 @@ static irqreturn_t regmap_irq_thread(int irq, void *d)
 			reg = chip->ack_base +
 				(i * map->reg_stride * data->irq_reg_stride);
 			/*some chip just ack by write 0*/
+			sirfsoc_iobg_lock();
 			if (chip->ack_invert)
 				ret = regmap_write(map, reg,
 					~data->status_buf[i]);
 			else
 				ret = regmap_write(map, reg,
 					data->status_buf[i]);
+
+			sirfsoc_iobg_unlock();
 
 			if (ret != 0)
 				dev_err(map->dev, "Failed to ack 0x%x: %d\n",
@@ -447,6 +459,7 @@ int regmap_add_irq_chip(struct regmap *map, int irq, int irq_flags,
 		d->mask_buf_def[chip->irqs[i].reg_offset / map->reg_stride]
 			|= chip->irqs[i].mask;
 
+	sirfsoc_iobg_lock();
 	/* Mask all the interrupts by default */
 	for (i = 0; i < chip->num_regs; i++) {
 		d->mask_buf[i] = d->mask_buf_def[i];
@@ -523,6 +536,7 @@ int regmap_add_irq_chip(struct regmap *map, int irq, int irq_flags,
 			}
 		}
 	}
+	sirfsoc_iobg_unlock();
 
 	if (irq_base)
 		d->domain = irq_domain_add_legacy(map->dev->of_node,

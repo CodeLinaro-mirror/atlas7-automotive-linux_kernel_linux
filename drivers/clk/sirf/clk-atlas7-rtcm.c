@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/regmap.h>
 #include <linux/mfd/sirfsoc_pwrc.h>
+#include <linux/rtc/sirfsoc_rtciobrg.h>
 
 #define SIRFSOC_RTCM_CLKC_PLL_CTRL		0x28
 #define SIRFSOC_RTCM_CLKC_M3_CLK_SEL		0x8C
@@ -93,8 +94,13 @@ static struct clk *rtcm_clks[ARRAY_SIZE(rtcm_unit_list)];
 static int rtcm_unit_clk_is_enabled(struct clk_hw *hw)
 {
 	struct clk_rtcm *clk = to_rtcmclk(hw);
+	int ret;
 
-	return !!(rtcm_clkc_readl(clk->regofs) & BIT(clk->bit));
+	sirfsoc_iobg_lock();
+	ret = !!(rtcm_clkc_readl(clk->regofs) & BIT(clk->bit));
+	sirfsoc_iobg_unlock();
+
+	return ret;
 }
 
 static int rtcm_unit_clk_enable(struct clk_hw *hw)
@@ -103,7 +109,9 @@ static int rtcm_unit_clk_enable(struct clk_hw *hw)
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(clk->lock, flags);
+	sirfsoc_iobg_lock();
 	rtcm_clkc_writel(BIT(clk->bit), clk->regofs);
+	sirfsoc_iobg_unlock();
 	spin_unlock_irqrestore(clk->lock, flags);
 
 	return 0;
@@ -115,9 +123,11 @@ static void rtcm_unit_clk_disable(struct clk_hw *hw)
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(clk->lock, flags);
+	sirfsoc_iobg_lock();
 	rtcm_clkc_writel(rtcm_clkc_readl(clk->regofs) &
 		~BIT(clk->bit),
 		clk->regofs);
+	sirfsoc_iobg_unlock();
 	spin_unlock_irqrestore(clk->lock, flags);
 }
 
@@ -162,9 +172,13 @@ static unsigned long pll_rtcmclk_recalc_rate(struct clk_hw *hw,
 	unsigned long parent_rate)
 {
 	struct clk_rtcpll *clk = to_rtcpllclk(hw);
-	u32 pllctl = rtcm_clkc_readl(clk->regofs);
+	u32 pllctl;
 	u32 fbdiv;
 	u64 rate;
+
+	sirfsoc_iobg_lock();
+	pllctl = rtcm_clkc_readl(clk->regofs);
+	sirfsoc_iobg_unlock();
 
 	fbdiv = (pllctl>>1) & 0x3fff;
 	rate = parent_rate * fbdiv;

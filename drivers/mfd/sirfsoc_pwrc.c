@@ -233,10 +233,12 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	regmap_irq_chip->ack_base = pwrcinfo->base +
 						pwrc_reg->pwrc_int_status;
 
+	sirfsoc_iobg_lock();
 	/* enable irq trigger capability for onkey/extonkey/lowbat/multi-butt */
 	ret = regmap_update_bits(map,
 			pwrcinfo->base +
 			pwrc_reg->pwrc_trigger_en_set, 0x1F, 0x1F);
+	sirfsoc_iobg_unlock();
 
 	if (ret < 0)
 		goto err_irq;
