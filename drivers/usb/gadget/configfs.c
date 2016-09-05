@@ -1637,7 +1637,6 @@ static struct config_group *gadgets_make(
 		const char *name)
 {
 	struct gadget_info *gi;
-	int ret;
 
 	gi = kzalloc(sizeof(*gi), GFP_KERNEL);
 	if (!gi)
