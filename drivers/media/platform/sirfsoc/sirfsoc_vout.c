@@ -76,7 +76,7 @@ static ssize_t sirfsoc_vout_di_mode_show(struct device *dev,
 }
 
 static ssize_t sirfsoc_vout_di_mode_store(struct device *dev,
-	struct device_attribute *attr, char *buf, size_t size)
+	struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct sirfsoc_vout_device *vout =
 		video_get_drvdata(to_video_device(dev));
@@ -427,7 +427,6 @@ static int __vout_set_passthrough_mode(struct sirfsoc_vout_device *vout,
 {
 	struct sirfsoc_vdss_layer *l;
 	struct sirfsoc_vdss_layer_info info;
-	enum vdss_pixelformat pixfmt;
 	enum v4l2_field field;
 	struct vdss_vpp_op_params params = {0};
 	struct v4l2_device *v4l2_dev = &vout->vid_dev->v4l2_dev;
@@ -807,7 +806,6 @@ static int layer_callback(void *arg, bool enable)
 {
 	struct sirfsoc_vout_device *vout =
 			(struct sirfsoc_vout_device *)arg;
-	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	if (enable)
 		__sirfsoc_vout_set_display(vout, false);
@@ -1283,7 +1281,6 @@ static void sirfsoc_vout_stop_streaming(struct vb2_queue *vq)
 	struct sirfsoc_vout_device *vout = vb2_get_drv_priv(vq);
 	struct sirfsoc_vout_buf *buf = NULL;
 	unsigned long flags;
-	struct sirfsoc_vdss_layer *l = vout->layer;
 
 	if (!vb2_is_streaming(vq))
 		return;

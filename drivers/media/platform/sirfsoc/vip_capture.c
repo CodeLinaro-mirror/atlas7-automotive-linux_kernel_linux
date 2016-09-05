@@ -1581,7 +1581,7 @@ static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 	enum v4l2_mbus_pixelcode code;
 	struct vip_subdev_info *subdev = file->private_data;
 	struct v4l2_subdev *sd = subdev->sd;
-	struct vip_format *vip_fmt;
+	const struct vip_format *vip_fmt;
 
 	WARN_ON(priv != file->private_data);
 
@@ -1958,7 +1958,6 @@ static int sirfsoc_camera_close(struct file *file)
 	struct video_device *vdev = video_devdata(file);
 	struct vip_subdev_info *subdev = file->private_data;
 	struct vip_dev *vip = subdev->host;
-	struct v4l2_subdev *sd = subdev->sd;
 
 	mutex_lock(&vip->host_lock);
 
@@ -2735,7 +2734,6 @@ exit:
 static int vip_remove(struct platform_device *pdev)
 {
 	struct vip_dev *vip = platform_get_drvdata(pdev);
-	unsigned int i;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 

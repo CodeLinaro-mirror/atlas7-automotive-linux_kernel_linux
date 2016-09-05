@@ -471,7 +471,10 @@ static inline void rv_set_dma_table_stop(struct rv_dev *rv)
 
 static int rv_setup_dma(struct rv_dev *rv)
 {
-	int ret = 0, xres, yres;
+	int ret = 0;
+#ifdef CONFIG_REARVIEW_AUXILIARY
+	int xres, yres;
+#endif
 
 	ret = dma_set_coherent_mask(rv->dev, DMA_BIT_MASK(32));
 	if (ret) {

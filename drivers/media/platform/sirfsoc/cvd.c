@@ -1137,7 +1137,6 @@ static int cvd_s_stream(struct v4l2_subdev *sd, int enable)
 
 static int cvd_querystd(struct v4l2_subdev *sd, v4l2_std_id *norm)
 {
-	struct cvd_dev *dec = to_state(sd);
 	int value;
 
 	cvd_s_stream(sd, 1);
@@ -1153,7 +1152,6 @@ static int cvd_querystd(struct v4l2_subdev *sd, v4l2_std_id *norm)
 static int cvd_try_mbus_fmt(struct v4l2_subdev *sd,
 				struct v4l2_mbus_framefmt *fmt)
 {
-	struct cvd_dev *dec = to_state(sd);
 	v4l2_std_id norm;
 
 	switch (fmt->field) {
@@ -1330,7 +1328,6 @@ static const struct v4l2_ctrl_ops cvd_ctrl_ops = {
 static int cvd_init(struct v4l2_subdev *sd, u32 val)
 {
 	int i;
-	struct v4l2_ctrl ctrl;
 	struct cvd_dev *dec = to_state(sd);
 
 	/* if cvd is streaming status, shouldn't re-initialize again */
