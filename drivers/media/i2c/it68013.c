@@ -480,7 +480,7 @@ static int it68013_video_start(struct i2c_client *client)
 			i2c_smbus_write_byte_data(client, 0x51, 0x44);
 			i2c_smbus_write_byte_data(client, 0x65, 0x52);
 		}
-	break;
+		break;
 	case V4L2_MBUS_PARALLEL:
 		if ((priv->data_bus_width == BITS_8) &&
 				(priv->data_bus_mode == SDR)) {
@@ -499,7 +499,9 @@ static int it68013_video_start(struct i2c_client *client)
 			i2c_smbus_write_byte_data(client, 0x51, 0x44);
 			i2c_smbus_write_byte_data(client, 0x65, 0x12);
 		}
-	break;
+		break;
+	default:
+		break;
 	}
 
 	/*wait port 0 video stable status  */
