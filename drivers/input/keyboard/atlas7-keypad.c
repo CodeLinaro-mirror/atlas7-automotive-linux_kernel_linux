@@ -111,7 +111,6 @@ static void atlas7_adc_key_func(struct work_struct *work)
 				   struct atlas7_keys, keys_poll);
 	int volt;
 	int ret;
-	int i;
 
 	ret = iio_read_channel_processed(keys->chan, &volt);
 	if (ret < 0)
