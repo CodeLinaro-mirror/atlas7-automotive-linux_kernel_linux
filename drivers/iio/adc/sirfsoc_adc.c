@@ -725,8 +725,6 @@ static int sirfsoc_adc_adc_cali(struct sirfsoc_adc_request *req,
 	struct sirfsoc_adc *adc = container_of(req, struct sirfsoc_adc, req);
 	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
 	struct device_node *np = indio_dev->dev.parent->of_node;
-	u32 sgain;
-	u16 mode;
 
 	if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
 		cali_data->digital_offset = 0;
