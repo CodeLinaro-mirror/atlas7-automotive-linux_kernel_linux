@@ -242,8 +242,8 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 			/* If the fmt is changed, disable the layer */
 			if (disp->layers[layer].enabled) {
 				l->layer->get_info(l->layer, &layer_info);
-				if (layer_info.src_surf.fmt !=
-				    disp->layers[layer].fmt)
+				if ((u32)(layer_info.src_surf.fmt) !=
+				    (u32)(disp->layers[layer].fmt))
 					vdsscomp_layer_disable(l);
 			} else
 				vdsscomp_layer_disable(l);

@@ -169,8 +169,6 @@ bool dcu_inline_check_size(struct vdss_surface *src_surf,
 	int src_rect_width, src_rect_height;
 	int dst_rect_width, dst_rect_height;
 	int pixel_aligned = 0;
-	int src_skip = 0;
-	int dst_skip = 0;
 
 	/*
 	 * DMA address must be 8 bytes aligned, so

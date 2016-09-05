@@ -1374,6 +1374,8 @@ static enum vpp_seq_type __vpp_seq_type(struct vdss_surface *src_surf,
 		case VDSS_FIELD_INTERLACED_BT:
 			dst_i = true;
 			break;
+		default:
+			break;
 		}
 	}
 
@@ -1417,7 +1419,7 @@ static int __vpp_set_ctrl(struct vpp_adapter *adapter,
 		reg_ctrl |= VPP_CTRL_HW_DI_MODE(0);
 
 	if (dst_surf && (
-	    dst_surf->field == VDSS_FRAME_TOP |
+	    dst_surf->field == VDSS_FRAME_TOP ||
 	    dst_surf->field == VDSS_FRAME_BOTTOM)) {
 		if (seq == VPP_SEQ_TYPE_IIPO)
 			reg_ctrl |= VPP_CTRL_DOUBLE_FRATE;
@@ -1564,7 +1566,7 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 	if (adapter == NULL || params == NULL)
 		return -EINVAL;
 
-	seq = __vpp_seq_type(&params->src_surf, NULL);
+	seq = __vpp_seq_type((struct vdss_surface *)&params->src_surf, NULL);
 	/* color ctrl setting */
 	__vpp_set_color_ctrl(adapter, &params->color_ctrl);
 
@@ -1587,8 +1589,8 @@ static int __vpp_ibv(struct vpp_adapter *adapter,
 			&params->dst_rect, &params->interlace);
 	__vpp_set_dst_rect(adapter, &params->dst_rect);
 
-	__vpp_set_ctrl(adapter, seq, &params->src_surf,
-		NULL, &params->interlace);
+	__vpp_set_ctrl(adapter, seq, (struct vdss_surface *)&params->src_surf,
+		NULL, (struct vdss_vpp_interlace *)&params->interlace);
 
 	return 0;
 }

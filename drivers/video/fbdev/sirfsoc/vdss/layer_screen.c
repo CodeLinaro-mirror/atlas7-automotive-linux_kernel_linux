@@ -910,10 +910,8 @@ static void layer_disable_in_vsync(void *data, u32 mask)
 static int vdss_layer_wait_for_vsync(struct sirfsoc_vdss_layer *layer,
 	void (*callback)(void*, u32))
 {
-	struct layer_priv_data *ldata = get_layer_data(layer);
 	unsigned long timeout = msecs_to_jiffies(100);
 	int r;
-	unsigned long flags;
 	struct layer_wait wait =  {
 		.comp = COMPLETION_INITIALIZER_ONSTACK(wait.comp),
 		.l = layer,

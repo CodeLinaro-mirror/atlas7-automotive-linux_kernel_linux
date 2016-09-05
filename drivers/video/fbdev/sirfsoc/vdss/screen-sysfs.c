@@ -115,7 +115,7 @@ static const struct sysfs_ops screen_sysfs_ops = {
 
 static struct kobj_type screen_ktype = {
 	.sysfs_ops = &screen_sysfs_ops,
-	.default_attrs = screen_sysfs_attrs,
+	.default_attrs = (struct attribute **)screen_sysfs_attrs,
 };
 
 int vdss_init_screens_sysfs(u32 lcdc_index)

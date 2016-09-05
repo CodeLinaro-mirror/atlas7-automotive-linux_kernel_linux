@@ -1213,7 +1213,7 @@ static int sirfsoc_g2d_resume(struct device *dev)
 
 	ret = clk_prepare_enable(g2d_dev->clk);
 	if (ret < 0)
-		dev_err(&dev, "resume error, failed to open clock\n");
+		dev_err(dev, "resume error, failed to open clock\n");
 	else {
 		g2d_hw_init(g2d_dev);
 		g2d_enable_interrupt(g2d_dev->context, FENCE_INTERRUPT);
