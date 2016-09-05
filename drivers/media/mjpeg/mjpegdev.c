@@ -32,7 +32,7 @@ static int jpeg_get_hw_pool(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *vdec_memory;
 	struct jpg_hw_pool *hw_pool;
-	u32 *address;
+	const u32 *address;
 
 	hw_pool = &(jpeg.hw_pool);
 	vdec_memory = of_parse_phandle(dev->of_node, "memory-region", 0);
@@ -649,10 +649,10 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case IOCTL_JPEG_GET_PADDR: {
-		pr_debug("IOCTL_JPEG_GET_PADDR\r\n");
-
 		struct jpg_buf_addrs *pBufAddrs;
 		void *vaddr;
+
+		pr_debug("IOCTL_JPEG_GET_PADDR\r\n");
 
 		if (*status == JPEG_FINISH)
 			return -EPERM;
@@ -669,7 +669,7 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return ret;
 		}
 
-		vaddr = pBufAddrs->vaddr;
+		vaddr = (void *)pBufAddrs->vaddr;
 		pBufAddrs->paddr = CpuUmAddrToCpuPAddr(vaddr);
 		ret = copy_to_user((void __user *)arg, pBufAddrs,
 				sizeof(*pBufAddrs));
@@ -732,14 +732,14 @@ static long jpeg_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 	case IOCTL_JPEG_START:
 		wait_event_interruptible(jpeg.query_wait,
-		!test_and_set_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy));
+		!test_and_set_bit(MJPEG_DEV_BUSY, (ulong *)&jpeg.jpeg_busy));
 		if (*status != JPEG_IDLE)
 			return -EPERM;
 		*status = JPEG_START;
 		break;
 	case IOCTL_JPEG_FINISH:
 		*status = JPEG_FINISH;
-		clear_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy);
+		clear_bit(MJPEG_DEV_BUSY, (ulong *)&jpeg.jpeg_busy);
 		wake_up_interruptible(&jpeg.query_wait);
 		break;
 	default:
@@ -858,7 +858,7 @@ static int jpeg_close(struct inode *inode, struct file *filp)
 		jpeg.hw_pool.used_size = 0;
 		mutex_unlock(&jpeg.pool_lock);
 		kfree(filp->private_data);
-		clear_bit(MJPEG_DEV_BUSY, &jpeg.jpeg_busy);
+		clear_bit(MJPEG_DEV_BUSY, (ulong *)&jpeg.jpeg_busy);
 		wake_up_interruptible(&jpeg.query_wait);
 	}
 	return 0;
