@@ -288,8 +288,6 @@ static int
 atlas7_qspi_nor_spansion_quad_enable(struct atlas7_qspi_nor *a7nor);
 static int
 atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor);
-static int
-atlas7_qspi_nor_micron_quad_enable(struct atlas7_qspi_nor *a7nor);
 
 static int
 atlas7_qspi_enter_32bit_addr(struct atlas7_qspi_nor *a7nor);
@@ -846,39 +844,6 @@ atlas7_qspi_nor_winbond_quad_enable(struct atlas7_qspi_nor *a7nor)
 		ret = -EINVAL;
 	}
 
-out:
-	mutex_unlock(&a7nor->lock);
-	return ret;
-}
-
-static int
-atlas7_qspi_nor_micron_quad_enable(struct atlas7_qspi_nor *a7nor)
-{
-	int ret;
-	u8 val[2];
-
-	mutex_lock(&a7nor->lock);
-
-	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RNCR, &val[0], 2);
-	if (ret < 0)
-		goto out;
-
-	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WREN, NULL, 0);
-	if (ret < 0)
-		goto out;
-
-	val[0] &= ~ATLAS7_QSPI_MICRON_QUAD_EN_BIT;
-	ret = atlas7_qspi_custom_out(a7nor, SPINOR_OP_WNCR, val, 2);
-	if (ret < 0)
-		goto out;
-
-	ret = atlas7_qspi_custom_in(a7nor, SPINOR_OP_RNCR, &val[0], 2);
-	if (ret < 0)
-		goto out;
-	if (val[0] & ATLAS7_QSPI_MICRON_QUAD_EN_BIT) {
-		dev_err(a7nor->dev, "Micron Quad bit not set\n");
-		ret = -EINVAL;
-	}
 out:
 	mutex_unlock(&a7nor->lock);
 	return ret;
