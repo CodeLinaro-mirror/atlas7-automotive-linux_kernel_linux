@@ -434,7 +434,12 @@ static long sdr_free_out_dma_buf(struct sirf_sdr *sdr, unsigned int dma_addr)
 
 static long sdr_reset(struct sirf_sdr *sdr)
 {
-	device_reset(&sdr->pdev->dev);
+	int ret = 0;
+
+	ret = device_reset(&sdr->pdev->dev);
+	if (ret)
+		dev_crit(&(sdr->pdev->dev), "Error device reset\n");
+
 	writel(1, sdr->regbase + SDR_VSS_DEBUG_RESET);
 
 	return 0;
@@ -538,7 +543,10 @@ static int sdr_sirf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	device_reset(&pdev->dev);
+	ret = device_reset(&pdev->dev);
+	if (ret)
+		dev_crit(dev, "Error device_reset\n");
+
 	dp = of_find_node_by_name(NULL, "sdrsram");
 	if (!dp)
 		return -EINVAL;
