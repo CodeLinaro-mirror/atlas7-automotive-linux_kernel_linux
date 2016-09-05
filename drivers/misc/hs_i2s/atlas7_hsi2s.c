@@ -556,7 +556,6 @@ static int atlas7_hsi2s_probe(struct platform_device *pdev)
 	};
 	struct device *dev = &pdev->dev;
 	struct resource *res_io;
-	struct clk *parent;
 	char dev_name[32];
 
 	i2s = devm_kzalloc(&pdev->dev, sizeof(*i2s), GFP_KERNEL);
