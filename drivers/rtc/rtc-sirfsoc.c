@@ -424,7 +424,6 @@ static int sirfsoc_rtc_suspend(struct device *dev)
 
 static int sirfsoc_rtc_resume(struct device *dev)
 {
-	u32 tmp;
 	struct sirfsoc_rtc_drv *rtcdrv = dev_get_drvdata(dev);
 
 	/*
