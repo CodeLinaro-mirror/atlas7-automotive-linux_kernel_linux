@@ -601,7 +601,7 @@ static int sirfsoc_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 
 static int sirfsoc_dma_chan_owner_get(struct dma_chan *chan)
 {
-	int reg_idx, offset, owner;
+	int reg_idx, offset;
 	u32 val;
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
@@ -623,7 +623,7 @@ static int sirfsoc_dma_chan_owner_get(struct dma_chan *chan)
 
 static int sirfsoc_dma_chan_owner_put(struct dma_chan *chan)
 {
-	int reg_idx, offset, owner;
+	int reg_idx, offset;
 	u32 val;
 	struct sirfsoc_dma *sdma = dma_chan_to_sirfsoc_dma(chan);
 	struct sirfsoc_dma_chan *schan = dma_chan_to_sirfsoc_dma_chan(chan);
