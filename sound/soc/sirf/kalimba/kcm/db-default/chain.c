@@ -17,8 +17,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_music_2"),
 		.trg_fe_name = __S("Music"),
 		.trg_channels = 2,
-		.links = __S("lk_music_src;lk_src_mixer3;"
-			"lk_mixer3_pass;lk_pass_bass;lk_bass_split;"
+		.links = __S("lk_music_src;lk_src_srcsync;"
+			"lk_srcsync_pass;lk_pass_bass;lk_bass_split;"
 			"lk_split_upeq;lk_upeq_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
@@ -116,8 +116,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_lin_to_lout_2"),
 		.trg_fe_name = __S("Iacc-loopback-playback"),
 		.trg_channels = 2,
-		.links = __S("lk_codec_src;lk_src_mixer3_lin;"
-			"lk_mixer3_pass;lk_pass_bass;lk_bass_split;"
+		.links = __S("lk_codec_src;lk_src_srcsync_lin;"
+			"lk_srcsync_pass;lk_pass_bass;lk_bass_split;"
 			"lk_split_upeq;lk_upeq_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
@@ -146,8 +146,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_a2dp_2ch"),
 		.trg_fe_name = __S("A2DP"),
 		.trg_channels = 2,
-		.links = __S("lk_usp3_mixer3;"
-			"lk_mixer3_pass;lk_pass_bass;lk_bass_split;"
+		.links = __S("lk_usp3_srcsync;"
+			"lk_srcsync_pass;lk_pass_bass;lk_bass_split;"
 			"lk_split_upeq;lk_upeq_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
@@ -162,8 +162,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_usp0_2ch"),
 		.trg_fe_name = __S("USP0"),
 		.trg_channels = 2,
-		.links = __S("lk_usp0_src;lk_src_mixer3_radio;"
-			"lk_mixer3_pass;lk_pass_bass;lk_bass_split;"
+		.links = __S("lk_usp0_src;lk_src_srcsync_radio;"
+			"lk_srcsync_pass;lk_pass_bass;lk_bass_split;"
 			"lk_split_upeq;lk_upeq_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
@@ -178,8 +178,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_usp2_2ch"),
 		.trg_fe_name = __S("USP2"),
 		.trg_channels = 2,
-		.links = __S("lk_usp2_src;lk_src_mixer3_radio;"
-			"lk_mixer3_pass;lk_pass_bass;lk_bass_split;"
+		.links = __S("lk_usp2_src;lk_src_srcsync_radio;"
+			"lk_srcsync_pass;lk_pass_bass;lk_bass_split;"
 			"lk_split_upeq;lk_upeq_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"
@@ -227,8 +227,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_i2s_to_iacc_2"),
 		.trg_fe_name = __S("I2S-to-iacc-loopback"),
 		.trg_channels = 2,
-		.links = __S("lk_i2s_src;lk_src_mixer3_radio;"
-			"lk_mixer3_pass;lk_pass_bass;lk_bass_split;"
+		.links = __S("lk_i2s_src;lk_src_srcsync_radio;"
+			"lk_srcsync_pass;lk_pass_bass;lk_bass_split;"
 			"lk_split_upeq;lk_upeq_delay;lk_delay_s1peq;"
 			"lk_delay_s2peq;lk_delay_s3peq;lk_delay_s4peq;"
 			"lk_s1peq_mixer;lk_s2peq_mixer;lk_s3peq_mixer;"

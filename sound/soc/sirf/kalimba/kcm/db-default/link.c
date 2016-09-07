@@ -23,18 +23,18 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 	{
-		/* Resampler -> Mixer3, 2ch */
-		.name = __S("lk_src_mixer3"),
+		/* Resampler -> Source sync, 2ch */
+		.name = __S("lk_src_srcsync"),
 		.source_name = __S("op_src_music"),
-		.sink_name = __S("op_mixer3"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
 	{
-		/* Mixer3 -> Passthrough, 2ch */
-		.name = __S("lk_mixer3_pass"),
-		.source_name = __S("op_mixer3"),
+		/* Source sync -> Passthrough, 2ch */
+		.name = __S("lk_srcsync_pass"),
+		.source_name = __S("op_srcsync"),
 		.sink_name = __S("op_pass_music"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 1, 2 },
@@ -413,10 +413,10 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 	{
-		/* Resampler -> Mixer3, 2ch */
-		.name = __S("lk_src_mixer3_lin"),
+		/* Resampler -> Source sync, 2ch */
+		.name = __S("lk_src_srcsync_lin"),
 		.source_name = __S("op_src_cap"),
-		.sink_name = __S("op_mixer3"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 3, 4 },
 		.channels = 2,
@@ -424,10 +424,10 @@ static const struct kasdb_link link[] = {
 
 	/* USP */
 	{
-		/* usp3 -> Mixer3, 2ch */
-		.name = __S("lk_usp3_mixer3"),
+		/* usp3 -> Source sync, 2ch */
+		.name = __S("lk_usp3_srcsync"),
 		.source_name = __S("so_usp3"),
-		.sink_name = __S("op_mixer3"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1, 2 },
 		.sink_pins = { 5, 6 },
 		.channels = 2,
@@ -442,15 +442,6 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 	{
-		/* usp1 -> Mixer3, 2ch */
-		.name = __S("lk_usp1_mixer3"),
-		.source_name = __S("so_usp1"),
-		.sink_name = __S("op_mixer3"),
-		.source_pins = { 1, 2 },
-		.sink_pins = { 5, 6 },
-		.channels = 2,
-	},
-	{
 		/* usp0 -> Resampler, 2ch */
 		.name = __S("lk_usp0_src"),
 		.source_name = __S("so_usp0"),
@@ -460,12 +451,12 @@ static const struct kasdb_link link[] = {
 		.channels = 2,
 	},
 	{
-		/* Radio resampler -> Mixer3, 2ch */
-		.name = __S("lk_src_mixer3_radio"),
+		/* Radio resampler -> , 2ch */
+		.name = __S("lk_src_srcsync_radio"),
 		.source_name = __S("op_src_radio"),
-		.sink_name = __S("op_mixer3"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1, 2 },
-		.sink_pins = { 3, 4 },
+		.sink_pins = { 7, 8 },
 		.channels = 2,
 	},
 
