@@ -423,6 +423,9 @@ static void sirfsoc_spi_slave_pio_transfer(struct sirfsoc_spi_slave *spi_slave)
 			spi_slave->base + SIRFSOC_SPI_TX_RX_EN);
 		wait_for_completion(&spi_slave->tx_done);
 		wait_for_completion(&spi_slave->rx_done);
+		while (!(readl(spi_slave->base + SIRFSOC_SPI_INT_STATUS)
+			& 0x01))
+			;
 		while (!((readl(spi_slave->base + SIRFSOC_SPI_RXFIFO_STATUS)
 			& SIRFSOC_SPI_FIFO_EMPTY)) && spi_slave->left_rx_word)
 			spi_slave->rx_word(spi_slave);
