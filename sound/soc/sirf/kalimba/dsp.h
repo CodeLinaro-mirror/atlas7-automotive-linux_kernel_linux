@@ -143,6 +143,7 @@ void kalimba_set_master_gain(int vol);
 #define CAPABILITY_ID_DBE_FULLBAND_IN_OUT	0x0090
 #define CAPABILITY_ID_DBE_FULLBAND_IN		0x0091
 #define CAPABILITY_ID_SOURCE_SYNC		0x0099
+#define CAPABILITY_ID_CHANNEL_MIXER		0x0097
 
 /*
  * These dummy capability is used to register operator operations.
@@ -167,6 +168,8 @@ void kalimba_set_master_gain(int vol);
 
 #define SOURCESYNC_SET_ROUTE			0x0001
 #define SOURCESYNC_SET_SINK_GROUPS		0x0003
+
+#define CHANNEL_MIXER_SET_PARAMETERS		0x0001
 
 #define OPERATOR_MSG_VOLUME_CTRL_SET_CONTROL	0x2002
 

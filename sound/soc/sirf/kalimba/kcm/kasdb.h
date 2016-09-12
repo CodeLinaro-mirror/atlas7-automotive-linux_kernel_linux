@@ -146,6 +146,7 @@ struct kasdb_op {
 		int dummy;
 		int resampler_custom_output;	/* 1: capture, 0: playback */
 		int mixer_streams;	/* 2, 3 */
+		int chmixer_io;		/* number of input/output channels */
 		u32 mux_streams;
 		int delay_channels;
 		int bass_pair_idx;	/* 0: default use, 1~11: user use*/
