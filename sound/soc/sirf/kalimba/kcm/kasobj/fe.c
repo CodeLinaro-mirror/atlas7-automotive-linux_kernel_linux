@@ -218,6 +218,9 @@ static int fe_get(struct kasobj *obj, const struct kasobj_param *param)
 		kalimba_config_endpoint(fe->ep_id[i],
 				ENDPOINT_CONF_PERIOD_SIZE,
 				param->period_size, __kcm_resp);
+		kalimba_config_endpoint(fe->ep_id[i],
+				ENDPOINT_CONF_FLOW_CONTROL,
+				fe->db->flow_ctrl, __kcm_resp);
 		if (!fe->db->playback)
 			kalimba_config_endpoint(fe->ep_id[i],
 					ENDPOINT_CONF_CLOCK_MASTER,
