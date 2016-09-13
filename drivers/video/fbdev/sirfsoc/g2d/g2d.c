@@ -933,8 +933,9 @@ static int g2d_bitblt(struct g2d_device_data *g2d_dev, unsigned long arg)
 			return -EINVAL;
 		}
 	} else if (!(params.flags & G2D_BLT_COLOR_FILL)) {
-		if (params.src_rc.w != params.dst_rc.w ||
-			params.src_rc.h != params.dst_rc.h) {
+		if (params.num_rects == 0 &&
+			(params.src_rc.w != params.dst_rc.w ||
+			params.src_rc.h != params.dst_rc.h)) {
 			g2d_err("dismatch rectangle for blt\n");
 			return -EINVAL;
 		}
