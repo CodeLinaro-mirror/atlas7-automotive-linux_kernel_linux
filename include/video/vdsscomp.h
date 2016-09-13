@@ -84,23 +84,23 @@ enum vdsscomp_pixelformat {
 
 struct vdsscomp_video_timings {
 	/* Unit: pixels */
-	u16 xres;
+	__u16 xres;
 	/* Unit: pixels */
-	u16 yres;
+	__u16 yres;
 	/* Unit: KHz */
-	u32 pixel_clock;
+	__u32 pixel_clock;
 	/* Unit: pixel clocks */
-	u16 hsw;	/* Horizontal synchronization pulse width */
+	__u16 hsw;	/* Horizontal synchronization pulse width */
 	/* Unit: pixel clocks */
-	u16 hfp;	/* Horizontal front porch */
+	__u16 hfp;	/* Horizontal front porch */
 	/* Unit: pixel clocks */
-	u16 hbp;	/* Horizontal back porch */
+	__u16 hbp;	/* Horizontal back porch */
 	/* Unit: line clocks */
-	u16 vsw;	/* Vertical synchronization pulse width */
+	__u16 vsw;	/* Vertical synchronization pulse width */
 	/* Unit: line clocks */
-	u16 vfp;	/* Vertical front porch */
+	__u16 vfp;	/* Vertical front porch */
 	/* Unit: line clocks */
-	u16 vbp;	/* Vertical back porch */
+	__u16 vbp;	/* Vertical back porch */
 };
 
 struct vdsscomp_rect {
