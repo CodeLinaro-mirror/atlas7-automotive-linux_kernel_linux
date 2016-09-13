@@ -17,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h>
 #include "../ion.h"
 #include "../ion_priv.h"
 
@@ -34,6 +35,38 @@ struct ion_client *sirfsoc_ion_client_create(const char *name)
 }
 EXPORT_SYMBOL(sirfsoc_ion_client_create);
 
+static long sirfsoc_ion_custom_ioctl(struct ion_client *client,
+			unsigned int cmd, unsigned long arg)
+{
+	switch (cmd) {
+	case ION_CUSTOM_CMD_PHYS:
+	{
+		struct ion_custom_data_phys data;
+		struct ion_handle *handle;
+		int ret;
+
+		if (copy_from_user(&data, (void __user *)arg,
+			sizeof(struct ion_custom_data_phys)))
+			return -EFAULT;
+
+		handle = ion_import_dma_buf(client, data.fd);
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+
+		ret = ion_phys(client, handle, &data.addr, &data.len);
+		if (ret)
+			return ret;
+
+		if (copy_to_user((void __user *)arg, &data,
+			sizeof(struct ion_custom_data_phys)))
+			return -EFAULT;
+		break;
+	}
+	default:
+		return -ENOTTY;
+	}
+}
+
 static int sirfsoc_ion_probe(struct platform_device *pdev)
 {
 	struct ion_platform_data *pdata = pdev->dev.platform_data;
@@ -46,7 +79,7 @@ static int sirfsoc_ion_probe(struct platform_device *pdev)
 			     sizeof(struct ion_heap *) * pdata->nr,
 			     GFP_KERNEL);
 
-	sirf_ion_device = ion_device_create(NULL);
+	sirf_ion_device = ion_device_create(sirfsoc_ion_custom_ioctl);
 	if (IS_ERR_OR_NULL(sirf_ion_device))
 		return PTR_ERR(sirf_ion_device);
 

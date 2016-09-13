@@ -114,6 +114,12 @@ struct ion_handle_data {
 	ion_user_handle_t handle;
 };
 
+#define	ION_CUSTOM_CMD_PHYS 1
+struct ion_custom_data_phys {
+	int fd;
+	unsigned long addr;
+	size_t len;
+};
 /**
  * struct ion_custom_data - metadata passed to/from userspace for a custom ioctl
  * @cmd:	the custom ioctl function to call
