@@ -147,10 +147,22 @@ static const u32 rgb_yuv_coeff[] = {
 	0x0000, 0x0204, 0x12A,/* V, U, Y for B*/
 };
 
+static const u32 rgb_yuv_coeff_nj12[] = {
+	0x0198, 0x0000, 0x100,/* V, U, Y for R*/
+	0x00D0, 0x0064, 0x100,/* V, U, Y for G*/
+	0x0000, 0x0204, 0x100,/* V, U, Y for B*/
+};
+
 static const u32 rgb_offsets[] = {
 	0xdf20,
 	0x8760,
 	0x114a0,
+};
+
+static const u32 rgb_offsets_nj12[] = {
+	0xcc00,
+	0x9a00,
+	0x10200,
 };
 
 static const u32 y_top_addr_regs[] = {
@@ -342,6 +354,7 @@ static bool vpp_blt_check_size(struct vdss_surface *src_surf,
 	switch (src_surf->fmt) {
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+	case VDSS_PIXELFORMAT_NJ12:
 		pixel_aligned = 8;
 		break;
 	case VDSS_PIXELFORMAT_I420:
@@ -448,6 +461,7 @@ bool vpp_passthrough_check_size(struct vdss_surface *src_surf,
 	switch (src_surf->fmt) {
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+	case VDSS_PIXELFORMAT_NJ12:
 		pixel_aligned = 8;
 		break;
 	case VDSS_PIXELFORMAT_I420:
@@ -608,6 +622,7 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 	u32 reg_ctrl = 0;
 	u32 reg_stride0 = 0, reg_stride1 = 0;
 	u32 reg_thresh;
+	u32 *vpp_coef = NULL, *vpp_offset = NULL;
 	u32 ctrl_mask = VPP_CTRL_YUV420_FORMAT |
 			VPP_CTRL_ENDIAN_MODE |
 			VPP_CTRL_YUV422_FORMAT_MASK |
@@ -622,6 +637,7 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 		/* NV12, NV21, hw required UV stride right shift 1*/
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+	case VDSS_PIXELFORMAT_NJ12:
 		reg_ctrl |= VPP_CTRL_YUV420_FORMAT;
 		reg_stride0 |= VPP_Y_STRIDE(surf->width);
 		reg_stride0 |= VPP_U_STRIDE(surf->width / 2);
@@ -671,10 +687,12 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 	}
 
 	if (surf->fmt == VDSS_PIXELFORMAT_NV12 ||
-	    surf->fmt == VDSS_PIXELFORMAT_NV21)
+	    surf->fmt == VDSS_PIXELFORMAT_NV21 ||
+	    surf->fmt == VDSS_PIXELFORMAT_NJ12)
 		reg_ctrl |= VPP_CTRL_UV_INTERLEAVE_EN;
 
-	if (surf->fmt == VDSS_PIXELFORMAT_NV12) {
+	if (surf->fmt == VDSS_PIXELFORMAT_NV12 ||
+		surf->fmt == VDSS_PIXELFORMAT_NJ12) {
 		if (adapter->is_atlas7)
 			reg_ctrl |= VPP_CTRL_UVUV_MODE;
 		else {
@@ -682,6 +700,32 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 			reg_thresh |= VPP_UVUV_MODE;
 			vpp_write_reg(adapter, VPP_FULL_THRESH, reg_thresh);
 		}
+	}
+
+	if (surf->fmt == VDSS_PIXELFORMAT_NJ12) {
+		vpp_coef = &rgb_yuv_coeff_nj12[0];
+		vpp_offset = &rgb_offsets_nj12[0];
+	} else {
+		vpp_coef = &rgb_yuv_coeff[0];
+		vpp_offset = &rgb_offsets[0];
+	}
+
+	{
+		int i;
+		u32 offset, val;
+
+		offset = VPP_RCOEF;
+		for (i = 0; i < ARRAY_SIZE(rgb_yuv_coeff); i += 3) {
+			val = vpp_coef[i] |
+				(vpp_coef[i+1] << 10) |
+				(vpp_coef[i+2] << 20);
+			vpp_write_reg(adapter, offset, val);
+			offset += 4;
+		}
+
+		vpp_write_reg(adapter, VPP_OFFSET1, vpp_offset[0]);
+		vpp_write_reg(adapter, VPP_OFFSET2, vpp_offset[1]);
+		vpp_write_reg(adapter, VPP_OFFSET3, vpp_offset[2]);
 	}
 
 	if (inline_mode)
@@ -790,25 +834,17 @@ static int __vpp_setup_dst(struct vpp_adapter *adapter,
 	}
 
 	if (fmt == VDSS_PIXELFORMAT_RGBX_8880) {
-		vpp_write_reg(adapter, VPP_BCOEF, rgb_yuv_coeff[0] |
-				(rgb_yuv_coeff[1] << 10) |
-				(rgb_yuv_coeff[2] << 20));
-		vpp_write_reg(adapter, VPP_RCOEF, rgb_yuv_coeff[6] |
-				(rgb_yuv_coeff[7] << 10) |
-				(rgb_yuv_coeff[8] << 20));
+		u32 val;
 
-		vpp_write_reg(adapter, VPP_OFFSET3, rgb_offsets[0]);
-		vpp_write_reg(adapter, VPP_OFFSET1, rgb_offsets[2]);
-	} else {
-		vpp_write_reg(adapter, VPP_BCOEF, rgb_yuv_coeff[6] |
-				(rgb_yuv_coeff[7] << 10) |
-				(rgb_yuv_coeff[8] << 20));
-		vpp_write_reg(adapter, VPP_RCOEF, rgb_yuv_coeff[0] |
-				(rgb_yuv_coeff[1] << 10) |
-				(rgb_yuv_coeff[2] << 20));
+		val =  vpp_read_reg(adapter, VPP_RCOEF);
+		vpp_write_reg(adapter, VPP_RCOEF,
+			vpp_read_reg(adapter, VPP_BCOEF));
+		vpp_write_reg(adapter, VPP_BCOEF, val);
 
-		vpp_write_reg(adapter, VPP_OFFSET1, rgb_offsets[0]);
-		vpp_write_reg(adapter, VPP_OFFSET3, rgb_offsets[2]);
+		val = vpp_read_reg(adapter, VPP_OFFSET1);
+		vpp_write_reg(adapter, VPP_OFFSET1,
+			vpp_read_reg(adapter, VPP_OFFSET3));
+		vpp_write_reg(adapter, VPP_OFFSET3, val);
 	}
 
 	if (surf) {
@@ -943,7 +979,8 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 			src_rect.left / 2;
 		voffset = uoffset;
 	} else if (surf->fmt == VDSS_PIXELFORMAT_NV12 ||
-		surf->fmt == VDSS_PIXELFORMAT_NV21) {
+		surf->fmt == VDSS_PIXELFORMAT_NV21 ||
+		surf->fmt == VDSS_PIXELFORMAT_NJ12) {
 		uoffset = surf->width * (src_rect.top / 2) +
 			src_rect.left;
 		voffset = uoffset;
@@ -991,6 +1028,7 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 		break;
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+	case VDSS_PIXELFORMAT_NJ12:
 		ybase = surf->base + yoffset;
 		/*
 		 * According to spec, if the input format is semi-planar YUV420,
@@ -1027,6 +1065,7 @@ static int __vpp_set_srcbase(struct vpp_adapter *adapter,
 			case VDSS_PIXELFORMAT_I420:
 			case VDSS_PIXELFORMAT_NV12:
 			case VDSS_PIXELFORMAT_NV21:
+			case VDSS_PIXELFORMAT_NJ12:
 				ybase_bot = ybase + surf->width;
 				ubase_bot = ubase + surf->width / 2;
 				vbase_bot = vbase + surf->width / 2;
@@ -1999,6 +2038,7 @@ bool sirfsoc_vpp_is_passthrough_support(enum vdss_pixelformat fmt)
 	case VDSS_PIXELFORMAT_UYVI:
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+	case VDSS_PIXELFORMAT_NJ12:
 		return true;
 	default:
 		return false;

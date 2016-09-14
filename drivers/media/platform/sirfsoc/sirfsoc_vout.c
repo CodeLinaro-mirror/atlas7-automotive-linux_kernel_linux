@@ -164,6 +164,10 @@ static const struct v4l2_fmtdesc sirfsoc_vout_formats[] = {
 	.description = "NV21",
 	.pixelformat = V4L2_PIX_FMT_NV21,
 	},
+	{
+	.description = "NJ12",
+	.pixelformat = V4L2_PIX_FMT_NJ12,
+	},
 };
 
 #define NUM_OUTPUT_FORMATS (ARRAY_SIZE(sirfsoc_vout_formats))
@@ -203,6 +207,10 @@ static int __sirfsoc_vout_v4l2_fmt_to_vdss_fmt(__u32 pix_fmt)
 
 	case V4L2_PIX_FMT_Q420:
 		vdss_pixfmt = VDSS_PIXELFORMAT_Q420;
+		break;
+
+	case V4L2_PIX_FMT_NJ12:
+		vdss_pixfmt = VDSS_PIXELFORMAT_NJ12;
 		break;
 
 	case V4L2_PIX_FMT_YVU420:
@@ -274,6 +282,7 @@ static int __sirfsoc_vout_alignment(u32 pix_fmt, u32 width, u32 height,
 	switch (pix_fmt) {
 	case VDSS_PIXELFORMAT_NV12:
 	case VDSS_PIXELFORMAT_NV21:
+	case VDSS_PIXELFORMAT_NJ12:
 		/*
 		 * New vxd hw deocder buffer alignment spec, width: 64byte,
 		 * heigh: 16. Seems had better define private fmt for it.
@@ -930,6 +939,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	case V4L2_PIX_FMT_YUV420:
 	case V4L2_PIX_FMT_YVU420:
 	case V4L2_PIX_FMT_Q420:
+	case V4L2_PIX_FMT_NJ12:
 		pix->colorspace = V4L2_COLORSPACE_JPEG;
 		/*
 		 * Note: When the image format is planar, the bytesperline
@@ -978,6 +988,7 @@ static int __sirfsoc_vout_try_fmt(struct v4l2_pix_format *pix, u32 *hor_stride,
 	case VDSS_PIXELFORMAT_NV21:
 	case VDSS_PIXELFORMAT_I420:
 	case VDSS_PIXELFORMAT_YV12:
+	case VDSS_PIXELFORMAT_NJ12:
 		/* Planar format should contain Y and UV sections */
 		pix->sizeimage += pix->sizeimage >> 1;
 		break;

@@ -138,6 +138,9 @@ enum vdss_pixelformat {
 	/* YUV420, w-stride 64 aligned h-stride 16 aligned */
 	VDSS_PIXELFORMAT_Q420 = 36,
 
+	/* Y component range[0,255], planes exactly like NV12 */
+	VDSS_PIXELFORMAT_NJ12 = 37,
+
 	VDSS_PIXELFORMAT_CUSTOM = 0X1000
 };
 
