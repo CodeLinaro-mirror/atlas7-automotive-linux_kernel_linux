@@ -25,15 +25,16 @@
 #define SOURCE_SYNC_CTRL_IDX_ACTIVE_STREAM (0)
 #define SOURCE_SYNC_CTRL_IDX_TRANS_SAMPLES (1)
 
-#define SOURCE_SYNC_GROUPS_MAX (8)
-#define SOURCE_SYNC_CHANNELS_MAX (8)
-#define SOURCE_SYNC_TRANS_SAMPLES_MAX (1024)
+#define SOURCE_SYNC_GROUPS_MAX (24)
+#define SOURCE_SYNC_CHANNELS_MAX (24)
+#define SOURCE_SYNC_TRANS_SAMPLES_MAX (65536)
 
 struct source_sync_ctx {
 	u16 streams;
 	u16 channels[SOURCE_SYNC_GROUPS_MAX];
-	u16 active_stream;
-	u16 ch_out;
+	u16 input_map[SOURCE_SYNC_CHANNELS_MAX];	/* starts from 1 */
+	u16 output_map[SOURCE_SYNC_CHANNELS_MAX];	/* starts from 1 */
+	u16 active_stream;	/* starts from 1 */
 	u16 trans_samples;
 	u16 sample_rate;
 };
@@ -53,7 +54,7 @@ struct route_item {
 
 struct switch_route_msg {
 	u16 route_num;
-	struct route_item route[SOURCE_SYNC_GROUPS_MAX];
+	struct route_item route[SOURCE_SYNC_CHANNELS_MAX];
 };
 
 static int set_sink_groups(struct kasobj_op *op)
@@ -76,6 +77,7 @@ static int set_sink_groups(struct kasobj_op *op)
 		shift += ctx->channels[idx];
 	}
 	msg_len = 2 * ctx->streams + 1;
+
 	ret = kalimba_operator_message(op->op_id, SOURCESYNC_SET_SINK_GROUPS,
 		msg_len, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret) {
@@ -91,27 +93,23 @@ static int set_routes(struct kasobj_op *op)
 {
 	struct source_sync_ctx *ctx = op->context;
 	struct switch_route_msg msg;
-	int idx, shift, active_st, ret, msg_len;
+	int idx, cnt, ret, msg_len, tmp;
 
 	if (!op->obj.life_cnt)
 		return 0;
 
-	active_st = ctx->active_stream;
-	msg.route_num = ctx->ch_out;
-	for (idx = 0, shift = 0; idx < active_st; idx++)
-		shift += ctx->channels[idx];
-	for (idx = 0; idx < ctx->ch_out; idx++) {
-		msg.route[idx].source_idx = idx;
-		msg.route[idx].sink_idx = shift + idx;
-		msg.route[idx].gain = 0;	/* 0dB */
-		msg.route[idx].trans_samples = ctx->trans_samples;
-		if (idx < ctx->channels[active_st])
-			msg.route[idx].rate = ctx->sample_rate / 25;
-		else
-			/* zero will stall this ch */
-			msg.route[idx].rate = 0;
+	for (idx = 0, cnt = 0; idx < SOURCE_SYNC_CHANNELS_MAX; idx++) {
+		tmp = ctx->output_map[idx];
+		if (tmp == 0)
+			continue;
+		msg.route[cnt].source_idx = idx;
+		msg.route[cnt].sink_idx = tmp - 1;
+		msg.route[cnt].gain = 0;	/* 0dB */
+		msg.route[cnt].trans_samples = ctx->trans_samples;
+		msg.route[cnt++].rate = ctx->sample_rate / 25;
 	}
-	msg_len = 5 * ctx->ch_out + 1;
+	msg.route_num = cnt;
+	msg_len = 5 * cnt + 1;
 	ret = kalimba_operator_message(op->op_id, SOURCESYNC_SET_ROUTE,
 		msg_len, (u16 *)&msg, NULL, NULL, __kcm_resp);
 	if (ret) {
@@ -139,10 +137,26 @@ static int find_active_stream(struct kasobj_op *op)
 	return -EINVAL;
 }
 
+static void change_active_stream(struct kasobj_op *op, int active_st)
+{
+		struct source_sync_ctx *ctx = op->context;
+		int ch, shift, idx, out_idx;
+
+		ctx->active_stream = active_st;
+		active_st--;
+		for (idx = 0, shift = 0; idx < active_st; idx++)
+			shift += ctx->channels[idx];
+		ch = ctx->channels[active_st];
+		for (idx = 0; idx < ch; idx++) {
+			out_idx = ctx->input_map[idx + shift];
+			ctx->output_map[out_idx - 1] = idx + shift + 1;
+		}
+}
+
 /* Endpoint activity changed, we may have to pick new primary stream */
 static void pin_changed(struct kasobj_op *op, int is_sink)
 {
-	if (is_sink) {
+	if (is_sink && (op->obj.life_cnt == 1)) {
 		/* Pick active stream based on current input pins activity */
 		int active_stream = find_active_stream(op);
 		struct source_sync_ctx *ctx = op->context;
@@ -152,12 +166,10 @@ static void pin_changed(struct kasobj_op *op, int is_sink)
 				op->obj.name);
 			return;
 		}
-		if (1 == op->obj.life_cnt) {
-			ctx->active_stream = active_stream;
-			set_routes(op);
-			kcm_debug("KASOP(%s): set active stream to %d\n",
-					op->obj.name, active_stream);
-		}
+		change_active_stream(op, active_stream + 1);
+		set_routes(op);
+		kcm_debug("KASOP(%s): set active stream to %d\n",
+				op->obj.name, ctx->active_stream);
 	}
 }
 
@@ -199,14 +211,12 @@ static int source_sync_put(struct snd_kcontrol *kcontrol,
 
 	switch (ctl_idx) {
 	case SOURCE_SYNC_CTRL_IDX_ACTIVE_STREAM:
-		if (value >= ctx->streams)
+		if (value < 1)
 			return -EINVAL;
-		if (value != ctx->active_stream) {
-			kcm_lock();
-			ctx->active_stream = value;
-			set_routes(op);
-			kcm_unlock();
-		}
+		kcm_lock();
+		change_active_stream(op, value);
+		set_routes(op);
+		kcm_unlock();
 		break;
 	case SOURCE_SYNC_CTRL_IDX_TRANS_SAMPLES:
 		if (value != ctx->trans_samples)
@@ -229,8 +239,7 @@ static int source_sync_init(struct kasobj_op *op)
 	struct snd_kcontrol_new *ctrl;
 	char names_buf[256], *names = names_buf, *name;
 	int ctrl_idx = 0; /* control interface index */
-	int max, st, ch;
-	u32 st_config, tmp;
+	int max, ch, idx, cnt, tmp;
 
 	op->context = ctx;
 	ctx->trans_samples = 0;
@@ -239,34 +248,35 @@ static int source_sync_init(struct kasobj_op *op)
 		pr_err("KASOP(%s): invalid sample rate!\n", op->obj.name);
 		return -EINVAL;
 	}
-	st_config = tmp = op->db->param.mux_streams;
 
-	/* Analysis the number of stream and channel
-	 *   XXXX...X
-	 *   ||||   +--> channel number of stream8
-	 *   |||+------> channel number of stream4
-	 *   ||+-------> channel number of stream3
-	 *   |+--------> channel number of stream2
-	 *   +---------> channel number of stream1
-	 * Example: 124 means 1 channel for stream1, 2 channels for stream2,
-	 *   4 channels for stream3.
-	 */
-	for (st = 0; tmp != 0; st++)
-		tmp >>= 4;
-	ctx->streams = st;
-	for (st = 0, max = 0; st < ctx->streams; st++) {
-		ch = st_config & 0x00f;
-		if (ch > SOURCE_SYNC_GROUPS_MAX) {
-			pr_err("KASOP(%s): Invalid channels of stream(%d)!\n",
-				op->obj.name, st);
+	for (idx = 0, ch = 0, cnt = 0; idx < SOURCE_SYNC_CHANNELS_MAX; idx++) {
+		tmp = op->db->param.srcsync_cfg.stream_ch[idx];
+		if (tmp == 0)
+			break;
+		if (tmp > SOURCE_SYNC_CHANNELS_MAX) {
+			pr_err("KASOP(%s): invalid channel group config!\n",
+				op->obj.name);
 			return -EINVAL;
 		}
-		ctx->channels[ctx->streams - st - 1] = ch;
-		if (ch > max)
-			max = ch;
-		st_config >>= 4;
+		ch += tmp;
+		if (ch > SOURCE_SYNC_CHANNELS_MAX) {
+			pr_err("KASOP(%s): too many total channels(%d)!\n",
+				op->obj.name, ch);
+			return -EINVAL;
+		}
+		ctx->channels[idx] = tmp;
+		cnt += tmp;
 	}
-	ctx->ch_out = max;
+	ctx->streams = idx;
+	for (idx = 0; idx < SOURCE_SYNC_CHANNELS_MAX; idx++) {
+		tmp = op->db->param.srcsync_cfg.input_map[idx];
+		if (tmp > SOURCE_SYNC_CHANNELS_MAX) {
+			pr_err("KASOP(%s): invalid input-output map!\n",
+				op->obj.name);
+			return -EINVAL;
+		}
+		ctx->input_map[idx] = tmp;
+	}
 
 	if (!op->db->ctrl_names.s)
 		return 0;
@@ -305,6 +315,19 @@ static int source_sync_init(struct kasobj_op *op)
 static int source_sync_create(struct kasobj_op *op,
 	const struct kasobj_param *param)
 {
+	struct source_sync_ctx *ctx = op->context;
+	int idx, out_ch;
+
+	for (idx = 0; idx < SOURCE_SYNC_CHANNELS_MAX; idx++)
+		ctx->output_map[idx] = 0;
+
+	for (idx = 0; idx < SOURCE_SYNC_CHANNELS_MAX; idx++) {
+		out_ch = ctx->input_map[idx];
+		if (out_ch == 0)
+			continue;
+		ctx->output_map[out_ch - 1] = idx + 1;
+	}
+
 	return set_sink_groups(op);
 }
 

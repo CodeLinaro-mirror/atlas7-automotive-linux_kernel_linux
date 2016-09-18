@@ -32,8 +32,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_navi"),
 		.trg_fe_name = __S("Navigation"),
 		.trg_channels = 2,
-		.links = __S("lk_navi_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
-			"lk_aecref_codec;lk_volctrl_aecref"),
+		.links = __S("lk_navi_srcsync;lk_srcsync_mixer;lk_mixer_mixer2;"
+			"lk_mixer2_volctrl;lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S(NULL),
 	},
 
@@ -42,7 +42,8 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_alarm"),
 		.trg_fe_name = __S("Alarm"),
 		.trg_channels = 1,
-		.links = __S("lk_alarm_src;lk_alarm_split_1x2;lk_alarm_split;"
+		.links = __S("lk_alarm_src;lk_src_srcsync_alarm;"
+			"lk_srcsync_split_1x2;lk_alarm_split;"
 			"lk_alarm_mixer;lk_mixer_mixer2;lk_mixer2_volctrl;"
 			"lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S(NULL),
@@ -54,8 +55,8 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Voicecall-iacc-to-bt"),
 		.trg_channels = 1,
 		.cvc_mic = single,
-		.links = __S("lk_usp3_cvc_recv;"
-			"lk_cvc_recv_src;lk_src_split1x2_cvc;"
+		.links = __S("lk_usp3_cvc_recv;lk_cvc_recv_src;"
+			"lk_src_srcsync_cvc;lk_srcsync_split1x2_cvc;"
 			"lk_split1x2_mixer2_cvc;lk_mixer2_volctrl;"
 			"lk_aecref_codec;lk_codec_aecref_1mic;"
 			"lk_volctrl_aecref;lk_aecref_cvc_send_1mic;"
@@ -70,8 +71,8 @@ static const struct kasdb_chain chain[] = {
 		.trg_fe_name = __S("Voicecall-iacc-to-bt"),
 		.trg_channels = 1,
 		.cvc_mic = doub,
-		.links = __S("lk_usp3_cvc_recv;"
-			"lk_cvc_recv_src;lk_src_split1x2_cvc;"
+		.links = __S("lk_usp3_cvc_recv;lk_cvc_recv_src;"
+			"lk_src_srcsync_cvc;lk_srcsync_split1x2_cvc;"
 			"lk_split1x2_mixer2_cvc;lk_mixer2_volctrl;"
 			"lk_aecref_codec;lk_codec_aecref_2mic;"
 			"lk_volctrl_aecref;lk_aecref_cvc_send_2mic;"
@@ -216,8 +217,9 @@ static const struct kasdb_chain chain[] = {
 		.name = __S("chain_voicecall_playback"),
 		.trg_fe_name = __S("Voicecall-playback"),
 		.trg_channels = 1,
-		.links = __S("lk_vocall_play_cvc_recv;lk_cvc_recv_src;"
-			"lk_src_split1x2_cvc;lk_split1x2_mixer2_cvc;"
+		.links = __S("lk_vocall_play_cvc_recv;"
+			"lk_cvc_recv_src;lk_src_srcsync_cvc;"
+			"lk_srcsync_split1x2_cvc;lk_split1x2_mixer2_cvc;"
 			"lk_mixer2_volctrl;lk_aecref_codec;lk_volctrl_aecref"),
 		.mutexs = __S("chain_cvc_recv"),
 	},

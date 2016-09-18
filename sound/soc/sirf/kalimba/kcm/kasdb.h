@@ -127,6 +127,7 @@ struct kasdb_fe {
 	union kasdb_str name;	/* Card name */
 	short playback;		/* 1 - playback, 0 - capture */
 	short internal;		/* 1 - Internal loopback */
+	short flow_ctrl;	/* 1 - enable, 0 - disable */
 	union kasdb_str stream_name;
 	short channels_min;
 	short channels_max;
@@ -137,6 +138,7 @@ struct kasdb_fe {
 };
 
 struct kasdb_op {
+#define KASDB_SRCSYNC_CH_MAX	24
 	union kasdb_str name;
 	union kasdb_str ctrl_base;	/* Base control name */
 	union kasdb_str ctrl_names;	/* Control names, separated by ":" */
@@ -147,9 +149,14 @@ struct kasdb_op {
 		int resampler_custom_output;	/* 1: capture, 0: playback */
 		int mixer_streams;	/* 2, 3 */
 		int chmixer_io;		/* number of input/output channels */
-		u32 mux_streams;
 		int delay_channels;
 		int bass_pair_idx;	/* 0: default use, 1~11: user use*/
+		struct {
+			/* number of channels for each stream */
+			char stream_ch[KASDB_SRCSYNC_CH_MAX];
+			/* the output pin will be connected to each input pin */
+			char input_map[KASDB_SRCSYNC_CH_MAX];
+		} srcsync_cfg;
 	} param;	/* Operator specific parameter */
 };
 

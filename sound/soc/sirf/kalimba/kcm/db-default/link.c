@@ -151,11 +151,20 @@ static const struct kasdb_link link[] = {
 
 	/* Navigation, 4ch */
 	{
-		/* Navigation -> Mixer1, 4ch (5-8) */
-		.name = __S("lk_navi_mixer"),
+		/* Navigation -> Source-sync, 2ch */
+		.name = __S("lk_navi_srcsync"),
 		.source_name = __S("Navigation"),
-		.sink_name = __S("op_mixer"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1, 2 },
+		.sink_pins = { 9, 10 },
+		.channels = 2,
+	},
+	{
+		/* Source-sync -> Mixer1, 2ch */
+		.name = __S("lk_srcsync_mixer"),
+		.source_name = __S("op_srcsync"),
+		.sink_name = __S("op_mixer"),
+		.source_pins = { 3, 4 },
 		.sink_pins = { 1, 2 },
 		.channels = 2,
 	},
@@ -171,11 +180,20 @@ static const struct kasdb_link link[] = {
 		.channels = 1,
 	},
 	{
-		/* Resampler -> Splitter_1x2, 1ch */
-		.name = __S("lk_alarm_split_1x2"),
+		/* Resampler -> Source-sync, 1ch */
+		.name = __S("lk_src_srcsync_alarm"),
 		.source_name = __S("op_src_alarm"),
-		.sink_name = __S("op_split_alarm_1x2"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1 },
+		.sink_pins = { 11 },
+		.channels = 1,
+	},
+	{
+		/* Source-sync -> Splitter_1x2, 1ch */
+		.name = __S("lk_srcsync_split_1x2"),
+		.source_name = __S("op_srcsync"),
+		.sink_name = __S("op_split_alarm_1x2"),
+		.source_pins = { 5 },
 		.sink_pins = { 1 },
 		.channels = 1,
 	},
@@ -309,11 +327,20 @@ static const struct kasdb_link link[] = {
 		.channels = 1,
 	},
 	{
-		/* CVC: SRC -> spliter1x2, 1 ch */
-		.name = __S("lk_src_split1x2_cvc"),
+		/* CVC: SRC -> Source-sync, 1 ch */
+		.name = __S("lk_src_srcsync_cvc"),
 		.source_name = __S("op_src_cvc"),
-		.sink_name = __S("op_split1x2_cvc"),
+		.sink_name = __S("op_srcsync"),
 		.source_pins = { 1 },
+		.sink_pins = { 12 },
+		.channels = 1,
+	},
+	{
+		/* CVC: Source-sync -> spliter1x2, 1 ch */
+		.name = __S("lk_srcsync_split1x2_cvc"),
+		.source_name = __S("op_srcsync"),
+		.sink_name = __S("op_split1x2_cvc"),
+		.source_pins = { 6 },
 		.sink_pins = { 1 },
 		.channels = 1,
 	},

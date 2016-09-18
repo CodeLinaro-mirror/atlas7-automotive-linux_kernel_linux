@@ -93,8 +93,8 @@
 	name " CVC Recv UCID"
 
 #define KCM_CTRLS_SOURCESYNC(name)	\
-	name " Mux Active Stream;"	\
-	name " Mux Trans Samples"
+	name " Srcsync Active Stream;"	\
+	name " Srcsync Trans Samples"
 
 #define KCM_CTRLS_CHMIXER(name)	\
 	name " CH Mixer Gain"
