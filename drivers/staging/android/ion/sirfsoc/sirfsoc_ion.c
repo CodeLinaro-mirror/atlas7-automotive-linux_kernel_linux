@@ -65,6 +65,8 @@ static long sirfsoc_ion_custom_ioctl(struct ion_client *client,
 	default:
 		return -ENOTTY;
 	}
+
+	return 0;
 }
 
 static int sirfsoc_ion_probe(struct platform_device *pdev)
