@@ -270,6 +270,9 @@ int vdsscomp_gralloc_queue(struct vdsscomp_setup_data *d,
 	}
 flush_sync:
 	sync = devm_kzalloc(gdev->pdev, sizeof(*sync), GFP_KERNEL);
+	if (!sync)
+		return -ENOMEM;
+
 	sync->cb_arg = cb_arg;
 	sync->cb_fn = cb_fn;
 	INIT_WORK(&sync->work, vdsscomp_sync_cb);
@@ -549,7 +552,10 @@ static int vdsscomp_probe(struct platform_device *pdev)
 	if (sirfsoc_vdss_is_initialized() == false)
 		return -EPROBE_DEFER;
 
-	cdev = kzalloc(sizeof(*cdev), GFP_KERNEL);
+	cdev = devm_kzalloc(&pdev->dev,
+		sizeof(*cdev), GFP_KERNEL);
+	if (!cdev)
+		return -ENOMEM;
 
 	cdev->dev.minor = MISC_DYNAMIC_MINOR;
 	cdev->dev.name = "vdsscomp";
@@ -559,7 +565,7 @@ static int vdsscomp_probe(struct platform_device *pdev)
 	ret = misc_register(&cdev->dev);
 	if (ret) {
 		pr_err("vdsscomp: failed to register misc device.\n");
-		kfree(cdev);
+		devm_kfree(&pdev->dev, cdev);
 		return ret;
 	}
 
@@ -579,7 +585,7 @@ static int vdsscomp_probe(struct platform_device *pdev)
 	return 0;
 cleanup:
 	misc_deregister(&cdev->dev);
-	kfree(cdev);
+	devm_kfree(&pdev->dev,  cdev);
 	return ret;
 }
 
@@ -589,7 +595,7 @@ static int vdsscomp_remove(struct platform_device *pdev)
 
 	misc_deregister(&cdev->dev);
 	vdsscomp_deinit_flip(cdev);
-	kfree(cdev);
+	devm_kfree(&pdev->dev, cdev);
 	gdev = NULL;
 
 	return 0;
