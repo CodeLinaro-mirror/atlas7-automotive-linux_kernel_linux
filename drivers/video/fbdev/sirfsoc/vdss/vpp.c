@@ -622,7 +622,7 @@ static int __vpp_setup_src(struct vpp_adapter *adapter,
 	u32 reg_ctrl = 0;
 	u32 reg_stride0 = 0, reg_stride1 = 0;
 	u32 reg_thresh;
-	u32 *vpp_coef = NULL, *vpp_offset = NULL;
+	const u32 *vpp_coef = NULL, *vpp_offset = NULL;
 	u32 ctrl_mask = VPP_CTRL_YUV420_FORMAT |
 			VPP_CTRL_ENDIAN_MODE |
 			VPP_CTRL_YUV422_FORMAT_MASK |
