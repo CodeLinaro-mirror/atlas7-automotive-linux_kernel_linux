@@ -160,7 +160,7 @@ static void sirfsoc_set_sleep_mode(u32 mode)
 	sirfsoc_set_wakeup_source();
 }
 #ifdef CONFIG_NOC_LOCK_RTCM
-static u32 sirfsoc_virt_to_phys(u32 addr)
+static u32 sirfsoc_virt_to_phys(const void *addr)
 {
 	int page;
 	u32 ret;
@@ -177,7 +177,8 @@ static void sirfsoc_pm_notity_m3(u32 state)
 #define IPC_M3_OFS 0x10c
 #define IPC_M3_TRIG 1
 #ifdef CONFIG_NOC_LOCK_RTCM
-	restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+	restricted_reg_write(sirfsoc_virt_to_phys(
+		sinfo->retain_base +
 		SIRFSOC_PWRC_SCRATCH_PAD8), state & 0xf);
 #else
 	writel(state & 0xf, sinfo->retain_base +
@@ -216,9 +217,11 @@ int sirfsoc_pre_suspend_power_off(void)
 	wakeup_entry = virt_to_phys(cpu_resume);
 	if (sinfo->ver == PWRC_ATLAS7_VER) {
 #ifdef CONFIG_NOC_LOCK_RTCM
-		restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+		restricted_reg_write(sirfsoc_virt_to_phys(
+			sinfo->retain_base +
 			SIRFSOC_PWRC_SCRATCH_PAD1), wakeup_entry);
-		restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+		restricted_reg_write(sirfsoc_virt_to_phys(
+			sinfo->retain_base +
 			SIRFSOC_PWRC_SCRATCH_PAD8), SIRFSOC_PM_SLEEP);
 #else
 
@@ -251,7 +254,7 @@ ssize_t sirfsoc_boot_stat_proc_read(struct file *file,
 	if (sinfo->ver == PWRC_ATLAS7_VER)
 #ifdef CONFIG_NOC_LOCK_RTCM
 		boot_stat = restricted_reg_read(sirfsoc_virt_to_phys
-			((sinfo->retain_base) +
+			(sinfo->retain_base +
 			SIRFSOC_PWRC_SCRATCH_PAD11));
 #else
 		boot_stat = readl_relaxed(sinfo->retain_base
@@ -296,7 +299,8 @@ ssize_t sirfsoc_boot_stat_proc_write(struct file *file,
 
 	if (sinfo->ver == PWRC_ATLAS7_VER)
 #ifdef CONFIG_NOC_LOCK_RTCM
-		restricted_reg_write(sirfsoc_virt_to_phys((sinfo->retain_base) +
+		restricted_reg_write(sirfsoc_virt_to_phys(
+			sinfo->retain_base +
 			SIRFSOC_PWRC_SCRATCH_PAD11), boot_stat);
 #else
 		writel_relaxed(boot_stat,
@@ -406,18 +410,18 @@ void sirfsoc_atlas7_restart(enum reboot_mode mode, const char *cmd)
 	if ((cmd != NULL) && !strncmp(cmd, "recovery", 8))
 #ifdef CONFIG_NOC_LOCK_RTCM
 		restricted_reg_write((sirfsoc_virt_to_phys
-				((sinfo->retain_base) +
+				(sinfo->retain_base +
 				SIRFSOC_PWRC_SCRATCH_PAD11)),
 			restricted_reg_read(sirfsoc_virt_to_phys
-				((sinfo->retain_base) +
+				(sinfo->retain_base +
 				SIRFSOC_PWRC_SCRATCH_PAD11)) | RECOVERY_MODE);
 
 		ipc = restricted_reg_read(sirfsoc_virt_to_phys
-			((sinfo->retain_base) +
+			(sinfo->retain_base +
 			SIRFSOC_PWRC_SCRATCH_PAD8));
 		if (ipc == M3_IN_HOLD)
 			restricted_reg_write(sirfsoc_virt_to_phys
-				((sinfo->retain_base) +
+				(sinfo->retain_base +
 				SIRFSOC_PWRC_SCRATCH_PAD8), 0);
 #else
 
