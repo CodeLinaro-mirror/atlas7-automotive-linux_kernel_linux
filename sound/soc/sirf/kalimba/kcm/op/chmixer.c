@@ -121,7 +121,7 @@ static int chmixer_init(struct kasobj_op *op)
 	struct snd_kcontrol_new *ctrl;
 	char names_buf[256], name_tmp[52], *names = names_buf, *name;
 	int ctrl_idx = 0; /* control interface index */
-	int io_num, gain_num, in, out, len, idx, max, def_gain;
+	int io_num, gain_num, in, out, len, idx, max;
 
 	op->context = ctx;
 	/* 0x00XY -> X: input channel num, Y: output channel num */
@@ -130,7 +130,7 @@ static int chmixer_init(struct kasobj_op *op)
 	ctx->input_ch = (io_num >> 4) & 0x000f;
 	if (ctx->input_ch < 1 || ctx->output_ch < 1) {
 		pr_err("KASOP(%s): invalid input(%d)/output(%d) channels !\n",
-			op->obj.name);
+			op->obj.name, ctx->input_ch, ctx->output_ch);
 		return -EINVAL;
 	}
 	gain_num = ctx->input_ch * ctx->output_ch;
