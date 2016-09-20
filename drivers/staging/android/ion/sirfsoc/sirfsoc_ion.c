@@ -57,6 +57,8 @@ static long sirfsoc_ion_custom_ioctl(struct ion_client *client,
 		if (ret)
 			return ret;
 
+		ion_free(client, handle);
+
 		if (copy_to_user((void __user *)arg, &data,
 			sizeof(struct ion_custom_data_phys)))
 			return -EFAULT;
