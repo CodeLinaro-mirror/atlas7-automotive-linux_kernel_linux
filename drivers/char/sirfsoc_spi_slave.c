@@ -450,7 +450,7 @@ static int sirfsoc_spi_slave_setup(struct sirfsoc_spi_slave *spi_slave)
 	bits_per_word = spi_slave->bits_per_word;
 	hz = spi_slave->max_speed_hz;
 	regval = (spi_slave->ctrl_freq / (2 * hz)) - 1;
-	if (regval > 0xFFFF || regval < 0) {
+	if (regval > 0xFFFF) {
 		pr_err("Speed %d not supported\n", hz);
 		return -EINVAL;
 	}
