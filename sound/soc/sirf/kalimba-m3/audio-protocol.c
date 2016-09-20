@@ -188,14 +188,15 @@ void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 	rpmsg_send(audio_rpdev, msg, 7 * sizeof(u32));
 }
 
-void kas_stop_stream(u32 stream)
+void kas_stop_stream(u32 stream, u32 channels)
 {
-	u32 msg[2];
+	u32 msg[3];
 
 	msg[0] = MSG_STOP_STREAM;
 	msg[1] = stream;
+	msg[2] = channels;
 
-	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
+	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
 }
 
 void kas_ps_region_addr_update(u32 addr)
