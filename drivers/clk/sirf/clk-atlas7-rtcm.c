@@ -241,6 +241,7 @@ static int sirfsoc_rtcmclk_probe(struct platform_device *pdev)
 	info->ver = pwrcinfo->ver;
 
 	if (!info->regmap) {
+		kfree(info);
 		dev_err(&pdev->dev, "no regmap!\n");
 		return -EINVAL;
 	}
