@@ -172,8 +172,8 @@ struct sirf_rproc {
 	void __iomem *clr_reg;
 	struct fifo_buffer w_fifo;
 	struct fifo_buffer r_fifo;
-	u32 w_fifo_hwlock;
-	u32 r_fifo_hwlock;
+	int w_fifo_hwlock;
+	int r_fifo_hwlock;
 	int irq;
 };
 
