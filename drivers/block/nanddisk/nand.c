@@ -650,6 +650,11 @@ static int nd_blk_cmd(struct block_device *bdev,
 		goto out;
 	}
 
+	if (nctl.in_buf_size > NDISK_CMD_BUF_MAX_SIZE) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	in_buf = kzalloc(NDISK_CMD_BUF_MAX_SIZE, GFP_KERNEL);
 	if (!in_buf) {
 		ret = -ENOMEM;
@@ -769,7 +774,7 @@ static int nd_blk_cmd(struct block_device *bdev,
 	}
 
 	/* Copy the status back to the users buffer */
-	if (nctl.out_buf)
+	if (nctl.out_buf && nctl.out_buf_size <= NDISK_CMD_BUF_MAX_SIZE)
 		if (copy_to_user(nctl.out_buf, out_buf, nctl.out_buf_size))
 			ret = -EFAULT;
 
