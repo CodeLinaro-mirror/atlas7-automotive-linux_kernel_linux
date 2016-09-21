@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/sysfs.h>
 #include <linux/clk.h>
+#include <linux/slab.h>
 
 #include "noc.h"
 
@@ -154,19 +155,24 @@ static ssize_t qos_store(struct device *dev,
 	struct noc_macro *nocm = (struct noc_macro *)dev_get_drvdata(dev);
 	struct noc_qos_t *entry;
 	struct noc_qos_t params;
-	char name[32];
+	char *name;
 	u32 i;
 
 	memset(&params, 0, sizeof(params));
-	memset(name, 0, sizeof(name));
 
-	if (sscanf(buf, "%s %d %d %x %x\n",
+	name = kzalloc(len + 1, GFP_KERNEL);
+	if (!name)
+		return -ENOMEM;
+
+	if (sscanf(buf, "%s %u %u %x %x\n",
 		name,
 		&params.mode,
 		&params.bw,
 		&params.priority,
-		&params.saturation) != 5)
+		&params.saturation) != 5) {
+		kfree(name);
 		return -EINVAL;
+	}
 
 	for (i = 0; i < nocm->qos_size; i++) {
 		entry = nocm->qos_tbl + i;
@@ -174,8 +180,10 @@ static ssize_t qos_store(struct device *dev,
 			break;
 	}
 
-	if (i >= nocm->qos_size || entry == NULL)
+	if (i >= nocm->qos_size || entry == NULL) {
+		kfree(name);
 		return -EINVAL;
+	}
 	entry->mode = params.mode;
 	entry->bw = params.bw;
 	entry->mode = params.mode;
@@ -183,6 +191,8 @@ static ssize_t qos_store(struct device *dev,
 	entry->saturation = params.saturation;
 
 	qos_generator_set(entry, nocm);
+
+	kfree(name);
 
 	return len;
 }

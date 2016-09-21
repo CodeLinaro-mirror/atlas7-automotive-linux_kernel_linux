@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/sysfs.h>
 #include <linux/clk.h>
+#include <linux/slab.h>
 #include <asm/div64.h>
 #include "noc.h"
 #include "trace.h"
@@ -345,11 +346,16 @@ static ssize_t probe_store(struct device *dev,
 	struct noc_macro *nocm = (struct noc_macro *)dev_get_drvdata(dev);
 	struct noc_probe_t *entry;
 	int i;
-	char name[32];
+	char *name;
 
-	memset(name, 0, sizeof(name));
-	if (sscanf(buf, "%s\n", name) != 1)
+	name = kzalloc(len + 1, GFP_KERNEL);
+	if (!name)
+		return -ENOMEM;
+
+	if (sscanf(buf, "%s\n", name) != 1) {
+		kfree(name);
 		return -EINVAL;
+	}
 
 	for (i = 0; i < nocm->probe_size; i++) {
 		entry = nocm->probe_tbl + i;
@@ -367,6 +373,7 @@ static ssize_t probe_store(struct device *dev,
 		noc_probe_stop(entry);
 	}
 out:
+	kfree(name);
 	return len;
 }
 
