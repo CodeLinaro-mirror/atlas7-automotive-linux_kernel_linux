@@ -47,6 +47,7 @@
 struct sirfsoc_rtc_drv {
 	struct rtc_device	*rtc;
 	u32			rtc_base;
+	u32			rtc_size;
 	u32			irq;
 	unsigned		irq_wake;
 	spinlock_t		lock;
@@ -304,6 +305,8 @@ static ssize_t sysrtc_store(struct device *dev,
 
 	if (sscanf(buf, "%x %x\n", &offset, &val) != 2)
 		return -EINVAL;
+	if (offset >= rtcdrv->rtc_size)
+		return -EINVAL;
 	sirfsoc_iobg_lock();
 	sirfsoc_rtc_writereg(rtcdrv, offset, val);
 	sirfsoc_iobg_unlock();
@@ -345,6 +348,7 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 	unsigned long rtc_div;
 	struct sirfsoc_rtc_drv *rtcdrv;
 	struct device_node *np = pdev->dev.of_node;
+	u32 subreg_info[2];
 
 	rtcdrv = devm_kzalloc(&pdev->dev,
 		sizeof(struct sirfsoc_rtc_drv), GFP_KERNEL);
@@ -352,11 +356,14 @@ static int sirfsoc_rtc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spin_lock_init(&rtcdrv->lock);
-	err = of_property_read_u32(np, "sub-reg", &rtcdrv->rtc_base);
+	err = of_property_read_u32_array(np, "sub-reg", &subreg_info[0], 2);
 	if (err) {
-		dev_err(&pdev->dev, "unable to find base address of rtc node in dtb\n");
+		dev_err(&pdev->dev, "unable to find sub-reg of rtc node in dtb\n");
 		return err;
 	}
+
+	rtcdrv->rtc_base = subreg_info[0];
+	rtcdrv->rtc_size = subreg_info[1];
 
 	platform_set_drvdata(pdev, rtcdrv);
 	/* Register rtc alarm as a wakeup source */
