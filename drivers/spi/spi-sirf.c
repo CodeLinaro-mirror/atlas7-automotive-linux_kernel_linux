@@ -888,7 +888,7 @@ spi_sirfsoc_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 	hz = t && t->speed_hz ? t->speed_hz : spi->max_speed_hz;
 
 	usp_mode2 = regval = (sspi->ctrl_freq / (2 * hz)) - 1;
-	if (regval > 0xFFFF || regval < 0) {
+	if (regval > 0xFFFF) {
 		dev_err(&spi->dev, "Speed %d not supported\n", hz);
 		return -EINVAL;
 	}
