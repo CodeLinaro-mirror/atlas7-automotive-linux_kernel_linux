@@ -491,7 +491,9 @@ EXPORT_SYMBOL(restricted_reg_write);
 unsigned long sirfsoc_iobg_lock(void)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-
+#ifndef CONFIG_NOC_LOCK_RTCM
+	return 0;
+#else
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
 		if (csrvisor_wrapper_prepare(cw_data))
@@ -506,12 +508,16 @@ unsigned long sirfsoc_iobg_lock(void)
 		return 0;
 
 	return cw_data->return_val;
+#endif
 }
 EXPORT_SYMBOL(sirfsoc_iobg_lock);
 
 void sirfsoc_iobg_unlock(void)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+#ifndef CONFIG_NOC_LOCK_RTCM
+		return;
+#else
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
@@ -524,6 +530,7 @@ void sirfsoc_iobg_unlock(void)
 	cw_data->call_extra = (void *)NULL;
 
 	_csrvisor_fastcall(cw_data);
+#endif
 }
 EXPORT_SYMBOL(sirfsoc_iobg_unlock);
 
@@ -531,7 +538,9 @@ static __init int csrvisor_wrapper_init(void)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 	int ret;
-
+#ifndef CONFIG_NOC_LOCK_RTCM
+	return 0;
+#endif
 	/* register device */
 	ret = misc_register(&cw_data->wrapper_dev);
 	if (ret) {
@@ -563,6 +572,9 @@ module_init(csrvisor_wrapper_init);
 static void __exit csrvisor_wrapper_exit(void)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+#ifndef CONFIG_NOC_LOCK_RTCM
+	return;
+#endif
 #ifdef CONFIG_SMP
 	kthread_stop(cw_data->wrapper_thread);
 #endif
