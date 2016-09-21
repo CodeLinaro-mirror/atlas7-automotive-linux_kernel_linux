@@ -1016,12 +1016,14 @@ static int spi_sirfsoc_setup(struct spi_device *spi)
 			}
 			ret = gpio_is_valid(spi->cs_gpio);
 			if (!ret) {
+				kfree(cs);
 				dev_err(&spi->dev, "no valid gpio\n");
 				ret = -ENOENT;
 				goto exit;
 			}
 			ret = gpio_request(spi->cs_gpio, DRIVER_NAME);
 			if (ret) {
+				kfree(cs);
 				dev_err(&spi->dev, "failed to request gpio\n");
 				goto exit;
 			}
