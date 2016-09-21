@@ -282,6 +282,9 @@ int noc_get_id_by_orig(int orig)
 	int i = 0;
 	int size = ARRAY_SIZE(err_id_maps);
 
+	if (of_machine_is_compatible("sirf,atlas7-b3"))
+		return orig;
+
 	while (i < size) {
 		if (err_id_maps[i].orig == orig)
 			return err_id_maps[i].new;
