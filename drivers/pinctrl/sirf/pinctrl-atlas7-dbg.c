@@ -606,14 +606,17 @@ static ssize_t config_store(struct device *dev,
 	struct atlas7_pmx *pmx = dev_get_drvdata(dev);
 	int opcode, pin, ret;
 	int argc, arg0, sel;
-	char str_arg0[64];
-
+	char *str_arg0;
 
 	argc = sscanf(buf, "%d %d", &opcode, &pin);
 	if (argc <= 0) {
 		pr_info("invalied parameters!\n");
 		return -EINVAL;
 	}
+
+	str_arg0 = kzalloc(len + 1, GFP_KERNEL);
+	if (!str_arg0)
+		return -ENOMEM;
 
 	spin_lock(&s_sysfs_lock);
 
@@ -701,6 +704,7 @@ static ssize_t config_store(struct device *dev,
 
 unlock:
 	spin_unlock(&s_sysfs_lock);
+	kfree(str_arg0);
 
 	if (ret) {
 		dev_err(dev, "Operation Failed, err=%d\n", ret);
@@ -1338,11 +1342,26 @@ static ssize_t vconf_store(struct device *dev,
 			const char *buf, size_t len)
 {
 	struct visbus *vis;
-	char arg0[32], arg1[32], arg2[32];
+	char *arg0, *arg1, *arg2;
 	int ret, argc, arg3 = -1;
 	int opcode = -1, macro = NO_MACRO, block = NO_BLOCK;
 
 	vis = dev_get_drvdata(dev);
+
+	arg0 = kzalloc(len + 1, GFP_KERNEL);
+	if (!arg0)
+		return -ENOMEM;
+	arg1 = kzalloc(len + 1, GFP_KERNEL);
+	if (!arg1) {
+		kfree(arg0);
+		return -ENOMEM;
+	}
+	arg2 = kzalloc(len + 1, GFP_KERNEL);
+	if (!arg2) {
+		kfree(arg1);
+		kfree(arg0);
+		return -ENOMEM;
+	}
 
 	argc = sscanf(buf, "%s %s %s %d", arg0, arg1, arg2, &arg3);
 	spin_lock(&vis->lock);
@@ -1391,6 +1410,9 @@ config_visbus:
 
 failed:
 	spin_unlock(&vis->lock);
+	kfree(arg2);
+	kfree(arg1);
+	kfree(arg0);
 	if (ret)
 		dev_err(dev, "Invalied parameters! Error=%d\n", ret);
 	return len;
