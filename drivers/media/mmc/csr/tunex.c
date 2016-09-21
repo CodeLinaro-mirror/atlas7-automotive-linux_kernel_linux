@@ -209,7 +209,7 @@ tunex_fn1_write(struct csr_radio *radio, unsigned int num,
 			if ((num - 1) / 2 > 0 && i < (num - 1)) {
 				reg_write32 = buf[i + 1];
 				reg_write32 <<= 16;
-				reg_write32 |= buf[i];
+				reg_write32 |= (u32)buf[i];
 				i++;
 				ret = tunex_writel(func, reg_write32);
 			} else
@@ -245,7 +245,7 @@ tunex_config_data_write(struct csr_radio *radio, unsigned int num,
 	for (i = 2; i < num; i += 2) {
 		reg_write32 = buf[i + 1];
 		reg_write32 <<= 16;
-		reg_write32 |= buf[i];
+		reg_write32 |= (u32)buf[i];
 		ret = tunex_writel(func, reg_write32);
 		if (ret)
 			return ret;
@@ -296,7 +296,7 @@ static int tunex_get_params(struct csr_radio *radio,
 		int id, struct tx_message_element *element,
 		int *fn, int *addr)
 {
-	int ret;
+	int ret = 0;
 	struct sdio_func *func = radio->radio_sdio.func;
 
 	switch (TX_MPID(id)) {
@@ -720,6 +720,8 @@ tunex_ioctl_data_control(struct csr_radio *radio,
 	size = TX_MSGSIZE_MEM(count);
 
 	msg = kmalloc(size, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
 
 	if (copy_from_user(msg, (void __user *)data_msg, size)) {
 		ret = -EINVAL;
