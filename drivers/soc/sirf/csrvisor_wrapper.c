@@ -406,13 +406,6 @@ static int csrvisor_wrapper_prepare(struct csrvisor_wrapper *cw_data)
 		goto __err_exit_put_clk;
 	}
 
-	ret = dma_set_coherent_mask(cw_data->wrapper_dev.this_device,
-				DMA_BIT_MASK(32));
-	if (ret) {
-		pr_err("failed to set dma coherent mask:%d\n", ret);
-		goto __err_exit_disable_clk;
-	}
-
 #ifdef CONFIG_SMP
 	cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
 	init_waitqueue_head(&cw_data->wqueue);
@@ -552,6 +545,13 @@ static __init int csrvisor_wrapper_init(void)
 	ret = csrvisor_wrapper_prepare(cw_data);
 	if (ret) {
 		pr_err("prepare wrapper failed.\n");
+		goto __err_exit_deregister;
+	}
+
+	ret = dma_set_coherent_mask(cw_data->wrapper_dev.this_device,
+				DMA_BIT_MASK(32));
+	if (ret) {
+		pr_err("failed to set dma coherent mask:%d\n", ret);
 		goto __err_exit_deregister;
 	}
 
