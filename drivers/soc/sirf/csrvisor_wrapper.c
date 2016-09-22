@@ -490,10 +490,11 @@ EXPORT_SYMBOL(restricted_reg_write);
 
 unsigned long sirfsoc_iobg_lock(void)
 {
-	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 #ifndef CONFIG_NOC_LOCK_RTCM
 	return 0;
 #else
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
 		if (csrvisor_wrapper_prepare(cw_data))
@@ -514,10 +515,10 @@ EXPORT_SYMBOL(sirfsoc_iobg_lock);
 
 void sirfsoc_iobg_unlock(void)
 {
-	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 #ifndef CONFIG_NOC_LOCK_RTCM
 		return;
 #else
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
