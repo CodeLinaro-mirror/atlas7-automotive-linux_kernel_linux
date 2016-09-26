@@ -103,47 +103,47 @@ static void ramfw_config_cpu(struct dramfw_regs_t *dfwregs, int cpu,
 		noc_write_reg(DFW_CPU_VAL, &dfwregs->prot_val_clr);
 }
 
-#define ddrm_SecureState_ReadSet0    0x1050
-#define ddrm_SecureState_ReadClr0    0x1054
+#define ddrm_SecureState_WriteSet0   0x1050
+#define ddrm_SecureState_WriteClr0   0x1054
 
-#define ddrm_SecureState_ReadSet1    0x105C
-#define ddrm_SecureState_ReadClr1    0x1060
+#define ddrm_SecureState_WriteSet1   0x105C
+#define ddrm_SecureState_WriteClr1   0x1060
 
-#define ddrm_SecureState_ReadSet2    0x1068
-#define ddrm_SecureState_ReadClr2    0x106C
+#define ddrm_SecureState_WriteSet2   0x1068
+#define ddrm_SecureState_WriteClr2   0x106C
 
-#define ddrm_SecureState_ReadSet3    0x1074
-#define ddrm_SecureState_ReadClr3    0x1078
+#define ddrm_SecureState_WriteSet3   0x1074
+#define ddrm_SecureState_WriteClr3   0x1078
 
+#define ddrm_SecureState_ReadSet0    0x1080
+#define ddrm_SecureState_ReadClr0    0x1084
 
-#define ddrm_SecureState_WriteSet0    0x1080
-#define ddrm_SecureState_WriteClr0    0x1084
+#define ddrm_SecureState_ReadSet1    0x108C
+#define ddrm_SecureState_ReadClr1    0x1090
 
-#define ddrm_SecureState_WriteSet1    0x108C
-#define ddrm_SecureState_WriteClr1    0x1090
+#define ddrm_SecureState_ReadSet2    0x1098
+#define ddrm_SecureState_ReadClr2    0x109C
 
-#define ddrm_SecureState_WriteSet2    0x1098
-#define ddrm_SecureState_WriteClr2    0x109C
+#define ddrm_SecureState_ReadSet3    0x10A4
+#define ddrm_SecureState_ReadClr3    0x10A8
 
-#define ddrm_SecureState_WriteSet3    0x10A4
-#define ddrm_SecureState_WriteClr3    0x10A8
 
 struct ramfw_noncpu_state_t {
-	u32 readset;
-	u32 readclr;
 	u32 writeset;
 	u32 writeclr;
+	u32 readset;
+	u32 readclr;
 };
 
 static struct ramfw_noncpu_state_t ramfw_noncpu_state_list[] = {
-	{ddrm_SecureState_ReadSet0, ddrm_SecureState_ReadClr0,
-		ddrm_SecureState_WriteSet0, ddrm_SecureState_WriteClr0},
-	{ddrm_SecureState_ReadSet1, ddrm_SecureState_ReadClr1,
-		ddrm_SecureState_WriteSet1, ddrm_SecureState_WriteClr1},
-	{ddrm_SecureState_ReadSet2, ddrm_SecureState_ReadClr2,
-		ddrm_SecureState_WriteSet2, ddrm_SecureState_WriteClr2},
-	{ddrm_SecureState_ReadSet3, ddrm_SecureState_ReadClr3,
-		ddrm_SecureState_WriteSet3, ddrm_SecureState_WriteClr3}
+	{ddrm_SecureState_WriteSet0, ddrm_SecureState_WriteClr0,
+		ddrm_SecureState_ReadSet0, ddrm_SecureState_ReadClr0},
+	{ddrm_SecureState_WriteSet1, ddrm_SecureState_WriteClr1,
+		ddrm_SecureState_ReadSet1, ddrm_SecureState_ReadClr1},
+	{ddrm_SecureState_WriteSet2, ddrm_SecureState_WriteClr2,
+		ddrm_SecureState_ReadSet2, ddrm_SecureState_ReadClr2},
+	{ddrm_SecureState_WriteSet3, ddrm_SecureState_WriteClr3,
+		ddrm_SecureState_ReadSet3, ddrm_SecureState_ReadClr3}
 };
 
 static void ramfw_config_noncpu_access(struct dramfw_regs_t *
