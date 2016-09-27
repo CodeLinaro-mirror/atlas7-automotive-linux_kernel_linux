@@ -332,7 +332,7 @@ err_alloc:
 }
 
 #ifndef MODULE
-static void __init pwm_backlight_probe_async(void *async_data,
+static void pwm_backlight_probe_async(void *async_data,
 	async_cookie_t cookie)
 {
 	struct platform_device *pdev = async_data;
