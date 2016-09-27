@@ -28,6 +28,7 @@
 #include <linux/clk.h>
 #include <linux/hw_random.h>
 #include <asm/cacheflush.h>
+#include <linux/rtc/sirfsoc_rtciobrg.h>
 
 #define CSRVISOR_CPU	0
 
@@ -406,33 +407,9 @@ static int csrvisor_wrapper_prepare(struct csrvisor_wrapper *cw_data)
 		goto __err_exit_put_clk;
 	}
 
-#ifdef CONFIG_SMP
-	cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
-	init_waitqueue_head(&cw_data->wqueue);
-	mutex_init(&cw_data->call_mutex);
-	atomic_set(&cw_data->count, 0);
-
-	/* working thread */
-	cw_data->wrapper_thread = kthread_create(
-					csrvisor_wrapper_thread,
-					cw_data,
-					"csrvisor_wrapper_thread");
-	if (IS_ERR(cw_data->wrapper_thread)) {
-		pr_err("failed to create csrvisor_wrapper_thread\n");
-		ret = PTR_ERR(cw_data->wrapper_thread);
-		goto __err_exit_disable_clk;
-	}
-
-	/* bind to cpu 0 */
-	kthread_bind(cw_data->wrapper_thread, CSRVISOR_CPU);
-	wake_up_process(cw_data->wrapper_thread);
-#endif
-
 	cw_data->csrvisor_ready = 1;
 	return 0;
 
-__err_exit_disable_clk:
-	clk_disable_unprepare(cw_data->sec_clk);
 __err_exit_put_clk:
 	clk_put(cw_data->sec_clk);
 
@@ -552,9 +529,30 @@ static __init int csrvisor_wrapper_init(void)
 				DMA_BIT_MASK(32));
 	if (ret) {
 		pr_err("failed to set dma coherent mask:%d\n", ret);
-		goto __err_exit_deregister;
+		goto __err_exit_disable_clk;
 	}
 
+#ifdef CONFIG_SMP
+	cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
+	init_waitqueue_head(&cw_data->wqueue);
+	mutex_init(&cw_data->call_mutex);
+	atomic_set(&cw_data->count, 0);
+
+	/* working thread */
+	cw_data->wrapper_thread = kthread_create(
+					csrvisor_wrapper_thread,
+					cw_data,
+					"csrvisor_wrapper_thread");
+	if (IS_ERR(cw_data->wrapper_thread)) {
+		pr_err("failed to create csrvisor_wrapper_thread\n");
+		ret = PTR_ERR(cw_data->wrapper_thread);
+		goto __err_exit_disable_clk;
+	}
+
+	/* bind to cpu 0 */
+	kthread_bind(cw_data->wrapper_thread, CSRVISOR_CPU);
+	wake_up_process(cw_data->wrapper_thread);
+#endif
 	device_create_file(cw_data->wrapper_dev.this_device,
 		&dev_attr_chip_uid);
 
@@ -564,6 +562,9 @@ static __init int csrvisor_wrapper_init(void)
 #endif
 	return 0;
 
+__err_exit_disable_clk:
+	clk_disable_unprepare(cw_data->sec_clk);
+	clk_put(cw_data->sec_clk);
 __err_exit_deregister:
 	misc_deregister(&cw_data->wrapper_dev);
 	return ret;
