@@ -91,6 +91,7 @@ struct sirfsoc_pwrc_info {
 	struct regmap_irq_chip_data *irq_data;
 	u32 ver;
 	u32 base;
+	u32 size;
 	int irq;
 };
 

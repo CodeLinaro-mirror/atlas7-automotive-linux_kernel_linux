@@ -44,6 +44,7 @@ struct sirfsoc_sysctl_info {
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	u32 ver;
 	u32 base;
+	u32 size;
 	u32 svm;
 	struct regulator *core_reg;
 	void __iomem *retain_base;
@@ -331,6 +332,10 @@ static ssize_t pwrc_store(struct device *dev,
 
 	if (sscanf(buf, "%x %x\n", &offset, &val) != 2)
 		return -EINVAL;
+
+	if (offset >= info->size)
+		return -EINVAL;
+
 	sirfsoc_iobg_lock();
 	regmap_write(info->regmap, info->base + offset, val);
 	sirfsoc_iobg_unlock();
@@ -609,6 +614,7 @@ static int sirfsoc_sysctl_probe(struct platform_device *pdev)
 	info->pwrc_reg = pwrcinfo->pwrc_reg;
 	info->regmap  = pwrcinfo->regmap;
 	info->base  = pwrcinfo->base;
+	info->size = pwrcinfo->size;
 	info->ver  = pwrcinfo->ver;
 
 	if (!info->regmap) {

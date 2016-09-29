@@ -162,16 +162,17 @@ static int sirfsoc_pwrc_probe(struct platform_device *pdev)
 	struct sirfsoc_pwrc_register *pwrc_reg;
 	struct regmap *map;
 	int ret;
-	u32 base;
+	u32 subreg_info[2];
 
-	if (of_property_read_u32(np, "sub-reg", &base))
-		panic("unable to find base address of pwrc node in dtb\n");
+	if (of_property_read_u32_array(np, "sub-reg", &subreg_info[0], 2))
+		panic("unable to find sub-reg of pwrc node in dtb\n");
 
 	pwrcinfo = devm_kzalloc(&pdev->dev,
 			sizeof(struct sirfsoc_pwrc_info), GFP_KERNEL);
 	if (!pwrcinfo)
 		return -ENOMEM;
-	pwrcinfo->base = base;
+	pwrcinfo->base = subreg_info[0];
+	pwrcinfo->size = subreg_info[1];
 
 	/*
 	 * pwrc behind rtciobrg offset is diff between prima2 and atlas7
