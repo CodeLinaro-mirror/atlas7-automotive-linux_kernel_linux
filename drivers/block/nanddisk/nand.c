@@ -39,6 +39,7 @@
 #include <linux/sirfsoc_dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/nanddisk/ioctl.h>
+#include <linux/delay.h>
 
 #include "nanddisk.h"
 
@@ -253,6 +254,9 @@ static void nanddisk_ist(unsigned long data)
 static int nanddisk_wearlevel_thread(void *arg)
 {
 	unsigned async_status;
+
+	/* delay 5s for short boot time */
+	ssleep(5);
 
 	set_user_nice(current, 19);
 	do {
