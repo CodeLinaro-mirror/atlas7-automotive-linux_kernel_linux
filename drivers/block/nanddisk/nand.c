@@ -692,6 +692,10 @@ static int nd_blk_cmd(struct block_device *bdev,
 	/* physical read/write */
 	if (NDISK_CMD_P_IO(nctl.op)) {
 		/* backup usr_p_io */
+		if (nctl.in_buf_size > sizeof(usr_p_io)) {
+			ret = -EINVAL;
+			goto wt_data_err;
+		}
 		memcpy(&usr_p_io, in_buf, nctl.in_buf_size);
 		fw_p_io = (struct NANDDBG_IO *)in_buf;
 
@@ -727,6 +731,10 @@ static int nd_blk_cmd(struct block_device *bdev,
 	/* logical read/write */
 	if (NDISK_CMD_L_IO(nctl.op)) {
 		/* backup usr_p_io */
+		if (nctl.in_buf_size > sizeof(usr_l_io)) {
+			ret = -EINVAL;
+			goto wt_data_err;
+		}
 		memcpy(&usr_l_io, in_buf, nctl.in_buf_size);
 		fw_l_io = (struct NAND_IO *)in_buf;
 		fw_l_io->sector_buf = data_buf;
