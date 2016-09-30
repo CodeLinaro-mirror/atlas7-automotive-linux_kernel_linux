@@ -34,6 +34,7 @@ static int passthr_init(struct kasobj_op *op)
 {
 	char names_buf[256], *names = names_buf, *name;
 	struct snd_kcontrol_new *ctrl;
+	int ctrl_id = 0;
 
 	if (!op->db->ctrl_names.s)
 		return 0;
@@ -47,15 +48,19 @@ static int passthr_init(struct kasobj_op *op)
 		if (kcm_strcasestr(name, "Pregain")) {
 			/* Volume control */
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, MAXV,
-					vol_tlv, 0);
+					vol_tlv, ctrl_id);
 			kcm_register_ctrl(ctrl);
+			ctrl_id++;
 		} else if (kcm_strcasestr(name, "Premute")) {
 			/* Mute control */
-			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1, NULL, 0);
+			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1,
+					NULL, ctrl_id);
 			kcm_register_ctrl(ctrl);
+			ctrl_id++;
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 				       op->obj.name, name);
+			return -EINVAL;
 		}
 	}
 

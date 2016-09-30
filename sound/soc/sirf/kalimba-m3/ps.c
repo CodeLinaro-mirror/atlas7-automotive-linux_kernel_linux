@@ -35,7 +35,7 @@ struct ps_entry {
 
 struct ps_entry ps_area[] = {
 	{
-		.file_name = "/etc/kalimba/kymera_a7da_PS.dat",
+		.file_name = "/var/lib/kalimba/kymera_a7da_PS.dat",
 		.kbuf = NULL,
 		.phy_addr = 0,
 	}
@@ -139,7 +139,7 @@ static void ps_waitfs_work(struct work_struct *work)
 	int i;
 
 	/* Check if the file is there */
-	cfile = filp_open("/etc/kalimba/kymera_a7da_PS.dat", O_RDWR, 0);
+	cfile = filp_open("/var/lib/kalimba/kymera_a7da_PS.dat", O_RDWR, 0);
 	if (IS_ERR(cfile)) {
 		schedule_delayed_work(&dwork, msecs_to_jiffies(250));
 	} else {

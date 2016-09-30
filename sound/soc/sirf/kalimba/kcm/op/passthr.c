@@ -114,6 +114,7 @@ static int passthr_init(struct kasobj_op *op)
 	struct passthr_ctx *ctx = kzalloc(sizeof(struct passthr_ctx),
 		GFP_KERNEL);
 	struct snd_kcontrol_new *ctrl;
+	int ctrl_id = 0;
 
 	ctx->gain = MAXV;	/* default 0dB */
 	op->context = ctx;
@@ -130,16 +131,19 @@ static int passthr_init(struct kasobj_op *op)
 		if (kcm_strcasestr(name, "Pregain")) {
 			/* Volume control */
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, MAXV,
-					vol_get, vol_put, vol_tlv, 0);
+					vol_get, vol_put, vol_tlv, ctrl_id);
 			kcm_register_ctrl(ctrl);
+			ctrl_id++;
 		} else if (kcm_strcasestr(name, "Premute")) {
 			/* Mute control */
 			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1,
-					mute_get, mute_put, NULL, 0);
+					mute_get, mute_put, NULL, ctrl_id);
 			kcm_register_ctrl(ctrl);
+			ctrl_id++;
 		} else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 				       op->obj.name, name);
+			return -EINVAL;
 		}
 	}
 
