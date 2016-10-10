@@ -32,12 +32,19 @@ static struct {
 } core;
 
 static bool vdss_initialized;
+static bool vdss_lvds_initialized;
 
 bool sirfsoc_vdss_is_initialized(void)
 {
 	return vdss_initialized;
 }
 EXPORT_SYMBOL(sirfsoc_vdss_is_initialized);
+
+bool sirfsoc_vdss_lvds_is_initialized(void)
+{
+	return vdss_lvds_initialized;
+}
+EXPORT_SYMBOL(sirfsoc_vdss_lvds_is_initialized);
 
 struct platform_device *vdss_get_core_pdev(void)
 {
@@ -205,9 +212,10 @@ static int __init sirfsoc_vdss_init(void)
 
 	ret = lvdsc_init_platform_driver();
 	if (ret) {
-		VDSSERR("Failed to initialize lvdsc platform driver\n");
-		goto err_lvdsc;
-	}
+		VDSSDBG("Failed to initialize lvdsc platform driver\n");
+		vdss_lvds_initialized = false;
+	} else
+		vdss_lvds_initialized = true;
 
 	ret = dcu_init_platform_driver();
 	if (ret) {
@@ -221,8 +229,6 @@ static int __init sirfsoc_vdss_init(void)
 
 err_dcu:
 	lvdsc_uninit_platform_driver();
-
-err_lvdsc:
 	vpp_uninit_platform_driver();
 
 err_vpp:

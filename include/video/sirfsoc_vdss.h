@@ -606,6 +606,7 @@ struct sirfsoc_vdss_driver {
 };
 
 bool sirfsoc_vdss_is_initialized(void);
+bool sirfsoc_vdss_lvds_is_initialized(void);
 struct sirfsoc_vdss_panel *sirfsoc_vdss_get_primary_device(void);
 struct sirfsoc_vdss_panel *sirfsoc_vdss_get_secondary_device(void);
 

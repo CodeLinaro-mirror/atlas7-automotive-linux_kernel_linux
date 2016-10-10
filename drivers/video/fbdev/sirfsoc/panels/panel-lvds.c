@@ -201,6 +201,9 @@ static int panel_lvds_probe(struct platform_device *pdev)
 	struct sirfsoc_vdss_panel *panel;
 	int r;
 
+	if (!sirfsoc_vdss_lvds_is_initialized())
+		return -ENXIO;
+
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (pdata == NULL)
 		return -ENOMEM;
