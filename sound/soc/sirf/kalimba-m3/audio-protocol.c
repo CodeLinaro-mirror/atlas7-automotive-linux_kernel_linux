@@ -76,7 +76,7 @@ u32 *kas_get_m3_op_obj(u8 *op_name, int len)
 	msg[1] = len;
 	memcpy(&msg[2], op_name, len);
 	if (!audio_rpdev) {
-		pr_err("Audio IPC: rpdev 0x%x\n", (u32)audio_rpdev);
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return NULL;
 	}
 	msg_dsp_rsp = false;
@@ -98,7 +98,7 @@ int kas_ctrl_msg(int put, u32 *op_m3, int ctrl_id, int value_idx,
 	msg[4] = value_idx;
 	msg[5] = value;
 	if (!audio_rpdev) {
-		pr_err("Audio IPC: rpdev 0x%x\n", (u32)audio_rpdev);
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return -EINVAL;
 	}
 	msg_dsp_rsp = false;
@@ -131,6 +131,10 @@ int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp)
 	audio_msg->msg_type = MSG_DSP_COMMAND;
 	audio_msg->size = data_bytes;
 	memcpy(audio_msg->msg, data, data_bytes);
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return -EINVAL;
+	}
 	msg_dsp_rsp = false;
 	rpmsg_send(audio_rpdev, audio_msg,
 		data_bytes + sizeof(struct audio_msg));
@@ -150,7 +154,10 @@ void kas_send_data_produced(u32 stream, u32 pos)
 	msg[0] = MSG_DATA_PRODUCED;
 	msg[1] = stream;
 	msg[2] = pos;
-
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
 }
 
@@ -168,6 +175,10 @@ void kas_send_license_ctrl_resp(u32 resp_len, void *data)
 	msg[0] = MSG_LICENSE_RESP;
 	msg[1] = resp_len / sizeof(u16);
 	memcpy(&msg[2], data, resp_len);
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32) + resp_len);
 	kfree(msg);
 }
@@ -184,7 +195,10 @@ void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 	msg[4] = buff_addr;
 	msg[5] = buff_size;
 	msg[6] = period_size;
-
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, msg, 7 * sizeof(u32));
 }
 
@@ -195,7 +209,10 @@ void kas_stop_stream(u32 stream, u32 channels)
 	msg[0] = MSG_STOP_STREAM;
 	msg[1] = stream;
 	msg[2] = channels;
-
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
 }
 
@@ -205,6 +222,10 @@ void kas_ps_region_addr_update(u32 addr)
 
 	msg[0] = MSG_PS_ADDR_SET;
 	msg[1] = addr;
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
 }
 
@@ -216,6 +237,10 @@ static void kas_dram_allocation_req(u32 length)
 	dram_allocation_addr = buff_alloc(NULL, length);
 	msg[0] = MSG_DRAM_ALLOCATION_RESP;
 	msg[1] = dram_allocation_addr;
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
 }
 
@@ -225,6 +250,10 @@ static void kas_dram_free_req(u32 address)
 
 	buff_free(NULL, address);
 	msg = MSG_DRAM_FREE_RESP;
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
 	rpmsg_send(audio_rpdev, &msg, sizeof(u32));
 }
 
@@ -290,6 +319,14 @@ static struct rpmsg_driver rpmsg_audio_client = {
 	.probe = rpmsg_audio_probe,
 	.callback = rpmsg_audio_cb,
 };
+
+int audio_rpmsg_check(void)
+{
+	if (audio_rpdev)
+		return 0;
+	else
+		return -EINVAL;
+}
 
 int audio_protocol_init(void)
 {

@@ -25,5 +25,6 @@ void kas_send_license_ctrl_resp(u32 resp_len, void *data);
 u32 *kas_get_m3_op_obj(u8 *op_name, int len);
 int kas_ctrl_msg(int put, u32 *op_m3, int ctrl_id, int value_idx,
 	u32 value, u32 *rsp);
+int audio_rpmsg_check(void);
 
 #endif

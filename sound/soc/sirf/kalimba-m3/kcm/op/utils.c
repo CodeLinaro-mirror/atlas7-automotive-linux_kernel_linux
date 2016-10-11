@@ -29,11 +29,9 @@ static int op_ctrl_single_get(struct snd_kcontrol *kcontrol,
 	struct kasobj *obj = (struct kasobj *)op;
 	u32 ret;
 
-	if (!(op->op_m3)) {
-		pr_err("KCM ctrl get (%s): invalid M3 OP object !\n",
-			obj->name);
-		return 0;
-	}
+	if (!(op->op_m3))
+		return -EINVAL;
+
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
 	if (ctrl_f[ctrl_idx]) {	/* if ctrl value keep same then return */
@@ -56,11 +54,9 @@ static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
 	struct kasobj *obj = (struct kasobj *)op;
 	int value = ucontrol->value.integer.value[0];
 
-	if (!(op->op_m3)) {
-		pr_err("KCM ctrl put (%s): invalid M3 OP object !\n",
-			obj->name);
-		return 0;
-	}
+	if (!(op->op_m3))
+		return -EINVAL;
+
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, NULL);
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
@@ -105,11 +101,9 @@ static int op_ctrl_double_get(struct snd_kcontrol *kcontrol,
 	struct kasobj *obj = (struct kasobj *)op;
 	u32 ret0, ret1;
 
-	if (!(op->op_m3)) {
-		pr_err("KCM ctrl get (%s): invalid M3 OP object !\n",
-			obj->name);
-		return 0;
-	}
+	if (!(op->op_m3))
+		return -EINVAL;
+
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
 	if (ctrl_f[ctrl_idx] & 0x01) {	/* bit0 is used as modfy flag */
@@ -137,11 +131,9 @@ static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
 	int value0 = ucontrol->value.integer.value[0];
 	int value1 = ucontrol->value.integer.value[1];
 
-	if (!(op->op_m3)) {
-		pr_err("KCM ctrl get (%s): invalid M3 OP object !\n",
-			obj->name);
-		return 0;
-	}
+	if (!(op->op_m3))
+		return -EINVAL;
+
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value0, NULL);
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 1, value1, NULL);
 	ctrl_v = op->ctrl_value;

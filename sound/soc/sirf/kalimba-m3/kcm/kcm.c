@@ -315,7 +315,14 @@ fs_initcall(kcm_init);
 
 static int __init load_op_m3(void)
 {
-	kasobj_register_m3_op();
+	int ret;
+
+	ret = audio_rpmsg_check();
+	if (ret)
+		kcm_debug("KCM: rpmsg dev is invalid!\n");
+	else
+		kasobj_register_m3_op();
+
 	return 0;
 }
 
