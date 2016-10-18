@@ -74,17 +74,23 @@ struct cmd_param {
 	int out_len;		/* in/out - output buffer length*/
 };
 
+struct call_param_type {
+	unsigned long service_id;
+	void *service_param1;
+	void *service_param2;
+};
+
 struct csrvisor_wrapper {
 	struct task_struct *wrapper_thread;
 	unsigned long csrvisor_ready;
 	struct mutex call_mutex;
+	struct mutex blob_mutex;
 	wait_queue_head_t wqueue;
 	int wq_wait_type;
 	unsigned long return_val;
 	atomic_t count;
-	unsigned long service_id;
-	void *call_param;
-	void *call_extra;
+	atomic_t inited;
+	struct call_param_type *xmit_param;
 	struct miscdevice wrapper_dev;
 	struct clk *sec_clk;
 };
@@ -120,9 +126,9 @@ static int csrvisor_wrapper_thread(void *data)
 
 		/* do fastcall */
 		cw_data->return_val =
-			__csrvisor_fastcall(cw_data->service_id,
-					    cw_data->call_param,
-					    cw_data->call_extra);
+			__csrvisor_fastcall(cw_data->xmit_param->service_id,
+				    cw_data->xmit_param->service_param1,
+				    cw_data->xmit_param->service_param2);
 
 		/* wake up reader */
 		cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
@@ -133,7 +139,8 @@ static int csrvisor_wrapper_thread(void *data)
 }
 #endif
 
-static int _csrvisor_fastcall(struct csrvisor_wrapper *cw_data)
+static int _csrvisor_fastcall(struct csrvisor_wrapper *cw_data,
+			      struct call_param_type *p_call_param)
 {
 #ifdef CONFIG_SMP
 	/*
@@ -141,17 +148,26 @@ static int _csrvisor_fastcall(struct csrvisor_wrapper *cw_data)
 	* caller on CPU1 and preempt is enabled (checking preempt
 	* count); otherwise just fallthrough and do fastcall directly.
 	*/
-	if ((smp_processor_id() != CSRVISOR_CPU) && (preempt_count() == 0)) {
+	if ((smp_processor_id() != CSRVISOR_CPU) &&
+	    (preempt_count() == 0) &&
+	    atomic_read(&cw_data->inited) == 1) {
+		int ret;
+		/* protect and copy data into queue (1 item depth) */
+		mutex_lock(&cw_data->blob_mutex);
+		cw_data->xmit_param = p_call_param;
 		cw_data->wq_wait_type = CSRVISOR_WAIT_REQ;
 		wake_up(&cw_data->wqueue);
-		return wait_event_interruptible(cw_data->wqueue,
+		ret = wait_event_interruptible(cw_data->wqueue,
 			cw_data->wq_wait_type == CSRVISOR_WAIT_RES);
+		mutex_unlock(&cw_data->blob_mutex);
+		return ret;
 	}
 #endif
+	/* called directly; usning local p_call_param */
 	cw_data->return_val =
-		__csrvisor_fastcall(cw_data->service_id,
-				    cw_data->call_param,
-				    cw_data->call_extra);
+		__csrvisor_fastcall(p_call_param->service_id,
+				    p_call_param->service_param1,
+				    p_call_param->service_param2);
 
 	return 0;
 }
@@ -185,6 +201,7 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 	size_t param_size, offset;
 	struct cmd_param *xfer_param;
 	struct device *dev;
+	struct call_param_type call_param;
 	dma_addr_t dma_addr;
 
 	dev = cw_data->wrapper_dev.this_device;
@@ -252,12 +269,12 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 	}
 
 	/* csrvisor handles DMA addr */
-	cw_data->service_id = CVID_FASTCALL_SERVICE;
-	cw_data->call_param = (void *)dma_addr;
-	cw_data->call_extra = NULL;
+	call_param.service_id = CVID_FASTCALL_SERVICE;
+	call_param.service_param1 = (void *)dma_addr;
+	call_param.service_param2 = NULL;
 
 	/* push to csrviosr */
-	ret = _csrvisor_fastcall(cw_data);
+	ret = _csrvisor_fastcall(cw_data, &call_param);
 
 	/* update returned status */
 	src_param->status = xfer_param->status;
@@ -286,7 +303,6 @@ static int csrvisor_fastcall(struct cmd_param *src_param, int from_user,
 
 __free_and_exit:
 	dma_free_coherent(dev, param_size, xfer_param, dma_addr);
-	cw_data->call_param = NULL;
 __unlock_and_exit:
 	mutex_unlock(&cw_data->call_mutex);
 	return ret;
@@ -419,6 +435,7 @@ __err_exit_put_clk:
 unsigned long restricted_reg_read(unsigned long addr)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	struct call_param_type local_call_param;
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
@@ -426,11 +443,11 @@ unsigned long restricted_reg_read(unsigned long addr)
 			return 0;
 
 	/* read operation takes two parameters */
-	cw_data->service_id = CVID_FASTCALL_READREG;
-	cw_data->call_param = (void *)addr;
-	cw_data->call_extra = (void *)NULL;
+	local_call_param.service_id = CVID_FASTCALL_READREG;
+	local_call_param.service_param1 = (void *)addr;
+	local_call_param.service_param2 = (void *)NULL;
 
-	if (_csrvisor_fastcall(cw_data))
+	if (_csrvisor_fastcall(cw_data, &local_call_param))
 		return 0;
 
 	return cw_data->return_val;
@@ -440,6 +457,7 @@ EXPORT_SYMBOL(restricted_reg_read);
 unsigned long restricted_reg_write(unsigned long addr, unsigned long data)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	struct call_param_type local_call_param;
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
@@ -447,11 +465,11 @@ unsigned long restricted_reg_write(unsigned long addr, unsigned long data)
 			return 0;
 
 	/* read operation takes two parameters */
-	cw_data->service_id = CVID_FASTCALL_WRITEREG;
-	cw_data->call_param = (void *)addr;
-	cw_data->call_extra = (void *)data;
+	local_call_param.service_id = CVID_FASTCALL_WRITEREG;
+	local_call_param.service_param1 = (void *)addr;
+	local_call_param.service_param2 = (void *)data;
 
-	if (_csrvisor_fastcall(cw_data))
+	if (_csrvisor_fastcall(cw_data, &local_call_param))
 		return 0;
 
 	return cw_data->return_val;
@@ -464,6 +482,7 @@ unsigned long sirfsoc_iobg_lock(void)
 	return 0;
 #else
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	struct call_param_type local_call_param;
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
@@ -471,11 +490,11 @@ unsigned long sirfsoc_iobg_lock(void)
 			return 0;
 
 	/* lock operation ignores parameters */
-	cw_data->service_id = CVID_FASTCALL_HWSPIN_LOCK;
-	cw_data->call_param = (void *)NULL;
-	cw_data->call_extra = (void *)NULL;
+	local_call_param.service_id = CVID_FASTCALL_HWSPIN_LOCK;
+	local_call_param.service_param1 = (void *)NULL;
+	local_call_param.service_param2 = (void *)NULL;
 
-	if (_csrvisor_fastcall(cw_data))
+	if (_csrvisor_fastcall(cw_data, &local_call_param))
 		return 0;
 
 	return cw_data->return_val;
@@ -489,6 +508,7 @@ void sirfsoc_iobg_unlock(void)
 		return;
 #else
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+	struct call_param_type local_call_param;
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
@@ -496,11 +516,11 @@ void sirfsoc_iobg_unlock(void)
 			return;
 
 	/* unlock operation ignores parameters */
-	cw_data->service_id = CVID_FASTCALL_HWSPIN_UNLOCK;
-	cw_data->call_param = (void *)NULL;
-	cw_data->call_extra = (void *)NULL;
+	local_call_param.service_id = CVID_FASTCALL_HWSPIN_UNLOCK;
+	local_call_param.service_param1 = (void *)NULL;
+	local_call_param.service_param2 = (void *)NULL;
 
-	_csrvisor_fastcall(cw_data);
+	_csrvisor_fastcall(cw_data, &local_call_param);
 #endif
 }
 EXPORT_SYMBOL(sirfsoc_iobg_unlock);
@@ -536,6 +556,7 @@ static __init int csrvisor_wrapper_init(void)
 	cw_data->wq_wait_type = CSRVISOR_WAIT_RES;
 	init_waitqueue_head(&cw_data->wqueue);
 	mutex_init(&cw_data->call_mutex);
+	mutex_init(&cw_data->blob_mutex);
 	atomic_set(&cw_data->count, 0);
 
 	/* working thread */
@@ -560,6 +581,8 @@ static __init int csrvisor_wrapper_init(void)
 	/* register hardware random generator */
 	hwrng_register(&csrvisor_hwrng);
 #endif
+	atomic_set(&cw_data->inited, 1);
+
 	return 0;
 
 __err_exit_disable_clk:
@@ -583,6 +606,8 @@ static void __exit csrvisor_wrapper_exit(void)
 	clk_disable_unprepare(cw_data->sec_clk);
 	clk_put(cw_data->sec_clk);
 	misc_deregister(&cw_data->wrapper_dev);
+
+	atomic_set(&cw_data->inited, 0);
 }
 module_exit(csrvisor_wrapper_exit);
 
