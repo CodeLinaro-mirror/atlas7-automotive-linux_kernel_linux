@@ -312,18 +312,3 @@ static int __init kcm_init(void)
 
 /* Must be earlier than ALSA drivers */
 fs_initcall(kcm_init);
-
-static int __init load_op_m3(void)
-{
-	int ret;
-
-	ret = audio_rpmsg_check();
-	if (ret)
-		kcm_debug("KCM: rpmsg dev is invalid!\n");
-	else
-		kasobj_register_m3_op();
-
-	return 0;
-}
-
-late_initcall(load_op_m3);

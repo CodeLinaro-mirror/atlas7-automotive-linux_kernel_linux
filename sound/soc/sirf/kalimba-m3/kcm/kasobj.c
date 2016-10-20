@@ -140,8 +140,18 @@ int kasobj_register_m3_op(void)
 {
 	struct kasobj *obj;
 	struct kasobj_op *op;
+	static bool reg_flag;
+	int ret;
 	u32 *op_m3;
 
+	if (reg_flag)
+		return 0;
+
+	ret = audio_rpmsg_check();
+	if (ret) {
+		kcm_debug("KCM: rpmsg dev is invalid!\n");
+		return -EINVAL;
+	}
 	list_for_each_entry(obj, &op_list, link) {
 		op = kasobj_to_op(obj);
 		if (!op->db->ctrl_names.s)
@@ -153,6 +163,7 @@ int kasobj_register_m3_op(void)
 		}
 		op->op_m3 = op_m3;
 	}
+	reg_flag = true;
 
 	return 0;
 }

@@ -29,6 +29,7 @@ static int op_ctrl_single_get(struct snd_kcontrol *kcontrol,
 	struct kasobj *obj = (struct kasobj *)op;
 	u32 ret;
 
+	kasobj_register_m3_op();
 	if (!(op->op_m3))
 		return -EINVAL;
 
@@ -54,6 +55,7 @@ static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
 	struct kasobj *obj = (struct kasobj *)op;
 	int value = ucontrol->value.integer.value[0];
 
+	kasobj_register_m3_op();
 	if (!(op->op_m3))
 		return -EINVAL;
 
@@ -104,6 +106,7 @@ static int op_ctrl_double_get(struct snd_kcontrol *kcontrol,
 	struct kasobj *obj = (struct kasobj *)op;
 	u32 ret0, ret1;
 
+	kasobj_register_m3_op();
 	if (!(op->op_m3))
 		return -EINVAL;
 
@@ -134,6 +137,7 @@ static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
 	int value0 = ucontrol->value.integer.value[0];
 	int value1 = ucontrol->value.integer.value[1];
 
+	kasobj_register_m3_op();
 	if (!(op->op_m3))
 		return -EINVAL;
 
