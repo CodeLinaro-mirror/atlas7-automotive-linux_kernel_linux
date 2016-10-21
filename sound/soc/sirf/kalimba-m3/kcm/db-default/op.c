@@ -222,13 +222,17 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
-		/* Mixer3: A2DP, (Linein, I2Sin), Music */
-		.name = __S("op_mixer3"),
+		/* Source sync: 1-Music, 2-Linein, 3-A2DP, 4-I2Sin, 5-Navigation
+		 *		6-Alarm, 7-cVc recv
+		 */
+		.name = __S("op_srcsync"),
 		.ctrl_base = __S(NULL),
-		.ctrl_names = __S(NULL),
-		.cap_id = CAPABILITY_ID_MIXER,
+		.ctrl_names = __S(KCM_CTRLS_SOURCESYNC("Multimedia")),
+		.cap_id = CAPABILITY_ID_SOURCE_SYNC,
 		.rate = 48000,
-		.param.mixer_streams = 0x222,
+		.param.srcsync_cfg.stream_ch = { 2, 2, 2, 2, 2, 1, 1 , 0, },
+		.param.srcsync_cfg.input_map = { 1, 2, 1, 2, 1, 2, 1, 2,
+						 3, 4, 5, 6, 0 },
 	},
 	{
 		/* Radio resampler */

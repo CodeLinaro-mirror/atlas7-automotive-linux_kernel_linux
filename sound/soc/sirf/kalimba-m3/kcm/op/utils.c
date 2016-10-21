@@ -49,7 +49,7 @@ static int op_ctrl_single_get(struct snd_kcontrol *kcontrol,
 static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int ctrl_idx, *ctrl_v, *ctrl_f;
+	int ctrl_idx, ret, *ctrl_v, *ctrl_f;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	struct kasobj *obj = (struct kasobj *)op;
 	int value = ucontrol->value.integer.value[0];
@@ -57,7 +57,10 @@ static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
 	if (!(op->op_m3))
 		return -EINVAL;
 
-	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, NULL);
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, &ret);
+	if (ret)
+		return -EINVAL;
+
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
 	ctrl_v[ctrl_idx] = value;
@@ -125,7 +128,7 @@ static int op_ctrl_double_get(struct snd_kcontrol *kcontrol,
 static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	int ctrl_idx, *ctrl_v, *ctrl_f;
+	int ctrl_idx, ret, *ctrl_v, *ctrl_f;
 	struct kasobj_op *op = kasobj_ctrl_get_op(kcontrol, &ctrl_idx);
 	struct kasobj *obj = (struct kasobj *)op;
 	int value0 = ucontrol->value.integer.value[0];
@@ -134,8 +137,13 @@ static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
 	if (!(op->op_m3))
 		return -EINVAL;
 
-	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value0, NULL);
-	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 1, value1, NULL);
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value0, &ret);
+	if (ret)
+		return -EINVAL;
+	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 1, value1, &ret);
+	if (ret)
+		return -EINVAL;
+
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
 	ctrl_v[ctrl_idx] = value0;

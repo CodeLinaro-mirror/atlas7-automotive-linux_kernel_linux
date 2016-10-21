@@ -97,6 +97,7 @@ struct kasdb_fe {
 };
 
 struct kasdb_op {
+#define KASDB_SRCSYNC_CH_MAX	24
 	union kasdb_str name;
 	union kasdb_str ctrl_base;	/* Base control name */
 	union kasdb_str ctrl_names;	/* Control names, separated by ":" */
@@ -108,6 +109,12 @@ struct kasdb_op {
 		int mixer_streams;	/* 2, 3 */
 		int delay_channels;
 		int bass_pair_idx;	/* 0: default use, 1~11: user use*/
+		struct {
+			/* number of channels for each stream */
+			char stream_ch[KASDB_SRCSYNC_CH_MAX];
+			/* the output pin will be connected to each input pin */
+			char input_map[KASDB_SRCSYNC_CH_MAX];
+		} srcsync_cfg;
 	} param;	/* Operator specific parameter */
 };
 

@@ -92,4 +92,8 @@
 	name " CVC Recv Mode;"	\
 	name " CVC Recv UCID"
 
+#define KCM_CTRLS_SOURCESYNC(name)	\
+	name " Srcsync Active Stream;"	\
+	name " Srcsync Trans Samples"
+
 #endif /* OP_CTRLS_H */

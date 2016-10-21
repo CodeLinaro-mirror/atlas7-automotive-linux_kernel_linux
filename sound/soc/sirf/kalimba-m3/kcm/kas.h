@@ -35,6 +35,7 @@
 #define CAPABILITY_ID_PEQ			0x0049
 #define CAPABILITY_ID_DBE_FULLBAND_IN_OUT	0x0090
 #define CAPABILITY_ID_DBE_FULLBAND_IN		0x0091
+#define CAPABILITY_ID_SOURCE_SYNC		0x0099
 
 /*
  * These dummy capability is used to register operator operations.
