@@ -1643,6 +1643,10 @@ static void __init atlas7_clk_init(struct device_node *np)
 				!strcmp(unit->unit_name, "ccsec_sec") ||
 				!strcmp(unit->unit_name, "sys2pci_io") ||
 				!strcmp(unit->unit_name, "kas_kas") ||
+				!strcmp(unit->unit_name, "usp0_kas") ||
+				!strcmp(unit->unit_name, "usp1_kas") ||
+				!strcmp(unit->unit_name, "usp2_kas") ||
+				!strcmp(unit->unit_name, "usp3_kas") ||
 				!strcmp(unit->unit_name, "audmscm_nocd") ||
 				!strcmp(unit->unit_name, "gpum_nocd") ||
 				!strcmp(unit->unit_name, "dmac2_kas") ||
