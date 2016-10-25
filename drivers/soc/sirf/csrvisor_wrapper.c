@@ -93,7 +93,8 @@ struct csrvisor_wrapper {
 	struct call_param_type *xmit_param;
 	struct miscdevice wrapper_dev;
 	struct clk *sec_clk;
-	spinlock_t lock;
+	spinlock_t seq_lock;	/* secure register accessing sequence lock */
+	spinlock_t pre_lock;	/* csrvisor_wrapper_prepare() call lock */
 	unsigned long irq_flags;
 };
 
@@ -341,10 +342,12 @@ static const struct file_operations csrviosr_wrapper_fops = {
 };
 
 static struct csrvisor_wrapper cw_private_glob = {
-	.csrvisor_ready		=	0,
-	.wrapper_dev.minor	=	128,
-	.wrapper_dev.name	=	"cvwrapper",
-	.wrapper_dev.fops	=	&csrviosr_wrapper_fops,
+	.csrvisor_ready		= 0,
+	.wrapper_dev.minor	= 128,
+	.wrapper_dev.name	= "cvwrapper",
+	.wrapper_dev.fops	= &csrviosr_wrapper_fops,
+	.seq_lock	=	__SPIN_LOCK_UNLOCKED(cw_private_glob.seq_lock),
+	.pre_lock	=	__SPIN_LOCK_UNLOCKED(cw_private_glob.pre_lock),
 };
 
 #define __CSRVISOR_KPARAM_INITIALIZER(					\
@@ -406,20 +409,28 @@ static struct hwrng csrvisor_hwrng = {
 static int csrvisor_wrapper_prepare(struct csrvisor_wrapper *cw_data)
 {
 	struct device_node *dn;
-	int ret;
+	int ret, flag;
 
-	if (cw_data->csrvisor_ready)
-		return 0;
+	/* every core may enter here; use spinlock to protect it */
+	spin_lock_irqsave(&cw_data->pre_lock, flag);
 
-	if (!of_machine_is_compatible("sirf,atlas7"))
-		return -EINVAL;
+	if (cw_data->csrvisor_ready) {
+		ret = 0;
+		goto __exit_unlock;
+	}
+
+	if (!of_machine_is_compatible("sirf,atlas7")) {
+		ret = -EINVAL;
+		goto __exit_unlock;
+	}
 
 	/* open discretix secuity clock since csrvisor uses it */
 	dn = of_find_compatible_node(NULL, NULL, "dx,cc44s");
 	cw_data->sec_clk = of_clk_get_by_name(dn, NULL);
 	if (IS_ERR(cw_data->sec_clk)) {
 		pr_err("can not find ccsec clock\n");
-		return PTR_ERR(cw_data->sec_clk);
+		ret = PTR_ERR(cw_data->sec_clk);
+		goto __exit_unlock;
 	}
 
 	ret = clk_prepare_enable(cw_data->sec_clk);
@@ -428,13 +439,17 @@ static int csrvisor_wrapper_prepare(struct csrvisor_wrapper *cw_data)
 		goto __err_exit_put_clk;
 	}
 
-	spin_lock_init(&cw_data->lock);
-
 	cw_data->csrvisor_ready = 1;
+
+	spin_unlock_irqrestore(&cw_data->pre_lock, flag);
+
 	return 0;
 
 __err_exit_put_clk:
 	clk_put(cw_data->sec_clk);
+
+__exit_unlock:
+	spin_unlock_irqrestore(&cw_data->pre_lock, flag);
 
 	return ret;
 }
@@ -452,13 +467,8 @@ unsigned long restricted_reg_read(unsigned long addr)
 	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
 		CVID_FASTCALL_READREG, addr, NULL);
 
-	/* get called in cpu0, working thread is unnecessary */
-	if (smp_processor_id() != CSRVISOR_CPU)
-		if (csrvisor_wrapper_prepare(cw_data))
-			return 0;
-
-	if (_csrvisor_fastcall(cw_data, &local_call_param))
-		return 0;
+	BUG_ON(csrvisor_wrapper_prepare(cw_data));
+	BUG_ON(_csrvisor_fastcall(cw_data, &local_call_param));
 
 	return cw_data->return_val;
 }
@@ -470,59 +480,38 @@ unsigned long restricted_reg_write(unsigned long addr, unsigned long data)
 	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
 		CVID_FASTCALL_WRITEREG, addr, data);
 
-	/* get called in cpu0, working thread is unnecessary */
-	if (smp_processor_id() != CSRVISOR_CPU)
-		if (csrvisor_wrapper_prepare(cw_data))
-			return 0;
-
-	if (_csrvisor_fastcall(cw_data, &local_call_param))
-		return 0;
+	BUG_ON(csrvisor_wrapper_prepare(cw_data));
+	BUG_ON(_csrvisor_fastcall(cw_data, &local_call_param));
 
 	return cw_data->return_val;
 }
 EXPORT_SYMBOL(restricted_reg_write);
 
-unsigned long sirfsoc_iobg_lock(void)
+void sirfsoc_iobg_lock(void)
 {
-#ifndef CONFIG_NOC_LOCK_RTCM
-	return 0;
-#else
+#ifdef CONFIG_NOC_LOCK_RTCM
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
 		CVID_FASTCALL_HWSPIN_LOCK, NULL, NULL);
 
-	spin_lock_irqsave(&cw_data->lock, cw_data->irq_flags);
-
-	/* get called in cpu0, working thread is unnecessary */
-	if (smp_processor_id() != CSRVISOR_CPU)
-		if (csrvisor_wrapper_prepare(cw_data))
-			return 0;
-
-	if (_csrvisor_fastcall(cw_data, &local_call_param))
-		return 0;
-
-	return cw_data->return_val;
+	BUG_ON(csrvisor_wrapper_prepare(cw_data));
+	spin_lock_irqsave(&cw_data->seq_lock, cw_data->irq_flags);
+	BUG_ON(_csrvisor_fastcall(cw_data, &local_call_param));
 #endif
 }
 EXPORT_SYMBOL(sirfsoc_iobg_lock);
 
 void sirfsoc_iobg_unlock(void)
 {
-#ifndef CONFIG_NOC_LOCK_RTCM
-		return;
-#else
+#ifdef CONFIG_NOC_LOCK_RTCM
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
 	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
 		CVID_FASTCALL_HWSPIN_UNLOCK, NULL, NULL);
 
-	/* get called in cpu0, working thread is unnecessary */
-	if (smp_processor_id() != CSRVISOR_CPU)
-		if (csrvisor_wrapper_prepare(cw_data))
-			return;
+	BUG_ON(csrvisor_wrapper_prepare(cw_data));
+	BUG_ON(_csrvisor_fastcall(cw_data, &local_call_param));
 
-	_csrvisor_fastcall(cw_data, &local_call_param);
-
-	spin_unlock_irqrestore(&cw_data->lock, cw_data->irq_flags);
+	spin_unlock_irqrestore(&cw_data->seq_lock, cw_data->irq_flags);
 #endif
 }
 EXPORT_SYMBOL(sirfsoc_iobg_unlock);

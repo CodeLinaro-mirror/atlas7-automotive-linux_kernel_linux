@@ -13,7 +13,7 @@
 extern unsigned long restricted_reg_write(unsigned long, unsigned long);
 extern unsigned long restricted_reg_read(unsigned long);
 #endif
-extern unsigned long sirfsoc_iobg_lock(void);
+extern void sirfsoc_iobg_lock(void);
 extern void sirfsoc_iobg_unlock(void);
 struct regmap_config;
 
