@@ -54,14 +54,16 @@
 #define CVIO_CMD_GET_RANDOM	0x70000003	/* get random value from HW */
 #define CVIO_CMD_GET_CHIPUID	0x70000004	/* get chip uid for user */
 #define CVIO_CMD_GET_SVMVALUE	0x70000008	/* get svm value */
+#define CVIO_CMD_GET_SCMBUID	0x7000000a	/* get scambled uid */
+#define CVIO_CMD_SET_SCMBTOKEN	0x7000000b	/* set scambled uid token */
 
 /* Chip ID length fixed at 16 bytes */
 #define DEVICE_CHIPUID_WORD_LENGTH	4
 #define DEVICE_CHIPUID_BYTE_LENGTH	(DEVICE_CHIPUID_WORD_LENGTH * 4)
 
-/* SVM value length is 4 bytes */
-#define SVM_VALUE_WORD_LENGTH		1
-#define SVM_VALUE_BYTE_LENGTH		(SVM_VALUE_WORD_LENGTH << 2)
+/* Scambled ID length fixed at 16 bytes */
+#define DEVICE_SCMBUID_WORD_LENGTH	4
+#define DEVICE_SCMBUID_BYTE_LENGTH	(DEVICE_SCMBUID_WORD_LENGTH * 4)
 
 #define CMD_PARAM_MAGIC	0x6376696F
 struct cmd_param {
@@ -383,6 +385,47 @@ static ssize_t chip_uid_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(chip_uid);
 
+static ssize_t scmb_uid_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	unsigned int scmb_uid[DEVICE_SCMBUID_WORD_LENGTH];
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	DECLARE_CSRVISOR_SERVICE_PARAM(param, CVIO_CMD_GET_SCMBUID, NULL, 0,
+			scmb_uid, sizeof(scmb_uid));
+
+	if (!csrvisor_fastcall(&param, 0, cw_data))
+		return sprintf(buf, "%08x%08x%08x%08x\n",
+			scmb_uid[0], scmb_uid[1], scmb_uid[2], scmb_uid[3]);
+	else
+		return 0;
+}
+
+static ssize_t scmb_uid_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long long scmb_token;
+	struct csrvisor_wrapper *cw_data = &cw_private_glob;
+
+	DECLARE_CSRVISOR_SERVICE_PARAM(param, CVIO_CMD_SET_SCMBTOKEN,
+			NULL, 0, NULL, 0);
+
+	if (count < sizeof(scmb_token))
+		return -EINVAL;
+
+	ret = kstrtoull(buf, 16, &scmb_token);
+
+	param.in_buf = &scmb_token;
+	param.in_len = sizeof(scmb_token);
+
+	if (!ret && !csrvisor_fastcall(&param, 0, cw_data))
+		return count;
+	else
+		return ret ? ret : -EFAULT;
+}
+static DEVICE_ATTR_RW(scmb_uid);
+
 #ifdef CONFIG_HW_RANDOM
 int cvrng_read(struct hwrng *rng, void *data, size_t max_bytes, bool wait)
 {
@@ -567,6 +610,9 @@ static __init int csrvisor_wrapper_init(void)
 #endif
 	device_create_file(cw_data->wrapper_dev.this_device,
 		&dev_attr_chip_uid);
+
+	device_create_file(cw_data->wrapper_dev.this_device,
+		&dev_attr_scmb_uid);
 
 #ifdef CONFIG_HW_RANDOM
 	/* register hardware random generator */
