@@ -93,6 +93,8 @@ struct csrvisor_wrapper {
 	struct call_param_type *xmit_param;
 	struct miscdevice wrapper_dev;
 	struct clk *sec_clk;
+	spinlock_t lock;
+	unsigned long irq_flags;
 };
 
 static inline unsigned long __csrvisor_fastcall(unsigned long id,
@@ -345,18 +347,21 @@ static struct csrvisor_wrapper cw_private_glob = {
 	.wrapper_dev.fops	=	&csrviosr_wrapper_fops,
 };
 
-#define __CSRVISOR_KPARAM_INITIALIZER(name, xcmd, out_ptr, out_size) {	\
+#define __CSRVISOR_KPARAM_INITIALIZER(					\
+		name, xcmd, in_ptr, in_size, out_ptr, out_size) {	\
 	.magic		=	CMD_PARAM_MAGIC,			\
 	.cmd		=	xcmd,					\
 	.status		=	0,					\
-	.in_buf		=	NULL,					\
-	.in_len		=	0,					\
+	.in_buf		=	in_ptr,					\
+	.in_len		=	in_size,				\
 	.out_buf	=	out_ptr,				\
 	.out_len	=	out_size }				\
 
-#define DECLARE_CSRVISOR_KPARAM(name, xcmd, out_ptr, out_size)	\
-	struct cmd_param name = \
-		__CSRVISOR_KPARAM_INITIALIZER(name, xcmd, out_ptr, out_size) \
+#define DECLARE_CSRVISOR_SERVICE_PARAM(					\
+			name, xcmd, in_ptr, in_size, out_ptr, out_size)	\
+	struct cmd_param name =						\
+		__CSRVISOR_KPARAM_INITIALIZER(				\
+			name, xcmd, in_ptr, in_size, out_ptr, out_size)	\
 
 /* provided an interface to get chip id for user via sysfs */
 static ssize_t chip_uid_show(struct device *dev,
@@ -364,7 +369,7 @@ static ssize_t chip_uid_show(struct device *dev,
 {
 	unsigned int chip_uid[DEVICE_CHIPUID_WORD_LENGTH];
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_CHIPUID,
+	DECLARE_CSRVISOR_SERVICE_PARAM(param, CVIO_CMD_GET_CHIPUID, NULL, 0,
 			chip_uid, sizeof(chip_uid));
 
 	if (!csrvisor_fastcall(&param, 0, cw_data))
@@ -373,7 +378,6 @@ static ssize_t chip_uid_show(struct device *dev,
 	else
 		return 0;
 }
-
 static DEVICE_ATTR_RO(chip_uid);
 
 #ifdef CONFIG_HW_RANDOM
@@ -381,7 +385,8 @@ int cvrng_read(struct hwrng *rng, void *data, size_t max_bytes, bool wait)
 {
 	struct csrvisor_wrapper *cw_data =
 			(struct csrvisor_wrapper *)rng->priv;
-	DECLARE_CSRVISOR_KPARAM(param, CVIO_CMD_GET_RANDOM, data, max_bytes);
+	DECLARE_CSRVISOR_SERVICE_PARAM(param, CVIO_CMD_GET_RANDOM, NULL, 0,
+					data, max_bytes);
 
 	if (!csrvisor_fastcall(&param, 0, cw_data))
 		return max_bytes;
@@ -423,6 +428,8 @@ static int csrvisor_wrapper_prepare(struct csrvisor_wrapper *cw_data)
 		goto __err_exit_put_clk;
 	}
 
+	spin_lock_init(&cw_data->lock);
+
 	cw_data->csrvisor_ready = 1;
 	return 0;
 
@@ -432,20 +439,23 @@ __err_exit_put_clk:
 	return ret;
 }
 
+#define DECLARE_CSRVISOR_CALLPARAM(					\
+			name, serv_id, serv_param1, serv_param2)	\
+	struct call_param_type name = {					\
+		.service_id = serv_id,					\
+		.service_param1 = (void *)serv_param1,			\
+		.service_param2 = (void *)serv_param2 }			\
+
 unsigned long restricted_reg_read(unsigned long addr)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	struct call_param_type local_call_param;
+	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
+		CVID_FASTCALL_READREG, addr, NULL);
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
 		if (csrvisor_wrapper_prepare(cw_data))
 			return 0;
-
-	/* read operation takes two parameters */
-	local_call_param.service_id = CVID_FASTCALL_READREG;
-	local_call_param.service_param1 = (void *)addr;
-	local_call_param.service_param2 = (void *)NULL;
 
 	if (_csrvisor_fastcall(cw_data, &local_call_param))
 		return 0;
@@ -457,17 +467,13 @@ EXPORT_SYMBOL(restricted_reg_read);
 unsigned long restricted_reg_write(unsigned long addr, unsigned long data)
 {
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	struct call_param_type local_call_param;
+	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
+		CVID_FASTCALL_WRITEREG, addr, data);
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
 		if (csrvisor_wrapper_prepare(cw_data))
 			return 0;
-
-	/* read operation takes two parameters */
-	local_call_param.service_id = CVID_FASTCALL_WRITEREG;
-	local_call_param.service_param1 = (void *)addr;
-	local_call_param.service_param2 = (void *)data;
 
 	if (_csrvisor_fastcall(cw_data, &local_call_param))
 		return 0;
@@ -482,17 +488,15 @@ unsigned long sirfsoc_iobg_lock(void)
 	return 0;
 #else
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	struct call_param_type local_call_param;
+	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
+		CVID_FASTCALL_HWSPIN_LOCK, NULL, NULL);
+
+	spin_lock_irqsave(&cw_data->lock, cw_data->irq_flags);
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
 		if (csrvisor_wrapper_prepare(cw_data))
 			return 0;
-
-	/* lock operation ignores parameters */
-	local_call_param.service_id = CVID_FASTCALL_HWSPIN_LOCK;
-	local_call_param.service_param1 = (void *)NULL;
-	local_call_param.service_param2 = (void *)NULL;
 
 	if (_csrvisor_fastcall(cw_data, &local_call_param))
 		return 0;
@@ -508,19 +512,17 @@ void sirfsoc_iobg_unlock(void)
 		return;
 #else
 	struct csrvisor_wrapper *cw_data = &cw_private_glob;
-	struct call_param_type local_call_param;
+	DECLARE_CSRVISOR_CALLPARAM(local_call_param,
+		CVID_FASTCALL_HWSPIN_UNLOCK, NULL, NULL);
 
 	/* get called in cpu0, working thread is unnecessary */
 	if (smp_processor_id() != CSRVISOR_CPU)
 		if (csrvisor_wrapper_prepare(cw_data))
 			return;
 
-	/* unlock operation ignores parameters */
-	local_call_param.service_id = CVID_FASTCALL_HWSPIN_UNLOCK;
-	local_call_param.service_param1 = (void *)NULL;
-	local_call_param.service_param2 = (void *)NULL;
-
 	_csrvisor_fastcall(cw_data, &local_call_param);
+
+	spin_unlock_irqrestore(&cw_data->lock, cw_data->irq_flags);
 #endif
 }
 EXPORT_SYMBOL(sirfsoc_iobg_unlock);
