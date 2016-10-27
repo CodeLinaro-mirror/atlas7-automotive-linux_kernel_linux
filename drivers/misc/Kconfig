@@ -532,7 +532,7 @@ config CSR_RFKILL
 config SIRF_MINIGPSRTC
 	tristate "SiRFSoC rtc alarm1 module for minigps"
 	depends on ARCH_SIRF
-	default m
+	default n
 	help
 	  Support for SiRFSoC rtc alarm1 module, which is specially used for
 	  minigps running
