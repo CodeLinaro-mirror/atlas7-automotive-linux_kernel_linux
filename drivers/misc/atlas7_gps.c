@@ -538,7 +538,7 @@ static int atlas7_gps_probe(struct platform_device *pdev)
 
 	ret = devm_request_threaded_irq(&pdev->dev, gpio_to_irq(info->gpio),
 			NULL, atlas7_gps_gpio_handler,
-			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 			"atlas7_gps_gpio", info);
 	if (ret) {
 		dev_err(&pdev->dev, "request gpio irq failed\n");
