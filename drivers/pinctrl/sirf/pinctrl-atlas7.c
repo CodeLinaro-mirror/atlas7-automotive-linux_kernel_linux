@@ -5268,7 +5268,20 @@ static int atlas7_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 		return -EPERM;
 	}
 
-	__atlas7_pmx_pin_enable(pmx, pin, FUNC_GPIO);
+	/*
+	 * In order to use pin115's gnss_tm (input) and i2s_dout0_1 (output)
+	 * function simultaneously, we set it's function value to 1. Cortex-A7
+	 * uses gnss_tm function as a gpio input. Meanwhile, M3 uses pin115 as
+	 * i2s_dout0_1. For gnss_tm function, zero means disabled, non-zero
+	 * means enabled. Cortex-a7 never set function value to 0 since it may
+	 * interrupt audio output controlled by M3. Gnss_tm is a internal signal
+	 * connected from gnss system to cortex-a7, it's added after B2 chip
+	 * (include B2).
+	 */
+	if (pin == 115)
+		__atlas7_pmx_pin_enable(pmx, pin, 1);
+	else
+		__atlas7_pmx_pin_enable(pmx, pin, FUNC_GPIO);
 
 	return 0;
 }
