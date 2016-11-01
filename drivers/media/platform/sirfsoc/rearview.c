@@ -27,6 +27,7 @@
 #include <linux/of_platform.h>
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
+#include <linux/rtc/sirfsoc_rtciobrg.h>
 
 #include <video/sirfsoc_vdss.h>
 #include "vip_capture.h"
@@ -126,6 +127,7 @@ struct rv_dev {
 #endif
 
 	void __iomem	*ipc_int_addr, *ipc_msg_addr;
+	unsigned int	ipc_msg_phy_addr;
 };
 
 
@@ -583,7 +585,11 @@ static irqreturn_t rv_ipc_irq_handler(int irq, void *data)
 	/* clear interrupt flag */
 	readl(rv->ipc_int_addr);
 
-	atomic_set(&rv->value, readl(rv->ipc_msg_addr) & IPC_MSG_RV_MASK);
+	sirfsoc_iobg_lock();
+	atomic_set(&rv->value, restricted_reg_read(rv->ipc_msg_phy_addr)
+							& IPC_MSG_RV_MASK);
+	sirfsoc_iobg_unlock();
+
 	queue_work(rv->rv_wq, &rv->rv_work);
 
 	return IRQ_HANDLED;
@@ -1016,6 +1022,7 @@ static int rv_probe(struct platform_device *pdev)
 	unsigned int mirror = 0;
 	struct resource	*res;
 	v4l2_std_id std;
+	int page;
 	int ret = 0;
 
 	rv = devm_kzalloc(dev, sizeof(*rv), GFP_KERNEL);
@@ -1046,6 +1053,10 @@ static int rv_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto exit;
 	}
+
+	page = page_to_phys(vmalloc_to_page(rv->ipc_msg_addr)) & PAGE_MASK;
+	rv->ipc_msg_phy_addr = page |
+		((unsigned int)rv->ipc_msg_addr & ~PAGE_MASK);
 
 	/*
 	* Because Rearview CAN can be triggered in uboot and Linux scenes,
