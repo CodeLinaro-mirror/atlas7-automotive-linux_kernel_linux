@@ -192,10 +192,10 @@ struct dentry *debug_file;
 static int debug_shrinker_show(struct seq_file *s, void *unused)
 {
 	struct shrinker *shrinker;
-	struct shrink_control sc;
-
-	sc.gfp_mask = -1;
-	sc.nr_to_scan = 0;
+	struct shrink_control sc = {
+		.gfp_mask = -1,
+		.nr_to_scan = 0,
+	};
 
 	down_read(&shrinker_rwsem);
 	list_for_each_entry(shrinker, &shrinker_list, list) {
@@ -210,14 +210,14 @@ static int debug_shrinker_show(struct seq_file *s, void *unused)
 
 static int debug_shrinker_open(struct inode *inode, struct file *file)
 {
-        return single_open(file, debug_shrinker_show, inode->i_private);
+	return single_open(file, debug_shrinker_show, inode->i_private);
 }
 
 static const struct file_operations debug_shrinker_fops = {
-        .open = debug_shrinker_open,
-        .read = seq_read,
-        .llseek = seq_lseek,
-        .release = single_release,
+	.open = debug_shrinker_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
 };
 
 /*
@@ -3329,7 +3329,7 @@ static int kswapd(void *p)
 	unsigned balanced_order;
 	int classzone_idx, new_classzone_idx;
 	int balanced_classzone_idx;
-	pg_data_t *pgdat = (pg_data_t*)p;
+	pg_data_t *pgdat = (pg_data_t *)p;
 	struct task_struct *tsk = current;
 
 	struct reclaim_state reclaim_state = {
@@ -3552,7 +3552,7 @@ static int __init kswapd_init(void)
 
 	swap_setup();
 	for_each_node_state(nid, N_MEMORY)
- 		kswapd_run(nid);
+		kswapd_run(nid);
 	hotcpu_notifier(cpu_callback, 0);
 	return 0;
 }
