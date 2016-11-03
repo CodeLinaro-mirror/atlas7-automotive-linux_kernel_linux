@@ -109,6 +109,7 @@ struct kasdb_op {
 		int mixer_streams;	/* 2, 3 */
 		int delay_channels;
 		int bass_pair_idx;	/* 0: default use, 1~11: user use*/
+		int chmixer_io;		/* number of input/output channels */
 		struct {
 			/* number of channels for each stream */
 			char stream_ch[KASDB_SRCSYNC_CH_MAX];

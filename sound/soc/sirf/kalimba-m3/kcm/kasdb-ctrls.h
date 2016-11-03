@@ -98,4 +98,7 @@
 	name " Srcsync Purge Flag;"	\
 	name " Srcsync Trans Samples"
 
+#define KCM_CTRLS_CHMIXER(name)		\
+	name " CH Mixer Gain"
+
 #endif /* OP_CTRLS_H */
