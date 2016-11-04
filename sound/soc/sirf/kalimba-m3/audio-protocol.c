@@ -47,6 +47,8 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_OP_OBJ_RESP			0x00000013
 #define MSG_CTRL_REQ			0x00000014
 #define MSG_CTRL_RESP			0x00000015
+#define MSG_CREATE_STREAM		0x00000016
+#define MSG_DESTROY_STREAM		0x00000017
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
@@ -183,12 +185,12 @@ void kas_send_license_ctrl_resp(u32 resp_len, void *data)
 	kfree(msg);
 }
 
-void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
+void kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 		u32 buff_size, u32 period_size)
 {
 	u32 msg[7];
 
-	msg[0] = MSG_START_STREAM;
+	msg[0] = MSG_CREATE_STREAM;
 	msg[1] = stream;
 	msg[2] = sample_rate;
 	msg[3] = channles;
@@ -202,11 +204,11 @@ void kas_start_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 	rpmsg_send(audio_rpdev, msg, 7 * sizeof(u32));
 }
 
-void kas_stop_stream(u32 stream, u32 channels)
+void kas_destroy_stream(u32 stream, u32 channels)
 {
 	u32 msg[3];
 
-	msg[0] = MSG_STOP_STREAM;
+	msg[0] = MSG_DESTROY_STREAM;
 	msg[1] = stream;
 	msg[2] = channels;
 	if (!audio_rpdev) {
@@ -214,6 +216,34 @@ void kas_stop_stream(u32 stream, u32 channels)
 		return;
 	}
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
+}
+
+void kas_start_stream(u32 stream)
+{
+	u32 msg[2];
+
+	msg[0] = MSG_START_STREAM;
+	msg[1] = stream;
+
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
+	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
+}
+
+void kas_stop_stream(u32 stream)
+{
+	u32 msg[2];
+
+	msg[0] = MSG_STOP_STREAM;
+	msg[1] = stream;
+
+	if (!audio_rpdev) {
+		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
+		return;
+	}
+	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
 }
 
 void kas_ps_region_addr_update(u32 addr)

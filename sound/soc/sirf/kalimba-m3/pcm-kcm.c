@@ -82,6 +82,12 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	unsigned int rate = params_rate(params);
+	unsigned int channels = params_channels(params);
+	u32 period_bytes = params_period_bytes(params);
+	u32 buff_bytes = params_buffer_bytes(params);
+	u32 buff_addr;
 	int ret;
 
 	pcm_data[rtd->cpu_dai->id].pos = 0;
@@ -93,12 +99,20 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 			params_buffer_bytes(params), ret);
 		return ret;
 	}
+	buff_addr = runtime->dma_addr;
+	kas_create_stream(rtd->cpu_dai->id, rate, channels, buff_addr,
+		buff_bytes, period_bytes);
 
 	return 0;
 }
 
 static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	unsigned int channels = runtime->channels;
+
+	kas_destroy_stream(rtd->cpu_dai->id, channels);
 	snd_pcm_lib_free_pages(substream);
 	return 0;
 }
@@ -106,24 +120,17 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	unsigned int rate = runtime->rate;
-	unsigned int channels = runtime->channels;
-	u32 buff_addr = runtime->dma_addr;
-	u32 buff_bytes = snd_pcm_lib_buffer_bytes(substream);
-	u32 period_bytes = snd_pcm_lib_period_bytes(substream);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		kas_start_stream(rtd->cpu_dai->id, rate, channels, buff_addr,
-			buff_bytes, period_bytes);
+		kas_start_stream(rtd->cpu_dai->id);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		kas_stop_stream(rtd->cpu_dai->id, channels);
+		kas_stop_stream(rtd->cpu_dai->id);
 		break;
 	default:
 		return -EINVAL;
