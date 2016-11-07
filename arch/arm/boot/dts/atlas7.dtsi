@@ -2877,7 +2877,7 @@
 			};
 
 			dmac2: dma-controller@10d50000 {
-				status = "disabled";
+				status = "okay";
 				cell-index = <2>;
 				compatible = "sirf,atlas7-dmac";
 				reg = <0x10d50000 0xffff>;

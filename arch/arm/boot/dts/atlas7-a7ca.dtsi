@@ -68,8 +68,7 @@
 				status = "okay";
 				compatible = "sirf,atlas7-usp-spi";
 				pinctrl-names = "default";
-				pinctrl-0 = <&audio_uart1_basic_pmx
-						&audio_uart1_urfs_pmx0>;
+				pinctrl-0 = <&audio_uart1_basic_pmx>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				cs-gpios = <&gpio_1 97 0
