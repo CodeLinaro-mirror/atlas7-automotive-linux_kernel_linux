@@ -752,6 +752,7 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 	struct iio_dev *indio_dev = iio_priv_to_dev(adc);
 	struct device_node *np = indio_dev->dev.parent->of_node;
 	u32 digital_out, volt;
+	u16 mode;
 
 	req->delay_bits = ctrl_set->thold;
 
@@ -770,9 +771,14 @@ static u32 sirfsoc_adc_get_adc_volt(struct sirfsoc_adc *adc,
 		}
 
 		if (of_device_is_compatible(np, "sirf,atlas7-adc")) {
+			mode = (req->mode >> 10) & 0x1F;
+			if ((mode == 0x12) || (mode == 0x13)) {
+				volt = digital_out;
+			} else {
 			volt = adc->chip_info->calculate_volt(digital_out,
 				cali_data->sgain,
 				cali_data->digital_again);
+			}
 		} else {
 			volt = adc->chip_info->calculate_volt(digital_out,
 				cali_data->digital_offset,
