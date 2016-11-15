@@ -222,21 +222,30 @@ static const struct kasdb_op op[] = {
 		.param.dummy = 0,
 	},
 	{
-		/* Source sync: 1-Music, 2-Linein, 3-A2DP, 4-I2Sin, 5-Navigation
-		 *		6-Alarm, 7-cVc recv
+		/* Source sync: 1-Music, 2-Linein, 3-A2DP, 4-I2Sin, 5 - tunex
+		 *	6-Navigation 7-Alarm, 8-cVc recv, 9-Early chime
 		 */
 		.name = __S("op_srcsync"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(KCM_CTRLS_SOURCESYNC("Multimedia")),
 		.cap_id = CAPABILITY_ID_SOURCE_SYNC,
 		.rate = 48000,
-		.param.srcsync_cfg.stream_ch = { 2, 2, 2, 2, 2, 1, 1 , 0, },
-		.param.srcsync_cfg.input_map = { 1, 2, 1, 2, 1, 2, 1, 2,
-						 3, 4, 5, 6, 0 },
+		.param.srcsync_cfg.stream_ch = { 2, 2, 2, 2, 2, 2, 1, 1, 4, 0,},
+		.param.srcsync_cfg.input_map = { 1, 2, 1, 2, 1, 2, 1, 2, 1, 2 ,
+						 3, 4, 5, 6, 7, 8, 9, 10, 0,},
 	},
 	{
 		/* Radio resampler */
 		.name = __S("op_src_radio"),
+		.ctrl_base = __S(NULL),
+		.ctrl_names = __S(NULL),
+		.cap_id = CAPABILITY_ID_RESAMPLER,
+		.rate = 48000,
+		.param.resampler_custom_output = 0,
+	},
+	{
+		/* Tunex resampler */
+		.name = __S("op_src_tunex"),
 		.ctrl_base = __S(NULL),
 		.ctrl_names = __S(NULL),
 		.cap_id = CAPABILITY_ID_RESAMPLER,

@@ -231,4 +231,16 @@ static const struct kasdb_fe fe[] = {
 		.sink_codec = __S(NULL),
 		.source_codec = __S(CODEC_TYPE),
 	},
+	{
+		.name = __S("Tunex"),
+		.playback = 1,
+		.internal = 0,
+		.stream_name = __S(NULL),	/* "Tunex Playback" */
+		.channels_min = 2,
+		.channels_max = 2,
+		.rates = KCM_RATES,
+		.formats = KCM_FORMATS,
+		.sink_codec = __S(CODEC_TYPE),
+		.source_codec = __S(NULL),
+	},
 };
