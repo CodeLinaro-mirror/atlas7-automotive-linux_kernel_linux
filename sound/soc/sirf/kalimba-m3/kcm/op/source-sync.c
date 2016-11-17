@@ -35,7 +35,7 @@ static int source_sync_init(struct kasobj_op *op)
 	struct snd_kcontrol_new *ctrl;
 	char names_buf[256], *names = names_buf, *name;
 	int ctrl_idx = 0; /* control interface index */
-	int max, idx, tmp, streams;
+	int max, idx, tmp, input, ch, cnt, switch_out_num, switch_in_st, flag;
 
 	if (!op->db->ctrl_names.s)
 		return 0;
@@ -45,12 +45,21 @@ static int source_sync_init(struct kasobj_op *op)
 		return -EINVAL;
 	}
 
-	for (idx = 0; idx < SOURCE_SYNC_CHANNELS_MAX; idx++) {
-		tmp = op->db->param.srcsync_cfg.stream_ch[idx];
-		if (tmp == 0)
+	switch_out_num = op->db->param.srcsync_cfg.stream_ch[0];
+	for (idx = 0, cnt = 0, flag = 0; idx < SOURCE_SYNC_CHANNELS_MAX;
+			idx += switch_out_num) {
+		for (ch = 0; ch < switch_out_num; ch++) {
+			input = op->db->param.srcsync_cfg.input_map[ch];
+			tmp = op->db->param.srcsync_cfg.input_map[idx + ch];
+			if (input != tmp) {
+				switch_in_st = idx / switch_out_num;
+				flag = 1;
+				break;
+			}
+		}
+		if (flag)
 			break;
 	}
-	streams = idx;
 
 	while ((name = strsep(&names, ":;"))) {
 		if (ctrl_idx >= SOURCE_SYNC_CTRL_NUM) {
@@ -59,7 +68,7 @@ static int source_sync_init(struct kasobj_op *op)
 			return -EINVAL;
 		}
 		if (kcm_strcasestr(name, "Stream"))
-			max = streams;
+			max = switch_in_st;
 		else if (kcm_strcasestr(name, "Samples"))
 			max = SOURCE_SYNC_TRANS_SAMPLES_MAX;
 		else {
