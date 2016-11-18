@@ -34,7 +34,7 @@ struct kas_pcm_data {
 	snd_pcm_uframes_t last_appl_ptr;
 };
 
-#define KAS_PCM_COUNT	15
+#define KAS_PCM_COUNT	32
 struct kas_pcm_data pcm_data[KAS_PCM_COUNT];
 
 static const struct snd_pcm_hardware kas_pcm_hardware = {
@@ -191,6 +191,7 @@ static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	if (ret)
 		return ret;
 
+	pcm->nonatomic = true;
 	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream ||
 			pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {
 		ret = snd_pcm_lib_preallocate_pages_for_all(pcm,

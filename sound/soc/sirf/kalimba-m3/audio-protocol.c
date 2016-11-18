@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/rpmsg.h>
@@ -53,9 +54,19 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
 
+#define KAS_POINTER_UPDATE_PHYADDR	0x4FF00000
+#define KAS_POINTER_UPDATE_SIZE		256
+
+#define CHECK_POINTER_INTERVAL_NS	5000000
+
 static wait_queue_head_t waitq_dsp_rsp;
 static bool msg_dsp_rsp;
 static u16 resp_payload[64];
+static u32 *kas_pointer_update;
+static u32 local_kas_data_pointer[32];
+static u32 running_stream;
+static struct hrtimer hrt;
+static struct work_struct audio_wq;
 
 struct audio_msg {
 	u32 msg_type;
@@ -201,7 +212,11 @@ void kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return;
 	}
+	local_kas_data_pointer[stream] = 0;
 	rpmsg_send(audio_rpdev, msg, 7 * sizeof(u32));
+	if (!running_stream)
+		hrtimer_start(&hrt, ktime_set(0, 0), HRTIMER_MODE_REL);
+	running_stream |= (1 << stream);
 }
 
 void kas_destroy_stream(u32 stream, u32 channels)
@@ -216,6 +231,9 @@ void kas_destroy_stream(u32 stream, u32 channels)
 		return;
 	}
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
+	running_stream &= ~(1 << stream);
+	if (!running_stream)
+		hrtimer_cancel(&hrt);
 }
 
 void kas_start_stream(u32 stream)
@@ -229,6 +247,7 @@ void kas_start_stream(u32 stream)
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return;
 	}
+	kas_pointer_update[stream] = 0;
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
 }
 
@@ -301,10 +320,6 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	u32 *msg = (u32 *)data;
 
 	switch (msg[0]) {
-	case MSG_DATA_PRODUCED:
-	case MSG_DATA_CONSUMED:
-		kas_pcm_notify(msg[1], msg[2]);
-		break;
 	case AUDIO_PROTOCOL_RESP_ID(MSG_DSP_COMMAND):
 		memcpy(resp_payload, &msg[2], msg[1]);
 		msg_dsp_rsp = true;
@@ -358,10 +373,47 @@ int audio_rpmsg_check(void)
 		return -EINVAL;
 }
 
+
+void wq_do_work(struct work_struct *work)
+{
+	int i;
+
+	for (i = 0; i < 32; i++) {
+		if ((running_stream & (1 << i)) &&
+			(local_kas_data_pointer[i] != kas_pointer_update[i])) {
+			kas_pcm_notify(i, kas_pointer_update[i]);
+			local_kas_data_pointer[i] = kas_pointer_update[i];
+		}
+	}
+}
+
+static enum hrtimer_restart audio_hrtimer_callback(struct hrtimer *timer)
+{
+	schedule_work(&audio_wq);
+	hrtimer_forward_now(timer, ns_to_ktime(CHECK_POINTER_INTERVAL_NS));
+
+	return HRTIMER_RESTART;
+}
+
 int audio_protocol_init(void)
 {
 	int ret = 0;
 
+	/* Use shared memory to update the audio data pointer */
+	kas_pointer_update = (u32 *)ioremap_nocache(KAS_POINTER_UPDATE_PHYADDR,
+		KAS_POINTER_UPDATE_SIZE);
+	if (!kas_pointer_update) {
+		pr_err("Remap kas pointer update share memory failed.");
+		return -ENXIO;
+	}
+
+	/*
+	 * Create a hrtimer to loop check the audio data pointer.
+	 * The interval time is 5ms.
+	 */
+	hrtimer_init(&hrt, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+	hrt.function = audio_hrtimer_callback;
+	INIT_WORK(&audio_wq, wq_do_work);
 	ret = register_rpmsg_driver(&rpmsg_audio_client);
 	if (ret)
 		pr_err("Register audio rpmsg failed: %d\n", ret);
