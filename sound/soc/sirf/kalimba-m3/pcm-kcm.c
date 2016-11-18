@@ -31,7 +31,6 @@
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
 	u32 pos;
-	snd_pcm_uframes_t last_appl_ptr;
 };
 
 #define KAS_PCM_COUNT	32
@@ -91,7 +90,6 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 
 	pcm_data[rtd->cpu_dai->id].pos = 0;
-	pcm_data[rtd->cpu_dai->id].last_appl_ptr = 0;
 
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 	if (ret < 0) {
@@ -146,31 +144,6 @@ static snd_pcm_uframes_t kas_pcm_pointer(struct snd_pcm_substream *substream)
 		pcm_data[rtd->cpu_dai->id].pos);
 }
 
-static int kas_pcm_ack(struct snd_pcm_substream *substream)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	u32 pos;
-
-	if (runtime->status->state != SNDRV_PCM_STATE_RUNNING)
-		return 0;
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		return 0;
-
-	if (runtime->control->appl_ptr -
-		pcm_data[rtd->cpu_dai->id].last_appl_ptr >=
-		runtime->period_size)
-		pcm_data[rtd->cpu_dai->id].last_appl_ptr =
-			runtime->control->appl_ptr;
-	else
-		return 0;
-
-	pos = frames_to_bytes(runtime,
-		pcm_data->last_appl_ptr % runtime->buffer_size) / 4;
-	kas_send_data_produced(rtd->cpu_dai->id, pos);
-	return 0;
-}
-
 static struct snd_pcm_ops kas_pcm_ops = {
 	.open = kas_pcm_open,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -178,7 +151,6 @@ static struct snd_pcm_ops kas_pcm_ops = {
 	.hw_free = kas_pcm_hw_free,
 	.trigger = kas_pcm_trigger,
 	.pointer = kas_pcm_pointer,
-	.ack = kas_pcm_ack,
 };
 
 static int kas_pcm_new(struct snd_soc_pcm_runtime *rtd)
