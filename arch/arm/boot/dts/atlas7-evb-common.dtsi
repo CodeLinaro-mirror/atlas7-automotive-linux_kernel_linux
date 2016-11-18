@@ -594,7 +594,7 @@
 			reg = <0x1324020C 0x4>, /* IPC INT */
 			     <0x188D001C 0x4>;  /* IPC MSG */
 			mirror = <0>;
-			source-std = "AUTO";		/* NTSC or PAL */
+			source-std = "NTSC";		/* NTSC or PAL */
 			display-panel = "display0";	/* display 0/1 */
 		};
 	};
