@@ -33,12 +33,7 @@ struct sirfsoc_sensor {
 /* convert left adjusted 13-bit sirfsoc_sensor register value to milliCelsius*/
 static int sirfsoc_sensor_reg_to_mC(int val)
 {
-	int tmp;
-
-	tmp = val * 7 * 1320 / 4095 / 2;
-	tmp = tmp * 1000 - 1424400;
-
-	return (tmp / 5214) * 1000;
+	return (((10*val-14799)/54))*1000 + 26000;
 }
 
 static int sirfsoc_sensor_read_temp(void *sensor_data, long *temp)
