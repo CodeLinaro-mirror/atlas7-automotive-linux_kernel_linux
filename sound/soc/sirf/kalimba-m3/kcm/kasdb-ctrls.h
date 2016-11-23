@@ -82,7 +82,8 @@
 	name " Vol Master Mute"
 
 #define KCM_CTRLS_AECREF(name)	\
-	name " CVC 2Mic Switch"
+	name " CVC 2Mic Switch;"\
+	"Input Path"
 
 #define KCM_CTRLS_CVCSEND(name)	\
 	name " CVC Send Mode;"	\

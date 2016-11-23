@@ -20,12 +20,16 @@
 #include "../kcm.h"
 #include "utils.h"
 
+#define AEC_REF_CTRL_NUM	2
+#define INPUT_PATH_ID_MAX	6
+
 /* Create control interfaces */
 static int aec_ref_init(struct kasobj_op *op)
 {
 	struct snd_kcontrol_new *ctrl;
 	char names_buf[256], *names = names_buf, *name;
 	int ctrl_idx = 0; /* control interface index */
+	int max;
 
 	if (!op->db->ctrl_names.s)
 		return 0;
@@ -36,21 +40,25 @@ static int aec_ref_init(struct kasobj_op *op)
 	}
 
 	while ((name = strsep(&names, ":;"))) {
-		if (kcm_strcasestr(name, "Switch")) {
-			/* For AEC-Ref, only one ctrl */
-			if (ctrl_idx > 0) {
-				pr_err("KASOP(%s): too many controls!\n",
-					op->obj.name);
-				continue;
-			}
-			ctrl = kasop_ctrl_single_ext_tlv(name, op, 1,
-				NULL, ctrl_idx);
-			kcm_register_ctrl(ctrl);
-			ctrl_idx++;
-		} else {
+		/* For AEC-Ref, only two ctrl */
+		if (ctrl_idx >= AEC_REF_CTRL_NUM) {
+			pr_err("KASOP(%s): too many controls!\n",
+				op->obj.name);
+			return -EINVAL;
+		}
+		if (kcm_strcasestr(name, "Switch"))
+			max = 1;
+		else if (kcm_strcasestr(name, "Path"))
+			max = INPUT_PATH_ID_MAX;
+		else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 					op->obj.name, name);
+			return -EINVAL;
 		}
+
+		ctrl = kasop_ctrl_single_ext_tlv(name, op, max, NULL, ctrl_idx);
+		kcm_register_ctrl(ctrl);
+		ctrl_idx++;
 	}
 	op->ctrl_value = kcalloc(ctrl_idx, sizeof(int), GFP_KERNEL);
 	op->ctrl_flag  = kcalloc(ctrl_idx, sizeof(int), GFP_KERNEL);
