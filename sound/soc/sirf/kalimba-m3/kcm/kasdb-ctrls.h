@@ -95,6 +95,7 @@
 
 #define KCM_CTRLS_SOURCESYNC(name)	\
 	name " Srcsync Active Stream;"	\
+	name " Srcsync Purge Flag;"	\
 	name " Srcsync Trans Samples"
 
 #endif /* OP_CTRLS_H */

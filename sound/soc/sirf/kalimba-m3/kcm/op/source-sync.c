@@ -21,9 +21,10 @@
 #include "../kas.h"
 #include "utils.h"
 
-#define SOURCE_SYNC_CTRL_NUM (2)
+#define SOURCE_SYNC_CTRL_NUM (3)
 #define SOURCE_SYNC_CTRL_IDX_ACTIVE_STREAM (0)
-#define SOURCE_SYNC_CTRL_IDX_TRANS_SAMPLES (1)
+#define SOURCE_SYNC_CTRL_IDX_PURGE_FLAG (1)
+#define SOURCE_SYNC_CTRL_IDX_TRANS_SAMPLES (2)
 
 #define SOURCE_SYNC_GROUPS_MAX (24)
 #define SOURCE_SYNC_CHANNELS_MAX (24)
@@ -71,6 +72,8 @@ static int source_sync_init(struct kasobj_op *op)
 			max = switch_in_st;
 		else if (kcm_strcasestr(name, "Samples"))
 			max = SOURCE_SYNC_TRANS_SAMPLES_MAX;
+		else if (kcm_strcasestr(name, "Flag"))
+			max = 1;
 		else {
 			pr_err("KASOP(%s): unknown control '%s'!\n",
 				op->obj.name, name);
