@@ -18,6 +18,8 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
+#include <linux/fs.h>
+#include <linux/dma-mapping.h>
 
 #include "buffer.h"
 #include "debug.h"
@@ -50,6 +52,7 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_CTRL_RESP			0x00000015
 #define MSG_CREATE_STREAM		0x00000016
 #define MSG_DESTROY_STREAM		0x00000017
+#define MSG_COREDUMP			0x00000018
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
@@ -306,6 +309,245 @@ static void kas_dram_free_req(u32 address)
 	rpmsg_send(audio_rpdev, &msg, sizeof(u32));
 }
 
+#define KAS_DM1_SRAM_START_ADDR			0
+#define KAS_DM2_SRAM_START_ADDR			0xFF3000
+#define KAS_PM_SRAM_START_ADDR			0
+#define HEADER_SIZE 1024
+enum mtype {KAS_PM, KAS_DM1, KAS_DM2, KAS_RM};
+
+static struct kas_mem {
+	enum mtype mem_type;
+	char *mem_name;
+	u32 mem_start;
+	u32 mem_size;
+} kas_memory[] = {
+	{ KAS_PM,  "DC", KAS_PM_SRAM_START_ADDR,  0x10000},
+	{ KAS_DM1, "DD", KAS_DM1_SRAM_START_ADDR, 0x8000},
+	{ KAS_DM2, "DD", KAS_DM2_SRAM_START_ADDR, 0x8000},
+	{ KAS_RM,  "DR", 0x00FFFE00, 0x00200},
+};
+
+char *kregs[] = {
+	"R PC",
+	"R rMAC2",
+	"R rMAC1",
+	"R rMAC0",
+	"R rMAC24",
+	"R R0",
+	"R R1",
+	"R R2",
+	"R R3",
+	"R R4",
+	"R R5",
+	"R R6",
+	"R R7",
+	"R R8",
+	"R R9",
+	"R R10",
+	"R RLINK",
+	"R FLAGS",
+	"R RMACB24",
+	"R I0",
+	"R I1",
+	"R I2",
+	"R I3",
+	"R I4",
+	"R I5",
+	"R I6",
+	"R I7",
+	"R M0",
+	"R M1",
+	"R M2",
+	"R M3",
+	"R L0",
+	"R L1",
+	"R L3",
+	"R L4",
+	"R RUNCLKS",
+	"R NUMINSTRS",
+	"R NUMSTALLS",
+	"R rMACB2",
+	"R rMACB1",
+	"R rMACB0",
+	"R B0",
+	"R B1",
+	"R B4",
+	"R B5",
+	"R FP",
+	"R SP"
+};
+
+struct coredump_desc_t {
+	u32 base_addr;
+
+	u32 pm_addr;
+	u32 pm_len;
+
+	u32 dm1_addr;
+	u32 dm1_len;
+
+	u32 dm2_addr;
+	u32 dm2_len;
+
+	u32 rm_addr;
+	u32 rm_len;
+
+	u32 kregs_addr;
+	u32 kregs_len;
+};
+
+/*
+ * kas generate core dump header
+ */
+static u32 kerror_coredump_header(char *pos)
+{
+	u32 dsp_ver = 0x00600019;
+	char *p = pos;
+
+	p += sprintf(p, "XCD2\n");
+	p += sprintf(p, "AV %08x\n", dsp_ver);
+	p += sprintf(p, "P DSP\n");
+	p += sprintf(p, "AT KALIMBA5\n");
+
+	return (u32)(p - pos);
+}
+
+/*
+ * calculate the buffer needed for
+ * coredump file
+ *
+ */
+static u32 kerror_buf_size_calc(void)
+{
+	u32 i, k;
+	u32 size;
+	char buf[256];
+
+	/* Frist, the size of the header */
+	size  = HEADER_SIZE;
+
+	/* Calculate buffer size for the coredump of the memory regions */
+	for (i = 0; i < ARRAY_SIZE(kas_memory); i++) {
+		size += sprintf(buf, "%s %08x %08x\n",
+				kas_memory[i].mem_name,
+				kas_memory[i].mem_start,
+				kas_memory[i].mem_size);
+
+		for (k = 0; k < kas_memory[i].mem_size; k++)
+			size += sprintf(buf, "%08x%s", 0,
+					(k + 1) % 8 ? " ":"\n");
+	}
+
+	/* Calculate the buffer size for the registers */
+	for (i = 0; i < ARRAY_SIZE(kregs); i++)
+		size += sprintf(buf, "%s %06x\n",
+				kregs[i], 0);
+
+	return size;
+}
+
+static void kas_coredump(u32 address, u32 len)
+{
+	struct file *cdfile;
+	int ret;
+	char *dp, *p;
+	u32 *addr;
+	u32 phy_addr;
+	u32 fsize, pos, i;
+	size_t count;
+	struct coredump_desc_t *desc;
+
+	fsize = kerror_buf_size_calc();
+
+	/* allocate buffers */
+	dp = dma_alloc_coherent(NULL, fsize, &phy_addr,
+				GFP_KERNEL);
+	if (dp == NULL) {
+		pr_err("Alloc dram failed.\n");
+		return -ENOMEM;
+	}
+
+	cdfile = filp_open("/var/lib/kalimba/coredump.xcd",
+			O_RDWR | O_CREAT | O_TRUNC | O_DSYNC, 0600);
+	if (IS_ERR(cdfile)) {
+		ret = PTR_ERR(cdfile);
+		pr_err("create coredump file failure:\n");
+		goto open_err;
+	}
+
+	desc = (struct coredump_desc_t *)ioremap_nocache(address, len);
+
+	/* generate the header */
+	pos = kerror_coredump_header(dp);
+	p = dp+pos;
+
+	/*dump pm*/
+	p += sprintf(p, "%s %08x %08x\n",
+			kas_memory[0].mem_name,
+			kas_memory[0].mem_start,
+			kas_memory[0].mem_size);
+	addr = (u32 *)ioremap_nocache(desc->pm_addr, desc->pm_len);
+	for (i = 0; i < desc->pm_len / 4; i++)
+			p += sprintf(p, "%08x%s",
+				(u32)*(addr + i),
+				(i + 1) % 8 ? " ":"\n");
+
+	/*dump dm1*/
+	p += sprintf(p, "%s %08x %08x\n",
+			kas_memory[1].mem_name,
+			kas_memory[1].mem_start,
+			kas_memory[1].mem_size);
+
+	addr = (u32 *)ioremap_nocache(desc->dm1_addr, desc->dm1_len);
+	for (i = 0; i < desc->dm1_len / 4; i++)
+			p += sprintf(p, "%08x%s",
+				(u32)*(addr + i),
+				(i + 1) % 8 ? " ":"\n");
+
+	/*dump dm2*/
+	p += sprintf(p, "%s %08x %08x\n",
+			kas_memory[2].mem_name,
+			kas_memory[2].mem_start,
+			kas_memory[2].mem_size);
+
+	addr = (u32 *)ioremap_nocache(desc->dm2_addr, desc->dm2_len);
+	for (i = 0; i < desc->dm2_len / 4; i++)
+			p += sprintf(p, "%08x%s",
+				(u32)*(addr + i),
+				(i + 1) % 8 ? " ":"\n");
+
+	/*dump rm*/
+	p += sprintf(p, "%s %08x %08x\n",
+			kas_memory[3].mem_name,
+			kas_memory[3].mem_start,
+			kas_memory[3].mem_size);
+	addr = (u32 *)ioremap_nocache(desc->rm_addr, desc->rm_len);
+	for (i = 0; i < desc->rm_len / 4; i++)
+			p += sprintf(p, "%08x%s",
+				(u32)*(addr + i),
+				(i + 1) % 8 ? " ":"\n");
+
+	/*dump kregs*/
+	addr = (u32 *)ioremap_nocache(desc->kregs_addr, desc->kregs_len);
+	for (i = 0; i < ARRAY_SIZE(kregs); i++)
+		p += sprintf(p, "%s %06x\n",
+				kregs[i], *(addr  + i));
+
+	count = (size_t)(p - dp);
+	/* write all the core dump data into a file */
+	ret = kernel_write(cdfile, dp, count, 0);
+	if (ret < 0) {
+		pr_err("Error writing coredump file:\n");
+		ret = -EIO;
+	}
+
+	vfs_fsync(cdfile, 0);
+	filp_close(cdfile, NULL);
+	pr_info("kcoredump completed:\n");
+open_err:
+	return;
+}
+
 static struct rpmsg_device_id rpmsg_driver_audio_id_table[] = {
 	{ .name = "rpmsg-audio" },
 	{ },
@@ -342,6 +584,9 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		memcpy(resp_payload, &msg[1], sizeof(u32));
 		msg_dsp_rsp = true;
 		wake_up(&waitq_dsp_rsp);
+		break;
+	case MSG_COREDUMP:
+		kas_coredump(msg[1], msg[2]);
 		break;
 	default:
 		break;
