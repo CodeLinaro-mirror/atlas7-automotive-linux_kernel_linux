@@ -53,9 +53,16 @@ static struct rpmsg_channel *audio_rpdev;
 #define MSG_CREATE_STREAM		0x00000016
 #define MSG_DESTROY_STREAM		0x00000017
 #define MSG_COREDUMP			0x00000018
+#define MSG_CREATE_STREAM_RESP		0x00000019
+#define MSG_DESTROY_STREAM_RESP		0x0000001A
+#define MSG_START_STREAM_RESP		0x0000001B
+#define MSG_STOP_STREAM_RESP		0x0000001C
 
 #define MSG_NEED_ACK			0x1
 #define MSG_NEED_RSP			0x2
+
+#define MSG_RESP_SUCCESS		0x00
+#define MSG_RESP_ERROR			(~0x00)
 
 #define KAS_POINTER_UPDATE_PHYADDR	0x4FF00000
 #define KAS_POINTER_UPDATE_SIZE		256
@@ -199,9 +206,10 @@ void kas_send_license_ctrl_resp(u32 resp_len, void *data)
 	kfree(msg);
 }
 
-void kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
+int kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 		u32 buff_size, u32 period_size)
 {
+	u32 *resp = (u32 *)resp_payload;
 	u32 msg[7];
 
 	msg[0] = MSG_CREATE_STREAM;
@@ -213,17 +221,26 @@ void kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 	msg[6] = period_size;
 	if (!audio_rpdev) {
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
+	msg_dsp_rsp = false;
 	local_kas_data_pointer[stream] = 0;
 	rpmsg_send(audio_rpdev, msg, 7 * sizeof(u32));
+	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	if (resp[0]) {
+		pr_err("Audio IPC: create stream (dev: %d) failed!\n", stream);
+		return -EINVAL;
+	}
 	if (!running_stream)
 		hrtimer_start(&hrt, ktime_set(0, 0), HRTIMER_MODE_REL);
 	running_stream |= (1 << stream);
+
+	return 0;
 }
 
-void kas_destroy_stream(u32 stream, u32 channels)
+int kas_destroy_stream(u32 stream, u32 channels)
 {
+	u32 *resp = (u32 *)resp_payload;
 	u32 msg[3];
 
 	msg[0] = MSG_DESTROY_STREAM;
@@ -231,16 +248,27 @@ void kas_destroy_stream(u32 stream, u32 channels)
 	msg[2] = channels;
 	if (!audio_rpdev) {
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
+	msg_dsp_rsp = false;
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
+	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+
 	running_stream &= ~(1 << stream);
 	if (!running_stream)
 		hrtimer_cancel(&hrt);
+
+	if (resp[0]) {
+		pr_err("Audio IPC: destroy stream (dev: %d) failed!\n", stream);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
-void kas_start_stream(u32 stream)
+int kas_start_stream(u32 stream)
 {
+	u32 *resp = (u32 *)resp_payload;
 	u32 msg[2];
 
 	msg[0] = MSG_START_STREAM;
@@ -248,24 +276,42 @@ void kas_start_stream(u32 stream)
 
 	if (!audio_rpdev) {
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
+	msg_dsp_rsp = false;
 	kas_pointer_update[stream] = 0;
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
+	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	if (resp[0]) {
+		pr_err("Audio IPC: start stream (dev: %d) failed!\n", stream);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
-void kas_stop_stream(u32 stream)
+int kas_stop_stream(u32 stream)
 {
+	u32 *resp = (u32 *)resp_payload;
 	u32 msg[2];
 
 	msg[0] = MSG_STOP_STREAM;
 	msg[1] = stream;
 
+	msg_dsp_rsp = false;
 	if (!audio_rpdev) {
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
-		return;
+		return -EINVAL;
 	}
+	msg_dsp_rsp = false;
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
+	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	if (resp[0]) {
+		pr_err("Audio IPC: stop stream (dev: %d) failed!\n", stream);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 void kas_ps_region_addr_update(u32 addr)
@@ -464,7 +510,7 @@ static void kas_coredump(u32 address, u32 len)
 				GFP_KERNEL);
 	if (dp == NULL) {
 		pr_err("Alloc dram failed.\n");
-		return -ENOMEM;
+		return;
 	}
 
 	cdfile = filp_open("/var/lib/kalimba/coredump.xcd",
@@ -581,6 +627,10 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		break;
 	case MSG_OP_OBJ_RESP:
 	case MSG_CTRL_RESP:
+	case MSG_CREATE_STREAM_RESP:
+	case MSG_DESTROY_STREAM_RESP:
+	case MSG_START_STREAM_RESP:
+	case MSG_STOP_STREAM_RESP:
 		memcpy(resp_payload, &msg[1], sizeof(u32));
 		msg_dsp_rsp = true;
 		wake_up(&waitq_dsp_rsp);

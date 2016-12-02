@@ -98,10 +98,10 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	buff_addr = runtime->dma_addr;
-	kas_create_stream(rtd->cpu_dai->id, rate, channels, buff_addr,
+	ret = kas_create_stream(rtd->cpu_dai->id, rate, channels, buff_addr,
 		buff_bytes, period_bytes);
 
-	return 0;
+	return ret;
 }
 
 static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
@@ -109,31 +109,35 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	unsigned int channels = runtime->channels;
+	int ret;
 
-	kas_destroy_stream(rtd->cpu_dai->id, channels);
+	ret = kas_destroy_stream(rtd->cpu_dai->id, channels);
 	snd_pcm_lib_free_pages(substream);
-	return 0;
+
+	return ret;
 }
 
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		kas_start_stream(rtd->cpu_dai->id);
+		ret = kas_start_stream(rtd->cpu_dai->id);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		kas_stop_stream(rtd->cpu_dai->id);
+		ret = kas_stop_stream(rtd->cpu_dai->id);
 		break;
 	default:
-		return -EINVAL;
+		ret = 0;
 	}
-	return 0;
+
+	return ret;
 }
 
 static snd_pcm_uframes_t kas_pcm_pointer(struct snd_pcm_substream *substream)

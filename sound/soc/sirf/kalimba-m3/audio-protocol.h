@@ -15,11 +15,11 @@
 #define __AUDIO_PROTOCOL
 
 int audio_protocol_init(void);
-void kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
+int kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 	u32 buff_size, u32 period_size);
-void kas_destroy_stream(u32 stream, u32 channels);
-void kas_start_stream(u32 stream);
-void kas_stop_stream(u32 stream);
+int kas_destroy_stream(u32 stream, u32 channels);
+int kas_start_stream(u32 stream);
+int kas_stop_stream(u32 stream);
 int kas_send_raw_msg(u8 *data, u32 data_bytes, u16 *resp);
 void kas_ps_region_addr_update(u32 addr);
 void kas_send_data_produced(u32 stream, u32 pos);
