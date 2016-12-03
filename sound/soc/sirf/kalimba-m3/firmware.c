@@ -26,8 +26,8 @@
 #include "ps.h"
 #include "regs.h"
 
-#define KAS_ADDR_CONST16 0x007FA7
-#define KAS_ADDR_CONST32 0x007FA9
+#define KAS_ADDR_CONST16 0x007F9A
+#define KAS_ADDR_CONST32 0x007F9C
 
 struct firmware_code_head {
 	int code_size;
