@@ -37,7 +37,7 @@ static const struct codec_name_ops{
 	{"dummy", NULL, codec_fixup},
 };
 
-static struct codec_name_ops *codec_find_ops(const char *name)
+static const struct codec_name_ops *codec_find_ops(const char *name)
 {
 	int cnt;
 
@@ -69,7 +69,7 @@ static int codec_init_dai_link(struct kasobj *obj)
 	 */
 	const struct kasdb_codec *db = kasobj_to_codec(obj)->db;
 	struct snd_soc_dai_link *dai_link = kcm_alloc_dai_link();
-	struct codec_name_ops *codec_ops;
+	const struct codec_name_ops *codec_ops;
 	static char be_id;
 
 	codec_ops = codec_find_ops(db->name.s);
@@ -101,7 +101,7 @@ static int codec_init_dai_link(struct kasobj *obj)
 static int codec_init(struct kasobj *obj)
 {
 	struct kasobj_codec *codec = kasobj_to_codec(obj);
-	struct kasdb_codec *db = codec->db;
+	const struct kasdb_codec *db = codec->db;
 
 	if (!db->enable)
 		return 0;

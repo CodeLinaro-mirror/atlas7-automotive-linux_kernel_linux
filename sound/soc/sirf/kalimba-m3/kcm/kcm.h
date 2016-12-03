@@ -40,14 +40,17 @@ int kcm_drv_status(void);
 void kcm_set_dev(void *dev);
 struct device *kcm_get_dev(void);
 
-void kcm_put_codec_widget(struct snd_soc_dapm_widget *widget, int widget_cnt);
-struct snd_soc_dapm_widget *kcm_get_codec_widget(int *cnt);
+void kcm_put_codec_widget(const struct snd_soc_dapm_widget *widget,
+		int widget_cnt);
+const struct snd_soc_dapm_widget *kcm_get_codec_widget(int *cnt);
 
-void kcm_put_card_widget(struct snd_soc_dapm_widget *widget, int widget_cnt);
-struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt);
+void kcm_put_card_widget(const struct snd_soc_dapm_widget *widget,
+		int widget_cnt);
+const struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt);
 
-void kcm_put_card_route(struct snd_soc_dapm_route *route, int route_cnt);
-struct snd_soc_dapm_route *kcm_get_card_route(int *cnt);
+void kcm_put_card_route(const struct snd_soc_dapm_route *route,
+		int route_cnt);
+const struct snd_soc_dapm_route *kcm_get_card_route(int *cnt);
 
 struct snd_soc_dai_driver *kcm_alloc_dai(void);
 struct snd_soc_dai_driver *kcm_get_dai(int *cnt);
@@ -62,7 +65,7 @@ void kcm_register_ctrl(void *ctrl);
 struct snd_kcontrol_new *kcm_ctrl_first(void);
 struct snd_kcontrol_new *kcm_ctrl_next(void);
 
-struct kasop_impl *kcm_find_cap(int cap_id);
+const struct kasop_impl *kcm_find_cap(int cap_id);
 int kcm_register_cap(int cap_id, const struct kasop_impl *impl);
 
 struct kasobj_fe *kcm_find_fe(const char *dai_name, int playback);

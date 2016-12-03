@@ -113,34 +113,34 @@ struct snd_soc_dai_link *kcm_get_dai_link(int *cnt, int *free_cnt)
 EXPORT_SYMBOL(kcm_get_dai_link);
 
 /* ALSA widget table */
-static struct snd_soc_dapm_widget *_codec_widget;
+static const struct snd_soc_dapm_widget *_codec_widget;
 static int _codec_widget_cnt;
 
-void kcm_put_codec_widget(struct snd_soc_dapm_widget *widget,
+void kcm_put_codec_widget(const struct snd_soc_dapm_widget *widget,
 			int widget_cnt)
 {
 	_codec_widget = widget;
 	_codec_widget_cnt = widget_cnt;
 }
 
-struct snd_soc_dapm_widget *kcm_get_codec_widget(int *cnt)
+const struct snd_soc_dapm_widget *kcm_get_codec_widget(int *cnt)
 {
 	*cnt = _codec_widget_cnt;
 	return _codec_widget;
 }
 EXPORT_SYMBOL(kcm_get_codec_widget);
 
-static struct snd_soc_dapm_widget *_card_widget;
+static const struct snd_soc_dapm_widget *_card_widget;
 static int _card_widget_cnt;
 
-void kcm_put_card_widget(struct snd_soc_dapm_widget *widget,
+void kcm_put_card_widget(const struct snd_soc_dapm_widget *widget,
 			int widget_cnt)
 {
 	_card_widget = widget;
 	_card_widget_cnt = widget_cnt;
 }
 
-struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt)
+const struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt)
 {
 	*cnt = _card_widget_cnt;
 	return _card_widget;
@@ -148,17 +148,17 @@ struct snd_soc_dapm_widget *kcm_get_card_widget(int *cnt)
 EXPORT_SYMBOL(kcm_get_card_widget);
 
 /* ALSA route table */
-static struct snd_soc_dapm_route *_card_route;
+static const struct snd_soc_dapm_route *_card_route;
 static int _card_route_cnt;
 
-void kcm_put_card_route(struct snd_soc_dapm_route *route,
+void kcm_put_card_route(const struct snd_soc_dapm_route *route,
 			int route_cnt)
 {
 	_card_route = route;
 	_card_route_cnt = route_cnt;
 }
 
-struct snd_soc_dapm_route *kcm_get_card_route(int *cnt)
+const struct snd_soc_dapm_route *kcm_get_card_route(int *cnt)
 {
 	*cnt = _card_route_cnt;
 	return _card_route;
@@ -209,12 +209,12 @@ static struct list_head _cap_list = LIST_HEAD_INIT(_cap_list);
 
 struct _kasop_cap {
 	int cap_id;
-	struct kasop_impl *impl;
+	const struct kasop_impl *impl;
 	struct list_head link;
 };
 
 /* Called before driver init() */
-struct kasop_impl *kcm_find_cap(int cap_id)
+const struct kasop_impl *kcm_find_cap(int cap_id)
 {
 	struct _kasop_cap *cap;
 

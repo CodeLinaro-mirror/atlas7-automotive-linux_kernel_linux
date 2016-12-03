@@ -63,7 +63,7 @@ struct kasobj_op {
 	struct kasobj obj;
 	const struct kasdb_op *db;
 
-	struct kasop_impl *impl;	/* Operator specific implementation */
+	const struct kasop_impl *impl;	/* Operator specific implementation */
 	u16 cap_id;
 	u32 *op_m3;			/* The operator object cerated on M3 */
 	int *ctrl_flag;			/* The modfy flag of ctrl value */

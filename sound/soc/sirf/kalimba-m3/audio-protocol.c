@@ -85,7 +85,7 @@ struct audio_msg {
 	u8 msg[];
 };
 
-u32 *kas_get_m3_op_obj(u8 *op_name, int len)
+u32 *kas_get_m3_op_obj(const u8 *op_name, int len)
 {
 	u32 msg[10];
 	u32 *resp = (u32 *)resp_payload;

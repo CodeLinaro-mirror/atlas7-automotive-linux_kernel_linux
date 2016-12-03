@@ -231,9 +231,10 @@ static int kas_pcm_dev_probe(struct platform_device *pdev)
 	kcm_set_dev(&pdev->dev);
 
 	/* Get CPU DAI and DAPM route table */
-	cpu_dai = kcm_get_dai(&cpu_dai_cnt);
-	widget = kcm_get_codec_widget(&widget_cnt);
-	route = kcm_get_route(&route_cnt);
+	cpu_dai = (struct snd_soc_dai_driver *)kcm_get_dai(&cpu_dai_cnt);
+	widget =
+		(struct snd_soc_dapm_widget *)kcm_get_codec_widget(&widget_cnt);
+	route = (struct snd_soc_dapm_route *)kcm_get_route(&route_cnt);
 	kas_dai_component.dapm_widgets = widget;
 	kas_dai_component.num_dapm_widgets = widget_cnt;
 	kas_dai_component.dapm_routes = route,
