@@ -30,6 +30,11 @@
 
 struct kas_pcm_data {
 	struct snd_pcm_substream *substream;
+	u32 rate;
+	u32 channels;
+	u32 period_bytes;
+	u32 buff_bytes;
+	u32 buff_addr;
 	u32 pos;
 };
 
@@ -98,6 +103,19 @@ static int kas_pcm_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	buff_addr = runtime->dma_addr;
+
+	/* FIXME: Remve this when find solution */
+	if (kcm_strcasestr(rtd->cpu_dai->driver->name, "Tunex")) {
+		struct kas_pcm_data *pdata = &pcm_data[rtd->cpu_dai->id];
+
+		pdata->rate = rate;
+		pdata->channels = channels;
+		pdata->period_bytes = period_bytes;
+		pdata->buff_bytes = buff_bytes;
+		pdata->buff_addr = buff_addr;
+		return 0;
+	}
+
 	ret = kas_create_stream(rtd->cpu_dai->id, rate, channels, buff_addr,
 		buff_bytes, period_bytes);
 
@@ -109,9 +127,11 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	unsigned int channels = runtime->channels;
-	int ret;
+	int ret = 0;
 
-	ret = kas_destroy_stream(rtd->cpu_dai->id, channels);
+	/* FIXME: Remve this when find solution */
+	if (!kcm_strcasestr(rtd->cpu_dai->driver->name, "Tunex"))
+		ret = kas_destroy_stream(rtd->cpu_dai->id, channels);
 	snd_pcm_lib_free_pages(substream);
 
 	return ret;
@@ -120,18 +140,32 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 static int kas_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct kas_pcm_data *p = &pcm_data[rtd->cpu_dai->id];
 	int ret;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		/* FIXME: Remve this when find solution */
+		if (kcm_strcasestr(rtd->cpu_dai->driver->name, "Tunex")) {
+			ret = kas_create_stream(rtd->cpu_dai->id, p->rate,
+				p->channels, p->buff_addr, p->buff_bytes,
+				p->period_bytes);
+			if (ret)
+				return ret;
+		}
 		ret = kas_start_stream(rtd->cpu_dai->id);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		ret = kas_stop_stream(rtd->cpu_dai->id);
+		if (ret)
+			return ret;
+		/* FIXME: Remve this when find solution */
+		if (kcm_strcasestr(rtd->cpu_dai->driver->name, "Tunex"))
+			ret = kas_destroy_stream(rtd->cpu_dai->id, p->channels);
 		break;
 	default:
 		ret = 0;
