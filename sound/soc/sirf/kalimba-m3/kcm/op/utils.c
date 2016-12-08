@@ -16,6 +16,7 @@
 #include <sound/soc.h>
 #include "../../audio-protocol.h"
 #include "../kasobj.h"
+#include "../kcm.h"
 #include "utils.h"
 
 #define CTRL_GET 0
@@ -29,8 +30,11 @@ static int op_ctrl_single_get(struct snd_kcontrol *kcontrol,
 	u32 ret;
 
 	kasobj_register_m3_op();
-	if (!(op->op_m3))
+	if (!(op->op_m3)) {
+		kcm_err("KCM: %s() op_m3(%s) is NULL\n",
+			__func__, op->obj.name);
 		return -EINVAL;
+	}
 
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
@@ -54,12 +58,18 @@ static int op_ctrl_single_put(struct snd_kcontrol *kcontrol,
 	int value = ucontrol->value.integer.value[0];
 
 	kasobj_register_m3_op();
-	if (!(op->op_m3))
+	if (!(op->op_m3)) {
+		kcm_err("KCM: %s() op_m3(%s) is NULL\n",
+			__func__, op->obj.name);
 		return -EINVAL;
+	}
 
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value, &ret);
-	if (ret)
+	if (ret) {
+		kcm_err("KCM: %s() %s failed, ctrl_id = %d, value = %d\n",
+			__func__, op->obj.name, ctrl_idx, value);
 		return -EINVAL;
+	}
 
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
@@ -104,8 +114,11 @@ static int op_ctrl_double_get(struct snd_kcontrol *kcontrol,
 	u32 ret0, ret1;
 
 	kasobj_register_m3_op();
-	if (!(op->op_m3))
+	if (!(op->op_m3)) {
+		kcm_err("KCM: %s() op_m3(%s) is NULL\n",
+			__func__, op->obj.name);
 		return -EINVAL;
+	}
 
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;
@@ -134,15 +147,24 @@ static int op_ctrl_double_put(struct snd_kcontrol *kcontrol,
 	int value1 = ucontrol->value.integer.value[1];
 
 	kasobj_register_m3_op();
-	if (!(op->op_m3))
+	if (!(op->op_m3)) {
+		kcm_err("KCM: %s() op_m3(%s) is NULL\n",
+			__func__, op->obj.name);
 		return -EINVAL;
+	}
 
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 0, value0, &ret);
-	if (ret)
+	if (ret) {
+		kcm_err("KCM: %s() %s failed, ctrl_id = %d, value0 = %d\n",
+			__func__, op->obj.name, ctrl_idx, value0);
 		return -EINVAL;
+	}
 	kas_ctrl_msg(CTRL_PUT, op->op_m3, ctrl_idx, 1, value1, &ret);
-	if (ret)
+	if (ret) {
+		kcm_err("KCM: %s() %s failed, ctrl_id = %d, value1 = %d\n",
+			__func__, op->obj.name, ctrl_idx, value1);
 		return -EINVAL;
+	}
 
 	ctrl_v = op->ctrl_value;
 	ctrl_f = op->ctrl_flag;

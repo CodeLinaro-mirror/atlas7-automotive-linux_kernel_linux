@@ -22,6 +22,8 @@
 #define kcm_debug(...)	do {}  while (0)
 #endif
 
+#define kcm_err(...)  pr_err(__VA_ARGS__)
+
 extern bool kcm_enable_2mic_cvc;
 extern bool kcm_force_iacc_cap;
 

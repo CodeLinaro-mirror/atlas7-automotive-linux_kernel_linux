@@ -71,6 +71,9 @@ static struct rpmsg_channel *audio_rpdev;
 
 static wait_queue_head_t waitq_dsp_rsp;
 static bool msg_dsp_rsp;
+static bool msg_op_m3_rsp;
+static bool msg_op_ctrl_rsp;
+static bool msg_stream_rsp;
 static u16 resp_payload[64];
 static u32 *kas_pointer_update;
 static u32 local_kas_data_pointer[32];
@@ -102,9 +105,9 @@ u32 *kas_get_m3_op_obj(const u8 *op_name, int len)
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return NULL;
 	}
-	msg_dsp_rsp = false;
+	msg_op_m3_rsp = false;
 	rpmsg_send(audio_rpdev, msg, len + 2 * sizeof(u32));
-	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	wait_event(waitq_dsp_rsp, msg_op_m3_rsp == true);
 
 	return (u32 *)resp[0];
 }
@@ -124,9 +127,9 @@ int kas_ctrl_msg(int put, u32 *op_m3, int ctrl_id, int value_idx,
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return -EINVAL;
 	}
-	msg_dsp_rsp = false;
+	msg_op_ctrl_rsp = false;
 	rpmsg_send(audio_rpdev, msg, 6 * sizeof(u32));
-	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	wait_event(waitq_dsp_rsp, msg_op_ctrl_rsp == true);
 	if (!ret) {
 		if (put)
 			return 0;
@@ -223,10 +226,10 @@ int kas_create_stream(u32 stream, u32 sample_rate, u32 channles, u32 buff_addr,
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return -EINVAL;
 	}
-	msg_dsp_rsp = false;
+	msg_stream_rsp = false;
 	local_kas_data_pointer[stream] = 0;
 	rpmsg_send(audio_rpdev, msg, 7 * sizeof(u32));
-	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	wait_event(waitq_dsp_rsp, msg_stream_rsp == true);
 	if (resp[0]) {
 		pr_err("Audio IPC: create stream (dev: %d) failed!\n", stream);
 		return -EINVAL;
@@ -250,9 +253,9 @@ int kas_destroy_stream(u32 stream, u32 channels)
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return -EINVAL;
 	}
-	msg_dsp_rsp = false;
+	msg_stream_rsp = false;
 	rpmsg_send(audio_rpdev, msg, 3 * sizeof(u32));
-	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	wait_event(waitq_dsp_rsp, msg_stream_rsp == true);
 
 	running_stream &= ~(1 << stream);
 	if (!running_stream)
@@ -278,10 +281,10 @@ int kas_start_stream(u32 stream)
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return -EINVAL;
 	}
-	msg_dsp_rsp = false;
+	msg_stream_rsp = false;
 	kas_pointer_update[stream] = 0;
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
-	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	wait_event(waitq_dsp_rsp, msg_stream_rsp == true);
 	if (resp[0]) {
 		pr_err("Audio IPC: start stream (dev: %d) failed!\n", stream);
 		return -EINVAL;
@@ -298,14 +301,14 @@ int kas_stop_stream(u32 stream)
 	msg[0] = MSG_STOP_STREAM;
 	msg[1] = stream;
 
-	msg_dsp_rsp = false;
+	msg_stream_rsp = false;
 	if (!audio_rpdev) {
 		pr_err("Audio IPC(%s): rpdev is NULL\n", __func__);
 		return -EINVAL;
 	}
-	msg_dsp_rsp = false;
+	msg_stream_rsp = false;
 	rpmsg_send(audio_rpdev, msg, 2 * sizeof(u32));
-	wait_event(waitq_dsp_rsp, msg_dsp_rsp == true);
+	wait_event(waitq_dsp_rsp, msg_stream_rsp == true);
 	if (resp[0]) {
 		pr_err("Audio IPC: stop stream (dev: %d) failed!\n", stream);
 		return -EINVAL;
@@ -626,13 +629,21 @@ static void rpmsg_audio_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		kas_dram_free_req(msg[1]);
 		break;
 	case MSG_OP_OBJ_RESP:
+		memcpy(resp_payload, &msg[1], sizeof(u32));
+		msg_op_m3_rsp = true;
+		wake_up(&waitq_dsp_rsp);
+		break;
 	case MSG_CTRL_RESP:
+		memcpy(resp_payload, &msg[1], sizeof(u32));
+		msg_op_ctrl_rsp = true;
+		wake_up(&waitq_dsp_rsp);
+		break;
 	case MSG_CREATE_STREAM_RESP:
 	case MSG_DESTROY_STREAM_RESP:
 	case MSG_START_STREAM_RESP:
 	case MSG_STOP_STREAM_RESP:
 		memcpy(resp_payload, &msg[1], sizeof(u32));
-		msg_dsp_rsp = true;
+		msg_stream_rsp = true;
 		wake_up(&waitq_dsp_rsp);
 		break;
 	case MSG_COREDUMP:
