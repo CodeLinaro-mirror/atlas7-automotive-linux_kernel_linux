@@ -66,7 +66,8 @@ static const struct snd_pcm_hardware kas_pcm_hardware = {
 int kas_pcm_notify(u32 stream, u32 pos)
 {
 	pcm_data[stream].pos = pos;
-	snd_pcm_period_elapsed(pcm_data[stream].substream);
+	if (pcm_data[stream].substream)
+		snd_pcm_period_elapsed(pcm_data[stream].substream);
 
 	return 0;
 }
@@ -132,6 +133,7 @@ static int kas_pcm_hw_free(struct snd_pcm_substream *substream)
 	/* FIXME: Remve this when find solution */
 	if (!kcm_strcasestr(rtd->cpu_dai->driver->name, "Tunex"))
 		ret = kas_destroy_stream(rtd->cpu_dai->id, channels);
+	pcm_data[rtd->cpu_dai->id].substream = NULL;
 	snd_pcm_lib_free_pages(substream);
 
 	return ret;
